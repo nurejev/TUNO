@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10312"></script>
+<script src="js/popup-guard.js?v=10313"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10312">
+<link rel="stylesheet" href="css/app.css?v=10313">
 </head>
 <body>
 
@@ -117,12 +117,8 @@
               <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <div class="al-dl-row">
-              <a class="btn" href="scripts/Convert-TunoAppLockerToIntune.ps1" download>⭳ Convert-TunoAppLockerToIntune.ps1</a>
-              <code class="al-dl-cmd" data-file="Convert-TunoAppLockerToIntune.ps1"></code>
-              <button class="btn sm al-dl-copy" data-file="Convert-TunoAppLockerToIntune.ps1" title="Copy the download command">⧉ Copy</button>
-            </div>
           </div>
+          <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site.</p>
           <details class="al-guide">
             <summary>How to run it, and what each switch is for</summary>
             <div class="al-guide-body">
@@ -240,6 +236,17 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     -Uri 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations' `
     -Body $body</pre>
                 <p class="mini"><b>C · Let the converter script do it.</b> Download the Policy XML tab (or use the Audit and Enforce XML the scan already wrote), then run <code>Convert-TunoAppLockerToIntune.ps1</code>. Offline it writes the profile JSON; with <code>-Online</code> it creates the profile in the tenant.</p>
+                <!-- The converter lives HERE, not in step 1. It has nothing to
+                     do with scanning a device: it turns a policy into an
+                     Intune profile, which is this step. Offering it up there
+                     made step 1 look like it needed two downloads. -->
+                <div class="al-dl" style="margin:8px 0 10px">
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Convert-TunoAppLockerToIntune.ps1" download>⭳ Convert-TunoAppLockerToIntune.ps1</a>
+                    <code class="al-dl-cmd" data-file="Convert-TunoAppLockerToIntune.ps1"></code>
+                    <button class="btn sm al-dl-copy" data-file="Convert-TunoAppLockerToIntune.ps1" title="Copy the download command">⧉ Copy</button>
+                  </div>
+                </div>
                 <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
 .\Convert-TunoAppLockerToIntune.ps1 `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
@@ -344,14 +351,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10312"></script>
-<script src="js/version.js?v=10312"></script>
-<script src="js/promote.js?v=10312"></script>
-<script src="js/authConfig.js?v=10312"></script>
-<script src="js/changelog.js?v=10312"></script>
-<script src="js/msappcatalog.js?v=10312"></script>
-<script src="js/graph.js?v=10312"></script>
-<script src="js/applocker.js?v=10312"></script>
-<script src="js/app.js?v=10312"></script>
+<script src="js/branding.js?v=10313"></script>
+<script src="js/version.js?v=10313"></script>
+<script src="js/promote.js?v=10313"></script>
+<script src="js/authConfig.js?v=10313"></script>
+<script src="js/changelog.js?v=10313"></script>
+<script src="js/msappcatalog.js?v=10313"></script>
+<script src="js/graph.js?v=10313"></script>
+<script src="js/applocker.js?v=10313"></script>
+<script src="js/app.js?v=10313"></script>
 </body>
 </html>

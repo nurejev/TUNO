@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10313, date: "2026-08-19", title: "Step 1 asks for one thing, and says what it does not need",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Step 1 offered two downloads, and the second one has nothing to do with scanning a device. Convert-TunoAppLockerToIntune.ps1 turns a finished policy into an Intune profile, which is step 5's job; sitting in step 1 it made the first thing you are asked to do look twice as heavy as it is. It has moved to step 5, next to the instructions that use it. Step 1 now asks for one script." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Step 1 also answers a question the walkthroughs raise: no, you do not need Sysinternals. AaronLocker and the write-ups based on it shell out to AccessChk.exe and parse its output; this scan works write access out natively from each directory's security descriptor, with Deny entries honoured \u2014 which is not just fewer downloads but the more correct answer, because AaronLocker's own alternate-data-stream check ORs the rights across every matching entry without checking whether one of them is a Deny, so a Deny there reads as a grant. Nothing is downloaded or run from anywhere but this site." },
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "The tool's own intro card stopped short of the cards beneath it. It carries a 1180-pixel cap of its own, which was invisible while everything sat in an 1180-pixel shell and became a ragged edge the moment this screen went wide. The card now matches its neighbours; the paragraph inside it keeps a measure, because a line of text 1600 pixels long is unreadable however tidy the edge looks." },
+    ],
+  },
+  {
     build: 10312, date: "2026-08-19", title: "Five things that were in the way",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Scanning a device looked compulsory. Two cards stacked one above the other read as a sequence, so the obvious conclusion was that nothing could happen until PowerShell had been run somewhere \u2014 when a policy XML you already have goes straight to step 2 and always could. Step 1 now says it is optional, and there is a divider between the two that says out loud that this is a fork rather than an order." },

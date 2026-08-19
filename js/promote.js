@@ -49,6 +49,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 9,
+      title: "Step 1 asks for one script, and the intro card matches its neighbours",
+      tools: ["\ud83d\udd10 AppLocker builder & validator"],
+      builds: [10313],
+      risk: "low",
+      what: "Convert-TunoAppLockerToIntune.ps1 moves out of step 1 and into step 5 option C, where it is actually used \u2014 it converts a finished policy and has nothing to do with scanning a device. Step 1 gains a line stating that no Sysinternals is needed and why: the scan evaluates DACLs natively with Deny ACEs honoured rather than shelling out to AccessChk.exe as AaronLocker does. body.wide .readme drops the 1180px cap that made the tool's intro card stop short of every card below it, keeping a 1100px measure on the paragraph inside.",
+      why: "LOW \u2014 markup and two CSS rules; no logic. The one thing to actually check is that the moved download row still works, because the irm command and the copy button are filled in by a global query rather than by anything local to step 1.",
+      test: [
+        "Step 1 must offer exactly one download, the scanner. Press it and confirm the file arrives. Then find Convert-TunoAppLockerToIntune.ps1 in step 5, press ITS download and its Copy, and confirm the irm command is filled in and correct \u2014 the row moved, and the code that populates it queries the whole page rather than that card.",
+        "Read the no-Sysinternals paragraph against the scan script itself. If the script ever does start shelling out to AccessChk, this paragraph becomes a lie on the busiest screen in the tool.",
+        "At full width, the intro card and the step cards below it must end on the same line. Narrow the window to the normal shell and confirm nothing changed there \u2014 the cap is still in force below 1240px and this build must not have moved it.",
+        "Read the intro paragraph at 1680px. If the line length feels like work, the 1100px measure is too generous and should come down; that is a judgement only a reader can make.",
+      ],
+      files: ["index.html", "css/app.css", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 8,
       title: "Five things that were in the way in T01",
       tools: ["\ud83d\udd10 AppLocker builder & validator"],

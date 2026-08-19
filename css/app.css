@@ -1421,6 +1421,13 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 body.wide main,
 body.wide .hwrap,
 body.wide .toolnav-inner{max-width:1680px}
+/* .readme carries its own 1180px cap, which is a no-op in the normal shell
+   and a visible mismatch in the wide one: the tool's own intro card stopped
+   short while every card under it ran to the full width. The card matches
+   its neighbours; the PARAGRAPH inside it keeps a measure, because a line of
+   text 1600px long is unreadable however tidy the edge looks. */
+body.wide .readme{max-width:none}
+body.wide .readme p{max-width:1100px}
 .al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,520px);gap:14px;align-items:start;margin-top:14px}
 .al-col{min-width:0;display:flex;flex-direction:column;gap:14px}
 /* Flex children default to min-width:auto, so a wide table pushes the card
