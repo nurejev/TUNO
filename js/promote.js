@@ -38,9 +38,18 @@
 const PROMOTE = {
   productionBuild: "v1.0.1",
 
-  // Empty: build 1 IS production — the queue starts counting when the first
-  // change lands on the beta channel.
-  items: [],
+  items: [
+    {
+      n: 1,
+      title: "The tab bar is ENCA's tab bar",
+      tools: ["All tools"],
+      builds: [10301],
+      risk: "low",
+      what: "The shell's tool bar replaced with ENCA's browser-style tab bar, ported verbatim: home icon button, pill tabs only for opened tools with a close cross each, ＋ menu, ✕ all, Help pinned right; bar hidden on the tools home. The old strip was an unstyled always-visible button list that dragged the tiles' NEW/BETA tag text into its labels.",
+      why: "LOW — pure shell cosmetics/navigation, no tool logic touched. Graduates once it has been clicked around on the beta site.",
+      files: ["js/app.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+  ],
 
   staying: [
     {

@@ -231,34 +231,102 @@
   });
   authInit().then((cameBack) => { if (cameBack) enter(); });
 
-  // ---------- navigation ----------
-  const TOOL_SCREENS = { toolAppLocker: "screen-applocker", toolChangelog: "screen-changelog", toolRoadmap: "screen-roadmap", toolHelp: "screen-help" };
-  function buildToolNav() {
-    const nav = $("toolNav");
-    nav.innerHTML = "";
-    for (const [tileId, screen] of Object.entries(TOOL_SCREENS)) {
-      const tile = $(tileId);
-      if (!tile) continue;
-      const h = tile.querySelector("h3");
-      const b = document.createElement("button");
-      b.textContent = h ? h.textContent.replace(/\s+/g, " ").trim() : tileId;
-      b.addEventListener("click", () => tile.click());
-      nav.appendChild(b);
-    }
-    nav.style.display = "";
+  // ---------- tool tab bar (ENCA's browser-style tabs, ported verbatim) ----------
+  // The tools, in home-grid order. Each carries the exact crumb string its tile
+  // handler sets, so the active tab can be matched from crumb() regardless of
+  // whether the tool was opened from the grid or a tab.
+  const TOOL_TABS = [
+    ["toolAppLocker", "🔐 AppLocker builder & validator"],
+  ];
+  // The app's own pages are tools too, but always sit last (after the +).
+  TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
+  TOOL_TABS.push(["toolRoadmap", "🗺 Roadmap"]);
+  TOOL_TABS.push(["toolHelp", "❓ Help"]);
+  // Browser-style tabs: a tab exists only for a tool you have opened. Home shows
+  // no tabs; opening a tool (from the grid or the + menu) adds one; the + opens
+  // another. openTabs is the ordered set of open tool ids.
+  let openTabs = [], activeTab = null;
+  const labelFor = (id) => (TOOL_TABS.find((x) => x[0] === id) || [, id])[1];
+  const idForCrumb = (name) => (TOOL_TABS.find((x) => x[1] === name) || [])[0] || null;
+
+  function renderTabs() {
+    const home = `<button class="toolnav-btn home ${activeTab ? "" : "active"}" data-navhome title="All tools" aria-label="All tools">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.2 9.4V20.4h13.6V9.4"/><path d="M9.6 20.4v-6.2h4.8v6.2"/>
+      </svg></button>`;
+    const tabs = openTabs.map((id) =>
+      `<span class="toolnav-tab ${id === activeTab ? "active" : ""}">
+        <button class="toolnav-btn" data-nav="${id}">${esc(labelFor(id))}</button>
+        <button class="toolnav-x" data-close="${id}" title="Close tab">×</button>
+      </span>`).join("");
+    const add = `<button class="toolnav-btn add" data-navadd title="Open a tool in a new tab">＋</button>`;
+    const help = `<button class="toolnav-btn help" data-navhelp title="How each tool works">❓ Help</button>`;
+    // "close all" appears only when there's more than one tab to close at once
+    const closeAll = openTabs.length > 1 ? `<button class="toolnav-btn closeall" data-navcloseall title="Close all tabs">✕ all</button>` : "";
+    $("toolNav").innerHTML = `<div class="toolnav-inner">${home}${tabs}${add}${closeAll}${help}</div>`;
+    // the bar only appears once a tool is open (empty at the tools home)
+    $("toolNav").style.display = openTabs.length ? "block" : "none";
     syncStickyTops();
+    // keep the tab you're on visible when the strip overflows
+    const act = $("toolNav").querySelector(".toolnav-tab.active, .toolnav-btn.home.active");
+    if (act && act.scrollIntoView) act.scrollIntoView({ inline: "nearest", block: "nearest" });
   }
-  for (const [tileId, screen] of Object.entries(TOOL_SCREENS)) {
-    const tile = $(tileId);
-    if (!tile) continue;
-    tile.addEventListener("click", () => {
-      if (screen === "screen-changelog") { openChangelog(); return; }
-      if (screen === "screen-help") { openHelp(); return; }
-      show(screen);
+  function buildToolNav() { openTabs = []; activeTab = null; renderTabs(); }
+
+  function closeTab(id) {
+    const i = openTabs.indexOf(id);
+    if (i < 0) return;
+    openTabs.splice(i, 1);
+    if (activeTab === id) {
+      const next = openTabs[i] || openTabs[i - 1] || null;   // neighbour, else last
+      if (next) { $(next).click(); }                          // switch to it
+      else { crumb(""); show("screen-home"); }
+    } else { renderTabs(); }
+  }
+
+  // The + menu: pick any tool to open in a new tab.
+  function openAddMenu(anchor) {
+    closeAddMenu();
+    const menu = document.createElement("div");
+    menu.className = "toolnav-menu"; menu.id = "toolAddMenu";
+    menu.innerHTML = TOOL_TABS.map(([id, label]) =>
+      `<button data-nav="${id}" class="${openTabs.includes(id) ? "open" : ""}">${esc(label)}${openTabs.includes(id) ? " <span class='mini'>· open</span>" : ""}</button>`).join("");
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = `${r.bottom + 4}px`;
+    menu.style.left = `${Math.min(r.left, window.innerWidth - 280)}px`;
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-nav]"); if (!b) return;
+      closeAddMenu(); $(b.dataset.nav).click();
     });
+    setTimeout(() => document.addEventListener("click", closeAddMenu, { once: true }), 0);
   }
-  $("homeBtn").addEventListener("click", () => show("screen-home"));
-  $("logoHome").addEventListener("click", () => { if (signedIn) show("screen-home"); });
+  function closeAddMenu() { const m = $("toolAddMenu"); if (m) m.remove(); }
+
+  $("toolNav").addEventListener("click", (e) => {
+    if (e.target.closest("[data-navhelp]")) { openHelp(); return; }
+    if (e.target.closest("[data-navcloseall]")) { openTabs = []; activeTab = null; renderTabs(); show("screen-home"); return; }
+    if (e.target.closest("[data-navhome]")) { crumb(""); show("screen-home"); return; }
+    if (e.target.closest("[data-navadd]")) { openAddMenu(e.target.closest("[data-navadd]")); return; }
+    const x = e.target.closest("[data-close]"); if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+    const b = e.target.closest("[data-nav]");
+    if (b) $(b.dataset.nav).click();   // reuse the tile's own handler (crumb, screen, setup)
+  });
+
+  // crumb(name) is called by every tool on entry: it registers/activates the tab.
+  function crumb(name) {
+    const id = name ? idForCrumb(name) : null;
+    if (id) { if (!openTabs.includes(id)) openTabs.push(id); activeTab = id; }
+    else { activeTab = null; }
+    renderTabs();
+  }
+  $("homeBtn").addEventListener("click", () => { crumb(""); show("screen-home"); });
+  // logo returns to the tools overview when signed in (does nothing on login)
+  $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
+  $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
+  $("toolChangelog").addEventListener("click", () => openChangelog());
+  $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
+  $("toolHelp").addEventListener("click", () => openHelp());
   $("homeCount").textContent = `${Object.keys(TOOL_VERSIONS).length} tool${Object.keys(TOOL_VERSIONS).length === 1 ? "" : "s"}`;
 
   // ---------- changelog ----------
@@ -270,6 +338,7 @@
     return `<div class="cl-rel"><div class="cl-h"><b>${esc(rel.title)}</b><span class="mini muted">build ${rel.build} · ${esc(rel.date)}</span></div><ul class="cl-list">${items}</ul></div>`;
   }
   function openChangelog() {
+    crumb("📋 What's new");
     show("screen-changelog");
     $("clBody").innerHTML = (typeof CHANGELOG !== "undefined" ? CHANGELOG : []).map(clRelease).join("")
       || '<p class="mini">No changelog entries yet.</p>';
@@ -277,6 +346,7 @@
 
   // ---------- help, incl. the promotion queue on non-production hosts ----------
   function openHelp() {
+    crumb("❓ Help");
     show("screen-help");
     const box = $("helpPromote");
     if (!box) return;
