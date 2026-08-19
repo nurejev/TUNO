@@ -1,4 +1,4 @@
-<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<svg width="856" height="856" xmlns="http://www.w3.org/2000/svg" viewBox="84 84 856 856">
 <defs>
   <filter id="glow" x="-150%" y="-150%" width="400%" height="400%">
     <feGaussianBlur stdDeviation="6" result="b"/>
@@ -15,7 +15,6 @@
     <stop offset="0%" stop-color="#f6dd6a"/><stop offset="55%" stop-color="#e8c132"/>
     <stop offset="100%" stop-color="#a8871c"/>
   </linearGradient></defs>
-<rect width="1024" height="1024" fill="url(#bgg)"/>
 <circle cx="512" cy="512" r="330" fill="#4a8c2a" opacity="0.10"/><circle cx="512" cy="512" r="230" fill="#8fce3c" opacity="0.08"/>
 <circle cx="512" cy="512" r="400" fill="none" stroke="#5a7a2a" stroke-width="3" stroke-dasharray="2 14" opacity="0.9"/><circle cx="512" cy="512" r="400" fill="none" stroke="#e8c132" stroke-width="1.5" opacity="0.35"/>
 <circle cx="512.0" cy="112.0" r="9" fill="#c8e84a" filter="url(#glow)"/><circle cx="858.4" cy="312.0" r="9" fill="#c8e84a" filter="url(#glow)"/><circle cx="858.4" cy="712.0" r="9" fill="#c8e84a" filter="url(#glow)"/><circle cx="512.0" cy="912.0" r="9" fill="#c8e84a" filter="url(#glow)"/><circle cx="165.6" cy="712.0" r="9" fill="#c8e84a" filter="url(#glow)"/><circle cx="165.6" cy="312.0" r="9" fill="#c8e84a" filter="url(#glow)"/>

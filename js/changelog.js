@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10303, date: "2026-08-19", title: "The logo loses its box",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The office logo shipped as a full 1024-pixel canvas: a square background baked into the SVG and the emblem floating in a wide margin, which is why the sign-in screen showed a small mark inside a visible box. The background rect is gone (transparent), the viewBox is cropped to the emblem and its orbit ring, and the favicon is cut tighter still — the medallion only, so it survives 16 pixels. The sign-in screen draws the mark at 132 pixels instead of 76. TUNO's copies only; the Website-Limon-IT originals are untouched." },
+    ],
+  },
+  {
     build: 10302, date: "2026-08-19", title: "TUNO wears its own face",
     items: [
       { kind: "new", tool: "All tools", text: "The TUNO office logo replaces the Limon-IT mark in the header, on the sign-in screen and as the favicon — light and dark variants, with the existing theme swap picking the right one per mode. The source lives with the other office logos in the Website-Limon-IT icon set; the app carries its own copies in assets, on the same filenames the stylesheet already knew." },
