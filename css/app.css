@@ -1426,7 +1426,13 @@ body.wide .toolnav-inner{max-width:1680px}
 /* Flex children default to min-width:auto, so a wide table pushes the card
    past its grid track and .list-card's overflow:hidden clips the text off. */
 .al-col > *{min-width:0}
-.al-side{position:sticky;top:14px;min-width:0}
+/* Stick BELOW the sticky chrome, not under it. top:14px pinned the panel
+   behind the header and the toolbar, so scrolling down hid its own head —
+   the filename, and the Copy and Download buttons — and you had to scroll
+   back up to reach the two controls the panel exists for. --sticky-nav is
+   the header plus the tab bar, kept current by syncStickyTops(); the extra
+   allows for the sticky toolbar sitting on top of it. */
+.al-side{position:sticky;top:calc(var(--sticky-nav, 106px) + 56px);min-width:0}
 @media (max-width:1240px){
   .al-split{grid-template-columns:minmax(0,1fr)}
   .al-side{position:static}
@@ -1435,7 +1441,7 @@ body.wide .toolnav-inner{max-width:1680px}
 
 /* The panel keeps its own dark surface in both themes: it is a code view,
    and a light-mode code view of 300 lines of XML is harder to scan. */
-.al-xml{display:flex;flex-direction:column;max-height:calc(100vh - 40px);
+.al-xml{display:flex;flex-direction:column;max-height:calc(100vh - var(--sticky-nav, 106px) - 76px);
   background:#111c2e;border:1px solid #22355a;border-radius:var(--radius);
   box-shadow:var(--shadow);overflow:hidden}
 .al-xml-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -1506,6 +1512,14 @@ body.wide .toolnav-inner{max-width:1680px}
 .al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#111c2e;color:#a8e6a0;
   border:1px solid #22355a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:11.5px;line-height:1.65;overflow-x:auto;white-space:pre}
+
+/* The divider between "scan a device" and "upload what you have". Two cards
+   stacked read as a sequence, so the scan looked compulsory; this says out
+   loud that it is a fork. */
+.al-or{display:flex;align-items:center;gap:12px;margin:14px 2px 10px;
+  font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted)}
+.al-or::before,.al-or::after{content:"";flex:1;height:1px;background:var(--border)}
+.al-or > span{white-space:nowrap}
 
 /* ---- T01 step 5: deploying into the tenant ----
    The only place TUNO writes to a customer tenant, so it is styled to be

@@ -1209,20 +1209,33 @@ const AppLockerTool = (() => {
         ${SEV_ORDER.map((s) => `<button class="btn sm al-sev ${sevFilter === s ? "active" : ""}" data-sev="${s}">${sevTag(s)} ${counts[s]}</button>`).join("")}
         <button class="btn sm al-sev ${sevFilter === "all" ? "active" : ""}" data-sev="all">All ${findings.length}</button>
       </div>`;
-    $("alEnforce").innerHTML = `<h3 style="margin:0 0 8px">Enforcement per collection</h3>
-      <table class="plist"><thead><tr><th>Collection</th><th>Mode</th><th>Rules</th><th></th></tr></thead><tbody>` +
+    // The Microsoft default rules are per COLLECTION, not per policy — Exe,
+    // Msi, Script, Dll and Appx each get their own set, and a collection that
+    // has none is a collection that blocks its whole file type the moment it
+    // is enforced. So the state gets a column of its own that is always
+    // there: "present" or a button, for every collection, rather than a
+    // button that appears only when something is wrong and is otherwise
+    // invisible. Adding them to every collection at once is one press,
+    // because that is the usual answer.
+    const hasDefaults = (c) => !!(c && c.rules.some((r) => r.name.startsWith("(Default Rule)")));
+    const missingDefaults = COLLECTIONS.filter((t) => !hasDefaults(policy.collections.find((x) => x.type === t)));
+    $("alEnforce").innerHTML = `<h3 style="margin:0 0 8px">Enforcement per collection
+        ${missingDefaults.length > 1 ? `<button class="btn sm" id="alDefaultsAll" style="float:right" title="Add the Microsoft default rules to the ${missingDefaults.length} collections that have none">＋ Default rules everywhere</button>` : ""}</h3>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Collection</th><th>Mode</th><th>Rules</th><th>Default Windows rules</th></tr></thead><tbody>` +
       COLLECTIONS.map((t) => {
         const c = policy.collections.find((x) => x.type === t);
         return `<tr><td>${esc(COLLECTION_LABEL[t])}</td>
           <td>${c ? `<select class="btn al-mode" data-col="${t}">` + MODES.map((m) => `<option ${c.mode === m ? "selected" : ""}>${m}</option>`).join("") + `</select>` : `<span class="mini muted">absent</span>`}</td>
           <td>${c ? c.rules.length : "—"}</td>
-          <td>${!c || !c.rules.some((r) => r.name.startsWith("(Default Rule)")) ? `<button class="btn sm al-defaults" data-col="${t}">＋ Add default rules</button>` : ""}</td></tr>`;
-      }).join("") + `</tbody></table>`;
+          <td style="white-space:nowrap">${hasDefaults(c)
+            ? `<span class="tag grant" title="This collection already carries the Microsoft default rules">✓ present</span>`
+            : `<button class="btn sm al-defaults" data-col="${t}" title="Add the Microsoft default rules for ${esc(COLLECTION_LABEL[t])}${c ? "" : " — the collection does not exist yet and will be created"}">＋ Add</button>`}</td></tr>`;
+      }).join("") + `</tbody></table></div>`;
 
     // ---- findings ----
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
     $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th><th></th></tr></thead><tbody>` +
+      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th></tr></thead><tbody>` +
         shown.map((f, i) => {
           const key = findingKey(f);
           const plan = planFix(f);
@@ -1230,9 +1243,14 @@ const AppLockerTool = (() => {
             ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
             : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
           const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : "";
-          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="min-width:160px;max-width:260px;word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
+          // The fix button lives UNDER the recommendation it carries out, not
+          // in a column of its own at the far right. As its own column it was
+          // the first thing pushed off the edge on any narrow window, so the
+          // one control on the row that does something was the one you had to
+          // scroll sideways to reach.
+          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="min-width:160px;max-width:260px;word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini" style="min-width:200px">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
           const editor = (plan && plan.mode === "editor" && fixOpen === key)
-            ? `<tr class="al-fixrow" data-i="${i}"><td colspan="7" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
+            ? `<tr class="al-fixrow" data-i="${i}"><td colspan="6" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
             : "";
           return row + editor;
         }).join("") +
@@ -1313,6 +1331,18 @@ const AppLockerTool = (() => {
     document.querySelectorAll(".al-defaults").forEach((b) => b.addEventListener("click", () => {
       mutate(`added default rules to ${b.dataset.col}`, () => addDefaultRules(b.dataset.col) > 0 ? undefined : false);
     }));
+    // One undo point for the lot, not one per collection — it was one press.
+    const dAll = $("alDefaultsAll");
+    if (dAll) dAll.addEventListener("click", () => {
+      mutate("added default rules to every collection that had none", () => {
+        let added = 0;
+        COLLECTIONS.forEach((t) => {
+          const c = policy.collections.find((x) => x.type === t);
+          if (!c || !c.rules.some((r) => r.name.startsWith("(Default Rule)"))) added += addDefaultRules(t);
+        });
+        return added > 0 ? undefined : false;
+      });
+    });
     document.querySelectorAll(".al-fix").forEach((b) => b.addEventListener("click", () => {
       const app = coverage[+b.dataset.i].app;
       mutate(`added an allow rule for ${app.name}`, () => addFixForApp(app));

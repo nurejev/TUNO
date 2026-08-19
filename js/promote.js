@@ -49,6 +49,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 8,
+      title: "Five things that were in the way in T01",
+      tools: ["\ud83d\udd10 AppLocker builder & validator"],
+      builds: [10312],
+      risk: "low",
+      what: "All reported from screenshots of 10311. (1) Step 1 is labelled optional and an or-divider sits between the scan card and the upload button, because two stacked cards read as a sequence and made the device scan look compulsory. (2) The findings table drops its trailing action column; the fix button moves into the Recommendation cell, so it is no longer the first thing pushed off a narrow window. The editor row's colspan follows. (3) .al-side sticks at var(--sticky-nav) + 56px instead of 14px, so the code panel's head \u2014 filename, Copy, Download \u2014 clears the sticky header and tab bar instead of hiding behind them; max-height accounts for the same chrome. (4) Enforcement per collection gains a Default Windows rules column that always states the situation for all five types, with an add-everywhere action and one undo for the lot. (5) The enforcement table gets the horizontal scroller the other three already had.",
+      why: "LOW \u2014 presentation and one new mutation that reuses addDefaultRules(), which already had tests. It graduates on sight, but every one of these was invisible in the markup and obvious on a screen, so it has to be looked at rather than reasoned about \u2014 at more than one window width, which is how three of the five arose.",
+      test: [
+        "Open T01 signed out of nothing in particular and read the top of the screen cold. It must be obvious that you can either scan a device or upload a policy you already have. If it still reads as step 1 then step 2, the divider has not done its job.",
+        "THE ONE THAT MATTERS: narrow the window until the findings table needs a horizontal scroll, then find a fix button WITHOUT scrolling sideways. It is under the recommendation text. Press it and confirm the mechanical fixes still apply and the judgement ones still open the editor prefilled, with the editor row spanning the full width of the table.",
+        "Scroll to the bottom of a long findings list and confirm Copy and Download are still on screen. Then switch to the Intune tab and do it again \u2014 the tab strip must clear the header too. Check at a window short enough that the panel is taller than the viewport.",
+        "On a policy missing defaults in several collections: every row of Enforcement per collection must say either present or offer Add, including for a collection the XML does not contain at all. Press Add on one \u2014 that row flips to present and the others do not move. Press Default rules everywhere \u2014 all of them flip, ONE undo step appears, and pressing it takes back all of them, not just the last.",
+        "Add defaults to a collection that has none and confirm the resulting policy is the same as before this build: the button is new, addDefaultRules() is not. Export the XML and compare against a policy built the old way.",
+        "Re-check the exported XML and the Intune profile after using add-everywhere \u2014 five collections' worth of default rules is the largest single mutation the tool has, and the code panel must move with it.",
+      ],
+      files: ["index.html", "css/app.css", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 7,
       title: "TUNO deploys the profile into the tenant",
       tools: ["🔐 AppLocker builder & validator", "All tools"],
