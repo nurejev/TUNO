@@ -353,15 +353,56 @@
     if (!box) return;
     if (isProduction() || typeof PROMOTE === "undefined") { box.style.display = "none"; return; }
     box.style.display = "";
-    const items = (PROMOTE.items || []).map((it) => `
-      <tr><td><b>${it.n}</b></td><td>${esc(it.title)}<div class="mini muted">${esc((it.tools || []).join(", "))} · builds ${esc((it.builds || []).join(", "))}</div></td>
-      <td><span class="sev ${it.risk === "high" ? "high" : it.risk === "medium" ? "medium" : "low"}">${esc(it.risk)}</span></td>
-      <td class="mini">${esc(it.what)}<br><i>${esc(it.why)}</i></td></tr>`).join("");
-    const staying = (PROMOTE.staying || []).map((s) => `<li class="mini"><b>${esc(s.title)}</b> — ${esc(s.why)}</li>`).join("");
-    box.innerHTML = `<h3>🚚 Waiting for production <span class="mini muted">production is at ${esc(PROMOTE.productionBuild)} · this site runs ${esc(APP_BUILD.label)}</span></h3>
-      <p class="mini muted">Hand-maintained (the app cannot read git) — if this table and js/changelog.js disagree, trust the changelog and the build numbers. Promoting an item is four steps; see the js/promote.js header.</p>
-      ${items ? `<table class="plist"><thead><tr><th>#</th><th>What</th><th>Risk</th><th>Detail</th></tr></thead><tbody>${items}</tbody></table>` : '<p class="mini">The queue is empty — this channel and production match.</p>'}
-      ${staying ? `<p class="mini" style="margin:10px 0 4px"><b>Deliberately staying on beta:</b></p><ul>${staying}</ul>` : ""}`;
+
+    // Ported verbatim from ENCA's renderPromotionQueue: the table is read to
+    // decide WHAT to promote (number, risk, builds), and each row carries its
+    // own test checklist so a step can fail rather than be nodded through.
+    const RISK = {
+      high:   { label: "high",   cls: "block", note: "a real problem in production until it lands" },
+      medium: { label: "medium", cls: "new",   note: "missing capability, nothing broken" },
+      low:    { label: "low",    cls: "",      note: "convenience or documentation" },
+    };
+    const items = (PROMOTE.items || []).slice().sort((a, b) => a.n - b.n);
+
+    box.innerHTML = `
+      <h3>🚚 Waiting for production <span class="tag new">BETA CHANNEL</span></h3>
+      <p>Production is <b>${esc(PROMOTE.productionBuild)}</b>; this site is <b>${esc(APP_BUILD.label)}</b>.
+        <b>This is the gap, and only the gap</b> — what exists here and not there. Nothing that has already
+        shipped appears below; for that, read <b>📋 What's new</b>. Each row is one promotable <b>change to the
+        tools</b> with a <b>stable number</b>, so <i>“push number 3 to main”</i> means exactly one thing.
+        Roadmap cards, changelog entries and this table itself are not listed: they describe the work rather
+        than being it, and they travel with whatever promotion happens next.</p>
+      <p class="mini muted" style="margin:-6px 0 10px"><b>Every row carries a test checklist.</b> <i>Why</i> says what the
+        risk is and what would have to be true for the item to graduate; it does not say how to find out. The steps
+        under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
+        step can fail rather than be nodded through. Where a check needs a tenant nobody has to hand, the step says
+        so: knowing which check was skipped is worth more than a list that pretends all of them were run.</p>
+      ${items.length ? `<div class="cg-tablewrap"><table class="cg-table">
+        <thead><tr><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
+        <tbody>${items.map((it) => {
+          const r = RISK[it.risk] || RISK.low;
+          const test = it.test || [];
+          return `<tr>
+            <td><b style="font-size:15px">${it.n}</b></td>
+            <td><b>${esc(it.title)}</b>
+              <div class="mini muted">${(it.tools || []).map(esc).join(" · ")}</div>
+              <div class="mini" style="margin-top:4px">${esc(it.what)}</div>
+              <div class="mini" style="margin-top:4px;color:var(--report)"><b>Why:</b> ${esc(it.why)}</div>
+              ${test.length ? `<details class="pq-test"><summary class="mini"><b>How to test it</b> — ${test.length} step${test.length === 1 ? "" : "s"}</summary>
+                <ol class="mini pq-steps">${test.map((t) => `<li>${esc(t)}</li>`).join("")}</ol></details>`
+                : `<div class="mini" style="margin-top:4px;color:var(--off)"><b>How to test it:</b> not written — this item is not finished, and promoting it means promoting something nobody has said how to check.</div>`}
+              <div class="mini muted" style="margin-top:4px">${(it.files || []).map((f) => `<code>${esc(f)}</code>`).join(" ")}</div></td>
+            <td><span class="tag ${r.cls}">${r.label}</span><div class="mini muted" style="margin-top:4px">${r.note}</div></td>
+            <td class="mini">${(it.builds || []).join(", ")}</td>
+          </tr>`;
+        }).join("")}</tbody></table></div>`
+        : '<p class="mini">The queue is empty — this channel and production match.</p>'}
+      ${(PROMOTE.staying || []).length ? `
+        <h4 style="margin-top:18px">Staying on this channel</h4>
+        <p class="mini muted" style="margin:0 0 6px">Also part of the gap, but permanently: these exist here and are not going to production.</p>
+        <ul>${PROMOTE.staying.map((s) => `<li><b>${esc(s.title)}</b> — ${esc(s.why)}</li>`).join("")}</ul>` : ""}
+      <p class="mini muted" style="margin-top:14px"><b>Promoting one of these is four steps, not one:</b> remove the row and bump the production build here; set the roadmap card on <b>main</b> to <code>live · build NNN</code>; set the <b>same card on this channel</b> to <code>live · beta NNNNN · production NNN</code>; and add the changelog entry on both. The third is the one that gets missed — each channel carries its own roadmap, so promoting touches main's copy and this one keeps claiming the work is beta-only.</p>
+      <p class="help-x">This list is written by hand — the app is static files in a browser and cannot read git or diff two branches. It is maintained alongside <b>📋 What's new</b>; if an entry looks stale, trust the changelog and the build numbers over this table.</p>`;
   }
 
   // ---------- tools ----------
