@@ -41,9 +41,9 @@ const BRANDING = {
   host: "tuno.limon-it.nl",
 
   // Assets (relative to index.html)
-  logo: "assets/logo-mark-light.svg",
-  logoDark: "assets/logo-mark-dark.svg",
-  favicon: "assets/favicon.svg",
+  logo: "assets/logo-mark-light.svg?v=2",
+  logoDark: "assets/logo-mark-dark.svg?v=2",
+  favicon: "assets/favicon.svg?v=2",
 
   // Sign-in screen
   loginTitle: "",            // "" → `${name} — ${longName}`

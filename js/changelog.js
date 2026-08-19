@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10304, date: "2026-08-19", title: "The old logo can no longer haunt from the cache",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Dark mode kept showing the pre-10303 logo with its baked-in box: the dark variant is loaded by a stylesheet content-url swap, and neither that URL nor the img and favicon references carried a version — so a browser that had seen the old art kept serving it (GitHub Pages caches assets for ten minutes, browsers at their own discretion). All five logo and favicon references now carry an asset version (v=2, bumped whenever the artwork itself changes), so new art arrives the moment the page does. The SVGs themselves were already clean." },
+    ],
+  },
+  {
     build: 10303, date: "2026-08-19", title: "The logo loses its box",
     items: [
       { kind: "fixed", tool: "All tools", text: "The office logo shipped as a full 1024-pixel canvas: a square background baked into the SVG and the emblem floating in a wide margin, which is why the sign-in screen showed a small mark inside a visible box. The background rect is gone (transparent), the viewBox is cropped to the emblem and its orbit ring, and the favicon is cut tighter still — the medallion only, so it survives 16 pixels. The sign-in screen draws the mark at 132 pixels instead of 76. TUNO's copies only; the Website-Limon-IT originals are untouched." },
