@@ -40,6 +40,16 @@ const PROMOTE = {
 
   items: [
     {
+      n: 2,
+      title: "TUNO wears its own face",
+      tools: ["All tools"],
+      builds: [10302],
+      risk: "low",
+      what: "The TUNO office logo (light + dark variants from the Website-Limon-IT icon set) replaces the Limon-IT mark in the header, on the sign-in screen and as the favicon; alt text follows. The roadmap gains R04 (Group Analyzer, ENCA T19 Intune-adjusted) and R05 (Change audit, ENCA T16 → deviceManagement auditEvents) — the cards travel with this item as documentation, they are not the item.",
+      why: "LOW — assets and markup only, no logic. Graduates on sight: check the mark reads at 34px in the header and that dark mode swaps correctly.",
+      files: ["assets/logo-mark-light.svg", "assets/logo-mark-dark.svg", "assets/favicon.svg", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 1,
       title: "The tab bar is ENCA's tab bar",
       tools: ["All tools"],

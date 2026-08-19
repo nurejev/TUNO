@@ -90,7 +90,8 @@
     const set = (id, fn) => { const el = $(id); if (el) fn(el); };
     document.title = Brand.pageTitle;
     set("favicon", (el) => { if (B.favicon) el.href = B.favicon; });
-    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.org || B.name; }));
+    // The mark is the PRODUCT's (TUNO office logo), not the org's — alt follows.
+    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.name || B.org; }));
     set("brandOrg", (el) => {
       const org = B.org || "";
       const tail = B.orgSplit && org.endsWith(B.orgSplit) ? B.orgSplit : "";

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10302, date: "2026-08-19", title: "TUNO wears its own face",
+    items: [
+      { kind: "new", tool: "All tools", text: "The TUNO office logo replaces the Limon-IT mark in the header, on the sign-in screen and as the favicon — light and dark variants, with the existing theme swap picking the right one per mode. The source lives with the other office logos in the Website-Limon-IT icon set; the app carries its own copies in assets, on the same filenames the stylesheet already knew." },
+      { kind: "new", tool: "Roadmap", text: "Two ports from ENCA join the roadmap as Next: R04 Group Analyzer (ENCA's T19, turned Intune-side-out — enrolment, compliance, configuration, scripts, apps, Autopilot and update rings lead the answer) and R05 Change audit (ENCA's T16 pointed at deviceManagement auditEvents — who changed which Intune policy, when, with the field-level diff where the record carries it). References follow the house rules: permanent, never reused, not a priority order." },
+    ],
+  },
+  {
     build: 10301, date: "2026-08-19", title: "The tab bar is ENCA's tab bar",
     items: [
       { kind: "fixed", tool: "All tools", text: "The tool bar under the header is now ENCA's browser-style tab bar, ported verbatim, instead of the unstyled always-on button strip build 1 shipped: a home button that reads as a button, pill-shaped tabs that exist only for the tools you have OPENED (with a close cross each), a plus menu to open another tool in a new tab, a close-all button once more than one tab is open, and Help pinned at the right. The bar stays hidden on the tools home and appears with the first tool you open. The old strip also dragged the tile's NEW and BETA tag text into its labels; tab labels now come from the tool list, with the emoji and nothing else." },

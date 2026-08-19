@@ -9,17 +9,17 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10301"></script>
+<script src="js/popup-guard.js?v=10302"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10301">
+<link rel="stylesheet" href="css/app.css?v=10302">
 </head>
 <body>
 
 <header>
   <div class="hwrap">
     <div class="logo" id="logoHome" title="Back to tools">
-      <img id="brandLogo" src="assets/logo-mark-light.svg" width="34" height="34" alt="Limon-IT">
+      <img id="brandLogo" src="assets/logo-mark-light.svg" width="34" height="34" alt="TUNO">
       <b id="brandOrg">Limon-<span>IT</span></b>
     </div>
     <span class="app-tag" id="brandTag">TUNO</span>
@@ -46,7 +46,7 @@
   <!-- ============ LOGIN ============ -->
   <section id="screen-login" class="screen active">
     <div class="login-card">
-      <img id="brandLogoLogin" src="assets/logo-mark-light.svg" width="76" height="76" alt="Limon-IT">
+      <img id="brandLogoLogin" src="assets/logo-mark-light.svg" width="76" height="76" alt="TUNO">
       <h1 id="brandLoginTitle">TUNO — Intune Operations Tools</h1>
       <p id="brandLoginBlurb">Sign in with your Microsoft Entra account to analyze, build and validate your endpoint security configuration — starting with AppLocker policies.</p>
       <button class="btn primary ms-btn" id="signInBtn">
@@ -154,6 +154,14 @@
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
           </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer — the Intune cut of ENCA's T19</h4>
+            <p class="mini" style="margin:0">ENCA's Group Analyzer already reads where an Entra group is used across 23 services; the TUNO port turns the telescope around and leads with the Intune areas — enrolment restrictions, compliance, configuration profiles, scripts and remediations, app protection and configuration, app assignments, Autopilot, Windows update rings — with per-area consent, the unused-groups sweep, parent-group inheritance and Markdown/HTML/CSV export carried over. The Entra areas stay, as context rather than headline: an Intune admin asks “what lands on the devices in this group”, and the answer must open with Intune.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit — the Intune cut of ENCA's T16</h4>
+            <p class="mini" style="margin:0">ENCA's Change audit reads the directory audit log for Conditional Access edits with a field-level diff of what moved. The TUNO port points the same machinery at <code>deviceManagement/auditEvents</code>: who changed which compliance policy, configuration profile, app assignment, script or enrolment setting, when, from where — the same 1/4/24-hour incident windows and 7/30/90-day review windows, kind/action filters, field-level before/after diff where the audit record carries it, and Markdown export. Reads only, <code>DeviceManagementApps.Read.All</code> / <code>DeviceManagementConfiguration.Read.All</code> asked on the click.</p>
+          </div>
         </div>
         <div class="rm-era later">
           <h3>Later</h3>
@@ -193,13 +201,13 @@
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10301"></script>
-<script src="js/version.js?v=10301"></script>
-<script src="js/promote.js?v=10301"></script>
-<script src="js/authConfig.js?v=10301"></script>
-<script src="js/changelog.js?v=10301"></script>
-<script src="js/msappcatalog.js?v=10301"></script>
-<script src="js/applocker.js?v=10301"></script>
-<script src="js/app.js?v=10301"></script>
+<script src="js/branding.js?v=10302"></script>
+<script src="js/version.js?v=10302"></script>
+<script src="js/promote.js?v=10302"></script>
+<script src="js/authConfig.js?v=10302"></script>
+<script src="js/changelog.js?v=10302"></script>
+<script src="js/msappcatalog.js?v=10302"></script>
+<script src="js/applocker.js?v=10302"></script>
+<script src="js/app.js?v=10302"></script>
 </body>
 </html>
