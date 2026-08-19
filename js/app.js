@@ -159,6 +159,14 @@
   const authReady = () => !!(AUTH_CONFIG.clientId && /^[0-9a-f-]{36}$/i.test(AUTH_CONFIG.clientId));
   function authInit() {
     if (!authReady()) return Promise.resolve(false);
+    // NOTHING in here may take the shell down: MSAL's constructor throws
+    // SYNCHRONOUSLY in an environment without WebCrypto (old browser, some
+    // embedded webviews), and an exception escaping this IIFE would kill the
+    // navigation wiring and the tools with it. Degrade to a sign-in error.
+    try { return authInitInner(); }
+    catch (e) { console.error("MSAL init failed:", e); msalApp = null; return Promise.resolve(false); }
+  }
+  function authInitInner() {
     msalApp = new msal.PublicClientApplication({
       auth: {
         clientId: AUTH_CONFIG.clientId,
@@ -184,6 +192,10 @@
   async function signIn(useRedirect) {
     if (!authReady()) {
       loginErr("No app registration configured yet for this TUNO deployment — run New-TunoAppRegistration.ps1 and paste the Application (client) ID into js/authConfig.js (or js/authConfig.local.js).");
+      return;
+    }
+    if (!msalApp) {
+      loginErr("Sign-in is unavailable in this browser (MSAL could not initialize — usually a missing WebCrypto). Use a current browser over https.");
       return;
     }
     try {

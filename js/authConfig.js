@@ -22,13 +22,9 @@
 //
 // and add it to index.html immediately before this script. Anything it sets
 // wins; anything it omits falls back to the defaults here.
-//
-// clientId below is EMPTY until the TUNO app registration exists — run
-// New-TunoAppRegistration.ps1 and paste the id it prints. The sign-in screen
-// detects the empty value and says exactly that instead of failing cryptic.
 // ======================================================================
 const AUTH_CONFIG = Object.assign({
-  clientId: "", // <-- run New-TunoAppRegistration.ps1 and paste the Application (client) ID
+  clientId: "a0ea0fc5-970c-43d9-99ae-559a1cd2755e", // TUNO (Limon-IT) — set by New-TunoAppRegistration.ps1 on 2026-08-19; REPLACE for your own registration
   // "organizations" = any work/school tenant (multi-tenant). For a single-tenant
   // registration use your tenant ID or verified domain instead.
   authority: "https://login.microsoftonline.com/organizations",

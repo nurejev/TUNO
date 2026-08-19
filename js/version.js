@@ -23,12 +23,12 @@
 const APP_BUILD = {
   version: "1.0",
   cycle: 0,          // no beta cycle yet — set when the first beta build is cut
-  build: 1,          // production series, main
+  build: 2,          // production series, main
   date: "2026-08-19",
   // When this build was cut, UTC — set with `date -u +%Y-%m-%dT%H:%MZ`,
   // never by hand (a local time typed into a UTC field puts the sign-in
   // stamp an hour into the future; ENCA builds 25090-25092 proved it).
-  released: "2026-08-19T12:20Z",
+  released: "2026-08-19T12:12Z",
   get isBeta() { return this.build >= 10000; },
   get stamp() { return `${this.label} · ${this.releasedLocal}`; },
   get releasedLocal() {
