@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10307"></script>
+<script src="js/popup-guard.js?v=10308"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10307">
+<link rel="stylesheet" href="css/app.css?v=10308">
 </head>
 <body>
 
@@ -74,7 +74,7 @@
     <div class="tools">
       <div class="tool" id="toolAppLocker">
         <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>Import an AppLocker policy XML and audit it with the AppLockerInspector check set — enforcement posture, broad principals, user-writable paths, risky wildcards, overly broad publisher rules. Verify the Microsoft apps a locked-down estate still needs (OneDrive first among them) are actually allowed, add the missing rules publisher-first, and export policy XML plus a Markdown report. Runs entirely in the browser.</p>
+        <p>Scan a device with the PowerShell this tool hands you, upload what it wrote, and audit the result with the AppLockerInspector check set — enforcement posture, broad principals, user-writable paths, risky wildcards, overly broad publisher rules — now backed by the directory permissions, signatures and blocked executions only a device can report. Verify the Microsoft apps a locked-down estate still needs (OneDrive first among them) are actually allowed, add the missing rules publisher-first, and export policy XML for a GPO or a ready-to-import Intune custom profile. Runs entirely in the browser.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -98,22 +98,72 @@
   <section id="screen-applocker" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator <span class="tag new">BETA</span></h2>
-      <p class="mini" style="margin:0">Import a policy XML — a GPO export or <code>Get-AppLockerPolicy -Effective -Xml</code> — and it is audited in the browser with the check set from Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>. The Microsoft coverage table answers the question every lockdown discovers too late: can a standard user still run OneDrive, Teams, Edge and Office? Build the missing rules publisher-first and export the XML back into your GPO. <b>Nothing is uploaded</b> — the file is read in this tab and stays there. NTFS and share ACL reality checks need a filesystem and stay in the PowerShell original.</p>
+      <p class="mini" style="margin:0">Scan a device, upload what the scan produced, edit the policy here, and export it as XML for a GPO or as a ready-to-import Intune custom profile. Everything is audited in the browser with the check set from Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>, and the Microsoft coverage table answers the question every lockdown discovers too late: can a standard user still run OneDrive, Teams, Edge and Office? <b>Nothing is uploaded</b> — the file is read in this tab and stays there. You can skip step 1 entirely and import a plain policy XML instead; the scan is what lets the tool see the ACLs a browser cannot.</p>
     </div>
+
+    <!-- ============ STEP 1 — the scripts ============
+         The scan cannot happen in a browser: reading a DACL, an Authenticode
+         signature and an event log needs a machine. So T01 hands out the
+         PowerShell that does it, rather than pretending the browser could. -->
+    <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
+      <div class="al-step">
+        <span class="al-step-n">1</span>
+        <div style="min-width:0;flex:1">
+          <h3 style="margin:0 0 4px">Scan a device</h3>
+          <p class="mini muted" style="margin:0 0 10px">Run this on a representative machine — your standard image, with the applications people actually use installed. It reads directory permissions, signatures and the AppLocker event log, builds a publisher-first rule set from what it finds, and writes one <code>.json</code> bundle. <b>It changes nothing on the device.</b></p>
+          <div class="al-dl">
+            <div class="al-dl-row">
+              <a class="btn primary" href="scripts/Invoke-TunoAppLockerScan.ps1" download>⭳ Invoke-TunoAppLockerScan.ps1</a>
+              <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Convert-TunoAppLockerToIntune.ps1" download>⭳ Convert-TunoAppLockerToIntune.ps1</a>
+              <code class="al-dl-cmd" data-file="Convert-TunoAppLockerToIntune.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Convert-TunoAppLockerToIntune.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
+          </div>
+          <details class="al-guide">
+            <summary>How to run it, and what each switch is for</summary>
+            <div class="al-guide-body">
+              <p class="mini"><b>The normal run.</b> Elevated PowerShell — unelevated it cannot read every DACL or the event logs, and the bundle records that the run was partial rather than pretending it was complete.</p>
+              <pre class="al-code">Set-ExecutionPolicy -Scope Process Bypass -Force
+.\Invoke-TunoAppLockerScan.ps1</pre>
+              <p class="mini">It writes three files next to itself: <code>TunoAppLockerScan-&lt;DEVICE&gt;-&lt;stamp&gt;.json</code> (upload this one), plus an Audit and an Enforce <code>.xml</code> for direct GPO use.</p>
+              <p class="mini"><b>Include the per-user installs.</b> OneDrive and Teams install into the user's profile, which is user-writable by definition — they are the applications a first AppLocker rollout breaks, every time.</p>
+              <pre class="al-code">.\Invoke-TunoAppLockerScan.ps1 -Scope System,ProgramFiles,ProgramData `
+    -Path "$env:LOCALAPPDATA\Microsoft\OneDrive","$env:LOCALAPPDATA\Microsoft\Teams"</pre>
+              <p class="mini"><b>Switches worth knowing:</b></p>
+              <ul class="mini al-list">
+                <li><code>-Scope</code> — which roots to walk: <code>System</code>, <code>ProgramFiles</code>, <code>ProgramData</code>, <code>UserProfiles</code>, <code>Custom</code>. Default is <code>System,ProgramFiles</code>.</li>
+                <li><code>-KnownAdmin</code> — groups that are administrators here but are not in the local Administrators group, e.g. <code>"CONTOSO\Workstation-Admins"</code>. Write access granted to them stops being reported as a hole.</li>
+                <li><code>-PublisherRuleGranularity</code> — how specific the generated rules are, from <code>Publisher</code> to <code>PublisherProductBinaryVersion</code>. Default <code>PublisherProductBinary</code>.</li>
+                <li><code>-EventDaysBack</code> — how far back to read the AppLocker logs. Default 30.</li>
+                <li><code>-DeepScan</code> — report every writable directory instead of stopping at the first one on each branch. Slower, more evidence.</li>
+                <li><code>-SkipRuleGeneration</code> — collect the evidence and let this tool build the rules instead.</li>
+              </ul>
+              <p class="mini"><b>Scan more than one machine.</b> A laptop build and a kiosk build do not have the same holes. Run it on each, and work through the bundles one at a time.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
     <div class="toolbar" style="margin-top:14px">
       <div class="tb-actions">
-        <button class="btn primary" id="alImport">📂 Import policy XML</button>
-        <input type="file" id="alFile" accept="text/xml,application/xml,.xml" style="display:none">
+        <span class="al-step-n sm">2</span>
+        <button class="btn primary" id="alImport">📂 Upload scan bundle or policy XML</button>
+        <input type="file" id="alFile" accept="text/xml,application/xml,.xml,application/json,.json" style="display:none">
         <button class="btn" id="alSample">🧪 Load sample policy</button>
         <button class="btn" id="alNew">➕ Start empty</button>
         <span class="spacer"></span>
-        <button class="btn" id="alMd" title="Findings and coverage as a Markdown report">Export MD</button>
+        <button class="btn" id="alMd" title="Findings, device-scan evidence and coverage as a Markdown report">Export MD</button>
       </div>
     </div>
     <div id="alEmpty" class="list-card" style="margin-top:14px;padding:26px">
-      <p style="margin:0 0 6px"><b>Start by importing a policy.</b></p>
-      <p class="mini muted" style="margin:0">From a GPO: Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b><br>
-      From a machine's effective policy (elevated PowerShell): <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code><br>
+      <p style="margin:0 0 6px"><b>Upload what the scan wrote — the <code>.json</code> bundle.</b></p>
+      <p class="mini muted" style="margin:0">It carries the generated rule set, the policy the device was really running, the directories a standard user can write to, the unsigned binaries sitting in them, and what AppLocker has already blocked. The tool loads the generated <b>AuditOnly</b> policy by default and you can switch to either of the others once it is open.<br><br>
+      <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
       Or load the sample policy to see what the audit and the Microsoft coverage check produce.</p>
     </div>
     <!-- Two columns: the policy you are working on, and the XML it currently
@@ -125,26 +175,83 @@
       <div class="al-split">
         <div class="al-col">
           <div class="list-card" id="alSummary" style="padding:14px 18px"></div>
+          <div class="list-card" id="alScan" style="padding:16px 18px;display:none"></div>
           <div class="list-card" id="alEnforce" style="padding:16px 18px"></div>
           <div class="list-card" id="alCoverage" style="padding:16px 18px"></div>
           <div class="list-card" id="alFindings" style="padding:16px 18px"></div>
           <div id="alRules"></div>
         </div>
         <aside class="al-side">
+          <!-- Two artefacts leave this tool: the policy XML for a GPO, and the
+               Intune custom profile. They share one panel and one pair of
+               buttons, because they are the same thing said twice and putting
+               them in separate places is how one of them goes stale. -->
           <div class="al-xml">
+            <div class="al-pane-tabs">
+              <button class="al-pane-tab active" data-pane="xml" title="The AppLocker policy XML — for a GPO, or as the input to the converter script">3 · Policy XML</button>
+              <button class="al-pane-tab" data-pane="intune" title="The Intune custom profile (OMA-URI) built from the same policy">4 · Intune profile</button>
+            </div>
             <div class="al-xml-head">
               <div style="min-width:0">
-                <div class="al-xml-name">AppLockerPolicy.xml</div>
+                <div class="al-xml-name" id="alXmlName">AppLockerPolicy.xml</div>
                 <div class="al-xml-sub" id="alXmlSub"></div>
               </div>
               <div class="al-xml-acts">
-                <button class="btn sm" id="alCopyXml" title="Copy the policy XML to the clipboard">⧉ Copy</button>
-                <button class="btn sm primary" id="alXml" title="Download the current rule set as AppLocker policy XML">⭳ Download XML</button>
+                <button class="btn sm" id="alCopyXml" title="Copy what is shown to the clipboard">⧉ Copy</button>
+                <button class="btn sm primary" id="alXml" title="Download what is shown">⭳ Download</button>
               </div>
+            </div>
+            <div class="al-intune-form" id="alIntuneForm" style="display:none">
+              <label class="al-f"><span>Profile name</span><input id="alIntuneName" spellcheck="false"></label>
+              <label class="al-f"><span>Grouping <b title="The grouping is the policy's identity on the device: two profiles sharing a grouping overwrite each other, two with different groupings are merged by the CSP.">ⓘ</b></span><input id="alIntuneGrouping" spellcheck="false"></label>
+              <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
+              <p class="al-f-note">DLL always ships as <b>NotConfigured</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. The rules are in the profile, documented and inert.</p>
             </div>
             <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
           </div>
         </aside>
+      </div>
+
+      <!-- ============ STEP 5 — deploy ============ -->
+      <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
+        <div class="al-step">
+          <span class="al-step-n">5</span>
+          <div style="min-width:0;flex:1">
+            <h3 style="margin:0 0 4px">Get it into Intune</h3>
+            <p class="mini muted" style="margin:0 0 10px">AppLocker has no settings-catalog surface. The supported route is a Windows custom profile carrying one OMA-URI string per rule collection — which is exactly what the <b>Intune profile</b> tab produces.</p>
+            <details class="al-guide">
+              <summary>The three ways to do it, from least to most automated</summary>
+              <div class="al-guide-body">
+                <p class="mini"><b>A · By hand in the portal.</b> Intune admin center → Devices → Configuration → Create → Windows 10 and later → Templates → <b>Custom</b>. Then add one OMA-URI setting per collection, copying each <code>omaUri</code> and its <code>value</code> out of the JSON on the right. Data type is <b>String</b>. Tedious, but it needs no permissions beyond the portal.</p>
+                <p class="mini"><b>B · Post the JSON with Graph.</b> Download the profile from the Intune tab, then:</p>
+                <pre class="al-code">Connect-MgGraph -Scopes DeviceManagementConfiguration.ReadWrite.All
+$body = Get-Content .\Win_-_Device_Security_-_AppLocker_(AuditOnly).json -Raw
+Invoke-MgGraphRequest -Method POST -ContentType application/json `
+    -Uri 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations' `
+    -Body $body</pre>
+                <p class="mini"><b>C · Let the converter script do it.</b> Download the Policy XML tab (or use the Audit and Enforce XML the scan already wrote), then run <code>Convert-TunoAppLockerToIntune.ps1</code>. Offline it writes the profile JSON; with <code>-Online</code> it creates the profile in the tenant.</p>
+                <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
+.\Convert-TunoAppLockerToIntune.ps1 `
+    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
+    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'
+
+# Online — create the audit profile in the tenant
+.\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
+    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
+    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'</pre>
+                <p class="mini"><b>Then, in every case:</b></p>
+                <ol class="mini al-list">
+                  <li><b>Assign the AuditOnly profile first</b>, to a small pilot group. Nothing here assigns anything for you — an AppLocker policy landing on a group by accident is not a recoverable afternoon.</li>
+                  <li>Make sure the <b>Application Identity</b> service is running on the targets, or AppLocker does nothing and logs nothing. Set it to start automatically via an Intune configuration profile or a remediation script.</li>
+                  <li>Leave it in audit long enough to cover a month-end, a patch cycle and a new starter. Collect events 8003 and 8006 — the things that <i>would</i> have been blocked.</li>
+                  <li>Re-run the scan, upload the new bundle here, and work the blocked list down to nothing.</li>
+                  <li>Only then assign the Enforced profile — <b>same grouping</b>, so it replaces the audit one on the device rather than sitting alongside it.</li>
+                </ol>
+                <p class="mini"><b>Keep a way back.</b> Removing the assignment removes the policy, but a device that cannot run the management agent cannot be told that. Test the removal path on the pilot group before the estate depends on it.</p>
+              </div>
+            </details>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -205,7 +312,10 @@
         <h3 style="margin:0 0 6px">What TUNO is</h3>
         <p class="mini" style="margin:0 0 10px"><b>TUNO — Tenant Utilities for iNtune Operations</b> is ENCA's sister tool (<a href="https://enca.limon-it.nl" target="_blank" rel="noopener">enca.limon-it.nl</a>): the same idea — static files running entirely in your browser, minimal delegated Graph permissions asked per tool, nothing stored server-side because there is no server — applied to Intune and endpoint security instead of Conditional Access.</p>
         <h3 style="margin:14px 0 6px">🔐 AppLocker builder &amp; validator</h3>
-        <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: the policy XML you import is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported back as XML or a Markdown report. Two honest limits: NTFS/share ACL checks need a filesystem, so run <code>Invoke-AppLockerInspector.ps1</code> on a host for those; and rule evaluation here is a faithful model (deny beats allow, exceptions, macros, publisher fields), not the AppLocker engine itself — test in AuditOnly before enforcing, always.</p>
+        <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: what you upload is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported as policy XML, an Intune custom profile, or a Markdown report. Rule evaluation here is a faithful model — deny beats allow, exceptions carve back out, macros expand, publisher fields match — not the AppLocker engine itself. Test in AuditOnly before enforcing, always.</p>
+        <p class="mini" style="margin:0 0 10px"><b>The five steps.</b> ① Download <code>Invoke-TunoAppLockerScan.ps1</code> and run it elevated on a representative device. ② Upload the <code>.json</code> bundle it writes. ③ Work through the findings and the coverage table, fixing what needs fixing. ④ Export the policy XML for a GPO, or the Intune custom profile. ⑤ Assign the AuditOnly profile to a pilot group, wait, re-scan, and only then enforce.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Why there is a PowerShell script at all.</b> A browser cannot read a directory ACL, verify an Authenticode signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing <code>%PROGRAMFILES%\*</code> is only as strong as the permissions underneath it, and the XML does not say what those are. The scan does, and the tool marks every verdict that came from it with 🛰 so you can see which half of the analysis proved what. Skip the scan and the tool still works on a plain policy XML; it just cannot tell you about the holes it cannot see.</p>
+        <p class="mini" style="margin:0 0 10px"><b>The scripts are served from this site</b> (<code>/scripts/</code>), so the copy you download always matches the build you are looking at. They are read-only on the device: neither one applies a policy, touches the local GPO, or starts the Application Identity service. Source and the full switch reference are in <a href="scripts/README.md" target="_blank" rel="noopener">scripts/README.md</a>.</p>
         <h3 style="margin:14px 0 6px">Security model</h3>
         <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
       </div>
@@ -224,13 +334,13 @@
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10307"></script>
-<script src="js/version.js?v=10307"></script>
-<script src="js/promote.js?v=10307"></script>
-<script src="js/authConfig.js?v=10307"></script>
-<script src="js/changelog.js?v=10307"></script>
-<script src="js/msappcatalog.js?v=10307"></script>
-<script src="js/applocker.js?v=10307"></script>
-<script src="js/app.js?v=10307"></script>
+<script src="js/branding.js?v=10308"></script>
+<script src="js/version.js?v=10308"></script>
+<script src="js/promote.js?v=10308"></script>
+<script src="js/authConfig.js?v=10308"></script>
+<script src="js/changelog.js?v=10308"></script>
+<script src="js/msappcatalog.js?v=10308"></script>
+<script src="js/applocker.js?v=10308"></script>
+<script src="js/app.js?v=10308"></script>
 </body>
 </html>

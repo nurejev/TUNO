@@ -1439,6 +1439,52 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .al-xml-code .x-punct{color:#5f7fa8}
 .al-xml-empty{color:#7f96bb;font-style:italic}
 
+/* ---- T01: the two artefacts share one panel ----
+   The policy XML and the Intune profile are the same policy said twice. They
+   get one panel and one pair of buttons, because two panels is how one of them
+   quietly stops matching the other. */
+.al-pane-tabs{display:flex;background:#0a1220;border-bottom:1px solid #22355a}
+.al-pane-tab{flex:1;padding:9px 10px;background:none;border:0;border-bottom:2px solid transparent;
+  color:#7f96bb;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+.al-pane-tab:hover{color:#c6d6ee}
+.al-pane-tab.active{color:#e7eefb;border-bottom-color:var(--accent2)}
+.al-intune-form{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+.al-f{display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px}
+.al-f>span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7f96bb}
+.al-f>span b{cursor:help;color:var(--accent2)}
+.al-f input,.al-f select{background:#1b2b45;border:1px solid #2c4266;border-radius:8px;color:#e7eefb;
+  padding:6px 9px;font:inherit;font-size:12px;min-width:0}
+.al-f input:focus,.al-f select:focus{outline:none;border-color:#4b6da3}
+.al-f-note{flex-basis:100%;margin:0;font-size:11px;line-height:1.5;color:#8fa6c8}
+.al-f-note b{color:#c6d6ee}
+
+/* ---- T01: the numbered walkthrough ----
+   Scan, upload, review, export, deploy. The steps carry numbers because the
+   order is not optional: enforcing before auditing is the mistake this whole
+   tool exists to make harder. */
+.al-steps{padding:18px 22px}
+.al-step{display:flex;gap:14px;align-items:flex-start}
+.al-step-n{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;background:var(--accent2);color:#fff;
+  font-size:13px;font-weight:700;line-height:1}
+.al-step-n.sm{width:22px;height:22px;font-size:12px}
+.al-dl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.al-dl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.al-dl-cmd{flex:1;min-width:240px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--soft);color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;overflow-x:auto;white-space:nowrap}
+.al-guide{margin-top:4px;border-top:1px solid var(--border);padding-top:8px}
+.al-guide summary{cursor:pointer;color:var(--accent2);font-size:13px;list-style:none}
+.al-guide summary::-webkit-details-marker{display:none}
+.al-guide summary::before{content:"\25b8 ";display:inline-block;transition:transform .15s}
+.al-guide[open] summary::before{transform:rotate(90deg)}
+.al-guide-body{padding-top:8px}
+.al-guide-body p{margin:0 0 8px}
+.al-list{margin:0 0 10px;padding-left:20px;line-height:1.7}
+.al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#111c2e;color:#a8e6a0;
+  border:1px solid #22355a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;line-height:1.65;overflow-x:auto;white-space:pre}
+
 /* Promotion queue: the per-item test checklist. Folded away by default — the
    table is read to decide WHAT to promote, and the steps are read once that
    decision is made. Ported from ENCA. */

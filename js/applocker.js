@@ -58,6 +58,15 @@ const AppLockerTool = (() => {
   let undoState = null;     // { snapshot, label } — one step back, see mutate()
   let fixOpen = null;       // findingKey() of the finding whose editor is open
   let shownFindings = [];   // the filtered rows render() last drew, for handlers
+  let scan = null;          // the uploaded TUNO scan bundle, or null
+  let scanSource = "";      // "generated-audit" | "generated-enforce" | "effective"
+  let pane = "xml";         // which artefact the code panel is showing
+  const intuneCfg = { displayName: "Win - Device Security - AppLocker", grouping: "Pilot", mode: "Audit" };
+
+  // AppLocker rule-collection Type → the segment the AppLocker CSP expects in the
+  // OMA-URI. Anything not in here has no CSP node and cannot be shipped by Intune.
+  const OMA_TYPE = { Exe: "EXE", Msi: "MSI", Script: "Script", Dll: "DLL", Appx: "StoreApps" };
+  const SCAN_SCHEMA_PREFIX = "tuno.applocker.scan/";
 
   const newGuid = () => ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -145,20 +154,228 @@ const AppLockerTool = (() => {
     }
     return "";
   }
+  // ONE serialiser, three consumers: the live XML panel, the XML download, and the
+  // OMA-URI values inside the Intune profile. The Intune export needs a single
+  // <RuleCollection> at a possibly different enforcement mode, so the collection is
+  // what is factored out — not copied. A second serialiser is how an export starts
+  // disagreeing with the preview that was supposed to describe it.
+  function collectionLines(col, pad, modeOverride) {
+    const mode = modeOverride || col.mode;
+    const out = [`${pad}<RuleCollection Type="${esc(col.type)}" EnforcementMode="${esc(mode)}">`];
+    for (const r of col.rules) {
+      out.push(`${pad}  <${r.nodeName} Id="${esc(r.id)}" Name="${esc(r.name)}" Description="${esc(r.description)}" UserOrGroupSid="${esc(r.sid)}" Action="${esc(r.action)}">`);
+      out.push(`${pad}    <Conditions>${r.conditions.map(condXml).join("")}</Conditions>`);
+      if (r.exceptions.length) out.push(`${pad}    <Exceptions>${r.exceptions.map(condXml).join("")}</Exceptions>`);
+      out.push(`${pad}  </${r.nodeName}>`);
+    }
+    out.push(`${pad}</RuleCollection>`);
+    return out;
+  }
   function exportXml() {
     const lines = ['<AppLockerPolicy Version="1">'];
-    for (const col of policy.collections) {
-      lines.push(`  <RuleCollection Type="${esc(col.type)}" EnforcementMode="${esc(col.mode)}">`);
-      for (const r of col.rules) {
-        lines.push(`    <${r.nodeName} Id="${esc(r.id)}" Name="${esc(r.name)}" Description="${esc(r.description)}" UserOrGroupSid="${esc(r.sid)}" Action="${esc(r.action)}">`);
-        lines.push(`      <Conditions>${r.conditions.map(condXml).join("")}</Conditions>`);
-        if (r.exceptions.length) lines.push(`      <Exceptions>${r.exceptions.map(condXml).join("")}</Exceptions>`);
-        lines.push(`    </${r.nodeName}>`);
-      }
-      lines.push(`  </RuleCollection>`);
-    }
+    for (const col of policy.collections) lines.push(...collectionLines(col, "  "));
     lines.push("</AppLockerPolicy>");
     return lines.join("\n");
+  }
+
+  // ================================================================
+  // INTUNE — model → windows10CustomConfiguration
+  //
+  // AppLocker has no settings-catalog surface. The supported route is a custom
+  // profile carrying one OMA-URI string per rule collection:
+  //   ./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/<grouping>/<TYPE>/Policy
+  //
+  // The grouping is the policy's IDENTITY on the device: two profiles sharing a
+  // grouping overwrite each other, two with different groupings are merged by the
+  // CSP. That is the single most expensive thing to get wrong here, so the UI asks
+  // for it rather than inventing one.
+  //
+  // DLL is forced to NotConfigured whatever the chosen mode. AppLocker evaluates
+  // every DLL load: Enabled cripples the endpoint and even AuditOnly buries the
+  // event log under Microsoft-signed System32 libraries, EDR AMSI providers and
+  // .NET native images. The rules still ship — documented and inert — so the
+  // collection can be switched on deliberately later instead of being invisible.
+  // ================================================================
+  const intuneGrouping = () => (intuneCfg.grouping || "").replace(/\s+/g, "");
+
+  function intuneProfileName(mode) {
+    const base = (intuneCfg.displayName || "AppLocker").trim();
+    return `${base} (${mode === "Enforce" ? "Enforced" : "AuditOnly"})`;
+  }
+
+  function intuneProfile(mode) {
+    const grouping = intuneGrouping();
+    const target = mode === "Enforce" ? "Enabled" : "AuditOnly";
+    const omaSettings = [];
+    for (const col of policy.collections) {
+      const omaType = OMA_TYPE[col.type];
+      if (!omaType) continue;
+      const collectionMode = col.type === "Dll" ? "NotConfigured" : target;
+      omaSettings.push({
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        displayName: omaType,
+        description: `${col.type} rule collection — EnforcementMode ${collectionMode}`,
+        omaUri: `./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/${grouping}/${omaType}/Policy`,
+        value: collectionLines(col, "", collectionMode).join("\n"),
+      });
+    }
+    return {
+      "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
+      displayName: intuneProfileName(mode),
+      description: `AppLocker ${mode} policy built in ${BRANDING.name} ${APP_BUILD.label}${importedXmlName ? ` from ${importedXmlName}` : ""} on ${new Date().toISOString().slice(0, 10)}.`,
+      omaSettings,
+    };
+  }
+  const intuneJson = (mode) => JSON.stringify(intuneProfile(mode), null, 2);
+
+  // Problems that would make the profile fail on import or land wrong on the
+  // device. Shown next to the export rather than discovered in the portal.
+  function intuneIssues() {
+    const out = [];
+    if (!policy) return out;
+    if (!intuneGrouping()) out.push({ sev: "High", text: "The grouping is empty. The OMA-URI has no identity without it and the profile will not apply." });
+    else if (!/^[A-Za-z0-9._-]+$/.test(intuneGrouping())) out.push({ sev: "Medium", text: "The grouping contains characters other than letters, digits, dot, dash and underscore. The CSP node name is part of a URI — keep it simple." });
+    if (!(intuneCfg.displayName || "").trim()) out.push({ sev: "Medium", text: "The profile has no display name. Intune will accept it and nobody will ever find it again." });
+    const unmapped = policy.collections.filter((c) => !OMA_TYPE[c.type]);
+    if (unmapped.length) out.push({ sev: "Medium", text: `Collection${unmapped.length === 1 ? "" : "s"} ${unmapped.map((c) => c.type).join(", ")} ${unmapped.length === 1 ? "has" : "have"} no AppLocker CSP node and ${unmapped.length === 1 ? "is" : "are"} left out of the profile.` });
+    const empty = policy.collections.filter((c) => OMA_TYPE[c.type] && c.type !== "Dll" && !c.rules.length);
+    if (empty.length) out.push({ sev: "High", text: `Collection${empty.length === 1 ? "" : "s"} ${empty.map((c) => c.type).join(", ")} ship with ZERO rules. Enforced, that blocks the type outright on every device the profile reaches.` });
+    return out;
+  }
+
+  // ================================================================
+  // SCAN BUNDLE — Invoke-TunoAppLockerScan.ps1 output
+  // ================================================================
+  function parseBundle(jsonText, sourceName) {
+    let b;
+    try { b = JSON.parse(jsonText); }
+    catch (e) { throw new Error("Not valid JSON: " + e.message); }
+    if (!b || typeof b !== "object" || typeof b.schema !== "string" || !b.schema.startsWith(SCAN_SCHEMA_PREFIX)) {
+      throw new Error("This JSON is not a TUNO scan bundle (no \"schema\": \"" + SCAN_SCHEMA_PREFIX + "1\" property). Run Invoke-TunoAppLockerScan.ps1 on the device and upload the file it writes.");
+    }
+    // Normalise the shapes the tool reads, so a bundle from a partial run (no
+    // rule generation, no events, unreadable effective policy) renders as
+    // "not collected" rather than throwing somewhere three sections down.
+    b.writablePaths = Array.isArray(b.writablePaths) ? b.writablePaths : [];
+    b.artifacts = Array.isArray(b.artifacts) ? b.artifacts : [];
+    b.warnings = Array.isArray(b.warnings) ? b.warnings : [];
+    b.sourceName = sourceName || "";
+    return b;
+  }
+
+  // Which policy does a bundle hand the tool? The generated AUDIT policy when the
+  // scan built one — audit first is the whole discipline — otherwise whatever the
+  // device was actually running. Either can be swapped for the other afterwards.
+  function bundleXml(b, which) {
+    const gen = b.generatedPolicy;
+    if (which === "generated-enforce" && gen && gen.enforceXml) return { xml: gen.enforceXml, source: "generated-enforce" };
+    if (which === "effective" && b.effectivePolicy && b.effectivePolicy.xml) return { xml: b.effectivePolicy.xml, source: "effective" };
+    if (which === "generated-audit" && gen && gen.auditXml) return { xml: gen.auditXml, source: "generated-audit" };
+    if (gen && gen.auditXml) return { xml: gen.auditXml, source: "generated-audit" };
+    if (b.effectivePolicy && b.effectivePolicy.xml) return { xml: b.effectivePolicy.xml, source: "effective" };
+    return null;
+  }
+  const SCAN_SOURCE_LABEL = {
+    "generated-audit": "the rule set the scan generated, in AuditOnly",
+    "generated-enforce": "the rule set the scan generated, Enforced",
+    "effective": "the policy the device was actually running",
+  };
+
+  // ---- scan-derived findings ----
+  //
+  // The XML alone cannot know that %PROGRAMFILES%\Vendor is world-writable; the
+  // scan can, and that is the entire reason to upload it. Every verdict below is
+  // reached with the SAME rule-evaluation used for the Microsoft coverage table —
+  // deny beats allow, exceptions carve back out, macros expand — by probing a
+  // hypothetical executable dropped into the directory. A second evaluator here
+  // would be free to disagree with the one on screen.
+  function evaluateProbePath(model, dirPath, collectionType) {
+    const col = model.collections.find((c) => c.type === collectionType);
+    if (!col || col.mode === "NotConfigured") return null;
+    const art = { path: dirPath.replace(/\\+$/, "") + "\\tuno-probe.exe", publisher: { name: "", product: "*", binary: "*" } };
+    for (const r of col.rules) {
+      if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
+      if (ruleMatchesArtifact(r, art)) {
+        // A deny for the same broad audience wins, exactly as on the endpoint.
+        const denied = col.rules.some((d) => d.action === "Deny" && principalCovers(d.sid, r.sid) && ruleMatchesArtifact(d, art));
+        if (!denied) return r;
+      }
+    }
+    return null;
+  }
+
+  function analyzeScan(b, model) {
+    const out = [];
+    if (!b) return out;
+
+    // 1. Writable directories that an allow rule still reaches.
+    const reachable = [];
+    for (const w of b.writablePaths) {
+      const p = w.normalized || w.path;
+      if (!p) continue;
+      const rule = evaluateProbePath(model, p, "Exe");
+      if (rule) reachable.push({ path: p, rule, grantees: w.grantees || [] });
+    }
+    for (const hit of reachable.slice(0, 40)) {
+      const who = hit.grantees.map((g) => g.name || g.sid).filter(Boolean).slice(0, 3).join(", ");
+      out.push({
+        sev: "High", source: "scan", collection: "Exe", ruleType: "(scan)",
+        rule: hit.rule.name, ruleId: hit.rule.id, principal: sidName(hit.rule.sid),
+        cond: hit.path,
+        reason: `The device scan found this directory is writable by ${who || "a non-administrative principal"}, and “${hit.rule.name}” allows execution from it for ${sidName(hit.rule.sid)}. A standard user can drop an executable here and run it.`,
+        rec: "Add this path as an exception on that rule, or fix the ACL on the directory. The scan already emits the exception list — the generated policy in the bundle has it applied.",
+        fix: { kind: "rule" },
+      });
+    }
+    if (reachable.length > 40) {
+      out.push({
+        sev: "High", source: "scan", collection: "Exe", ruleType: "(scan)",
+        cond: `${reachable.length - 40} further path(s)`,
+        reason: `${reachable.length} writable directories are reachable through an allow rule in total; the first 40 are listed individually above.`,
+        rec: "Use the generated policy from the bundle, which carries the full exception list, rather than patching them one at a time.",
+      });
+    }
+
+    // 2. Unsigned executables sitting in those directories.
+    const unsigned = b.artifacts.filter((a) => a && !a.signed);
+    if (unsigned.length) {
+      out.push({
+        sev: "Medium", source: "scan", collection: "Exe", ruleType: "(scan)",
+        cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
+        reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
+        rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
+      });
+    }
+
+    // 3. What the run could not see. Stated, not implied.
+    if (b.machine && b.machine.elevated === false) {
+      out.push({
+        sev: "Medium", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        reason: "The scan did not run elevated, so directory ACLs and event logs were read incompletely. Absence of a finding below is not evidence of absence.",
+        rec: "Re-run Invoke-TunoAppLockerScan.ps1 from an elevated PowerShell session.",
+      });
+    }
+    if (b.machine && b.machine.appLockerCmdlets === false) {
+      out.push({
+        sev: "Low", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        reason: "The AppLocker module was not available on the scanned device, so publisher names were derived from certificate subjects rather than read from Get-AppLockerFileInformation.",
+        rec: "Verify the publisher strings on the generated rules before enforcing. The artifact table marks which source produced each one.",
+      });
+    }
+
+    // 4. What the endpoint has already refused.
+    const ev = b.events;
+    if (ev && ev.available && ev.summary && (ev.summary.blocked || ev.summary.audited)) {
+      out.push({
+        sev: ev.summary.blocked ? "High" : "Info", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        cond: `${ev.summary.blocked} blocked · ${ev.summary.audited} audited · ${ev.daysBack} days`,
+        reason: `The device's AppLocker logs show ${ev.summary.blocked} execution(s) actually blocked and ${ev.summary.audited} that would have been blocked under enforcement, across ${ev.summary.distinctUsers} user(s).`,
+        rec: ev.summary.blocked
+          ? "Work through the blocked list below before touching enforcement anywhere else — these are real users who could not run something."
+          : "Review the audited list below: each one becomes a blocked user the day this policy is enforced.",
+      });
+    }
+    return out;
   }
 
   // ================================================================
@@ -733,7 +950,13 @@ const AppLockerTool = (() => {
     L.push(`# AppLocker policy review${importedXmlName ? ` — ${importedXmlName}` : ""}`);
     L.push("");
     L.push(`> ${Brand.generatedBy("Generated")}`);
-    L.push(`> Check set after Spencer Alessi's AppLockerInspector (v0.1). NTFS and SMB-share ACL checks require a filesystem and DID NOT RUN — for those, run Invoke-AppLockerInspector.ps1 on a domain-joined host.`);
+    L.push(`> Check set after Spencer Alessi's AppLockerInspector (v0.1).`);
+    if (scan) {
+      const m = scan.machine || {};
+      L.push(`> Device scan included: ${m.name || "unknown device"} (${m.os || "unknown OS"}), taken ${String((scan.generator || {}).generatedUtc || "").replace("T", " ").slice(0, 16)} UTC${m.elevated === false ? " — NOT ELEVATED, so the ACL and event-log evidence is partial" : ""}.`);
+    } else {
+      L.push(`> No device scan was supplied. NTFS and SMB-share ACL checks require a filesystem and DID NOT RUN — run Invoke-TunoAppLockerScan.ps1 on a representative device and upload the bundle for those.`);
+    }
     L.push("");
     L.push(`## Enforcement`);
     L.push("");
@@ -745,12 +968,47 @@ const AppLockerTool = (() => {
     L.push("");
     if (!findings.length) L.push("No findings — the static checks are clean.");
     else {
-      L.push(`| Severity | Collection | Rule | Condition | Reason | Recommendation |`);
-      L.push(`|---|---|---|---|---|---|`);
+      L.push(`| Severity | Source | Collection | Rule | Condition | Reason | Recommendation |`);
+      L.push(`|---|---|---|---|---|---|---|`);
       const cell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-      for (const f of findings) L.push(`| ${f.sev} | ${cell(f.collection)} | ${cell(f.rule || f.ruleType)} | ${cell(f.cond || "")} | ${cell(f.reason)} | ${cell(f.rec)} |`);
+      for (const f of findings) L.push(`| ${f.sev} | ${f.source === "scan" ? "device scan" : "policy XML"} | ${cell(f.collection)} | ${cell(f.rule || f.ruleType)} | ${cell(f.cond || "")} | ${cell(f.reason)} | ${cell(f.rec)} |`);
     }
     L.push("");
+
+    if (scan) {
+      const m = scan.machine || {};
+      const ev = scan.events;
+      L.push(`## Device scan`);
+      L.push("");
+      L.push(`| Fact | Value |`);
+      L.push(`|---|---|`);
+      L.push(`| Device | ${m.name || "—"} |`);
+      L.push(`| OS | ${m.os || "—"} (build ${m.osBuild || "—"}) |`);
+      L.push(`| Join state | ${m.join || "—"} |`);
+      L.push(`| Elevated | ${m.elevated === false ? "**no — partial scan**" : "yes"} |`);
+      L.push(`| Application Identity service | ${m.appIdentityService || "—"} |`);
+      L.push(`| User-writable directories | ${scan.writablePaths.length} |`);
+      L.push(`| Executables inventoried | ${scan.artifacts.length} (${scan.artifacts.filter((a) => a && !a.signed).length} unsigned) |`);
+      if (ev && ev.available && ev.summary) L.push(`| AppLocker events (${ev.daysBack} days) | ${ev.summary.blocked} blocked, ${ev.summary.audited} audited, ${ev.summary.allowed} allowed |`);
+      L.push("");
+      if (scan.warnings.length) {
+        L.push(`### What this scan could not see`);
+        L.push("");
+        for (const w of scan.warnings) L.push(`- ${w}`);
+        L.push("");
+      }
+      const reach = scan.writablePaths.map((w) => ({ p: w.normalized || w.path, r: evaluateProbePath(policy, w.normalized || w.path, "Exe"), g: w.grantees || [] })).filter((x) => x.r);
+      L.push(`### User-writable directories still reachable through an allow rule (${reach.length} of ${scan.writablePaths.length})`);
+      L.push("");
+      if (!reach.length) L.push("None — every writable directory the scan found is excepted or unreachable.");
+      else {
+        L.push(`| Path | Writable by | Allowed by |`);
+        L.push(`|---|---|---|`);
+        for (const x of reach.slice(0, 200)) L.push(`| ${x.p} | ${x.g.map((g) => g.name || g.sid).join(", ") || "—"} | ${x.r.name} |`);
+        if (reach.length > 200) L.push(`| … | ${reach.length - 200} more | |`);
+      }
+      L.push("");
+    }
     L.push(`## Microsoft app coverage`);
     L.push("");
     L.push(`| App | Verdict | Detail |`);
@@ -776,7 +1034,12 @@ const AppLockerTool = (() => {
     `<span class="tag">— not enforced</span>`;
 
   function recompute() {
-    findings = analyze(policy);
+    // Static findings first, then the ones only a device scan can reach. They land
+    // in one table on purpose: an admin does not care which half of the tool proved
+    // that %PROGRAMFILES%\Vendor is a hole, only that it is one. `source` marks the
+    // scan-derived rows so the table can say where each verdict came from.
+    findings = analyze(policy).concat(analyzeScan(scan, policy));
+    findings.sort((a, b) => SEV_SCORE[b.sev] - SEV_SCORE[a.sev] || String(a.collection).localeCompare(String(b.collection)));
     coverage = MS_APP_CATALOG.map((app) => ({ app, result: evaluateApp(policy, app) }));
     render();
   }
@@ -794,22 +1057,115 @@ const AppLockerTool = (() => {
       .replace(/(\/?&gt;)/g, '<span class="x-punct">$1</span>');
   }
 
-  // The XML panel is redrawn from the SAME exportXml() the download uses —
-  // never from a second serialiser kept in step by hand, which is how a
-  // preview starts lying about what it is about to write.
-  function renderXmlPane() {
-    const sub = $("alXmlSub"), code = $("alXmlCode");
+  // Same treatment for the Intune profile: escaped first, and the only patterns
+  // that can produce a span match structural JSON punctuation. A rule name
+  // carrying a brace renders as text.
+  function highlightJson(x) {
+    return esc(x)
+      .replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)/g, '<span class="x-attr">$1</span><span class="x-punct">$2</span>')
+      .replace(/:\s(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, ': <span class="x-val">$1</span>')
+      .replace(/\b(true|false|null)\b/g, '<span class="x-tag">$1</span>');
+  }
+
+  // The code panel shows one of two artefacts, both rendered from the SAME
+  // functions their Copy and Download buttons hand over — never from a second
+  // serialiser kept in step by hand, which is how a preview starts lying about
+  // what it is about to write.
+  function renderCodePane() {
+    const sub = $("alXmlSub"), code = $("alXmlCode"), name = $("alXmlName");
     if (!sub || !code) return;
-    if (!policy) { sub.textContent = ""; code.innerHTML = '<span class="al-xml-empty">No policy loaded.</span>'; return; }
+
+    document.querySelectorAll(".al-pane-tab").forEach((t) => t.classList.toggle("active", t.dataset.pane === pane));
+    const form = $("alIntuneForm");
+    if (form) form.style.display = pane === "intune" ? "" : "none";
+
+    if (!policy) {
+      if (name) name.textContent = pane === "intune" ? "IntuneProfile.json" : "AppLockerPolicy.xml";
+      sub.textContent = "";
+      code.innerHTML = '<span class="al-xml-empty">No policy loaded.</span>';
+      return;
+    }
+
+    if (pane === "intune") {
+      if (name) name.textContent = intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json";
+      const n = policy.collections.filter((c) => OMA_TYPE[c.type]).length;
+      sub.textContent = `${n} OMA-URI setting${n === 1 ? "" : "s"} · grouping ${intuneGrouping() || "(none)"} · ${intuneCfg.mode}`;
+      code.innerHTML = highlightJson(intuneJson(intuneCfg.mode));
+      return;
+    }
+
+    if (name) name.textContent = "AppLockerPolicy.xml";
     const rules = policy.collections.reduce((n, c) => n + c.rules.length, 0);
     sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${policy.collections.length} collection${policy.collections.length === 1 ? "" : "s"}`;
     code.innerHTML = highlightXml(exportXml());
   }
 
+  // ---- the device-scan evidence card ----
+  function renderScanCard() {
+    const host = $("alScan");
+    if (!host) return;
+    if (!scan) { host.style.display = "none"; host.innerHTML = ""; return; }
+    host.style.display = "";
+
+    const m = scan.machine || {};
+    const ev = scan.events;
+    const gen = scan.generatedPolicy;
+    const unsigned = scan.artifacts.filter((a) => a && !a.signed).length;
+
+    const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
+
+    const sources = [
+      gen && gen.auditXml ? ["generated-audit", "Generated · AuditOnly"] : null,
+      gen && gen.enforceXml ? ["generated-enforce", "Generated · Enforced"] : null,
+      scan.effectivePolicy && scan.effectivePolicy.xml ? ["effective", "The device's effective policy"] : null,
+    ].filter(Boolean);
+
+    const topPaths = scan.writablePaths.slice(0, 12);
+    const topEvents = ev && ev.entries
+      ? ev.entries.filter((e) => e.verdict === "Blocked" || e.verdict === "Audited").slice(0, 12)
+      : [];
+
+    host.innerHTML = `
+      <h3 style="margin:0 0 8px">🛰 Device scan <span class="mini muted">— evidence the XML alone cannot carry</span></h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
+        ${fact("Device", m.name)}${fact("OS", m.os)}${fact("Joined", m.join)}
+        ${fact("Scanned by", m.scannedBy)}${fact("Elevated", m.elevated === false ? "NO — partial scan" : "yes")}
+        ${fact("Application Identity", m.appIdentityService)}
+        ${fact("Writable directories", scan.writablePaths.length)}
+        ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : ""))}
+        ${fact("Scan taken", scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "—")}
+      </div>
+      ${sources.length > 1 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <span class="mini muted">Editing ${esc(SCAN_SOURCE_LABEL[scanSource] || scanSource)} —</span>
+        ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${scanSource === v ? "primary" : ""}" data-src="${v}">${esc(l)}</button>`).join("")}
+      </div>` : ""}
+      ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+      ${topPaths.length ? `<h4 class="mini" style="margin:12px 0 6px">User-writable directories <span class="muted">— showing ${topPaths.length} of ${scan.writablePaths.length}</span></h4>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
+        ${topPaths.map((w) => {
+          const p = w.normalized || w.path;
+          const rule = evaluateProbePath(policy, p, "Exe");
+          return `<tr><td class="mini" style="word-break:break-all">${esc(p)}</td>
+            <td class="mini">${esc((w.grantees || []).map((g) => g.name || g.sid).join(", ") || "—")}</td>
+            <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
+        }).join("")}
+      </tbody></table></div>` : `<p class="mini muted">No user-writable directories were found in the scanned roots. That is unusual — check the scan warnings above before believing it.</p>`}
+      ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Executions the endpoint refused <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}</span></h4>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Verdict</th><th>File</th><th>Publisher</th><th>User</th><th>When</th></tr></thead><tbody>
+        ${topEvents.map((e) => `<tr>
+          <td>${e.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">would block</span>'}</td>
+          <td class="mini" style="word-break:break-all">${esc(e.path || "—")}</td>
+          <td class="mini">${esc(e.signed ? (e.publisher || "") : "not signed")}</td>
+          <td class="mini">${esc(e.userName || e.userSid || "—")}</td>
+          <td class="mini muted">${esc(String(e.timeUtc || "").replace("T", " ").slice(0, 16))}</td></tr>`).join("")}
+      </tbody></table></div>` : (ev && ev.available ? `<p class="mini muted" style="margin-top:12px">No AppLocker events in the last ${esc(String(ev.daysBack))} days. Either no policy is applied on that device, or the Application Identity service is not running — the fact table above says which.</p>` : `<p class="mini muted" style="margin-top:12px">AppLocker event logs were not collected in this scan.</p>`)}`;
+  }
+
   function render() {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
-    renderXmlPane();
+    renderCodePane();
+    renderScanCard();
     if (!policy) return;
     const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
     findings.forEach((f) => counts[f.sev]++);
@@ -845,7 +1201,8 @@ const AppLockerTool = (() => {
           const btn = plan
             ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
             : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
-          const row = `<tr><td>${sevTag(f.sev)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="max-width:260px;word-break:break-all">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
+          const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : "";
+          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="max-width:260px;word-break:break-all">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
           const editor = (plan && plan.mode === "editor" && fixOpen === key)
             ? `<tr class="al-fixrow" data-i="${i}"><td colspan="7" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
             : "";
@@ -931,6 +1288,18 @@ const AppLockerTool = (() => {
     document.querySelectorAll(".al-fix").forEach((b) => b.addEventListener("click", () => {
       const app = coverage[+b.dataset.i].app;
       mutate(`added an allow rule for ${app.name}`, () => addFixForApp(app));
+    }));
+    // Swapping which policy from the bundle is on the table is a fresh load, not a
+    // mutation: undoing your way back into a different source policy would be a
+    // trap, so the undo stack is dropped with the switch.
+    document.querySelectorAll(".al-scan-src").forEach((b) => b.addEventListener("click", () => {
+      if (!scan || b.dataset.src === scanSource) return;
+      const chosen = bundleXml(scan, b.dataset.src);
+      if (!chosen) return;
+      scanSource = chosen.source;
+      policy = parsePolicy(chosen.xml, scan.sourceName);
+      importedXmlName = `${scan.sourceName} — ${SCAN_SOURCE_LABEL[chosen.source]}`;
+      loadFresh();
     }));
     document.querySelectorAll(".al-del").forEach((b) => b.addEventListener("click", () => {
       const col = policy.collections.find((c) => c.type === b.dataset.col);
@@ -1033,49 +1402,110 @@ const AppLockerTool = (() => {
   // ================================================================
   // INIT — wire the static toolbar
   // ================================================================
+  function loadFresh() {
+    sevFilter = "all";
+    resetFixState();
+    recompute();
+  }
+
+  // One upload button, two file types. The scan bundle is JSON and carries the
+  // policy INSIDE it, so asking the admin which button to press would be asking
+  // them to know something the file already says.
+  function importFile(text, name) {
+    const looksJson = /\.json$/i.test(name) || /^\s*\{/.test(text);
+    if (looksJson) {
+      const b = parseBundle(text, name);
+      const chosen = bundleXml(b);
+      if (!chosen) throw new Error("That bundle carries no policy: the scan ran with -SkipRuleGeneration and the device's effective policy could not be read either. Re-run the scan without -SkipRuleGeneration.");
+      scan = b;
+      scanSource = chosen.source;
+      policy = parsePolicy(chosen.xml, name);
+      importedXmlName = `${name} — ${SCAN_SOURCE_LABEL[chosen.source]}`;
+      return;
+    }
+    // A plain XML import clears any previous scan: the evidence belonged to the
+    // other policy, and leaving it on screen would attach a device's ACLs to a
+    // file that has nothing to do with it.
+    scan = null;
+    scanSource = "";
+    policy = parsePolicy(text, name);
+    importedXmlName = name;
+  }
+
+  // Same-origin so it works on both channels without hard-coding a host, and
+  // survives the beta site living under a /tuno-beta/ path.
+  const scriptUrl = (file) => new URL("scripts/" + file, document.baseURI).href;
+
+  function flash(btn, text) {
+    const was = btn.textContent;
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = was; }, 2000);
+  }
+  async function copyToClipboard(btn, text) {
+    try { await navigator.clipboard.writeText(text); flash(btn, "✓ Copied"); }
+    catch { flash(btn, "✗ Blocked — use Download"); }
+  }
+
   function init() {
     $("alFile").addEventListener("change", async (e) => {
       const f = e.target.files[0];
       if (!f) return;
-      try {
-        policy = parsePolicy(await f.text(), f.name);
-        importedXmlName = f.name;
-        sevFilter = "all";
-        resetFixState();
-        recompute();
-      } catch (err) { alert("Import failed: " + err.message); }
+      try { importFile(await f.text(), f.name); loadFresh(); }
+      catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
     });
     $("alImport").addEventListener("click", () => $("alFile").click());
     $("alSample").addEventListener("click", () => {
+      scan = null; scanSource = "";
       policy = parsePolicy(SAMPLE_XML, "sample policy");
       importedXmlName = "sample policy (deliberately flawed — for trying the tool)";
-      sevFilter = "all";
-      resetFixState();
-      recompute();
+      loadFresh();
     });
     $("alNew").addEventListener("click", () => {
+      scan = null; scanSource = "";
       policy = { sourceName: "", collections: [] };
       COLLECTIONS.forEach((t) => ensureCollection(t));
       importedXmlName = "new policy";
-      sevFilter = "all";
-      resetFixState();
-      recompute();
+      loadFresh();
     });
-    $("alXml").addEventListener("click", () => { if (policy) download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml"); });
+
+    // ---- the code panel: which artefact, and its two buttons ----
+    document.querySelectorAll(".al-pane-tab").forEach((t) => t.addEventListener("click", () => {
+      pane = t.dataset.pane;
+      renderCodePane();
+    }));
+    $("alXml").addEventListener("click", () => {
+      if (!policy) return;
+      if (pane === "intune") download(intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json", intuneJson(intuneCfg.mode), "application/json");
+      else download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml");
+    });
     // Clipboard access is refused outright in some contexts (no gesture, a
     // policy-locked browser). Say so on the button rather than appearing to
     // copy — the download is right next to it.
-    $("alCopyXml").addEventListener("click", async (e) => {
+    $("alCopyXml").addEventListener("click", (e) => {
       if (!policy) return;
-      const btn = e.currentTarget, was = btn.textContent;
-      try {
-        await navigator.clipboard.writeText(exportXml());
-        btn.textContent = "✓ Copied";
-      } catch { btn.textContent = "✗ Blocked — use Download"; }
-      setTimeout(() => { btn.textContent = was; }, 2000);
+      copyToClipboard(e.currentTarget, pane === "intune" ? intuneJson(intuneCfg.mode) : exportXml());
     });
     $("alMd").addEventListener("click", () => { if (policy) download("applocker-review.md", markdown(), "text/markdown"); });
+
+    // ---- the Intune profile form ----
+    const bind = (id, key) => {
+      const el = $(id);
+      if (!el) return;
+      el.value = intuneCfg[key];
+      el.addEventListener("input", () => { intuneCfg[key] = el.value; renderCodePane(); });
+      el.addEventListener("change", () => { intuneCfg[key] = el.value; renderCodePane(); });
+    };
+    bind("alIntuneName", "displayName");
+    bind("alIntuneGrouping", "grouping");
+    bind("alIntuneMode", "mode");
+
+    // ---- the download panel ----
+    const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
+    document.querySelectorAll(".al-dl-cmd").forEach((el) => { el.textContent = cmdFor(el.dataset.file); });
+    document.querySelectorAll(".al-dl-copy").forEach((b) => b.addEventListener("click", (e) => {
+      copyToClipboard(e.currentTarget, cmdFor(e.currentTarget.dataset.file));
+    }));
   }
 
   return { init };

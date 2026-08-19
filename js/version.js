@@ -23,12 +23,12 @@
 const APP_BUILD = {
   version: "1.0",
   cycle: 3,          // hand-set cycle name — first beta cycle after production 2
-  build: 10307,      // beta series: 10000 + cycle*100 + iteration → v1.0.3-beta.7
+  build: 10308,      // beta series: 10000 + cycle*100 + iteration → v1.0.3-beta.8
   date: "2026-08-19",
   // When this build was cut, UTC — set with `date -u +%Y-%m-%dT%H:%MZ`,
   // never by hand (a local time typed into a UTC field puts the sign-in
   // stamp an hour into the future; ENCA builds 25090-25092 proved it).
-  released: "2026-08-19T16:44Z",
+  released: "2026-08-19T16:50Z",
   get isBeta() { return this.build >= 10000; },
   get stamp() { return `${this.label} · ${this.releasedLocal}`; },
   get releasedLocal() {
@@ -72,5 +72,5 @@ const APP_BUILD = {
 // A tool that has reached PRODUCTION is at least 1.0; it is the BETA chip,
 // not the version number, that says "still proving itself".
 const TOOL_VERSIONS = {
-  toolAppLocker: { t: 1, v: "0.2", note: "BETA — AppLocker policy builder & validator: import a policy XML (GPO export or Get-AppLockerPolicy -Effective -Xml), audit it with the AppLockerInspector check set (enforcement posture, broad principals, user-writable and wildcard paths, UNC allows, overly broad publisher rules, hash rules on broad groups, deny-shadowing awareness), verify the Microsoft apps a locked-down estate still needs — OneDrive per-user install first among them — are actually allowed, build the missing rules (publisher-first, path fallback) and the default rule set, and export the result as AppLocker policy XML plus a Markdown findings report. Every finding that has a recommendation now carries a fix button: mechanical recommendations (set enforcement, add the default rules, add a missing collection) apply in one click, and judgement recommendations open the offending rule prefilled so the admin supplies the publisher, version bound or group the tool cannot know. Every fix is one click from undone. Runs entirely in the browser; nothing is uploaded. ACL reality checks (NTFS/share) need a filesystem and stay in Invoke-AppLockerInspector.ps1 — the report says so rather than pretending. After Spencer Alessi's AppLockerInspector" },
+  toolAppLocker: { t: 1, v: "0.3", note: "BETA — AppLocker policy builder & validator, now an end-to-end workflow rather than an XML reader: scan → upload → review → export → deploy. (1) SCAN. The tool hands out Invoke-TunoAppLockerScan.ps1, served from the site so the copy downloaded always matches the build. It is a modern reimplementation of Microsoft AaronLocker's approach — native DACL evaluation instead of Sysinternals AccessChk, Deny ACEs honoured, JSON instead of Excel COM, and it runs on PowerShell 5.1 AND 7 where AaronLocker hard-fails on anything but 5.1. It finds every directory a non-administrator can write to, inventories the executables in them with signer/version/hash, reads the AppLocker event logs, and builds a publisher-first rule set with every writable directory injected as an exception. (2) UPLOAD. The same import button takes the scan's JSON bundle or a plain policy XML; the bundle carries the generated Audit and Enforce policies plus the device's own effective policy, and any of the three can be put on the table. (3) REVIEW. The static check set is joined by scan-derived findings marked 🛰 — a writable directory an allow rule still reaches, unsigned binaries that can only ever get hash rules, executions the endpoint has already refused — reached with the SAME evaluator as the Microsoft coverage table by probing a hypothetical executable dropped into the directory. (4) EXPORT. The code panel gained a second tab: the Intune custom profile (windows10CustomConfiguration, one OMA-URI per collection, DLL forced NotConfigured), built from the same serialiser as the XML. (5) DEPLOY. Convert-TunoAppLockerToIntune.ps1, standalone with no customer-connection harness, offline JSON or -Online via Connect-MgGraph. Still runs entirely in the browser; nothing is uploaded. After Spencer Alessi's AppLockerInspector and Microsoft's AaronLocker" },
 };
