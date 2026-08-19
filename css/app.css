@@ -1400,6 +1400,45 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .lg-bar{height:14px;border-radius:7px;background:var(--soft);border:1px solid var(--border);overflow:hidden;margin-top:4px}
 .lg-bar>div{height:100%;border-radius:7px 0 0 7px;transition:width .3s}
 
+/* ---- T01: the audit on the left, the XML it produces on the right ----
+   The XML is the artefact that ends up in the GPO, so it stays on screen
+   while the policy is edited instead of appearing only as a download. The
+   panel sticks to the viewport and scrolls inside itself; the column
+   collapses under 1100px, because a narrow XML column cannot show a path
+   without wrapping it into nonsense. */
+.al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:14px;align-items:start;margin-top:14px}
+.al-col{min-width:0;display:flex;flex-direction:column;gap:14px}
+.al-side{position:sticky;top:14px;min-width:0}
+@media (max-width:1100px){
+  .al-split{grid-template-columns:minmax(0,1fr)}
+  .al-side{position:static}
+  .al-xml{max-height:70vh}
+}
+
+/* The panel keeps its own dark surface in both themes: it is a code view,
+   and a light-mode code view of 300 lines of XML is harder to scan. */
+.al-xml{display:flex;flex-direction:column;max-height:calc(100vh - 40px);
+  background:#111c2e;border:1px solid #22355a;border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.al-xml-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+.al-xml-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:13px;font-weight:700;color:#e7eefb}
+.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#7f96bb;margin-top:2px}
+.al-xml-acts{display:flex;gap:8px;flex-shrink:0}
+.al-xml .btn{background:#1b2b45;border:1px solid #2c4266;color:#dbe6f7}
+.al-xml .btn:hover{background:#22354f;border-color:#4b6da3}
+.al-xml .btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.al-xml .btn.primary:hover{background:#356418;border-color:#356418}
+.al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:#a8e6a0;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.al-xml-code .x-tag{color:#7fb2ff}
+.al-xml-code .x-attr{color:#9ad5ff}
+.al-xml-code .x-val{color:#a8e6a0}
+.al-xml-code .x-punct{color:#5f7fa8}
+.al-xml-empty{color:#7f96bb;font-style:italic}
+
 /* Promotion queue: the per-item test checklist. Folded away by default — the
    table is read to decide WHAT to promote, and the steps are read once that
    decision is made. Ported from ENCA. */

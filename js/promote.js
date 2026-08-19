@@ -49,6 +49,27 @@ const PROMOTE = {
 
   items: [
     {
+      n: 4,
+      title: "The XML is on screen while you edit the policy",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10307],
+      risk: "medium",
+      what: "T01's screen splits in two: audit, enforcement, coverage, findings and rules on the left; a sticky, syntax-coloured AppLockerPolicy.xml panel on the right, redrawn from exportXml() on every mutation. Copy and Download XML move onto that panel; Export MD stays in the toolbar. The panel collapses below the audit under 1100px. The colouriser escapes the XML first and matches only on the escaped form, so a rule name carrying an angle bracket cannot reach the DOM as markup. Copy says so on the button when the clipboard is refused rather than appearing to have worked. Layout borrowed from applockergenerator.vercel.app; the parts of it that show one collection at a time and have no audit were deliberately not borrowed.",
+      why: "MEDIUM — no analysis or rewrite logic changed, but this is the tool's whole screen, and the panel is a second surface claiming to show what you are about to ship. It graduates once the claim has been checked against the downloaded file on a real policy, at a real window width, on both themes.",
+      test: [
+        "Load the sample policy. The panel must appear on the right with the header reading AppLockerPolicy.xml and a subtitle giving the rule and collection counts — check those two numbers against the summary line above the audit; they come from the same policy object and disagreeing means one of them is stale.",
+        "THE ONE THAT MATTERS: press Download XML, then Copy, then diff the downloaded file against the clipboard AND against what the panel displays. All three must be identical. The panel renders from exportXml() precisely so it cannot drift — if it has drifted, a second serialiser has been introduced and the preview is lying about what the GPO will get.",
+        "Apply a fix (set Msi to Enabled), add a rule, delete a rule, change an enforcement dropdown, then ↩ Undo each. The panel must move on every one of those, including the undo. A panel that updates on fixes but not on the enforcement dropdown means render() is being bypassed somewhere.",
+        "Import a policy containing a rule whose NAME has an angle bracket or an ampersand in it (edit one into an export by hand if no customer policy has one). The panel must show it as text — angle brackets visible, colouring intact — and the page must not break. This is the injection check; the colouriser escapes before it matches.",
+        "Drag the window from wide to below 1100px: the panel must move underneath the audit rather than narrowing, and stop being sticky. At full width it must stick while the left column scrolls, and scroll inside itself when the policy is longer than the viewport.",
+        "Switch between light and dark theme. The panel stays dark in both on purpose — confirm that reads as deliberate and that the Copy and Download buttons are legible in both.",
+        "Confirm ⭳ Export XML is gone from the top toolbar and Export MD is still there, and that Export MD still produces the findings report. Removing the toolbar button is the one thing here an existing user will notice.",
+        "Deny clipboard access (a private window or a browser with the permission blocked) and press Copy: the button must say it was blocked and point at Download, then return to its normal label. It must not sit there reading 'Copied'.",
+        "Load a large real policy — several hundred rules — and confirm the panel does not make editing sluggish. It re-serialises the whole policy on every render; if that is felt, it needs debouncing before production.",
+      ],
+      files: ["index.html", "css/app.css", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 3,
       title: "The audit's recommendations became buttons",
       tools: ["🔐 AppLocker builder & validator"],

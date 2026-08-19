@@ -781,9 +781,35 @@ const AppLockerTool = (() => {
     render();
   }
 
+  // Minimal XML colouriser for the live panel. The string is escaped FIRST
+  // and every pattern below matches only on the ESCAPED form (&lt;tag,
+  // attr=&quot;value&quot;), so nothing carried in a policy — a rule name
+  // containing an angle bracket, a path with an ampersand — can reach the
+  // DOM as markup. Presentation only: exportXml() remains the source of
+  // truth and is what Copy and Download hand over.
+  function highlightXml(x) {
+    return esc(x)
+      .replace(/(&lt;\/?)([\w:.-]+)/g, '<span class="x-punct">$1</span><span class="x-tag">$2</span>')
+      .replace(/([\w:.-]+)=(&quot;.*?&quot;)/g, '<span class="x-attr">$1</span><span class="x-punct">=</span><span class="x-val">$2</span>')
+      .replace(/(\/?&gt;)/g, '<span class="x-punct">$1</span>');
+  }
+
+  // The XML panel is redrawn from the SAME exportXml() the download uses —
+  // never from a second serialiser kept in step by hand, which is how a
+  // preview starts lying about what it is about to write.
+  function renderXmlPane() {
+    const sub = $("alXmlSub"), code = $("alXmlCode");
+    if (!sub || !code) return;
+    if (!policy) { sub.textContent = ""; code.innerHTML = '<span class="al-xml-empty">No policy loaded.</span>'; return; }
+    const rules = policy.collections.reduce((n, c) => n + c.rules.length, 0);
+    sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${policy.collections.length} collection${policy.collections.length === 1 ? "" : "s"}`;
+    code.innerHTML = highlightXml(exportXml());
+  }
+
   function render() {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
+    renderXmlPane();
     if (!policy) return;
     const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
     findings.forEach((f) => counts[f.sev]++);
@@ -1037,6 +1063,18 @@ const AppLockerTool = (() => {
       recompute();
     });
     $("alXml").addEventListener("click", () => { if (policy) download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml"); });
+    // Clipboard access is refused outright in some contexts (no gesture, a
+    // policy-locked browser). Say so on the button rather than appearing to
+    // copy — the download is right next to it.
+    $("alCopyXml").addEventListener("click", async (e) => {
+      if (!policy) return;
+      const btn = e.currentTarget, was = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(exportXml());
+        btn.textContent = "✓ Copied";
+      } catch { btn.textContent = "✗ Blocked — use Download"; }
+      setTimeout(() => { btn.textContent = was; }, 2000);
+    });
     $("alMd").addEventListener("click", () => { if (policy) download("applocker-review.md", markdown(), "text/markdown"); });
   }
 

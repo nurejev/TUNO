@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10306"></script>
+<script src="js/popup-guard.js?v=10307"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10306">
+<link rel="stylesheet" href="css/app.css?v=10307">
 </head>
 <body>
 
@@ -107,7 +107,6 @@
         <button class="btn" id="alSample">🧪 Load sample policy</button>
         <button class="btn" id="alNew">➕ Start empty</button>
         <span class="spacer"></span>
-        <button class="btn lemon" id="alXml" title="Export the current rule set as AppLocker policy XML">⭳ Export XML</button>
         <button class="btn" id="alMd" title="Findings and coverage as a Markdown report">Export MD</button>
       </div>
     </div>
@@ -117,12 +116,36 @@
       From a machine's effective policy (elevated PowerShell): <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code><br>
       Or load the sample policy to see what the audit and the Microsoft coverage check produce.</p>
     </div>
+    <!-- Two columns: the policy you are working on, and the XML it currently
+         produces. The XML panel is the thing that goes into the GPO, so it is
+         visible while you change the policy rather than only at download. It
+         drops below the audit under 1100px — a column too narrow to read a
+         path in is worse than a stacked one. -->
     <div id="alBody" style="display:none">
-      <div class="list-card" id="alSummary" style="margin-top:14px;padding:14px 18px"></div>
-      <div class="list-card" id="alEnforce" style="margin-top:14px;padding:16px 18px"></div>
-      <div class="list-card" id="alCoverage" style="margin-top:14px;padding:16px 18px"></div>
-      <div class="list-card" id="alFindings" style="margin-top:14px;padding:16px 18px"></div>
-      <div id="alRules" style="margin-top:14px"></div>
+      <div class="al-split">
+        <div class="al-col">
+          <div class="list-card" id="alSummary" style="padding:14px 18px"></div>
+          <div class="list-card" id="alEnforce" style="padding:16px 18px"></div>
+          <div class="list-card" id="alCoverage" style="padding:16px 18px"></div>
+          <div class="list-card" id="alFindings" style="padding:16px 18px"></div>
+          <div id="alRules"></div>
+        </div>
+        <aside class="al-side">
+          <div class="al-xml">
+            <div class="al-xml-head">
+              <div style="min-width:0">
+                <div class="al-xml-name">AppLockerPolicy.xml</div>
+                <div class="al-xml-sub" id="alXmlSub"></div>
+              </div>
+              <div class="al-xml-acts">
+                <button class="btn sm" id="alCopyXml" title="Copy the policy XML to the clipboard">⧉ Copy</button>
+                <button class="btn sm primary" id="alXml" title="Download the current rule set as AppLocker policy XML">⭳ Download XML</button>
+              </div>
+            </div>
+            <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
+          </div>
+        </aside>
+      </div>
     </div>
   </section>
 
@@ -201,13 +224,13 @@
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10306"></script>
-<script src="js/version.js?v=10306"></script>
-<script src="js/promote.js?v=10306"></script>
-<script src="js/authConfig.js?v=10306"></script>
-<script src="js/changelog.js?v=10306"></script>
-<script src="js/msappcatalog.js?v=10306"></script>
-<script src="js/applocker.js?v=10306"></script>
-<script src="js/app.js?v=10306"></script>
+<script src="js/branding.js?v=10307"></script>
+<script src="js/version.js?v=10307"></script>
+<script src="js/promote.js?v=10307"></script>
+<script src="js/authConfig.js?v=10307"></script>
+<script src="js/changelog.js?v=10307"></script>
+<script src="js/msappcatalog.js?v=10307"></script>
+<script src="js/applocker.js?v=10307"></script>
+<script src="js/app.js?v=10307"></script>
 </body>
 </html>

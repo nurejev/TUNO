@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10307, date: "2026-08-19", title: "You can see the XML you are about to ship",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The tool produced its XML only as a download, so the artefact that actually goes into the GPO was the one thing you never looked at. It now has a panel of its own down the right-hand side, syntax-coloured and redrawn on every change — apply a fix, add a rule, change an enforcement mode, undo, and the XML moves with it. Copy and Download XML sit on that panel rather than in the toolbar at the top of the page, because they belong to the thing they act on. Export MD stays in the toolbar." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The screen is two columns: the audit, coverage and rules on the left, the XML on the right, sticky, scrolling inside itself. Below 1100px the panel drops underneath instead of shrinking — a column too narrow to show a file path wraps it into something you cannot read. The panel renders from the same export function the download uses, so a preview cannot drift from the file: there is no second serialiser to keep in step." },
+    ],
+  },
+  {
     build: 10306, date: "2026-08-19", title: "The promotion queue says how to check it, not just what it is",
     items: [
       { kind: "improved", tool: "All tools", text: "The beta-only promotion queue in Help was a four-column table that told you a change existed and how risky someone thought it was. It is now ENCA's table, ported: each row still carries its stable number, but the risk cell explains what that word means, the beta builds have a column of their own, the files the change touched are listed, and the reasoning is split in two. Why says what the risk is and what would have to be true for the item to graduate. How to test it — folded away, because you read the table to decide what to promote and the steps only once that decision is made — names the tenant or policy state each check needs and the outcome you should see, so a step can fail rather than be nodded through. Where a check cannot be run without a tenant nobody has to hand, the step says so: knowing which check was skipped is worth more than a list that pretends all of them were run." },
