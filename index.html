@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CSP via meta tag (GitHub Pages cannot set headers). frame-src allows
+     MSAL's hidden iframe for silent token renewal; img-src data:/blob: for
+     future exports. Same policy shape as ENCA. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
+     from loading the whole app and eating its own auth response. -->
+<script src="js/popup-guard.js?v=1"></script>
+<title>TUNO · Intune Operations Tools · Limon-IT</title>
+<link rel="icon" id="favicon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css?v=1">
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="logo" id="logoHome" title="Back to tools">
+      <img id="brandLogo" src="assets/logo-mark-light.svg" width="34" height="34" alt="Limon-IT">
+      <b id="brandOrg">Limon-<span>IT</span></b>
+    </div>
+    <span class="app-tag" id="brandTag">TUNO</span>
+    <button class="btn home-btn" id="homeBtn" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.2 9.4V20.4h13.6V9.4"/><path d="M9.6 20.4v-6.2h4.8v6.2"/>
+      </svg>Tools</button>
+    <span class="mini muted" id="brandHost">tuno.limon-it.nl</span>
+    <div class="spacer"></div>
+    <button class="btn" id="themeBtn" title="Theme: Auto (follows your device)"><span class="tico">🌗</span></button>
+    <div class="tenant" id="tenantBox">
+      <div><div id="tenantName" style="font-weight:600"></div><div class="mini" id="tenantUser"></div></div>
+      <div class="avatar" id="avatar"></div>
+      <button class="btn" id="signOutBtn">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<!-- Tool tab bar — jump between tools without going back to the home grid.
+     Populated from the tool tiles at startup; shown once signed in. -->
+<nav class="toolnav" id="toolNav" style="display:none"></nav>
+
+<main>
+  <!-- ============ LOGIN ============ -->
+  <section id="screen-login" class="screen active">
+    <div class="login-card">
+      <img id="brandLogoLogin" src="assets/logo-mark-light.svg" width="76" height="76" alt="Limon-IT">
+      <h1 id="brandLoginTitle">TUNO — Intune Operations Tools</h1>
+      <p id="brandLoginBlurb">Sign in with your Microsoft Entra account to analyze, build and validate your endpoint security configuration — starting with AppLocker policies.</p>
+      <button class="btn primary ms-btn" id="signInBtn">
+        <svg width="17" height="17" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+        Sign in with Microsoft
+      </button>
+      <div class="login-err" id="loginErr" style="display:none"></div>
+      <p class="login-alt"><a href="#" id="noPopupLink">Pop-up not working? Sign in without one →</a></p>
+      <div class="login-note">
+        Multi-tenant · minimal Microsoft Graph permissions, asked per tool<br>
+        Runs entirely in your browser — imported policy XML never leaves your session.
+      </div>
+      <div class="login-note"><a href="SECURITY.md" id="secLinkLogin" target="_blank" rel="noopener">🔒 How secure is this? Read the security &amp; risk documentation →</a></div>
+      <div class="build-stamp" id="buildStamp" title="Build number matches the asset version — if this is not the version you pushed, hard-refresh"></div>
+    </div>
+  </section>
+
+  <!-- ============ TOOLS HOME ============ -->
+  <section id="screen-home" class="screen">
+    <!-- TILE TAGS — same discipline as ENCA: NEW (did not exist in the previous
+         release), BETA (shipped, still proving itself), UPDATED (changed in
+         this release; clear it at the start of the next cycle). -->
+    <h2 class="home-title">What do you want to do? <span class="home-count" id="homeCount"></span></h2>
+    <div class="tool-sec"><h3>🖥 Endpoint security</h3><p>Application control and device security posture.</p></div>
+    <div class="tools">
+      <div class="tool" id="toolAppLocker">
+        <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Import an AppLocker policy XML and audit it with the AppLockerInspector check set — enforcement posture, broad principals, user-writable paths, risky wildcards, overly broad publisher rules. Verify the Microsoft apps a locked-down estate still needs (OneDrive first among them) are actually allowed, add the missing rules publisher-first, and export policy XML plus a Markdown report. Runs entirely in the browser.</p>
+      </div>
+    </div>
+    <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
+    <div class="tools">
+      <div class="tool tool-help" id="toolChangelog">
+        <div class="tool-ic">📋</div><h3>What's new</h3>
+        <p>Everything added or changed, per build.</p>
+      </div>
+      <div class="tool tool-help" id="toolRoadmap">
+        <div class="tool-ic">🗺</div><h3>Roadmap</h3>
+        <p>Where TUNO is heading — shipped, next, later.</p>
+      </div>
+      <div class="tool tool-help" id="toolHelp">
+        <div class="tool-ic">❓</div><h3>Help</h3>
+        <p>What each tool does, what it reads, and the security model.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ APPLOCKER BUILDER & VALIDATOR (T01) ============ -->
+  <section id="screen-applocker" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Import a policy XML — a GPO export or <code>Get-AppLockerPolicy -Effective -Xml</code> — and it is audited in the browser with the check set from Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>. The Microsoft coverage table answers the question every lockdown discovers too late: can a standard user still run OneDrive, Teams, Edge and Office? Build the missing rules publisher-first and export the XML back into your GPO. <b>Nothing is uploaded</b> — the file is read in this tab and stays there. NTFS and share ACL reality checks need a filesystem and stay in the PowerShell original.</p>
+    </div>
+    <div class="toolbar" style="margin-top:14px">
+      <div class="tb-actions">
+        <button class="btn primary" id="alImport">📂 Import policy XML</button>
+        <input type="file" id="alFile" accept="text/xml,application/xml,.xml" style="display:none">
+        <button class="btn" id="alSample">🧪 Load sample policy</button>
+        <button class="btn" id="alNew">➕ Start empty</button>
+        <span class="spacer"></span>
+        <button class="btn lemon" id="alXml" title="Export the current rule set as AppLocker policy XML">⭳ Export XML</button>
+        <button class="btn" id="alMd" title="Findings and coverage as a Markdown report">Export MD</button>
+      </div>
+    </div>
+    <div id="alEmpty" class="list-card" style="margin-top:14px;padding:26px">
+      <p style="margin:0 0 6px"><b>Start by importing a policy.</b></p>
+      <p class="mini muted" style="margin:0">From a GPO: Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b><br>
+      From a machine's effective policy (elevated PowerShell): <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code><br>
+      Or load the sample policy to see what the audit and the Microsoft coverage check produce.</p>
+    </div>
+    <div id="alBody" style="display:none">
+      <div class="list-card" id="alSummary" style="margin-top:14px;padding:14px 18px"></div>
+      <div class="list-card" id="alEnforce" style="margin-top:14px;padding:16px 18px"></div>
+      <div class="list-card" id="alCoverage" style="margin-top:14px;padding:16px 18px"></div>
+      <div class="list-card" id="alFindings" style="margin-top:14px;padding:16px 18px"></div>
+      <div id="alRules" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT'S NEW ============ -->
+  <section id="screen-changelog" class="screen">
+    <div class="help-page">
+      <h2 class="home-title" style="margin:0 0 8px">📋 What's new</h2>
+      <p class="mini muted" style="margin:0 0 16px">Everything added or changed in TUNO, newest first.</p>
+      <div id="clBody"></div>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section id="screen-roadmap" class="screen">
+    <div class="help-page">
+      <h2 class="home-title" style="margin:0 0 8px">🗺 Roadmap</h2>
+      <p class="mini muted" style="margin:0 0 18px">Where TUNO is heading, laid out in time. Order and scope may change — real-tenant feedback decides what lands first.<br><b>Each item carries a reference</b> (<span class="rm-ref">Rnn</span>) so it can be pointed at without quoting the title — same rules as ENCA: a reference belongs to its item permanently, is never reused once the item ships, and the numbers are not a priority order. An item that ships <b>moves from Next to Now</b> with its reference intact.</p>
+      <div class="rm-tl">
+        <div class="rm-era now">
+          <h3>Now <span class="rm-when">shipped &amp; shipping</span></h3>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R01</span> 🔐 AppLocker builder &amp; validator <span class="tag grant">live · build 1</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">Web-based AppLocker policy analysis after Spencer Alessi's AppLockerInspector: import the XML, get the weak/misconfigured/risky settings with severity, reason and recommendation — plus the check the PowerShell original does not have: a Microsoft app coverage table that verifies OneDrive (per-user!), Teams, Edge, WebView2, Office click-to-run, the Intune agent and friends are actually allowed to run for a standard user, with one-click publisher-first fixes and XML export back into the GPO.</p>
+          </div>
+        </div>
+        <div class="rm-era next">
+          <h3>Next</h3>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
+            <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
+          </div>
+        </div>
+        <div class="rm-era later">
+          <h3>Later</h3>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R03</span> 🖥 Intune device analyzer</h4>
+            <p class="mini" style="margin:0">The tuno.md original: pick a device and see which groups it is in, which policies land on it and why, and which apps it gets — the Intune counterpart of ENCA's per-user policy views.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <section id="screen-help" class="screen">
+    <div class="help-page">
+      <h2 class="home-title" style="margin:0 0 8px">❓ Help</h2>
+      <div class="list-card" style="padding:18px 22px">
+        <h3 style="margin:0 0 6px">What TUNO is</h3>
+        <p class="mini" style="margin:0 0 10px"><b>TUNO — Tenant Utilities for iNtune Operations</b> is ENCA's sister tool (<a href="https://enca.limon-it.nl" target="_blank" rel="noopener">enca.limon-it.nl</a>): the same idea — static files running entirely in your browser, minimal delegated Graph permissions asked per tool, nothing stored server-side because there is no server — applied to Intune and endpoint security instead of Conditional Access.</p>
+        <h3 style="margin:14px 0 6px">🔐 AppLocker builder &amp; validator</h3>
+        <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: the policy XML you import is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported back as XML or a Markdown report. Two honest limits: NTFS/share ACL checks need a filesystem, so run <code>Invoke-AppLockerInspector.ps1</code> on a host for those; and rule evaluation here is a faithful model (deny beats allow, exceptions, macros, publisher fields), not the AppLocker engine itself — test in AuditOnly before enforcing, always.</p>
+        <h3 style="margin:14px 0 6px">Security model</h3>
+        <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
+      </div>
+      <div class="list-card" id="helpPromote" style="display:none;margin-top:14px;padding:18px 22px"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="fwrap">
+    <span><span id="brandFoot">© 2026 Limon-IT · TUNO</span> <span id="buildStampFoot"></span></span>
+    <div class="spacer"></div>
+    <a href="SECURITY.md" id="secLinkFoot" target="_blank" rel="noopener" title="Architecture, permissions, residual risks and recommendations — the full security documentation">🔒 Security</a>
+    <a id="brandOrgLink" href="https://limon-it.nl">limon-it.nl</a>
+  </div>
+</footer>
+
+<script src="vendor/msal-browser.min.js"></script>
+<script src="js/branding.js?v=1"></script>
+<script src="js/version.js?v=1"></script>
+<script src="js/promote.js?v=1"></script>
+<script src="js/authConfig.js?v=1"></script>
+<script src="js/changelog.js?v=1"></script>
+<script src="js/msappcatalog.js?v=1"></script>
+<script src="js/applocker.js?v=1"></script>
+<script src="js/app.js?v=1"></script>
+</body>
+</html>

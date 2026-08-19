@@ -1,0 +1,1401 @@
+:root{
+  --ink:#12331f; --green:#1e4729; --green-deep:#12331f; --accent2:#3f7a24;
+  --lemon:#f7d65a; --lemon-deep:#dfb32b; --muted:#5f7a67; --border:#dbe7de;
+  --surface:#ffffff; --bg:#f2f7f3; --soft:#eaf3ec; --radius:16px;
+  --shadow:0 10px 30px rgba(18,51,31,.10);
+  --on:#3f7a24; --off:#b04a3a; --report:#b8860b;
+  --hover:#fafdf9; --line:#f0f5f1; --soft2:#f6faf7; --glow:#cdeed4;
+  --ok-bg:#e5f3d9; --ok-bg2:#eef8f1; --ok-bd:#c3e0ad;
+  --warn-bg:#fdf3c9; --warn-bg2:#fdf8e6; --warn-bd:#eeda8e; --warn-fg:#8a6d0b;
+  --bad-bg:#f7e3df; --bad-bg2:#fdeeec; --bad-bd:#eec4bc;
+  --crit-bg:#f7dfdb; --crit-fg:#8f2f1f; --high-bg:#fbe6d4; --high-fg:#a04d0b;
+  --blue:#1f4e8f; --blue-bg:#dde9f7;
+  --na:#cdd8d0; --faint:#b9ccbe; --ghost-bd:#26402f; --on-deep-mute:#c6d6ca;
+  --hl:rgba(63,122,36,.10); --hl2:rgba(63,122,36,.22);
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+button{font-family:inherit;cursor:pointer}
+a{color:var(--accent2)}
+.muted{color:var(--muted)}
+.mini{font-size:12px;color:var(--muted)}
+
+/* ---------- header ---------- */
+header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hwrap{max-width:1180px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:14px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo{cursor:pointer}
+.logo b{font-size:17px;letter-spacing:-.02em}
+.logo b span{color:var(--accent2)}
+.app-tag{background:var(--soft);color:var(--green);font-weight:600;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border)}
+/* tool tab bar — sticky under the header. The inner strip is centred and
+   aligned to the card width, so tabs open outward from the middle. */
+.toolnav{position:sticky;top:var(--sticky-header,58px);z-index:45;background:var(--surface);border-bottom:1px solid var(--border);padding:6px 0}
+.toolnav-inner{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;gap:4px;align-items:center;
+  overflow-x:auto;scrollbar-width:thin}
+/* Centred WITHOUT justify-content:center — a centered flex strip that
+   overflows becomes unscrollable past its left edge (the home button was
+   unreachable with many tabs open). Auto-margins on the ends center the
+   group when there is room and behave like normal overflow when not. */
+.toolnav-inner > :first-child{margin-left:auto}
+.toolnav-inner > :last-child{margin-right:auto}
+.toolnav-inner::-webkit-scrollbar{height:6px}
+.toolnav-btn{flex:none;border:1px solid transparent;background:none;color:var(--muted);font-weight:600;font-size:12.5px;
+  padding:6px 12px;border-radius:8px;white-space:nowrap;cursor:pointer;transition:.12s}
+.toolnav-btn:hover{background:var(--soft);color:var(--ink)}
+/* home reads as a real button, not a stray glyph */
+.toolnav-btn.home{padding:6px 11px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted)}
+.toolnav-btn.home svg{width:19px;height:19px;display:block}
+.toolnav-btn.home:hover{background:var(--soft);border-color:var(--green);color:var(--green)}
+.toolnav-btn.home.active{background:var(--green);border-color:var(--green);color:#fff}
+:root[data-theme="dark"] .toolnav-btn.home.active{color:var(--green-deep)}
+/* header "Tools" button — same house, sized to sit next to the label */
+.btn.home-btn{display:inline-flex;align-items:center;gap:7px}
+.btn.home-btn svg{width:16px;height:16px;flex:none}
+.toolnav-btn.add{font-size:15px;padding:5px 11px;color:var(--green)}
+/* an open tab = label + close, sharing a pill */
+.toolnav-tab{flex:none;display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;background:var(--soft)}
+.toolnav-tab .toolnav-btn{border:0;padding:6px 6px 6px 12px}
+.toolnav-tab .toolnav-x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:4px 9px 4px 4px;border-radius:0 8px 8px 0}
+.toolnav-tab .toolnav-x:hover{color:var(--off)}
+.toolnav-tab.active{background:var(--green);border-color:var(--green)}
+.toolnav-tab.active .toolnav-btn,.toolnav-tab.active .toolnav-x{color:#fff}
+/* keep the active (green) tab readable on hover — the generic .toolnav-btn:hover
+   paints a light background, which left white text unreadable on green */
+.toolnav-tab.active .toolnav-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.toolnav-tab.active .toolnav-x:hover{background:rgba(255,255,255,.15);color:#fff}
+:root[data-theme="dark"] .toolnav-tab.active .toolnav-btn,:root[data-theme="dark"] .toolnav-tab.active .toolnav-x{color:var(--green-deep)}
+:root[data-theme="dark"] .toolnav-tab.active .toolnav-btn:hover,:root[data-theme="dark"] .toolnav-tab.active .toolnav-x:hover{background:rgba(0,0,0,.12);color:var(--green-deep)}
+/* + menu popover */
+.toolnav-menu{position:fixed;z-index:410;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow);padding:6px;max-height:60vh;overflow:auto;width:264px}
+.toolnav-menu button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);
+  font-size:13px;padding:8px 10px;border-radius:8px;cursor:pointer}
+.toolnav-menu button:hover{background:var(--soft)}
+.toolnav-menu button.open{color:var(--muted)}
+.spacer{flex:1}
+.tenant{display:none;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px}
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:8px 16px;border-radius:10px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn:hover{border-color:var(--accent2)}
+.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.lemon{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
+.btn.ghost{background:none;color:#fff;border-color:var(--ghost-bd)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
+
+/* ---------- login / loading ---------- */
+#screen-login,#screen-loading{align-items:center;justify-content:center;min-height:calc(100vh - 160px)}
+#screen-login.active,#screen-loading.active{display:flex}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:48px;max-width:460px;text-align:center;
+  background-image:radial-gradient(500px 260px at 85% -80px,var(--glow) 0%,transparent 60%)}
+.login-card h1{font-size:24px;margin:18px 0 8px;letter-spacing:-.02em}
+.login-card p{color:var(--muted);line-height:1.55;margin-bottom:26px}
+.ms-btn{width:100%;justify-content:center;padding:12px;font-size:14px}
+.login-note{margin-top:20px;font-size:12px;color:var(--muted);line-height:1.5}
+/* why a sign-in did not complete — shown in place, never as an alert */
+.login-err{margin-top:16px;text-align:left;border:1px solid var(--bad-bd);border-left:3px solid var(--off);
+  border-radius:10px;background:var(--bad-bg2);padding:12px 14px;font-size:13px;line-height:1.55}
+.login-err b{color:var(--off)}
+.login-err p{margin:0 0 6px;color:var(--ink)}
+.login-err p:last-child{margin-bottom:0}
+.login-err code{background:var(--soft);border:1px solid var(--border);border-radius:5px;
+  padding:1px 5px;font-size:11.5px;overflow-wrap:anywhere}
+.login-alt{margin-top:12px;font-size:12.5px}
+.login-alt a{color:var(--accent2);text-decoration:none;border-bottom:1px solid transparent}
+.login-alt a:hover{border-bottom-color:var(--accent2)}
+.login-err .diag{margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);
+  overflow-wrap:anywhere;user-select:all}
+.login-note code{background:var(--soft);padding:1px 6px;border-radius:6px;font-size:11px}
+.spinner{width:44px;height:44px;border:4px solid var(--soft);border-top-color:var(--accent2);border-radius:50%;margin:0 auto 18px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- toolbar (sticky below the header while scrolling) ---------- */
+/* One toolbar shape for every tool: search / filters / view switch on the left,
+   actions in a right-aligned group that wraps as a unit instead of scattering. */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:10px;
+  position:sticky;top:var(--sticky-nav,106px);z-index:40;background:var(--bg);
+  padding:12px 0;margin:-12px 0 6px;box-shadow:0 6px 12px -8px rgba(18,51,31,.15)}
+.tb-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+.toolbar > .chk{margin:0}
+/* every control in a toolbar shares one height, so nothing sits half a row off */
+.toolbar .btn,.toolbar .seg,.toolbar .fchip,.toolbar .chk,.toolbar .search input,
+.toolbar select.btn,.toolbar input.btn{min-height:38px}
+.toolbar .seg button{padding:0 16px}
+.toolbar .fchip{padding:0 14px;display:inline-flex;align-items:center}
+.toolbar .chk{display:inline-flex;align-items:center;gap:8px;padding:0 4px}
+.toolbar .search input{padding-top:0;padding-bottom:0}
+.toolbar .search svg{top:50%;transform:translateY(-50%)}
+.search{flex:1;min-width:220px;position:relative}
+.search input{width:100%;padding:9px 32px 9px 36px;border:1px solid var(--border);border-radius:10px;font:inherit;background:var(--surface)}
+.search svg{position:absolute;left:11px;top:9px;opacity:.45}
+/* Clear (×). Visibility is driven by :placeholder-shown rather than a JS flag,
+   so it also disappears when a tool resets its own box in code. */
+.search-x{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:none;
+  width:24px;height:24px;line-height:22px;text-align:center;padding:0;border:0;border-radius:50%;
+  background:none;color:var(--muted);font-size:18px;cursor:pointer}
+.search-x:hover{background:var(--hover);color:var(--text)}
+.search input:not(:placeholder-shown)~.search-x{display:block}
+.seg{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:8px 16px;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button.active{background:var(--green);color:#fff}
+.chip-filter{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--muted)}
+.fchip.active{background:var(--soft);color:var(--green);border-color:var(--accent2)}
+
+/* ---------- policy list ---------- */
+.list-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+table.plist{width:100%;border-collapse:collapse}
+table.plist th{background:var(--soft);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--border)}
+table.plist td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.plist tr:last-child td{border-bottom:0}
+table.plist tr:hover td{background:var(--hover)}
+.pname{font-weight:600;cursor:pointer}
+.pname:hover{color:var(--accent2);text-decoration:underline}
+.state{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.state.on{background:var(--ok-bg);color:var(--on)}
+.state.off{background:var(--bad-bg);color:var(--off)}
+.state.report{background:var(--warn-bg);color:var(--report)}
+/* stays put while you scroll and select — sticks just under the sticky toolbar
+   (header 58 + tab bar 48 + toolbar ~62). z-index below the toolbar so the two
+   never fight if the toolbar wraps on a narrow width. */
+/* sits directly under the sticky toolbar — the toolbar wraps to more rows on
+   narrow screens, so its real height is measured in JS into --selbar-top */
+.selbar{display:none;align-items:center;gap:12px;background:var(--green-deep);color:#fff;border-radius:12px;padding:10px 16px;margin-bottom:14px;box-shadow:var(--shadow);
+  position:sticky;top:var(--selbar-top,168px);z-index:39;flex-wrap:wrap;row-gap:8px}
+.selbar.visible{display:flex}
+.selbar b{color:var(--lemon)}
+.selhint{color:var(--on-deep-mute)}
+/* actions on the current selection, inside the (dark) selection bar. Ghost by
+   default so the highlighted one — the tool you entered from — stands out. */
+.sel-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sel-actions .btn{padding:6px 12px;font-size:12px;background:none;color:#fff;border-color:var(--ghost-bd)}
+.sel-actions .btn:hover{background:rgba(255,255,255,.10);border-color:#fff}
+.sel-actions .btn.on{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
+.sel-actions .btn.on:hover{background:var(--lemon)}
+/* destructive action — visually separated from the rest so it is never the
+   button you hit by muscle memory */
+.sel-actions .btn.danger{border-color:var(--bad-bd);color:#ffb4a6}
+.sel-actions .btn.danger:hover{background:var(--off);border-color:var(--off);color:#fff}
+.sel-sep{width:1px;align-self:stretch;background:var(--ghost-bd);margin:0 2px}
+
+/* ---------- Conditional Access groups ---------- */
+/* Own table styling rather than .mtable: this is a plain list, so the header
+   scrolls with it instead of sticking under the (already sticky) toolbar. */
+.cg-tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:14px}
+.cg-table{width:100%;border-collapse:collapse;font-size:13px}
+.cg-table thead th{background:var(--soft);text-align:left;padding:9px 12px;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.cg-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.cg-table tbody tr:last-child td{border-bottom:0}
+.cg-table .tag{font-size:10px;padding:1px 6px}
+.cg-mem{white-space:nowrap}
+.btn.sm{padding:3px 10px;font-size:11px;border-radius:8px}
+/* persona quick-pick in the assign wizard */
+.persona-row{display:flex;flex-wrap:wrap;gap:6px}
+.persona-chip{background:var(--soft);border-color:var(--border)}
+.persona-chip.on,.btn.sm.on{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
+/* per-persona apply-flow trigger on the group headers */
+.flow-btn{margin-left:10px;vertical-align:middle}
+.cardgroup .flow-btn{margin-left:auto}
+.cg-table .cg-ic{text-align:center;font-weight:700}
+.cg-ic.ok{color:var(--on)} .cg-ic.bad{color:var(--off)} .cg-ic.warn{color:var(--report)} .cg-ic.info{color:var(--na)}
+.cg-row{cursor:pointer}
+.cg-row:hover{background:var(--ok-bg2)}
+.cg-err{color:var(--off);font-weight:600}
+.cg-matrix td.cellv{text-align:center;color:var(--on);font-size:15px}
+.cg-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:14px}
+.cg-panel h4{font-size:13px;margin-bottom:8px}
+.cg-progress{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin:10px 0}
+.cg-progress > div{height:100%;background:var(--green);transition:width .2s}
+.cg-pick{max-height:44vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-top:8px}
+/* The controls under a long pick list stay reachable while you tick through it,
+   so choosing the last of forty groups does not mean scrolling back down to
+   find the button. Sticks to the bottom of the viewport, inside its panel. */
+.cg-actionbar{position:sticky;bottom:0;z-index:20;background:var(--surface);
+  border-top:1px solid var(--border);margin:0 -18px -16px;padding:10px 18px 14px}
+
+/* ---------- What-If flow (per policy + simulator) ---------- */
+.wf-flow{max-width:640px;margin:0 auto}
+.wf-note{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--report);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:10px}
+.wf-stage{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.wf-stage-h{padding:8px 14px;font-weight:600;font-size:13px;background:var(--soft);border-bottom:1px solid var(--border)}
+.wf-stage-b{padding:10px 14px;font-size:13px}
+.wf-scope .wf-stage-h{background:var(--ok-bg2)}
+.wf-cond .wf-stage-h{background:var(--warn-bg)}
+.wf-grant .wf-stage-h{background:var(--ok-bg);color:var(--on)}
+.wf-block .wf-stage-h{background:var(--bad-bg);color:var(--off)}
+.wf-session .wf-stage-h{background:var(--soft)}
+.wf-arrow{text-align:center;color:var(--accent2);font-size:14px;line-height:1.1;padding:3px 0}
+.wf-arrow span{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.wf-row{display:flex;gap:8px;align-items:flex-start;margin:4px 0;flex-wrap:wrap}
+.wf-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px;white-space:nowrap;margin-top:1px}
+.wf-lbl.in{background:var(--ok-bg);color:var(--on)}.wf-lbl.ex{background:var(--bad-bg);color:var(--off)}
+.wf-chip{display:inline-block;background:var(--soft);border:1px solid var(--border);border-radius:6px;padding:1px 8px;font-size:12px;margin:2px 3px 2px 0}
+.wf-chip.in{border-color:var(--ok-bd)}.wf-chip.ex{border-color:var(--bad-bd);color:var(--off)}
+.wf-chip.ro{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--report)}
+.wf-chip.muted{color:var(--muted)}
+.wf-hint,.wf-mut{color:var(--muted);font-size:11.5px}
+.wf-hint{margin-top:6px}
+.wf-gates{display:flex;flex-direction:column;gap:5px}
+.wf-gate{background:var(--warn-bg2);border:1px solid var(--warn-bd);border-radius:7px;padding:5px 9px;font-size:12.5px}
+.wf-ctrl{background:var(--ok-bg2);border:1px solid var(--ok-bd);border-radius:7px;padding:5px 9px;font-size:12.5px;margin:3px 0}
+.wf-outcome{border-radius:10px;padding:11px 14px;font-weight:600;font-size:13.5px;text-align:center;margin-top:2px}
+.wf-outcome.allow,.wf-outcome.grant{background:var(--ok-bg);color:var(--on);border:1px solid var(--ok-bd)}
+.wf-outcome.block{background:var(--bad-bg);color:var(--off);border:1px solid var(--bad-bd)}
+.wf-outcome.none{background:var(--soft);color:var(--muted);border:1px solid var(--border)}
+/* concluding CA-result card under the flow: verdict + tenant reality */
+.wf-result{border-radius:10px;padding:12px 14px;font-size:13px;margin-top:10px;border:2px solid var(--border);background:var(--surface)}
+.wf-result.block{border-color:var(--bad-bd)}
+.wf-result.grant{border-color:var(--ok-bd)}
+.wf-result-t{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+.wf-res-state{font-weight:700;padding:1px 7px;border-radius:6px;font-size:11.5px}
+.wf-res-state.on{background:var(--ok-bg);color:var(--on)}
+.wf-res-state.ro{background:var(--warn-bg);color:var(--warn-fg)}
+.wf-res-state.off{background:var(--soft);color:var(--muted)}
+.wf-outcome{text-align:left}
+.wf-blockers{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wf-blk{display:inline-block;background:var(--surface);border:1px solid currentColor;border-radius:6px;padding:2px 9px;font-size:12px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-outcome.block .wf-blk{cursor:pointer}
+.wf-outcome.grant .wf-blk{background:var(--surface)}
+.wf-notes{margin:10px 0 2px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.wf-nk{display:inline-block;min-width:82px;font-weight:600;color:var(--ink);text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;margin-right:6px}
+.wf-dot.maybe{background:var(--report)}
+.wf-chip.maybe{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--report)}
+/* the trigger + panel on the policy card */
+.wf-toggle{margin:2px 0 0}
+.wf-panel{border-top:1px solid var(--border);margin-top:10px;padding-top:12px}
+/* per-policy quick actions under the detail card */
+.pcard-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.pcard-actions .pa-sep{width:1px;align-self:stretch;background:var(--border);margin:2px 2px}
+
+/* simulator */
+.wf-sim{font-size:13px}
+.wf-sub{font-size:14px;margin-bottom:6px}
+.wf-scrow{margin-bottom:10px}
+.wf-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+@media(max-width:820px){.wf-cols{grid-template-columns:1fr}}
+.wf-colh{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px}
+.wf-pol{border:1px solid var(--border);border-radius:9px;padding:7px 10px;margin-bottom:6px;background:var(--surface)}
+.wf-pol.off{opacity:.72}
+.wf-pol-h{display:flex;align-items:center;gap:7px}
+.wf-pol-h .pol-link{cursor:pointer}
+.wf-pol-h .pol-link:hover{text-decoration:underline}
+.wf-pol-why{font-size:11.5px;color:var(--muted);margin-top:3px}
+.wf-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.wf-dot.on{background:var(--on)}.wf-dot.ro{background:var(--report)}.wf-dot.off{background:var(--na)}
+.wf-simform{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+.wf-simform .fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wf-simform label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.wf-simform input,.wf-simform select{width:100%;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 11px;font-size:13px;min-height:38px}
+.wf-userrow{display:flex;gap:8px}
+.wf-userrow input{flex:1}
+.wf-userrow .btn{white-space:nowrap}
+/* the five condition dropdowns share the row evenly and wrap gracefully */
+.wf-conds{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:820px){.wf-conds{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.wf-conds{grid-template-columns:1fr}}
+
+/* rendered Markdown report inside the viewer overlay */
+.md-view{max-height:72vh;overflow:auto;padding-right:6px;font-size:13.5px;line-height:1.65}
+.md-view h1{font-size:18px;margin:0 0 10px}
+.md-view h2{font-size:15px;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);color:var(--green)}
+.md-view h3{font-size:13.5px;margin:14px 0 6px}
+.md-view p{margin:6px 0}
+.md-view ul{margin:6px 0 6px 18px}
+.md-view li{margin:3px 0}
+.md-view code{background:var(--bad-bg2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-size:12px}
+.md-view table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5px}
+.md-view th,.md-view td{border:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}
+.md-view th{background:var(--ok-bg2);font-weight:600}
+.md-view hr{border:0;border-top:1px solid var(--border);margin:14px 0}
+.md-view .md-bad{color:var(--off);font-weight:600}
+.md-view .md-ok{color:var(--on);font-weight:600}
+
+/* delete confirmation */
+.btn.danger{background:var(--off);border-color:var(--off);color:#fff}
+.btn.danger:hover{background:#8f3a2d;border-color:#8f3a2d}
+.danger-note{background:var(--bad-bg2);border:1px solid var(--bad-bd);color:var(--off);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px;line-height:1.5}
+.danger-note b{color:var(--off)}
+/* Same box as .danger-note, amber, for stating what a run is SCOPED to — which
+   is not a danger. It needs its own class rather than inline overrides on
+   .danger-note: that rule hard-codes the red on every <b> inside, and a
+   descendant selector wins over the parent's inline colour, so the emphasis
+   came out red on amber. */
+.scope-note{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--warn-fg);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px;line-height:1.5}
+.scope-note b{color:var(--warn-fg)}
+input.txt{width:100%;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;letter-spacing:.06em}
+input.txt:focus{outline:none;border-color:var(--off)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--green)}
+.excl-note{color:var(--off)}
+
+/* persona group header spanning the full cards grid (click to collapse/expand) */
+.cardgroup{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin-top:10px;padding-bottom:6px;border-bottom:2px solid var(--border);cursor:pointer;user-select:none}
+.cardgroup:first-child{margin-top:0}
+.cardgroup h3{font-size:15px;letter-spacing:-.01em;color:var(--green)}
+.cardgroup:hover h3{color:var(--accent2)}
+.cardgroup .caret{display:inline-block;width:13px;color:var(--accent2);font-size:10px;transform:rotate(90deg);transition:transform .15s}
+.cardgroup.collapsed .caret{transform:rotate(0deg)}
+.cardgroup input[type=checkbox]{margin-right:2px}
+
+/* list view persona group header row */
+tr.grouprow{cursor:pointer;user-select:none}
+tr.grouprow td{background:var(--soft);border-bottom:1px solid var(--border)}
+tr.grouprow b{color:var(--green)}
+tr.grouprow .caret{display:inline-block;width:13px;color:var(--accent2);font-size:10px;transform:rotate(90deg);transition:transform .15s}
+tr.grouprow.collapsed .caret{transform:rotate(0deg)}
+tr.grouprow:hover td{background:var(--line)}
+
+/* ---------- cards view (compact summary cards, multiple per row) ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;align-items:start}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:13px;cursor:pointer;transition:.15s}
+.scard:hover{border-color:var(--accent2);transform:translateY(-1px)}
+.scard-top{display:flex;gap:12px;align-items:flex-start}
+.scard-ic{width:40px;height:40px;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:none}
+.scard-title{flex:1;min-width:0}
+.scard-title h3{font-size:14.5px;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
+.scard-title .mini{margin-top:4px}
+.scard-right{display:flex;gap:8px;align-items:center;flex:none}
+.scard-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.scard-grid label,.scard-controls label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.scard-grid b{font-size:13px;font-weight:600}
+.scard-controls{border-top:1px solid var(--border);padding-top:11px}
+.scard-foot{font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px;overflow-wrap:anywhere}
+.modal.wide{max-width:1140px;width:100%;max-height:88vh;overflow:auto;padding:0;background:transparent;box-shadow:none}
+
+/* ---------- detailed policy card (detail modal + exports) ---------- */
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.pcard-head{background:linear-gradient(100deg,var(--green-deep) 0%,var(--green) 70%);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px}
+.pcard-head img{flex:none}
+.pcard-head h3{font-size:16px;letter-spacing:-.01em}
+.pcard-head .meta{font-size:11px;opacity:.75;margin-top:3px;font-weight:400}
+.pcard-grid{display:grid;grid-template-columns:repeat(3,1fr)}
+.sect{padding:16px 20px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.sect:nth-child(3n){border-right:0}
+.sect.wide{grid-column:1/-1;border-right:0}
+.sect h4{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent2);margin-bottom:9px}
+.sect ul{list-style:none}
+.sect li{padding:3px 0;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.sect li.excl{color:var(--off)}
+.sect li.flow{font-size:12px;line-height:1.6;color:var(--ink)}
+.sect li.flow.excl{color:var(--off)}
+.sect li.na{color:var(--faint);font-style:italic}
+.sect code{background:var(--soft);padding:1px 5px;border-radius:5px;font-size:11px}
+.tag{display:inline-block;background:var(--soft);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;color:var(--green);margin:1px 2px 1px 0}
+.tag.grant{background:var(--ok-bg);border-color:var(--ok-bd)}
+.tag.block{background:var(--bad-bg);border-color:var(--bad-bd);color:var(--off)}
+.tag.new{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-fg)}
+/* A tool that changed in the current release. Like .new it exempts the tile
+   from the home-page collapse, so an update is never hidden behind a toggle. */
+.tag.upd{background:var(--ok-bg2);border-color:var(--ok-bd);color:var(--on)}
+.pcard-foot{padding:10px 22px;display:flex;align-items:center;gap:10px;background:var(--hover)}
+.dep-bar{padding:10px 22px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dep-link{cursor:pointer}
+.dep-link:hover{border-color:var(--accent2);color:var(--accent2)}
+.dep-kv{list-style:none;margin:0 0 12px;padding:0}
+.dep-kv li{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:12px}
+.dep-kv li b{min-width:220px;color:var(--muted);font-weight:600}
+.dep-raw pre{background:var(--soft);border-radius:8px;padding:12px;font-size:11px;overflow:auto;max-height:260px}
+.pcard-foot .mini{flex:1}
+
+/* ---------- matrix ---------- */
+/* exclusion analyzer: matrix wrapper with a visible horizontal scrollbar */
+/* every matrix view uses the same scroll container: card surface, visible
+   horizontal scrollbar, sticky header + first column */
+.mwrap-x,.matrix-wrap,.gc-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;scrollbar-width:thin;scrollbar-color:var(--accent2) var(--soft)}
+/* the exclusion grid scrolls inside its own box (height refined in JS) so the
+   sticky policy header row and sticky first column stay on screen */
+.mwrap-x{max-height:calc(100vh - 260px);min-height:280px}
+.mwrap-x::-webkit-scrollbar,.matrix-wrap::-webkit-scrollbar,.gc-wrap::-webkit-scrollbar{height:12px;width:12px}
+.mwrap-x::-webkit-scrollbar-thumb,.matrix-wrap::-webkit-scrollbar-thumb,.gc-wrap::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:6px}
+.mwrap-x::-webkit-scrollbar-track,.matrix-wrap::-webkit-scrollbar-track,.gc-wrap::-webkit-scrollbar-track{background:var(--soft);border-radius:6px}
+
+.scroll-hint{background:var(--soft);border:1px solid var(--border);border-radius:10px;color:var(--green);font-weight:600;font-size:12px;padding:8px 14px;margin-bottom:10px;text-align:center}
+table.matrix{border-collapse:collapse;min-width:900px;width:100%}
+table.matrix th,table.matrix td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:9px 12px;font-size:12px;text-align:left;vertical-align:top}
+table.matrix thead th{background:var(--green-deep);color:#fff;font-size:11px;position:sticky;top:0}
+table.matrix tbody th{background:var(--soft);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;font-weight:600}
+table.matrix td .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.clip-btn{border:0;background:var(--soft);color:var(--accent2);font-weight:600;font-size:11px;padding:2px 8px;border-radius:999px;margin-top:4px;cursor:pointer}
+.clip-btn:hover{background:var(--line)}
+
+/* ---------- impact analysis ---------- */
+.an-cards{display:flex;gap:14px;flex-wrap:wrap}
+.an-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 18px;min-width:140px;cursor:pointer;box-shadow:var(--shadow)}
+.an-card.active{border-color:var(--accent2);background:var(--soft)}
+.an-card .n{font-size:24px;font-weight:700}
+.an-card .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.an-card.risk .n{color:var(--off)}
+.an-card.gap .n{color:var(--report)}
+.an-table td.num,.an-table th.num{text-align:right}
+.an-table tr.urow{cursor:pointer}
+.an-table tr.urow:hover td{background:var(--hover)}
+.uupn{color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:11px}
+.caret{display:inline-block;width:13px;color:var(--faint);font-size:10px;transition:transform .15s}
+tr.urow.open .caret{transform:rotate(90deg);color:var(--accent2)}
+tr.urow.open td{background:var(--soft)}
+.pill{display:inline-block;padding:1px 9px;border-radius:11px;font-weight:700;font-size:11px;min-width:22px;text-align:center}
+.pill.green{background:var(--ok-bg);color:var(--on)}
+.pill.amber{background:var(--warn-bg);color:var(--report)}
+.pill.red{background:var(--bad-bg);color:var(--off)}
+.pill.zero{background:var(--soft);color:#9aa89e}
+tr.detail>td{background:var(--hover);padding:12px 18px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1000px){.detail-grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel.enforced{border-left:3px solid var(--on)}
+.panel.bypass{border-left:3px solid var(--off)}
+.panel-h{padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)}
+.pol-link{cursor:pointer;font-weight:600}
+.pol-link:hover{color:var(--accent2);text-decoration:underline}
+.plist2{list-style:none;margin:0;padding:0}
+.plist2 li{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.plist2 li:last-child{border-bottom:0}
+
+/* users × policies impact matrix grid */
+.an-pager{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.mtable{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+.mtable th,.mtable td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);white-space:nowrap}
+.mtable thead th{position:sticky;top:0;z-index:3;background:var(--soft);vertical-align:bottom}
+.mtable thead th.pcol{padding:8px 6px;text-align:center;max-width:42px}
+.mtable thead th.pcol .ph{writing-mode:vertical-rl;transform:rotate(180deg);margin:0 auto;max-height:220px;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:11px;cursor:default}
+/* first column: fixed to --ucol-w (drag the grip in the header to resize) so a
+   single long exclusion name cannot push the policy columns off screen */
+.mtable th.ucol,.mtable td.ucol{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;padding:6px 12px;
+  width:var(--ucol-w,260px);min-width:var(--ucol-w,260px);max-width:var(--ucol-w,260px);overflow:hidden;box-shadow:1px 0 0 var(--border)}
+.mtable thead th.ucol{z-index:4;background:var(--soft);position:sticky;left:0}
+.mtable td.ucol .uname,.mtable td.ucol .uupn{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colgrip{position:absolute;top:0;right:0;width:9px;height:100%;cursor:col-resize;background:transparent}
+.colgrip:hover,.colgrip.drag{background:linear-gradient(90deg,transparent,var(--accent2))}
+.mtable thead th.ucol{position:sticky;padding-right:14px}
+.mtable tbody tr:hover td{background:var(--hover)}
+/* ---------- near-fullscreen matrix popout ---------- */
+.fs-bg{display:none;position:fixed;inset:0;background:rgba(18,51,31,.45);z-index:200;padding:2vh 1vw}
+.fs-bg.show{display:block}
+.fs-panel{background:var(--surface);border-radius:14px;box-shadow:0 24px 60px rgba(18,51,31,.35);
+  width:98vw;max-width:98vw;height:96vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
+.fs-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;
+  border-bottom:1px solid var(--border);background:var(--soft);flex:none}
+.fs-head b{font-size:15px;letter-spacing:-.01em}
+.fs-body{flex:1;overflow:auto;padding:8px}
+.fs-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1}
+/* inside the panel the wrapper is just content — the panel body does the scrolling */
+.fs-body .mwrap-x,.fs-body .matrix-wrap,.fs-body .gc-wrap{max-height:none;overflow:visible;border:0;box-shadow:none;background:none;border-radius:0}
+.fs-body .toolbar{position:static;margin:0;padding:0;box-shadow:none;background:none}
+.fs-body .mtable thead th,.fs-body table.matrix thead th{top:0}
+.fs-body > div{margin-top:0 !important}
+
+/* ---------- exclusion analyzer: grouped view ---------- */
+.ex-card{margin-bottom:14px}
+.ex-card-h{background:var(--soft);padding:12px 16px;border-top:1px solid var(--border)}
+.ex-card-t{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:7px}
+.ex-card-t b{color:var(--green);font-size:13px}
+.ex-pols{display:flex;flex-wrap:wrap;gap:6px}
+.ex-pol{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--green)}
+.ex-pol.off{color:var(--muted);border-style:dashed}
+.ex-pol.ro{color:var(--report);border-color:var(--warn-bd)}
+.ex-card-b{padding:12px 16px}
+.ex-kind + .ex-kind{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ex-kind-h{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px}
+.ex-kind-h b{color:var(--ink)}
+.ex-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ex-ent{background:var(--soft2);border:1px solid var(--border);border-radius:999px;padding:3px 11px;font-size:12px;cursor:default}
+.ex-ent i{font-style:normal;color:var(--muted);font-size:11px;margin-left:6px;padding-left:6px;border-left:1px solid var(--border)}
+/* merged exclusion row: the member names wrap instead of forcing a wide table */
+.mtable td.ucol.merged{white-space:normal;background:var(--soft2)}
+.mtable td.ucol.merged .uupn{font-family:inherit;line-height:1.4;margin-top:2px;white-space:normal;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mtable td.cellv{text-align:center;padding:5px 6px;font-weight:700;cursor:default}
+.cell{display:inline-block;min-width:16px;text-align:center;font-weight:700}
+.cell.ok{color:var(--on)}.cell.ro{color:var(--report)}.cell.no{color:var(--off)}.cell.na{color:var(--na)}
+.mtable td.cellv.ok{background:var(--ok-bg2)}.mtable td.cellv.ro{background:var(--warn-bg2)}.mtable td.cellv.no{background:var(--bad-bg2)}
+.dot.g{background:var(--on)} .dot.r{background:var(--off)} .dot.y{background:var(--report)}
+/* compare-users tool: user chips and difference rows */
+.cu-chip{display:inline-flex;align-items:center;gap:7px;background:var(--soft);border:1px solid var(--border);
+  border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:600;margin:0 6px 6px 0}
+.cu-chip .uupn{font-weight:400}
+.cu-chip button{border:none;background:var(--surface);border-radius:50%;width:18px;height:18px;line-height:1;
+  cursor:pointer;color:var(--muted);font-size:12px;padding:0}
+.cu-chip button:hover{color:var(--off)}
+.mtable tr.cmp-diff td.ucol{box-shadow:inset 3px 0 0 var(--report), 1px 0 0 var(--line)}
+/* click-to-filter on the exclusion / effective-user matrices */
+.mtable td.ucol.clickable,.mtable thead th.pcol.clickable{cursor:pointer}
+.mtable td.ucol.clickable:hover{background:var(--hover)}
+.mtable td.ucol.clickable:hover .uname{color:var(--accent2)}
+.mtable td.ucol.focused,.mtable thead th.pcol.focused{box-shadow:inset 0 0 0 2px var(--accent2)}
+.mtable td.ucol.focused .uname,.mtable thead th.pcol.focused .ph{color:var(--accent2)}
+/* stays pinned under the toolbar while the matrix scrolls, so you can always
+   see what the grid is filtered to (and clear it) — offset is measured in JS */
+.ex-focus{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;
+  background:var(--soft);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;
+  position:sticky;top:var(--ex-focus-top,168px);z-index:38;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+.ex-focus .fchip{margin-left:auto}
+/* a group's member count opens its member list */
+.ex-memlink{border:0;background:none;padding:0;font:inherit;color:var(--green);cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px}
+.ex-memlink:hover{color:var(--accent2)}
+/* exclusion risk review */
+.rk-card{padding:12px 16px;margin-bottom:10px;border-left:4px solid var(--border)}
+.rk-card.high{border-left-color:var(--off)}
+.rk-card.medium{border-left-color:var(--report)}
+.rk-card.info{border-left-color:var(--accent2)}
+.rk-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rk-h .pol-link{cursor:pointer}
+.rk-h .pol-link:hover{color:var(--accent2);text-decoration:underline}
+.rk-meta{margin-left:auto}
+.rk-lv,.rk-fl{font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.rk-lv.high,.rk-fl.high{background:var(--bad-bg2);color:var(--off)}
+.rk-lv.medium,.rk-fl.medium{background:var(--warn-bg2);color:var(--report)}
+.rk-lv.info,.rk-fl.info{background:var(--soft);color:var(--muted)}
+.rk-lv.none{background:var(--ok-bg2);color:var(--on)}
+.rk-flags{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+.rk-flags li{display:flex;gap:9px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)}
+.rk-d{color:var(--muted);font-size:12px;margin-top:2px}
+/* changelog / what's new */
+.cl-rel{margin-bottom:20px}
+.cl-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding-bottom:6px;
+  border-bottom:2px solid var(--green);margin-bottom:8px}
+.cl-list{list-style:none;margin:0;padding:0}
+.cl-i{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.6}
+.cl-i:last-child{border-bottom:0}
+.cl-k{font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;white-space:nowrap;flex:none;margin-top:2px}
+.cl-k.new{background:var(--ok-bg2);color:var(--on)}
+.cl-k.improved{background:var(--warn-bg2);color:var(--report)}
+.cl-k.fixed{background:var(--soft);color:var(--muted)}
+/* home page section headings */
+.tool-sec{margin:26px 0 10px}
+.tool-sec:first-of-type{margin-top:6px}
+.tool-sec h3{margin:0;font-size:16px}
+.tool-sec p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+/* change audit */
+.au-card{padding:12px 16px;margin-bottom:8px}
+.au-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer}
+.au-h:hover{background:var(--hover)}
+.au-act{font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.au-act.add{background:var(--ok-bg2);color:var(--on)}
+.au-act.update{background:var(--warn-bg2);color:var(--report)}
+.au-act.delete{background:var(--bad-bg2);color:var(--off)}
+.au-when{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.au-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.au-why{color:var(--report);background:var(--warn-bg2);border-radius:var(--radius);padding:5px 9px;margin-top:5px}
+.au-sum td{vertical-align:top}
+.au-sumrow{cursor:pointer}
+.au-sumrow:hover td{background:var(--hover)}
+.au-sumdet td{background:var(--soft);padding:12px 14px}
+/* pinned policy label inside an expanded Sign-in failures row — keeps the
+   policy name in view while scrolling its (long) list of sign-ins */
+.si-dethead{position:sticky;top:var(--si-dethead-top,168px);z-index:37;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--soft);margin:-12px -14px 8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.si-dethead .fchip{margin-left:auto}
+/* .list-card clips its corners with overflow:hidden, which also disables
+   position:sticky for everything inside. This host keeps the rounded look by
+   putting the radius on the corner cells instead. */
+.si-stickyhost{overflow:visible}
+.si-stickyhost table.plist thead th:first-child{border-top-left-radius:var(--radius)}
+.si-stickyhost table.plist thead th:last-child{border-top-right-radius:var(--radius)}
+.si-stickyhost table.plist tbody tr:last-child td:first-child{border-bottom-left-radius:var(--radius)}
+.si-stickyhost table.plist tbody tr:last-child td:last-child{border-bottom-right-radius:var(--radius)}
+.au-n{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;margin-right:5px;white-space:nowrap}
+.au-n.add{background:var(--ok-bg2);color:var(--on)}
+.au-n.rem{background:var(--bad-bg2);color:var(--off)}
+.au-n.upd{background:var(--warn-bg2);color:var(--report)}
+.au-diff{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12.5px;
+  font-family:var(--mono,ui-monospace,monospace)}
+.au-diff div{padding:2px 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.au-op{font-weight:700;min-width:56px}
+.au-op.add{color:var(--on)}.au-op.remove{color:var(--off)}
+.au-op.change,.au-op.set,.au-op.clear{color:var(--report)}
+.au-path{color:var(--muted)}
+.au-from{color:var(--off);text-decoration:line-through}
+.au-to{color:var(--on)}
+/* import assignment-mode chooser */
+.im-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px}
+.im-mode-opt{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:start;
+  padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface)}
+.im-mode-opt input{grid-row:1 / span 2;align-self:center}
+.im-mode-opt b{align-self:center}
+.im-mode-opt .mini{grid-column:2}
+.im-mode-opt.on{border-color:var(--green);background:var(--soft);box-shadow:inset 0 0 0 1px var(--green)}
+@media(max-width:640px){.im-mode{grid-template-columns:1fr}}
+/* help modal */
+/* fixed header + independently scrolling body, so the modal itself never
+   scrolls (avoids the padding-gap / see-through problem) */
+/* Help is a normal tool screen now — main provides width and padding;
+   help-page just keeps the prose column readable */
+.help-page{max-width:920px}
+/* sticky, scroll-spying table of contents — jump to any section, and the chip
+   for the section you're reading stays highlighted */
+.help-toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 -8px 14px;padding:10px 8px;
+  position:sticky;top:var(--sticky-nav,106px);z-index:38;background:var(--bg);border-bottom:1px solid var(--border)}
+.help-toc a{font-size:12px;text-decoration:none;color:var(--ink);border:1px solid var(--border);border-radius:999px;padding:3px 10px;background:var(--soft);white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+.help-toc a:hover{border-color:var(--green);color:var(--green)}
+.help-toc a.active{background:var(--green);border-color:var(--green);color:#fff}
+.help-sec{border-top:1px solid var(--line);padding:14px 0 2px}
+.help-sec:first-of-type{border-top:0}
+.help-sec h4{margin:0 0 6px;font-size:15px;scroll-margin-top:120px}
+/* CA validator simulation report */
+.va-card{padding:0;margin-bottom:10px;overflow:hidden}
+.va-h{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;user-select:none}
+.va-h:hover{background:var(--hover)}
+.va-caret{color:var(--muted);width:14px}
+.va-tablewrap{overflow:auto;border-top:1px solid var(--line)}
+.va-table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}
+.va-table th,.va-table td{text-align:left;padding:6px 12px;border-bottom:1px solid var(--line)}
+.va-table thead th{position:sticky;top:0;background:var(--soft);color:var(--muted);font-weight:600;z-index:1}
+.va-table tbody tr:hover td{background:var(--hover)}
+.va-yes{font-weight:700;color:var(--green)}
+.va-no{font-weight:700;color:var(--off)}
+/* compact per-policy summary cards */
+.va-persona{margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid var(--green)}
+.va-persona:first-child{margin-top:0}
+.va-persona h4{margin:0;font-size:14px;color:var(--green)}
+.va-compact{padding:14px 16px;margin-bottom:10px}
+.va-c-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.va-enfs{display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.va-enf{background:var(--ok-bg2);color:var(--on);font-size:12px;font-weight:600;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.va-c-tbl{width:100%;font-size:13px;border-collapse:collapse}
+.va-c-tbl td{padding:3px 0;vertical-align:top}
+.va-c-k{color:var(--muted);width:110px;white-space:nowrap;padding-right:12px}
+.va-c-excl{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+/* baseline "what changed" column */
+.bl-chcell{vertical-align:top}
+.bl-ch{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.bl-chip{font-size:11px;line-height:1.5;padding:1px 8px;border-radius:999px;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid transparent}
+.bl-chip.add{background:var(--ok-bg2);color:var(--on);border-color:var(--on)}
+.bl-chip.del{background:var(--bad-bg2);color:var(--off);border-color:var(--off)}
+.bl-chip.chg{background:var(--warn-bg2);color:var(--report);border-color:var(--report)}
+/* validator: policies that do not reach the target */
+.va-oos{margin-top:12px;padding:12px 16px}
+.va-oos-h{margin-bottom:6px}
+.va-oos-l{list-style:none;margin:0;padding:0;font-size:13px}
+.va-oos-l li{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.va-oos-l li:first-child{border-top:0}
+.va-oos-n{flex:1;min-width:200px}
+.va-oos-r{color:var(--muted);font-size:12px;white-space:nowrap}
+/* What-If */
+.wi-form{margin-top:14px;padding:16px}
+.wi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.wi-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.wi-f .req{color:var(--off)}
+.wi-f input,.wi-f select{height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px;width:100%}
+.wi-f input:focus,.wi-f select:focus{outline:none;border-color:var(--green)}
+/* …but not the tick boxes: the rule above is meant for text fields and selects,
+   and it was inflating a checkbox into a 38px bordered square. */
+.wi-f input[type=checkbox],.wi-f input[type=radio]{width:16px;height:16px;padding:0;border:0;border-radius:0}
+.wi-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.wi-res{margin-bottom:12px;padding:14px 16px}
+.wi-verdict{font-size:15px;padding:8px 12px;border-radius:var(--radius)}
+.wi-verdict.block{background:var(--bad-bg2);color:var(--off)}
+.wi-verdict.grant{background:var(--ok-bg2);color:var(--on)}
+.wi-verdict.none{background:var(--soft);color:var(--muted)}
+.wi-h{margin:0 0 8px;font-size:14px}
+.wi-list{list-style:none;margin:0;padding:0}
+.wi-list li{padding:8px 0;border-top:1px solid var(--line)}
+.wi-list li:first-child{border-top:0}
+.wi-pn{font-weight:600;font-size:13px}
+/* A member row is name + chips + the remove button. Inline flow pushed the ✕
+   onto a line of its own as soon as a member carried two chips (group + frozen),
+   which read as a stray button belonging to nothing. Flex keeps the name and
+   chips together and pins ✕ to the right of the row, where it stays whatever
+   the chip count. */
+.wi-pn{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.wi-pn > .fchip:last-child{margin-left:auto;flex:none}
+.wi-ctrls{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:3px}
+.wi-g{color:var(--on)}.wi-s{color:var(--report)}.wi-w{color:var(--off)}
+.wi-why{font-size:12px;color:var(--muted);margin-top:2px}
+.wi-list.dim .wi-pn{font-weight:400;color:var(--muted)}
+.wi-f textarea{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);
+  color:var(--ink);font:inherit;font-size:13px;width:100%;resize:vertical;font-family:var(--mono,ui-monospace,monospace)}
+.wi-f textarea:focus{outline:none;border-color:var(--green)}
+/* named locations — cards tile two-plus per row; a tenant can easily have 80 */
+.lo-grid{display:grid;gap:10px;align-items:start;
+  grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.lo-card{padding:10px 13px;margin-bottom:0;display:flex;flex-direction:column;min-width:0}
+.lo-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
+.lo-h b{overflow-wrap:anywhere}
+.lo-ic{font-size:14px}
+/* Actions sit on their own row at the foot of the card: at this width there is
+   no room to float them right of a wrapping title. */
+.lo-act{margin-top:8px;display:flex;gap:6px;justify-content:flex-end}
+.lo-d{margin-top:4px;font-family:var(--mono,ui-monospace,monospace);font-size:11.5px;overflow-wrap:anywhere}
+/* One location used by 30 policies must not stretch its card past the others */
+.lo-u{margin-top:6px;font-size:11.5px;color:var(--muted);padding-top:6px;border-top:1px solid var(--line);
+  line-height:1.6;max-height:96px;overflow:auto;overflow-wrap:anywhere}
+.lo-imp{color:var(--report)}
+.lo-table td{font-size:12.5px}
+.lo-table td.lo-d{margin:0;white-space:normal;max-width:280px}
+.lo-tact{white-space:nowrap;text-align:right}
+.lo-more{cursor:pointer;font-weight:600;color:var(--accent2);white-space:nowrap}
+.lo-more:hover{text-decoration:underline}
+/* findings panel (R37) — sits above the list in both views, so it keeps the
+   list's own left edge rather than looking like a card in the grid */
+.lo-find{padding:12px 14px;margin-bottom:12px}
+.lo-findh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.lo-findh .btn{margin-left:auto}
+.lo-findlist{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.lo-findrow{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface)}
+.lo-findt{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px}
+.lo-findt b{overflow-wrap:anywhere}
+/* the ⚠ badge on a row/card opens the same report the name does */
+.lo-fbadge{cursor:pointer}
+/* one changed field per line in the compare view */
+.lo-drift{padding:1px 0}
+/* CA groups — member scan picker */
+.cg-picklist{max-height:44vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);
+  padding:6px 10px;background:var(--surface)}
+.cg-picklist .chk{display:flex;align-items:center;gap:8px;padding:4px 2px;margin:0;font-size:13px;
+  border-bottom:1px solid var(--line)}
+.cg-picklist .chk:last-child{border-bottom:0}
+.cg-picklist .chk:hover{background:var(--hover)}
+.tag.ok{background:var(--ok-bg2);color:var(--on)}
+.va-target{display:flex;align-items:center;gap:6px;flex:1 1 320px;min-width:220px;flex-wrap:nowrap}
+.va-target input{flex:1 1 auto;min-width:0;height:38px;padding:0 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px}
+.va-target .btn{flex:none}
+.va-target input:focus{outline:none;border-color:var(--green)}
+.va-targetbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:var(--soft);border:1px solid var(--border);border-radius:var(--radius);font-size:13px}
+.va-targetbar .fchip{margin-left:auto}
+.va-tablewrap{-webkit-overflow-scrolling:touch}
+/* idle "run scan" prompt for the exclusion / gap / validator tools */
+.run-prompt{display:flex;flex-direction:column;align-items:center;gap:10px;padding:44px 20px;text-align:center}
+.run-prompt .btn.primary{font-size:15px;padding:10px 22px}
+.run-prompt .mini{max-width:420px}
+/* close-all-tabs button in the tab bar */
+.toolnav-btn.closeall{color:var(--off)}
+@media(max-width:640px){
+  .va-target{width:100%}
+  .va-target input{min-width:0}
+  .toolnav-inner{justify-content:flex-start}
+}
+.help-sec p{margin:0 0 8px}
+.help-sec ul{margin:0 0 8px;padding-left:20px}
+.help-sec li{margin:4px 0}
+.help-sec code{background:var(--soft);border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:12px}
+.help-x{font-size:12.5px;color:var(--muted);font-style:italic}
+.toolnav-btn.help{color:var(--green)}
+
+/* ---------- modal / toast ---------- */
+/* stacking order: full-screen matrix panel 200 < modals 300 < dependency
+   inspector 320 (opened FROM a modal) < toast 400 */
+.modal-bg{display:none;position:fixed;inset:0;background:color-mix(in srgb, var(--green-deep) 55%, transparent);z-index:300;align-items:center;justify-content:center;padding:24px}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);max-width:520px;width:100%;padding:30px;max-height:calc(100vh - 40px);overflow-y:auto}
+.modal h3{margin-bottom:6px}
+.modal p{color:var(--muted);margin-bottom:20px;line-height:1.5}
+.exp-opt{display:flex;gap:14px;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;align-items:center}
+.exp-opt:hover,.exp-opt.sel{border-color:var(--accent2);background:var(--soft)}
+.exp-ic{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff}
+.exp-ic.png{background:var(--accent2)} .exp-ic.pdf{background:var(--green-deep)}
+.exp-ic.docx{background:#2b579a} .exp-ic.zip{background:var(--warn-fg)} .exp-ic.json{background:#5f7a67} .exp-ic.md{background:#333}
+
+/* ---------- tools home ---------- */
+.home-title{font-size:22px;letter-spacing:-.02em;margin:18px 0 22px}
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;max-width:1180px}
+/* "Show N more" under a collapsed tool section. Sits outside the grid so it is
+   not laid out as a tile. */
+.home-more{margin:14px 0 0;font-size:13px}
+/* Brief highlight when 👤 Scoped admins jumps you to the grant box, so the
+   button visibly does something even when the card was already open. */
+.ru-flash{animation:ruFlash 1.2s ease-out}
+@keyframes ruFlash{0%{box-shadow:0 0 0 3px var(--accent2)}100%{box-shadow:0 0 0 0 transparent}}
+
+
+.tool{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;cursor:pointer;transition:.15s;
+  background-image:radial-gradient(300px 160px at 90% -40px,var(--glow) 0%,transparent 60%)}
+.tool:hover{border-color:var(--accent2);transform:translateY(-2px)}
+.tool-ic{font-size:30px;margin-bottom:12px}
+.tool h3{font-size:17px;letter-spacing:-.01em;margin-bottom:8px;color:var(--green)}
+.tool p{font-size:13px;color:var(--muted);line-height:1.5}
+.readme{margin-top:26px;padding:26px;max-width:1180px}
+.readme h3{font-size:16px;margin-bottom:10px;color:var(--green)}
+.readme h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent2);margin:18px 0 6px}
+.readme p{font-size:13.5px;line-height:1.65;color:var(--ink);max-width:900px}
+.readme code{background:var(--soft);padding:1px 6px;border-radius:6px;font-size:12px}
+.modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.chk{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px;color:var(--muted)}
+#depModal{z-index:320}
+/* the popup-blocked prompt appears while another modal is already open, so it
+   has to sit above every one of them (but below the toast) */
+#popupModal{z-index:340}
+/* the assign confirm sits above the assign wizard modal */
+#asConfirm{z-index:330}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--green-deep);color:#fff;padding:12px 22px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:400;font-weight:600}
+.toast.show{display:block}
+.toast span{color:var(--lemon)}
+
+.screen{display:none}
+.screen.active{display:block}
+.back{background:none;border:0;color:var(--accent2);font-weight:600;font-size:13px;padding:0;margin-bottom:14px;display:inline-flex;gap:6px;align-items:center}
+footer{border-top:1px solid var(--border);background:var(--surface)}
+.fwrap{max-width:1180px;margin:0 auto;padding:16px 24px;font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+@media(max-width:860px){.pcard-grid{grid-template-columns:1fr 1fr}.sect:nth-child(3n){border-right:1px solid var(--border)}.sect:nth-child(2n){border-right:0}}
+
+/* neutral export theme: no Limon-IT colors in generated files */
+.pcard.neutral .pcard-head{background:linear-gradient(100deg,#1f2933 0%,#323f4b 70%)}
+.pcard.neutral .sect h4{color:#52606d}
+.pcard.neutral .pcard-foot{background:var(--soft2)}
+
+/* export rendering: fixed width so PNG/PDF output is consistent */
+.export-stage{position:fixed;left:-10000px;top:0;width:1100px;background:var(--bg);padding:0}
+.export-stage .pcard{width:1100px}
+
+/* ---------- MS Learn documented exclusion checks ---------- */
+.sev{display:inline-block;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.sev.critical{background:var(--crit-bg);color:var(--crit-fg)}
+.sev.high{background:var(--high-bg);color:var(--high-fg)}
+.sev.medium{background:var(--warn-bg);color:var(--report)}
+.sev.info{background:var(--blue-bg);color:var(--blue)}
+.ml-card{margin-bottom:14px;overflow:visible}
+.ml-head{width:100%;display:flex;align-items:center;gap:10px;padding:14px 18px;border:0;background:none;text-align:left;font:inherit}
+.ml-head .caret{flex:none}
+.ml-head.open .caret{transform:rotate(90deg);color:var(--accent2)}
+.ml-head:hover .ml-title{color:var(--accent2)}
+.ml-title{font-weight:600;font-size:14px}
+.ml-head .mini{margin-left:auto;flex:none}
+.ml-detail{border-top:1px solid var(--border);padding:16px 18px 18px 41px}
+.ml-detail h5{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 5px}
+.ml-detail h5:first-child{margin-top:0}
+.ml-detail h5.ml-red{color:var(--off)}
+.ml-detail h5.ml-blue{color:var(--blue)}
+.ml-detail h5.ml-green{color:var(--on)}
+.ml-detail p{font-size:13px;line-height:1.55;max-width:860px}
+.ml-detail .ml-pols{border:1px solid var(--border);border-radius:8px;max-width:860px}
+.ml-detail .ml-res{list-style:disc;margin:0 0 0 18px;padding:0}
+.ml-detail .ml-res li{font-size:13px;color:var(--muted);padding:2px 0}
+.ml-doc{display:inline-block;margin-top:14px;font-size:12px;font-weight:600}
+
+/* ---------- gap analysis ---------- */
+.sev.low{background:#e7ede9;color:#4a6152}
+.gc-cat{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin:22px 0 10px}
+.gc-cat:first-child{margin-top:0}
+table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
+.gc-matrix th,.gc-matrix td{border-top:1px solid var(--border);padding:7px 8px;font-size:12px}
+.gc-matrix thead th{border-top:0}
+.gc-matrix th.gc-ch{vertical-align:bottom;padding:6px 4px;max-width:36px}
+.gc-matrix th.gc-ch span{writing-mode:vertical-rl;transform:rotate(180deg);display:inline-block;max-height:150px;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+.gc-matrix th.gc-rh{text-align:left;font-weight:600;white-space:nowrap;padding-left:18px}
+.gc-matrix td.gc-cell{text-align:center;font-weight:700;width:36px;cursor:default}
+.gc-matrix td.gc-cell.present{color:var(--on);background:var(--ok-bg2)}
+.gc-matrix td.gc-cell.partial{color:var(--report);background:var(--warn-bg2)}
+.gc-matrix td.gc-cell.off{color:var(--muted);background:var(--soft2)}
+.gc-matrix td.gc-cell.missing{color:var(--off);background:var(--bad-bg2)}
+.gc-matrix td.gc-cell.na{color:var(--na)}
+
+/* Zero Trust scorecard — clickable signals & pillars filter the findings */
+.zt-sig{display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%;margin:3px 0 0 -5px;padding:1px 5px;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:7px;box-sizing:content-box}
+.zt-sig.zt-pillar{margin-top:0}
+.zt-sig:hover{background:var(--hover);outline:1px solid var(--border)}
+.zt-sig.active{background:var(--soft);outline:1px solid var(--accent2)}
+.zt-sig.active .muted{color:var(--green)}
+
+
+/* ================= dark theme =================
+   Auto: follows the OS under prefers-color-scheme while the theme picker is on
+   Auto (no data-theme attribute). Explicit: html[data-theme="dark"|"light"].
+   The theme button in the header cycles Auto → Light → Dark. */
+:root[data-theme="dark"]{
+  /* Greens, ink and lemon are lifted verbatim from limon-it.nl's dark theme so
+     the tools and the site read as one product. The rule the site follows and
+     this now follows too: the GREEN is the surface, the LEMON is the signal —
+     it appears only on the primary action and the category pill, never as body
+     colour. Earlier this theme had it the other way round, which is why it
+     looked like a different product. */
+  --ink:#eaf3ec; --green:#7fc98f; --green-deep:#12331f; --accent2:#8fd977;
+  --lemon:#f7d65a; --lemon-deep:#e2bd3f;
+  --muted:#8ca991; --border:#26402f; --surface:#14261a; --bg:#0c1811; --soft:#1a2f21;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --on:#7fc98f; --off:#e58a78; --report:#e0b64f;
+  --hover:#1e3524; --line:#1f3627; --soft2:#102417; --glow:#1e472955;
+  --ok-bg:#1d3325; --ok-bg2:#18291d; --ok-bd:#2f5c3a;
+  --warn-bg:#392f14; --warn-bg2:#2b2513; --warn-bd:#5c4a1c; --warn-fg:#e8c766;
+  --bad-bg:#3a231f; --bad-bg2:#2b1b18; --bad-bd:#6a3a31;
+  --crit-bg:#42201a; --crit-fg:#f0a091; --high-bg:#3d2a15; --high-fg:#e8b072;
+  --blue:#8ab4e8; --blue-bg:#1a2637;
+  --na:#4a574f; --faint:#718277; --ghost-bd:#3a4a40; --on-deep-mute:#9db3a4;
+  --hl:rgba(143,217,119,.13); --hl2:rgba(143,217,119,.26);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){
+  /* Greens, ink and lemon are lifted verbatim from limon-it.nl's dark theme so
+     the tools and the site read as one product. The rule the site follows and
+     this now follows too: the GREEN is the surface, the LEMON is the signal —
+     it appears only on the primary action and the category pill, never as body
+     colour. Earlier this theme had it the other way round, which is why it
+     looked like a different product. */
+  --ink:#eaf3ec; --green:#7fc98f; --green-deep:#12331f; --accent2:#8fd977;
+  --lemon:#f7d65a; --lemon-deep:#e2bd3f;
+  --muted:#8ca991; --border:#26402f; --surface:#14261a; --bg:#0c1811; --soft:#1a2f21;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --on:#7fc98f; --off:#e58a78; --report:#e0b64f;
+  --hover:#1e3524; --line:#1f3627; --soft2:#102417; --glow:#1e472955;
+  --ok-bg:#1d3325; --ok-bg2:#18291d; --ok-bd:#2f5c3a;
+  --warn-bg:#392f14; --warn-bg2:#2b2513; --warn-bd:#5c4a1c; --warn-fg:#e8c766;
+  --bad-bg:#3a231f; --bad-bg2:#2b1b18; --bad-bd:#6a3a31;
+  --crit-bg:#42201a; --crit-fg:#f0a091; --high-bg:#3d2a15; --high-fg:#e8b072;
+  --blue:#8ab4e8; --blue-bg:#1a2637;
+  --na:#4a574f; --faint:#718277; --ghost-bd:#3a4a40; --on-deep-mute:#9db3a4;
+  --hl:rgba(143,217,119,.13); --hl2:rgba(143,217,119,.26);
+  color-scheme:dark;
+  }
+}
+
+/* dark-mode rules that need more than a variable swap (incl. the logo variant) */
+:root[data-theme="dark"] .btn.primary, :root[data-theme="dark"] .seg button.active, :root[data-theme="dark"] .avatar{color:var(--green-deep)}
+:root[data-theme="dark"] .btn.lemon{color:var(--green-deep)}
+:root[data-theme="dark"] .pcard-head{background:linear-gradient(100deg,#132119 0%,#20402a 70%)}
+:root[data-theme="dark"] table.matrix thead th{background:#132119}
+:root[data-theme="dark"] .selbar, :root[data-theme="dark"] .toast{background:#0d1a12;border:1px solid var(--border)}
+:root[data-theme="dark"] .exp-ic.md{background:#4a5450}
+:root[data-theme="dark"] .fs-bg{background:rgba(0,0,0,.62)}
+:root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg")}
+
+/* the site's own treatment: white card titles, lemon pill, lemon CTA, hero glow */
+:root[data-theme="dark"] .tool h3, :root[data-theme="dark"] .readme h3{color:var(--lemon)}
+:root[data-theme="dark"] .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+:root[data-theme="dark"] .btn.primary{background:var(--lemon);border-color:var(--lemon)}
+:root[data-theme="dark"] .btn.primary:hover{background:var(--lemon-deep);border-color:var(--lemon-deep)}
+:root[data-theme="dark"] .app-tag{background:var(--lemon);border-color:var(--lemon);color:var(--green-deep)}
+:root[data-theme="dark"] main{background-image:radial-gradient(900px 500px at 85% -140px,rgba(30,71,41,.45) 0%,transparent 60%),radial-gradient(700px 420px at -10% 18%,rgba(247,214,90,.055) 0%,transparent 60%);background-repeat:no-repeat}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary, :root:not([data-theme="light"]):not([data-theme="dark"]) .seg button.active, :root:not([data-theme="light"]):not([data-theme="dark"]) .avatar{color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.lemon{color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .pcard-head{background:linear-gradient(100deg,#132119 0%,#20402a 70%)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) table.matrix thead th{background:#132119}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .selbar, :root:not([data-theme="light"]):not([data-theme="dark"]) .toast{background:#0d1a12;border:1px solid var(--border)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .exp-ic.md{background:#4a5450}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-btn.home.active{color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x{color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn:hover,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x:hover{background:rgba(0,0,0,.12);color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .fs-bg{background:rgba(0,0,0,.62)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg")}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .tool h3, :root:not([data-theme="light"]):not([data-theme="dark"]) .readme h3{color:var(--lemon)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary{background:var(--lemon);border-color:var(--lemon)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary:hover{background:var(--lemon-deep);border-color:var(--lemon-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .app-tag{background:var(--lemon);border-color:var(--lemon);color:var(--green-deep)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) main{background-image:radial-gradient(900px 500px at 85% -140px,rgba(30,71,41,.45) 0%,transparent 60%),radial-gradient(700px 420px at -10% 18%,rgba(247,214,90,.055) 0%,transparent 60%);background-repeat:no-repeat}
+}
+
+/* theme toggle in the header */
+#themeBtn{padding:8px 12px;line-height:1}
+#themeBtn .tico{font-size:15px}
+
+/* ---------- matrix crosshair: highlight the hovered row and column ----------
+   Painted with a background-image tint so the cell's own state colour
+   (excluded / report-only / not-applicable) still shows through. */
+.mtable tbody tr.hl-row > td,.mtable tbody tr.hl-row > th,.mtable .hl-col,
+table.matrix tbody tr.hl-row > td,table.matrix tbody tr.hl-row > th,table.matrix .hl-col,
+.gc-matrix tbody tr.hl-row > td,.gc-matrix tbody tr.hl-row > th,.gc-matrix .hl-col{background-image:linear-gradient(var(--hl),var(--hl))}
+.mtable tbody tr.hl-row > td.hl-col,
+table.matrix tbody tr.hl-row > td.hl-col,
+.gc-matrix tbody tr.hl-row > td.hl-col{background-image:linear-gradient(var(--hl2),var(--hl2))}
+.mtable thead th.hl-col,table.matrix thead th.hl-col,.gc-matrix thead th.hl-col{background-image:linear-gradient(var(--hl2),var(--hl2))}
+.mtable thead th.hl-col .ph,.gc-matrix thead th.hl-col span{color:var(--accent2)}
+.mtable tbody tr.hl-row > td.ucol .uname,.gc-matrix tbody tr.hl-row > th.gc-rh{color:var(--accent2)}
+
+/* select-all control in the policies toolbar */
+.chk.selall{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:7px 13px;font-weight:600;font-size:13px;gap:8px;cursor:pointer;white-space:nowrap}
+.chk.selall:hover{border-color:var(--accent2)}
+
+/* ---------- baseline policies ---------- */
+.bl-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px;
+  font-size:12px;font-weight:600;border:1px solid var(--border)}
+.bl-chip.ok{background:var(--ok-bg);color:var(--on);border-color:var(--ok-bd)}
+.bl-chip.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:var(--warn-bd)}
+.bl-chip.bad{background:var(--bad-bg);color:var(--off);border-color:var(--bad-bd)}
+.bl-chip.info{background:var(--soft);color:var(--muted)}
+.bl-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:8px;font-weight:700;font-size:13px}
+.bl-badge.ok{background:var(--ok-bg);color:var(--on)}
+.bl-badge.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.bl-badge.bad{background:var(--bad-bg);color:var(--off)}
+.bl-badge.info{background:var(--soft);color:var(--muted)}
+.bl-table td{vertical-align:top}
+.bl-table td.bl-st{text-align:center}
+.bl-ver{font-weight:600;font-size:12px;white-space:nowrap}
+.bl-ver.warn{color:var(--warn-fg)}
+
+/* ---------- MS Learn: suggested fixes ---------- */
+.fx-card{margin-bottom:14px}
+.fx-head{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--soft);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.fx-new{font-weight:700;font-size:14px;color:var(--green);overflow-wrap:anywhere}
+.fx-body{padding:14px 18px}
+.fx-body h5{font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px}
+.fx-body h5 + ul{margin-bottom:12px}
+
+/* ---------- MS Learn: apply-in-tenant confirmation ---------- */
+.ml-apply-list{max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:12px;
+  padding:10px 12px;margin:12px 0;background:var(--soft2);font-size:12.5px}
+.ml-apply-row{padding:7px 0;border-bottom:1px solid var(--line)}
+.ml-apply-row:last-child{border-bottom:0}
+.ml-apply-row.ok{color:var(--on)}
+.ml-apply-row.bad{color:var(--off)}
+.ml-op{display:inline-block;min-width:62px;text-align:center;font-size:10px;font-weight:700;
+  letter-spacing:.05em;padding:2px 7px;border-radius:6px;margin-right:6px}
+.ml-op.create{background:var(--ok-bg);color:var(--on)}
+.ml-op.delete{background:var(--bad-bg);color:var(--off)}
+.ml-op.delete.skip{background:var(--soft);color:var(--muted);text-decoration:line-through}
+
+/* build stamp on the sign-in card */
+.build-stamp{margin-top:22px;padding-top:14px;border-top:1px solid var(--border);
+  font-size:11px;letter-spacing:.04em;color:var(--muted);font-family:ui-monospace,Consolas,monospace}
+footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospace,Consolas,monospace}
+
+/* per-tool version, tucked into the tile corner */
+.tool{position:relative}
+.tool-ver{position:absolute;top:14px;right:16px;font-size:10.5px;letter-spacing:.04em;
+  font-family:ui-monospace,Consolas,monospace;color:var(--muted);background:var(--soft);
+  border:1px solid var(--border);border-radius:999px;padding:2px 8px;cursor:help;white-space:nowrap}
+/* The badge is absolutely positioned, so it does not push the heading — it sits
+   ON it. Carrying the T-number as well as the version made it wide enough for
+   that to matter, so the heading is kept clear of it and its NEW / UPDATED
+   chips wrap instead of sliding underneath. */
+.tool h3{padding-right:104px}
+.tool:hover .tool-ver{border-color:var(--accent2);color:var(--green)}
+/* the same stamp, on the tool's own header card */
+.tool-ver-head{margin-left:9px;font-size:10.5px;letter-spacing:.04em;font-weight:400;vertical-align:middle;
+  font-family:ui-monospace,Consolas,monospace;color:var(--muted);background:var(--soft);
+  border:1px solid var(--border);border-radius:999px;padding:2px 8px;cursor:help}
+
+/* ---------- Group Analyzer (gu-) ---------- */
+.gu-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.gu-area{display:flex;flex-direction:column;gap:3px;border:1px solid var(--border);border-radius:12px;
+  padding:10px 12px;background:var(--soft2);cursor:pointer;position:relative}
+.gu-area:hover{border-color:var(--accent2)}
+.gu-area.on{border-color:var(--accent2);background:var(--ok-bg)}
+.gu-area input{position:absolute;top:12px;right:12px;margin:0}
+.gu-a-h{font-weight:600;font-size:13.5px;padding-right:22px}
+.gu-sum{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.gu-stat{border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;background:var(--soft2)}
+.gu-stat b{font-size:14px}
+.gu-stat.zero{color:var(--muted)}
+/* a chip that does something says so */
+.gu-stat.act{cursor:pointer;user-select:none}
+.gu-stat.act:hover{border-color:var(--accent2);background:var(--soft)}
+.gu-stat.act.on{border-color:var(--accent2);background:var(--ok-bg);color:var(--on)}
+/* brief highlight when a chip scrolls you somewhere, so you land oriented */
+@keyframes gu-flash{0%{box-shadow:0 0 0 0 var(--accent2)}30%{box-shadow:0 0 0 3px var(--accent2)}100%{box-shadow:0 0 0 0 transparent}}
+.gu-flash{animation:gu-flash 1.2s ease-out}
+.gu-src{margin-top:14px}
+.gu-src:first-child{margin-top:0}
+.gu-src h5{margin:0 0 6px;font-size:13.5px;font-weight:600;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.gu-src h5 a{font-size:11px;font-weight:400}
+.gu-how{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 8px;
+  border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.gu-how.inc{background:var(--ok-bg);color:var(--on)}
+.gu-how.exc{background:var(--bad-bg);color:var(--off)}
+.gu-how.priv{background:var(--warn-bg);color:var(--warn-fg)}
+.gu-via{font-size:12px;color:var(--muted)}
+.gu-via.parent{color:var(--accent2)}
+.gu-fail{border:1px solid var(--border);border-left:3px solid var(--off);border-radius:10px;
+  padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
+.gu-skip{border-left-color:var(--muted)}
+.gu-row-link{cursor:pointer}
+.gu-row-link:hover td{background:var(--soft)}
+.gu-num{text-align:right;font-variant-numeric:tabular-nums}
+.gu-zero{color:var(--muted)}
+
+/* A card-local toolbar. The shared .toolbar is position:sticky with a negative
+   margin — correct at the top of a screen, wrong inside a .list-card, where
+   overflow:hidden kills the stickiness and leaves the gap behind. */
+.gu-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 10px}
+.gu-bar .search{flex:1 1 240px;min-width:180px}
+.gu-bar .search input{padding:9px 32px 9px 36px}
+.gu-bar .search svg{top:50%;transform:translateY(-50%)}
+.gu-bar .chk{display:inline-flex;align-items:center;gap:8px;margin:0;white-space:nowrap}
+/* the table scrolls, not the card */
+.gu-tw{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+/* Drift watch. These cards hold prose, not a table — and .list-card
+   deliberately carries no padding of its own (it sets overflow:hidden and
+   lets whatever it wraps own the spacing, which for every other tool is a
+   table with its own cell padding). Without this the text sits flush against
+   the card border. */
+.dr-card{padding:16px 18px}
+.dr-card h4{margin:0 0 6px}
+/* Graph error text carries long unbroken ids and query-option names that would
+   otherwise push the card wider than the viewport. */
+.dr-card p{overflow-wrap:anywhere}
+.dr-card ol{margin:0 0 10px 20px;padding:0}
+.dr-card li{margin:0 0 4px}
+.dr-row{padding:8px 0;border-top:1px solid var(--border)}
+.dr-row:first-of-type{border-top:0}
+.dr-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* Command palette. Sits high rather than centred: the list grows downward and
+   a centred box would jump around as results change. */
+.modal-bg.cp-open{align-items:flex-start;padding-top:12vh}
+.cp-modal{max-width:620px;padding:0;overflow:hidden}
+#cpInput{width:100%;border:0;border-bottom:1px solid var(--border);border-radius:0;
+  padding:16px 18px;font-size:15px;background:transparent;color:var(--ink);outline:none}
+.cp-list{max-height:46vh;overflow-y:auto}
+.cp-item{display:flex;gap:10px;align-items:center;padding:10px 18px;cursor:pointer;border-bottom:1px solid var(--border)}
+.cp-item:last-child{border-bottom:0}
+.cp-item.sel,.cp-item:hover{background:var(--soft)}
+.cp-item .cp-k{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.cp-item b{font-weight:600}
+.cp-empty{padding:18px;color:var(--muted);font-size:13px}
+.cp-foot{display:flex;gap:14px;align-items:center;padding:10px 18px;border-top:1px solid var(--border);background:var(--soft)}
+.cp-foot kbd{font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-right:3px}
+
+
+.gu-tw table.plist{min-width:620px}
+.gu-tw table.plist tr:last-child td{border-bottom:0}
+
+/* per-group popup: everything the sweep already knows, without re-scanning */
+.modal.gu-modal{max-width:1060px;width:100%;padding:0;max-height:88vh;display:flex;flex-direction:column}
+.gu-m-head{padding:20px 24px 14px;border-bottom:1px solid var(--border)}
+.gu-m-head h3{margin:0 0 4px}
+.gu-m-body{padding:14px 24px 20px;overflow:auto;flex:1 1 auto}
+.gu-m-body .gu-src:first-child{margin-top:0}
+.gu-m-foot{padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:10px;
+  flex-wrap:wrap;align-items:center;background:var(--soft2);border-radius:0 0 var(--radius) var(--radius)}
+.gu-m-foot .spacer{margin-left:auto}
+.gu-fail .why{display:block;color:var(--muted);margin-top:2px;font-size:12px}
+
+/* "back to the sweep" — only rendered when a finished sweep is parked */
+.gu-back{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+
+/* Summary strip that survives scrolling. Same recipe as the shared .toolbar —
+   page background so content passes underneath, and the 106px offset that
+   clears the header plus the tool tab bar. It has to live OUTSIDE .list-card:
+   that card sets overflow:hidden, and a sticky child of a clipping ancestor
+   sticks only within that ancestor's box, which is not what anyone wants. */
+.gu-sticky{position:sticky;top:106px;z-index:40;background:var(--bg);
+  padding:10px 0 12px;margin:0 0 12px;box-shadow:0 6px 12px -8px rgba(18,51,31,.15)}
+.gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
+.gu-who .mini{font-weight:400}
+.gu-sticky .gu-sum{margin-top:6px}
+/* a jump lands the card below the strip, not behind it */
+.gu-jt,#guBody .list-card{scroll-margin-top:172px}
+
+/* A brand override supplies its own logo for BOTH themes — the dark-mode
+   content: swap above must not clobber it. */
+:root[data-brand] .logo img, :root[data-brand] .login-card > img{content:normal !important}
+
+/* ---------- small screens: Sign-in failures ----------
+   The app is desktop-first, but the sign-in log is exactly the tool that
+   gets opened from a phone when something is blocking someone right now.
+   Full-width search, the policy chips as one swipeable strip instead of a
+   wall, tighter cards, and the per-policy table scrolls sideways (its
+   pinned label goes static there — a scroll container would break it). */
+@media (max-width: 680px){
+  /* the header wraps instead of pushing the page wide: host string hidden
+     (decoration), tenant box on its own row, long names ellipsised */
+  .hwrap{flex-wrap:wrap;row-gap:6px;padding:10px 14px}
+  #brandHost{display:none}
+  .tenant{flex:1 1 100%;min-width:0;justify-content:flex-end}
+  #tenantName,#tenantUser{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48vw}
+  /* wide tables (permissions overview, per-policy summaries) scroll inside
+     their card instead of stretching the whole page sideways */
+  .list-card{overflow-x:auto}
+  #siToolbar .search{flex:1 1 100%;min-width:0}
+  #siToolbar{row-gap:8px}
+  #siChips{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:4px;scrollbar-width:thin}
+  #siChips .fchip{flex:none}
+  #screen-signins .au-card{padding:10px 12px}
+  #screen-signins .au-h{font-size:13px}
+  #screen-signins .au-h > b{overflow-wrap:anywhere}
+  #screen-signins .au-sub{font-size:11px;overflow-wrap:anywhere}
+  #screen-signins .au-when{flex-basis:100%;margin-left:0;text-align:left}
+  .si-stickyhost{overflow-x:auto}
+  .si-dethead{position:static}
+}
+
+/* ---------- List Policies on a phone ----------
+   The 201 pass covered Sign-in failures; this is the same treatment for the
+   screen people actually open first.
+   NOT a sticky-offset problem — 201 already measures --sticky-nav correctly.
+   The issue is budget: this toolbar wraps to five rows on a phone (search,
+   state chips, view switch + select-all, two action rows), and pinning a
+   quarter of the viewport leaves nothing to read. So it scrolls away here,
+   and the action bar under it does too rather than being measured against a
+   toolbar that is no longer sticky. The other two: the policy card is a
+   three-column grid, barely a word wide at 390px, and the list table is
+   width:100%, so it crushed its columns instead of scrolling. */
+@media (max-width: 680px){
+  main{padding:18px 14px 72px}
+
+  /* a sticky toolbar on a phone eats a third of the viewport, and the offset
+     it needs depends on how many rows the header wrapped to — so don't */
+  .toolbar{position:static;box-shadow:none;margin:0 0 10px;padding:0}
+  .selbar{position:static}
+  .toolbar .search{flex:1 1 100%;min-width:0}
+  .tb-actions{margin-left:0;width:100%}
+  .tb-actions .btn{flex:1 1 auto;justify-content:center}
+  /* the state filters scroll sideways rather than stacking three rows deep */
+  #stateChips{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:4px;scrollbar-width:thin}
+  #stateChips .fchip{flex:none}
+  .toolbar .seg{flex:1 1 100%}
+  .toolbar .seg button{flex:1;padding:0 8px}
+  .chk.selall{width:100%;justify-content:flex-start}
+
+  /* the action bar becomes two rows instead of one squeezed line */
+  .selbar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+  .selbar .spacer{display:none}
+  .selbar .sel-actions{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:thin}
+  .selbar .sel-actions .btn{flex:none}
+  .selbar #clearSelBtn{margin-left:auto}
+  .selhint{flex:1 1 100%}
+
+  /* one column, and every divider that assumed three of them */
+  .pcard-grid{grid-template-columns:1fr}
+  .sect{border-right:0;padding:12px 14px}
+  .sect:nth-child(3n),.sect:nth-child(2n){border-right:0}
+  .pcard-head{padding:12px 14px;gap:10px}
+  .pcard-head h3{font-size:15px;overflow-wrap:anywhere}
+  .pcard-foot{padding:10px 14px;flex-wrap:wrap;row-gap:8px}
+  .pcard-actions{gap:6px}
+  .pcard-actions .pa-sep{display:none}
+
+  /* scroll the table, do not crush it */
+  #listView{overflow-x:auto}
+  #ptable{min-width:660px}
+
+  /* the matrix already scrolls both ways — just give it more of the screen,
+     since the header no longer sits above it in a fixed 260px band */
+  .mwrap-x{max-height:calc(100vh - 200px)}
+}
+
+/* ---- Report-only impact (BETA) ---- */
+/* Distribution bar: one flex row, segment width = share of evaluations.
+   Red = would deny, amber = interrupted, green = passes, grey = out of scope. */
+.ri-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;margin:8px 0 2px;background:var(--soft)}
+.ri-seg{min-width:3px}
+.ri-seg.bad{background:var(--off)}
+.ri-seg.warn{background:var(--report)}
+.ri-seg.ok{background:var(--on)}
+.ri-seg.na{background:var(--border)}
+.ri-v{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.ri-v.ri-block{background:var(--bad-bg2);color:var(--off)}
+.ri-v.ri-prompt{background:var(--warn-bg2);color:var(--report)}
+.ri-v.ri-clean{background:var(--ok-bg2);color:var(--on)}
+.ri-v.ri-scoped,.ri-v.ri-nodata{background:var(--soft);color:var(--muted)}
+/* Busy-state progress: count-up bar toward the record cap while the
+   sign-in window is paged in — large tenants take minutes, not seconds. */
+.ri-progwrap{height:10px;border-radius:6px;background:var(--soft);border:1px solid var(--border);overflow:hidden;width:min(420px,80%);align-self:center;margin:12px auto 6px}
+.ri-progbar{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--green-deep),var(--green));transition:width .4s ease}
+
+/* ---- Roadmap timeline: a line running from Now into the future ---- */
+.rm-tl{position:relative;padding-left:30px;max-width:820px}
+.rm-tl::before{content:"";position:absolute;left:9px;top:8px;bottom:26px;width:3px;border-radius:2px;
+  background:linear-gradient(180deg,var(--green) 0%,var(--green) 18%,var(--border) 100%)}
+.rm-era{position:relative;margin:0 0 20px}
+.rm-era::before{content:"";position:absolute;left:-27px;top:3px;width:12px;height:12px;border-radius:50%;
+  background:var(--green);border:3px solid var(--surface);box-shadow:0 0 0 2px var(--green)}
+.rm-era.future::before{background:var(--surface);box-shadow:0 0 0 2px var(--green)}
+.rm-era.far::before{box-shadow:0 0 0 2px var(--border)}
+.rm-era h3{margin:0 0 8px;font-size:15px}
+/* Roadmap reference. Monospaced and quiet: it is a handle for pointing at an
+   item out loud, not a rank — so it must be readable at a glance without
+   competing with the title it precedes. */
+/* Country picks. A chip shows the CODE and the NAME together — the code is
+   what Entra stores and the name is what makes it checkable at a glance, and
+   showing only one of them is how the wrong country goes unnoticed. */
+.lo-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lo-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);
+  border-radius:999px;padding:3px 6px 3px 10px;font-size:12px}
+.lo-chip b{font-family:var(--mono,ui-monospace,monospace);font-size:12px}
+.lo-chip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 4px}
+.lo-chip button:hover{color:var(--off)}
+/* Shipped-before. Outside the timeline on purpose: these are delivered, and
+   leaving them in the "Now" column makes a roadmap read as busier than it is. */
+.rm-shipped{margin-top:34px;padding-top:22px;border-top:1px solid var(--border)}
+.rm-shipped > h3{margin:0 0 4px}
+.rm-shipped .rm-card{opacity:.72}
+.rm-shipped .rm-card:hover{opacity:1}
+/* The policy that actually said no, named in the verdict. A verdict that
+   states an outcome without naming its cause makes the reader hunt a list. */
+.wi-blocker{display:inline-block;font-weight:700;background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;padding:1px 7px;margin:0 3px;cursor:pointer;font-size:13px}
+.wi-blocker:hover{border-color:var(--off);color:var(--off)}
+.wi-verdict-sub{font-size:12px;color:var(--muted);margin-top:6px}
+/* The sign-ins behind a report-only verdict. Indented and quiet: it is
+   supporting evidence under a claim, not a second list competing with it. */
+.si-samples{margin:6px 0 2px 14px;border-left:2px solid var(--border);padding-left:10px}
+.si-samples .wi-pn{font-weight:600;font-size:12px}
+.si-lab{font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--muted);margin-right:4px}
+.rm-ref{font-family:var(--mono,ui-monospace,monospace);font-size:11px;font-weight:700;letter-spacing:.04em;
+  color:var(--muted);background:var(--soft);border:1px solid var(--border);border-radius:6px;padding:1px 6px;
+  margin-right:6px;vertical-align:1px}
+.rm-when{font-size:11.5px;font-weight:500;color:var(--muted);margin-left:6px}
+.rm-card{margin:0 0 10px;padding:14px 16px}
+.rm-more{position:relative;color:var(--muted);font-size:12px;margin:2px 0 0}
+
+/* What-If: the resolved application under the app search box. A GUID that
+   resolves to a name is the whole point of the field; a GUID that does not is
+   still legitimate (a policy can name an app with no service principal here),
+   so it is reported rather than refused. */
+.wi-appfound { display:block; margin-top:4px; min-height:1em; }
+.wi-appfound.ok { color:var(--on); }
+.wi-appfound.warn { color:var(--warn, #b26a00); }
+
+/* What-If: filters over the policies that did not apply (R30). A run against a
+   real tenant answers with a hundred of them; the list is only usable if the
+   reason, the persona and the CA number are all reachable without reading it. */
+.wi-nafilters { margin:8px 0 10px; display:flex; flex-direction:column; gap:6px; }
+.wi-narow { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.btn.wi-nachip { padding:3px 9px; font-size:.82rem; }
+.btn.wi-nachip.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn.wi-nachip .mini { opacity:.7; margin-left:3px; }
+
+/* Gap analyse: the named users and groups a scan is limited to (R29). */
+.an-picks { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.an-pick { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:12px;
+  background:var(--chip-bg, rgba(127,127,127,.12)); font-size:.85rem; }
+.an-pick button { border:0; background:none; cursor:pointer; color:inherit; opacity:.6; font-size:1rem; line-height:1; }
+.an-pick button:hover { opacity:1; }
+.an-scoped { margin:0 0 10px; padding:8px 12px; border-radius:8px; font-size:.9rem;
+  background:var(--warn-bg, rgba(255,176,32,.14)); border:1px solid var(--warn, #b26a00); }
+
+/* Restricted AUs: the persona's own groups, offered before the free-text box.
+   Adding a group should work the way granting a scoped administrator does —
+   what belongs here first, anything else still possible. */
+.ru-pg { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+.btn.sm.ru-pgchip { padding:3px 9px; font-size:.82rem; }
+
+/* Restricted AUs: search-and-pick for the bulk scoped-administrator grant.
+   Same shape as the persona group chips — find people by name, paste still
+   works, and both feed one list. */
+.ru-basearch { display:flex; gap:8px; flex-wrap:wrap; align-items:center; max-width:560px; }
+.ru-bapicks { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
+/* Home: how many tools there are, next to the question it answers. Counted
+   from the tiles, so it cannot drift from what is actually on the page. */
+.home-count { font-size:.55em; font-weight:500; color:var(--muted); vertical-align:middle;
+  border:1px solid var(--line, rgba(127,127,127,.3)); border-radius:999px; padding:2px 9px; margin-left:8px; }
+
+/* Restricted AUs: the persona candidates that CANNOT go in, with the reason.
+   Offered-and-fails is worse than not offered: a role-assignable group clicks
+   through to a frozen one, which is the outcome this tool exists to prevent. */
+.ru-pgno { margin:6px 0 2px; display:flex; flex-direction:column; gap:4px; }
+.ru-pgno .mini { opacity:.85; }
+
+/* The policy id on the expanded card. `.pcard-foot .mini{flex:1}` would have
+   made the id share the stretch with the stamp and split the footer in half,
+   so it is pinned; and one click selects the whole GUID, because the reason to
+   read an id is to paste it into the portal or a ticket. */
+.pcard-foot .pcard-id{flex:0 0 auto;opacity:.85}
+.pcard-foot .pcard-id code{user-select:all;font-size:.95em}
+
+/* A write that outlives the panel it started on. ⑦ Migrate renames a group
+   aside before recreating it, so "did it stop halfway?" has a real answer in
+   the tenant — the badge means you never have to guess from another screen. */
+.run-badge { position:fixed; right:18px; bottom:18px; z-index:60; display:flex; align-items:center; gap:8px;
+  padding:9px 14px; border-radius:999px; border:1px solid var(--accent); background:var(--card, #fff);
+  box-shadow:0 6px 20px rgba(0,0,0,.18); font-size:.86rem; cursor:pointer; }
+.run-badge:hover { border-color:var(--accent2, var(--accent)); }
+.run-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:run-pulse 1.2s infinite; }
+@keyframes run-pulse { 0%,100% { opacity:1 } 50% { opacity:.25 } }
+.run-track { display:inline-block; width:64px; height:5px; border-radius:3px; background:var(--soft2, rgba(127,127,127,.2)); overflow:hidden; }
+.run-track > span { display:block; height:100%; background:var(--accent); transition:width .2s; }
+
+/* Licence gap — the seats-vs-targeted coverage bar */
+.lg-bar{height:14px;border-radius:7px;background:var(--soft);border:1px solid var(--border);overflow:hidden;margin-top:4px}
+.lg-bar>div{height:100%;border-radius:7px 0 0 7px;transition:width .3s}
