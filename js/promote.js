@@ -49,6 +49,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 11,
+      title: "Enforcing is a decision, not a button",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10315],
+      risk: "medium",
+      what: "The one-click \"Set Enabled\" on an AuditOnly collection is gone. That finding's fix now opens a judgement panel listing what should be true before enforcing — time in audit covering a month-end, a patch cycle and a new starter; an event log with nothing unrecognised left; a coverage table reading allowed; a tested way back — and the admin picks the mode. Two adjacent routes to accidental enforcement closed with it: \"add the missing collection\" lands in AuditOnly instead of Enabled the moment a default rule appears, and a NotConfigured collection that already has rules steps to AuditOnly rather than straight to Enabled. The only enforcement change the tool still makes on its own is the one that blocks nothing. The DLL panel additionally states what enforcing DLL costs, matching what the scanner and the Intune export already do. Separately, the publisher check stops firing its two breadth heuristics on rules that name BOTH a publisher and a product: no upper version bound drops from Medium to Info with a recommendation explaining why pinning would break the vendor's next release, and a broad principal is no longer a finding on that shape. That combination is what T01's own coverage fix builds, so the tool was flagging the rule it had just recommended and marking it risky in the coverage table.",
+      why: "MEDIUM — no analysis is weaker and nothing enforces that did not before; the change is that three paths which USED to enforce in one click no longer do, and one class of finding is scored lower. The severity change is the part to check: it moves verdicts on imported customer policies, not just on rules this tool wrote. It graduates once someone has run a real GPO export through it and confirmed the findings that disappeared are all publisher+product rules and that nothing broader went quiet with them.",
+      test: [
+        "Load the sample policy and confirm NO finding anywhere offers a button reading \"Set Enabled\". That is the whole item; if one survives, the route it belongs to was missed.",
+        "THE ONE THAT MATTERS: click the fix on the AuditOnly Msi finding and confirm the policy does not move — the enforcement dropdown must still read AuditOnly and the XML panel must not change. A panel that opens AND applies is worse than the button it replaced, because it looks like it asked.",
+        "In that panel, press Apply without touching the mode: it must refuse and say the mode is unchanged, and stay open. Then pick Enabled, apply, and confirm one Undo puts it back to AuditOnly exactly.",
+        "Add the absent Dll collection from its finding. It must land in AuditOnly with default rules, NOT Enabled. Then open its enforcement panel and confirm it says what enforcing DLL costs and points at the scanner and export doing the same — this is the collection most likely to be enabled by someone who has not been told.",
+        "On the NotConfigured Script collection: add the default rules, then check its fix offers AuditOnly and not Enabled. Three clicks from NotConfigured to enforcing was the chain this closes.",
+        "Click the coverage fix for per-user OneDrive. The rule it adds must NOT then appear as a Medium finding, and must NOT carry the risky-rule tag in the coverage table. It must still appear at Info, and its recommendation must explain why an upper version bound would be wrong here rather than asking for one.",
+        "Confirm the checks that should still fire do: a rule with Publisher='*' is still High, and an unscoped publisher rule is still asked for an upper version bound and still flagged for a broad principal. If those went quiet too, the scoped test is matching more than it should.",
+        "NOT COVERED BY THE HEADLESS TESTS, and the reason this is held: run a REAL customer GPO export through it and diff the findings against build 10314. Every finding that disappeared should be a rule naming both a publisher and a product. Anything else that went quiet is a regression in the check, not the intended change.",
+      ],
+      files: ["js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 10,
       title: "The prose screens are centred",
       tools: ["All tools"],

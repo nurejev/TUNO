@@ -466,7 +466,7 @@ const AppLockerTool = (() => {
     }
     for (const col of model.collections) {
       if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured → default-allow for this type.`, rec: `Set EnforcementMode='Enabled' for '${col.type}' (or 'AuditOnly' during pilot).`, fix: { kind: "mode", type: col.type } });
-      else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Switch '${col.type}' to 'Enabled'.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : ""), fix: { kind: "mode", type: col.type } });
+      else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Stay in AuditOnly until the event log is clean across a full working month — a month-end, a patch cycle, a new starter — then enforce deliberately. Enforcing on the strength of a quiet week is how a policy takes out an estate.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") + (col.type === "Dll" ? " DLL is the one collection to think hardest about: AppLocker evaluates every DLL load, so enforcement costs application start time and audit alone floods the log." : ""), fix: { kind: "mode", type: col.type } });
       if (col.mode !== "NotConfigured" && !col.rules.length)
         F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.`, fix: { kind: "defaults", type: col.type } });
 
@@ -513,10 +513,37 @@ const AppLockerTool = (() => {
           const reasons = [], recs = []; let score = -1;
           const cond = `Publisher='${c.publisher}'; Product='${c.product}'; Binary='${c.binary}'; VersionRange=[${c.low},${c.high}]`;
           if (r.action === "Allow") {
+            // A rule that names BOTH a publisher and a product is the shape
+            // Microsoft's own guidance recommends, and the shape this tool's
+            // coverage fixes build. The two breadth heuristics below are written
+            // for `Publisher='*'`-shaped rules and misfire on it:
+            //
+            //   * an upper version bound on a named vendor product BREAKS the
+            //     rule at that vendor's next release — OneDrive self-updates
+            //     weekly, so pinning it is worse than not pinning it;
+            //   * narrowing the principal on something every user needs is not
+            //     an improvement, it is a helpdesk ticket.
+            //
+            // Scoring them Medium made T01 flag the rule it had just recommended
+            // and added itself, and mark it "risky" in the coverage table two
+            // panels up. Both facts are still REPORTED — an unbounded allow is
+            // worth knowing about — but at Info, which is what they are.
+            const scoped = c.publisher && c.publisher !== "*" && c.product && c.product !== "*";
+
             if (!c.publisher || c.publisher === "*") { reasons.push("Any publisher allowed"); recs.push("Specify the exact trusted publisher (e.g. O=Vendor, C=…)."); score = Math.max(score, SEV_SCORE.High); }
             if (c.product === "*" && c.binary === "*") { reasons.push("Any product and any binary from the publisher are allowed"); recs.push("Constrain to specific Product and/or Binary where feasible."); score = Math.max(score, SEV_SCORE.Medium); }
-            if (!c.high || c.high === "*") { reasons.push("No upper version bound"); recs.push("Specify an upper version bound or update allow rules as versions are vetted."); score = Math.max(score, SEV_SCORE.Medium); }
-            if (broad && !admin) { reasons.push("Principal is broad (Everyone/Authenticated Users/Users)"); recs.push("Restrict the principal to a minimal, purpose-built group."); score = Math.max(score, SEV_SCORE.Medium); }
+            if (!c.high || c.high === "*") {
+              if (scoped) {
+                reasons.push("No upper version bound — any future release of this product from this publisher will run, a compromised update included");
+                recs.push("Expected for a named vendor product: an upper bound would break the rule on the vendor's next release. Track the vendor's advisories rather than pinning a version.");
+                score = Math.max(score, SEV_SCORE.Info);
+              } else {
+                reasons.push("No upper version bound");
+                recs.push("Specify an upper version bound or update allow rules as versions are vetted.");
+                score = Math.max(score, SEV_SCORE.Medium);
+              }
+            }
+            if (broad && !admin && !scoped) { reasons.push("Principal is broad (Everyone/Authenticated Users/Users)"); recs.push("Restrict the principal to a minimal, purpose-built group."); score = Math.max(score, SEV_SCORE.Medium); }
             if (r.exceptions.length && score > 0) score -= 1;
           }
           if (score >= 0 && reasons.length) {
@@ -812,12 +839,16 @@ const AppLockerTool = (() => {
     if (fx.kind === "addCollection") {
       return {
         mode: "auto", label: "Add collection",
-        title: `Add the ${fx.type} collection with its default rules and set enforcement`,
+        title: `Add the ${fx.type} collection with its default rules, in AuditOnly`,
         undoLabel: `added the ${fx.type} collection`,
         apply: () => {
           const col = ensureCollection(fx.type);
           addDefaultRules(fx.type);
-          col.mode = col.rules.length ? "Enabled" : "AuditOnly";
+          // AuditOnly, never Enabled. This used to land on Enabled as soon as any
+          // default rule was added, which made "add the missing collection" a
+          // one-click route to enforcing a collection nobody had ever audited —
+          // the same decision the AuditOnly finding now refuses to make for you.
+          col.mode = "AuditOnly";
         },
       };
     }
@@ -842,11 +873,29 @@ const AppLockerTool = (() => {
           apply: () => addDefaultRules(fx.type) > 0 ? undefined : false,
         };
       }
+      // NotConfigured → AuditOnly is the one mechanical step here. It changes
+      // nothing on the endpoint except that the event log starts answering the
+      // question the admin actually has.
+      if (col.mode === "NotConfigured") {
+        return {
+          mode: "auto", label: "Set AuditOnly",
+          title: `Start '${fx.type}' in AuditOnly — nothing is blocked, and the event log begins recording what would have been.`,
+          undoLabel: `set ${fx.type} to AuditOnly`,
+          apply: () => { col.mode = "AuditOnly"; },
+        };
+      }
+
+      // AuditOnly → Enabled is NOT mechanical, and it is the most expensive
+      // click in this tool. Audit exists to be WATCHED — across a month-end, a
+      // patch cycle, a new starter — and no static check of an XML can know
+      // whether that has happened. A one-click Enable here would be the tool
+      // making the one decision it was built to slow down, which is also how a
+      // fix chain ends somewhere nobody chose: NotConfigured → AuditOnly →
+      // Enabled, three clicks, no evidence.
       return {
-        mode: "auto", label: "Set Enabled",
-        title: `Set EnforcementMode='Enabled' on '${fx.type}'`,
-        undoLabel: `set ${fx.type} to Enabled`,
-        apply: () => { col.mode = "Enabled"; },
+        mode: "editor", editor: "enforcement", col,
+        label: "Enforce…",
+        title: `'${fx.type}' is in AuditOnly. Whether it is ready to enforce is a judgement about your event log, not something this XML can settle — open this to make it deliberately.`,
       };
     }
 
@@ -875,7 +924,38 @@ const AppLockerTool = (() => {
     ["S-1-5-32-544", "BUILTIN\\Administrators"],
   ];
 
+  // The enforcement editor. Deliberately NOT a button: the whole point is that
+  // the admin reads what has to be true and picks the mode themselves. It lists
+  // the conditions rather than asserting them, because the tool cannot check any
+  // of them from an XML file.
+  function enforcementEditorHtml(f, plan) {
+    const col = plan.col;
+    const isDll = col.type === "Dll";
+    const opts = MODES.map((m) => `<option value="${m}" ${col.mode === m ? "selected" : ""}>${m}</option>`).join("");
+    return `<div class="al-fixpanel" style="padding:12px 14px;border-left:3px solid var(--accent,#6b8afd)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <b class="mini">Enforcement — ${esc(COLLECTION_LABEL[col.type] || col.type)}</b>
+        <span class="mini muted">currently ${esc(col.mode)} · ${col.rules.length} rule${col.rules.length === 1 ? "" : "s"}</span>
+      </div>
+      <p class="mini muted" style="margin:0 0 8px">There is no one-click Enable here on purpose. Nothing in the XML can tell the tool whether this collection is ready, so it asks you. Before moving to <b>Enabled</b>, all of these should be true:</p>
+      <ul class="mini muted" style="margin:0 0 10px;padding-left:20px;line-height:1.7">
+        <li>It has been in AuditOnly long enough to cover a <b>month-end, a patch cycle and a new starter</b> — not a quiet week.</li>
+        <li>The 8003/8006 events on the pilot devices are down to <b>nothing you do not recognise</b>.</li>
+        <li>The Microsoft coverage table above says <b>allowed</b> for everything your users need, including per-user OneDrive.</li>
+        <li>You have tested that <b>removing the assignment</b> puts a device back, on a device you can still reach.</li>
+      </ul>
+      ${isDll ? `<p class="mini" style="margin:0 0 10px;color:var(--warn,#d08b28)"><b>DLL is a special case.</b> AppLocker evaluates every DLL load. Enabled measurably slows application start and blocks anything that loads a library from a writable path; even AuditOnly buries the log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET native images. TUNO's own scanner and Intune export ship DLL as NotConfigured for exactly this reason. Enable it only if you have a specific threat that needs it and the headroom to absorb the noise.</p>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <select class="btn al-fx-mode">${opts}</select>
+        <button class="btn sm primary al-fx-apply">Apply</button>
+        <button class="btn sm al-fx-cancel">Cancel</button>
+        <span class="mini muted al-fx-hint"></span>
+      </div>
+    </div>`;
+  }
+
   function fixEditorHtml(f, plan) {
+    if (plan.editor === "enforcement") return enforcementEditorHtml(f, plan);
     const r = plan.rule;
     const c = r.conditions[0] || {};
     const known = SID_CHOICES.some(([s]) => s === r.sid);
@@ -922,6 +1002,14 @@ const AppLockerTool = (() => {
   // Read the open editor out of the DOM and apply it to the rule.
   function applyFixEditor(f, plan, root) {
     const q = (sel) => root.querySelector(sel);
+
+    if (plan.editor === "enforcement") {
+      const target = plan.col;
+      const next = q(".al-fx-mode").value;
+      if (next === target.mode) { q(".al-fx-hint").textContent = "Mode unchanged — nothing to apply."; return false; }
+      return mutate(`set ${target.type} to ${next}`, () => { target.mode = next; });
+    }
+
     const approach = q(".al-fx-approach").value;
     const rule = plan.rule, col = plan.col;
 
@@ -1385,20 +1473,25 @@ const AppLockerTool = (() => {
       if (!f) return;
       const plan = planFix(f);
       if (!plan || plan.mode !== "editor") return;
+      // The enforcement editor has no approach/SID controls — only a mode select.
+      // Everything below is guarded rather than assumed present.
       const approach = row.querySelector(".al-fx-approach");
-      const sync = () => {
-        const v = approach.value;
-        const set = (sel, on) => { const el = row.querySelector(sel); if (el) el.style.display = on ? "flex" : "none"; };
-        set(".al-fx-pathrow", v === "path");
-        set(".al-fx-pubrow", v === "publisher");
-        const sid = row.querySelector(".al-fx-sid");
-        if (sid) sid.disabled = v === "delete";
-      };
-      approach.addEventListener("change", sync);
-      sync();
+      if (approach) {
+        const sync = () => {
+          const v = approach.value;
+          const set = (sel, on) => { const el = row.querySelector(sel); if (el) el.style.display = on ? "flex" : "none"; };
+          set(".al-fx-pathrow", v === "path");
+          set(".al-fx-pubrow", v === "publisher");
+          const sid = row.querySelector(".al-fx-sid");
+          if (sid) sid.disabled = v === "delete";
+        };
+        approach.addEventListener("change", sync);
+        sync();
+      }
       const sidSel = row.querySelector(".al-fx-sid");
-      sidSel.addEventListener("change", () => {
-        row.querySelector(".al-fx-sidcustom").style.display = sidSel.value === "__custom" ? "" : "none";
+      if (sidSel) sidSel.addEventListener("change", () => {
+        const custom = row.querySelector(".al-fx-sidcustom");
+        if (custom) custom.style.display = sidSel.value === "__custom" ? "" : "none";
       });
       row.querySelector(".al-fx-cancel").addEventListener("click", () => { fixOpen = null; render(); });
       row.querySelector(".al-fx-apply").addEventListener("click", () => {
