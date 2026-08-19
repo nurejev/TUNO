@@ -15,7 +15,8 @@ TUNO is [ENCA](https://github.com/nurejev/enca)'s sister tool: the same idea —
 ## Architecture & security
 
 * **Static site, no backend.** GitHub Pages serves the files; everything runs in your browser tab. An imported AppLocker XML is parsed locally and never leaves your session.
-* **Sign-in** is a SPA authorization-code + PKCE flow (MSAL.js), no client secret. Base scope is `User.Read`; tools that read the tenant ask for their scope on the click (incremental consent).
+* **Sign-in** is a SPA authorization-code + PKCE flow (MSAL.js), no client secret. Base scope is `User.Read`; everything beyond it is asked for on the click (incremental consent).
+* **One write scope**, `DeviceManagementConfiguration.ReadWrite.All`, used only by step 5 of the AppLocker tool to create the Intune profile — with a refusal-to-overwrite check, assignment as a separate confirmed act, and enforcement gated behind a clean audit. See [SECURITY.md](SECURITY.md); omit the scope at registration and everything else still works.
 * **Your own registration:** high-assurance environments can register TUNO in their own tenant — `./New-TunoAppRegistration.ps1 -SingleTenant` — and point `js/authConfig.local.js` at it. See [SECURITY.md](SECURITY.md).
 * **Forking / rebranding:** everything identity-shaped lives in `js/branding.js`.
 

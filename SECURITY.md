@@ -5,9 +5,23 @@ TUNO shares ENCA's architecture one-for-one; this document states the model and 
 ## Architecture
 
 * **Static files, no backend.** GitHub Pages serves HTML/CSS/JS; all logic runs in your browser tab. There is no server that could store, log or forward your data.
-* **The AppLocker tool reads nothing from your tenant.** The policy XML you import is parsed with the browser's `DOMParser`, analyzed in the tab, and exported back to your disk. It is never transmitted — the Content-Security-Policy in `index.html` only permits connections to `graph.microsoft.com` and `login.microsoftonline.com`, so the code could not upload it anywhere else even if it tried.
+* **The AppLocker analysis reads nothing from your tenant.** The policy XML or scan bundle you import is parsed in the browser, analyzed in the tab, and exported back to your disk. It is never transmitted — the Content-Security-Policy in `index.html` only permits connections to `graph.microsoft.com` and `login.microsoftonline.com`, so the code could not upload it anywhere else even if it tried. Import, audit, coverage, rewrite and export all work without ever touching Intune.
 * **Sign-in** is a SPA **authorization code + PKCE** flow (MSAL.js). No client secret exists. Tokens live in `sessionStorage` and die with the tab.
-* **Permissions are minimal and incremental.** Base scope: `User.Read` (who signed in — nothing else). Tools that read the tenant (Secure Score visualizer, roadmap R02) request their read-only scope at the moment you use them, so consent matches use.
+* **Permissions are minimal and incremental.** Base scope: `User.Read` (who signed in — nothing else). Everything beyond it is requested at the moment it is used, so consent matches use.
+
+### The one thing TUNO writes
+
+Step 5 of the AppLocker tool can create the Intune custom profile in your tenant. That is the only write TUNO performs, and it holds one write scope: **`DeviceManagementConfiguration.ReadWrite.All`** (plus read-only **`Group.Read.All`** to find the pilot group and read its member count). Graph offers no narrower split — the read that checks for an existing profile and the write that creates one are the same scope.
+
+Constraints deliberately narrower than the permission allows:
+
+* **Nothing is overwritten.** Every deploy reads the tenant's existing custom profiles first and refuses if one shares the display name or writes the same AppLocker grouping, reporting what it found. TUNO changes only profiles it created in that session.
+* **Creating and assigning are separate acts.** Creating a profile reaches no device. Assignment is a second, explicitly confirmed step that names the group and its member count first.
+* **Enforcement is gated.** The Enforce profile cannot be created until the audit profile exists in the tenant and an uploaded scan reports nothing blocked and nothing that would have been.
+* **Writes are never retried.** A request that fails mid-flight is reported as ambiguous — it may or may not have reached the tenant — rather than sent again.
+* **Nothing is deleted.** TUNO has no delete path and no scope that would permit one.
+
+If you would rather TUNO could not write at all, omit the two scopes when you register it (`./New-TunoAppRegistration.ps1 -DelegatedScopes User.Read,SecurityEvents.Read.All`). Every other feature keeps working; step 5 falls back to the three manual routes it documents.
 
 ## Two ways to run it
 

@@ -38,7 +38,18 @@ param(
   # Preferred: target the app registration by its immutable Object ID
   # (display-name lookup can match the wrong app if names collide).
   [string]$AppObjectId,
-  [string[]]$RedirectUris = @("https://tuno.limon-it.nl", "http://localhost:8080"),
+  # EVERY host TUNO is served from needs its own SPA redirect URI or sign-in
+  # fails there. This list REPLACES what is on the registration — Update-
+  # MgApplication overwrites the SPA array rather than merging — so a URI
+  # missing from here is a URI removed the next time this script runs. The
+  # beta-channel entries were once added by hand in the portal and would have
+  # been silently deleted by the next run; they live here now for that reason.
+  [string[]]$RedirectUris = @(
+    "https://tuno.limon-it.nl",
+    "https://nurejev.github.io/tuno-beta/",
+    "https://nurejev.github.io/tuno-beta/index.html",
+    "http://localhost:8080"
+  ),
   # Register the app for THIS TENANT ONLY (AzureADMyOrg) instead of multi-tenant.
   [switch]$SingleTenant,
   # Where your own copy is served from. Ignored unless -SingleTenant.
@@ -49,14 +60,40 @@ param(
   # Extra principals to assign, by UPN or group display name. Groups must be
   # assigned DIRECTLY - Entra does not honour nested groups for app assignment.
   [string[]]$AssignTo = @(),
-  # TUNO asks per tool, but everything a tool may ask must be consented here:
-  #   User.Read                     sign-in identity (always)
-  #   SecurityEvents.Read.All       Secure Score visualizer (roadmap R02, read-only, on demand)
-  # The AppLocker builder & validator reads NOTHING from the tenant — the
-  # policy XML is imported and analyzed in the browser. Add Intune read scopes
-  # (DeviceManagementConfiguration.Read.All etc.) when the device analyzer
-  # (R03) lands; not before.
-  [string[]]$DelegatedScopes = @("User.Read", "SecurityEvents.Read.All"),
+  # TUNO asks per tool, on the click — but everything a tool MAY ask for has to
+  # be consented here first, or the ask is refused. Same discipline as ENCA.
+  #
+  #   User.Read
+  #     Sign-in identity. Always requested, and the only scope asked for at
+  #     sign-in; everything below is requested at the moment it is needed.
+  #
+  #   SecurityEvents.Read.All
+  #     Secure Score visualizer (roadmap R02). Read-only, on demand.
+  #
+  #   DeviceManagementConfiguration.ReadWrite.All
+  #     THE ONLY WRITE SCOPE TUNO HOLDS. The AppLocker builder & validator uses
+  #     it in step 5 to read the tenant's existing custom profiles (the check
+  #     that refuses to overwrite one it did not create), to create the
+  #     AppLocker profile, and to assign it. Graph has no narrower split: the
+  #     read side of that check and the write are the same scope. Everything
+  #     up to step 4 — import, audit, coverage, rewrite, export — still reads
+  #     NOTHING from the tenant and works signed out of Intune entirely.
+  #
+  #   Group.Read.All
+  #     Finding the pilot group to assign the profile to, and reading its
+  #     member count so the confirmation can say how many people are about to
+  #     receive an application-control policy. Read-only.
+  #
+  # Adding a scope here is not the same as using it: a tool that never calls
+  # Graph never triggers a consent prompt for one. But a scope consented is a
+  # scope the app could use, so add them when the tool that needs them lands —
+  # not in advance.
+  [string[]]$DelegatedScopes = @(
+    "User.Read",
+    "SecurityEvents.Read.All",
+    "DeviceManagementConfiguration.ReadWrite.All",
+    "Group.Read.All"
+  ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent
 )

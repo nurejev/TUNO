@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10311, date: "2026-08-19", title: "The registration script knows what the app now asks for",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The previous build gave TUNO a permission the thing that registers TUNO had never heard of. New-TunoAppRegistration.ps1 still declared User.Read and SecurityEvents.Read.All, with a comment stating that the AppLocker tool reads nothing from the tenant \u2014 true when it was written, false the moment step 5 could create a profile. It now declares DeviceManagementConfiguration.ReadWrite.All and Group.Read.All as well, each with a note saying which tool needs it and why, ENCA-style. The script has always been safe to re-run: it updates an existing registration rather than making a second one." },
+      { kind: "fixed", tool: "All tools", text: "A trap in that same script, found while fixing the first thing. It sets the SPA redirect URIs from one list and Update-MgApplication REPLACES that array rather than merging into it \u2014 so the two beta-channel URIs, which had been added by hand in the portal, would have been silently deleted by the next run, breaking sign-in on the beta site with nothing on screen to explain why. All four hosts are in the default list now, and the comment says why they have to stay there." },
+      { kind: "improved", tool: "All tools", text: "The security documentation stops claiming TUNO only reads. It names the single write scope, says Graph offers no narrower split \u2014 the check for an existing profile and the creation of one are the same permission \u2014 and lists the constraints the tool imposes on itself beyond what the permission allows: nothing overwritten, creating and assigning kept apart, enforcement gated, writes never retried, no delete path at all. It also spells out how to register TUNO WITHOUT the write scope, and what still works if you do." },
+    ],
+  },
+  {
     build: 10310, date: "2026-08-19", title: "Deploying it is a button now, and it argues with you first",
     items: [
       { kind: "new", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Step 5 used to be three sets of instructions for doing it yourself. It now has a fourth option that does it: TUNO creates the Intune profile in the tenant you are signed in to. This is the first thing TUNO writes to a customer tenant, and it works under rules deliberately narrower than Graph would allow. The permission is asked for on the click, not at sign-in \u2014 reading an XML in your own browser should not buy the right to create configuration profiles. Nothing is overwritten: a read runs first, and a profile carrying the same name or the same AppLocker grouping stops the deploy and is reported with the date it was last changed, because TUNO did not create it and does not get to change it." },
