@@ -754,7 +754,34 @@ const AppLockerTool = (() => {
   }
   // A freshly loaded policy has nothing to undo back to, and any open editor
   // points at a rule from the policy that just went away.
-  function resetFixState() { undoState = null; fixOpen = null; }
+  // A new policy means a new deploy panel — the collision check was run
+  // against a name and grouping that may no longer be the ones on screen.
+  //
+  // WHAT SURVIVES: profiles already created in the tenant. They are facts,
+  // not session state, and the whole walkthrough depends on remembering
+  // them: create the audit profile, wait a month, upload the NEW scan, then
+  // enforce. Wiping `created` on import meant the upload you were told to do
+  // erased the evidence that step one had happened, and the Enforce gate
+  // locked itself again asking for a profile that was already there.
+  //
+  // They are tagged with the name and grouping they were created under, and
+  // only count as this policy's profile while those still match — otherwise
+  // a "Created" line follows you onto an unrelated policy.
+  function resetFixState() {
+    undoState = null; fixOpen = null;
+    deployState = Object.assign({}, deployState, {
+      busy: "", checked: null, groups: null, picked: null, error: null, note: "",
+    });
+  }
+
+  // The created profile belongs to what is on screen now, or it does not
+  // count. Compared on the values the profile was actually created under.
+  function createdFor(kind) {
+    const c = deployState.created && deployState.created[kind];
+    if (!c) return null;
+    return (c._name === intuneProfileName(kind === "audit" ? "Audit" : "Enforce")
+      && c._grouping === intuneGrouping()) ? c : null;
+  }
 
   function undoLast() {
     if (!undoState) return;
@@ -1165,6 +1192,7 @@ const AppLockerTool = (() => {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
     renderCodePane();
+    renderDeploy();
     renderScanCard();
     if (!policy) return;
     const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
@@ -1499,6 +1527,14 @@ const AppLockerTool = (() => {
     bind("alIntuneName", "displayName");
     bind("alIntuneGrouping", "grouping");
     bind("alIntuneMode", "mode");
+    // The deploy panel reads the same three fields, so it has to be redrawn
+    // when they change — otherwise it offers to create a profile under a name
+    // that is no longer on screen.
+    ["alIntuneName", "alIntuneGrouping", "alIntuneMode"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("input", renderDeploy);
+    });
+    renderDeploy();
 
     // ---- the download panel ----
     const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
@@ -1506,6 +1542,214 @@ const AppLockerTool = (() => {
     document.querySelectorAll(".al-dl-copy").forEach((b) => b.addEventListener("click", (e) => {
       copyToClipboard(e.currentTarget, cmdFor(e.currentTarget.dataset.file));
     }));
+  }
+
+  // ================================================================
+  // DEPLOY — the profile straight into the tenant
+  // ================================================================
+  // This is the only place TUNO writes to a customer tenant, and the rules
+  // it works under are deliberately narrower than what Graph would allow:
+  //
+  //   * AUDIT FIRST, ALWAYS. The Enforce button does not become live because
+  //     you feel ready. It becomes live when the audit profile exists in
+  //     this tenant AND an uploaded scan shows nothing was blocked and
+  //     nothing would have been. Until then it says which of the two is
+  //     missing. That order is the whole discipline of the tool; a UI that
+  //     lets you skip it is a UI that disagrees with its own instructions.
+  //
+  //   * NOTHING IS OVERWRITTEN. A profile with this name, or writing this
+  //     grouping, stops the deploy and is reported. TUNO did not create it,
+  //     so TUNO does not get to change it — the two would fight over one CSP
+  //     node on the device and the loser is whichever synced last.
+  //
+  //   * ASSIGNMENT IS A SEPARATE ACT, and it names the group and says how
+  //     many members it has before you confirm. Creating a profile changes
+  //     nothing on any device; assigning it is the moment that stops being
+  //     true, so the two are never one button.
+  //
+  // Nothing here retries. A POST that timed out may have created something.
+  let deployState = {
+    busy: "",             // what is in flight, for the button labels
+    checked: null,        // the last preflight result
+    created: null,        // { audit: profile, enforce: profile } as created THIS session
+    assigned: null,       // { groupName, count }
+    groups: null,         // last search result
+    picked: null,         // { id, displayName, count }
+    error: null,          // last GraphError, shown verbatim
+    note: "",
+  };
+
+  const escq = (s) => esc(s);
+
+  // Why the Enforce button is not available yet, or "" when it is. Written
+  // as a sentence because it is shown as one.
+  function enforceBlockedBecause() {
+    const haveAudit = !!createdFor("audit")
+      || !!(deployState.checked && deployState.checked.auditInTenant);
+    if (!haveAudit) return "The AuditOnly profile has to exist in this tenant first — deploy it above, or point the grouping at the one that is already there.";
+    const ev = scan && scan.events;
+    if (!scan) return "Upload a scan bundle taken AFTER the audit profile had been applied for a while. Without it there is no evidence the audit was worked down, only a belief that it was.";
+    if (!ev || !ev.available) return "The uploaded scan could not read the AppLocker event logs, so it cannot show whether anything was blocked. Re-run the scan elevated on a device the audit profile actually reached.";
+    const s = ev.summary || {};
+    if (s.blocked) return `The scan still shows ${s.blocked} execution(s) blocked. Those are real users who could not run something — work them to nothing before enforcing.`;
+    if (s.audited) return `The scan shows ${s.audited} execution(s) that WOULD have been blocked under enforcement. Every one of them becomes a blocked user the day this is enforced.`;
+    return "";
+  }
+
+  function renderDeploy() {
+    const box = $("alDeploy");
+    if (!box) return;
+    const d = deployState;
+    const noGraph = typeof Graph === "undefined";
+    const signedIn = !noGraph && Graph.signedIn();
+    const name = intuneProfileName("Audit");
+    const grouping = intuneGrouping();
+    const issues = intuneIssues().filter((i) => i.sev === "High");
+
+    const err = d.error ? `<div class="al-dep-err">
+        <b>${escq(d.error.kind === "admin" ? "The tenant refused this" : d.error.kind === "consent" ? "Consent was not granted" : d.error.kind === "throttled" ? "The tenant is throttling" : "Graph refused this")}.</b>
+        <div style="margin-top:4px">${escq(d.error.message)}</div>
+        ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
+        ${d.error.consentUrl ? `<div class="mini" style="margin-top:6px">An administrator of this tenant grants it once, here: <a href="${escq(d.error.consentUrl)}" target="_blank" rel="noopener">admin consent for TUNO</a>. Nothing is granted by opening the link — it shows what is being asked for first.</div>` : ""}
+      </div>` : "";
+
+    if (noGraph || !policy) { box.innerHTML = ""; return; }
+
+    if (!signedIn) {
+      box.innerHTML = `<div class="al-dep">
+        <div class="al-dep-h"><b>D · Let TUNO do it</b> <span class="tag new">writes to your tenant</span></div>
+        <p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and this becomes a button. TUNO asks for <code>DeviceManagementConfiguration.ReadWrite.All</code> at the moment you press it, not at sign-in — reading an XML in your own browser should not buy the right to create configuration profiles.</p>
+      </div>`;
+      return;
+    }
+
+    const blocked = enforceBlockedBecause();
+    const coll = d.checked && d.checked.collisions || [];
+
+    box.innerHTML = `<div class="al-dep">
+      <div class="al-dep-h"><b>D · Let TUNO do it</b> <span class="tag new">writes to your tenant</span></div>
+      <p class="mini muted" style="margin:0 0 8px">Creates the profile shown in the <b>Intune profile</b> tab, in the tenant you are signed in to. Creating it changes nothing on any device — assignment is a separate step below, and it tells you how big the group is before it does anything.</p>
+
+      ${issues.length ? `<div class="al-dep-err"><b>Fix this before deploying.</b>${issues.map((i) => `<div style="margin-top:4px">${escq(i.text)}</div>`).join("")}</div>` : ""}
+      ${err}
+
+      <div class="al-dep-row">
+        <button class="btn primary" id="alDepAudit" ${d.busy || issues.length ? "disabled" : ""}>
+          ${d.busy === "audit" ? "Creating…" : "🚀 Create the AuditOnly profile"}</button>
+        <span class="mini muted">as <b>${escq(name)}</b>, grouping <b>${escq(grouping || "(none)")}</b></span>
+      </div>
+
+      ${coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has ${coll.length} profile${coll.length === 1 ? "" : "s"} in the way.</b>
+        <div class="mini" style="margin-top:4px">TUNO did not create ${coll.length === 1 ? "it" : "them"}, so it will not change ${coll.length === 1 ? "it" : "them"}. Rename yours, pick a different grouping, or deal with ${coll.length === 1 ? "it" : "them"} in the portal.</div>
+        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li><b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+
+      ${createdFor("audit") ? `<div class="al-dep-ok"><b>Created.</b> ${escq(createdFor("audit").displayName)} — id <code>${escq(createdFor("audit").id)}</code>. It is in the tenant and assigned to nobody.</div>` : ""}
+
+      ${createdFor("audit") ? `
+      <div class="al-dep-sub">
+        <b class="mini">Assign it to a pilot group</b>
+        <p class="mini muted" style="margin:2px 0 6px">This is the step that reaches devices. Small group, people you can talk to.</p>
+        ${d.assigned ? `<div class="al-dep-ok">Assigned to <b>${escq(d.assigned.groupName)}</b>${d.assigned.count != null ? ` (${escq(String(d.assigned.count))} members)` : ""}.</div>` : `
+        <div class="al-dep-row">
+          <input id="alDepGroupQ" class="al-dep-in" placeholder="Start typing a group name" spellcheck="false" autocomplete="off">
+          <button class="btn sm" id="alDepGroupFind" ${d.busy ? "disabled" : ""}>${d.busy === "groups" ? "Searching…" : "Find"}</button>
+        </div>
+        ${d.groups ? (d.groups.length ? `<ul class="mini al-dep-groups">${d.groups.map((g) => `<li><button class="btn sm al-dep-pick" data-id="${escq(g.id)}" data-name="${escq(g.displayName)}">${escq(g.displayName)}</button>${g.membershipRule ? ` <span class="tag new" title="A dynamic group — its membership can change without anyone touching this assignment">dynamic</span>` : ""}</li>`).join("")}</ul>`
+          : `<p class="mini muted">No group starts with that.</p>`) : ""}
+        ${d.picked ? `<div class="al-dep-confirm">
+            <b>Assign ${escq(createdFor("audit").displayName)} to ${escq(d.picked.displayName)}?</b>
+            <div class="mini" style="margin-top:2px">${d.picked.count == null ? "Member count could not be read." : `<b>${escq(String(d.picked.count))}</b> member${d.picked.count === 1 ? "" : "s"} will get this policy at their next sync.`}</div>
+            <div class="al-dep-row" style="margin-top:6px">
+              <button class="btn primary sm" id="alDepAssign" ${d.busy ? "disabled" : ""}>${d.busy === "assign" ? "Assigning…" : "Yes, assign it"}</button>
+              <button class="btn sm" id="alDepCancel">Cancel</button>
+            </div>
+          </div>` : ""}`}
+      </div>` : ""}
+
+      <div class="al-dep-sub">
+        <b class="mini">Then, later — the Enforce profile</b>
+        ${blocked
+          ? `<p class="mini al-dep-locked"><b>Not yet.</b> ${escq(blocked)}</p>
+             <button class="btn sm" disabled>🔒 Create the Enforce profile</button>`
+          : `<p class="mini">The audit profile is in this tenant and the uploaded scan shows nothing blocked and nothing that would have been. Same grouping, so it replaces the audit profile on the device rather than sitting alongside it.</p>
+             <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}
+        ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
+      </div>
+
+      <p class="mini muted" style="margin:8px 0 0">Whatever happens here, the <b>Application Identity</b> service still has to be running on the targets or AppLocker does nothing and logs nothing — and removing the assignment is the way back, so test that on the pilot group before the estate depends on it.</p>
+    </div>`;
+
+    wireDeploy();
+  }
+
+  function depFail(e) {
+    deployState.busy = "";
+    deployState.error = (e && e.name === "GraphError") ? e : { kind: "graph", message: (e && e.message) || String(e), code: "" };
+    renderDeploy();
+  }
+
+  async function deployProfile(mode) {
+    const d = deployState;
+    d.error = null;
+    d.busy = mode === "Audit" ? "audit" : "enforce";
+    renderDeploy();
+    try {
+      // Read before write, every time — the tenant may have changed since
+      // the last look, and this is the check that stops an overwrite.
+      const existing = await Graph.customProfiles();
+      const coll = Graph.collisions(existing, intuneProfileName(mode), intuneGrouping());
+      d.checked = {
+        collisions: coll,
+        auditInTenant: existing.some((p) => (p.displayName || "").toLowerCase() === intuneProfileName("Audit").toLowerCase()),
+      };
+      if (coll.length) { d.busy = ""; renderDeploy(); return; }
+      const made = await Graph.createProfile(intuneProfile(mode));
+      // Tagged with what it was created under, so it stops counting the
+      // moment the name or grouping on screen changes.
+      made._name = intuneProfileName(mode);
+      made._grouping = intuneGrouping();
+      d.created = Object.assign({}, d.created, mode === "Audit" ? { audit: made } : { enforce: made });
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
+  function wireDeploy() {
+    const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+    on("alDepAudit", "click", () => deployProfile("Audit"));
+    on("alDepEnforce", "click", () => deployProfile("Enforce"));
+    on("alDepCancel", "click", () => { deployState.picked = null; renderDeploy(); });
+    on("alDepGroupFind", "click", async () => {
+      const q = ($("alDepGroupQ") || {}).value || "";
+      if (!q.trim()) return;
+      deployState.busy = "groups"; deployState.error = null; renderDeploy();
+      try {
+        deployState.groups = await Graph.searchGroups(q.trim());
+        deployState.busy = "";
+        renderDeploy();
+        const box = $("alDepGroupQ"); if (box) { box.value = q; box.focus(); }
+      } catch (e) { depFail(e); }
+    });
+    document.querySelectorAll(".al-dep-pick").forEach((b) => b.addEventListener("click", async () => {
+      const id = b.dataset.id, displayName = b.dataset.name;
+      deployState.picked = { id, displayName, count: null };
+      renderDeploy();
+      // Best effort: a member count TUNO cannot read must not stop the
+      // assignment, but it must not be reported as zero either.
+      try { deployState.picked.count = Number(await Graph.memberCount(id)); } catch { deployState.picked.count = null; }
+      renderDeploy();
+    }));
+    on("alDepAssign", "click", async () => {
+      const d = deployState;
+      if (!d.picked || !createdFor("audit")) return;
+      d.busy = "assign"; d.error = null; renderDeploy();
+      try {
+        await Graph.assignProfile(createdFor("audit").id, d.picked.id);
+        d.assigned = { groupName: d.picked.displayName, count: d.picked.count };
+        d.picked = null; d.busy = "";
+        renderDeploy();
+      } catch (e) { depFail(e); }
+    });
   }
 
   return { init };

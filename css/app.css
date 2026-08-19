@@ -1405,17 +1405,22 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    while the policy is edited instead of appearing only as a download. The
    panel sticks to the viewport and scrolls inside itself.
 
-   T01 IS THE ONE SCREEN THAT ESCAPES THE 1180px SHELL. Splitting 1180 two
-   ways gave the findings table about 700px — seven columns squeezed until
-   the condition wrapped one character per line — and the XML about 400px,
-   narrow enough that every path broke mid-token. Neither half got better on
-   a bigger monitor, because the cap is on the shell, not the viewport. The
-   screen now widens with the viewport up to 1680px and re-centres itself;
-   `main` is centred too, so centring inside it centres on screen. Below
-   1240px there is no room for two columns and it stacks. */
-@media (min-width:1240px){
-  #screen-applocker{--alw:min(1680px, calc(100vw - 48px));width:var(--alw);margin-left:calc(50% - var(--alw) / 2)}
-}
+   T01 NEEDS MORE THAN THE 1180px SHELL. Splitting 1180 two ways gave the
+   findings table about 700px — seven columns squeezed until the condition
+   wrapped one character per line — and the code panel about 400px, narrow
+   enough that every path broke mid-token. Neither half got better on a
+   bigger monitor, because the cap is on the shell, not the viewport.
+
+   The SHELL widens, not the split. body.wide is set by show() while a wide
+   screen is open, and everything inherits it: header, tab bar, the intro
+   card, the numbered steps, the toolbar and both columns all start and end
+   on the same two lines. Widening only the split was the first attempt and
+   it left the page ragged — full-width cards above a narrower column, and a
+   code panel that ran off the right edge because a negative margin against
+   a percentage does not centre against the viewport. */
+body.wide main,
+body.wide .hwrap,
+body.wide .toolnav-inner{max-width:1680px}
 .al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,520px);gap:14px;align-items:start;margin-top:14px}
 .al-col{min-width:0;display:flex;flex-direction:column;gap:14px}
 /* Flex children default to min-width:auto, so a wide table pushes the card
@@ -1501,6 +1506,32 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#111c2e;color:#a8e6a0;
   border:1px solid #22355a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:11.5px;line-height:1.65;overflow-x:auto;white-space:pre}
+
+/* ---- T01 step 5: deploying into the tenant ----
+   The only place TUNO writes to a customer tenant, so it is styled to be
+   noticed rather than to blend into the walkthrough around it. Refusals and
+   confirmations get their own colour, and the locked Enforce state is
+   deliberately quiet — it is a state, not an error. */
+.al-deploy{margin:0 0 12px}
+.al-dep{border:1px solid var(--warn-bd);background:var(--warn-bg2);border-radius:12px;padding:12px 14px}
+.al-dep-h{margin-bottom:6px}
+.al-dep-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 0}
+.al-dep-sub{margin-top:12px;padding-top:10px;border-top:1px solid var(--warn-bd)}
+.al-dep-in{flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.al-dep-in:focus{outline:none;border-color:var(--accent2)}
+.al-dep-err{margin:8px 0 0;padding:9px 11px;border:1px solid var(--bad-bd);background:var(--bad-bg2);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-err b{color:var(--off)}
+.al-dep-ok{margin:8px 0 0;padding:9px 11px;border:1px solid var(--ok-bd);background:var(--ok-bg2);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-ok b{color:var(--on)}
+.al-dep-confirm{margin:8px 0 0;padding:9px 11px;border:1px solid var(--warn-bd);background:var(--surface);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-locked{margin:2px 0 6px;color:var(--muted)}
+.al-dep-locked b{color:var(--report)}
+.al-dep-groups{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.al-dep-groups li{display:flex;align-items:center;gap:4px}
 
 /* Promotion queue: the per-item test checklist. Folded away by default — the
    table is read to decide WHAT to promote, and the steps are read once that

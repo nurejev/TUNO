@@ -49,6 +49,28 @@ const PROMOTE = {
 
   items: [
     {
+      n: 7,
+      title: "TUNO deploys the profile into the tenant",
+      tools: ["🔐 AppLocker builder & validator", "All tools"],
+      builds: [10310],
+      risk: "high",
+      what: "A Graph layer (js/graph.js) and a deploy panel in T01 step 5. TUNO creates the Intune custom profile in the signed-in tenant. Scopes are acquired per capability at the click — DeviceManagementConfiguration.ReadWrite.All to read and create, Group.Read.All to search groups — never at sign-in. Every deploy reads deviceConfigurations first and REFUSES if a profile shares the display name or writes the same AppLocker grouping; it reports what it found and the date it changed, and never overwrites. Assignment is a separate confirmed act stating the group's member count, and marks dynamic groups. The Enforce button is gated on the audit profile existing in the tenant AND an uploaded scan reporting zero blocked and zero audited, naming whichever is missing. Refusals are shown in Graph's own words with the code, request-id and an admin-consent link. Writes are never retried. Also: the wide layout moved from #screen-applocker to body.wide on the shell, and created profiles now survive a re-import (tagged with the name and grouping they were made under).",
+      why: "HIGH, and higher than item 5 — this is the first code in TUNO that WRITES to a customer tenant, and it has never run against a real one. Every Graph call in the test suite is a stub: the shapes of deviceConfigurations, the assign body and the /$count response are taken from the documentation and from the converter script, not observed. The app registration also does not carry either permission yet, so the first real attempt WILL be refused until that is done — which conveniently makes the refusal path the first thing anyone tests. Nothing graduates until a profile has been created, assigned to a real pilot group, seen on a real device, and removed again.",
+      test: [
+        "BEFORE ANY OF THIS: the app registration has neither DeviceManagementConfiguration.ReadWrite.All nor Group.Read.All. Add them, then grant admin consent in a test tenant. Until that is done every step below fails at the same place, which is itself worth seeing once — press Create and confirm the panel shows Graph's own refusal, the code, the request-id and a working admin-consent link, rather than a shrug.",
+        "THE ONE THAT MATTERS: create the AuditOnly profile in a REAL test tenant, then open it in the Intune portal. Every OMA-URI must be present, the data type must be String, and the value must be byte-identical to the Policy XML tab. Then run Convert-TunoAppLockerToIntune.ps1 against the same policy and diff its JSON against what the browser sent — two paths to one artefact, and they have never been compared.",
+        "THE OTHER ONE: put a profile in the way and confirm nothing is created. Make one by hand with the same display name, press Create — it must stop and name it. Repeat with a DIFFERENT name but the same grouping: it must still stop, because that is the collision that silently fights over a CSP node on the device rather than being visible in the portal. Check the tenant afterwards to be sure nothing was written either time.",
+        "Assign to a pilot group and check the member count TUNO showed against the portal. Then assign to a DYNAMIC group and confirm it was labelled as one. Confirm no assignment happens without pressing the confirm button, and that Cancel leaves the tenant untouched.",
+        "Sign in as a NON-administrator with no rights to device configuration and press Create. The refusal must be the tenant's, quoted, with the consent link — this is the most likely first experience for a customer and it must not read as TUNO being broken.",
+        "The enforce gate, all five states: no scan; a scan whose event log could not be read; a scan with blocked greater than zero; a scan with audited greater than zero; and a clean scan. Only the last may offer the button, and the first four must each say which specific thing is missing. Then create the Enforce profile and confirm it lands with the SAME grouping and is assigned to nobody.",
+        "Create the audit profile, then upload a follow-up scan bundle. The Created line and the gate must survive the upload — this was broken and is the reason for the fix in this build. Then change the grouping in the form: the Created line must disappear, because that profile is no longer this policy's.",
+        "Cancel the consent popup halfway, and separately let a token expire and press Create again. Neither may leave the button stuck on 'Creating…'.",
+        "NOT TESTABLE WITHOUT DELIBERATE EFFORT, and worth the effort once: kill the network between the click and the response on a POST. The panel must say the request may or may not have reached the tenant and tell you to look, and must NOT retry. Then check the portal — if a profile was created, the message was right and that is the correct behaviour.",
+        "Read the whole of step 5 on a wide screen and a narrow one. The header, tab bar, cards and both columns must start and end on the same two lines at every width, and leaving T01 must narrow the shell back — the previous attempt at this ran off the right edge.",
+      ],
+      files: ["js/graph.js", "js/applocker.js", "js/app.js", "css/app.css", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 6,
       title: "T01 gets the width the two columns needed",
       tools: ["🔐 AppLocker builder & validator"],

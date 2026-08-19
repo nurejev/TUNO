@@ -24,6 +24,9 @@
 
   // ---------- screens + browser history ----------
   const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-changelog", "screen-roadmap", "screen-help"]);
+  // Screens that get the wide shell. A tool earns this by having two things
+  // to show at once, not by being important.
+  const WIDE_SCREENS = new Set(["screen-applocker"]);
   let navSuppress = false;
   const screenScroll = {};
   let shownScreen = null;
@@ -31,6 +34,13 @@
     if (shownScreen && shownScreen !== id) screenScroll[shownScreen] = window.scrollY;
     document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
     $(id).classList.add("active");
+    // T01 needs more than the 1180px shell — an audit table and the code it
+    // produces side by side. Widening the SHELL rather than the split means
+    // every card on that screen shares one width: the intro, the steps, the
+    // toolbar and the two columns all start and end on the same two lines.
+    // Widening only the split left the page ragged, with full-width cards
+    // above a narrower column and a code panel running off the edge.
+    document.body.classList.toggle("wide", WIDE_SCREENS.has(id));
     (window.requestAnimationFrame || setTimeout)(syncStickyTops);
     if (shownScreen !== id) {
       const y = screenScroll[id] || 0;
@@ -177,6 +187,9 @@
       },
       cache: { cacheLocation: "sessionStorage" },
     });
+    // js/graph.js reaches MSAL through this rather than through the closure,
+    // so a build without it (or with sign-in degraded) still loads.
+    if (typeof Graph !== "undefined") Graph.useProvider({ getApp: () => msalApp, getAccount: () => account });
     return msalApp.initialize()
       .then(() => msalApp.handleRedirectPromise())
       .then((res) => {

@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10309"></script>
+<script src="js/popup-guard.js?v=10310"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10309">
+<link rel="stylesheet" href="css/app.css?v=10310">
 </head>
 <body>
 
@@ -219,8 +219,13 @@
           <div style="min-width:0;flex:1">
             <h3 style="margin:0 0 4px">Get it into Intune</h3>
             <p class="mini muted" style="margin:0 0 10px">AppLocker has no settings-catalog surface. The supported route is a Windows custom profile carrying one OMA-URI string per rule collection — which is exactly what the <b>Intune profile</b> tab produces.</p>
+            <!-- Deploy from here. Rendered by js/applocker.js because every
+                 part of it depends on tenant state: whether you are signed
+                 in, what is already in Intune under this grouping, and
+                 whether the audit has actually been worked down. -->
+            <div id="alDeploy" class="al-deploy"></div>
             <details class="al-guide">
-              <summary>The three ways to do it, from least to most automated</summary>
+              <summary>Or do it yourself — three ways, from least to most automated</summary>
               <div class="al-guide-body">
                 <p class="mini"><b>A · By hand in the portal.</b> Intune admin center → Devices → Configuration → Create → Windows 10 and later → Templates → <b>Custom</b>. Then add one OMA-URI setting per collection, copying each <code>omaUri</code> and its <code>value</code> out of the JSON on the right. Data type is <b>String</b>. Tedious, but it needs no permissions beyond the portal.</p>
                 <p class="mini"><b>B · Post the JSON with Graph.</b> Download the profile from the Intune tab, then:</p>
@@ -334,13 +339,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10309"></script>
-<script src="js/version.js?v=10309"></script>
-<script src="js/promote.js?v=10309"></script>
-<script src="js/authConfig.js?v=10309"></script>
-<script src="js/changelog.js?v=10309"></script>
-<script src="js/msappcatalog.js?v=10309"></script>
-<script src="js/applocker.js?v=10309"></script>
-<script src="js/app.js?v=10309"></script>
+<script src="js/branding.js?v=10310"></script>
+<script src="js/version.js?v=10310"></script>
+<script src="js/promote.js?v=10310"></script>
+<script src="js/authConfig.js?v=10310"></script>
+<script src="js/changelog.js?v=10310"></script>
+<script src="js/msappcatalog.js?v=10310"></script>
+<script src="js/graph.js?v=10310"></script>
+<script src="js/applocker.js?v=10310"></script>
+<script src="js/app.js?v=10310"></script>
 </body>
 </html>
