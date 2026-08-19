@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10305, date: "2026-08-19", title: "Findings you can act on",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Every finding in the audit already ended in a recommendation, and every recommendation ended in you scrolling down to the builder to carry it out by hand. Findings now have a fix button. Where the recommendation is mechanical the button just does it: set an AuditOnly collection to Enabled, add the Microsoft default rules to a collection that has none, add a collection the XML never mentioned. Where the recommendation needs a fact the tool does not have — the exact publisher behind a path allow, an upper version bound, the purpose-built group that should replace Everyone — the button opens that rule prefilled and you supply the missing piece, with tighten-the-path, replace-with-a-publisher-rule and delete all one dropdown apart. It refuses to invent a publisher or a version for you, the same way the report refuses to pretend the NTFS checks ran." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "One deliberate disagreement with the tool's own advice: a collection with no rules is never offered a straight Enable, because enabling it would block every file of that type — exactly what the next finding down warns about. A ruleless collection is offered AuditOnly, or the default rules first, and only then the enable." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Undo. Every change to the policy — fix buttons, the coverage table's add-allow-rule, the enforcement dropdowns, the delete crosses — leaves one step back, named for what it did, next to the severity filters. A misclick no longer costs you the import." },
+    ],
+  },
+  {
     build: 10304, date: "2026-08-19", title: "The old logo can no longer haunt from the cache",
     items: [
       { kind: "fixed", tool: "All tools", text: "Dark mode kept showing the pre-10303 logo with its baked-in box: the dark variant is loaded by a stylesheet content-url swap, and neither that URL nor the img and favicon references carried a version — so a browser that had seen the old art kept serving it (GitHub Pages caches assets for ten minutes, browsers at their own discretion). All five logo and favicon references now carry an asset version (v=2, bumped whenever the artwork itself changes), so new art arrives the moment the page does. The SVGs themselves were already clean." },

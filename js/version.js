@@ -23,12 +23,12 @@
 const APP_BUILD = {
   version: "1.0",
   cycle: 3,          // hand-set cycle name — first beta cycle after production 2
-  build: 10304,      // beta series: 10000 + cycle*100 + iteration → v1.0.3-beta.4
+  build: 10305,      // beta series: 10000 + cycle*100 + iteration → v1.0.3-beta.5
   date: "2026-08-19",
   // When this build was cut, UTC — set with `date -u +%Y-%m-%dT%H:%MZ`,
   // never by hand (a local time typed into a UTC field puts the sign-in
   // stamp an hour into the future; ENCA builds 25090-25092 proved it).
-  released: "2026-08-19T12:45Z",
+  released: "2026-08-19T13:10Z",
   get isBeta() { return this.build >= 10000; },
   get stamp() { return `${this.label} · ${this.releasedLocal}`; },
   get releasedLocal() {
@@ -72,5 +72,5 @@ const APP_BUILD = {
 // A tool that has reached PRODUCTION is at least 1.0; it is the BETA chip,
 // not the version number, that says "still proving itself".
 const TOOL_VERSIONS = {
-  toolAppLocker: { t: 1, v: "0.1", note: "BETA — AppLocker policy builder & validator: import a policy XML (GPO export or Get-AppLockerPolicy -Effective -Xml), audit it with the AppLockerInspector check set (enforcement posture, broad principals, user-writable and wildcard paths, UNC allows, overly broad publisher rules, hash rules on broad groups, deny-shadowing awareness), verify the Microsoft apps a locked-down estate still needs — OneDrive per-user install first among them — are actually allowed, build the missing rules (publisher-first, path fallback) and the default rule set, and export the result as AppLocker policy XML plus a Markdown findings report. Runs entirely in the browser; nothing is uploaded. ACL reality checks (NTFS/share) need a filesystem and stay in Invoke-AppLockerInspector.ps1 — the report says so rather than pretending. After Spencer Alessi's AppLockerInspector" },
+  toolAppLocker: { t: 1, v: "0.2", note: "BETA — AppLocker policy builder & validator: import a policy XML (GPO export or Get-AppLockerPolicy -Effective -Xml), audit it with the AppLockerInspector check set (enforcement posture, broad principals, user-writable and wildcard paths, UNC allows, overly broad publisher rules, hash rules on broad groups, deny-shadowing awareness), verify the Microsoft apps a locked-down estate still needs — OneDrive per-user install first among them — are actually allowed, build the missing rules (publisher-first, path fallback) and the default rule set, and export the result as AppLocker policy XML plus a Markdown findings report. Every finding that has a recommendation now carries a fix button: mechanical recommendations (set enforcement, add the default rules, add a missing collection) apply in one click, and judgement recommendations open the offending rule prefilled so the admin supplies the publisher, version bound or group the tool cannot know. Every fix is one click from undone. Runs entirely in the browser; nothing is uploaded. ACL reality checks (NTFS/share) need a filesystem and stay in Invoke-AppLockerInspector.ps1 — the report says so rather than pretending. After Spencer Alessi's AppLockerInspector" },
 };

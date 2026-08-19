@@ -55,6 +55,9 @@ const AppLockerTool = (() => {
   let coverage = [];
   let sevFilter = "all";
   let importedXmlName = "";
+  let undoState = null;     // { snapshot, label } — one step back, see mutate()
+  let fixOpen = null;       // findingKey() of the finding whose editor is open
+  let shownFindings = [];   // the filtered rows render() last drew, for handlers
 
   const newGuid = () => ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -242,16 +245,16 @@ const AppLockerTool = (() => {
     const F = (sev, p) => out.push(Object.assign({ sev }, p));
     const present = new Set(model.collections.map((c) => c.type));
     for (const t of COLLECTIONS) {
-      if (!present.has(t)) F("Info", { collection: t, ruleType: "(collection)", reason: `Collection '${t}' is not present in this XML — on the endpoint that means NotConfigured (default-allow for this type) unless another policy layer carries it.`, rec: `If ${t} should be governed, add the collection with its default rules and set enforcement.` });
+      if (!present.has(t)) F("Info", { collection: t, ruleType: "(collection)", reason: `Collection '${t}' is not present in this XML — on the endpoint that means NotConfigured (default-allow for this type) unless another policy layer carries it.`, rec: `If ${t} should be governed, add the collection with its default rules and set enforcement.`, fix: { kind: "addCollection", type: t } });
     }
     for (const col of model.collections) {
-      if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured → default-allow for this type.`, rec: `Set EnforcementMode='Enabled' for '${col.type}' (or 'AuditOnly' during pilot).` });
-      else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Switch '${col.type}' to 'Enabled'.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") });
+      if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured → default-allow for this type.`, rec: `Set EnforcementMode='Enabled' for '${col.type}' (or 'AuditOnly' during pilot).`, fix: { kind: "mode", type: col.type } });
+      else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Switch '${col.type}' to 'Enabled'.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : ""), fix: { kind: "mode", type: col.type } });
       if (col.mode !== "NotConfigured" && !col.rules.length)
-        F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.` });
+        F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.`, fix: { kind: "defaults", type: col.type } });
 
       for (const r of col.rules) {
-        const base = { collection: col.type, ruleType: r.nodeName, action: r.action, principal: sidName(r.sid), rule: r.name };
+        const base = { collection: col.type, ruleType: r.nodeName, action: r.action, principal: sidName(r.sid), rule: r.name, ruleId: r.id };
         const broad = isBroadSid(r.sid), admin = isAdminSid(r.sid);
         const c = r.conditions[0];
         if (!c) continue;
@@ -286,7 +289,7 @@ const AppLockerTool = (() => {
               F("Info", Object.assign({}, base, { condType: "Path", cond, reason: "Broad principal allowed, but target is in a protected location (NTFS not verifiable in the browser — confirm it is not writable by broad principals)", rec: "No change needed if the file remains locked down; consider Publisher/Hash rules for defense-in-depth." }));
             } else {
               const sev = SEV_ORDER.find((s) => SEV_SCORE[s] <= Math.max(score, 0)) || "Info";
-              F(sev, Object.assign({}, base, { condType: "Path", cond, reason: reasons.join("; "), rec: [...new Set(recs)].join(" ") }));
+              F(sev, Object.assign({}, base, { condType: "Path", cond, reason: reasons.join("; "), rec: [...new Set(recs)].join(" "), fix: { kind: "rule" } }));
             }
           }
         } else if (c.kind === "publisher") {
@@ -301,12 +304,12 @@ const AppLockerTool = (() => {
           }
           if (score >= 0 && reasons.length) {
             const sev = SEV_ORDER.find((s) => SEV_SCORE[s] <= score) || "Info";
-            F(sev, Object.assign({}, base, { condType: "Publisher", cond, reason: reasons.join("; "), rec: [...new Set(recs)].join(" ") }));
+            F(sev, Object.assign({}, base, { condType: "Publisher", cond, reason: reasons.join("; "), rec: [...new Set(recs)].join(" "), fix: { kind: "rule" } }));
           }
         } else if (c.kind === "hash") {
           const cond = "Hashes: " + (c.hashes.map((h) => h.file).filter(Boolean).join("; ") || "<no-hash-names>");
           if (r.action === "Allow" && broad && !admin) {
-            F("Low", Object.assign({}, base, { condType: "Hash", cond, reason: "Allow-by-hash is tight, but principal is overly broad", rec: "Assign allow-by-hash to a narrower group where feasible." }));
+            F("Low", Object.assign({}, base, { condType: "Hash", cond, reason: "Allow-by-hash is tight, but principal is overly broad", rec: "Assign allow-by-hash to a narrower group where feasible.", fix: { kind: "rule" } }));
           }
         }
       }
@@ -427,6 +430,9 @@ const AppLockerTool = (() => {
     const ids = new Set();
     for (const f of findings) {
       if (f.sev === "High" || f.sev === "Medium") {
+        // Findings carry the rule id since the fix work — match on it, and fall
+        // back to the name only for findings that predate an id (none today).
+        if (f.ruleId) { ids.add(f.ruleId); continue; }
         for (const col of policy.collections) for (const r of col.rules) if (r.name === f.rule && col.type === f.collection) ids.add(r.id);
       }
     }
@@ -495,6 +501,228 @@ const AppLockerTool = (() => {
     if (col.rules.some((r) => r.name === name)) return false;
     col.rules.push(mkRule("FilePathRule", name, "S-1-1-0", "Allow", [{ kind: "path", path: art.path }], app.fix.note));
     return true;
+  }
+
+  // ================================================================
+  // FIX — turn a finding's recommendation into an action
+  //
+  // Two kinds of recommendation, and the difference is the whole design:
+  //
+  //   MECHANICAL — "set EnforcementMode='Enabled'", "add the default rules",
+  //     "add the collection". The policy already contains everything needed,
+  //     so the button applies it in one click.
+  //
+  //   JUDGEMENT — "replace this path Allow with a Publisher rule", "specify
+  //     the exact trusted publisher", "specify an upper version bound",
+  //     "restrict the principal to a purpose-built group". The tool CANNOT
+  //     know the answer: no publisher is derivable from a path, no version is
+  //     derivable from a wildcard, and the right group is a site decision.
+  //     Inventing one would be the same sin as pretending the NTFS checks ran.
+  //     So the button opens an editor prefilled from the offending rule and
+  //     the admin supplies the missing fact.
+  //
+  // Every fix goes through mutate(), so every fix is one click from undone.
+  // ================================================================
+  const snapshot = () => JSON.parse(JSON.stringify(policy));
+
+  // Run a policy mutation with an undo point. fn() returning false means
+  // "nothing changed" — no undo point is burned and no re-render happens.
+  function mutate(label, fn) {
+    if (!policy) return false;
+    const before = snapshot();
+    if (fn() === false) return false;
+    undoState = { snapshot: before, label };
+    recompute();
+    return true;
+  }
+  // A freshly loaded policy has nothing to undo back to, and any open editor
+  // points at a rule from the policy that just went away.
+  function resetFixState() { undoState = null; fixOpen = null; }
+
+  function undoLast() {
+    if (!undoState) return;
+    policy = undoState.snapshot;
+    undoState = null;
+    fixOpen = null;
+    recompute();
+  }
+
+  // Stable across recompute() — findings are rebuilt on every mutation, so an
+  // array index would point at a different finding by the time it is used.
+  const findingKey = (f) => [f.collection, f.ruleId || f.ruleType, f.reason].join("¦");
+
+  function findRuleFor(f) {
+    const col = policy.collections.find((c) => c.type === f.collection);
+    if (!col) return null;
+    const rule = col.rules.find((r) => r.id === f.ruleId);
+    return rule ? { col, rule } : null;
+  }
+
+  // What would the Fix button do for this finding? Returns null when the
+  // finding has no actionable fix (the protected-location Info finding says
+  // "no change needed" — it must not sprout a button that contradicts it).
+  function planFix(f) {
+    const fx = f.fix;
+    if (!policy || !fx) return null;
+
+    if (fx.kind === "addCollection") {
+      return {
+        mode: "auto", label: "Add collection",
+        title: `Add the ${fx.type} collection with its default rules and set enforcement`,
+        undoLabel: `added the ${fx.type} collection`,
+        apply: () => {
+          const col = ensureCollection(fx.type);
+          addDefaultRules(fx.type);
+          col.mode = col.rules.length ? "Enabled" : "AuditOnly";
+        },
+      };
+    }
+
+    if (fx.kind === "mode") {
+      const col = policy.collections.find((c) => c.type === fx.type);
+      if (!col) return null;
+      // Enabling a collection that carries no rules blocks the type outright —
+      // the audit says so itself two findings down. So a ruleless collection
+      // gets the rules first, or AuditOnly, but never a straight Enable.
+      if (!col.rules.length) {
+        if (col.mode === "NotConfigured") return {
+          mode: "auto", label: "Set AuditOnly",
+          title: `'${fx.type}' has no rules — Enabled would block every ${fx.type}. AuditOnly starts the pilot without blocking; add rules, then enable.`,
+          undoLabel: `set ${fx.type} to AuditOnly`,
+          apply: () => { col.mode = "AuditOnly"; },
+        };
+        return {
+          mode: "auto", label: "Add default rules first",
+          title: `'${fx.type}' has no rules — enabling it now would block every ${fx.type}. Add the Microsoft default rules first.`,
+          undoLabel: `added default rules to ${fx.type}`,
+          apply: () => addDefaultRules(fx.type) > 0 ? undefined : false,
+        };
+      }
+      return {
+        mode: "auto", label: "Set Enabled",
+        title: `Set EnforcementMode='Enabled' on '${fx.type}'`,
+        undoLabel: `set ${fx.type} to Enabled`,
+        apply: () => { col.mode = "Enabled"; },
+      };
+    }
+
+    if (fx.kind === "defaults") {
+      return {
+        mode: "auto", label: "Add default rules",
+        title: `Add the Microsoft default rules to '${fx.type}'`,
+        undoLabel: `added default rules to ${fx.type}`,
+        apply: () => addDefaultRules(fx.type) > 0 ? undefined : false,
+      };
+    }
+
+    if (fx.kind === "rule") {
+      const hit = findRuleFor(f);
+      if (!hit) return null;   // rule already deleted or renamed out from under us
+      return { mode: "editor", label: "Fix…", title: "Open this rule prefilled — the tool cannot guess the publisher, version or group for you", rule: hit.rule, col: hit.col };
+    }
+    return null;
+  }
+
+  // ---------- the prefilled editor ----------
+  const SID_CHOICES = [
+    ["S-1-1-0", "Everyone"],
+    ["S-1-5-11", "Authenticated Users"],
+    ["S-1-5-32-545", "BUILTIN\\Users"],
+    ["S-1-5-32-544", "BUILTIN\\Administrators"],
+  ];
+
+  function fixEditorHtml(f, plan) {
+    const r = plan.rule;
+    const c = r.conditions[0] || {};
+    const known = SID_CHOICES.some(([s]) => s === r.sid);
+    const sidOpts = SID_CHOICES.map(([s, n]) => `<option value="${s}" ${r.sid === s ? "selected" : ""}>${esc(n)}</option>`).join("") +
+      `<option value="__custom" ${known ? "" : "selected"}>Custom SID…</option>`;
+
+    const approaches = c.kind === "path"
+      ? [["path", "Tighten the path"], ["publisher", "Replace with a publisher rule"], ["delete", "Delete this rule"]]
+      : c.kind === "publisher"
+        ? [["publisher", "Constrain the publisher rule"], ["delete", "Delete this rule"]]
+        : [["principal", "Narrow the principal only"], ["delete", "Delete this rule"]];
+
+    const pub = c.kind === "publisher" ? c : { publisher: "", product: "*", binary: "*", low: "*", high: "*" };
+
+    return `<div class="al-fixpanel" style="padding:12px 14px;border-left:3px solid var(--accent,#6b8afd)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <b class="mini">Fix — ${esc(r.name)}</b>
+        <span class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")} · ${esc(r.action)}</span>
+      </div>
+      <p class="mini muted" style="margin:0 0 10px">${esc(f.rec)}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select class="btn al-fx-approach">${approaches.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select>
+        <select class="btn al-fx-sid">${sidOpts}</select>
+        <input class="btn al-fx-sidcustom" style="cursor:text;min-width:220px;${known ? "display:none" : ""}" placeholder="SID of the purpose-built group, e.g. S-1-5-21-…-1174" value="${known ? "" : esc(r.sid)}" spellcheck="false">
+      </div>
+      <div class="al-fx-pathrow" style="display:${c.kind === "path" ? "flex" : "none"};gap:8px;flex-wrap:wrap;margin-top:8px">
+        <input class="btn al-fx-path" style="cursor:text;flex:1;min-width:300px" value="${esc(c.path || "")}" placeholder="Path" spellcheck="false">
+      </div>
+      <div class="al-fx-pubrow" style="display:${c.kind === "publisher" ? "flex" : "none"};gap:8px;flex-wrap:wrap;margin-top:8px">
+        <input class="btn al-fx-pub" style="cursor:text;flex:2;min-width:300px" value="${esc(pub.publisher === "*" ? "" : pub.publisher)}" placeholder="Publisher — O=VENDOR, L=CITY, S=STATE, C=US (copy from the signed binary)" spellcheck="false">
+        <input class="btn al-fx-prod" style="cursor:text;flex:1;min-width:150px" value="${esc(pub.product)}" placeholder="Product" spellcheck="false">
+        <input class="btn al-fx-bin" style="cursor:text;flex:1;min-width:150px" value="${esc(pub.binary)}" placeholder="Binary" spellcheck="false">
+        <input class="btn al-fx-low" style="cursor:text;width:120px" value="${esc(pub.low || "*")}" placeholder="Low version" spellcheck="false">
+        <input class="btn al-fx-high" style="cursor:text;width:120px" value="${esc(pub.high || "*")}" placeholder="High version" spellcheck="false">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <button class="btn sm primary al-fx-apply">Apply fix</button>
+        <button class="btn sm al-fx-cancel">Cancel</button>
+        <span class="mini muted al-fx-hint"></span>
+      </div>
+    </div>`;
+  }
+
+  // Read the open editor out of the DOM and apply it to the rule.
+  function applyFixEditor(f, plan, root) {
+    const q = (sel) => root.querySelector(sel);
+    const approach = q(".al-fx-approach").value;
+    const rule = plan.rule, col = plan.col;
+
+    if (approach === "delete") {
+      return mutate(`deleted “${rule.name}”`, () => { col.rules = col.rules.filter((r) => r.id !== rule.id); });
+    }
+
+    let sid = q(".al-fx-sid").value;
+    if (sid === "__custom") {
+      sid = q(".al-fx-sidcustom").value.trim();
+      if (!/^S-\d-\d+(-\d+)*$/i.test(sid)) { q(".al-fx-hint").textContent = "That does not look like a SID (S-1-5-21-…)."; return false; }
+    }
+
+    if (approach === "principal") {
+      if (sid === rule.sid) { q(".al-fx-hint").textContent = "Principal unchanged — nothing to apply."; return false; }
+      return mutate(`re-scoped “${rule.name}” to ${sidName(sid)}`, () => { rule.sid = sid; });
+    }
+
+    if (approach === "path") {
+      const path = q(".al-fx-path").value.trim();
+      if (!path) { q(".al-fx-hint").textContent = "A path rule needs a path."; return false; }
+      if (path === (rule.conditions[0] || {}).path && sid === rule.sid) { q(".al-fx-hint").textContent = "Nothing changed."; return false; }
+      return mutate(`tightened “${rule.name}”`, () => {
+        rule.sid = sid;
+        rule.nodeName = "FilePathRule";
+        rule.conditions = [{ kind: "path", path }];
+      });
+    }
+
+    // publisher
+    const publisher = q(".al-fx-pub").value.trim();
+    if (!publisher) { q(".al-fx-hint").textContent = "Give the exact publisher — that is the fact the audit says is missing."; return false; }
+    const cond = {
+      kind: "publisher",
+      publisher,
+      product: q(".al-fx-prod").value.trim() || "*",
+      binary: q(".al-fx-bin").value.trim() || "*",
+      low: q(".al-fx-low").value.trim() || "*",
+      high: q(".al-fx-high").value.trim() || "*",
+    };
+    return mutate(`rewrote “${rule.name}” as a publisher rule`, () => {
+      rule.sid = sid;
+      rule.nodeName = "FilePublisherRule";
+      rule.conditions = [cond];
+    });
   }
 
   // ================================================================
@@ -567,6 +795,7 @@ const AppLockerTool = (() => {
         <b>${esc(importedXmlName || "New policy")}</b>
         <span class="mini muted">${policy.collections.reduce((n, c) => n + c.rules.length, 0)} rules in ${policy.collections.length} collections</span>
         <span class="spacer"></span>
+        ${undoState ? `<button class="btn sm" id="alUndo" title="Undo: ${esc(undoState.label)}">↩ Undo — ${esc(undoState.label)}</button>` : ""}
         ${SEV_ORDER.map((s) => `<button class="btn sm al-sev ${sevFilter === s ? "active" : ""}" data-sev="${s}">${sevTag(s)} ${counts[s]}</button>`).join("")}
         <button class="btn sm al-sev ${sevFilter === "all" ? "active" : ""}" data-sev="all">All ${findings.length}</button>
       </div>`;
@@ -583,9 +812,22 @@ const AppLockerTool = (() => {
     // ---- findings ----
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
     $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th></tr></thead><tbody>` +
-        shown.map((f) => `<tr><td>${sevTag(f.sev)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="max-width:260px;word-break:break-all">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td></tr>`).join("") +
+      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th><th></th></tr></thead><tbody>` +
+        shown.map((f, i) => {
+          const key = findingKey(f);
+          const plan = planFix(f);
+          const btn = plan
+            ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
+            : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
+          const row = `<tr><td>${sevTag(f.sev)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="max-width:260px;word-break:break-all">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
+          const editor = (plan && plan.mode === "editor" && fixOpen === key)
+            ? `<tr class="al-fixrow" data-i="${i}"><td colspan="7" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
+            : "";
+          return row + editor;
+        }).join("") +
         `</tbody></table></div>` : `<p class="mini muted">Nothing at this severity.</p>`);
+    // Handlers below index into `shown`, so it must outlive this function.
+    shownFindings = shown;
 
     // ---- Microsoft coverage ----
     $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
@@ -654,14 +896,68 @@ const AppLockerTool = (() => {
 
   function wireDynamic() {
     document.querySelectorAll(".al-sev").forEach((b) => b.addEventListener("click", () => { sevFilter = b.dataset.sev; render(); }));
-    document.querySelectorAll(".al-mode").forEach((s) => s.addEventListener("change", () => { ensureCollection(s.dataset.col).mode = s.value; recompute(); }));
-    document.querySelectorAll(".al-defaults").forEach((b) => b.addEventListener("click", () => { addDefaultRules(b.dataset.col); recompute(); }));
-    document.querySelectorAll(".al-fix").forEach((b) => b.addEventListener("click", () => { addFixForApp(coverage[+b.dataset.i].app); recompute(); }));
+    document.querySelectorAll(".al-mode").forEach((s) => s.addEventListener("change", () => {
+      mutate(`set ${s.dataset.col} to ${s.value}`, () => { ensureCollection(s.dataset.col).mode = s.value; });
+    }));
+    document.querySelectorAll(".al-defaults").forEach((b) => b.addEventListener("click", () => {
+      mutate(`added default rules to ${b.dataset.col}`, () => addDefaultRules(b.dataset.col) > 0 ? undefined : false);
+    }));
+    document.querySelectorAll(".al-fix").forEach((b) => b.addEventListener("click", () => {
+      const app = coverage[+b.dataset.i].app;
+      mutate(`added an allow rule for ${app.name}`, () => addFixForApp(app));
+    }));
     document.querySelectorAll(".al-del").forEach((b) => b.addEventListener("click", () => {
       const col = policy.collections.find((c) => c.type === b.dataset.col);
-      if (col) col.rules = col.rules.filter((r) => r.id !== b.dataset.id);
-      recompute();
+      if (!col) return;
+      const gone = col.rules.find((r) => r.id === b.dataset.id);
+      mutate(`deleted “${gone ? gone.name : "rule"}”`, () => { col.rules = col.rules.filter((r) => r.id !== b.dataset.id); });
     }));
+
+    // ---- findings: fix ----
+    const undoBtn = $("alUndo");
+    if (undoBtn) undoBtn.addEventListener("click", undoLast);
+
+    document.querySelectorAll(".al-fixfind").forEach((b) => b.addEventListener("click", () => {
+      const f = shownFindings[+b.dataset.i];
+      if (!f) return;
+      const plan = planFix(f);
+      if (!plan) return;
+      if (plan.mode === "auto") { fixOpen = null; mutate(plan.undoLabel, plan.apply); return; }
+      const key = findingKey(f);
+      fixOpen = fixOpen === key ? null : key;   // second click closes it
+      render();
+    }));
+    document.querySelectorAll(".al-fixrow").forEach((row) => {
+      const f = shownFindings[+row.dataset.i];
+      if (!f) return;
+      const plan = planFix(f);
+      if (!plan || plan.mode !== "editor") return;
+      const approach = row.querySelector(".al-fx-approach");
+      const sync = () => {
+        const v = approach.value;
+        const set = (sel, on) => { const el = row.querySelector(sel); if (el) el.style.display = on ? "flex" : "none"; };
+        set(".al-fx-pathrow", v === "path");
+        set(".al-fx-pubrow", v === "publisher");
+        const sid = row.querySelector(".al-fx-sid");
+        if (sid) sid.disabled = v === "delete";
+      };
+      approach.addEventListener("change", sync);
+      sync();
+      const sidSel = row.querySelector(".al-fx-sid");
+      sidSel.addEventListener("change", () => {
+        row.querySelector(".al-fx-sidcustom").style.display = sidSel.value === "__custom" ? "" : "none";
+      });
+      row.querySelector(".al-fx-cancel").addEventListener("click", () => { fixOpen = null; render(); });
+      row.querySelector(".al-fx-apply").addEventListener("click", () => {
+        // Close BEFORE applying: applyFixEditor() calls mutate(), which
+        // re-renders synchronously, and a still-open fixOpen would redraw the
+        // editor over the result. On refusal nothing re-rendered, the reason is
+        // already in .al-fx-hint, and the panel stays where it is.
+        const wasOpen = fixOpen;
+        fixOpen = null;
+        if (applyFixEditor(f, plan, row) === false) fixOpen = wasOpen;
+      });
+    });
     const kind = $("alNewKind");
     if (kind) kind.addEventListener("change", () => {
       $("alNewPathRow").style.display = kind.value === "path" ? "flex" : "none";
@@ -719,6 +1015,7 @@ const AppLockerTool = (() => {
         policy = parsePolicy(await f.text(), f.name);
         importedXmlName = f.name;
         sevFilter = "all";
+        resetFixState();
         recompute();
       } catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
@@ -728,6 +1025,7 @@ const AppLockerTool = (() => {
       policy = parsePolicy(SAMPLE_XML, "sample policy");
       importedXmlName = "sample policy (deliberately flawed — for trying the tool)";
       sevFilter = "all";
+      resetFixState();
       recompute();
     });
     $("alNew").addEventListener("click", () => {
@@ -735,6 +1033,7 @@ const AppLockerTool = (() => {
       COLLECTIONS.forEach((t) => ensureCollection(t));
       importedXmlName = "new policy";
       sevFilter = "all";
+      resetFixState();
       recompute();
     });
     $("alXml").addEventListener("click", () => { if (policy) download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml"); });
