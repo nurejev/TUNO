@@ -1145,7 +1145,7 @@ const AppLockerTool = (() => {
         ${topPaths.map((w) => {
           const p = w.normalized || w.path;
           const rule = evaluateProbePath(policy, p, "Exe");
-          return `<tr><td class="mini" style="word-break:break-all">${esc(p)}</td>
+          return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(p)}</td>
             <td class="mini">${esc((w.grantees || []).map((g) => g.name || g.sid).join(", ") || "—")}</td>
             <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
         }).join("")}
@@ -1154,7 +1154,7 @@ const AppLockerTool = (() => {
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Verdict</th><th>File</th><th>Publisher</th><th>User</th><th>When</th></tr></thead><tbody>
         ${topEvents.map((e) => `<tr>
           <td>${e.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">would block</span>'}</td>
-          <td class="mini" style="word-break:break-all">${esc(e.path || "—")}</td>
+          <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(e.path || "—")}</td>
           <td class="mini">${esc(e.signed ? (e.publisher || "") : "not signed")}</td>
           <td class="mini">${esc(e.userName || e.userSid || "—")}</td>
           <td class="mini muted">${esc(String(e.timeUtc || "").replace("T", " ").slice(0, 16))}</td></tr>`).join("")}
@@ -1202,7 +1202,7 @@ const AppLockerTool = (() => {
             ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
             : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
           const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : "";
-          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="max-width:260px;word-break:break-all">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
+          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="min-width:160px;max-width:260px;word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
           const editor = (plan && plan.mode === "editor" && fixOpen === key)
             ? `<tr class="al-fixrow" data-i="${i}"><td colspan="7" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
             : "";
@@ -1214,7 +1214,7 @@ const AppLockerTool = (() => {
 
     // ---- Microsoft coverage ----
     $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
-      `<table class="plist"><thead><tr><th>App</th><th>Verdict</th><th>Detail</th><th></th></tr></thead><tbody>` +
+      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>App</th><th>Verdict</th><th>Detail</th><th></th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
         let detail;
@@ -1235,19 +1235,19 @@ const AppLockerTool = (() => {
         return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted" style="max-width:320px">${esc(row.app.context)}</div></td>
           <td>${verdictTag(v.status, v.audit)}</td><td class="mini">${detail}</td>
           <td>${canFix ? `<button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button>` : ""}</td></tr>`;
-      }).join("") + `</tbody></table>`;
+      }).join("") + `</tbody></table></div>`;
 
     // ---- rules / builder ----
     $("alRules").innerHTML = `<h3 style="margin:0 0 8px">Rules</h3>` +
       policy.collections.map((col) => col.rules.length ? `<h4 class="mini" style="margin:12px 0 6px">${esc(COLLECTION_LABEL[col.type] || col.type)} · ${esc(col.mode)}</h4>
-        <table class="plist"><tbody>` + col.rules.map((r) => {
+        <div style="overflow-x:auto"><table class="plist"><tbody>` + col.rules.map((r) => {
           const c = r.conditions[0] || {};
           const cond = c.kind === "path" ? c.path : c.kind === "publisher" ? `${c.publisher} · ${c.product} · ${c.binary} [${c.low},${c.high}]` : c.kind === "hash" ? `${(c.hashes || []).length} hash(es)` : "";
           return `<tr><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
             <td>${esc(r.name)}${risky.has(r.id) ? ' <span class="tag new">⚠ flagged</span>' : ""}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div></td>
-            <td class="mini" style="max-width:340px;word-break:break-all">${esc(cond)}</td>
+            <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
             <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
-        }).join("") + `</tbody></table>` : "").join("") +
+        }).join("") + `</tbody></table></div>` : "").join("") +
       `<div class="list-card" style="margin-top:14px;padding:16px">
         <h4 style="margin:0 0 8px">＋ Add a rule</h4>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

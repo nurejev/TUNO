@@ -49,6 +49,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 6,
+      title: "T01 gets the width the two columns needed",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10309],
+      risk: "low",
+      what: "The split screen from 10307 never had room: the app sits in an 1180px shell, so two columns gave the findings table ~700px for seven columns and the code panel ~400px, and a wider monitor changed nothing because the cap is on the shell. #screen-applocker now widens with the viewport to 1680px and re-centres (main is centred, so centring within it centres on screen); the code column takes 400–520px; the stack breakpoint moves from 1100px to 1240px. Coverage and Rules gain the horizontal scroller Findings already had — the cards hide their overflow, so those two were being silently cut rather than scrolled — and .al-col children carry min-width:0 so a wide table cannot push its card past its track. Path breaking goes from break-all/break-word to normal with overflow-wrap:anywhere in three places, so a token only splits when the line has no space to break at.",
+      why: "LOW — CSS and two table wrappers; no analysis, serialisation or export logic touched. It graduates on sight, but it has to be SEEN, and at more than one width: the bug it fixes was invisible in the markup and obvious on a screen.",
+      test: [
+        "Open T01 with the sample policy on a display wider than 1400px. The findings table must show all seven columns with the condition reading as a path, not as one character per line, and the code panel must be wide enough that most attributes sit on one line. Compare against build 10308 in another tab if you want to see what was wrong.",
+        "THE ONE THAT MATTERS: drag the window slowly from full width down to about 900px. The screen must stay centred at every width — no drift left or right, no horizontal scrollbar on the page — and must stack into one column at 1240px. Centring is done with a negative margin against a percentage, which is the part most likely to be subtly wrong on an unusual window size.",
+        "At full width, check the header, tab bar and the other screens (home, Help, What's new, Roadmap) are still in the 1180px shell. Only T01 escapes it; if the whole app got wider, the rule is too broad.",
+        "Scroll the Coverage and Rules tables sideways on a narrow window. Both must scroll within their card. Before this build the text past the card edge was simply absent — no scrollbar and no ellipsis — so the check is that nothing is missing, not that a scrollbar appears.",
+        "With the scan bundle loaded (item 5), confirm the device-evidence card and the satellite findings sit in the left column and did not inherit any of this.",
+        "Check both themes and the Intune tab: the panel is sticky and scrolls inside itself while the left column moves. On a policy longer than the viewport the panel must not grow past the window.",
+      ],
+      files: ["css/app.css", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 5,
       title: "T01 scans the device, and exports for Intune",
       tools: ["🔐 AppLocker builder & validator"],

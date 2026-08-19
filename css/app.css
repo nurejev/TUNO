@@ -1403,13 +1403,26 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 /* ---- T01: the audit on the left, the XML it produces on the right ----
    The XML is the artefact that ends up in the GPO, so it stays on screen
    while the policy is edited instead of appearing only as a download. The
-   panel sticks to the viewport and scrolls inside itself; the column
-   collapses under 1100px, because a narrow XML column cannot show a path
-   without wrapping it into nonsense. */
-.al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:14px;align-items:start;margin-top:14px}
+   panel sticks to the viewport and scrolls inside itself.
+
+   T01 IS THE ONE SCREEN THAT ESCAPES THE 1180px SHELL. Splitting 1180 two
+   ways gave the findings table about 700px — seven columns squeezed until
+   the condition wrapped one character per line — and the XML about 400px,
+   narrow enough that every path broke mid-token. Neither half got better on
+   a bigger monitor, because the cap is on the shell, not the viewport. The
+   screen now widens with the viewport up to 1680px and re-centres itself;
+   `main` is centred too, so centring inside it centres on screen. Below
+   1240px there is no room for two columns and it stacks. */
+@media (min-width:1240px){
+  #screen-applocker{--alw:min(1680px, calc(100vw - 48px));width:var(--alw);margin-left:calc(50% - var(--alw) / 2)}
+}
+.al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,520px);gap:14px;align-items:start;margin-top:14px}
 .al-col{min-width:0;display:flex;flex-direction:column;gap:14px}
+/* Flex children default to min-width:auto, so a wide table pushes the card
+   past its grid track and .list-card's overflow:hidden clips the text off. */
+.al-col > *{min-width:0}
 .al-side{position:sticky;top:14px;min-width:0}
-@media (max-width:1100px){
+@media (max-width:1240px){
   .al-split{grid-template-columns:minmax(0,1fr)}
   .al-side{position:static}
   .al-xml{max-height:70vh}
@@ -1432,7 +1445,11 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .al-xml .btn.primary:hover{background:#356418;border-color:#356418}
 .al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:#a8e6a0;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  font-size:12px;line-height:1.6;white-space:pre-wrap;
+  /* Break between tokens where there is one, and only inside a token when
+     there is no choice — word-break:break-word split every path mid-word
+     even when the line had a space to break at. */
+  word-break:normal;overflow-wrap:anywhere}
 .al-xml-code .x-tag{color:#7fb2ff}
 .al-xml-code .x-attr{color:#9ad5ff}
 .al-xml-code .x-val{color:#a8e6a0}

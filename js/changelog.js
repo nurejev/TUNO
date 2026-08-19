@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10309, date: "2026-08-19", title: "The two columns had nowhere to go",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Splitting the screen in two gave neither half enough room, and a wider monitor did not help, because the limit was never the monitor. The whole app sits in an 1180-pixel shell. Two columns inside that left the findings table about 700 pixels for seven columns — the condition ended up wrapping one character per line — and the code panel about 400, narrow enough that every path broke mid-token. T01 is now the one screen that escapes the shell: it widens with the window up to 1680 pixels and re-centres itself, and the code panel gets 520 of that. Below 1240 pixels there is no room for two columns and it stacks, which is what the old breakpoint was trying to say and set too low to mean." },
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Two tables were being cut off rather than scrolled. Coverage and Rules had no horizontal scroller of their own, and the cards they sit in hide their overflow, so anything past the card edge was simply not there — no scrollbar, no ellipsis, just missing text. Both scroll now, and the flex children carry a zero minimum width so a wide table can no longer push its card past the column it was given." },
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Paths stop being broken mid-token where the line had a space to break at instead. The rule condition, the finding condition, the two scan tables from the previous build and the code panel all asked for a break anywhere; they now ask for a normal break first and only fall back to breaking inside a token when the token genuinely does not fit." },
+    ],
+  },
+  {
     build: 10308, date: "2026-08-19", title: "The tool can finally see the machine",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "A browser cannot read a directory permission, verify a signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing the Program Files folder is only as strong as the permissions underneath it, and the XML does not say what those are. So the tool now hands you the PowerShell that can: Invoke-TunoAppLockerScan.ps1, downloaded from the tool itself, run once on a representative device. It finds every directory a standard user can write to, inventories the executables sitting in them with their signer and version, reads what AppLocker has already blocked, and builds a rule set with every one of those directories excepted out of the default rules. It changes nothing on the device." },
