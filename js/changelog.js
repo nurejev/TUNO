@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10314, date: "2026-08-19", title: "Help, What's new and the Roadmap sit in the middle",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The three prose screens hugged the left edge. They cap their column at 920 pixels so a line of text stays readable, which is right, but the cap had no auto margins \u2014 so the column sat hard against the left of an 1180-pixel shell whose header and tab bar used the full width, and the whole page read as knocked sideways rather than as a column. The measure stays; the column is centred now. It shows most on Help, which is the longest of the three, and it is the same one-line omission on all of them." },
+    ],
+  },
+  {
     build: 10313, date: "2026-08-19", title: "Step 1 asks for one thing, and says what it does not need",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Step 1 offered two downloads, and the second one has nothing to do with scanning a device. Convert-TunoAppLockerToIntune.ps1 turns a finished policy into an Intune profile, which is step 5's job; sitting in step 1 it made the first thing you are asked to do look twice as heavy as it is. It has moved to step 5, next to the instructions that use it. Step 1 now asks for one script." },

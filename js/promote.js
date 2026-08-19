@@ -49,6 +49,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 10,
+      title: "The prose screens are centred",
+      tools: ["All tools"],
+      builds: [10314],
+      risk: "low",
+      what: ".help-page gains auto side margins. It caps the prose column at 920px, which is correct \u2014 1180px of running text is not readable \u2014 but with no auto margins the column sat against the left edge of a shell whose header and tab bar use the full 1180, so Help, What's new and the Roadmap all read as offset rather than centred.",
+      why: "LOW \u2014 one CSS declaration. It graduates on sight, on the three screens that use the class.",
+      test: [
+        "Open Help, What's new and the Roadmap in turn and check each column is centred under the tab bar rather than hard left. All three share the class, so if one is right they all are \u2014 but look at all three anyway, because that assumption is exactly how the omission survived.",
+        "Confirm the line length has NOT changed: the fix is the margins, not the measure. If the text now runs the full width of the shell, the cap has been removed by accident and the screens are harder to read than before.",
+        "Check at a narrow window too, where the column is already the full width and the auto margins do nothing.",
+      ],
+      files: ["css/app.css", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 9,
       title: "Step 1 asks for one script, and the intro card matches its neighbours",
       tools: ["\ud83d\udd10 AppLocker builder & validator"],
