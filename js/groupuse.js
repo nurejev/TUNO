@@ -1037,7 +1037,7 @@ const GroupUseTool = (() => {
     const g = group;
     const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
 
-    const head = `<div class="list-card gu-sticky">
+    const head = `<div class="gu-sticky">
       <span class="gu-who">${esc(g.displayName || g.id)}
         <span class="mini muted">${esc(g.id)}${members != null ? ` · ${members} direct member${members === 1 ? "" : "s"}` : ""}${g.membershipRule ? " · dynamic" : ""}${g.isAssignableToRole ? " · role-assignable" : ""}</span></span>
       <div class="gu-sum">
@@ -1102,7 +1102,7 @@ const GroupUseTool = (() => {
     const cols = GroupUse.SOURCES.filter((s) => r.ran.some((x) => x.id === s.id));
     const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
 
-    const head = `<div class="list-card gu-sticky">
+    const head = `<div class="gu-sticky">
       <span class="gu-who">Tenant sweep
         <span class="mini muted">${esc((GroupUse.SCOPES_IN.find((s) => s.id === r.scope) || {}).label || r.scope)}${o.matchText ? ` · ${esc(o.matchMode)} “${esc(o.matchText)}”` : ""}</span></span>
       <div class="gu-sum">

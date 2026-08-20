@@ -490,7 +490,7 @@ const AuditTool = (() => {
     const s = Audit.summarize(rows);
     const stat = (n, l, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(l)}</span>`;
 
-    const head = `<div class="list-card gu-sticky">
+    const head = `<div class="gu-sticky">
       <span class="gu-who">${view === "policy" ? "Policy changes" : "All audit events"}
         <span class="mini muted">${esc(res.window.label)} · since ${esc(res.since)} · ${res.rows.length} event${res.rows.length === 1 ? "" : "s"} read</span></span>
       <div class="gu-sum">

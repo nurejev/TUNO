@@ -135,6 +135,21 @@ param(
   #   User.Read.All
   #     Turning the member and actor GUIDs that Intune returns into names,
   #     through directoryObjects/getByIds. Without it R07 is a page of GUIDs.
+  #     Also the primary user's group memberships in R03 — a policy reaching a
+  #     device through the person using it is half of what that tool answers.
+  #
+  # --- and one more, at build 10330 -------------------------------------
+  #
+  #   Device.Read.All
+  #     The ENTRA DEVICE OBJECT, which is not the Intune managedDevice record.
+  #     DeviceManagementManagedDevices.Read.All reads the enrolment; only the
+  #     directory can say which groups a machine is IN, and R03 answers "why
+  #     did this device get that policy" by walking exactly that. Read-only,
+  #     admin-consent, and it costs every tenant one more consent round trip —
+  #     which is why it goes on WITH the tool rather than ahead of it, as the
+  #     rule above says. Without it R03 still runs and reports the device's own
+  #     group memberships as UNKNOWN rather than as none; that is honest and it
+  #     is also half a tool.
   #
   # Adding a scope here is not the same as using it: a tool that never calls
   # Graph never triggers a consent prompt for one. But a scope consented is a
@@ -158,7 +173,9 @@ param(
     "DeviceManagementServiceConfig.Read.All",
     "DeviceManagementRBAC.Read.All",
     "GroupMember.Read.All",
-    "User.Read.All"
+    "User.Read.All",
+    # R03 device analyzer — build 10330
+    "Device.Read.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent
