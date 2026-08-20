@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10326"></script>
+<script src="js/popup-guard.js?v=10327"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10326">
+<link rel="stylesheet" href="css/app.css?v=10327">
 </head>
 <body>
 
@@ -520,7 +520,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <option value="unassigned">Unassigned only</option>
           </select></label>
       </div>
-      <p class="mini muted" style="margin:8px 0 0"><b>Filters apply to what has already been read</b>, so changing one costs nothing and asks the tenant nothing. <b>They also apply to the exports</b> — narrow to unassigned Windows policies and the document holds exactly those. Every export's header says how many of how many it contains, so a filtered document cannot be mistaken for a complete one.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Filters apply to what has already been read</b>, so changing one costs nothing and asks the tenant nothing. <b>The exports follow the SELECTION, not the filter</b> — the filter narrows what you are looking at, the tick boxes decide what you are sending. That separation is what lets you filter to find three policies, tick them, clear the filter and still export three. Everything is selected after a read; every export's header states how many of how many were chosen, so a partial document can never be mistaken for a complete one.</p>
 
       <div class="tb-actions" style="margin-top:14px">
         <button class="btn primary" id="dcRun">📄 Read the configuration</button>
@@ -533,6 +533,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
 
     <div id="dcBody" style="margin-top:14px"></div>
+
+    <!-- The policy popout. ENCA's modal, same classes. Inline expansion was
+         wrong for a list this long: opening one settings-catalog policy
+         pushed everything else off the screen and closing it lost your
+         place. -->
+    <div class="modal-bg" id="dcModal">
+      <div class="modal gu-modal" id="dcModalBody"></div>
+    </div>
   </section>
 
   <!-- ============ ROADMAP ============ -->
@@ -643,7 +651,9 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <h3 style="margin:14px 0 6px">📄 Configuration documenter</h3>
         <p class="mini" style="margin:0 0 10px">Reads thirteen configuration surfaces once and gives you two things: a filterable list of every policy in the tenant with its settings expandable underneath, and a document you can hand to somebody. Filters apply to what has already been read, so changing one costs nothing — and they apply to the exports too, so you can narrow to exactly what you need to circulate.</p>
         <p class="mini" style="margin:0 0 10px"><b>Secrets are redacted and there is no switch.</b> Script bodies, certificates, passwords, pre-shared keys and encrypted OMA-URI values are replaced with a marker: the document records that a value is set without carrying it. This is the artefact most likely to be emailed, and a disclosure in one cannot be recalled.</p>
-        <p class="mini" style="margin:0 0 10px"><b>A filtered document says so.</b> Every export's header states how many of how many objects it holds, and which filters were applied, so a document of forty Windows policies can never be read as a document of the whole tenant.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Clicking a policy opens a popout.</b> Expanding in place was wrong for a list this long — a settings-catalog policy carries twenty-odd rows, so opening one pushed everything else off the screen and closing it lost your place. Escape, the Close button and the backdrop all dismiss it.</p>
+        <p class="mini" style="margin:0 0 10px"><b>The exports follow the SELECTION, not the filter.</b> Two different jobs: the filter narrows what you are looking at, the tick boxes decide what you are sending. That is what lets you filter to find three policies, tick them, clear the filter, and still export three. Everything is selected after a read; with nothing selected the export buttons disappear, because a button that would produce an empty document is worse than no button.</p>
+        <p class="mini" style="margin:0 0 10px"><b>A partial document says which kind of partial.</b> Every export header states how many of how many objects it holds and whether a person chose them or a filter produced them — “I picked these twelve” and “a platform filter left twelve” are different claims, and neither is “this is the tenant”.</p>
         <p class="mini" style="margin:0 0 10px"><b>Unknown is stated, not hidden — but differently from the backup tool.</b> A section that could not be read is named as unreadable and is absent from the document. A single policy whose settings could not be read is still <i>listed</i>, with the gap stated, because a document is for reading rather than restoring: knowing a policy exists and that its configuration could not be retrieved is worth more than the policy silently disappearing.</p>
         <h3 style="margin:0 0 6px">Security model</h3>
         <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
@@ -677,18 +687,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10326"></script>
-<script src="js/version.js?v=10326"></script>
-<script src="js/promote.js?v=10326"></script>
-<script src="js/authConfig.js?v=10326"></script>
-<script src="js/changelog.js?v=10326"></script>
-<script src="js/msappcatalog.js?v=10326"></script>
-<script src="js/graph.js?v=10326"></script>
-<script src="js/groupuse.js?v=10326"></script>
-<script src="js/audit.js?v=10326"></script>
-<script src="js/backup.js?v=10326"></script>
-<script src="js/document.js?v=10326"></script>
-<script src="js/applocker.js?v=10326"></script>
-<script src="js/app.js?v=10326"></script>
+<script src="js/branding.js?v=10327"></script>
+<script src="js/version.js?v=10327"></script>
+<script src="js/promote.js?v=10327"></script>
+<script src="js/authConfig.js?v=10327"></script>
+<script src="js/changelog.js?v=10327"></script>
+<script src="js/msappcatalog.js?v=10327"></script>
+<script src="js/graph.js?v=10327"></script>
+<script src="js/groupuse.js?v=10327"></script>
+<script src="js/audit.js?v=10327"></script>
+<script src="js/backup.js?v=10327"></script>
+<script src="js/document.js?v=10327"></script>
+<script src="js/applocker.js?v=10327"></script>
+<script src="js/app.js?v=10327"></script>
 </body>
 </html>

@@ -49,6 +49,33 @@ const PROMOTE = {
 
   items: [
     {
+      n: 23,
+      title: "T05 — popout, selection, and exports that follow it",
+      tools: ["📄 Configuration documenter"],
+      builds: [10327],
+      risk: "low",
+      what: "Three changes to T05, all UI. (1) Clicking a policy opens ENCA's modal (.modal-bg / .modal.gu-modal / .gu-m-head|body|foot, all already in the stylesheet) instead of expanding inline; Escape and the Close button both dismiss it, and it carries assignments, description, source endpoint, the settings table, a tick box and a copy-as-Markdown. (2) Per-policy checkboxes, a section-level tick in each heading, and a .selbar above the list with select all / select what is shown / invert / select none. (3) The exports read selectedSections() rather than current(), so they follow the SELECTION and not the filter; everything is selected after a read; export buttons hide when nothing is. scopeLine() gained a bySelection branch so a short document says whether a person chose it or a filter produced it. Also sets js/version.js released, which 10326 left at the previous evening's value.",
+      why: "LOW — no Graph call changed, no scope changed, and the redaction path is untouched (the popout renders rows that were already redacted when they were built, which a mutation test confirmed there is no second path to break). The thing to actually look at is whether the selection model is comprehensible in front of a real tenant: four hundred policies, a filter, and a set of ticks that deliberately does NOT follow that filter is either obviously right or quietly confusing, and a headless test cannot tell which. It graduates on someone using it to produce a real document.",
+      test: [
+        "THE ONE THAT MATTERS, and it is a judgement rather than a check: read a tenant, filter to something narrow, tick three policies, clear the filter, and export. You should get three. If that behaviour surprises you in the moment, the model is wrong however well it tests — say so and it changes.",
+        "Click a policy. The popout must open over the list without moving it, and closing it must leave you exactly where you were. That is the whole reason it stopped being an inline expander.",
+        "Escape and the Close button must both dismiss it. Open one, press Escape, open another — no leaked key handlers, no stacked backdrops.",
+        "Open a policy with a secret in it (a Wi-Fi profile with a pre-shared key) and confirm the popout shows the redaction marker, not the value. This is a second render path for the same data and it deserves its own look even though the rows arrive already redacted.",
+        "Tick the box inside the popout and confirm the count in the bar moves without the popout closing.",
+        "Select none, and confirm the three export buttons disappear rather than producing an empty document.",
+        "Export with a partial selection and read the header: it must say A SELECTION with both counts, not A FILTERED VIEW. Then narrow with a filter, use 'select what is shown', and confirm it still says A SELECTION — because it is one.",
+        "Tick a section heading and confirm the whole section follows, then untick one row and confirm the heading box clears.",
+        "On a tenant with several hundred policies, check the list still feels responsive — every tick re-renders the whole list, which is fine at four hundred and would not be at forty thousand.",
+        "NOT COVERED BY THE HEADLESS TESTS: whether the popout looks right. The suite proves it opens, carries the right content, redacts, and closes on Escape. It cannot see it.",
+      ],
+      staying: [
+        "PDF. Still queued; the standalone HTML carries print rules meanwhile.",
+        "No multi-select by shift-click or drag. Select-all, select-shown and invert cover the cases that came up; ranges can wait for someone to ask.",
+        "The other four tools keep their inline detail. T05 needed a popout because its rows are long; T02's assignment rows are not, and changing them for symmetry alone would be churn.",
+      ],
+      files: ["js/document.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 22,
       title: "The summary strips and result cards get their spacing back",
       tools: ["\ud83d\udc65 Group use", "\ud83d\udd53 Change audit", "\ud83d\udcbe Backup", "\ud83d\udcc4 Documenter"],

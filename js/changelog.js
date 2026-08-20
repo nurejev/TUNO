@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10327, date: "2026-08-20", title: "Pick what goes in the document",
+    items: [
+      { kind: "improved", tool: "📄 Configuration documenter", text: "Clicking a policy opens a popout instead of unfolding it where it sits. Expanding in place was wrong for a list this long: a settings-catalog policy carries twenty-odd rows, so opening one pushed everything else off the screen, and closing it again lost your place in a list of four hundred. The popout is the same one the sister tool uses, with the same behaviour — Escape closes it, so does the backdrop, and it carries the policy's assignments, its description and the endpoint the data came from alongside the settings table." },
+      { kind: "new", tool: "📄 Configuration documenter", text: "Policies are selectable, and THE EXPORTS FOLLOW THE SELECTION RATHER THAN THE FILTER. Those are two different jobs: the filter narrows what you are looking at, the tick boxes decide what you are sending. Keeping them apart is the whole point — you can filter to find three policies, tick them, clear the filter, and still export exactly three. A bar above the list keeps the count and offers select all, select everything currently shown, invert, and select none; a whole section can be ticked from its heading; and the popout can tick the policy you are reading without closing it." },
+      { kind: "improved", tool: "📄 Configuration documenter", text: "Everything is selected after a read, because the common case is documenting the tenant and starting at nothing would leave the export buttons dead with no explanation. With nothing selected they disappear instead: a button that would produce an empty document is worse than no button at all." },
+      { kind: "improved", tool: "📄 Configuration documenter", text: "The document header now distinguishes a selection from a filtered view. \"I picked these twelve\" and \"a platform filter left twelve\" are different claims about the same short document, and neither is \"this is the tenant\" — a reader who has to act on the thing deserves to know which one they are holding." },
+      { kind: "fixed", tool: "All tools", text: "The build stamp on the sign-in screen was showing a time from an earlier build. The released timestamp had been left behind by the previous release while the build number and date moved on, so the footer and the sign-in screen were quietly claiming this build was cut the previous evening. It is set from the clock now, as the file's own instructions have always said to do." },
+    ],
+  },
+  {
     build: 10326, date: "2026-08-19", title: "The summary strips stop wearing a box",
     items: [
       { kind: "fixed", tool: "All tools", text: "The sticky summary strip at the top of Group use, Change audit, Backup and Documenter was marked as a card as well as a strip. A card draws a border; the strip sets its own padding to nothing horizontally, because it is meant to sit on the page background rather than inside a frame. Together that produced a box with its heading and its numbers pressed against the frame. It is a bare strip now, which is what ENCA has always had and what the styling was written for. It also follows the measured height of the header and tab bar instead of assuming they come to 106 pixels." },

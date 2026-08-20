@@ -460,6 +460,8 @@ const Docs = (() => {
       tenant: o.tenant || "",
       title: o.title || "Microsoft Intune — configuration",
       shown, total, filtered: shown !== total,
+      bySelection: !!o.bySelection,
+      single: !!o.single,
       filter: filterText(o.query),
       sectionsShown: (o.sections || res.sections).length,
       sectionsRead: res.sections.length,
@@ -467,9 +469,19 @@ const Docs = (() => {
   }
 
   // The one sentence that has to appear in every format.
-  const scopeLine = (m) => m.filtered
-    ? `THIS IS A FILTERED VIEW: ${m.shown} of ${m.total} objects${m.filter ? `, ${m.filter}` : ""}. It is not a complete record of the tenant.`
-    : `${m.shown} object(s) across ${m.sectionsShown} section(s) — the complete set that was read.`;
+  //
+  // SELECTED and FILTERED are different reasons for a document to be short,
+  // and a reader deserves to know which. "I picked these twelve" and "a
+  // platform filter left twelve" are not the same claim, and neither is the
+  // same as "this is the tenant".
+  const scopeLine = (m) => {
+    if (!m.filtered) return `${m.shown} object(s) across ${m.sectionsShown} section(s) — the complete set that was read.`;
+    const why = m.bySelection ? "A SELECTION" : "A FILTERED VIEW";
+    const how = m.bySelection
+      ? `${m.shown} of ${m.total} objects were chosen for this document`
+      : `${m.shown} of ${m.total} objects${m.filter ? `, ${m.filter}` : ""}`;
+    return `THIS IS ${why}: ${how}. It is not a complete record of the tenant.`;
+  };
 
   const NOTE_REDACTED = "Secret-bearing values are redacted. Script bodies, certificates, passwords, pre-shared keys and encrypted OMA-URI values are replaced with a marker: the document records that a value is set without carrying it. This cannot be switched off.";
   const NOTE_LIVE = "This document describes the tenant as it was at the moment it was generated. It is a snapshot, not a specification.";
@@ -677,7 +689,13 @@ const DocsTool = (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  let res = null, running = false, open = new Set();
+  let res = null, running = false;
+  // SELECTION IS THE EXPORT SET, and that is the whole point of it. The
+  // filter narrows what you are LOOKING at; the selection decides what you
+  // are SENDING. Keeping them separate is what lets you filter to find three
+  // policies, tick them, clear the filter, and still export three.
+  let selected = new Set();
+  const keyOf = (secId, itemId) => secId + "|" + itemId;
 
   const prog = (m) => { const el = $("dcProg"); if (el) el.textContent = m || ""; };
   const chosen = () => [...document.querySelectorAll("#dcSections input[type=checkbox]")].filter((c) => c.checked).map((c) => c.value);
@@ -719,16 +737,24 @@ const DocsTool = (() => {
       res = await Docs.collect({ sections: secs, onStatus: prog });
       const plats = Docs.platforms(res);
       $("dcPlatform").innerHTML = `<option value="All">All platforms</option>` + plats.map((p) => `<option>${esc(p)}</option>`).join("");
-      open = new Set();
+      // Everything selected to begin with: the common case is "document the
+      // tenant", and starting at nothing would make the export buttons dead
+      // on arrival with no explanation.
+      selected = new Set();
+      selectAll(res.sections);
       prog("");
       render();
-      showExports(true);
     } catch (e) { fail(e); }
     finally { running = false; $("dcRun").disabled = false; }
   }
 
   const query = () => ({ text: $("dcSearch").value, platform: $("dcPlatform").value, state: $("dcState").value });
   const current = () => Docs.filterItems(res, query());
+  // Every item that is ticked, in section order, regardless of the filter.
+  const selectedSections = () => res.sections
+    .map((sec) => ({ ...sec, items: sec.items.filter((it) => selected.has(keyOf(sec.id, it.id))) }))
+    .filter((sec) => sec.items.length);
+  const selectAll = (secs) => { secs.forEach((sec) => sec.items.forEach((it) => selected.add(keyOf(sec.id, it.id)))); };
 
   function render() {
     const sections = current();
@@ -754,42 +780,143 @@ const DocsTool = (() => {
     }
     if (res.nameError) notes.push(`<div class="gu-fail gu-skip"><b>Group names could not be resolved.</b><span class="why">${esc(res.nameError)} — assignments show group IDs.</span></div>`);
 
-    const body = sections.length ? sections.map((sec) => `
+    const body = sections.length ? sections.map((sec) => {
+      const all = sec.items.every((it) => selected.has(keyOf(sec.id, it.id)));
+      return `
       <div class="gu-src">
-        <h5>${esc(sec.icon)} ${esc(sec.label)} <span class="mini muted">${sec.items.length}</span>
+        <h5>
+          <label class="chk" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer">
+            <input type="checkbox" data-secall="${esc(sec.id)}"${all ? " checked" : ""}>
+            ${esc(sec.icon)} ${esc(sec.label)}</label>
+          <span class="mini muted">${sec.items.length}</span>
           <span class="mini muted"><code>${esc(sec.endpoint)}</code></span></h5>
         ${sec.items.map((it) => {
-          const key = sec.id + "|" + it.id;
-          const isOpen = open.has(key);
-          return `<div class="rk-card ${isOpen ? "" : "info"}">
-            <div class="rk-h" style="cursor:pointer" data-toggle="${esc(key)}">
-              <b>${esc(it.name)}</b>
+          const key = keyOf(sec.id, it.id);
+          return `<div class="rk-card info gu-row-link">
+            <div class="rk-h">
+              <label class="chk" style="display:inline-flex;align-items:center;margin:0" title="Include in the document">
+                <input type="checkbox" data-pick="${esc(key)}"${selected.has(key) ? " checked" : ""}></label>
+              <b data-open="${esc(key)}" style="cursor:pointer">${esc(it.name)}</b>
               ${it.platform ? `<span class="gu-how priv">${esc(it.platform)}</span>` : ""}
               ${it.assignments.length ? `<span class="gu-how inc">${it.assignments.length} assignment${it.assignments.length === 1 ? "" : "s"}</span>` : `<span class="gu-how exc">unassigned</span>`}
-              <span class="mini muted">${isOpen ? "▾" : "▸"} ${it.rows.length} setting${it.rows.length === 1 ? "" : "s"}</span>
+              ${it.detailError ? `<span class="gu-how exc">settings unreadable</span>` : ""}
+              <button class="btn sm" data-open="${esc(key)}" style="margin-left:auto">${it.rows.length} setting${it.rows.length === 1 ? "" : "s"} →</button>
             </div>
             ${it.description ? `<div class="rk-meta mini muted">${esc(it.description)}</div>` : ""}
-            ${isOpen ? `
-              <div class="mini" style="margin:6px 0">${it.assignments.length
-                ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
-                : `<span class="muted">Not assigned to anything.</span>`}</div>
-              ${it.detailError
-                ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
-                : it.rows.length
-                  ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
-                     <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
-                  : `<p class="mini muted">No documentable settings.</p>`}` : ""}
           </div>`;
         }).join("")}
-      </div>`).join("")
+      </div>`;
+    }).join("")
       : `<p class="mini">Nothing matches this filter.</p>`;
 
-    $("dcBody").innerHTML = head + `<div class="list-card">${notes.join("")}${body}</div>`;
-    $("dcBody").querySelectorAll("[data-toggle]").forEach((el) => el.addEventListener("click", () => {
-      const k = el.dataset.toggle;
-      open.has(k) ? open.delete(k) : open.add(k);
+    const total = Docs.summarize(res).total;
+    const bar = `<div class="selbar visible">
+      <span><b>${selected.size}</b> of ${total} selected <span class="selhint">— this is what the exports will contain</span></span>
+      <div class="sel-actions">
+        <button class="btn" data-sel="all">Select all</button>
+        <button class="btn" data-sel="filtered">Select what is shown (${shown})</button>
+        <button class="btn" data-sel="invert">Invert</button>
+        <button class="btn" data-sel="none">Select none</button>
+      </div></div>`;
+
+    $("dcBody").innerHTML = head + bar + `<div class="list-card">${notes.join("")}${body}</div>`;
+    showExports(selected.size > 0);
+
+    const B = $("dcBody");
+    B.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", (e) => { e.stopPropagation(); openPolicy(el.dataset.open); }));
+    B.querySelectorAll("[data-pick]").forEach((el) => el.addEventListener("change", () => {
+      el.checked ? selected.add(el.dataset.pick) : selected.delete(el.dataset.pick);
       render();
     }));
+    B.querySelectorAll("[data-secall]").forEach((el) => el.addEventListener("change", () => {
+      const sec = sections.find((x) => x.id === el.dataset.secall);
+      sec.items.forEach((it) => el.checked ? selected.add(keyOf(sec.id, it.id)) : selected.delete(keyOf(sec.id, it.id)));
+      render();
+    }));
+    B.querySelectorAll("[data-sel]").forEach((el) => el.addEventListener("click", () => {
+      const mode = el.dataset.sel;
+      if (mode === "none") selected = new Set();
+      else if (mode === "all") { selected = new Set(); selectAll(res.sections); }
+      else if (mode === "filtered") { selected = new Set(); selectAll(sections); }
+      else if (mode === "invert") {
+        const next = new Set();
+        res.sections.forEach((sec) => sec.items.forEach((it) => {
+          const k = keyOf(sec.id, it.id);
+          if (!selected.has(k)) next.add(k);
+        }));
+        selected = next;
+      }
+      render();
+    }));
+  }
+
+  // ---------------------------------------------------------- the popout --
+  // ENCA's modal, same markup and the same classes. Inline expansion was
+  // wrong for this list: a settings-catalog policy has twenty-odd rows, so
+  // opening one pushed everything else off the screen and closing it lost
+  // your place. A popout leaves the list where it was.
+  function findItem(key) {
+    const [secId, itemId] = String(key).split("|");
+    const sec = res && res.sections.find((x) => x.id === secId);
+    const it = sec && sec.items.find((x) => x.id === itemId);
+    return it ? { sec, it } : null;
+  }
+
+  function closePolicy() {
+    const bg = $("dcModal");
+    if (bg) bg.classList.remove("open");
+    document.removeEventListener("keydown", onEsc);
+  }
+  function onEsc(e) { if (e.key === "Escape") closePolicy(); }
+
+  function openPolicy(key) {
+    const found = findItem(key);
+    if (!found) return;
+    const { sec, it } = found;
+    const picked = selected.has(key);
+    $("dcModalBody").innerHTML = `
+      <div class="gu-m-head">
+        <h3>${esc(it.name)}</h3>
+        <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
+        ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
+        <div class="mini" style="margin-top:8px">${it.assignments.length
+          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
+          : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
+        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
+      </div>
+      <div class="gu-m-body">
+        ${it.detailError
+          ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
+          : it.rows.length
+            ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
+               <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
+            : `<p class="mini muted">No documentable settings.</p>`}
+      </div>
+      <div class="gu-m-foot">
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="dcModalPick"${picked ? " checked" : ""}> Include in the document</label>
+        <div class="spacer"></div>
+        <button class="btn" id="dcModalCopy">⧉ Copy as Markdown</button>
+        <button class="btn primary" id="dcModalClose">Close</button>
+      </div>`;
+    $("dcModal").classList.add("open");
+    $("dcModalClose").addEventListener("click", closePolicy);
+    // Clicking the backdrop closes it; clicking INSIDE must not. Without the
+    // target check, every click on the settings table would dismiss the thing
+    // you were reading.
+    $("dcModal").onclick = (e) => { if (e.target === $("dcModal")) closePolicy(); };
+    $("dcModalPick").addEventListener("change", (e) => {
+      e.target.checked ? selected.add(key) : selected.delete(key);
+      render();
+    });
+    $("dcModalCopy").addEventListener("click", () => {
+      const md = Docs.markdown([{ ...sec, items: [it] }], res,
+        Docs.meta(res, { tenant: tenantName(), sections: [{ ...sec, items: [it] }], query: query(), single: true }));
+      try { navigator.clipboard.writeText(md); $("dcModalCopy").textContent = "✓ Copied"; }
+      catch { $("dcModalCopy").textContent = "Could not copy"; }
+      setTimeout(() => { const b = $("dcModalCopy"); if (b) b.textContent = "⧉ Copy as Markdown"; }, 1800);
+    });
+    document.addEventListener("keydown", onEsc);
   }
 
   function download(name, data, type) {
@@ -800,7 +927,10 @@ const DocsTool = (() => {
   }
 
   const tenantName = () => { const n = $("tenantName"); return (n && n.textContent) || ""; };
-  const m = () => Docs.meta(res, { tenant: tenantName(), sections: current(), query: query() });
+  // The export set is the SELECTION, not the filter. meta() is told which so
+  // the header can say "selected" rather than "filtered" — two different
+  // reasons for a document to be short, and a reader deserves to know which.
+  const m = () => Docs.meta(res, { tenant: tenantName(), sections: selectedSections(), query: query(), bySelection: true });
   const fileBase = () => `Intune-configuration-${(tenantName() || "tenant").replace(/[^\w.-]+/g, "-")}-${new Date().toISOString().slice(0, 10)}`;
 
   // EXPORTS FOLLOW THE FILTER. If you narrowed to Windows compliance policies
@@ -812,18 +942,18 @@ const DocsTool = (() => {
     renderSections();
     $("dcRun").addEventListener("click", run);
     $("dcReset").addEventListener("click", () => {
-      res = null; open = new Set(); $("dcBody").innerHTML = ""; prog(""); showExports(false);
+      res = null; selected = new Set(); closePolicy(); $("dcBody").innerHTML = ""; prog(""); showExports(false);
       $("dcSearch").value = ""; $("dcPlatform").value = "All"; $("dcState").value = "all";
       document.querySelectorAll("#dcSections input[type=checkbox]").forEach((c) => { c.checked = true; c.closest(".gu-area").classList.add("on"); });
     });
     $("dcSearch").addEventListener("input", () => { if (res) render(); });
     ["dcPlatform", "dcState"].forEach((id) => $(id).addEventListener("change", () => { if (res) render(); }));
-    $("dcMd").addEventListener("click", () => download(fileBase() + ".md", Docs.markdown(current(), res, m()), "text/markdown"));
-    $("dcHtml").addEventListener("click", () => download(fileBase() + ".html", Docs.html(current(), res, m()), "text/html"));
+    $("dcMd").addEventListener("click", () => download(fileBase() + ".md", Docs.markdown(selectedSections(), res, m()), "text/markdown"));
+    $("dcHtml").addEventListener("click", () => download(fileBase() + ".html", Docs.html(selectedSections(), res, m()), "text/html"));
     $("dcDocx").addEventListener("click", async () => {
       try {
         prog("Writing the Word document…");
-        const blob = await Docs.docx(current(), res, m())
+        const blob = await Docs.docx(selectedSections(), res, m())
           .generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
         download(fileBase() + ".docx", blob);
         prog("");
@@ -831,5 +961,5 @@ const DocsTool = (() => {
     });
   }
 
-  return { init, run, render, renderSections, chosen, current, query };
+  return { init, run, render, renderSections, chosen, current, query, openPolicy, closePolicy, selectedSections, getSelected: () => selected };
 })();
