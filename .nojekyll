@@ -1,0 +1,4 @@
+# GitHub Pages serves this repo verbatim rather than running it through Jekyll.
+# Added when scripts/*.ps1 started being served as downloads from T01: nothing here
+# needs Jekyll, and a build step between the file in git and the file an admin runs
+# is one place too many for it to change.

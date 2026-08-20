@@ -625,8 +625,21 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 /* fixed header + independently scrolling body, so the modal itself never
    scrolls (avoids the padding-gap / see-through problem) */
 /* Help is a normal tool screen now — main provides width and padding;
-   help-page just keeps the prose column readable */
-.help-page{max-width:920px}
+   help-page just keeps the prose column readable.
+   CENTRED, not left-aligned. The measure is right — 920px of prose is
+   readable and 1180 is not — but without the auto margins the column sat
+   against the left edge of a shell whose header and tab bar used the full
+   width, so the page read as knocked off-centre rather than as a column.
+   Same for What's new and the Roadmap, which share this class. */
+.help-page{max-width:920px;margin-left:auto;margin-right:auto}
+/* Credits & thanks — one project per line, each a short paragraph rather than
+   a bullet fragment, because "who wrote this and what did it give us" does not
+   fit in four words. The hanging indent keeps the project name findable when
+   the entry runs to several lines, which most of them do. */
+.credits{margin:0;padding-left:18px}
+.credits li{margin:0 0 8px;line-height:1.55}
+.credits li:last-child{margin-bottom:0}
+.credits .rm-ref{margin:0 1px}
 /* sticky, scroll-spying table of contents — jump to any section, and the chip
    for the section you're reading stays highlighted */
 .help-toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 -8px 14px;padding:10px 8px;
@@ -953,7 +966,7 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
 :root[data-theme="dark"] .selbar, :root[data-theme="dark"] .toast{background:#0d1a12;border:1px solid var(--border)}
 :root[data-theme="dark"] .exp-ic.md{background:#4a5450}
 :root[data-theme="dark"] .fs-bg{background:rgba(0,0,0,.62)}
-:root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg")}
+:root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
 
 /* the site's own treatment: white card titles, lemon pill, lemon CTA, hero glow */
 :root[data-theme="dark"] .tool h3, :root[data-theme="dark"] .readme h3{color:var(--lemon)}
@@ -974,7 +987,7 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x{color:var(--green-deep)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn:hover,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x:hover{background:rgba(0,0,0,.12);color:var(--green-deep)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .fs-bg{background:rgba(0,0,0,.62)}
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg")}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .tool h3, :root:not([data-theme="light"]):not([data-theme="dark"]) .readme h3{color:var(--lemon)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary{background:var(--lemon);border-color:var(--lemon)}
@@ -1399,3 +1412,168 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 /* Licence gap — the seats-vs-targeted coverage bar */
 .lg-bar{height:14px;border-radius:7px;background:var(--soft);border:1px solid var(--border);overflow:hidden;margin-top:4px}
 .lg-bar>div{height:100%;border-radius:7px 0 0 7px;transition:width .3s}
+
+/* ---- T01: the audit on the left, the XML it produces on the right ----
+   The XML is the artefact that ends up in the GPO, so it stays on screen
+   while the policy is edited instead of appearing only as a download. The
+   panel sticks to the viewport and scrolls inside itself.
+
+   T01 NEEDS MORE THAN THE 1180px SHELL. Splitting 1180 two ways gave the
+   findings table about 700px — seven columns squeezed until the condition
+   wrapped one character per line — and the code panel about 400px, narrow
+   enough that every path broke mid-token. Neither half got better on a
+   bigger monitor, because the cap is on the shell, not the viewport.
+
+   The SHELL widens, not the split. body.wide is set by show() while a wide
+   screen is open, and everything inherits it: header, tab bar, the intro
+   card, the numbered steps, the toolbar and both columns all start and end
+   on the same two lines. Widening only the split was the first attempt and
+   it left the page ragged — full-width cards above a narrower column, and a
+   code panel that ran off the right edge because a negative margin against
+   a percentage does not centre against the viewport. */
+body.wide main,
+body.wide .hwrap,
+body.wide .toolnav-inner{max-width:1680px}
+/* .readme carries its own 1180px cap, which is a no-op in the normal shell
+   and a visible mismatch in the wide one: the tool's own intro card stopped
+   short while every card under it ran to the full width. The card matches
+   its neighbours; the PARAGRAPH inside it keeps a measure, because a line of
+   text 1600px long is unreadable however tidy the edge looks. */
+body.wide .readme{max-width:none}
+body.wide .readme p{max-width:1100px}
+.al-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,520px);gap:14px;align-items:start;margin-top:14px}
+.al-col{min-width:0;display:flex;flex-direction:column;gap:14px}
+/* Flex children default to min-width:auto, so a wide table pushes the card
+   past its grid track and .list-card's overflow:hidden clips the text off. */
+.al-col > *{min-width:0}
+/* Stick BELOW the sticky chrome, not under it. top:14px pinned the panel
+   behind the header and the toolbar, so scrolling down hid its own head —
+   the filename, and the Copy and Download buttons — and you had to scroll
+   back up to reach the two controls the panel exists for. --sticky-nav is
+   the header plus the tab bar, kept current by syncStickyTops(); the extra
+   allows for the sticky toolbar sitting on top of it. */
+.al-side{position:sticky;top:calc(var(--sticky-nav, 106px) + 56px);min-width:0}
+@media (max-width:1240px){
+  .al-split{grid-template-columns:minmax(0,1fr)}
+  .al-side{position:static}
+  .al-xml{max-height:70vh}
+}
+
+/* The panel keeps its own dark surface in both themes: it is a code view,
+   and a light-mode code view of 300 lines of XML is harder to scan. */
+.al-xml{display:flex;flex-direction:column;max-height:calc(100vh - var(--sticky-nav, 106px) - 76px);
+  background:#111c2e;border:1px solid #22355a;border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.al-xml-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+.al-xml-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:13px;font-weight:700;color:#e7eefb}
+.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#7f96bb;margin-top:2px}
+.al-xml-acts{display:flex;gap:8px;flex-shrink:0}
+.al-xml .btn{background:#1b2b45;border:1px solid #2c4266;color:#dbe6f7}
+.al-xml .btn:hover{background:#22354f;border-color:#4b6da3}
+.al-xml .btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.al-xml .btn.primary:hover{background:#356418;border-color:#356418}
+.al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:#a8e6a0;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;line-height:1.6;white-space:pre-wrap;
+  /* Break between tokens where there is one, and only inside a token when
+     there is no choice — word-break:break-word split every path mid-word
+     even when the line had a space to break at. */
+  word-break:normal;overflow-wrap:anywhere}
+.al-xml-code .x-tag{color:#7fb2ff}
+.al-xml-code .x-attr{color:#9ad5ff}
+.al-xml-code .x-val{color:#a8e6a0}
+.al-xml-code .x-punct{color:#5f7fa8}
+.al-xml-empty{color:#7f96bb;font-style:italic}
+
+/* ---- T01: the two artefacts share one panel ----
+   The policy XML and the Intune profile are the same policy said twice. They
+   get one panel and one pair of buttons, because two panels is how one of them
+   quietly stops matching the other. */
+.al-pane-tabs{display:flex;background:#0a1220;border-bottom:1px solid #22355a}
+.al-pane-tab{flex:1;padding:9px 10px;background:none;border:0;border-bottom:2px solid transparent;
+  color:#7f96bb;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+.al-pane-tab:hover{color:#c6d6ee}
+.al-pane-tab.active{color:#e7eefb;border-bottom-color:var(--accent2)}
+.al-intune-form{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+.al-f{display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px}
+.al-f>span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7f96bb}
+.al-f>span b{cursor:help;color:var(--accent2)}
+.al-f input,.al-f select{background:#1b2b45;border:1px solid #2c4266;border-radius:8px;color:#e7eefb;
+  padding:6px 9px;font:inherit;font-size:12px;min-width:0}
+.al-f input:focus,.al-f select:focus{outline:none;border-color:#4b6da3}
+.al-f-note{flex-basis:100%;margin:0;font-size:11px;line-height:1.5;color:#8fa6c8}
+.al-f-note b{color:#c6d6ee}
+
+/* ---- T01: the numbered walkthrough ----
+   Scan, upload, review, export, deploy. The steps carry numbers because the
+   order is not optional: enforcing before auditing is the mistake this whole
+   tool exists to make harder. */
+.al-steps{padding:18px 22px}
+.al-step{display:flex;gap:14px;align-items:flex-start}
+.al-step-n{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;background:var(--accent2);color:#fff;
+  font-size:13px;font-weight:700;line-height:1}
+.al-step-n.sm{width:22px;height:22px;font-size:12px}
+.al-dl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.al-dl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.al-dl-cmd{flex:1;min-width:240px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--soft);color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;overflow-x:auto;white-space:nowrap}
+.al-guide{margin-top:4px;border-top:1px solid var(--border);padding-top:8px}
+.al-guide summary{cursor:pointer;color:var(--accent2);font-size:13px;list-style:none}
+.al-guide summary::-webkit-details-marker{display:none}
+.al-guide summary::before{content:"\25b8 ";display:inline-block;transition:transform .15s}
+.al-guide[open] summary::before{transform:rotate(90deg)}
+.al-guide-body{padding-top:8px}
+.al-guide-body p{margin:0 0 8px}
+.al-list{margin:0 0 10px;padding-left:20px;line-height:1.7}
+.al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#111c2e;color:#a8e6a0;
+  border:1px solid #22355a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;line-height:1.65;overflow-x:auto;white-space:pre}
+
+/* The divider between "scan a device" and "upload what you have". Two cards
+   stacked read as a sequence, so the scan looked compulsory; this says out
+   loud that it is a fork. */
+.al-or{display:flex;align-items:center;gap:12px;margin:14px 2px 10px;
+  font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--muted)}
+.al-or::before,.al-or::after{content:"";flex:1;height:1px;background:var(--border)}
+.al-or > span{white-space:nowrap}
+
+/* ---- T01 step 5: deploying into the tenant ----
+   The only place TUNO writes to a customer tenant, so it is styled to be
+   noticed rather than to blend into the walkthrough around it. Refusals and
+   confirmations get their own colour, and the locked Enforce state is
+   deliberately quiet — it is a state, not an error. */
+.al-deploy{margin:0 0 12px}
+.al-dep{border:1px solid var(--warn-bd);background:var(--warn-bg2);border-radius:12px;padding:12px 14px}
+.al-dep-h{margin-bottom:6px}
+.al-dep-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 0}
+.al-dep-sub{margin-top:12px;padding-top:10px;border-top:1px solid var(--warn-bd)}
+.al-dep-in{flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.al-dep-in:focus{outline:none;border-color:var(--accent2)}
+.al-dep-err{margin:8px 0 0;padding:9px 11px;border:1px solid var(--bad-bd);background:var(--bad-bg2);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-err b{color:var(--off)}
+.al-dep-ok{margin:8px 0 0;padding:9px 11px;border:1px solid var(--ok-bd);background:var(--ok-bg2);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-ok b{color:var(--on)}
+.al-dep-confirm{margin:8px 0 0;padding:9px 11px;border:1px solid var(--warn-bd);background:var(--surface);
+  border-radius:10px;font-size:12.5px;line-height:1.55}
+.al-dep-locked{margin:2px 0 6px;color:var(--muted)}
+.al-dep-locked b{color:var(--report)}
+.al-dep-groups{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.al-dep-groups li{display:flex;align-items:center;gap:4px}
+
+/* Promotion queue: the per-item test checklist. Folded away by default — the
+   table is read to decide WHAT to promote, and the steps are read once that
+   decision is made. Ported from ENCA. */
+.pq-test{margin-top:6px}
+.pq-test summary{cursor:pointer;color:var(--accent2);list-style:none}
+.pq-test summary::-webkit-details-marker{display:none}
+.pq-test summary::before{content:"\25b8 ";display:inline-block;transition:transform .15s}
+.pq-test[open] summary::before{transform:rotate(90deg)}
+.pq-steps{margin:6px 0 0;padding-left:20px;line-height:1.65}
+.pq-steps li{margin-bottom:5px}

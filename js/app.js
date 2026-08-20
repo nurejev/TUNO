@@ -24,6 +24,9 @@
 
   // ---------- screens + browser history ----------
   const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-changelog", "screen-roadmap", "screen-help"]);
+  // Screens that get the wide shell. A tool earns this by having two things
+  // to show at once, not by being important.
+  const WIDE_SCREENS = new Set(["screen-applocker"]);
   let navSuppress = false;
   const screenScroll = {};
   let shownScreen = null;
@@ -31,6 +34,13 @@
     if (shownScreen && shownScreen !== id) screenScroll[shownScreen] = window.scrollY;
     document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
     $(id).classList.add("active");
+    // T01 needs more than the 1180px shell — an audit table and the code it
+    // produces side by side. Widening the SHELL rather than the split means
+    // every card on that screen shares one width: the intro, the steps, the
+    // toolbar and the two columns all start and end on the same two lines.
+    // Widening only the split left the page ragged, with full-width cards
+    // above a narrower column and a code panel running off the edge.
+    document.body.classList.toggle("wide", WIDE_SCREENS.has(id));
     (window.requestAnimationFrame || setTimeout)(syncStickyTops);
     if (shownScreen !== id) {
       const y = screenScroll[id] || 0;
@@ -90,7 +100,8 @@
     const set = (id, fn) => { const el = $(id); if (el) fn(el); };
     document.title = Brand.pageTitle;
     set("favicon", (el) => { if (B.favicon) el.href = B.favicon; });
-    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.org || B.name; }));
+    // The mark is the PRODUCT's (TUNO office logo), not the org's — alt follows.
+    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.name || B.org; }));
     set("brandOrg", (el) => {
       const org = B.org || "";
       const tail = B.orgSplit && org.endsWith(B.orgSplit) ? B.orgSplit : "";
@@ -176,6 +187,9 @@
       },
       cache: { cacheLocation: "sessionStorage" },
     });
+    // js/graph.js reaches MSAL through this rather than through the closure,
+    // so a build without it (or with sign-in degraded) still loads.
+    if (typeof Graph !== "undefined") Graph.useProvider({ getApp: () => msalApp, getAccount: () => account });
     return msalApp.initialize()
       .then(() => msalApp.handleRedirectPromise())
       .then((res) => {
@@ -231,34 +245,102 @@
   });
   authInit().then((cameBack) => { if (cameBack) enter(); });
 
-  // ---------- navigation ----------
-  const TOOL_SCREENS = { toolAppLocker: "screen-applocker", toolChangelog: "screen-changelog", toolRoadmap: "screen-roadmap", toolHelp: "screen-help" };
-  function buildToolNav() {
-    const nav = $("toolNav");
-    nav.innerHTML = "";
-    for (const [tileId, screen] of Object.entries(TOOL_SCREENS)) {
-      const tile = $(tileId);
-      if (!tile) continue;
-      const h = tile.querySelector("h3");
-      const b = document.createElement("button");
-      b.textContent = h ? h.textContent.replace(/\s+/g, " ").trim() : tileId;
-      b.addEventListener("click", () => tile.click());
-      nav.appendChild(b);
-    }
-    nav.style.display = "";
+  // ---------- tool tab bar (ENCA's browser-style tabs, ported verbatim) ----------
+  // The tools, in home-grid order. Each carries the exact crumb string its tile
+  // handler sets, so the active tab can be matched from crumb() regardless of
+  // whether the tool was opened from the grid or a tab.
+  const TOOL_TABS = [
+    ["toolAppLocker", "🔐 AppLocker builder & validator"],
+  ];
+  // The app's own pages are tools too, but always sit last (after the +).
+  TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
+  TOOL_TABS.push(["toolRoadmap", "🗺 Roadmap"]);
+  TOOL_TABS.push(["toolHelp", "❓ Help"]);
+  // Browser-style tabs: a tab exists only for a tool you have opened. Home shows
+  // no tabs; opening a tool (from the grid or the + menu) adds one; the + opens
+  // another. openTabs is the ordered set of open tool ids.
+  let openTabs = [], activeTab = null;
+  const labelFor = (id) => (TOOL_TABS.find((x) => x[0] === id) || [, id])[1];
+  const idForCrumb = (name) => (TOOL_TABS.find((x) => x[1] === name) || [])[0] || null;
+
+  function renderTabs() {
+    const home = `<button class="toolnav-btn home ${activeTab ? "" : "active"}" data-navhome title="All tools" aria-label="All tools">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.2 9.4V20.4h13.6V9.4"/><path d="M9.6 20.4v-6.2h4.8v6.2"/>
+      </svg></button>`;
+    const tabs = openTabs.map((id) =>
+      `<span class="toolnav-tab ${id === activeTab ? "active" : ""}">
+        <button class="toolnav-btn" data-nav="${id}">${esc(labelFor(id))}</button>
+        <button class="toolnav-x" data-close="${id}" title="Close tab">×</button>
+      </span>`).join("");
+    const add = `<button class="toolnav-btn add" data-navadd title="Open a tool in a new tab">＋</button>`;
+    const help = `<button class="toolnav-btn help" data-navhelp title="How each tool works">❓ Help</button>`;
+    // "close all" appears only when there's more than one tab to close at once
+    const closeAll = openTabs.length > 1 ? `<button class="toolnav-btn closeall" data-navcloseall title="Close all tabs">✕ all</button>` : "";
+    $("toolNav").innerHTML = `<div class="toolnav-inner">${home}${tabs}${add}${closeAll}${help}</div>`;
+    // the bar only appears once a tool is open (empty at the tools home)
+    $("toolNav").style.display = openTabs.length ? "block" : "none";
     syncStickyTops();
+    // keep the tab you're on visible when the strip overflows
+    const act = $("toolNav").querySelector(".toolnav-tab.active, .toolnav-btn.home.active");
+    if (act && act.scrollIntoView) act.scrollIntoView({ inline: "nearest", block: "nearest" });
   }
-  for (const [tileId, screen] of Object.entries(TOOL_SCREENS)) {
-    const tile = $(tileId);
-    if (!tile) continue;
-    tile.addEventListener("click", () => {
-      if (screen === "screen-changelog") { openChangelog(); return; }
-      if (screen === "screen-help") { openHelp(); return; }
-      show(screen);
+  function buildToolNav() { openTabs = []; activeTab = null; renderTabs(); }
+
+  function closeTab(id) {
+    const i = openTabs.indexOf(id);
+    if (i < 0) return;
+    openTabs.splice(i, 1);
+    if (activeTab === id) {
+      const next = openTabs[i] || openTabs[i - 1] || null;   // neighbour, else last
+      if (next) { $(next).click(); }                          // switch to it
+      else { crumb(""); show("screen-home"); }
+    } else { renderTabs(); }
+  }
+
+  // The + menu: pick any tool to open in a new tab.
+  function openAddMenu(anchor) {
+    closeAddMenu();
+    const menu = document.createElement("div");
+    menu.className = "toolnav-menu"; menu.id = "toolAddMenu";
+    menu.innerHTML = TOOL_TABS.map(([id, label]) =>
+      `<button data-nav="${id}" class="${openTabs.includes(id) ? "open" : ""}">${esc(label)}${openTabs.includes(id) ? " <span class='mini'>· open</span>" : ""}</button>`).join("");
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = `${r.bottom + 4}px`;
+    menu.style.left = `${Math.min(r.left, window.innerWidth - 280)}px`;
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-nav]"); if (!b) return;
+      closeAddMenu(); $(b.dataset.nav).click();
     });
+    setTimeout(() => document.addEventListener("click", closeAddMenu, { once: true }), 0);
   }
-  $("homeBtn").addEventListener("click", () => show("screen-home"));
-  $("logoHome").addEventListener("click", () => { if (signedIn) show("screen-home"); });
+  function closeAddMenu() { const m = $("toolAddMenu"); if (m) m.remove(); }
+
+  $("toolNav").addEventListener("click", (e) => {
+    if (e.target.closest("[data-navhelp]")) { openHelp(); return; }
+    if (e.target.closest("[data-navcloseall]")) { openTabs = []; activeTab = null; renderTabs(); show("screen-home"); return; }
+    if (e.target.closest("[data-navhome]")) { crumb(""); show("screen-home"); return; }
+    if (e.target.closest("[data-navadd]")) { openAddMenu(e.target.closest("[data-navadd]")); return; }
+    const x = e.target.closest("[data-close]"); if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+    const b = e.target.closest("[data-nav]");
+    if (b) $(b.dataset.nav).click();   // reuse the tile's own handler (crumb, screen, setup)
+  });
+
+  // crumb(name) is called by every tool on entry: it registers/activates the tab.
+  function crumb(name) {
+    const id = name ? idForCrumb(name) : null;
+    if (id) { if (!openTabs.includes(id)) openTabs.push(id); activeTab = id; }
+    else { activeTab = null; }
+    renderTabs();
+  }
+  $("homeBtn").addEventListener("click", () => { crumb(""); show("screen-home"); });
+  // logo returns to the tools overview when signed in (does nothing on login)
+  $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
+  $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
+  $("toolChangelog").addEventListener("click", () => openChangelog());
+  $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
+  $("toolHelp").addEventListener("click", () => openHelp());
   $("homeCount").textContent = `${Object.keys(TOOL_VERSIONS).length} tool${Object.keys(TOOL_VERSIONS).length === 1 ? "" : "s"}`;
 
   // ---------- changelog ----------
@@ -270,6 +352,7 @@
     return `<div class="cl-rel"><div class="cl-h"><b>${esc(rel.title)}</b><span class="mini muted">build ${rel.build} · ${esc(rel.date)}</span></div><ul class="cl-list">${items}</ul></div>`;
   }
   function openChangelog() {
+    crumb("📋 What's new");
     show("screen-changelog");
     $("clBody").innerHTML = (typeof CHANGELOG !== "undefined" ? CHANGELOG : []).map(clRelease).join("")
       || '<p class="mini">No changelog entries yet.</p>';
@@ -277,20 +360,62 @@
 
   // ---------- help, incl. the promotion queue on non-production hosts ----------
   function openHelp() {
+    crumb("❓ Help");
     show("screen-help");
     const box = $("helpPromote");
     if (!box) return;
     if (isProduction() || typeof PROMOTE === "undefined") { box.style.display = "none"; return; }
     box.style.display = "";
-    const items = (PROMOTE.items || []).map((it) => `
-      <tr><td><b>${it.n}</b></td><td>${esc(it.title)}<div class="mini muted">${esc((it.tools || []).join(", "))} · builds ${esc((it.builds || []).join(", "))}</div></td>
-      <td><span class="sev ${it.risk === "high" ? "high" : it.risk === "medium" ? "medium" : "low"}">${esc(it.risk)}</span></td>
-      <td class="mini">${esc(it.what)}<br><i>${esc(it.why)}</i></td></tr>`).join("");
-    const staying = (PROMOTE.staying || []).map((s) => `<li class="mini"><b>${esc(s.title)}</b> — ${esc(s.why)}</li>`).join("");
-    box.innerHTML = `<h3>🚚 Waiting for production <span class="mini muted">production is at ${esc(PROMOTE.productionBuild)} · this site runs ${esc(APP_BUILD.label)}</span></h3>
-      <p class="mini muted">Hand-maintained (the app cannot read git) — if this table and js/changelog.js disagree, trust the changelog and the build numbers. Promoting an item is four steps; see the js/promote.js header.</p>
-      ${items ? `<table class="plist"><thead><tr><th>#</th><th>What</th><th>Risk</th><th>Detail</th></tr></thead><tbody>${items}</tbody></table>` : '<p class="mini">The queue is empty — this channel and production match.</p>'}
-      ${staying ? `<p class="mini" style="margin:10px 0 4px"><b>Deliberately staying on beta:</b></p><ul>${staying}</ul>` : ""}`;
+
+    // Ported verbatim from ENCA's renderPromotionQueue: the table is read to
+    // decide WHAT to promote (number, risk, builds), and each row carries its
+    // own test checklist so a step can fail rather than be nodded through.
+    const RISK = {
+      high:   { label: "high",   cls: "block", note: "a real problem in production until it lands" },
+      medium: { label: "medium", cls: "new",   note: "missing capability, nothing broken" },
+      low:    { label: "low",    cls: "",      note: "convenience or documentation" },
+    };
+    const items = (PROMOTE.items || []).slice().sort((a, b) => a.n - b.n);
+
+    box.innerHTML = `
+      <h3>🚚 Waiting for production <span class="tag new">BETA CHANNEL</span></h3>
+      <p>Production is <b>${esc(PROMOTE.productionBuild)}</b>; this site is <b>${esc(APP_BUILD.label)}</b>.
+        <b>This is the gap, and only the gap</b> — what exists here and not there. Nothing that has already
+        shipped appears below; for that, read <b>📋 What's new</b>. Each row is one promotable <b>change to the
+        tools</b> with a <b>stable number</b>, so <i>“push number 3 to main”</i> means exactly one thing.
+        Roadmap cards, changelog entries and this table itself are not listed: they describe the work rather
+        than being it, and they travel with whatever promotion happens next.</p>
+      <p class="mini muted" style="margin:-6px 0 10px"><b>Every row carries a test checklist.</b> <i>Why</i> says what the
+        risk is and what would have to be true for the item to graduate; it does not say how to find out. The steps
+        under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
+        step can fail rather than be nodded through. Where a check needs a tenant nobody has to hand, the step says
+        so: knowing which check was skipped is worth more than a list that pretends all of them were run.</p>
+      ${items.length ? `<div class="cg-tablewrap"><table class="cg-table">
+        <thead><tr><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
+        <tbody>${items.map((it) => {
+          const r = RISK[it.risk] || RISK.low;
+          const test = it.test || [];
+          return `<tr>
+            <td><b style="font-size:15px">${it.n}</b></td>
+            <td><b>${esc(it.title)}</b>
+              <div class="mini muted">${(it.tools || []).map(esc).join(" · ")}</div>
+              <div class="mini" style="margin-top:4px">${esc(it.what)}</div>
+              <div class="mini" style="margin-top:4px;color:var(--report)"><b>Why:</b> ${esc(it.why)}</div>
+              ${test.length ? `<details class="pq-test"><summary class="mini"><b>How to test it</b> — ${test.length} step${test.length === 1 ? "" : "s"}</summary>
+                <ol class="mini pq-steps">${test.map((t) => `<li>${esc(t)}</li>`).join("")}</ol></details>`
+                : `<div class="mini" style="margin-top:4px;color:var(--off)"><b>How to test it:</b> not written — this item is not finished, and promoting it means promoting something nobody has said how to check.</div>`}
+              <div class="mini muted" style="margin-top:4px">${(it.files || []).map((f) => `<code>${esc(f)}</code>`).join(" ")}</div></td>
+            <td><span class="tag ${r.cls}">${r.label}</span><div class="mini muted" style="margin-top:4px">${r.note}</div></td>
+            <td class="mini">${(it.builds || []).join(", ")}</td>
+          </tr>`;
+        }).join("")}</tbody></table></div>`
+        : '<p class="mini">The queue is empty — this channel and production match.</p>'}
+      ${(PROMOTE.staying || []).length ? `
+        <h4 style="margin-top:18px">Staying on this channel</h4>
+        <p class="mini muted" style="margin:0 0 6px">Also part of the gap, but permanently: these exist here and are not going to production.</p>
+        <ul>${PROMOTE.staying.map((s) => `<li><b>${esc(s.title)}</b> — ${esc(s.why)}</li>`).join("")}</ul>` : ""}
+      <p class="mini muted" style="margin-top:14px"><b>Promoting one of these is four steps, not one:</b> remove the row and bump the production build here; set the roadmap card on <b>main</b> to <code>live · build NNN</code>; set the <b>same card on this channel</b> to <code>live · beta NNNNN · production NNN</code>; and add the changelog entry on both. The third is the one that gets missed — each channel carries its own roadmap, so promoting touches main's copy and this one keeps claiming the work is beta-only.</p>
+      <p class="help-x">This list is written by hand — the app is static files in a browser and cannot read git or diff two branches. It is maintained alongside <b>📋 What's new</b>; if an entry looks stale, trust the changelog and the build numbers over this table.</p>`;
   }
 
   // ---------- tools ----------
