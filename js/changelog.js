@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10332, date: "2026-08-20", title: "The first promotion — items 1 to 13 are production",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves from build 2 to build 3, and takes queue items 1 through 13 with it: the AppLocker tool as a whole workflow rather than a policy reader, TUNO's own mark, the tab bar, the Graph layer, and a registration script that declares what the tools ask for. That is beta builds 10301 to 10317, which is exactly where item 13 ends and item 14 begins, so the cut needed no picking apart. The five tools that came after stay here \u2014 items 14 to 27 are still the gap." },
+      { kind: "fixed", tool: "All tools", text: "Two files the promotion needed were missing from the item that described it. The TUNO mark was recorded as three SVGs and one HTML file, but the dark-mode logo is swapped by a stylesheet rule and the logo path is also set at runtime from branding.js \u2014 and that copy was unversioned, so it would have overwritten the cache-busting in the HTML and served the old mark from cache regardless. Both were caught by reading the tree instead of trusting the list, and the rule about what belongs in an item's file list now says so in the promotion queue's own header." },
+      { kind: "fixed", tool: "All tools", text: "The roadmap card for the AppLocker tool now reads what is actually true on each channel: production 3 here, alongside the beta build it was promoted from. Getting that wrong on one channel and right on the other is the step of a promotion that gets missed, which is why the file says so in capitals." },
+    ],
+  },
+  {
     build: 10331, date: "2026-08-20", title: "Who can change Intune",
     items: [
       { kind: "new", tool: "🛡 Role assignments", text: "The seventh tool. Every Intune role definition — built-in and custom — with each assignment under it, the users and groups in it resolved to names, the scope tags it is limited to and what it is scoped over, on one page. After Ugur Koc's Get Intune Role Assignments, whose question this is. The portal makes you click into each role one at a time, which is the practical reason nobody audits this." },
