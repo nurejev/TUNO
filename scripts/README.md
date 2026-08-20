@@ -9,10 +9,11 @@ So T01 (🔐 AppLocker builder & validator) hands out two PowerShell scripts ins
 pretending the browser could work it out. They are served from the site itself, so the
 copy you download always matches the build of T01 you are looking at.
 
-| Script | What it does | Where the output goes |
+| File | What it does | Where the output goes |
 |---|---|---|
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
+| `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
 
 Both are MIT-licensed, like the rest of TUNO, and both are read-only on the device
 unless you explicitly ask otherwise. Neither one applies a policy.

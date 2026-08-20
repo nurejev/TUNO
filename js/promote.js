@@ -66,6 +66,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 33,
+      title: "A checklist to work down, and scripts that admit their version",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10346],
+      risk: "low",
+      what: "scripts/AppLocker-Implementation-Checklist.md is a new downloadable, offered beside the converter in step 5 and listed in the scripts README: every check that has to pass before an AppLocker policy is enforced, from reading the XML through coverage, the audit period, enforcement in rings and living with it, ending with the things that catch people out. Separately, both PowerShell scripts were still declaring version 1.0.0 after builds 10344 and 10345 changed them substantially, so a scan bundle could not be traced to the build that wrote it. They now carry $script:ScriptVersion (their own history) and $script:TunoBuild (the site build that served them), the scan is at 1.2.0 and the converter at 1.1.0, and a headless test asserts TunoBuild against js/version.js so the drift cannot be committed again.",
+      why: "LOW — a document and two constants. No analysis, no rule generation and no deploy path changed. The checklist is prose and graduates on being read; the version stamps graduate on one scan printing the right number in its banner. Worth promoting alongside 31 and 32 rather than on its own, since it is those builds' provenance it fixes.",
+      test: [
+        "Download the checklist from step 5 and read it end to end. It is the artefact, so the test is whether an admin who has never used TUNO could work down it and be safe — if a section needs the tool to make sense, it is written wrong.",
+        "Check the checklist against your own last rollout: does it name the thing that actually bit you? A checklist that misses your real outage is worse than none, because it grants confidence. Anything missing is worth adding before this goes to production.",
+        "Run the scan and confirm the banner reads v1.2.0 and not v1.0.0 — this whole item exists because it did not.",
+        "Open the bundle and confirm generator.version and the build stamp identify the build that produced it. Trace a bundle back to a commit; if you cannot, the provenance is still broken.",
+        "THE ONE THAT MATTERS FOR THE FUTURE: edit either .ps1 without touching $script:TunoBuild and run the headless suite. It must FAIL. A guard that does not fail when the mistake is made is decoration.",
+        "Confirm all three downloads in the tool still work from the beta host and that the .md arrives as a file rather than rendering in the tab.",
+      ],
+      files: ["scripts/AppLocker-Implementation-Checklist.md", "scripts/Invoke-TunoAppLockerScan.ps1", "scripts/Convert-TunoAppLockerToIntune.ps1", "scripts/README.md", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 32,
       title: "Scan a reference machine, and say so",
       tools: ["🔐 AppLocker builder & validator"],

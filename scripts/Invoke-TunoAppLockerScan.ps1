@@ -252,7 +252,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:ScriptVersion = '1.0.0'
+# TWO NUMBERS, ON PURPOSE.
+#
+# ScriptVersion is this file's own history, for somebody holding a copy that has
+# been sitting on a share for six months. TunoBuild is the site build that served
+# it, which is what actually identifies the artifact - and it is asserted against
+# js/version.js by a headless test, so the two cannot drift apart in a commit.
+# They already did once: the script shipped two substantive changes still calling
+# itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
+$script:ScriptVersion = '1.2.0'
+$script:TunoBuild = 10346
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 
