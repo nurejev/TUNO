@@ -49,6 +49,33 @@ const PROMOTE = {
 
   items: [
     {
+      n: 19,
+      title: "T03 — Change audit",
+      tools: ["🕓 Change audit"],
+      builds: [10323],
+      risk: "medium",
+      what: "A third tool: js/audit.js (engine + screen), tile, screen, tab, Help and roadmap. One read of deviceManagement/auditEvents, two views. Policy changes: configuration activity with a severity heuristic (failure or delete = high, create or patch = medium, assign = low). All events: every category with actor / activity / category / result filters, wildcards honoured as globs rather than substrings. ENCA's T16 decode() and diff() ported for field-level change detail, with scalar arrays compared as sets. Windows 1h/4h/24h/7d/30d — no 90d, because 30 is Intune's retention. Markdown, CSV and standalone-HTML export. Upstream fixes: full ISO-8601 UTC window in place of a bare date, categories derived from the data instead of a fixed list containing values Graph never emits, no five-row cap, and every resource on a record inspected rather than resources[0]. Also fixes a stale comment in app.js left by 10321.",
+      why: "MEDIUM. It writes nothing, but it is the tool somebody reaches for during an incident, and the two ways it can be quietly wrong both look like a clean run: the policy-changes filter can be too narrow and hide the change you are hunting, and the diff can render a value it failed to decode as though nothing moved. Neither is visible without a tenant where a known change was made. It graduates when a change made deliberately — edit a settings-catalog policy, change an assignment — has been found by the tool and its diff reconciled against what was actually altered.",
+      test: [
+        "THE ONE THAT MATTERS: make a change you control — edit a settings-catalog policy and change one setting — wait for the audit log, then find it in Policy changes and read the diff. The field you altered must be named, with the old and new value. If the diff is empty or shows a blob, decode() is not handling that payload shape.",
+        "Change an ASSIGNMENT on a policy and find that event. Both the policy and the group must appear in the name — this is the case where reading only the first resource loses the answer, and the whole point of the fix.",
+        "Delete something. It must come back as high severity. Then find a failed action: it must also be high, regardless of what it was.",
+        "Switch to All events and confirm the category dropdown contains only categories that produced results. If a category is listed and returns nothing when selected, it came from somewhere other than the data.",
+        "Type a bare word in the actor box and confirm it matches as contains. Then type admin* and confirm it matches only names starting with admin. A glob quietly treated as a substring returns more than was asked for.",
+        "Run the same window twice a few minutes apart and confirm the boundary moves — the window is relative to now, not to midnight. This is the bare-date bug and it is invisible unless you look for it.",
+        "In a busy tenant, run the 30-day window on Policy changes and count the rows. More than five means the cap is genuinely gone; the original returns exactly five.",
+        "Find an event with no field-level detail and confirm it SAYS so rather than rendering an empty list. Reading that as 'nothing changed' is the misinterpretation this wording exists to prevent.",
+        "Export all three formats. The CSV must carry the full change list in its own column; the HTML must be readable standalone and must carry the thirty-day retention note.",
+        "NOT COVERED BY THE HEADLESS TESTS: real audit payloads. The suite feeds the parser hand-built records of each shape it is known to encounter — plain strings, JSON strings, double-encoded JSON, single-element arrays. It cannot prove Graph has no fifth shape.",
+      ],
+      staying: [
+        "No email alerting. check-policy-changes can send mail; that needs either an application permission to send as an arbitrary mailbox, or sending as the signed-in user, and neither belongs in a read-only browser tool.",
+        "No scheduled runs. The original is built to run as a runbook; a static site cannot.",
+        "No snapshot-and-compare. ENCA's T16 can diff today's audit against a saved snapshot; T03 reads live only.",
+      ],
+      files: ["js/audit.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 18,
       title: "Incremental consent actually prompts, and asks once per run",
       tools: ["All tools", "🔗 Group Analyzer"],

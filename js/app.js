@@ -23,7 +23,7 @@
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-audit", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -46,12 +46,10 @@
     if (shownScreen && shownScreen !== id) screenScroll[shownScreen] = window.scrollY;
     document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
     $(id).classList.add("active");
-    // T01 needs more than the 1180px shell — an audit table and the code it
-    // produces side by side. Widening the SHELL rather than the split means
-    // every card on that screen shares one width: the intro, the steps, the
-    // toolbar and the two columns all start and end on the same two lines.
-    // Widening only the split left the page ragged, with full-width cards
-    // above a narrower column and a code panel running off the edge.
+    // Widens the SHELL rather than a split, so every card on the screen shares
+    // one width. Nothing opts in as of 10321 — see WIDE_SCREENS above — so this
+    // removes the class rather than adding it, which is what makes leaving a
+    // once-wide screen narrow again.
     document.body.classList.toggle("wide", WIDE_SCREENS.has(id));
     (window.requestAnimationFrame || setTimeout)(syncStickyTops);
     if (shownScreen !== id) {
@@ -264,6 +262,7 @@
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
     ["toolGroupUse", "🔗 Group Analyzer"],
+    ["toolAudit", "🕓 Change audit"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -352,6 +351,7 @@
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
+  $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
   $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
   $("toolHelp").addEventListener("click", () => openHelp());
@@ -435,4 +435,5 @@
   // ---------- tools ----------
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
+  if (typeof AuditTool !== "undefined") AuditTool.init();
 })();

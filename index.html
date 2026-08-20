@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10322"></script>
+<script src="js/popup-guard.js?v=10323"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10322">
+<link rel="stylesheet" href="css/app.css?v=10323">
 </head>
 <body>
 
@@ -82,6 +82,13 @@
       <div class="tool" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. Export as Markdown, CSV or a standalone HTML report.</p>
+      </div>
+    </div>
+    <div class="tool-sec"><h3>🕓 Monitoring</h3><p>What changed, and who changed it.</p></div>
+    <div class="tools">
+      <div class="tool" id="toolAudit">
+        <div class="tool-ic">🕓</div><h3>Change audit <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Who changed which policy, profile, script, app assignment or enrolment setting — when, from where, and <b>what actually moved</b>, field by field, rather than two blobs of JSON printed side by side. Two views over one read: <b>policy changes</b> with a severity on each, and <b>all events</b> filtered by actor, activity, category and result. Incident windows down to the last hour, review windows out to thirty days — which is where Intune's audit retention ends, and the tool says so rather than offering a window that returns a confidently empty answer.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -368,6 +375,75 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="guBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ CHANGE AUDIT (T03) ============
+       One tool over deviceManagement/auditEvents, after Ugur Koc's two
+       scripts against that endpoint, with ENCA's T16 field-level diff. -->
+  <section id="screen-audit" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🕓 Change audit <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Somebody changed something and a fleet of devices behaved differently the next morning. This reads the tenant's own audit log and says who, what, when and — the part the portal will not give you — <b>which fields moved</b>. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a>; the diff is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s Change audit. <b>Reads only.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Thirty days is the whole log.</b> Intune keeps audit data for thirty days and then it is gone from the service — not archived, not slower to reach, gone. There is deliberately no ninety-day option here: ENCA offers one because the directory audit log holds longer, and pointing that at Intune would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <div class="seg" id="auViewSeg" style="margin-bottom:12px">
+        <button class="active" data-auview="policy">Policy changes</button>
+        <button data-auview="all">All events</button>
+      </div>
+
+      <div class="wi-grid">
+        <label class="wi-f"><span>Window</span>
+          <select id="auWindow">
+            <option value="1h">Last hour</option>
+            <option value="4h">Last 4 hours</option>
+            <option value="24h" selected>Last 24 hours</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days — the whole retained log</option>
+          </select></label>
+      </div>
+
+      <div id="auPolicyFilters" class="wi-grid" style="margin-top:10px">
+        <label class="wi-f"><span>Minimum severity</span>
+          <select id="auSev">
+            <option value="">Everything</option>
+            <option value="medium">Medium and above</option>
+            <option value="high">High only</option>
+          </select></label>
+        <label class="wi-f"><span>&nbsp;</span>
+          <label class="chk" style="display:inline-flex;gap:6px;align-items:center;height:38px">
+            <input type="checkbox" id="auOnlyChanges"> Edits and deletions only</label></label>
+      </div>
+
+      <div id="auAllFilters" class="wi-grid" style="margin-top:10px;display:none">
+        <label class="wi-f"><span>Category</span>
+          <select id="auCat"><option value="All">All categories</option></select></label>
+        <label class="wi-f"><span>Result</span>
+          <select id="auResult">
+            <option value="all">Success and failure</option>
+            <option value="failure">Failures only</option>
+            <option value="success">Successes only</option>
+          </select></label>
+        <label class="wi-f"><span>Actor <span class="mini muted">wildcards allowed</span></span>
+          <input id="auActor" placeholder="e.g. admin* or a service principal name" autocomplete="off" spellcheck="false"></label>
+        <label class="wi-f"><span>Activity <span class="mini muted">wildcards allowed</span></span>
+          <input id="auActivity" placeholder="e.g. *Delete*" autocomplete="off" spellcheck="false"></label>
+      </div>
+
+      <p class="mini muted" style="margin:8px 0 0">The <b>category list is built from what your tenant actually emitted</b> in this window, not from a fixed list — the script this borrows from ships one containing values Graph never returns, so picking one gave you nothing and looked like a quiet tenant. Filters apply to what has already been read, so changing one costs nothing.</p>
+
+      <div class="tb-actions" style="margin-top:14px">
+        <button class="btn primary" id="auRun">🕓 Read the audit log</button>
+        <button class="btn" id="auReset">Reset</button>
+        <button class="btn" id="auMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="auHtml" style="display:none" title="Standalone HTML report — opens anywhere, no access to the tenant needed">⭳ Export HTML</button>
+        <button class="btn" id="auCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="auProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="auBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -386,16 +462,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>The tenant sweep</b> (beta 10319) asks the same question of every group at once. A sweep reads each surface once and matches every group against it, so three hundred groups is still twenty reads. The default scope takes the ids off the assignments themselves and enumerates nothing — the fastest scope, and the one that <i>cannot</i> find unused groups, which the screen says where the choice is made rather than leaving an empty list to read as a clean bill of health. The counted scopes enumerate and can. Dangling references — an assignment naming a group the directory no longer has — are kept and flagged, because nothing in the portal will tell you.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped Intune-only, and that is a change from what this card used to promise.</b> It said the Entra areas would stay as context. They cannot: Conditional Access, group-based licensing, directory roles and access packages need scopes TUNO's registration does not hold and has no reason to. Half-reading them with the permissions to hand would be worse than not reading them, so the tool says so and points at <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>, which is signed in for exactly that.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit <span class="tag grant">live · beta 10323</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">One tool over <code>deviceManagement/auditEvents</code>, two views, one read — after Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a>. <b>Policy changes</b> carries a severity read off the activity; <b>all events</b> filters by actor, activity, category and result with wildcards honoured as wildcards. <b>The field-level diff is ENCA's T16, ported</b>, and it is the reason to use this rather than the portal: <code>modifiedProperties</code> values arrive as JSON strings, sometimes double-encoded, sometimes wrapped in a one-element array, and the useful answer is a list of what moved — with assignment lists compared as sets, so you see added and removed rather than two blobs.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Three upstream bugs fixed.</b> The two scripts window the same endpoint two different ways and a bare date means midnight, so “the last day” was anything between a minute and 24 hours — full ISO-8601 UTC in both. The fixed category list contains values Graph never emits, so choosing one returned nothing and read as a quiet tenant — the categories come from the tenant's own data. And the policy view is not capped at five rows after paging everything, which is what the original does. A fourth, smaller one: every resource on a record is inspected rather than only the first, because an assignment change puts the policy in slot 0 and the group in slot 1.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The windows stop at 30 days, and that is the honest limit rather than a shortcut.</b> Intune keeps audit data for thirty days and then it is gone from the service. ENCA offers a ninety-day review window because the directory audit log holds longer; the same option here would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit — ENCA's T16, pointed at Intune</h4>
-            <p class="mini" style="margin:0">ENCA's Change audit reads the directory audit log for Conditional Access edits with a field-level diff of what moved. The TUNO port points the same machinery at <code>deviceManagement/auditEvents</code>: who changed which compliance policy, configuration profile, app assignment, script or enrolment setting, when, from where — the same 1/4/24-hour incident windows and 7/30/90-day review windows, kind/action filters, field-level before/after diff where the audit record carries it, and Markdown export. Reads only, <code>DeviceManagementApps.Read.All</code> / <code>DeviceManagementConfiguration.Read.All</code> asked on the click.<br><b>One tool, two views</b>, after Ugur Koc's two scripts against that endpoint. <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> is the <b>policy changes</b> view: filtered to configuration-policy activity, with the before/after pairs the audit record already carries and a severity read off the activity — a delete or a failure outranks a create, a create outranks an assignment change. <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a> is the <b>all events</b> view: every category, filtered by actor, activity and result. They are one tool because they are one Graph read — two tiles would be two copies of the same paging, the same throttling and the same export. Three fixes ride along: the two scripts window the same endpoint two different ways (a full UTC timestamp in one, a bare date in the other) and TUNO uses the timestamp in both; the categories are read from the tenant's own data rather than a fixed list that includes values Graph never emits; and the policy view is not capped at five rows.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R03</span> 🖥 Intune device analyzer</h4>
@@ -457,6 +535,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       </div>
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
+        <h3 style="margin:14px 0 6px">🕓 Change audit</h3>
+        <p class="mini" style="margin:0 0 10px">Reads the tenant's own audit log and says who changed what, when, from where, and <b>which fields moved</b>. Two views over one read: policy changes with a severity on each, and all events with actor / activity / category / result filters. Filters apply to what has already been read, so changing one costs nothing. Reads only.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Thirty days is the whole log.</b> Intune keeps audit data for thirty days and then it is gone from the service — not archived, not slower to reach. There is deliberately no ninety-day window: it would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Wildcards are wildcards.</b> In the actor and activity boxes, <code>admin*</code> means starts-with and <code>*Delete*</code> means contains. A term with no wildcard is treated as contains, which is what someone typing into a filter box means — but if you write a wildcard it is honoured exactly, rather than being quietly widened.</p>
+        <p class="mini" style="margin:0 0 10px"><b>An event with no detail is not an event with no changes.</b> Some audit records carry no <code>modifiedProperties</code> at all — a create, usually, or a service-initiated action. Those say so explicitly rather than rendering as an empty list, because "nothing changed" and "the log does not say" are different answers.</p>
         <h3 style="margin:0 0 6px">Security model</h3>
         <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
       </div>
@@ -487,15 +570,16 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10322"></script>
-<script src="js/version.js?v=10322"></script>
-<script src="js/promote.js?v=10322"></script>
-<script src="js/authConfig.js?v=10322"></script>
-<script src="js/changelog.js?v=10322"></script>
-<script src="js/msappcatalog.js?v=10322"></script>
-<script src="js/graph.js?v=10322"></script>
-<script src="js/groupuse.js?v=10322"></script>
-<script src="js/applocker.js?v=10322"></script>
-<script src="js/app.js?v=10322"></script>
+<script src="js/branding.js?v=10323"></script>
+<script src="js/version.js?v=10323"></script>
+<script src="js/promote.js?v=10323"></script>
+<script src="js/authConfig.js?v=10323"></script>
+<script src="js/changelog.js?v=10323"></script>
+<script src="js/msappcatalog.js?v=10323"></script>
+<script src="js/graph.js?v=10323"></script>
+<script src="js/groupuse.js?v=10323"></script>
+<script src="js/audit.js?v=10323"></script>
+<script src="js/applocker.js?v=10323"></script>
+<script src="js/app.js?v=10323"></script>
 </body>
 </html>
