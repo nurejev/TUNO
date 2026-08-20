@@ -49,6 +49,28 @@ const PROMOTE = {
 
   items: [
     {
+      n: 12,
+      title: "The Graph read layer — and a refactor of the write path to get it",
+      tools: ["All tools"],
+      builds: [10316],
+      risk: "medium",
+      what: "js/graph.js gains everything the roadmap's Intune tools need to read a tenant: paged reads that follow @odata.nextLink, 429/503/504 retry honouring Retry-After with an exponential fallback and a five-attempt ceiling, a bounded-concurrency pool for the one-request-per-object shape with errors captured per item, $batch at twenty per round trip with per-id 429 retry, GUID-to-name resolution through directoryObjects/getByIds in chunks of a thousand, and an OData tagged template that writes query STRUCTURE literally while escaping interpolated VALUES. A beta base constant, a page ceiling of 500, a throttle-notification hook, and read scopes split from write scopes as separate SCOPES entries so a read-only tool cannot reach the write scope by sharing a constant.\n\nTHE PART THAT IS NOT ADDITIVE: call() itself was refactored. Its URL now goes through a new safeGraphUrl() host guard, and token acquisition moved inside a send() closure so a retry re-acquires rather than reusing a token that may have expired during the wait. T01's deploy path — customProfiles, createProfile, assignProfile, searchGroups, memberCount — runs through that function and none of it passes retry, so its behaviour should be unchanged. \"Should be\" is why this is medium and not low.",
+      why: "MEDIUM — nothing in this build CALLS the read layer; no tool uses it yet, so the new code is dead weight in production until R04 lands. The risk is entirely in the refactor underneath it. call() is the only path T01 has to the tenant, and it was changed in two ways that a browser will not complain about: every URL is now host-checked before a token is attached, and the token is fetched inside the retry closure rather than once at the top. If safeGraphUrl is wrong about a URL shape T01 builds, the deploy stops working — and the headless tests cannot prove that, because they cannot sign in. It graduates when someone has run T01's step 5 end to end against a real tenant on this build: create the profile, assign it to a pilot group, and see the member count come back.",
+      test: [
+        "THE ONE THAT MATTERS, and it needs a tenant: sign in and run T01 step 5 all the way through — collision read, create the custom profile, then assign it to a pilot group and confirm the member count renders. All five of those calls go through the refactored call(). If any of them now fails with \"Refused to send a tenant token to…\", safeGraphUrl is rejecting a URL shape T01 builds and the guard is wrong, not the caller.",
+        "Check the /members/$count call specifically. It is the only call in the app that sends Accept: text/plain and ConsistencyLevel: eventual, and the only one whose successful response is not JSON. Confirm a number still comes back and not \"[object Object]\" — the non-JSON fallthrough in call() was not touched, but it is the path least like the others.",
+        "Force a refusal and read what it says: sign in with an account that cannot create profiles and confirm the 403 still surfaces Graph's own message, code and request-id rather than a generic failure. The error path is downstream of the refactor and must be untouched.",
+        "Confirm no retry happens on a write. There is no way to make Graph return 429 on demand, so read the code instead: createProfile, assignProfile and post() must not pass retry:true anywhere. A retried POST is the one thing this file's header promises does not happen.",
+        "Open the Roadmap and the Help screens and check every source link opens the right repository — eleven external links were added and a wrong one is a miscredit, which is worse than a dead link.",
+        "NOT COVERED, and worth saying: none of the read layer's throttling, paging or batching has run against a real tenant, because nothing calls it yet. The headless tests exercise it against stubs. The first tool to use it is R04, and that is when this code is genuinely proven.",
+      ],
+      staying: [
+        "The roadmap cards (R03 moved up, R04/R05 rewritten, R06–R10 new) and the Credits & thanks section are documentation and are NOT queued — per this file's own rule they travel with whichever promotion happens next. They are listed here so their absence from the queue reads as the rule rather than an oversight.",
+        "No tool consumes the read layer in this build. R04 is the first, and it is not written yet.",
+      ],
+      files: ["js/graph.js", "index.html", "css/app.css", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 11,
       title: "Enforcing is a decision, not a button",
       tools: ["🔐 AppLocker builder & validator"],

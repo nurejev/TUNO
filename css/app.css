@@ -632,6 +632,14 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
    width, so the page read as knocked off-centre rather than as a column.
    Same for What's new and the Roadmap, which share this class. */
 .help-page{max-width:920px;margin-left:auto;margin-right:auto}
+/* Credits & thanks — one project per line, each a short paragraph rather than
+   a bullet fragment, because "who wrote this and what did it give us" does not
+   fit in four words. The hanging indent keeps the project name findable when
+   the entry runs to several lines, which most of them do. */
+.credits{margin:0;padding-left:18px}
+.credits li{margin:0 0 8px;line-height:1.55}
+.credits li:last-child{margin-bottom:0}
+.credits .rm-ref{margin:0 1px}
 /* sticky, scroll-spying table of contents — jump to any section, and the chip
    for the section you're reading stays highlighted */
 .help-toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 -8px 14px;padding:10px 8px;
