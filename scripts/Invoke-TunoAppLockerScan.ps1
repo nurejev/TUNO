@@ -183,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.3.0
+Version    : 1.4.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -260,8 +260,18 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.3.0'
-$script:TunoBuild = 10347
+$script:ScriptVersion = '1.4.0'
+$script:TunoBuild = 10348
+
+# WHICH CHANNEL SERVED THIS COPY.
+#
+# Same convention as js/version.js: a build >= 10000 is a beta build. A beta copy
+# of this script telling you to upload to production sends you to a different
+# build of the tool - one that may not read the bundle this version writes. So
+# the script works out where it came from rather than naming production and
+# hoping.
+$script:TunoIsBeta = $script:TunoBuild -ge 10000
+$script:TunoSite = if ($script:TunoIsBeta) { 'https://nurejev.github.io/tuno-beta/' } else { 'https://tuno.limon-it.nl' }
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 
@@ -1661,7 +1671,8 @@ Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.
     'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions',
     'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
 
-Write-Section "TUNO AppLocker device scan  ·  v$script:ScriptVersion"
+Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
+Write-Info ("Served by  : {0}" -f $script:TunoSite)
 
 if (($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -and ($PSVersionTable.Platform -ne 'Win32NT')) {
     throw 'This script scans Windows AppLocker configuration and must run on Windows.'
@@ -1968,6 +1979,9 @@ $bundle = [pscustomobject]@{
     generator = [pscustomobject]@{
         script      = 'Invoke-TunoAppLockerScan.ps1'
         version     = $script:ScriptVersion
+        tunoBuild   = $script:TunoBuild
+        channel     = $(if ($script:TunoIsBeta) { 'beta' } else { 'production' })
+        site        = $script:TunoSite
         product     = 'TUNO - Tenant Utilities for iNtune Operations'
         generatedUtc = (Get-Date).ToUniversalTime().ToString('o')
         priorArt    = 'Scanning strategy after Microsoft AaronLocker (Aaron Margosis); static check set in T01 after AppLockerInspector (Spencer Alessi).'
@@ -2024,7 +2038,10 @@ if ($generated) {
 
 Write-Section 'Next'
 Write-Info 'Upload the .json bundle to TUNO T01 (AppLocker builder & validator):'
-Write-Info '    https://tuno.limon-it.nl  ->  AppLocker builder & validator  ->  Upload scan result'
+Write-Info ("    {0}  ->  AppLocker builder & validator  ->  Upload scan result" -f $script:TunoSite)
+if ($script:TunoIsBeta) {
+    Write-Note "This is a BETA build of the scan (build $script:TunoBuild). Take the bundle to the BETA site above, not to production - the two channels are not the same tool, and a bundle written by a beta scan can carry fields production does not yet read."
+}
 Write-Info ''
 Write-Info 'T01 audits the generated policy, tells you which Microsoft apps a standard user'
 Write-Info 'would no longer be able to run, lets you edit the rules, and exports the result'

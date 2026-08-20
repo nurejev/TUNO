@@ -66,6 +66,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 35,
+      title: "A beta scan sends you to the beta site",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10348],
+      risk: "low",
+      what: "Invoke-TunoAppLockerScan.ps1 hard-coded tuno.limon-it.nl in its closing 'Next' section, so a beta copy of the script told the operator to upload the bundle to production. It now derives its channel from $script:TunoBuild using the same >= 10000 rule as js/version.js, sets $script:TunoSite accordingly, and a beta build says so explicitly at the point it names the site. The banner gained the version, channel and build; the bundle's generator block gained tunoBuild, channel and site. check-script-versions.js asserts the channel is derived rather than hard-coded, so a literal host cannot creep back. The guard also stopped demanding a ScriptVersion bump when only the build stamp moved - ScriptVersion tracks behaviour, TunoBuild tracks the release, and conflating them would inflate the version until it meant nothing.",
+      why: "LOW — console text, two constants and a bundle field. No scanning, analysis or rule generation changed. It matters more than it looks because the two channels are different builds of the tool and a bundle written by a beta scan can carry fields production does not read, but the change itself is small and graduates on one run.",
+      test: [
+        "Download the scan from the BETA site and run it. The banner must say BETA and the build number, and the closing section must name nurejev.github.io/tuno-beta — not tuno.limon-it.nl. That is the whole item.",
+        "Open the bundle and confirm generator.channel says beta and generator.site matches. A bundle that cannot say which channel produced it is why this was worth fixing.",
+        "Once a build reaches production, download from tuno.limon-it.nl and confirm the same script says production and names the production site. The rule is derived from the build number, so this is the case nobody will think to check.",
+        "Confirm the beta warning appears only on beta builds — a production copy telling people to go to the beta site would be worse than the bug it replaced.",
+        "Edit either script without bumping ScriptVersion and confirm the guard fails; then change ONLY the build stamp and confirm it passes. Both halves matter: the first is the rule, the second is why it does not become noise.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/Convert-TunoAppLockerToIntune.ps1", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 34,
       title: "NotConfigured does not mean off",
       tools: ["🔐 AppLocker builder & validator"],

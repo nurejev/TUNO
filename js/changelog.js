@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10348, date: "2026-08-20", title: "A beta scan sends you to the beta site",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The scan finished by telling you to take the bundle to the production site, whichever channel the copy had come from. A beta build of the script sending you to production sends you to a different build of the tool — one that may not read the fields that version of the scan writes, and on the day the scripts were new, one that did not have the tool at all. It works out where it came from instead: the build stamp already distinguishes beta from production by the same rule the site itself uses, so the script derives its own channel and names the matching site. A beta copy says outright that it is a beta build and that the bundle belongs on the beta site." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The scan's banner now reads the version, the channel and the build — so the first line of output answers \"is this the copy I think it is\" without reading the file. The bundle records the same three, which means a scan result can be traced to the channel and the build that produced it rather than just to a script name. The version guard covers the channel logic too, so a hard-coded host cannot creep back in." },
+    ],
+  },
+  {
     build: 10347, date: "2026-08-20", title: "NotConfigured does not mean off",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Reading two lines of the new checklist against each other turned up the worst defect in this tool so far, and it was in what the tool generates. The DLL rules were shipped inside a collection marked NotConfigured and described, in the code and in the documentation, as present and inert. They would not have been inert. Microsoft's own guidance is explicit: despite the name, a rule collection that is not configured does not have its rules ignored — if any rules exist in it, they will be enforced, and the value should never be used deliberately. So the tool was about to enforce DLL control on every device the policy reached, against only the DLLs a scan happened to find, while every description of it said the opposite. Nobody had deployed it, so it never bit." },
