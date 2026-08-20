@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10320, date: "2026-08-20", title: "The setup script stopped rewriting its own instructions",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Running New-TunoAppRegistration.ps1 quietly damaged the file it was patching. It writes the new client ID into js/authConfig.js, and that file mentions the setting twice: once as the real value, and once inside a comment showing somebody running their own fork how to point at THEIR registration instead. The replace was not anchored, so it rewrote both — turning the instructions for using your own tenant into a hardcoded copy of ours. Nothing failed, nothing was logged, and the only way to notice was to read a diff. It is anchored to an actual assignment now: a line that begins with the setting rather than with two slashes." },
+      { kind: "improved", tool: "All tools", text: "The same script now counts before it writes. It expects exactly one assignable line and refuses to touch the file otherwise, saying so in red. Zero matches would mean the tool keeps whatever registration it had and signs in to the wrong one; more than one would mean the anchor has stopped discriminating and the comment is about to be overwritten again. Either way the honest move is to stop and say which, rather than to write something and report success." },
+    ],
+  },
+  {
     build: 10319, date: "2026-08-20", title: "Ask the whole tenant at once",
     items: [
       { kind: "new", tool: "🔗 Group Analyzer", text: "The tenant sweep, ported from ENCA. Instead of naming one group, ask the question of every group at once and get a table: how much each one receives, split into direct, inherited and excluded, with a column per surface. The trick that makes it affordable is that a sweep reads each surface ONCE and matches every group against it — three hundred groups is still twenty reads, and the cost barely grows with the group count. That falls straight out of how the single-group mode was already written, which is why it fits in one build rather than being a second tool." },

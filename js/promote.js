@@ -49,6 +49,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 16,
+      title: "The registration script stops clobbering its own documentation",
+      tools: ["All tools"],
+      builds: [10320],
+      risk: "low",
+      what: "New-TunoAppRegistration.ps1 patches the client ID into js/authConfig.js with a regex that was not anchored. That file mentions clientId twice — the real assignment, and a commented example showing a fork how to point at its own registration — so running the script rewrote the example into a hardcoded Limon-IT id. Silent, and only visible in a diff. The pattern is now anchored to the start of a line, so the commented one (preceded by //) is skipped, and the script counts matches first: not exactly one and it refuses to write, in red. js/authConfig.js has its placeholder restored.",
+      why: "LOW. It cannot affect a running deployment — authConfig.js on this branch is correct, and the damage was to a comment. It matters because of who reads that comment: somebody standing up their own single-tenant copy, who would have followed it straight into using our client ID. It graduates the next time the script is run and the diff on authConfig.js shows only the assignment line changing.",
+      test: [
+        "Run ./New-TunoAppRegistration.ps1 and then `git diff js/authConfig.js`. ONLY the assignment line may change. If the commented example moved, the anchor is wrong again.",
+        "Temporarily add a second real clientId line to authConfig.js and run the script. It must REFUSE, in red, naming the count — writing to an ambiguous file is how this happened.",
+        "Comment out the real assignment entirely and run it. It must refuse with a count of zero rather than reporting success — a silent no-op leaves the tool pointed at whatever registration it had.",
+        "Read the restored comment and confirm it says <your Application (client) ID> and not a GUID. That sentence is the whole reason this is a bug rather than a typo.",
+      ],
+      files: ["New-TunoAppRegistration.ps1", "js/authConfig.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 15,
       title: "T02 gains the tenant sweep",
       tools: ["🔗 Group Analyzer"],
