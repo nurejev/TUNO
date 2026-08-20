@@ -1618,33 +1618,70 @@ else { Write-Note "Effective policy not captured: $($effective.reason)" }
 $generated = $null
 $auditXml = $null
 $enforceXml = $null
+# Rule generation is the LAST thing that happens and the only part that can be
+# rebuilt from what is already in hand. Everything before it - the ACL walk, the
+# signature inventory, the event logs - can take an hour and cannot be recovered
+# once the process exits. So a failure here must never take the scan with it: it
+# becomes a warning, $generated stays null, and the bundle is written anyway.
+# T01 already reads an evidence-only bundle and falls back to the device's
+# effective policy, so what lands on disk is still usable.
 if (-not $SkipRuleGeneration) {
     Write-Section 'Building the rule set'
-    $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
-    $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
-    foreach ($type in $artifactRules.Keys) {
-        if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
-        foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
-    }
+    try {
+        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
+        $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
+        foreach ($type in $artifactRules.Keys) {
+            if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
+            foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
+        }
 
-    $counts = [ordered]@{}
-    $total = 0
-    foreach ($type in $collections.Keys) {
-        $counts[$type] = @($collections[$type]).Count
-        $total += $counts[$type]
-        Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $counts[$type])
-    }
-    Write-Ok "$total rules across $($collections.Keys.Count) collections"
+        # .Add(), NOT $counts[$type] = <int>.
+        #
+        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - so
+        # PowerShell compiles an indexed assignment into a conditional that picks
+        # between them at runtime. When the value being stored is a VALUE type, the
+        # two branches of that conditional have incompatible types and
+        # Expression.Condition throws "Argument types do not match" before the
+        # assignment ever happens. It is thrown by the compiler, not the dictionary,
+        # which is why the error carries no useful line and names Condition as its
+        # target site.
+        #
+        # Storing a reference type is fine, which is exactly why every other ordered
+        # assignment in this script works and only the rule COUNT - an Int32 - failed.
+        # .Add(object, object) boxes explicitly and sidesteps the binder entirely.
+        $counts = [ordered]@{}
+        $total = 0
+        foreach ($type in $collections.Keys) {
+            $n = @($collections[$type]).Count
+            $counts.Add($type, $n)
+            $total += $n
+            Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $n)
+        }
+        Write-Ok "$total rules across $($collections.Keys.Count) collections"
 
-    $auditXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Audit'
-    $enforceXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Enforce'
-    $generated = [pscustomobject]@{
-        granularity     = $PublisherRuleGranularity
-        ruleCount       = $total
-        rulesByCollection = $counts
-        dllNote         = 'The Dll collection ships as NotConfigured on purpose: AppLocker evaluates every DLL load, so even AuditOnly floods the event log. The rules are present and inert.'
-        auditXml        = $auditXml
-        enforceXml      = $enforceXml
+        $auditXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Audit'
+        $enforceXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Enforce'
+        $generated = [pscustomobject]@{
+            granularity     = $PublisherRuleGranularity
+            ruleCount       = $total
+            rulesByCollection = $counts
+            dllNote         = 'The Dll collection ships as NotConfigured on purpose: AppLocker evaluates every DLL load, so even AuditOnly floods the event log. The rules are present and inert.'
+            auditXml        = $auditXml
+            enforceXml      = $enforceXml
+        }
+    }
+    catch {
+        $generated = $null
+        $auditXml = $null
+        $enforceXml = $null
+        Write-Host ''
+        Write-Host '  [ERR]  Rule generation failed - but the scan itself is intact.' -ForegroundColor Red
+        Write-Host ("         {0}" -f $_.Exception.Message) -ForegroundColor Red
+        Write-Info 'The bundle below still carries every writable directory, every artifact,'
+        Write-Info 'the event analysis and the device effective policy. Upload it to T01 and'
+        Write-Info 'build the rules there. Nothing has been lost except the generated XML.'
+        Add-ScanWarning ("Rule generation failed and no policy was generated: {0} (at {1}). The evidence in this bundle is complete and unaffected." -f
+            $_.Exception.Message, (($_.ScriptStackTrace -split "`n" | Select-Object -First 1) -replace '\s+', ' '))
     }
 }
 else {
@@ -1704,7 +1741,10 @@ $json = $bundle | ConvertTo-Json -Depth 12 -Compress:$false
 Write-Ok "bundle  -> $bundlePath"
 
 $written = @($bundlePath)
-if (-not $SkipRuleGeneration) {
+# Gated on $generated, not on -SkipRuleGeneration: rule generation can also have
+# been ATTEMPTED and failed, in which case $auditXml is null and WriteAllText
+# would throw at the very last step, after the bundle had already been saved.
+if ($generated) {
     $auditPath = Join-Path $OutputPath ("AppLockerRules-Audit-{0}.xml" -f $stamp)
     $enforcePath = Join-Path $OutputPath ("AppLockerRules-Enforce-{0}.xml" -f $stamp)
     [System.IO.File]::WriteAllText($auditPath, $auditXml, (New-Object System.Text.UTF8Encoding($false)))

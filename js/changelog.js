@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10344, date: "2026-08-20", title: "The scan no longer throws itself away",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The device scan crashed at the very last step, after all the expensive work was done. It walked 71,000 directories, inventoried 5,000 executables, read a month of event logs — and then died while counting up the rules it had just built, writing nothing to disk at all. The cause is a genuine trap in Windows PowerShell 5.1: the ordered dictionary used to hold the per-collection counts has two different indexers, one taking a number and one taking a name, so the engine compiles a choice between them at runtime. That choice only works when the thing being stored is an object. The rule count is a plain integer, and the engine refused to compile the assignment at all, reporting \"argument types do not match\" with no line number and no clue. It is stored a different way now. Every other place the script does this stores a list or a string, which is why the fault was in exactly one line and nowhere else." },
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The deeper mistake was the ordering, and that is fixed too. Rule generation is the last thing the scan does and the only part that can be rebuilt from what is already in hand — the permission walk, the signature inventory and the event logs cannot, and on a real machine they take the best part of an hour. So a failure there no longer takes the scan with it: it is caught, recorded in the bundle's own warnings with the line it came from, and the bundle is written anyway. Upload it and the tool falls back to the policy the device is really running, with every writable directory, every executable and the full event analysis intact. An hour of scanning should never be lost to a fault in the five seconds at the end of it." },
+    ],
+  },
+  {
     build: 10343, date: "2026-08-20", title: "Keeping the minimum OS version honest",
     items: [
       { kind: "new", tool: "Roadmap", text: "R18, after James Robinson's IntuneComplianceMaintainer. Every compliance and app-protection policy carries a minimum OS version, and that number is right on the day it is typed and slowly wrong afterwards — which is how a tenant ends up letting in devices three releases behind, on a policy nobody has opened since they wrote it. The tool would read what is currently supported, from endoflife.date for iOS, iPadOS, macOS and Android and from the Windows Update catalog for Windows builds, work out what each selected policy should say, and update the ones that are behind." },

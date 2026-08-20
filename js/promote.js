@@ -66,6 +66,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 31,
+      title: "The scan no longer throws itself away",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10344],
+      risk: "high",
+      what: "Invoke-TunoAppLockerScan.ps1 crashed at the last step of a real run, after the permission walk, the artifact inventory and the event read had all completed, and wrote nothing to disk. Cause: the per-collection rule counts were stored with $counts[$type] = <Int32> into an [ordered] dictionary. OrderedDictionary exposes both this[int] and this[object], so PowerShell compiles the indexed assignment into a runtime choice between them — and Expression.Condition refuses to compile that choice when the stored value is a VALUE type, throwing \"Argument types do not match\" with no line number and TargetSite 'Condition'. Storing a reference type is fine, which is why every other ordered assignment in the script worked and only this one failed. It uses .Add(object, object) now. Separately and more importantly, rule generation is wrapped: a failure there is caught, recorded in the bundle's warnings with its originating line, and the bundle is written anyway with generatedPolicy null. The XML writes are gated on $generated rather than on -SkipRuleGeneration, so a null policy cannot throw at the file step either.",
+      why: "HIGH — this is a fix to the one thing in TUNO that runs on a production endpoint, and it is a fix for a fault that only appeared on a real machine: no headless test could have caught it, because there is no PowerShell runtime in the environment this is built in. It has been reasoned to ground from a stack trace off Mihai's own device rather than reproduced, so the fix is verified by argument, not by execution. It graduates when a full scan completes end to end and writes all three files.",
+      test: [
+        "THE ONE THAT MATTERS: run the full scan that failed — the same -Scope arguments, on the same machine — and confirm it now prints the per-collection rule counts and writes all three files. The counts are the exact line that threw; if they print, the compile-time fault is gone.",
+        "Run it on Windows PowerShell 5.1 AND on PowerShell 7. The defect is a 5.1 expression-compiler behaviour, so 7 may well have passed all along — a green run on 7 alone proves nothing about the fix.",
+        "Force rule generation to fail and confirm the bundle is STILL written. Easiest way: rename the AppLocker module out of reach, or point -Path at something pathological. You should get a red 'Rule generation failed - but the scan itself is intact' block, a bundle on disk, and NO Audit/Enforce XML. This is the half that matters more than the crash itself.",
+        "Upload that failed-generation bundle to T01. It must open, fall back to the device's effective policy, and show the writable paths, the artifacts and the event analysis. If T01 refuses it, the evidence-only path has regressed and the resilience is worth nothing.",
+        "Check the bundle's warnings array contains the failure text AND the line it came from. A recorded failure with no location is a bug report nobody can act on.",
+        "Confirm a NORMAL run is unchanged: three files, generatedPolicy populated, rulesByCollection carrying one entry per collection in order. The counts moved from an indexer to .Add(); ordering must survive, because the bundle is read by T01 and by a human.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 30,
       title: "The code panel is themed, and three cards open full screen",
       tools: ["\ud83d\udd10 AppLocker builder & validator"],
