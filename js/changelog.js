@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10337, date: "2026-08-20", title: "Third promotion — the queue is empty",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 5 and takes queue items 20 to 29 with it: Backup, the Configuration documenter, the Device analyzer, Role assignments, the fix for consent triggering multi-factor authentication, the spacing pass, and today's two changes. Every tool on this channel is now also in production." },
+      { kind: "improved", tool: "All tools", text: "The queue is empty for the first time, and that is a state worth keeping rather than a gap to fill. What remains between the channels is only the two permanent entries: this queue itself, which has no meaning on a production site, and the absence of a CNAME here, which must never be promoted. The next item added will be the whole of the next promotion." },
+      { kind: "improved", tool: "All tools", text: "Every roadmap card now carries both numbers \u2014 the beta build it shipped in and the production build it reached. On production the same cards name the production build alone, because a beta number means nothing on a channel that has no beta." },
+    ],
+  },
+  {
     build: 10336, date: "2026-08-20", title: "Open the policy where you are standing",
     items: [
       { kind: "improved", tool: "\ud83d\udda5 Device analyzer", text: "The table said which policies reach a device. The next question is always what they set, and answering it meant leaving for the Documenter and finding the policy again by name. Policy names are now buttons: press one and the settings open underneath it, read on demand, one policy at a time. Press it again and it closes. Settings catalog, administrative templates, device configuration and compliance policies all open; an object that keeps no readable settings list says so rather than opening onto nothing." },
