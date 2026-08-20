@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10334"></script>
+<script src="js/popup-guard.js?v=10335"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10334">
+<link rel="stylesheet" href="css/app.css?v=10335">
 </head>
 <body>
 
@@ -643,13 +643,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">Web-based AppLocker policy analysis after Spencer Alessi's AppLockerInspector: import the XML, get the weak/misconfigured/risky settings with severity, reason and recommendation — plus the check the PowerShell original does not have: a Microsoft app coverage table that verifies OneDrive (per-user!), Teams, Edge, WebView2, Office click-to-run, the Intune agent and friends are actually allowed to run for a standard user, with one-click publisher-first fixes and XML export back into the GPO.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer <span class="tag grant">live · beta 10318</span> <span class="tag new">BETA</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer <span class="tag grant">live · beta 10318 · production 4</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">Name an Entra group, get everything Intune sends to its members across nine surfaces and twenty Graph endpoints. The machinery is ENCA's <b>T19</b> — source descriptors with their own scopes and runners, a flat hit shape, a failing source reported and never fatal, and ancestors rather than just the group itself. The Intune surface map and two behaviours come from <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a> (Ugur Koc). <b>Exclusions are read as assignments</b>: “this policy does not reach you” is the same question as “this policy reaches you”, and a report showing only inclusions is wrong half the time. <b>Tenant-wide targets are a toggle</b> — All Users and All Devices land on the group's members too, so the effective surface is larger than the group's own assignments; off by default because it is the same answer for every group, on the list because nothing else would say so. And the thing <i>neither</i> parent has, which the script's own notes call out as not evaluated: <b>nested group inheritance</b>, so an assignment reaching this group through a parent is included and names the parent it came through. A surface that could not be read is never shown as empty — it is shown as unknown, with the scope <i>and</i> the Intune RBAC role it would need.</p>
             <p class="mini" style="margin:6px 0 0"><b>The tenant sweep</b> (beta 10319) asks the same question of every group at once. A sweep reads each surface once and matches every group against it, so three hundred groups is still twenty reads. The default scope takes the ids off the assignments themselves and enumerates nothing — the fastest scope, and the one that <i>cannot</i> find unused groups, which the screen says where the choice is made rather than leaving an empty list to read as a clean bill of health. The counted scopes enumerate and can. Dangling references — an assignment naming a group the directory no longer has — are kept and flagged, because nothing in the portal will tell you.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped Intune-only, and that is a change from what this card used to promise.</b> It said the Entra areas would stay as context. They cannot: Conditional Access, group-based licensing, directory roles and access packages need scopes TUNO's registration does not hold and has no reason to. Half-reading them with the permissions to hand would be worse than not reading them, so the tool says so and points at <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>, which is signed in for exactly that.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit <span class="tag grant">live · beta 10323</span> <span class="tag new">BETA</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit <span class="tag grant">live · beta 10323 · production 4</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">One tool over <code>deviceManagement/auditEvents</code>, two views, one read — after Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a>. <b>Policy changes</b> carries a severity read off the activity; <b>all events</b> filters by actor, activity, category and result with wildcards honoured as wildcards. <b>The field-level diff is ENCA's T16, ported</b>, and it is the reason to use this rather than the portal: <code>modifiedProperties</code> values arrive as JSON strings, sometimes double-encoded, sometimes wrapped in a one-element array, and the useful answer is a list of what moved — with assignment lists compared as sets, so you see added and removed rather than two blobs.</p>
             <p class="mini" style="margin:6px 0 0"><b>Three upstream bugs fixed.</b> The two scripts window the same endpoint two different ways and a bare date means midnight, so “the last day” was anything between a minute and 24 hours — full ISO-8601 UTC in both. The fixed category list contains values Graph never emits, so choosing one returned nothing and read as a quiet tenant — the categories come from the tenant's own data. And the policy view is not capped at five rows after paging everything, which is what the original does. A fourth, smaller one: every resource on a record is inspected rather than only the first, because an assignment change puts the policy in slot 0 and the group in slot 1.</p>
             <p class="mini" style="margin:6px 0 0"><b>The windows stop at 30 days, and that is the honest limit rather than a shortcut.</b> Intune keeps audit data for thirty days and then it is gone from the service. ENCA offers a ninety-day review window because the directory audit log holds longer; the same option here would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
@@ -791,20 +791,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10334"></script>
-<script src="js/version.js?v=10334"></script>
-<script src="js/promote.js?v=10334"></script>
-<script src="js/authConfig.js?v=10334"></script>
-<script src="js/changelog.js?v=10334"></script>
-<script src="js/msappcatalog.js?v=10334"></script>
-<script src="js/graph.js?v=10334"></script>
-<script src="js/groupuse.js?v=10334"></script>
-<script src="js/audit.js?v=10334"></script>
-<script src="js/backup.js?v=10334"></script>
-<script src="js/document.js?v=10334"></script>
-<script src="js/devicewhy.js?v=10334"></script>
-<script src="js/roles.js?v=10334"></script>
-<script src="js/applocker.js?v=10334"></script>
-<script src="js/app.js?v=10334"></script>
+<script src="js/branding.js?v=10335"></script>
+<script src="js/version.js?v=10335"></script>
+<script src="js/promote.js?v=10335"></script>
+<script src="js/authConfig.js?v=10335"></script>
+<script src="js/changelog.js?v=10335"></script>
+<script src="js/msappcatalog.js?v=10335"></script>
+<script src="js/graph.js?v=10335"></script>
+<script src="js/groupuse.js?v=10335"></script>
+<script src="js/audit.js?v=10335"></script>
+<script src="js/backup.js?v=10335"></script>
+<script src="js/document.js?v=10335"></script>
+<script src="js/devicewhy.js?v=10335"></script>
+<script src="js/roles.js?v=10335"></script>
+<script src="js/applocker.js?v=10335"></script>
+<script src="js/app.js?v=10335"></script>
 </body>
 </html>

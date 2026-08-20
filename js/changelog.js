@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10335, date: "2026-08-20", title: "Second promotion — Group Analyzer and Change audit are production",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 4 and takes queue items 14 to 19 with it: the two tools that read a tenant, the setup-script fix, the single column width with Help reordered, and the consent fix that makes a missing permission prompt rather than report a surface as unreadable. Items 20 to 28 remain the gap \u2014 Backup, the Documenter, the device analyzer, role assignments, and the MFA fix." },
+      { kind: "fixed", tool: "All tools", text: "The request was for items 16 to 19, and that range does not exist as a thing that can be promoted: item 18 changes the Group Analyzer's own file, which is item 14, and items 17 and 19 both edit a page that by then already carries its tile, screen and tab. Only item 16 stood alone. The queue is a list of decisions, not a list of independent patches, and this is the first time that distinction has cost anything \u2014 worth remembering when picking a range." },
+      { kind: "improved", tool: "All tools", text: "The roadmap cards for both tools now carry their production build alongside the beta one they were promoted from, which is the step of a promotion that gets missed." },
+    ],
+  },
+  {
     build: 10334, date: "2026-08-20", title: "Granting a permission stops asking you to prove who you are",
     items: [
       { kind: "fixed", tool: "All tools", text: "Consenting to a scope walked you through multi-factor authentication every time. The consent popup was being opened with an instruction to re-prompt, and that instruction re-authenticates as well as re-consents \u2014 so a permission grant, which should be one click on a screen listing what is being asked for, became a full sign-in with a second factor. ENCA has never sent that instruction and has never had the problem; TUNO now matches it." },
