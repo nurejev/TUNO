@@ -49,6 +49,33 @@ const PROMOTE = {
 
   items: [
     {
+      n: 20,
+      title: "T04 — Backup Intune configuration",
+      tools: ["📦 Backup configuration"],
+      builds: [10324],
+      risk: "medium",
+      what: "A fourth tool: js/backup.js (engine + screen), tile, screen, tab, Help, roadmap, and vendor/jszip.min.js (MIT, bundled rather than CDN so the CSP keeps refusing every origin but Microsoft's). Five areas over ten beta endpoints. Folder layout and safeFileName() match backup-intune-configuration.ps1 EXACTLY for interop in both directions. The three N+1 areas (settings-catalog settings, ADMX definitionValues, script bodies) run through Graph.pool with per-item error capture instead of the original's serial 100ms sleep. An object whose detail fails is EXCLUDED from the archive; an area that fails marks the archive partial. Manifest keeps the original's four fields and adds a per-file index (type, surface, restorable), the source tenant, and an explicit caveats list. Optional skip-script-bodies, with every affected file marked not-restorable.",
+      why: "MEDIUM. It writes nothing to the tenant, so the risk is entirely in the archive being trusted later. The failure that matters is an archive that looks complete and is not — and R09 will restore from these, so a wrong file here becomes a wrong policy in a tenant. The exclusion rule and the partial marking are the defences and both need checking against a real tenant. It graduates when an archive taken from a real tenant has been opened, its manifest reconciled against the portal's object counts area by area, and one settings-catalog policy compared field-for-field against what the portal shows.",
+      test: [
+        "THE ONE THAT MATTERS: take a backup of a real tenant, open the zip, and reconcile the manifest counts against the portal blade by blade. A count that is short means objects were dropped; a count that matches but with a wrong file inside is what the next step catches.",
+        "Open a SettingsCatalog file and compare its settings array against the same policy in the portal. This is the area where the list endpoint returns only a count, so if the extra read failed silently the file will have a name, a platform and no settings.",
+        "Open an AdmxPolicies file and confirm definitionValues is populated with presentationValues inside it. Same failure mode.",
+        "Open a PlatformScripts file and confirm scriptContent is a base64 string, not null. The list endpoint ALWAYS returns null here, so a null means the per-object read did not happen.",
+        "Tick 'leave script bodies out' and take another backup. Every script file must be marked notRestorable in the manifest, and the caveats array must say so. An archive that cannot restore scripts and does not admit it is the exact bug this flag inherits from the original.",
+        "Sign in as an account that can read some areas but not all — or untick one area — and confirm an unreadable area appears in unreadableAreas AND the on-screen banner says the archive is PARTIAL. Silent partial archives are the failure this tool must not have.",
+        "Back up a tenant with a policy whose name contains a slash, a colon or a quote. The filename must have those replaced with underscores and must still end in _<id>.json — this is what keeps the names round-trippable with the PowerShell script.",
+        "INTEROP, BOTH WAYS: run the PowerShell original against the same tenant and diff its folder against the zip's. Names and layout must match. Then point the original's restore script at the extracted zip and confirm it finds the folders. That is the whole reason the layout was copied rather than improved.",
+        "Take a backup of a tenant with several hundred policies and watch the progress. It must not stall — the N+1 runs bounded-concurrent, and if it takes the original's serial time something is falling back to a loop.",
+        "NOT COVERED BY THE HEADLESS TESTS: the zip itself. The suite proves the file list, names, manifest and exclusion rules against stubbed Graph responses. It does not run JSZip, so it cannot prove the archive opens.",
+      ],
+      staying: [
+        "No restore. R09 is a separate item and a separate risk — it is the second thing in TUNO that would write to a tenant.",
+        "No scheduling. The original can run as a runbook on a timer; a static site cannot, and pretending otherwise would be worse than the gap.",
+        "Assignments are captured but group names are not resolved. A restore into a different tenant cannot use the ids anyway, and resolving them would need a second scope for a field nothing reads yet.",
+      ],
+      files: ["js/backup.js", "vendor/jszip.min.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 19,
       title: "T03 — Change audit",
       tools: ["🕓 Change audit"],

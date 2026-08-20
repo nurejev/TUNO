@@ -23,7 +23,7 @@
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-audit", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-audit", "screen-backup", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -263,6 +263,7 @@
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolAudit", "🕓 Change audit"],
+    ["toolBackup", "📦 Backup configuration"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -352,6 +353,7 @@
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
+  $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
   $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
   $("toolHelp").addEventListener("click", () => openHelp());
@@ -436,4 +438,5 @@
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
   if (typeof AuditTool !== "undefined") AuditTool.init();
+  if (typeof BackupTool !== "undefined") BackupTool.init();
 })();
