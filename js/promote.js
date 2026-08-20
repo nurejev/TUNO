@@ -49,6 +49,32 @@ const PROMOTE = {
 
   items: [
     {
+      n: 21,
+      title: "T05 — Configuration documenter (browse + Markdown/HTML/Word)",
+      tools: ["📄 Configuration documenter"],
+      builds: [10325],
+      risk: "medium",
+      what: "A fifth tool: js/document.js (engine + screen), tile, screen, tab, Help, roadmap. Thirteen sections read once — settings catalog (with its settings), device configurations, ADMX (with definition values), compliance, app protection, app configuration, scripts and remediations, Windows update profiles, enrolment, Autopilot, applications, assignment filters, scope tags. Browse view with search across names/descriptions/settings, platform and assignment-state filters, and per-policy expansion. Exports Markdown, standalone HTML and Word (.docx via JSZip, ENCA's text-document writer ported and extended with real w:tbl tables). Assignments resolved to group names once for the whole document. Redaction by key regex, unconditional. Filters apply to exports and every export header states the counts.",
+      why: "MEDIUM. It writes nothing, but it produces the artefact most likely to leave the organisation, and the failure that matters is a redaction miss — a script body or a certificate in a document somebody emailed cannot be recalled. The regex is keyed on field NAMES, so a secret in a field whose name it does not recognise goes through. That is the thing to attack. Second concern: the generic flattener has to make sense of thirteen different Graph shapes, and a shape it renders as unreadable noise makes the document worse than the portal. It graduates when a document generated from a real tenant has been read end to end by someone who knows that tenant, with an eye for both.",
+      test: [
+        "THE ONE THAT MATTERS — ATTACK THE REDACTION. Create a Wi-Fi profile with a pre-shared key, a certificate profile, a custom OMA-URI with an encrypted value, and a PowerShell script. Generate all three formats and SEARCH each for the secret. Any hit is a disclosure bug, not a cosmetic one. Then look for fields carrying secrets whose NAMES the pattern would not match — that is the known weakness and the reason this is the first step.",
+        "Read a generated Word document as an auditor would. Settings must arrive as tables, headings must be navigable, and nothing may be a wall of camelCase. If a section reads as noise, the flattener needs a dedicated renderer for that shape the way settings catalog and ADMX already have.",
+        "Filter to one platform, export, and confirm the document holds only that platform AND says how many of how many it contains. A filtered document that reads as complete is the second-worst outcome after a leak.",
+        "Find a policy whose settings cannot be read (an account without the settings-catalog scope, or a policy Graph refuses) and confirm it is still LISTED with the gap stated — not dropped. This is deliberately the opposite of the backup tool's rule and both are right for their job.",
+        "Untick all but one section and run. Only that section's scope may be requested; the consent prompt is the test.",
+        "Run against a tenant with several hundred policies. Settings catalog and ADMX each cost a request per policy, and it must not stall — if it takes minutes, the bounded pool is not being used.",
+        "Open the standalone HTML in a private window with no tenant access, then print it to PDF. It must be readable and must not break policies across pages badly. This is also the interim answer for PDF until 10326 lands.",
+        "Check the group names in assignments are names, not GUIDs. If they are GUIDs, the directory scope was refused — and the document must say so at the top rather than leaving the reader to wonder.",
+        "NOT COVERED BY THE HEADLESS TESTS: whether the document is any good. The suite proves redaction fires on known key shapes, that filters flow into exports, that counts are stated and that a failed section is named. It cannot judge readability, and it cannot prove the redaction regex is complete — nothing can.",
+      ],
+      staying: [
+        "PDF. Queued as 10326 with jsPDF; until then the standalone HTML prints cleanly, which covers most of the need.",
+        "No branding or cover-page customisation. The original offers logo, colours and a classification banner; that is polish and this is not polished yet.",
+        "No Conditional Access section. It needs Policy.Read.All, which this registration does not hold — and ENCA documents CA properly already.",
+      ],
+      files: ["js/document.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 20,
       title: "T04 — Backup Intune configuration",
       tools: ["📦 Backup configuration"],
