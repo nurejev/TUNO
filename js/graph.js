@@ -175,7 +175,16 @@ const Graph = (() => {
       if (!needsInteraction(e))
         throw new GraphError("auth", `Could not get a token for ${scopes.join(", ")}: ${(e && e.message) || code || "unknown error"}`);
       try {
-        const r = await app().acquireTokenPopup({ scopes, account: account(), prompt: "consent" });
+        // NO `prompt`. Passing prompt:"consent" forces the authorization
+        // server to re-authenticate as well as re-consent, so every scope
+        // asked for on a click walked the admin back through MFA — for a
+        // permission grant, not a sign-in. ENCA has never passed it and does
+        // not have the problem. It was added in 10310 to make the prompt
+        // appear at all, which was the wrong fix for the right symptom: the
+        // prompt was missing because needsInteraction() did not recognise
+        // AADSTS65001, and 10322 fixed that properly. With that in place
+        // this only ever cost an MFA challenge.
+        const r = await app().acquireTokenPopup({ scopes, account: account() });
         noteScopes(r.accessToken);
         return r.accessToken;
       } catch (e2) {

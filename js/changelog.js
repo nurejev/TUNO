@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10334, date: "2026-08-20", title: "Granting a permission stops asking you to prove who you are",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Consenting to a scope walked you through multi-factor authentication every time. The consent popup was being opened with an instruction to re-prompt, and that instruction re-authenticates as well as re-consents \u2014 so a permission grant, which should be one click on a screen listing what is being asked for, became a full sign-in with a second factor. ENCA has never sent that instruction and has never had the problem; TUNO now matches it." },
+      { kind: "fixed", tool: "All tools", text: "It was added in build 10310 to make the consent prompt appear at all, which was the wrong fix for a real symptom: the prompt was missing because the code that decides whether a failure needs a human did not recognise the specific error the tenant returns when consent is what is missing. Build 10322 fixed that properly. From then on the instruction bought nothing and cost an MFA challenge every time, which is the shape of a workaround outliving the bug it was working around." },
+    ],
+  },
+  {
     build: 10333, date: "2026-08-20", title: "This channel stops claiming the production domain",
     items: [
       { kind: "fixed", tool: "All tools", text: "The CNAME file naming tuno.limon-it.nl was on this branch as well as on production. It had been there since the scaffold \u2014 the beta branch was cut from build 1 and inherited it, and nobody took it off \u2014 so the beta site, which is served from its github.io address and wants no custom domain at all, was telling GitHub Pages it owned the production one. Two sites naming one domain fight over it, and the losing side is whichever GitHub decides; the README has said so in as many words since the beginning. It is removed here and only here. Production keeps its CNAME, and the promotion queue now lists this absence as something that must never be promoted \u2014 a merge carrying the deletion across would take production off its own domain." },

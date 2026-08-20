@@ -60,6 +60,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 28,
+      title: "Consent stops triggering MFA",
+      tools: ["All tools"],
+      builds: [10334],
+      risk: "medium",
+      what: "js/graph.js no longer passes prompt:\"consent\" to acquireTokenPopup. That parameter forces the authorization server to re-authenticate as well as re-consent, so every on-the-click scope grant put the admin through multi-factor authentication. ENCA has never passed a prompt on an interactive token call. It was added in 10310 to make the prompt appear when it was not appearing; the actual cause was needsInteraction() not matching AADSTS65001 / invalid_grant, fixed in 10322 \u2014 after which this only ever cost an MFA challenge.",
+      why: "MEDIUM \u2014 it changes how every permission in the app is obtained, and the failure mode if it is wrong is silent: the popup does not appear, a read reports 'could not be read', and nobody sees a prompt to blame. Low blast radius, but it needs exercising against a tenant on each of the paths that ask for a scope, not just one.",
+      test: [
+        "THE ONE THAT MATTERS: sign in fresh, then trigger a scope that has never been consented \u2014 the deploy in T01, or a read in T02. The consent screen must appear, list the permission, and NOT ask for a second factor. If MFA still appears, check the tenant's Conditional Access: a policy requiring MFA for the app will do this on its own and is nothing to do with this parameter.",
+        "Then trigger a SECOND scope in the same session. It must prompt once for that scope and not re-ask for the first \u2014 that is 10322's once-per-run behaviour, and this change must not have disturbed it.",
+        "Decline the consent screen. The panel must say consent was not granted and offer the admin-consent link, exactly as before; the popup path is unchanged apart from the missing parameter.",
+        "As a non-admin, trigger a scope needing admin consent. The refusal must still be classified as admin rather than as an ordinary declined prompt.",
+        "Sign-in itself is a different call and still passes prompt:select_account on purpose \u2014 confirm signing in still offers the account chooser rather than silently reusing the last account.",
+        "NOT REPRODUCIBLE HEADLESSLY: the suite asserts no prompt is passed and that ENCA passes none either, which is the invariant. Whether the tenant then asks for MFA is between the tenant and the browser.",
+      ],
+      files: ["js/graph.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 27,
       title: "T07 — Intune role assignments",
       tools: ["🛡 Role assignments"],
