@@ -23,10 +23,13 @@
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell. A tool earns this by having two things
   // to show at once, not by being important.
-  const WIDE_SCREENS = new Set(["screen-applocker"]);
+  // T02 earns it for the same reason T01 does: an assignment table with five
+  // columns and a Via column carrying a parent group name is unreadable at
+  // 1180px, and the report is the whole point of the tool.
+  const WIDE_SCREENS = new Set(["screen-applocker", "screen-groupuse"]);
   let navSuppress = false;
   const screenScroll = {};
   let shownScreen = null;
@@ -251,6 +254,7 @@
   // whether the tool was opened from the grid or a tab.
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
+    ["toolGroupUse", "🔗 Group Analyzer"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -338,6 +342,7 @@
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
+  $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
   $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
   $("toolHelp").addEventListener("click", () => openHelp());
@@ -420,4 +425,5 @@
 
   // ---------- tools ----------
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
+  if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
 })();

@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10317"></script>
+<script src="js/popup-guard.js?v=10318"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10317">
+<link rel="stylesheet" href="css/app.css?v=10318">
 </head>
 <body>
 
@@ -75,6 +75,13 @@
       <div class="tool" id="toolAppLocker">
         <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Scan a device with the PowerShell this tool hands you, upload what it wrote, and audit the result with the AppLockerInspector check set — enforcement posture, broad principals, user-writable paths, risky wildcards, overly broad publisher rules — now backed by the directory permissions, signatures and blocked executions only a device can report. Verify the Microsoft apps a locked-down estate still needs (OneDrive first among them) are actually allowed, add the missing rules publisher-first, and export policy XML for a GPO or a ready-to-import Intune custom profile. Runs entirely in the browser.</p>
+      </div>
+    </div>
+    <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
+    <div class="tools">
+      <div class="tool" id="toolGroupUse">
+        <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -282,6 +289,47 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
   </section>
 
+  <!-- ============ GROUP ANALYZER (T02) ============
+       The Intune cut of ENCA's T19, merged with Ugur Koc's Get Group
+       Assignments. Deliberately Intune-only: the Entra surfaces need scopes
+       this registration does not hold, and half-reading them would be worse
+       than pointing at the tool that does hold them. -->
+  <section id="screen-groupuse" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🔗 Group Analyzer <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">A group is a shared handle: one admin targets a compliance policy at it, another assigns four applications, a third puts an Autopilot profile on it — and then somebody adds a user, and none of that is visible at the moment of the change. This reads it back out of the tenant. Intune surfaces after Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a>; the analysis machinery is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s Group Analyzer. <b>Reads only</b> — each surface asks for its own scope on the click, and nothing is written or stored.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Intune only, on purpose.</b> Where a group is used in Conditional Access, group-based licensing, directory roles or access packages is the same question asked of Entra, and answering it needs permissions TUNO has no reason to hold. That is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA's Group Analyzer</a>, which is signed in for exactly that.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <div class="wi-grid">
+        <label class="wi-f"><span>Group <b class="req">*</b></span>
+          <input id="guTerm" placeholder="Group name or object ID — press Enter to analyze…" autocomplete="off" spellcheck="false"></label>
+      </div>
+
+      <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:10px">
+        <input type="checkbox" id="guTenantWide"> Also show tenant-wide assignments <span class="mini muted">All Users / All Devices — they reach this group's members too</span>
+      </label>
+      <p class="mini muted" style="margin:6px 0 0">Off by default because it is loud and it is the same answer for every group: a tenant-wide assignment is not <i>about</i> this group. It is on the list because the question an admin is usually asking — <b>what actually lands on these devices</b> — has a bigger answer than the group's own assignments, and nothing else on this page would tell them so.</p>
+
+      <div style="margin-top:14px">
+        <div class="mini" style="font-weight:600;margin-bottom:6px">Where to look <span class="mini muted" style="font-weight:400">— each asks for its own permission when it runs</span></div>
+        <div id="guAreas" class="gu-areas"></div>
+      </div>
+
+      <div class="tb-actions" style="margin-top:14px">
+        <button class="btn primary" id="guRun">🔗 Analyze group</button>
+        <button class="btn" id="guReset">Reset</button>
+        <button class="btn" id="guMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="guHtml" style="display:none" title="Standalone HTML report — opens anywhere, no access to the tenant needed">⭳ Export HTML</button>
+        <button class="btn" id="guCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="guProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="guBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -294,16 +342,17 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R01</span> 🔐 AppLocker builder &amp; validator <span class="tag grant">live · build 1</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">Web-based AppLocker policy analysis after Spencer Alessi's AppLockerInspector: import the XML, get the weak/misconfigured/risky settings with severity, reason and recommendation — plus the check the PowerShell original does not have: a Microsoft app coverage table that verifies OneDrive (per-user!), Teams, Edge, WebView2, Office click-to-run, the Intune agent and friends are actually allowed to run for a standard user, with one-click publisher-first fixes and XML export back into the GPO.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer <span class="tag grant">live · beta 10318</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">Name an Entra group, get everything Intune sends to its members across nine surfaces and twenty Graph endpoints. The machinery is ENCA's <b>T19</b> — source descriptors with their own scopes and runners, a flat hit shape, a failing source reported and never fatal, and ancestors rather than just the group itself. The Intune surface map and two behaviours come from <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a> (Ugur Koc). <b>Exclusions are read as assignments</b>: “this policy does not reach you” is the same question as “this policy reaches you”, and a report showing only inclusions is wrong half the time. <b>Tenant-wide targets are a toggle</b> — All Users and All Devices land on the group's members too, so the effective surface is larger than the group's own assignments; off by default because it is the same answer for every group, on the list because nothing else would say so. And the thing <i>neither</i> parent has, which the script's own notes call out as not evaluated: <b>nested group inheritance</b>, so an assignment reaching this group through a parent is included and names the parent it came through. A surface that could not be read is never shown as empty — it is shown as unknown, with the scope <i>and</i> the Intune RBAC role it would need.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped Intune-only, and that is a change from what this card used to promise.</b> It said the Entra areas would stay as context. They cannot: Conditional Access, group-based licensing, directory roles and access packages need scopes TUNO's registration does not hold and has no reason to. Half-reading them with the permissions to hand would be worse than not reading them, so the tool says so and points at <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>, which is signed in for exactly that.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer — ENCA's T19, merged with Ugur Koc's group assignment scan</h4>
-            <p class="mini" style="margin:0">ENCA's Group Analyzer already reads where an Entra group is used across 23 services; the TUNO port turns the telescope around and leads with the Intune areas — enrolment restrictions, compliance, configuration profiles, scripts and remediations, app protection and configuration, app assignments, Autopilot, Windows update rings — with per-area consent, the unused-groups sweep, parent-group inheritance and Markdown/HTML/CSV export carried over. The Entra areas stay, as context rather than headline: an Intune admin asks “what lands on the devices in this group”, and the answer must open with Intune.<br><b>Two things come from <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a></b> (Ugur Koc) that ENCA's version does not have, and both change the answer rather than decorating it. <b>Exclusions are read as assignments</b>: a group named in an <code>exclusionGroupAssignmentTarget</code> is listed alongside the inclusions and marked as an exclusion, because “this policy does not reach you” is the same question as “this policy reaches you” and a report that only shows one of them is wrong half the time. And <b>tenant-wide targets are offered as a toggle</b> — All Users and All Devices land on the group's members too, so the effective surface is bigger than the group's own assignments, and an admin sizing up a change needs to see that without being made to guess. TUNO adds what the script's own notes say it does not do: <b>nested group inheritance</b>, so a policy assigned to a parent shows up on the child.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R05</span> 🕓 Change audit — ENCA's T16, pointed at Intune</h4>
@@ -353,6 +402,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p class="mini" style="margin:0 0 10px"><b>The five steps.</b> ① Download <code>Invoke-TunoAppLockerScan.ps1</code> and run it elevated on a representative device. ② Upload the <code>.json</code> bundle it writes. ③ Work through the findings and the coverage table, fixing what needs fixing. ④ Export the policy XML for a GPO, or the Intune custom profile. ⑤ Assign the AuditOnly profile to a pilot group, wait, re-scan, and only then enforce.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why there is a PowerShell script at all.</b> A browser cannot read a directory ACL, verify an Authenticode signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing <code>%PROGRAMFILES%\*</code> is only as strong as the permissions underneath it, and the XML does not say what those are. The scan does, and the tool marks every verdict that came from it with 🛰 so you can see which half of the analysis proved what. Skip the scan and the tool still works on a plain policy XML; it just cannot tell you about the holes it cannot see.</p>
         <p class="mini" style="margin:0 0 10px"><b>The scripts are served from this site</b> (<code>/scripts/</code>), so the copy you download always matches the build you are looking at. They are read-only on the device: neither one applies a policy, touches the local GPO, or starts the Application Identity service. Source and the full switch reference are in <a href="scripts/README.md" target="_blank" rel="noopener">scripts/README.md</a>.</p>
+        <h3 style="margin:14px 0 6px">🔗 Group Analyzer</h3>
+        <p class="mini" style="margin:0 0 10px">Reads nine Intune assignment surfaces and reports every one that names your group — <b>including the ones that exclude it</b>. Each surface asks for its own scope when it runs, so a run limited to configuration profiles never prompts for the apps permission. Reads only; nothing is written, nothing is stored, and the exports are produced in your browser.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Three things the report says that a portal blade will not.</b> ① <b>Inherited assignments.</b> If your group is a member of another group, anything assigned to the parent reaches your members too — those rows are included and name the parent. If membership cannot be read, the report says the answer is direct-assignments-only rather than quietly narrowing. ② <b>Tenant-wide reach.</b> All Users and All Devices assignments are off by default and one toggle away; they are not <i>about</i> your group, but they land on it. ③ <b>Unknown is not empty.</b> A surface that returned 403 or 404 is listed as unreadable with the scope and the Intune RBAC role it would need — reporting it as “no assignments” is the most dangerous thing this tool could do.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Why it stops at Intune.</b> “Where is this group used?” has an Entra half — Conditional Access, group-based licensing, directory roles, access packages — and answering it needs permissions TUNO holds none of. That is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s Group Analyzer, which is signed in for it. Two tools, one question, split along the line where the permissions actually divide.</p>
         <h3 style="margin:14px 0 6px">Credits &amp; thanks</h3>
         <p class="mini" style="margin:0 0 8px">These community projects shaped the tools, and all deserve the credit:</p>
         <ul class="mini credits">
@@ -381,14 +434,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10317"></script>
-<script src="js/version.js?v=10317"></script>
-<script src="js/promote.js?v=10317"></script>
-<script src="js/authConfig.js?v=10317"></script>
-<script src="js/changelog.js?v=10317"></script>
-<script src="js/msappcatalog.js?v=10317"></script>
-<script src="js/graph.js?v=10317"></script>
-<script src="js/applocker.js?v=10317"></script>
-<script src="js/app.js?v=10317"></script>
+<script src="js/branding.js?v=10318"></script>
+<script src="js/version.js?v=10318"></script>
+<script src="js/promote.js?v=10318"></script>
+<script src="js/authConfig.js?v=10318"></script>
+<script src="js/changelog.js?v=10318"></script>
+<script src="js/msappcatalog.js?v=10318"></script>
+<script src="js/graph.js?v=10318"></script>
+<script src="js/groupuse.js?v=10318"></script>
+<script src="js/applocker.js?v=10318"></script>
+<script src="js/app.js?v=10318"></script>
 </body>
 </html>

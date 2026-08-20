@@ -49,6 +49,32 @@ const PROMOTE = {
 
   items: [
     {
+      n: 14,
+      title: "T02 — Group Analyzer, the first tool that reads a tenant",
+      tools: ["🔗 Group Analyzer"],
+      builds: [10318],
+      risk: "medium",
+      what: "A second tool: js/groupuse.js (engine + screen), its tile, its screen, its tab, and Help and roadmap entries. Nine Intune assignment surfaces over twenty beta endpoints — configuration profiles (device / settings catalog / ADMX), compliance, scripts and remediations, application assignments, app protection, app configuration, enrolment restrictions, Autopilot, Windows update profiles. Per-surface incremental consent. Exclusions listed as assignments; inherited assignments included and attributed to the parent group they came through; tenant-wide All Users / All Devices targets behind an off-by-default toggle. A surface that fails is reported as UNKNOWN with the scope and the Intune RBAC role it needs, never as empty. Markdown, CSV and standalone-HTML export. It is the first consumer of the build-10316 read layer.",
+      why: "MEDIUM. It writes nothing and holds no write scope, so the worst case is a wrong answer rather than a changed tenant — but a wrong answer here is not harmless. This tool exists to be trusted when someone asks \"is it safe to add a user to this group\", and the two ways it can be quietly wrong are the two things to check: a surface that silently returns nothing when it should have returned rows, and inheritance that is not actually being walked. Neither is visible without a tenant that has assignments to look at. It graduates when it has been run against a real tenant and its output reconciled against the Intune portal for at least one group with a known-nonempty assignment set.",
+      test: [
+        "THE ONE THAT MATTERS: pick a group you already know receives policy, run it, and reconcile against the portal blade by blade. Every assignment the portal shows must appear here. A surface reporting zero when the portal shows rows is the failure mode this whole item is about — and it will look like a clean run.",
+        "Find a policy that EXCLUDES a group and analyze that group. The row must be present and marked Excluded. If exclusions are missing, the report is wrong in the direction nobody checks.",
+        "Nest a group inside another that has assignments, then analyze the CHILD. The parent's assignments must appear, with the Via column naming the parent. This is the behaviour the PowerShell original explicitly does not have, so there is nothing to compare against except the portal.",
+        "Run with the tenant-wide box ticked and then unticked on the same group. Ticked must add All Users / All Devices rows and nothing else; unticked must remove exactly those. If any group-targeted row changes between the two runs, the filter is wrong.",
+        "PROVE THE UNKNOWN PATH. Sign in as an account with an Intune role that cannot read one workload — or decline consent for the applications permission when it is asked — and confirm that surface appears under \"Could not be read\" with a role hint, and does NOT appear as zero assignments. Reporting unreadable as empty is the one bug that would make this tool actively dangerous.",
+        "Untick every surface but one and run. Only that surface's permission may be requested — the consent prompt is the test, and if it asks for all of them the per-surface consent is not working.",
+        "Export all three formats and open the HTML one in a private window with no tenant access. It must be fully readable standalone, and must carry the tenant-wide and inheritance caveats — an export that drops the caveats is a report that overstates its own completeness.",
+        "Analyze a group with NOTHING assigned. It must say so plainly and still mention that tenant-wide assignments were not included, so 'nothing' is not mistaken for 'nothing reaches these devices'.",
+        "Try a group name that matches several groups, and one that matches none. Both must produce a sentence a person can act on rather than an empty table.",
+        "NOT COVERED BY THE HEADLESS TESTS: everything above needs a tenant. The suite drives the engine against stubbed Graph responses — it proves the assignment-shape logic, the tenant-wide filter, the inheritance attribution and the exports, but it cannot prove the twenty endpoints are the right twenty.",
+      ],
+      staying: [
+        "Intune only. The Entra surfaces (Conditional Access, licensing, directory roles, access packages) need scopes this registration does not hold; the tool points at ENCA instead. This is a permanent split, not a gap.",
+        "No tenant-wide sweep. ENCA's T19 can sweep every group and find unused ones; T02 answers for one group at a time. The sweep is worth having and is not in this item.",
+      ],
+      files: ["js/groupuse.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 13,
       title: "The registration script asks for the eight Intune read scopes",
       tools: ["All tools"],
