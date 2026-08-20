@@ -49,6 +49,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 25,
+      title: "T05 — the platform list is fixed, with counts",
+      tools: ["📄 Configuration documenter"],
+      builds: [10329],
+      risk: "low",
+      what: "platforms() returns [Windows, macOS, iOS/iPadOS, Android, Linux, Not platform-specific] unconditionally rather than assembling from what the read returned, and new platformCounts() gives each one its count for the option text. The control is never disabled after a read. The option VALUE stays the bare platform name so the filter still matches; the count is display only.",
+      why: "LOW — presentation. It reverses two judgements from 10328 and the reversal is the interesting part: a list built from the data changes shape per tenant so nothing is ever where you left it, and disabling the control on a single-platform tenant removed the ability to confirm an absence. Both were defensible and both were wrong once someone used them. It graduates on sight.",
+      test: [
+        "Read a single-platform tenant. All six options must be present, the platform you have carries its count, and the other four read (0). That zero is the point of the change.",
+        "Pick a platform with (0) and confirm the list empties and the header says so rather than looking like a failure.",
+        "Confirm the option VALUE is the bare name — pick a platform, then check the filter actually narrows. If the count leaked into the value, nothing will match and the list will look empty for every choice.",
+        "On a mixed tenant, add the per-platform counts up. They will exceed the total, because a policy targeting two platforms is counted under both. That is intended; if they DO sum exactly, multi-platform policies are being counted once and the filter is lying about one of their platforms.",
+        "Reset and confirm the list clears and the filters go back to disabled.",
+      ],
+      staying: [
+        "The list is the five platforms Intune manages. A tenant with none of a given one still sees it, because confirming an absence is the question that motivated this.",
+      ],
+      files: ["js/document.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 24,
       title: "T05 — the platform filter is usable",
       tools: ["📄 Configuration documenter"],

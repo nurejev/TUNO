@@ -483,20 +483,30 @@ const Docs = (() => {
     })).filter((s) => s.items.length);
   }
 
-  // Canonical order rather than alphabetical, so the list reads the way an
-  // admin thinks about their estate. "Not platform-specific" goes last and
-  // only appears if something actually is.
-  function platforms(res) {
-    const found = new Set();
-    let bare = false;
+  // THE LIST IS FIXED: all five platforms, always, plus the bucket for things
+  // that target none. It used to be built only from what the read returned,
+  // which sounds tidier and is worse in practice — the options changed shape
+  // from tenant to tenant, a single-platform estate got a control with one
+  // entry and nothing to do, and an admin who thinks "we have no Linux" had
+  // no way to confirm it. A fixed list is predictable, and a ZERO IS AN
+  // ANSWER: "Linux (0)" tells you something that an absent Linux entry does
+  // not. The count is what makes the fixed list honest rather than noise.
+  function platformCounts(res) {
+    const n = Object.fromEntries(PLATFORM_ORDER.map((p) => [p, 0]));
+    n[NOT_SPECIFIC] = 0;
+    let total = 0;
     res.sections.forEach((s) => s.items.forEach((i) => {
-      if (!i.platforms.length) bare = true;
-      i.platforms.forEach((p) => found.add(p));
+      total++;
+      if (!i.platforms.length) n[NOT_SPECIFIC]++;
+      // A policy targeting two platforms counts under both, so these do NOT
+      // sum to the total. That is correct and the label says "All" rather
+      // than a sum for exactly that reason.
+      else i.platforms.forEach((p) => { if (n[p] != null) n[p]++; });
     }));
-    const out = PLATFORM_ORDER.filter((p) => found.has(p));
-    if (bare) out.push(NOT_SPECIFIC);
-    return out;
+    return { counts: n, total };
   }
+
+  function platforms(res) { return [...PLATFORM_ORDER, NOT_SPECIFIC]; }
 
   // ------------------------------------------------------------- exports --
   // A FILTERED DOCUMENT MUST NEVER READ AS A COMPLETE ONE. meta() carries
@@ -740,7 +750,7 @@ ${body.join("\n")}
   return {
     SECTIONS, sectionById, allSectionIds, scopesFor,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
-    collect, summarize, filterItems, platforms, assignmentOf, platformOf, platformsOf, normPlatform,
+    collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
     PLATFORM_ORDER, NOT_SPECIFIC,
     meta, markdown, html, docx, NOTE_REDACTED, scopeLine, filterText,
   };
@@ -810,16 +820,14 @@ const DocsTool = (() => {
       prog("Checking permissions…");
       await Graph.ensureScopes([...Docs.scopesFor(secs), ...Graph.SCOPES.directory]);
       res = await Docs.collect({ sections: secs, onStatus: prog });
-      const plats = Docs.platforms(res);
-      // One entry means every object came back the same way, so the control
-      // can only ever be a no-op. Say so in the option text rather than
-      // offering a choice that does nothing.
-      $("dcPlatform").innerHTML = plats.length > 1
-        ? `<option value="All">All platforms (${plats.length})</option>` + plats.map((p) => `<option>${esc(p)}</option>`).join("")
-        : `<option value="All">${plats.length ? `All ${esc(plats[0])} — nothing else was read` : "No platform on anything read"}</option>`;
-      $("dcPlatform").disabled = plats.length <= 1;
+      // Every platform, every time, each with how many were found. A zero is
+      // an answer — "Linux (0)" confirms there is no Linux estate, which an
+      // absent Linux entry never could.
+      const { counts, total } = Docs.platformCounts(res);
+      $("dcPlatform").innerHTML =
+        `<option value="All">All platforms (${total})</option>`
+        + Docs.platforms(res).map((p) => `<option value="${esc(p)}">${esc(p)} (${counts[p]})</option>`).join("");
       setFiltersEnabled(true);
-      if (plats.length <= 1) $("dcPlatform").disabled = true;
       // Everything selected to begin with: the common case is "document the
       // tenant", and starting at nothing would make the export buttons dead
       // on arrival with no explanation.

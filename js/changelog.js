@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10329, date: "2026-08-20", title: "All five platforms, every time",
+    items: [
+      { kind: "improved", tool: "📄 Configuration documenter", text: "The platform list is fixed now: Windows, macOS, iOS and iPadOS, Android, Linux, plus the bucket for things that target no platform at all. Every time, whatever the tenant holds. The previous build assembled the list from what the read actually returned, which sounded tidier and was worse in practice — the options changed shape from one tenant to the next, so you could never learn where anything was, and an estate with a single platform got a control holding one entry and nothing to do with it." },
+      { kind: "improved", tool: "📄 Configuration documenter", text: "Each option carries its count, and that is what makes a fixed list honest rather than noise. \"Linux (0)\" tells an administrator something an absent Linux entry never could: not that the tool has nothing to say, but that the tenant has no Linux policies. Confirming an absence is a real question and it now has a real answer." },
+      { kind: "fixed", tool: "📄 Configuration documenter", text: "A one-platform tenant used to have the control disabled entirely, on the reasoning that a choice which cannot change the result is worse than no choice. That was wrong for the same reason: it removed the ability to confirm what the tenant does not have. The control stays live." },
+      { kind: "improved", tool: "📄 Configuration documenter", text: "The per-platform counts deliberately do not add up to the total, and the label says \"All platforms\" rather than a sum because of it. A policy that targets two platforms is counted under both, which is the honest way to count something that genuinely lands on two estates." },
+    ],
+  },
+  {
     build: 10328, date: "2026-08-20", title: "The platform filter had nothing usable in it",
     items: [
       { kind: "fixed", tool: "📄 Configuration documenter", text: "Reported: the platform filter had no platforms in it. Two separate things were wrong. Before a read it was empty and switched on, which is simply what an empty list looks like when nothing has told you why — it is disabled now until there is something to filter, with a line saying the list is built from what your tenant returns and cannot exist before then. And after a read it was worse than empty: it was inconsistent." },
