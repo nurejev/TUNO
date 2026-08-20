@@ -27,6 +27,18 @@ const AppLockerTool = (() => {
   const COLLECTIONS = ["Exe", "Msi", "Script", "Dll", "Appx"];
   const COLLECTION_LABEL = { Exe: "EXE — executables", Msi: "MSI — installers", Script: "Script", Dll: "DLL", Appx: "Packaged app (Appx)" };
   const MODES = ["NotConfigured", "AuditOnly", "Enabled"];
+
+  // Is this collection actually restricting anything on the endpoint?
+  //
+  // "NotConfigured" is the trap: it does NOT mean off. Microsoft — "if any rules
+  // exist in a rule collection that is 'not configured', the rules WILL be
+  // enforced unless a policy with a higher precedence changes the enforcement
+  // mode to Audit only." So a NotConfigured collection carrying rules behaves as
+  // Enabled, and only an empty one lets everything through. Every evaluation in
+  // this tool goes through here rather than testing the string, because getting
+  // this backwards means telling an admin nothing is blocked while it is.
+  const isEnforcing = (col) => !!col && (col.mode === "Enabled" || col.mode === "AuditOnly" || (col.mode === "NotConfigured" && col.rules.length > 0));
+  const blocksOnMatch = (col) => !!col && (col.mode === "Enabled" || (col.mode === "NotConfigured" && col.rules.length > 0));
   const SEV_SCORE = { High: 3, Medium: 2, Low: 1, Info: 0 };
   const SEV_ORDER = ["High", "Medium", "Low", "Info"];
 
@@ -210,7 +222,13 @@ const AppLockerTool = (() => {
     for (const col of policy.collections) {
       const omaType = OMA_TYPE[col.type];
       if (!omaType) continue;
-      const collectionMode = col.type === "Dll" ? "NotConfigured" : target;
+      // DLL is OMITTED, not shipped as NotConfigured. Microsoft: "if any rules
+      // exist in a rule collection that is 'not configured', the rules WILL be
+      // enforced". Shipping DLL rules that way would enforce DLL control against
+      // whatever the policy happened to contain — the opposite of the intent.
+      // Absence is the only inert state.
+      if (col.type === "Dll") continue;
+      const collectionMode = target;
       omaSettings.push({
         "@odata.type": "#microsoft.graph.omaSettingString",
         displayName: omaType,
@@ -291,7 +309,7 @@ const AppLockerTool = (() => {
   // would be free to disagree with the one on screen.
   function evaluateProbePath(model, dirPath, collectionType) {
     const col = model.collections.find((c) => c.type === collectionType);
-    if (!col || col.mode === "NotConfigured") return null;
+    if (!isEnforcing(col)) return null;
     const art = { path: dirPath.replace(/\\+$/, "") + "\\tuno-probe.exe", publisher: { name: "", product: "*", binary: "*" } };
     for (const r of col.rules) {
       if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
@@ -486,7 +504,14 @@ const AppLockerTool = (() => {
       if (!present.has(t)) F("Info", { collection: t, ruleType: "(collection)", reason: `Collection '${t}' is not present in this XML — on the endpoint that means NotConfigured (default-allow for this type) unless another policy layer carries it.`, rec: `If ${t} should be governed, add the collection with its default rules and set enforcement.`, fix: { kind: "addCollection", type: t } });
     }
     for (const col of model.collections) {
-      if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured → default-allow for this type.`, rec: `Set EnforcementMode='Enabled' for '${col.type}' (or 'AuditOnly' during pilot).`, fix: { kind: "mode", type: col.type } });
+      // NotConfigured does NOT mean "off". Microsoft: "if any rules exist in a
+      // rule collection that is 'not configured', the rules WILL be enforced ...
+      // you should avoid using this value in your AppLocker policies." So the
+      // verdict depends entirely on whether the collection carries rules, and
+      // the two cases are opposites — one blocks nothing, the other blocks
+      // silently while reading as 'not configured' to whoever opens the policy.
+      if (col.mode === "NotConfigured" && col.rules.length) F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured but carries ${col.rules.length} rule${col.rules.length === 1 ? "" : "s"} — which means those rules ARE ENFORCED. 'NotConfigured' does not mean off: Microsoft's own guidance is that a rule collection in this state is enforced unless a higher-precedence policy sets it to Audit only, and that the value should never be used deliberately.`, rec: `Decide and say so: 'AuditOnly' if you want these rules evaluated and logged without blocking, 'Enabled' if you want them enforced. Leaving it as NotConfigured means this collection is blocking today while reading as inactive to the next person who opens the policy.`, fix: { kind: "mode", type: col.type } });
+      else if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured and carries no rules → nothing of this type is restricted.`, rec: `Add the rules this type needs and set 'AuditOnly' to start. Note that once rules exist, 'NotConfigured' stops meaning 'off' and starts meaning 'enforced' — so set the mode explicitly rather than leaving it.`, fix: { kind: "mode", type: col.type } });
       else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Stay in AuditOnly until the event log is clean across a full working month — a month-end, a patch cycle, a new starter — then enforce deliberately. Enforcing on the strength of a quiet week is how a policy takes out an estate.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") + (col.type === "Dll" ? " DLL is the one collection to think hardest about: AppLocker evaluates every DLL load, so enforcement costs application start time and audit alone floods the log." : ""), fix: { kind: "mode", type: col.type } });
       if (col.mode !== "NotConfigured" && !col.rules.length)
         F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.`, fix: { kind: "defaults", type: col.type } });
@@ -660,9 +685,11 @@ const AppLockerTool = (() => {
 
   function evaluateApp(model, app) {
     const col = model.collections.find((c) => c.type === app.collection);
-    if (!col || col.mode === "NotConfigured") {
-      return { status: "unenforced", detail: `The ${app.collection} collection is ${col ? "NotConfigured" : "absent"} — nothing of this type is restricted, so the app runs by default. The audit flags that separately.` };
+    if (!isEnforcing(col)) {
+      return { status: "unenforced", detail: `The ${app.collection} collection is ${col ? "NotConfigured with no rules" : "absent"} — nothing of this type is restricted, so the app runs by default. The audit flags that separately.` };
     }
+    // A NotConfigured collection carrying rules BLOCKS — it does not audit. Only
+    // an explicit AuditOnly evaluates without blocking.
     const audit = col.mode === "AuditOnly";
     const perArt = app.artifacts.map((art) => {
       // The question is "would a STANDARD USER run it" — rules scoped to
@@ -965,7 +992,7 @@ const AppLockerTool = (() => {
         <li>The Microsoft coverage table above says <b>allowed</b> for everything your users need, including per-user OneDrive.</li>
         <li>You have tested that <b>removing the assignment</b> puts a device back, on a device you can still reach.</li>
       </ul>
-      ${isDll ? `<p class="mini" style="margin:0 0 10px;color:var(--warn,#d08b28)"><b>DLL is a special case.</b> AppLocker evaluates every DLL load. Enabled measurably slows application start and blocks anything that loads a library from a writable path; even AuditOnly buries the log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET native images. TUNO's own scanner and Intune export ship DLL as NotConfigured for exactly this reason. Enable it only if you have a specific threat that needs it and the headroom to absorb the noise.</p>` : ""}
+      ${isDll ? `<p class="mini" style="margin:0 0 10px;color:var(--warn,#d08b28)"><b>DLL is a special case.</b> AppLocker evaluates every DLL load. Enabled measurably slows application start and blocks anything that loads a library from a writable path; even AuditOnly buries the log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET native images. TUNO's scanner and Intune export leave the DLL collection <b>out of the policy entirely</b> — absence is the only state that restricts nothing, because a collection marked NotConfigured while carrying rules is enforced. Take DLL on as its own project, with the log volume and the start-up cost accepted deliberately.</p>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
         <select class="btn al-fx-mode">${opts}</select>
         <button class="btn sm primary al-fx-apply">Apply</button>

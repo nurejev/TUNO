@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 34,
+      title: "NotConfigured does not mean off",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10347],
+      risk: "high",
+      what: "The DLL collection was shipped inside a NotConfigured rule collection and described everywhere as 'present and inert'. Microsoft's documentation says the opposite: 'if any rules exist in a rule collection that is not configured, the rules WILL be enforced ... you should avoid using this value in your AppLocker policies.' So the generated policy would have ENFORCED DLL control, against only the DLLs a given scan found. Fixed in all three producers — the scanner's ConvertTo-AppLockerPolicyXml, T01's intuneProfile(), and Convert-TunoAppLockerToIntune.ps1 — by OMITTING the DLL collection, absence being the only inert state. NotConfigured is no longer written into a generated policy for any collection. The same misreading was in the analysis of IMPORTED policies: the audit reported a NotConfigured collection as default-allow, and evaluateApp/evaluateProbePath treated it as unenforced. Both now depend on whether the collection carries rules, via a single isEnforcing() helper, and a NotConfigured collection with rules is a High finding that says it is blocking today while reading as inactive.",
+      why: "HIGH — this changes generated policy AND changes verdicts on imported policies, in both directions. Rules that were reported as not enforced may now be reported as enforced, which is the correct answer and will look like a regression to anyone who trusted the old one. It is the most consequential correction in this tool so far and it was found by reading two checklist lines against each other, not by a test — so the thing to check is whether any OTHER assumption about enforcement modes is still wrong.",
+      test: [
+        "THE ONE THAT MATTERS: generate a policy and confirm the string EnforcementMode=\"NotConfigured\" appears NOWHERE in the Audit XML, the Enforce XML, or the Intune profile JSON. Then confirm there is no Dll rule collection at all. If DLL is present in any state, the fix did not take and the policy enforces DLL.",
+        "Run Convert-TunoAppLockerToIntune.ps1 against a policy that HAS a Dll collection and confirm it is dropped with a note, and that -EnforceDllCollection includes it and says it will block. The converter takes third-party XML, so this is the path where somebody else's NotConfigured collection arrives.",
+        "Import a policy with a collection set to NotConfigured that CARRIES RULES. The audit must report it High and say the rules are enforced. Then delete the rules and confirm the verdict flips to 'nothing restricted'. Those are opposite answers from the same enforcement mode and getting them the wrong way round is the whole bug.",
+        "On that same policy, check the Microsoft coverage table: with a NotConfigured collection carrying rules it must evaluate the apps rather than reporting 'not enforced'. Before this build it reported unenforced and would have told you OneDrive was fine when it was blocked.",
+        "Confirm a NotConfigured collection with ZERO rules still reports as nothing-restricted, and still offers the one-click AuditOnly fix. The empty case did not change and must not have.",
+        "Re-check the deploy path end to end on a pilot device: apply the generated audit profile and confirm DLL loads are neither blocked nor logged. That is the outcome the old code claimed and did not deliver.",
+        "Read the checklist section on NotConfigured against Microsoft's page and confirm the three states are stated correctly. It is the artefact customers will be handed, and it now contains the reasoning rather than an instruction.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/Convert-TunoAppLockerToIntune.ps1", "scripts/AppLocker-Implementation-Checklist.md", "scripts/README.md", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 33,
       title: "A checklist to work down, and scripts that admit their version",
       tools: ["🔐 AppLocker builder & validator"],

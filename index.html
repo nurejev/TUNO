@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10346"></script>
+<script src="js/popup-guard.js?v=10347"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10346">
+<link rel="stylesheet" href="css/app.css?v=10347">
 </head>
 <body>
 
@@ -261,7 +261,7 @@
               <label class="al-f"><span>Profile name</span><input id="alIntuneName" spellcheck="false"></label>
               <label class="al-f"><span>Grouping <b title="The grouping is the policy's identity on the device: two profiles sharing a grouping overwrite each other, two with different groupings are merged by the CSP.">ⓘ</b></span><input id="alIntuneGrouping" spellcheck="false"></label>
               <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
-              <p class="al-f-note">DLL always ships as <b>NotConfigured</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. The rules are in the profile, documented and inert.</p>
+              <p class="al-f-note">DLL is <b>left out of the profile entirely</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. It is omitted rather than marked NotConfigured because a collection in that state <b>carrying rules is enforced</b>, which would be the opposite of the intent. Absence is the only state that restricts nothing.</p>
             </div>
             <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
           </div>
@@ -874,20 +874,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10346"></script>
-<script src="js/version.js?v=10346"></script>
-<script src="js/promote.js?v=10346"></script>
-<script src="js/authConfig.js?v=10346"></script>
-<script src="js/changelog.js?v=10346"></script>
-<script src="js/msappcatalog.js?v=10346"></script>
-<script src="js/graph.js?v=10346"></script>
-<script src="js/groupuse.js?v=10346"></script>
-<script src="js/audit.js?v=10346"></script>
-<script src="js/backup.js?v=10346"></script>
-<script src="js/document.js?v=10346"></script>
-<script src="js/devicewhy.js?v=10346"></script>
-<script src="js/roles.js?v=10346"></script>
-<script src="js/applocker.js?v=10346"></script>
-<script src="js/app.js?v=10346"></script>
+<script src="js/branding.js?v=10347"></script>
+<script src="js/version.js?v=10347"></script>
+<script src="js/promote.js?v=10347"></script>
+<script src="js/authConfig.js?v=10347"></script>
+<script src="js/changelog.js?v=10347"></script>
+<script src="js/msappcatalog.js?v=10347"></script>
+<script src="js/graph.js?v=10347"></script>
+<script src="js/groupuse.js?v=10347"></script>
+<script src="js/audit.js?v=10347"></script>
+<script src="js/backup.js?v=10347"></script>
+<script src="js/document.js?v=10347"></script>
+<script src="js/devicewhy.js?v=10347"></script>
+<script src="js/roles.js?v=10347"></script>
+<script src="js/applocker.js?v=10347"></script>
+<script src="js/app.js?v=10347"></script>
 </body>
 </html>

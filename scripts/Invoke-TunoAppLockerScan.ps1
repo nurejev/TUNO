@@ -183,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.0.0
+Version    : 1.3.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10346
+$script:ScriptVersion = '1.3.0'
+$script:TunoBuild = 10347
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 
@@ -1605,20 +1605,35 @@ function ConvertTo-AppLockerPolicyXml {
         [Parameter(Mandatory)] [ValidateSet('Audit', 'Enforce')] [string]$Mode
     )
 
-    # DLL is deliberately never enforced or audited by default. AppLocker evaluates
-    # every DLL load, so even AuditOnly floods the event log with Microsoft-signed
-    # System32 libraries, EDR AMSI providers and .NET native images. The rules stay
-    # in the policy, documented and inert, until somebody decides otherwise.
+    # THE DLL COLLECTION IS OMITTED ENTIRELY, and NotConfigured is never written.
+    #
+    # An earlier version shipped the DLL rules inside a NotConfigured collection
+    # and called them "documented and inert". They would not have been inert.
+    # Microsoft's own documentation is explicit:
+    #
+    #   "Despite the name, this enforcement mode doesn't mean the rules are
+    #    ignored. On the contrary, if any rules exist in a rule collection that
+    #    is 'not configured', the rules WILL be enforced ... you should avoid
+    #    using this value in your AppLocker policies."
+    #
+    # So NotConfigured + rules = ENFORCED, which is the exact DLL enforcement the
+    # comment claimed to be preventing - and enforced against only the DLLs this
+    # scan happened to find, which would block DLL loads estate-wide.
+    #
+    # The only genuinely inert state is ABSENCE: a collection with no rules at
+    # all. The scan still records what it found for the Dll collection in the
+    # bundle, so the rules can be built later as a deliberate project, with the
+    # log volume and the application-start cost accepted on purpose.
     $enforcement = if ($Mode -eq 'Enforce') { 'Enabled' } else { 'AuditOnly' }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<AppLockerPolicy Version="1">')
-    foreach ($type in @('Appx', 'Dll', 'Exe', 'Msi', 'Script')) {
+    foreach ($type in @('Appx', 'Exe', 'Msi', 'Script')) {
         if (-not $Collections.Contains($type)) { continue }
         # NOT $mode: variable names are case-insensitive, so $mode IS the $Mode
         # parameter, and its [ValidateSet('Audit','Enforce')] is re-evaluated on
         # every assignment. Writing 'AuditOnly' into it throws.
-        $collectionMode = if ($type -eq 'Dll') { 'NotConfigured' } else { $enforcement }
+        $collectionMode = $enforcement
         [void]$sb.AppendLine("  <RuleCollection Type=""$type"" EnforcementMode=""$collectionMode"">")
         foreach ($r in $Collections[$type]) {
             [void]$sb.AppendLine("    <$($r.nodeName) Id=""$(ConvertTo-XmlAttribute $r.id)"" Name=""$(ConvertTo-XmlAttribute $r.name)"" Description=""$(ConvertTo-XmlAttribute $r.description)"" UserOrGroupSid=""$(ConvertTo-XmlAttribute $r.sid)"" Action=""$(ConvertTo-XmlAttribute $r.action)"">")
@@ -1873,6 +1888,19 @@ if (-not $SkipRuleGeneration) {
             foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
         }
 
+        # Drop the Dll collection before anything counts or serialises it, so the
+        # counts on screen, the counts in the bundle and the XML all agree. See
+        # the long note in ConvertTo-AppLockerPolicyXml: the only inert state for
+        # a DLL collection is not being there.
+        $dllRuleCount = 0
+        if ($collections.Contains('Dll')) {
+            $dllRuleCount = @($collections['Dll']).Count
+            $collections.Remove('Dll')
+        }
+        if ($dllRuleCount -gt 0) {
+            Write-Info ("Dll     {0,4} rule(s) built and OMITTED - see the note below" -f $dllRuleCount)
+        }
+
         # .Add(), NOT $counts[$type] = <int>.
         #
         # OrderedDictionary exposes TWO indexers - this[int] and this[object] - so
@@ -1903,7 +1931,8 @@ if (-not $SkipRuleGeneration) {
             granularity     = $PublisherRuleGranularity
             ruleCount       = $total
             rulesByCollection = $counts
-            dllNote         = 'The Dll collection ships as NotConfigured on purpose: AppLocker evaluates every DLL load, so even AuditOnly floods the event log. The rules are present and inert.'
+            dllRulesOmitted = $dllRuleCount
+            dllNote         = "The Dll collection is OMITTED from this policy, not shipped as NotConfigured. Microsoft's documentation is explicit that a NotConfigured collection containing rules is ENFORCED, so shipping DLL rules that way would have enforced DLL control - against only the DLLs this scan happened to find. Absence is the only inert state. $dllRuleCount DLL rule(s) were built and left out; the DLL artifacts are still listed in this bundle, so the collection can be taken on later as a deliberate project with its log volume and application-start cost accepted on purpose."
             auditXml        = $auditXml
             enforceXml      = $enforceXml
         }

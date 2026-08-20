@@ -31,11 +31,23 @@ The model this assumes:
 
 ## 1. Read the XML before anyone else does
 
-- [ ] **Every collection you intend to govern is present.** A collection absent from the XML is `NotConfigured` on the endpoint — default-allow for that type, silently.
+- [ ] **`NotConfigured` appears nowhere in the policy.** Read this one before the rest of the section, because the name is a lie. `NotConfigured` does **not** mean "off":
+
+  > *"Despite the name, this enforcement mode doesn't mean the rules are ignored. On the contrary, if any rules exist in a rule collection that is 'not configured', the rules **will be enforced** … you should avoid using this value in your AppLocker policies."* — Microsoft
+
+  | Collection state | What actually happens |
+  |---|---|
+  | **Absent** from the XML | Nothing enforced for that type — default-allow |
+  | Present, `NotConfigured`, **no rules** | Nothing enforced |
+  | Present, `NotConfigured`, **with rules** | **Rules are enforced** |
+
+  So a collection marked `NotConfigured` and carrying rules is blocking *today*, while reading as inactive to whoever opens the policy next. Set every collection explicitly to `AuditOnly` or `Enabled`. If you want a type left alone, leave the collection **out**.
+
+- [ ] **Every collection you intend to govern is present**, and set explicitly. A collection absent from the XML is default-allow for that type — silently, and that is fine only if it is deliberate.
 - [ ] **No collection is `Enabled` with zero rules.** That blocks the entire type outright. It is the single fastest way to brick a fleet.
 - [ ] **Every enforced collection has an administrator rule** — path `*` for `S-1-5-32-544`. Without it you can lock administrators out of their own remediation.
 - [ ] **The default rules are present**: Program Files, Windows, and the administrator rule, per collection.
-- [ ] **DLL is `NotConfigured`** unless you have a specific reason and the headroom. AppLocker evaluates every DLL load: enforced it measurably slows application start; even `AuditOnly` buries the event log under Microsoft-signed system libraries, EDR components and .NET native images.
+- [ ] **The DLL collection is absent** unless you have a specific reason and the headroom — absent, *not* `NotConfigured`, for the reason directly above. AppLocker evaluates every DLL load: enforced it measurably slows application start; even `AuditOnly` buries the event log under Microsoft-signed system libraries, EDR components and .NET native images. If you do take DLL on, do it as its own project.
 - [ ] **Script collection**: understand that `AuditOnly` does **not** enforce PowerShell Constrained Language Mode. Only `Enabled` does. If constrained language is part of your threat model, audit is not a partial win — it is nothing.
 
 ### The writable-path check — this is the one that matters
@@ -131,7 +143,8 @@ Check each of these is **allowed for a standard user**, not just for an admin:
 
 - **AppLocker does not restrict administrators.** It cannot. Anyone with admin rights can bypass any application control solution. This policy is about standard users; do not let anyone believe otherwise.
 - **Deny beats allow, always** — including over the administrator rule.
-- **A collection absent from the XML is not "off", it is default-allow.**
+- **`NotConfigured` is the most dangerous word in an AppLocker policy.** A collection in that state *with rules in it* is enforced. Never write it deliberately; if you want a type left alone, omit the collection.
+- **A collection absent from the XML is not "off", it is default-allow.** Which is the opposite of the line above — the difference is whether the collection carries rules, and that is exactly why the value should never be used.
 - **`AuditOnly` on the Script collection does not enforce Constrained Language Mode.**
 - **Hash rules break on the next update.** Every single one.
 - **Publisher rules match the signing certificate's subject**, not the vendor's name as you'd write it.

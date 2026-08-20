@@ -223,13 +223,38 @@ one grouping per intent — `Pilot`, `Production` — and when you promote audit
 keep the **same** grouping so the new profile replaces the old one instead of stacking
 on top of it.
 
-### DLL is forced to NotConfigured
+### DLL is omitted — and `NotConfigured` is never written
 
 AppLocker evaluates every DLL load. Enforced, it cripples the device; even AuditOnly
 buries the event log under Microsoft-signed System32 libraries, EDR AMSI providers and
-.NET native images. The DLL rules still ship in the profile — documented and inert — so
-the collection can be switched on deliberately later rather than being invisible. Pass
-`-EnforceDllCollection` if that is genuinely what you want.
+.NET native images.
+
+An earlier version shipped the DLL rules inside a `NotConfigured` collection and called
+them "documented and inert". **They would not have been inert.** From Microsoft's own
+documentation:
+
+> **Not configured**: Despite the name, this enforcement mode doesn't mean the rules are
+> ignored. On the contrary, if any rules exist in a rule collection that is "not
+> configured", the rules **will be enforced** unless a policy with a higher precedence
+> changes the enforcement mode to Audit only. Since this enforcement mode can be
+> confusing for policy authors, you should avoid using this value in your AppLocker
+> policies.
+
+So the three states are:
+
+| Collection state | What actually happens |
+|---|---|
+| Absent from the policy | Nothing enforced for that type |
+| Present, `NotConfigured`, **no rules** | Nothing enforced |
+| Present, `NotConfigured`, **with rules** | **Rules are enforced** |
+
+Absence is the only genuinely inert state, so that is what both scripts produce. The DLL
+artifacts are still recorded in the scan bundle, so the collection can be taken on later
+as its own project with the log volume and the application-start cost accepted on
+purpose. Pass `-EnforceDllCollection` to include it — it will then be a collection that
+**blocks**.
+
+Neither script ever writes `NotConfigured` into a generated policy, for any collection.
 
 ### It creates, it does not assign
 
@@ -237,6 +262,29 @@ Assignment is a deliberate act in the portal or a separate Graph call. AppLocker
 a policy you want landing on a group by accident.
 
 ---
+
+## Versioning — the rule, and how it is enforced
+
+Each script carries two numbers:
+
+- **`$script:ScriptVersion`** — the file's own history, printed in the banner and recorded
+  in the scan bundle. It is what identifies a copy that has been sitting on a share for
+  six months.
+- **`$script:TunoBuild`** — the site build that served it, which is what ties a bundle
+  back to a commit.
+
+**Edit a script, bump its version.** Both the constant and the `Version` line in the
+`.NOTES` block, which have to agree because the banner reads one and a human reads the
+other.
+
+This was forgotten twice in three builds, so it is no longer a thing to remember.
+`_to_delete/check-script-versions.js` compares the working tree against `HEAD` and fails
+if a script's content changed while its version did not — and separately holds
+`TunoBuild` to the build in `js/version.js`. Run it before committing:
+
+```bash
+node _to_delete/check-script-versions.js
+```
 
 ## Requirements
 
