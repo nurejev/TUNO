@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10320"></script>
+<script src="js/popup-guard.js?v=10321"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10320">
+<link rel="stylesheet" href="css/app.css?v=10321">
 </head>
 <body>
 
@@ -436,7 +436,16 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="list-card" style="padding:18px 22px">
         <h3 style="margin:0 0 6px">What TUNO is</h3>
         <p class="mini" style="margin:0 0 10px"><b>TUNO — Tenant Utilities for iNtune Operations</b> is ENCA's sister tool (<a href="https://enca.limon-it.nl" target="_blank" rel="noopener">enca.limon-it.nl</a>): the same idea — static files running entirely in your browser, minimal delegated Graph permissions asked per tool, nothing stored server-side because there is no server — applied to Intune and endpoint security instead of Conditional Access.</p>
-        <h3 style="margin:14px 0 6px">🔐 AppLocker builder &amp; validator</h3>
+      </div>
+
+      <!-- The promotion queue sits DIRECTLY under "What TUNO is", the way ENCA
+           orders it: on a beta channel the first thing you need to know is what
+           this build has that production does not. Hidden on production, so a
+           customer on tuno.limon-it.nl never sees a list of things they lack. -->
+      <div class="list-card" id="helpPromote" style="display:none;padding:18px 22px"></div>
+
+      <div class="list-card" style="margin-top:14px;padding:18px 22px">
+        <h3 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator</h3>
         <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: what you upload is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported as policy XML, an Intune custom profile, or a Markdown report. Rule evaluation here is a faithful model — deny beats allow, exceptions carve back out, macros expand, publisher fields match — not the AppLocker engine itself. Test in AuditOnly before enforcing, always.</p>
         <p class="mini" style="margin:0 0 10px"><b>The five steps.</b> ① Download <code>Invoke-TunoAppLockerScan.ps1</code> and run it elevated on a representative device. ② Upload the <code>.json</code> bundle it writes. ③ Work through the findings and the coverage table, fixing what needs fixing. ④ Export the policy XML for a GPO, or the Intune custom profile. ⑤ Assign the AuditOnly profile to a pilot group, wait, re-scan, and only then enforce.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why there is a PowerShell script at all.</b> A browser cannot read a directory ACL, verify an Authenticode signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing <code>%PROGRAMFILES%\*</code> is only as strong as the permissions underneath it, and the XML does not say what those are. The scan does, and the tool marks every verdict that came from it with 🛰 so you can see which half of the analysis proved what. Skip the scan and the tool still works on a plain policy XML; it just cannot tell you about the holes it cannot see.</p>
@@ -445,7 +454,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p class="mini" style="margin:0 0 10px">Reads nine Intune assignment surfaces and reports every one that names your group — <b>including the ones that exclude it</b>. Each surface asks for its own scope when it runs, so a run limited to configuration profiles never prompts for the apps permission. Reads only; nothing is written, nothing is stored, and the exports are produced in your browser.</p>
         <p class="mini" style="margin:0 0 10px"><b>Three things the report says that a portal blade will not.</b> ① <b>Inherited assignments.</b> If your group is a member of another group, anything assigned to the parent reaches your members too — those rows are included and name the parent. If membership cannot be read, the report says the answer is direct-assignments-only rather than quietly narrowing. ② <b>Tenant-wide reach.</b> All Users and All Devices assignments are off by default and one toggle away; they are not <i>about</i> your group, but they land on it. ③ <b>Unknown is not empty.</b> A surface that returned 403 or 404 is listed as unreadable with the scope and the Intune RBAC role it would need — reporting it as “no assignments” is the most dangerous thing this tool could do.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why it stops at Intune.</b> “Where is this group used?” has an Entra half — Conditional Access, group-based licensing, directory roles, access packages — and answering it needs permissions TUNO holds none of. That is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s Group Analyzer, which is signed in for it. Two tools, one question, split along the line where the permissions actually divide.</p>
-        <h3 style="margin:14px 0 6px">Credits &amp; thanks</h3>
+      </div>
+
+      <div class="list-card" style="margin-top:14px;padding:18px 22px">
+        <h3 style="margin:0 0 6px">Security model</h3>
+        <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
+      </div>
+
+      <div class="list-card" style="margin-top:14px;padding:18px 22px">
+        <h3 style="margin:0 0 6px">Credits &amp; thanks</h3>
         <p class="mini" style="margin:0 0 8px">These community projects shaped the tools, and all deserve the credit:</p>
         <ul class="mini credits">
           <li><b><a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a></b> — by <b>Spencer Alessi</b>. The static check set behind <b>🔐 AppLocker builder &amp; validator</b>: which rules are weak, misconfigured or risky, and why. Licensed <b>MIT</b>.</li>
@@ -455,10 +472,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <li><b><a href="https://github.com/daniel-fraubaum/laps-self-service-portal" target="_blank" rel="noopener">LAPS Self-Service Portal</a></b> — by <b>Daniel Fraubaum</b> (base-IT). The reason <span class="rm-ref">R10</span> is scoped the way it is. His architecture keeps the privileged token on a server precisely because the browser cannot be trusted to enforce “only your own device” — and documenting that clearly is what made it obvious which half of the problem a static site can honestly take on. Licensed <b>MIT</b>.</li>
         </ul>
         <p class="mini" style="margin:8px 0 0">All are independently reimplemented here in browser-side JavaScript against Microsoft Graph — <b>no code was copied</b>, and where TUNO departs from an original the roadmap card says so rather than leaving you to find out. TUNO's own machinery — the shell, the tab bar, incremental consent, the changelog and promotion discipline — comes from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>.</p>
-        <h3 style="margin:14px 0 6px">Security model</h3>
-        <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
       </div>
-      <div class="list-card" id="helpPromote" style="display:none;margin-top:14px;padding:18px 22px"></div>
     </div>
   </section>
 </main>
@@ -473,15 +487,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10320"></script>
-<script src="js/version.js?v=10320"></script>
-<script src="js/promote.js?v=10320"></script>
-<script src="js/authConfig.js?v=10320"></script>
-<script src="js/changelog.js?v=10320"></script>
-<script src="js/msappcatalog.js?v=10320"></script>
-<script src="js/graph.js?v=10320"></script>
-<script src="js/groupuse.js?v=10320"></script>
-<script src="js/applocker.js?v=10320"></script>
-<script src="js/app.js?v=10320"></script>
+<script src="js/branding.js?v=10321"></script>
+<script src="js/version.js?v=10321"></script>
+<script src="js/promote.js?v=10321"></script>
+<script src="js/authConfig.js?v=10321"></script>
+<script src="js/changelog.js?v=10321"></script>
+<script src="js/msappcatalog.js?v=10321"></script>
+<script src="js/graph.js?v=10321"></script>
+<script src="js/groupuse.js?v=10321"></script>
+<script src="js/applocker.js?v=10321"></script>
+<script src="js/app.js?v=10321"></script>
 </body>
 </html>

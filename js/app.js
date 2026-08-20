@@ -24,12 +24,21 @@
 
   // ---------- screens + browser history ----------
   const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-changelog", "screen-roadmap", "screen-help"]);
-  // Screens that get the wide shell. A tool earns this by having two things
-  // to show at once, not by being important.
-  // T02 earns it for the same reason T01 does: an assignment table with five
-  // columns and a Via column carrying a parent group name is unreadable at
-  // 1180px, and the report is the whole point of the tool.
-  const WIDE_SCREENS = new Set(["screen-applocker", "screen-groupuse"]);
+  // Screens that get the wide shell.
+  //
+  // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
+  // audit-table-plus-code split, T02 for a five-column assignment table. The
+  // result was that a tool screen jumped to 1680px while the tools home,
+  // Help, What's new and the Roadmap all stayed at 1180, so moving between
+  // them made the whole app appear to change size. One column width for
+  // everything reads as one application; two reads as a bug.
+  //
+  // The mechanism stays because it costs nothing and the judgement may go the
+  // other way on a future tool: add a screen id here and `show()` puts
+  // `body.wide` on, which the stylesheet already understands. It is an unused
+  // capability rather than dead code — but if it is still empty several builds
+  // from now, delete it and the CSS with it.
+  const WIDE_SCREENS = new Set([]);
   let navSuppress = false;
   const screenScroll = {};
   let shownScreen = null;

@@ -49,6 +49,27 @@ const PROMOTE = {
 
   items: [
     {
+      n: 17,
+      title: "One column width for the whole app, and Help in reading order",
+      tools: ["All tools", "🔐 AppLocker builder & validator"],
+      builds: [10321],
+      risk: "low",
+      what: "WIDE_SCREENS is empty: both tools drop the 1680px shell and use the same centred 1180px column as the tools home, Help, What's new and the Roadmap. The mechanism and its stylesheet stay, documented as an unused capability rather than deleted, with a note to remove both if still unused in a few builds. T01's split is re-sized for the narrower shell — the code panel floors at 340 rather than 400 and caps at 440 rather than 520, so the audit table gains roughly eighty pixels at a typical desktop width. The existing 1240px stack breakpoint is untouched. Help is re-ordered to match ENCA: What TUNO is, then the promotion queue (beta only), then the per-tool help and security model, then credits — each as its own card.",
+      why: "LOW — layout only, no logic. TWO THINGS SHARE THIS NUMBER, which the rules discourage: they are both pure shell layout, both verified by looking at the same three screens in one sitting, and splitting them would mean two promotions that have to happen together to avoid a half-restyled app. Promoting one without the other is not a decision anybody would want to make. It graduates on sight.",
+      test: [
+        "Open the tools home, then T01, then T02, then Help, then the Roadmap. The header, the tab bar and the content column must be the SAME width on all five and centred. That single continuous width is the whole point; if one screen still jumps, it was missed.",
+        "On T01, check the audit table and the code panel side by side at 1180px. The finding text must not wrap every few words. If it does, the panel floor is still too high and should come down further.",
+        "Narrow the window below 1240px on T01 and confirm the two columns stack — that breakpoint is unchanged, and this build briefly added a second one that moved it before the layout tests caught it.",
+        "On T02, run a sweep and read the group table at the new width. It has five fixed columns plus one per surface — if it needs a horizontal scrollbar that is acceptable, but the group name column must not collapse.",
+        "Open Help on the BETA site: What TUNO is, then Waiting for production, then the tools, then security, then credits. Then open Help on production and confirm the promotion card is absent entirely — it must never appear on tuno.limon-it.nl.",
+        "Check the four cards are visually separate rather than one long card with headings.",
+      ],
+      staying: [
+        "The wide-shell mechanism and its CSS. Unused, kept because a future tool may earn it, and flagged for deletion if it is still empty in a few builds.",
+      ],
+      files: ["js/app.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 16,
       title: "The registration script stops clobbering its own documentation",
       tools: ["All tools"],

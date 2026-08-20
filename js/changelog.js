@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10321, date: "2026-08-20", title: "One column width for the whole app",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The two tools opened wider than everything else. Each had been given a 1680-pixel shell for a good local reason — the AppLocker screen shows an audit table and the code it produces side by side, the Group Analyzer shows a five-column assignment table — while the tools home, Help, What's new and the Roadmap all stayed at 1180. Moving between them made the application appear to change size, and the header and tab bar changed with it, so it read as a rendering fault rather than as a choice. Everything is one width now, centred, the same as the home screen. The mechanism for widening a screen is still there and still documented, in case a future tool genuinely earns it; it just has nothing in it." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The two-column split was drawn for the wider shell and had to give ground. Its code panel could previously demand 400 to 520 pixels, which was comfortable at 1680 and left the audit table under 700 at 1180 — narrow enough that finding text wrapped every few words. The panel floors lower now and the table keeps the remainder — at a typical desktop width the table gains about eighty pixels. No new breakpoint: the split already stacked below 1240, and the second one this build briefly added moved where that happened, which the layout tests caught." },
+      { kind: "improved", tool: "Help", text: "Help is in the order somebody actually reads it, and matches ENCA's. What TUNO is, then — on a beta channel only — what this build has that production does not, because on a preview site that is the first thing worth knowing. Then how each tool works and the security model. Credits and thanks last, where a list of acknowledgements belongs rather than wedged between the tools and the security section. Each part is its own card instead of one long one, so the sections are separable at a glance." },
+    ],
+  },
+  {
     build: 10320, date: "2026-08-20", title: "The setup script stopped rewriting its own instructions",
     items: [
       { kind: "fixed", tool: "All tools", text: "Running New-TunoAppRegistration.ps1 quietly damaged the file it was patching. It writes the new client ID into js/authConfig.js, and that file mentions the setting twice: once as the real value, and once inside a comment showing somebody running their own fork how to point at THEIR registration instead. The replace was not anchored, so it rewrote both — turning the instructions for using your own tenant into a hardcoded copy of ours. Nothing failed, nothing was logged, and the only way to notice was to read a diff. It is anchored to an actual assignment now: a line that begins with the setting rather than with two slashes." },
