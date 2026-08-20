@@ -49,6 +49,29 @@ const PROMOTE = {
 
   items: [
     {
+      n: 24,
+      title: "T05 — the platform filter is usable",
+      tools: ["📄 Configuration documenter"],
+      builds: [10328],
+      risk: "low",
+      what: "Reported as \"no platforms to filter\". Two faults. (1) The filters were live before a read, so an empty platform list looked like a bug rather than an absence — all three are disabled until there is data, with a hint saying the list comes from the tenant. (2) The vocabulary was inconsistent: settings catalog reports platforms as a string (\"windows10\", or \"windows10,macOS\" for two), everything else implies one through @odata.type, and both went into the list raw — so Windows appeared twice under two names, a two-platform policy was one opaque entry matching neither, and Graph's literal \"none\" showed as a platform. normPlatform() maps everything onto Windows / macOS / iOS-iPadOS / Android / Linux; platformsOf() returns an ARRAY; the filter matches any; a policy with no platform is filterable as \"Not platform-specific\"; Autopilot is Windows by definition, which nothing in its payload says. A single-platform read leaves the control disabled and names the platform in the option text.",
+      why: "LOW — display and filtering only, no Graph call and no scope changed. It is worth a look on a real tenant anyway, because the normaliser is a set of prefix rules over @odata.type and Graph has hundreds of those. A type it does not recognise yields NO platform rather than a wrong one, which is the safe direction, but it means a whole class of policy could quietly land under \"Not platform-specific\". It graduates when the list on a mixed-estate tenant matches what an admin would say their estate is.",
+      test: [
+        "THE ONE THAT MATTERS, and it needs a mixed tenant: read everything and open the platform list. It must name each platform ONCE. If Windows appears twice, or a raw token like windows10 is in there, the normaliser missed a spelling.",
+        "Pick Windows and count. Then pick macOS. The two counts plus \"Not platform-specific\" should account for every object — if they do not, something is being dropped or double-counted.",
+        "Find a settings-catalog policy targeting two platforms and confirm it appears under BOTH, and that its row shows two chips.",
+        "Filter to \"Not platform-specific\" and read what is in there. Scripts, assignment filters and scope tags belong. A device configuration in that bucket means its @odata.type is a shape normPlatform does not know, and is worth reporting.",
+        "Before pressing Read, confirm all three filters are disabled and the hint explains why. This is the state that was reported as broken.",
+        "On a single-platform tenant, confirm the control stays disabled and its one option names the platform rather than sitting empty.",
+        "Reset and confirm the filters go back to disabled and the platform list empties — a stale list from a previous read would filter against data that is no longer there.",
+      ],
+      staying: [
+        "Windows Phone, Windows Holographic and Windows 10X fold into Windows. They are Windows for the purpose of finding a policy, and separate entries would be noise in every tenant that has none of them.",
+        "iOS and iPadOS are one entry. Intune targets them together on most surfaces and splitting them would invent a distinction the data does not carry.",
+      ],
+      files: ["js/document.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 23,
       title: "T05 — popout, selection, and exports that follow it",
       tools: ["📄 Configuration documenter"],

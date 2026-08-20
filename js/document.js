@@ -353,7 +353,8 @@ const Docs = (() => {
           id: it.id,
           name: nameOf(it, sec),
           description: it.description || "",
-          platform: it[sec.platformField || "__none"] || platformOf(it),
+          platforms: platformsOf(it, sec),
+          platform: platformsOf(it, sec).join(", "),
           type: String(it["@odata.type"] || "").replace(/^#?microsoft\.graph\./, ""),
           created: it.createdDateTime || "", modified: it.lastModifiedDateTime || "",
           assignments: (it.assignments || []).map((a) => assignmentOf(a)),
@@ -379,14 +380,61 @@ const Docs = (() => {
     return out;
   }
 
-  function platformOf(it) {
-    const t = lc(it["@odata.type"] || "");
-    if (/ios|iphone|ipad/.test(t)) return "iOS";
-    if (/macos/.test(t)) return "macOS";
-    if (/android/.test(t)) return "Android";
-    if (/windows(10|81|phone)?/.test(t)) return "Windows";
-    return "";
+  // ---------------------------------------------------------- platforms --
+  //
+  // ONE VOCABULARY. Graph describes the same platform three different ways
+  // depending on which surface you ask, and the first version of this passed
+  // whatever it found straight into the filter — so a tenant with both a
+  // settings-catalog policy and a device configuration for Windows offered
+  // "windows10" AND "Windows" as separate choices, each matching half the
+  // policies. A settings-catalog policy targeting two platforms arrived as the
+  // single opaque string "windows10,macOS", matching neither. And Graph's
+  // literal "none" appeared in the list as though it were a platform.
+  //
+  // Everything is normalised to this list, and a policy carries an ARRAY,
+  // because a policy really can target more than one.
+  const PLATFORM_ORDER = ["Windows", "macOS", "iOS/iPadOS", "Android", "Linux"];
+  const NOT_SPECIFIC = "Not platform-specific";
+
+  function normPlatform(token) {
+    const t = lc(token).replace(/^#?microsoft\.graph\./, "");
+    // Redundant today — "none" and "unknownFutureValue" match none of the
+    // patterns below and would fall through to the same null. It is explicit
+    // because the fallthrough is what makes it redundant, and the day someone
+    // adds a permissive catch-all at the bottom this is what stops Graph's
+    // two placeholder values appearing in a filter as though they were
+    // platforms. A mutation test found nothing to break here; that is worth
+    // knowing rather than assuming.
+    if (!t || t === "none" || t === "unknownfuturevalue") return null;
+    if (/^win32|^windows|^win10|^microsoftedge|^officesuite/.test(t)) return "Windows";
+    if (/^macos|^mac(?![a-z])/.test(t)) return "macOS";
+    if (/^ios|^ipad|^iphone/.test(t)) return "iOS/iPadOS";
+    if (/^android|^aosp/.test(t)) return "Android";
+    if (/^linux/.test(t)) return "Linux";
+    return null;
   }
+
+  // A policy may declare its platforms in a `platforms` field (settings
+  // catalog, comma-separated), or imply one through its @odata.type, or say
+  // nothing at all — a platform script, an assignment filter, a scope tag.
+  // "Nothing at all" is a real answer and gets a name, so it can be filtered
+  // FOR rather than being invisible in every filtered view.
+  function platformsOf(it, sec) {
+    const out = new Set();
+    const declared = sec && sec.platformField ? it[sec.platformField] : null;
+    if (declared) String(declared).split(/[,;]/).forEach((x) => { const p = normPlatform(x.trim()); if (p) out.add(p); });
+    if (!out.size) {
+      const p = normPlatform(it["@odata.type"] || "");
+      if (p) out.add(p);
+    }
+    // A few surfaces are single-platform by definition and say so nowhere.
+    if (!out.size && sec && sec.id === "autopilot") out.add("Windows");
+    return [...out].sort((a, b) => PLATFORM_ORDER.indexOf(a) - PLATFORM_ORDER.indexOf(b));
+  }
+
+  // Kept for the one caller that only has an object: derives a single display
+  // string. platformsOf() is what the filter uses.
+  function platformOf(it) { return platformsOf(it, null)[0] || ""; }
 
   function assignmentOf(a) {
     const t = (a && a.target) || {};
@@ -424,7 +472,10 @@ const Docs = (() => {
         // @odata.type is filtered out as bookkeeping before they are built.
         if (t && !lc(i.name).includes(t) && !lc(i.description).includes(t) && !lc(i.type).includes(t)
           && !i.rows.some((r) => lc(r.name).includes(t) || lc(r.value).includes(t))) return false;
-        if (plat && plat !== "All" && i.platform !== plat) return false;
+        if (plat && plat !== "All") {
+          if (plat === NOT_SPECIFIC) { if (i.platforms.length) return false; }
+          else if (!i.platforms.includes(plat)) return false;
+        }
         if (state === "assigned" && !i.assignments.length) return false;
         if (state === "unassigned" && i.assignments.length) return false;
         return true;
@@ -432,7 +483,20 @@ const Docs = (() => {
     })).filter((s) => s.items.length);
   }
 
-  const platforms = (res) => [...new Set(res.sections.flatMap((s) => s.items.map((i) => i.platform)).filter(Boolean))].sort();
+  // Canonical order rather than alphabetical, so the list reads the way an
+  // admin thinks about their estate. "Not platform-specific" goes last and
+  // only appears if something actually is.
+  function platforms(res) {
+    const found = new Set();
+    let bare = false;
+    res.sections.forEach((s) => s.items.forEach((i) => {
+      if (!i.platforms.length) bare = true;
+      i.platforms.forEach((p) => found.add(p));
+    }));
+    const out = PLATFORM_ORDER.filter((p) => found.has(p));
+    if (bare) out.push(NOT_SPECIFIC);
+    return out;
+  }
 
   // ------------------------------------------------------------- exports --
   // A FILTERED DOCUMENT MUST NEVER READ AS A COMPLETE ONE. meta() carries
@@ -676,7 +740,8 @@ ${body.join("\n")}
   return {
     SECTIONS, sectionById, allSectionIds, scopesFor,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
-    collect, summarize, filterItems, platforms, assignmentOf, platformOf,
+    collect, summarize, filterItems, platforms, assignmentOf, platformOf, platformsOf, normPlatform,
+    PLATFORM_ORDER, NOT_SPECIFIC,
     meta, markdown, html, docx, NOTE_REDACTED, scopeLine, filterText,
   };
 })();
@@ -698,6 +763,16 @@ const DocsTool = (() => {
   const keyOf = (secId, itemId) => secId + "|" + itemId;
 
   const prog = (m) => { const el = $("dcProg"); if (el) el.textContent = m || ""; };
+
+  // THE FILTERS ARE DEAD UNTIL THERE IS SOMETHING TO FILTER. Leaving them
+  // live before a read is how the platform list came to look broken: it was
+  // empty because nothing had been read, and the control gave no hint of that
+  // — it just offered one option and looked like a bug.
+  function setFiltersEnabled(on) {
+    ["dcSearch", "dcPlatform", "dcState"].forEach((id) => { const el = $(id); if (el) el.disabled = !on; });
+    const hint = $("dcFilterHint");
+    if (hint) hint.style.display = on ? "none" : "";
+  }
   const chosen = () => [...document.querySelectorAll("#dcSections input[type=checkbox]")].filter((c) => c.checked).map((c) => c.value);
   const showExports = (on) => ["dcMd", "dcHtml", "dcDocx"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
 
@@ -736,7 +811,15 @@ const DocsTool = (() => {
       await Graph.ensureScopes([...Docs.scopesFor(secs), ...Graph.SCOPES.directory]);
       res = await Docs.collect({ sections: secs, onStatus: prog });
       const plats = Docs.platforms(res);
-      $("dcPlatform").innerHTML = `<option value="All">All platforms</option>` + plats.map((p) => `<option>${esc(p)}</option>`).join("");
+      // One entry means every object came back the same way, so the control
+      // can only ever be a no-op. Say so in the option text rather than
+      // offering a choice that does nothing.
+      $("dcPlatform").innerHTML = plats.length > 1
+        ? `<option value="All">All platforms (${plats.length})</option>` + plats.map((p) => `<option>${esc(p)}</option>`).join("")
+        : `<option value="All">${plats.length ? `All ${esc(plats[0])} — nothing else was read` : "No platform on anything read"}</option>`;
+      $("dcPlatform").disabled = plats.length <= 1;
+      setFiltersEnabled(true);
+      if (plats.length <= 1) $("dcPlatform").disabled = true;
       // Everything selected to begin with: the common case is "document the
       // tenant", and starting at nothing would make the export buttons dead
       // on arrival with no explanation.
@@ -797,7 +880,7 @@ const DocsTool = (() => {
               <label class="chk" style="display:inline-flex;align-items:center;margin:0" title="Include in the document">
                 <input type="checkbox" data-pick="${esc(key)}"${selected.has(key) ? " checked" : ""}></label>
               <b data-open="${esc(key)}" style="cursor:pointer">${esc(it.name)}</b>
-              ${it.platform ? `<span class="gu-how priv">${esc(it.platform)}</span>` : ""}
+              ${it.platforms.length ? it.platforms.map((p) => `<span class="gu-how priv">${esc(p)}</span>`).join("") : ""}
               ${it.assignments.length ? `<span class="gu-how inc">${it.assignments.length} assignment${it.assignments.length === 1 ? "" : "s"}</span>` : `<span class="gu-how exc">unassigned</span>`}
               ${it.detailError ? `<span class="gu-how exc">settings unreadable</span>` : ""}
               <button class="btn sm" data-open="${esc(key)}" style="margin-left:auto">${it.rows.length} setting${it.rows.length === 1 ? "" : "s"} →</button>
@@ -940,10 +1023,13 @@ const DocsTool = (() => {
   function init() {
     if (!$("dcRun")) return;
     renderSections();
+    setFiltersEnabled(false);
     $("dcRun").addEventListener("click", run);
     $("dcReset").addEventListener("click", () => {
       res = null; selected = new Set(); closePolicy(); $("dcBody").innerHTML = ""; prog(""); showExports(false);
-      $("dcSearch").value = ""; $("dcPlatform").value = "All"; $("dcState").value = "all";
+      $("dcSearch").value = ""; $("dcState").value = "all";
+      $("dcPlatform").innerHTML = `<option value="All">All platforms</option>`;
+      setFiltersEnabled(false);
       document.querySelectorAll("#dcSections input[type=checkbox]").forEach((c) => { c.checked = true; c.closest(".gu-area").classList.add("on"); });
     });
     $("dcSearch").addEventListener("input", () => { if (res) render(); });
@@ -961,5 +1047,5 @@ const DocsTool = (() => {
     });
   }
 
-  return { init, run, render, renderSections, chosen, current, query, openPolicy, closePolicy, selectedSections, getSelected: () => selected };
+  return { init, run, render, renderSections, chosen, current, query, openPolicy, closePolicy, selectedSections, setFiltersEnabled, getSelected: () => selected };
 })();

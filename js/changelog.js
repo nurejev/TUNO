@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10328, date: "2026-08-20", title: "The platform filter had nothing usable in it",
+    items: [
+      { kind: "fixed", tool: "📄 Configuration documenter", text: "Reported: the platform filter had no platforms in it. Two separate things were wrong. Before a read it was empty and switched on, which is simply what an empty list looks like when nothing has told you why — it is disabled now until there is something to filter, with a line saying the list is built from what your tenant returns and cannot exist before then. And after a read it was worse than empty: it was inconsistent." },
+      { kind: "fixed", tool: "📄 Configuration documenter", text: "Graph names the same platform three different ways depending on which surface you ask. A settings-catalog policy reports the string \"windows10\". A device configuration says nothing but implies Windows through its type. The first version passed whatever it found straight into the list, so a tenant holding both offered TWO SEPARATE ENTRIES FOR WINDOWS, each matching about half the estate and neither obviously wrong. Everything normalises to one vocabulary now — Windows, macOS, iOS and iPadOS together, Android, Linux — so one platform is one entry however Graph chose to spell it on the way in." },
+      { kind: "fixed", tool: "📄 Configuration documenter", text: "A policy targeting two platforms was arriving as a single run-together string and matching neither of them. A policy now carries a LIST of platforms rather than one, because targeting two platforms is a thing a policy genuinely does, and it is found under either. Graph's own placeholder values for \"no platform\" and \"a platform we have not told you about yet\" no longer appear in the list as though they were platforms." },
+      { kind: "improved", tool: "📄 Configuration documenter", text: "A policy with no platform at all — a script, an assignment filter, a scope tag — is filterable as \"Not platform-specific\" instead of quietly vanishing from every filtered view. It sits last in the list and only appears when something actually is. And where the whole read came back as a single platform, the control stays disabled and says so in the option text: offering a choice that cannot change the result is worse than offering none." },
+    ],
+  },
+  {
     build: 10327, date: "2026-08-20", title: "Pick what goes in the document",
     items: [
       { kind: "improved", tool: "📄 Configuration documenter", text: "Clicking a policy opens a popout instead of unfolding it where it sits. Expanding in place was wrong for a list this long: a settings-catalog policy carries twenty-odd rows, so opening one pushed everything else off the screen, and closing it again lost your place in a list of four hundred. The popout is the same one the sister tool uses, with the same behaviour — Escape closes it, so does the backdrop, and it carries the policy's assignments, its description and the endpoint the data came from alongside the settings table." },
