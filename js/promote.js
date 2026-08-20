@@ -49,6 +49,32 @@ const PROMOTE = {
 
   items: [
     {
+      n: 15,
+      title: "T02 gains the tenant sweep",
+      tools: ["🔗 Group Analyzer"],
+      builds: [10319],
+      risk: "medium",
+      what: "A second mode on T02, ported from ENCA's sweep with the Conditional Access scope replaced by its Intune equivalent. One read per surface, matched against every group — 300 groups is still twenty reads. Five scopes: \"Only groups Intune assigns to\" (ids taken off the assignments as they are read, NO /groups enumeration at all), first 100/250/500, and every group. Name filter with starts/ends/contains, server-side where Graph supports the shape and local otherwise, with the local check always authoritative because $search matches tokens rather than substrings. Group nesting off by default, batched twenty at a time when on, crediting a parent's assignment to every child as inherited. Per-group tallies split direct/inherited/excluded with a column per surface, an unused-groups finding on the counted scopes only, and dangling references — an id an assignment names that the directory no longer has. Sweep-specific Markdown, CSV and standalone-HTML exports.",
+      why: "MEDIUM, and the reason is a specific way it can mislead rather than a way it can break. The unused-groups list is the output someone will act on — it is the one that ends with a group being deleted. It is only as complete as the surfaces that were read and the nesting that was walked, and both can be silently short: a surface that 403s and a nesting lookup left off both make a group look unused when it is not. The report says so in both places, and that claim is what needs checking against a real tenant. It graduates when a sweep's unused list has been reconciled against the portal for a tenant where at least one group is used only through a parent.",
+      test: [
+        "THE ONE THAT MATTERS: run a counted scope with nesting OFF against a tenant where some group receives policy only through a parent. That group MUST appear in the unused list, and the report MUST say nesting was not walked. Then re-run with nesting on: it must leave the unused list. If the warning is missing, this feature will get a group deleted.",
+        "Run the Intune scope and confirm the network shows NO /groups request. That is the whole claim of that scope; if it enumerates, it is just a slow counted scope wearing a different label.",
+        "On the Intune scope, confirm the unused count renders as a dash and not a zero, and that the export says the finding does not apply. A zero there reads as 'nothing is unused', which is the opposite of what it means.",
+        "Point an assignment at a group, delete the group, then sweep. The id must appear as a dangling reference and stay in the table. Nothing in the Intune portal surfaces this, so the tool is the only place it can be seen.",
+        "Sweep a tenant with more than 999 groups on the 'every group' scope and confirm paging brought them all — the count in the header against the portal's group count. A silently truncated sweep produces a confidently wrong unused list.",
+        "Try the name filter in all three modes, including one where $search will over-match (a token that is a prefix of a longer word). Only groups genuinely matching what you typed may appear — this is where trusting the server would show.",
+        "Time a sweep of the largest tenant to hand with nesting off, then on. The first should be flat regardless of group count; the second grows. If the first also grows, the one-read-per-surface property has been lost and the sweep is doing per-group work somewhere.",
+        "Export all three formats from a sweep and confirm each carries the nesting and unreadable-surface caveats, and that the CSV has NO column for a surface that failed — a zero in that column would be a lie rather than an omission.",
+        "Switch to sweep mode and back and confirm the tenant-wide toggle disappears and returns. In a sweep it would add the same rows to every group, which says nothing about any of them.",
+        "NOT COVERED BY THE HEADLESS TESTS: the throttling. A sweep of a large tenant is the first thing in TUNO likely to hit a 429 for real, and the read layer's backoff has never run against a live quota.",
+      ],
+      staying: [
+        "No per-group drill-down from the sweep table. ENCA opens a modal on a row; T02's table gives counts and you re-run the single-group mode for detail. The CSS for the modal is already there.",
+        "The sweep does not offer tenant-wide assignments — they would add identical rows to every group.",
+      ],
+      files: ["js/groupuse.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 14,
       title: "T02 — Group Analyzer, the first tool that reads a tenant",
       tools: ["🔗 Group Analyzer"],

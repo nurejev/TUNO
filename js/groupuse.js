@@ -88,8 +88,13 @@ const GroupUse = (() => {
       else if (ty.includes("alllicensedusersassignmenttarget")) { how = "all-users"; pid = TENANT_WIDE; }
       if (!how) continue;
 
+      // ids === null is MATCH ALL, and it is what makes a sweep cheap: one
+      // read of each surface answers for every group at once, instead of one
+      // read per group. Everything downstream — the tally, the exports, the
+      // per-group drill-down — runs on the same rows either way.
       if (pid === TENANT_WIDE) { if (!o.tenantWide) continue; }
-      else if (!pid || !ids.has(pid)) continue;
+      else if (!pid) continue;
+      else if (ids && !ids.has(pid)) continue;
 
       const bits = [];
       if (a.intent) bits.push(`intent: ${a.intent}`);
@@ -386,6 +391,291 @@ const GroupUse = (() => {
     return { rows, ran, failed, partial };
   }
 
+  // ===================================================================== //
+  // SWEEP — the same question asked of the whole tenant at once.
+  //
+  // A sweep reads each surface ONCE and matches every group against it, so the
+  // cost barely grows with the number of groups. That is the whole reason this
+  // is affordable, and it falls straight out of intuneHits taking a match set
+  // rather than a single id: pass null and it matches everything.
+  //
+  // The exception is inheritance, which is per-group by nature — one
+  // transitiveMemberOf per candidate. Batched twenty at a time and behind a
+  // toggle, because on a large tenant it is the whole cost of the run.
+  // ===================================================================== //
+
+  const SCOPES_IN = [
+    { id: "intune", label: "Only groups Intune assigns to" },
+    { id: "100", label: "First 100 groups" },
+    { id: "250", label: "First 250 groups" },
+    { id: "500", label: "First 500 groups" },
+    { id: "0", label: "Every group in the tenant" },
+  ];
+
+  // The local predicate is ALWAYS the authority. Graph can narrow the fetch
+  // server-side where it supports the shape, but $search is token-based rather
+  // than substring, so a server-side "contains" returns more than it should —
+  // and trusting it would put groups in the report that do not match.
+  function nameMatcher(mode, text) {
+    const t = lc(text || "").trim();
+    if (!t) return () => true;
+    if (mode === "ends") return (n) => lc(n).endsWith(t);
+    if (mode === "contains") return (n) => lc(n).includes(t);
+    return (n) => lc(n).startsWith(t);
+  }
+
+  // Enumerate candidate groups. Only reached for the counted scopes — the
+  // "Only groups Intune assigns to" scope never touches /groups at all.
+  async function enumerateGroups({ limit, matchMode, matchText, onStatus }) {
+    const sel = "id,displayName,description,groupTypes,membershipRule,securityEnabled,isAssignableToRole";
+    let path, headers = null;
+    const t = String(matchText || "").trim();
+    if (t && matchMode === "starts") {
+      path = Graph.odata`/groups?$filter=startswith(displayName,'${t}')` + `&$select=${sel}&$top=999`;
+    } else if (t) {
+      // $search narrows the fetch for contains/ends; the local matcher below
+      // still decides. Needs eventual consistency, which is why it is a header
+      // and not just a query parameter.
+      path = Graph.odata`/groups?$search="displayName:${t}"` + `&$select=${sel}&$top=999`;
+      headers = { ConsistencyLevel: "eventual" };
+    } else {
+      path = `/groups?$select=${sel}&$top=999`;
+    }
+    onStatus && onStatus("Listing groups…");
+    let all;
+    try {
+      all = await Graph.readAll(path, { scopes: S().groups, headers, retry: true });
+    } catch (e) {
+      // A tenant that refuses $search still deserves an answer.
+      if (!headers) throw e;
+      onStatus && onStatus("Search refused — listing groups and filtering here…");
+      all = await Graph.readAll(`/groups?$select=${sel}&$top=999`, { scopes: S().groups, retry: true });
+    }
+    const match = nameMatcher(matchMode, matchText);
+    const filtered = all.filter((g) => match(g.displayName || ""));
+    const n = parseInt(limit, 10);
+    return Number.isFinite(n) && n > 0 ? filtered.slice(0, n) : filtered;
+  }
+
+  // Parents for many groups at once. $batch answers twenty per round trip,
+  // which is the difference between a sweep that finishes and one that does
+  // not. A group whose memberships cannot be read is recorded rather than
+  // silently treated as having none.
+  async function sweepInheritance(groupIds, onStatus) {
+    const parentsOf = new Map(), failed = [];
+    const reqs = groupIds.map((id) => ({ id, url: `/groups/${id}/transitiveMemberOf?$select=id,displayName` }));
+    onStatus && onStatus(`Reading group nesting — ${groupIds.length} groups…`);
+    const out = await Graph.batch(reqs, {
+      beta: false, scopes: S().groupMembers,
+      onProgress: (d, total) => onStatus && onStatus(`Reading group nesting — ${d}/${total}`),
+    });
+    for (const id of groupIds) {
+      const r = out[id];
+      if (!r || r.error) { failed.push(id); parentsOf.set(id, []); continue; }
+      parentsOf.set(id, ((r.body && r.body.value) || [])
+        .filter((o) => !lc(o["@odata.type"]).includes("directoryrole") && !lc(o["@odata.type"]).includes("administrativeunit"))
+        .map((o) => ({ id: lc(o.id), name: o.displayName })));
+    }
+    return { parentsOf, failed };
+  }
+
+  // Per-group tallies. A row against a PARENT credits every child too, marked
+  // inherited — which is the same rule the single-group mode uses, applied the
+  // other way round.
+  function sweepTotals(groups, rows, parentsOf) {
+    const per = new Map();
+    for (const g of groups) {
+      per.set(lc(g.id), {
+        id: g.id, name: g.displayName || g.id,
+        dynamic: !!g.membershipRule, roleAssignable: !!g.isAssignableToRole,
+        missing: !!g.missing, direct: 0, inherited: 0, excluded: 0, total: 0,
+        bySource: Object.fromEntries(SOURCES.map((s) => [s.id, 0])),
+      });
+    }
+    // THIS GUARD IS LOAD-BEARING and is the only one. An id that is not in the
+    // group list gets no credit — which covers both a group outside the scope
+    // and the tenant-wide pseudo-id, since neither is ever in `per`. An
+    // explicit `if (pid === TENANT_WIDE) continue` above the loop looked like
+    // protection and was dead code; a mutation test proved it, and dead code
+    // that reads as a safeguard is worse than none because it gets trusted.
+    const credit = (e, r, inherited) => {
+      if (!e) return;
+      e.bySource[r.source] = (e.bySource[r.source] || 0) + 1;
+      if (r.how === "excluded") e.excluded++;
+      if (inherited) e.inherited++; else e.direct++;
+      e.total++;
+    };
+    for (const r of rows) {
+      credit(per.get(r.pid), r, false);
+      if (parentsOf) {
+        for (const [child, parents] of parentsOf) {
+          if (child === r.pid) continue;
+          if (parents.some((p) => p.id === r.pid)) credit(per.get(child), r, true);
+        }
+      }
+    }
+    return [...per.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }
+
+  // The whole sweep, as one call. Returns everything the report needs.
+  async function sweep(opts) {
+    const { scope, matchMode, matchText, sourceIds, inheritance, onStatus } = opts;
+    const byIntune = scope === "intune";
+    let groups = [], enumerated = false;
+
+    if (!byIntune) {
+      groups = await enumerateGroups({ limit: scope, matchMode, matchText, onStatus });
+      enumerated = true;
+    }
+
+    // MATCH-ALL when the scope is "whatever Intune assigns to": we cannot know
+    // the ids before reading, so we read everything and let the answer define
+    // the set. No /groups enumeration happens at all on this path.
+    const ids = byIntune ? null : new Set(groups.map((g) => lc(g.id)));
+    const res = await analyze({
+      ids, via: new Map(), groupId: null,
+      sourceIds, tenantWide: false, onStatus,
+    });
+    res.rows = await resolveFilters(res.rows);
+
+    let dangling = [];
+    if (byIntune) {
+      const seen = [...new Set(res.rows.map((r) => r.pid).filter((p) => p !== TENANT_WIDE))];
+      onStatus && onStatus(`Naming ${seen.length} groups…`);
+      const look = await Graph.resolveNames(seen, { types: ["group"] });
+      groups = seen.map((id) => {
+        const e = look.entry(id);
+        return e
+          ? { id, displayName: e.name, missing: false }
+          // An id an assignment names that the directory no longer has. The
+          // assignment still exists and still targets nobody — worth seeing.
+          : { id, displayName: `(deleted group ${id.slice(0, 8)}…)`, missing: true };
+      });
+      dangling = groups.filter((g) => g.missing);
+      const match = nameMatcher(matchMode, matchText);
+      groups = groups.filter((g) => g.missing || match(g.displayName));
+    }
+
+    let parentsOf = null, inheritanceFailed = [];
+    if (inheritance && groups.length) {
+      const r = await sweepInheritance(groups.filter((g) => !g.missing).map((g) => lc(g.id)), onStatus);
+      parentsOf = r.parentsOf; inheritanceFailed = r.failed;
+    }
+
+    const totalsRows = sweepTotals(groups, res.rows, parentsOf);
+    return {
+      ...res, scope, enumerated, groups: totalsRows, dangling,
+      inheritance: !!inheritance, inheritanceFailed,
+      // Only meaningful when groups were ENUMERATED. On the Intune scope every
+      // group in the list is used by definition, so an empty unused list there
+      // is a tautology, not a finding — and saying so is the difference
+      // between a report and a misleading one.
+      unused: enumerated ? totalsRows.filter((g) => g.total === 0) : null,
+    };
+  }
+
+  // ---------------------------------------------------------- sweep exports --
+  function sweepMeta(res, opts) {
+    return {
+      when: new Date().toISOString().replace("T", " ").replace(/\..*/, " UTC"),
+      build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+      scopeLabel: (SCOPES_IN.find((s) => s.id === res.scope) || {}).label || res.scope,
+      filter: opts && opts.matchText ? `${opts.matchMode || "starts"} “${opts.matchText}”` : "",
+      sources: res.ran.map((r) => r.label),
+    };
+  }
+
+  function sweepMarkdown(res, m) {
+    const L = [];
+    L.push(`# Intune group sweep`, "");
+    L.push(`Generated ${m.when} by TUNO ${m.build}`, "");
+    L.push(`| | |`, `|---|---|`);
+    L.push(`| Scope | ${mdCell(m.scopeLabel)} |`);
+    if (m.filter) L.push(`| Name filter | ${mdCell(m.filter)} |`);
+    L.push(`| Groups | ${res.groups.length} |`);
+    L.push(`| Assignments | ${res.rows.length} |`);
+    L.push(`| Surfaces read | ${res.ran.length}${res.failed.length ? ` (${res.failed.length} could not be read)` : ""} |`);
+    L.push(`| Inheritance | ${res.inheritance ? "walked" : "NOT walked — direct assignments only"} |`);
+    L.push("");
+
+    if (!res.enumerated) {
+      L.push(`> **Every group below is used by Intune by definition** — the scope was taken off the assignments themselves, so there is no unused-group finding here. Re-run against a counted scope to find groups nothing assigns to.`, "");
+    }
+    if (res.dangling.length) {
+      L.push(`## ⚠ Dangling references (${res.dangling.length})`, "");
+      L.push(`An assignment names a group the directory no longer has. **That assignment targets nobody**, and it will keep doing so silently.`, "");
+      res.dangling.forEach((g) => L.push(`- \`${g.id}\``));
+      L.push("");
+    }
+    if (res.unused && res.unused.length) {
+      L.push(`## Groups nothing in Intune assigns to (${res.unused.length})`, "");
+      res.unused.forEach((g) => L.push(`- ${mdCell(g.name)}${g.dynamic ? " _(dynamic)_" : ""}`));
+      L.push("");
+    }
+
+    L.push(`## Groups by usage`, "");
+    const cols = SOURCES.filter((s) => res.ran.some((r) => r.id === s.id));
+    L.push(`| Group | Total | Direct | Inherited | Excluded | ${cols.map((c) => mdCell(c.label)).join(" | ")} |`);
+    L.push(`|---|---|---|---|---|${cols.map(() => "---").join("|")}|`);
+    for (const g of res.groups) {
+      L.push(`| ${mdCell(g.name)}${g.dynamic ? " (dynamic)" : ""} | ${g.total} | ${g.direct} | ${g.inherited} | ${g.excluded} | ${cols.map((c) => g.bySource[c.id] || 0).join(" | ")} |`);
+    }
+    L.push("");
+    if (res.failed.length) {
+      L.push(`## Could not be read`, "");
+      L.push(`**Not empty — unknown.** Every count above is missing whatever these hold.`, "");
+      res.failed.forEach((f) => L.push(`- **${mdCell(f.label)}** — ${mdCell(f.error)}${f.why ? ` _${mdCell(f.why)}_` : ""}`));
+      L.push("");
+    }
+    L.push(`---`, ``, `Intune surfaces after Ugur Koc's [Get Group Assignments](https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1) (MIT); sweep model from [ENCA](https://enca.limon-it.nl)'s Group Analyzer.`);
+    return L.join("\n");
+  }
+
+  function sweepCsv(res) {
+    const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const cols = SOURCES.filter((s) => res.ran.some((r) => r.id === s.id));
+    const L = [["Group", "GroupId", "Dynamic", "RoleAssignable", "Missing", "Total", "Direct", "Inherited", "Excluded",
+      ...cols.map((c) => c.label)].map(q).join(",")];
+    for (const g of res.groups) {
+      L.push([g.name, g.id, g.dynamic ? "yes" : "no", g.roleAssignable ? "yes" : "no", g.missing ? "yes" : "no",
+        g.total, g.direct, g.inherited, g.excluded, ...cols.map((c) => g.bySource[c.id] || 0)].map(q).join(","));
+    }
+    return L.join("\n");
+  }
+
+  function sweepHtml(res, m) {
+    const cols = SOURCES.filter((s) => res.ran.some((r) => r.id === s.id));
+    const notes = [];
+    if (!res.enumerated) notes.push(`<p class="note">Every group listed is used by Intune <b>by definition</b> — the scope was taken off the assignments themselves. There is no unused-group finding here; a counted scope is what answers that.</p>`);
+    if (!res.inheritance) notes.push(`<p class="note">Inheritance was not walked. A group that only receives policy <b>through a parent</b> shows zero here.</p>`);
+    if (res.dangling.length) notes.push(`<p class="note bad"><b>${res.dangling.length} dangling reference${res.dangling.length === 1 ? "" : "s"}.</b> An assignment names a group the directory no longer has — it targets nobody, silently: ${res.dangling.map((g) => esc(g.id)).join(", ")}.</p>`);
+    if (res.failed.length) notes.push(`<p class="note bad"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read.</b> Not empty — unknown. Every count below is missing whatever they hold: ${res.failed.map((f) => esc(f.label)).join(", ")}.</p>`);
+    if (res.unused && res.unused.length) notes.push(`<p class="note"><b>${res.unused.length} group${res.unused.length === 1 ? "" : "s"}</b> nothing in Intune assigns to.</p>`);
+
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Intune group sweep</title><style>${REPORT_CSS}
+td.n{text-align:right;font-variant-numeric:tabular-nums}td.n.z{color:#9aa0ab}
+tr.miss td{background:#fdeceb}</style></head><body>
+<header><h1>Intune group sweep</h1><div class="meta">${esc(m.scopeLabel)}${m.filter ? ` · ${esc(m.filter)}` : ""} · generated ${esc(m.when)} by TUNO ${esc(m.build)}</div></header>
+<div class="cards">
+  <div class="card"><div class="n">${res.groups.length}</div><div class="l">Groups</div></div>
+  <div class="card"><div class="n">${res.rows.length}</div><div class="l">Assignments</div></div>
+  <div class="card${res.unused && res.unused.length ? "" : " zero"}"><div class="n">${res.unused ? res.unused.length : "—"}</div><div class="l">Unused</div></div>
+  <div class="card${res.dangling.length ? " warn" : " zero"}"><div class="n">${res.dangling.length}</div><div class="l">Dangling</div></div>
+</div>
+<main>${notes.join("")}
+  <section class="area"><h2>Groups by usage <span>${res.groups.length}</span></h2>
+    <table><thead><tr><th>Group</th><th>Total</th><th>Direct</th><th>Inherited</th><th>Excluded</th>${cols.map((c) => `<th>${esc(c.icon)} ${esc(c.label)}</th>`).join("")}</tr></thead>
+    <tbody>${res.groups.map((g) => `<tr class="${g.missing ? "miss" : ""}">
+      <td><b>${esc(g.name)}</b>${g.dynamic ? ' <span class="pill tw">dynamic</span>' : ""}${g.missing ? ' <span class="pill exc">deleted</span>' : ""}</td>
+      <td class="n${g.total ? "" : " z"}">${g.total}</td><td class="n${g.direct ? "" : " z"}">${g.direct}</td>
+      <td class="n${g.inherited ? "" : " z"}">${g.inherited}</td><td class="n${g.excluded ? "" : " z"}">${g.excluded}</td>
+      ${cols.map((c) => `<td class="n${g.bySource[c.id] ? "" : " z"}">${g.bySource[c.id] || 0}</td>`).join("")}</tr>`).join("")}</tbody></table>
+  </section></main>
+<footer>Intune surfaces after Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1">Get Group Assignments</a> (MIT); sweep model from <a href="https://enca.limon-it.nl">ENCA</a>'s Group Analyzer. Reimplemented in browser-side JavaScript against Microsoft Graph — no code was copied.</footer>
+</body></html>`;
+  }
+
   // Assignment filters are named by id on the assignment and nowhere else. One
   // read of the filter list turns every one of them into a name; without it the
   // most consequential column in the report is a page of GUIDs.
@@ -569,11 +859,14 @@ footer a{color:#2b4c9b}`;
   }
 
   return {
-    TENANT_WIDE, SOURCES, HOW_LABEL,
+    TENANT_WIDE, SOURCES, HOW_LABEL, SCOPES_IN,
     sourceById, allSourceIds, scopesFor,
     intuneHits, resolveGroup, buildScope, memberCount, analyze, resolveFilters,
     grouped, totals, whyFailed, shortErr,
     meta, markdown, csv, html,
+    // sweep
+    sweep, enumerateGroups, sweepInheritance, sweepTotals, nameMatcher,
+    sweepMeta, sweepMarkdown, sweepCsv, sweepHtml,
   };
 })();
 
@@ -588,6 +881,7 @@ const GroupUseTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let group = null, scope = null, result = null, members = null, running = false;
+  let mode = "one", sweepRes = null;
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -630,8 +924,50 @@ const GroupUseTool = (() => {
     showExports(false);
   }
 
+  // ---------------------------------------------------------------- mode --
+  function setMode(m) {
+    mode = (m === "all") ? "all" : "one";
+    const one = mode === "one";
+    document.querySelectorAll("#guModeSeg [data-gumode]").forEach((b) =>
+      b.classList.toggle("active", b.dataset.gumode === mode));
+    $("guOneWrap").style.display = one ? "" : "none";
+    $("guAllWrap").style.display = one ? "none" : "";
+    // The tenant-wide toggle is a single-group idea. In a sweep every group
+    // would carry the same tenant-wide rows, which says nothing about any of
+    // them — so it is hidden rather than left on screen doing nothing.
+    $("guTenantWideWrap").style.display = one ? "" : "none";
+    $("guTenantWideNote").style.display = one ? "" : "none";
+    $("guRun").textContent = one ? "🔗 Analyze group" : "🔗 Sweep tenant";
+    $("guBody").innerHTML = "";
+    showExports(false);
+    prog("");
+  }
+
+  const sweepOpts = () => ({
+    scope: $("guScope").value,
+    matchMode: $("guMatchMode").value,
+    matchText: $("guMatchText").value.trim(),
+    inheritance: $("guSweepDeep").checked,
+  });
+
+  async function runSweep() {
+    const areas = chosen();
+    if (!areas.length) { fail("Pick at least one place to look."); return; }
+    const o = sweepOpts();
+    sweepRes = await GroupUse.sweep({ ...o, sourceIds: areas, onStatus: prog });
+    prog("");
+    renderSweep(o);
+  }
+
   async function run() {
     if (running) return;
+    if (mode === "all") {
+      running = true; $("guRun").disabled = true; showExports(false); $("guBody").innerHTML = "";
+      try { await runSweep(); showExports(true); }
+      catch (e) { fail(GroupUse.shortErr(e, 400)); prog(""); }
+      finally { running = false; $("guRun").disabled = false; }
+      return;
+    }
     const term = ($("guTerm") && $("guTerm").value || "").trim();
     if (!term) { fail("Enter a group name or object ID."); return; }
     const areas = chosen();
@@ -737,8 +1073,68 @@ const GroupUseTool = (() => {
     $("guBody").innerHTML = head + body + partial + failed;
   }
 
+  function renderSweep(o) {
+    const r = sweepRes;
+    const cols = GroupUse.SOURCES.filter((s) => r.ran.some((x) => x.id === s.id));
+    const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
+
+    const head = `<div class="list-card gu-sticky">
+      <span class="gu-who">Tenant sweep
+        <span class="mini muted">${esc((GroupUse.SCOPES_IN.find((s) => s.id === r.scope) || {}).label || r.scope)}${o.matchText ? ` · ${esc(o.matchMode)} “${esc(o.matchText)}”` : ""}</span></span>
+      <div class="gu-sum">
+        ${stat(r.groups.length, "groups")}
+        ${stat(r.rows.length, "assignments")}
+        ${r.unused ? stat(r.unused.length, "unused") : `<span class="gu-stat zero"><b>—</b> unused</span>`}
+        ${stat(r.dangling.length, "dangling")}
+        ${r.failed.length ? `<span class="gu-stat" style="border-color:var(--off)"><b>${r.failed.length}</b> could not be read</span>` : ""}
+      </div></div>`;
+
+    const notes = [];
+    if (!r.enumerated) {
+      notes.push(`<p class="mini muted"><b>Every group below is used by Intune by definition</b> — the scope was taken off the assignments as they were read, so the unused count is not applicable rather than zero. Finding groups nothing assigns to means enumerating groups: pick a counted scope.</p>`);
+    }
+    if (!r.inheritance) {
+      notes.push(`<p class="mini muted"><b>Group nesting was not walked.</b> A group that only receives policy through a parent reads as zero here. Tick “Walk group nesting” to include it — it is one lookup per group, batched twenty at a time.</p>`);
+    } else if (r.inheritanceFailed.length) {
+      notes.push(`<div class="gu-fail"><b>Nesting could not be read for ${r.inheritanceFailed.length} group${r.inheritanceFailed.length === 1 ? "" : "s"}.</b><span class="why">Those rows show direct assignments only, so their totals are floors rather than answers.</span></div>`);
+    }
+    if (r.dangling.length) {
+      notes.push(`<div class="gu-fail"><b>${r.dangling.length} dangling reference${r.dangling.length === 1 ? "" : "s"}.</b><span class="why">An assignment names a group the directory no longer has. That assignment targets nobody, and nothing in the portal will tell you: ${r.dangling.map((g) => esc(g.id)).join(", ")}</span></div>`);
+    }
+
+    const unused = (r.unused && r.unused.length) ? `<div class="list-card">
+      <h4 style="margin:0 0 4px">Nothing in Intune assigns to these (${r.unused.length})</h4>
+      <p class="mini muted" style="margin:0 0 10px">Across the ${r.ran.length} surface${r.ran.length === 1 ? "" : "s"} that were read${r.failed.length ? `, and NOT across the ${r.failed.length} that could not be` : ""}. ${r.inheritance ? "Nesting was walked, so these are not receiving policy through a parent either." : "Nesting was not walked — one of these may be receiving policy through a parent."}</p>
+      <p class="mini">${r.unused.map((g) => `<span class="gu-stat zero">${esc(g.name)}${g.dynamic ? " · dynamic" : ""}</span>`).join(" ")}</p>
+    </div>` : "";
+
+    const table = `<div class="list-card">
+      ${notes.join("")}
+      <div class="gu-tw"><table class="cg-table"><thead><tr>
+        <th>Group</th><th class="gu-num">Total</th><th class="gu-num">Direct</th><th class="gu-num">Inherited</th><th class="gu-num">Excluded</th>
+        ${cols.map((c) => `<th class="gu-num" title="${esc(c.label)}">${esc(c.icon)}</th>`).join("")}</tr></thead>
+        <tbody>${r.groups.map((g) => `<tr>
+          <td><b${g.missing ? ' style="color:var(--off)"' : ""}>${esc(g.name)}</b>${g.dynamic ? ' <span class="gu-how priv">dynamic</span>' : ""}${g.missing ? ' <span class="gu-how exc">deleted</span>' : ""}</td>
+          <td class="gu-num${g.total ? "" : " gu-zero"}"><b>${g.total}</b></td>
+          <td class="gu-num${g.direct ? "" : " gu-zero"}">${g.direct}</td>
+          <td class="gu-num${g.inherited ? "" : " gu-zero"}">${g.inherited}</td>
+          <td class="gu-num${g.excluded ? "" : " gu-zero"}">${g.excluded}</td>
+          ${cols.map((c) => `<td class="gu-num${g.bySource[c.id] ? "" : " gu-zero"}">${g.bySource[c.id] || 0}</td>`).join("")}
+        </tr>`).join("")}</tbody></table></div>
+      <p class="mini muted" style="margin:10px 0 0">Columns are the surfaces that were read, in the order they are listed above. Hover a header for its name.</p>
+    </div>`;
+
+    const failed = r.failed.length ? `<div class="list-card">
+      <h4 style="margin:0 0 4px">Could not be read</h4>
+      <p class="mini muted" style="margin:0 0 10px"><b>Every count in this sweep is missing whatever these hold.</b> They are not empty — they are unknown, and that applies to the unused list above as much as to the totals.</p>
+      ${r.failed.map((f) => `<div class="gu-fail"><b>${esc(f.label)}</b> — ${esc(f.error)}${f.why ? `<span class="why">${esc(f.why)}</span>` : ""}</div>`).join("")}
+    </div>` : "";
+
+    $("guBody").innerHTML = head + (r.groups.length ? table : `<div class="list-card">${notes.join("")}<p class="mini">No groups matched this scope and filter.</p></div>`) + unused + failed;
+  }
+
   function reset() {
-    group = scope = result = null; members = null;
+    group = scope = result = null; members = null; sweepRes = null;
     if ($("guTerm")) $("guTerm").value = "";
     $("guBody").innerHTML = "";
     prog("");
@@ -751,16 +1147,37 @@ const GroupUseTool = (() => {
   const safeName = (s) => String(s || "group").replace(/[\\/:*?"<>|]/g, "_").slice(0, 80);
   const m = () => GroupUse.meta(group, scope, { tenantWide: tenantWide(), members });
 
+  // One export button per format, doing whichever thing is on screen — two
+  // sets of buttons would mean two that are always wrong.
+  function exportAs(fmt) {
+    if (mode === "all") {
+      const sm = GroupUse.sweepMeta(sweepRes, sweepOpts());
+      if (fmt === "md") return download("Intune-group-sweep.md", GroupUse.sweepMarkdown(sweepRes, sm), "text/markdown");
+      if (fmt === "csv") return download("Intune-group-sweep.csv", GroupUse.sweepCsv(sweepRes), "text/csv");
+      return download("Intune-group-sweep.html", GroupUse.sweepHtml(sweepRes, sm), "text/html");
+    }
+    const n = safeName(group.displayName);
+    if (fmt === "md") return download(`Intune-assignments-${n}.md`, GroupUse.markdown(result, m()), "text/markdown");
+    if (fmt === "csv") return download(`Intune-assignments-${n}.csv`, GroupUse.csv(result, m()), "text/csv");
+    return download(`Intune-assignments-${n}.html`, GroupUse.html(result, m()), "text/html");
+  }
+
   function init() {
     if (!$("guAreas")) return;
     renderAreas();
+    $("guModeSeg").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-gumode]");
+      if (b) setMode(b.dataset.gumode);
+    });
     $("guRun").addEventListener("click", run);
     $("guReset").addEventListener("click", reset);
     $("guTerm").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
-    $("guMd").addEventListener("click", () => download(`Intune-assignments-${safeName(group.displayName)}.md`, GroupUse.markdown(result, m()), "text/markdown"));
-    $("guCsv").addEventListener("click", () => download(`Intune-assignments-${safeName(group.displayName)}.csv`, GroupUse.csv(result, m()), "text/csv"));
-    $("guHtml").addEventListener("click", () => download(`Intune-assignments-${safeName(group.displayName)}.html`, GroupUse.html(result, m()), "text/html"));
+    $("guMatchText").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
+    $("guMd").addEventListener("click", () => exportAs("md"));
+    $("guCsv").addEventListener("click", () => exportAs("csv"));
+    $("guHtml").addEventListener("click", () => exportAs("html"));
+    setMode("one");
   }
 
-  return { init, run, reset, renderAreas, chosen, tenantWide };
+  return { init, run, reset, renderAreas, chosen, tenantWide, setMode, sweepOpts, exportAs, getMode: () => mode };
 })();

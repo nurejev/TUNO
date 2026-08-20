@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10318"></script>
+<script src="js/popup-guard.js?v=10319"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10318">
+<link rel="stylesheet" href="css/app.css?v=10319">
 </head>
 <body>
 
@@ -81,7 +81,7 @@
     <div class="tools">
       <div class="tool" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Export as Markdown, CSV or a standalone HTML report.</p>
+        <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -302,15 +302,53 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
 
     <div class="list-card wi-form">
-      <div class="wi-grid">
+      <div class="seg" id="guModeSeg" style="margin-bottom:12px">
+        <button class="active" data-gumode="one">One group</button>
+        <button data-gumode="all">Sweep every group</button>
+      </div>
+
+      <div class="wi-grid" id="guOneWrap">
         <label class="wi-f"><span>Group <b class="req">*</b></span>
           <input id="guTerm" placeholder="Group name or object ID — press Enter to analyze…" autocomplete="off" spellcheck="false"></label>
       </div>
 
-      <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:10px">
+      <label class="chk" id="guTenantWideWrap" style="display:inline-flex;gap:8px;align-items:center;margin-top:10px">
         <input type="checkbox" id="guTenantWide"> Also show tenant-wide assignments <span class="mini muted">All Users / All Devices — they reach this group's members too</span>
       </label>
-      <p class="mini muted" style="margin:6px 0 0">Off by default because it is loud and it is the same answer for every group: a tenant-wide assignment is not <i>about</i> this group. It is on the list because the question an admin is usually asking — <b>what actually lands on these devices</b> — has a bigger answer than the group's own assignments, and nothing else on this page would tell them so.</p>
+      <p class="mini muted" id="guTenantWideNote" style="margin:6px 0 0">Off by default because it is loud and it is the same answer for every group: a tenant-wide assignment is not <i>about</i> this group. It is on the list because the question an admin is usually asking — <b>what actually lands on these devices</b> — has a bigger answer than the group's own assignments, and nothing else on this page would tell them so.</p>
+
+      <!-- ============ SWEEP ============
+           Ported from ENCA's sweep, with the Conditional Access scope replaced
+           by its Intune equivalent. Everything else is the same idea: read each
+           surface once, match every group against it. -->
+      <div id="guAllWrap" style="display:none">
+        <div class="wi-grid">
+          <label class="wi-f"><span>Groups in scope</span>
+            <select id="guScope">
+              <option value="intune">Only groups Intune assigns to</option>
+              <option value="100">First 100 groups</option>
+              <option value="250">First 250 groups</option>
+              <option value="500">First 500 groups</option>
+              <option value="0">Every group in the tenant</option>
+            </select></label>
+          <label class="wi-f"><span>Name filter <span class="mini muted">optional</span></span>
+            <div style="display:flex;gap:8px">
+              <select id="guMatchMode" style="flex:0 0 auto;width:130px">
+                <option value="starts">Starts with</option>
+                <option value="ends">Ends with</option>
+                <option value="contains">Contains</option>
+              </select>
+              <input id="guMatchText" placeholder="e.g. INT-DEV-" autocomplete="off" spellcheck="false" style="flex:1 1 auto;min-width:0">
+            </div></label>
+          <label class="wi-f"><span>&nbsp;</span>
+            <label class="chk" style="display:inline-flex;gap:6px;align-items:center;height:38px">
+              <input type="checkbox" id="guSweepDeep"> Walk group nesting</label></label>
+        </div>
+        <p class="mini muted" style="margin:8px 0 0"><b>Only groups Intune assigns to</b> takes the group ids off the assignments themselves, as they are read. There is <b>no <code>/groups</code> enumeration at all</b>, so it is the fastest scope and the one that matches what this tool is for. An id an assignment names but the directory no longer has is kept and flagged as a <b>dangling reference</b>: that assignment targets nobody, and it will go on doing so silently.</p>
+        <p class="mini muted" style="margin:8px 0 0"><b>It cannot find unused groups, and it does not pretend to.</b> Every group in that scope is used by definition — an empty unused list there is a tautology, not a finding. Finding groups nothing assigns to means enumerating groups, which is what the counted scopes do.</p>
+        <p class="mini muted" style="margin:8px 0 0">The name filter narrows which groups are <b>scanned</b>, so a prefix like <code>INT-DEV-</code> keeps a sweep of a 20 000-group tenant to the set you care about. It runs server-side where Graph supports the shape and falls back to filtering here if not — and the local check is always the final word, because <code>$search</code> matches tokens rather than substrings and returns more than it should.</p>
+        <p class="mini muted" style="margin:8px 0 0">A sweep reads each surface <b>once</b> and matches every group against it, so the cost barely grows with the number of groups. The exception is <b>group nesting</b>, which is asked group by group and batched twenty at a time — leave it off for a fast first pass. With it off, a group that only receives policy through a parent reads as zero, and the report says so.</p>
+      </div>
 
       <div style="margin-top:14px">
         <div class="mini" style="font-weight:600;margin-bottom:6px">Where to look <span class="mini muted" style="font-weight:400">— each asks for its own permission when it runs</span></div>
@@ -345,6 +383,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R04</span> 🔗 Group Analyzer <span class="tag grant">live · beta 10318</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">Name an Entra group, get everything Intune sends to its members across nine surfaces and twenty Graph endpoints. The machinery is ENCA's <b>T19</b> — source descriptors with their own scopes and runners, a flat hit shape, a failing source reported and never fatal, and ancestors rather than just the group itself. The Intune surface map and two behaviours come from <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a> (Ugur Koc). <b>Exclusions are read as assignments</b>: “this policy does not reach you” is the same question as “this policy reaches you”, and a report showing only inclusions is wrong half the time. <b>Tenant-wide targets are a toggle</b> — All Users and All Devices land on the group's members too, so the effective surface is larger than the group's own assignments; off by default because it is the same answer for every group, on the list because nothing else would say so. And the thing <i>neither</i> parent has, which the script's own notes call out as not evaluated: <b>nested group inheritance</b>, so an assignment reaching this group through a parent is included and names the parent it came through. A surface that could not be read is never shown as empty — it is shown as unknown, with the scope <i>and</i> the Intune RBAC role it would need.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The tenant sweep</b> (beta 10319) asks the same question of every group at once. A sweep reads each surface once and matches every group against it, so three hundred groups is still twenty reads. The default scope takes the ids off the assignments themselves and enumerates nothing — the fastest scope, and the one that <i>cannot</i> find unused groups, which the screen says where the choice is made rather than leaving an empty list to read as a clean bill of health. The counted scopes enumerate and can. Dangling references — an assignment naming a group the directory no longer has — are kept and flagged, because nothing in the portal will tell you.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped Intune-only, and that is a change from what this card used to promise.</b> It said the Entra areas would stay as context. They cannot: Conditional Access, group-based licensing, directory roles and access packages need scopes TUNO's registration does not hold and has no reason to. Half-reading them with the permissions to hand would be worse than not reading them, so the tool says so and points at <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>, which is signed in for exactly that.</p>
           </div>
         </div>
@@ -434,15 +473,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 </footer>
 
 <script src="vendor/msal-browser.min.js"></script>
-<script src="js/branding.js?v=10318"></script>
-<script src="js/version.js?v=10318"></script>
-<script src="js/promote.js?v=10318"></script>
-<script src="js/authConfig.js?v=10318"></script>
-<script src="js/changelog.js?v=10318"></script>
-<script src="js/msappcatalog.js?v=10318"></script>
-<script src="js/graph.js?v=10318"></script>
-<script src="js/groupuse.js?v=10318"></script>
-<script src="js/applocker.js?v=10318"></script>
-<script src="js/app.js?v=10318"></script>
+<script src="js/branding.js?v=10319"></script>
+<script src="js/version.js?v=10319"></script>
+<script src="js/promote.js?v=10319"></script>
+<script src="js/authConfig.js?v=10319"></script>
+<script src="js/changelog.js?v=10319"></script>
+<script src="js/msappcatalog.js?v=10319"></script>
+<script src="js/graph.js?v=10319"></script>
+<script src="js/groupuse.js?v=10319"></script>
+<script src="js/applocker.js?v=10319"></script>
+<script src="js/app.js?v=10319"></script>
 </body>
 </html>
