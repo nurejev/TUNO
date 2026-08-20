@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10329"></script>
+<script src="js/popup-guard.js?v=10330"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10329">
+<link rel="stylesheet" href="css/app.css?v=10330">
 </head>
 <body>
 
@@ -82,6 +82,10 @@
       <div class="tool" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. Export as Markdown, CSV or a standalone HTML report.</p>
+      </div>
+      <div class="tool" id="toolDevice">
+        <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>The same assignment graph, walked backwards from one machine: <b>why did THIS device get that policy?</b> Find it by name, serial or either of its two GUIDs, and see which of its own groups, which of its primary user's groups, or which tenant-wide target put each policy there. <b>The last check-in sits at the top of the answer</b>, because everything else is what Intune intends and a policy assigned minutes ago has not landed yet. Where the device has reported back, intended and actual sit in adjacent columns; where it has not, the state is unknown rather than assumed. Filtered assignments say <i>may</i> reach it — a browser cannot evaluate a filter rule, and this one does not pretend to. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
@@ -544,6 +548,48 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
   </section>
 
+  <!-- ============ INTUNE DEVICE ANALYZER (T06) ============
+       R04 read from the other end: one device, walked backwards through its
+       own group memberships and its primary user's, against the SAME nine
+       assignment surfaces T02 reads (GroupUse.SOURCES — one table, not two).
+       Tenant-wide targets are ON here, because All Devices reaches a device
+       whatever else is true. -->
+  <section id="screen-device" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🖥 Device analyzer <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Name one device and get the answer to “why did <i>this</i> machine get that policy”. The <b>Group Analyzer</b> asks what a group receives; this walks the same assignment graph backwards — the groups the device is in, the groups its primary user is in, and the tenant-wide targets that need no group at all — and says which of them put each policy here. <b>Reads only.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Everything here is what Intune INTENDS.</b> What the device actually has is whatever it collected the last time it talked to the service, so the last check-in sits at the top of the answer rather than in a details panel: a policy assigned ten minutes ago has not reached a machine that last synced yesterday. Where Graph reports what the device itself said — configuration and compliance state — that sits in its own column next to the assignment. Where it does not, or could not be read, the state is <b>unknown</b>, never “fine”.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>An assignment carrying a device filter is an open question and is shown as one.</b> The filter rule is evaluated by the service against inventory a browser cannot see, and Graph has no call that answers “would this filter include this device”. Those rows say <b>may reach it</b> and name the filter. They will never say yes.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <label class="wi-f" style="max-width:520px"><span>Device <span class="mini muted">name, serial number, Intune device id or Entra device id</span></span>
+        <input id="dvTerm" placeholder="e.g. LT-0042, 5CD1234ABC, or a GUID" autocomplete="off" spellcheck="false"></label>
+      <p class="mini muted" style="margin:6px 0 0">Matched exactly, in that order. Every machine has <b>two</b> GUIDs — the Intune device id and the Entra device id — and both are tried, because which one is on a support ticket is a coin toss. Filtering the device inventory server-side is not supported for every property on every tenant; when a filter is refused the inventory is listed and matched here instead, and the report says which route answered.</p>
+
+      <div style="margin:12px 0">
+        <div class="mini" style="font-weight:600;margin-bottom:6px">Where to look</div>
+        <div id="dvAreas" class="gu-areas"></div>
+      </div>
+
+      <label class="chk" style="display:inline-flex;gap:8px;align-items:center">
+        <input type="checkbox" id="dvTenantWide" checked> Include tenant-wide assignments <span class="mini muted">All Devices and All Users</span>
+      </label>
+      <p class="mini muted" id="dvTenantWideNote" style="margin:6px 0 0"><b>On by default here, unlike the Group Analyzer, and that is deliberate.</b> For a group an All Devices assignment is the same answer every time and says nothing about the group you asked about. For a <i>device</i> it is the answer: All Devices reaches this machine whatever else is true, so leaving those rows out would produce a report missing policy the device is definitely getting. All Users lands on the <i>person</i>, so on a device with no primary user it reaches nothing — and the row says so.</p>
+
+      <div class="tb-actions" style="margin-top:14px">
+        <button class="btn primary" id="dvRun">🖥 Analyze device</button>
+        <button class="btn" id="dvReset">Reset</button>
+        <button class="btn" id="dvMd" style="display:none">⭳ Markdown</button>
+        <button class="btn" id="dvCsv" style="display:none">⭳ CSV</button>
+        <button class="btn" id="dvHtml" style="display:none" title="Standalone HTML — opens for someone with no access to the tenant">⭳ HTML</button>
+      </div>
+      <div id="dvProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="dvBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -580,16 +626,19 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Redaction is not a setting.</b> This is the most widely circulated artefact TUNO produces — auditors, wikis, shared drives — and a script body, a certificate, a pre-shared key or an encrypted OMA-URI value in one of those is a disclosure that cannot be recalled. Every such field is replaced with a marker recording that a value <i>is set</i> without carrying it, and there is deliberately no switch to turn it off.</p>
             <p class="mini" style="margin:6px 0 0"><b>Reimplemented, not forked</b> — <a href="https://github.com/ugurkocde/IntuneDocumentation" target="_blank" rel="noopener">the original</a> is Elastic 2.0, which permits self-hosting but not offering the work as a service, so this is built from its published coverage list and shares none of its code. And unlike a backup, a policy whose settings could not be read is still <b>listed</b>, with the gap stated: a document that admits what it does not know is more useful than one missing the object entirely. <span class="tag">PDF next</span></p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R03</span> 🖥 Intune device analyzer <span class="tag grant">live · beta 10330</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">R04 read from the other end. Name a device — by name, serial, or either of the two GUIDs every machine has — and the same assignment graph is walked backwards: the groups the device itself is in, the groups its <b>primary user</b> is in, and the tenant-wide targets that name no group at all. Every row says which of those put the policy there. <b>The endpoint list is not a second copy</b>: T06 builds a match set and hands it to the Group Analyzer's own source table, because the first time somebody added a surface to one and not the other, this tool would have started reporting a device as unaffected by a workload it never looked at.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Tenant-wide targets are ON here, and that is the difference from R04 rather than a preference.</b> For a group, All Devices is the same answer every time and says nothing about the group you asked about. For a device it <i>is</i> the answer — All Devices reaches this machine whatever else is true — so leaving those rows out would produce a report missing policy the device is definitely getting. All Users lands on the person, so on a device with no primary user it reaches nothing, and the row says that rather than being quietly dropped.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Intended and actual are two columns, and the gap between them is the point.</b> Everything read from an assignment is what Intune intends; what the machine has is whatever it collected at its last check-in, so the check-in time is the first thing on the page and the report states plainly that a policy assigned minutes ago has not applied. Where <code>deviceConfigurationStates</code> and <code>deviceCompliancePolicyStates</code> answer, the device's own verdict sits beside the assignment. Where they 403, come back empty, or cannot be matched to a policy with certainty — two policies sharing a name is enough — the state is <b>unknown</b>. Never “fine” by omission.</p>
+            <p class="mini" style="margin:6px 0 0"><b>A filtered assignment is an open question and is shown as one.</b> The filter rule is evaluated by the service against inventory a browser cannot see, and there is no Graph call that answers “would this filter include this device”. Those rows say <i>may reach it</i> and name the filter; they never say yes. Reads <code>DeviceManagementManagedDevices.Read.All</code> and R04's scopes, plus <b>one new one</b>: <code>Device.Read.All</code>, because the Entra device object is not the Intune enrolment record and only the directory can say which groups a machine is in.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R03</span> 🖥 Intune device analyzer</h4>
-            <p class="mini" style="margin:0">The tuno.md original: pick a device and see which groups it is in, which policies land on it and why, and which apps it gets — the Intune counterpart of ENCA's per-user policy views. It is R04 read from the other end: the Group Analyzer answers “what does this group receive”, and the same assignment graph answers “why did THIS device get that policy” once you walk it backwards through the device's group memberships, its filters and the tenant-wide targets. Compliance state and the last check-in sit next to the answer, because the second question is always whether the policy has actually landed yet. Reads <code>DeviceManagementManagedDevices.Read.All</code> alongside R04's scopes.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R07</span> 🛡 Intune role assignments</h4>
@@ -639,6 +688,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       </div>
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
+        <h3 style="margin:14px 0 6px">🖥 Device analyzer</h3>
+        <p class="mini" style="margin:0 0 10px">The Group Analyzer asks what a group receives. This asks what one <i>device</i> receives, and why — walking the same nine assignment surfaces backwards through the groups the machine is in, the groups its primary user is in, and the tenant-wide targets that name no group. Every row names the relationship that put it there. Reads only.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Read the check-in first.</b> Every assignment here is what Intune intends; what the device has is whatever it collected the last time it talked to the service. A policy assigned ten minutes ago has not reached a machine that last synced yesterday, and no amount of correct assignment data changes that — so the check-in time is the first thing on the page.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Three answers this tool refuses to guess at.</b> ① A <b>filtered</b> assignment may or may not reach this device: the rule is evaluated by the service against inventory a browser cannot see, and Graph offers no call that answers it. Those rows say <i>may reach it</i>. ② A policy the device has not reported on has state <b>unknown</b>, not compliant — and where a reported state cannot be tied to a policy with certainty, because two policies share a name, that is unknown too. ③ Where a policy is <b>included through one group and excluded through another</b>, an exclusion wins in Intune and the row says excluded — except when the two arrive through different kinds of group, device against user, where whether the exclusion applies depends on how the policy is targeted and the assignment does not say. That one is called a conflict and left to the portal.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Tenant-wide assignments are shown by default here</b>, unlike in the Group Analyzer. All Devices reaches this machine whatever else is true, so hiding those rows would hide policy it is definitely getting. All Users lands on the person, so a device with no primary user does not receive them — and the row says so rather than being dropped.</p>
         <h3 style="margin:14px 0 6px">🕓 Change audit</h3>
         <p class="mini" style="margin:0 0 10px">Reads the tenant's own audit log and says who changed what, when, from where, and <b>which fields moved</b>. Two views over one read: policy changes with a severity on each, and all events with actor / activity / category / result filters. Filters apply to what has already been read, so changing one costs nothing. Reads only.</p>
         <p class="mini" style="margin:0 0 10px"><b>Thirty days is the whole log.</b> Intune keeps audit data for thirty days and then it is gone from the service — not archived, not slower to reach. There is deliberately no ninety-day window: it would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
@@ -688,18 +742,19 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10329"></script>
-<script src="js/version.js?v=10329"></script>
-<script src="js/promote.js?v=10329"></script>
-<script src="js/authConfig.js?v=10329"></script>
-<script src="js/changelog.js?v=10329"></script>
-<script src="js/msappcatalog.js?v=10329"></script>
-<script src="js/graph.js?v=10329"></script>
-<script src="js/groupuse.js?v=10329"></script>
-<script src="js/audit.js?v=10329"></script>
-<script src="js/backup.js?v=10329"></script>
-<script src="js/document.js?v=10329"></script>
-<script src="js/applocker.js?v=10329"></script>
-<script src="js/app.js?v=10329"></script>
+<script src="js/branding.js?v=10330"></script>
+<script src="js/version.js?v=10330"></script>
+<script src="js/promote.js?v=10330"></script>
+<script src="js/authConfig.js?v=10330"></script>
+<script src="js/changelog.js?v=10330"></script>
+<script src="js/msappcatalog.js?v=10330"></script>
+<script src="js/graph.js?v=10330"></script>
+<script src="js/groupuse.js?v=10330"></script>
+<script src="js/audit.js?v=10330"></script>
+<script src="js/backup.js?v=10330"></script>
+<script src="js/document.js?v=10330"></script>
+<script src="js/devicewhy.js?v=10330"></script>
+<script src="js/applocker.js?v=10330"></script>
+<script src="js/app.js?v=10330"></script>
 </body>
 </html>

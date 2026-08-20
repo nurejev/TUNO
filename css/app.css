@@ -1197,6 +1197,7 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 #guBody > .list-card,
 #auBody > .list-card,
 #bkBody > .list-card,
+#dvBody > .list-card,
 #dcBody > .list-card{padding:16px 18px}
 .gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
 .gu-who .mini{font-weight:400}

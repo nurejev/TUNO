@@ -49,6 +49,37 @@ const PROMOTE = {
 
   items: [
     {
+      n: 26,
+      title: "T06 — Intune device analyzer",
+      tools: ["🖥 Device analyzer"],
+      builds: [10330],
+      risk: "medium",
+      what: "A sixth tool, js/devicewhy.js: DeviceWhy (engine) + DeviceWhyTool (screen), a tile, a screen, a tab and an entry in HISTORY_SCREENS. Finds a managedDevice by name, serial, Intune device id or Entra device id, reads its Entra transitiveMemberOf via the /devices(deviceId='…') alternate key and the primary user's transitiveMemberOf, builds a via-map and hands it to GroupUse.analyze() with tenantWide forced on. Joins deviceConfigurationStates and deviceCompliancePolicyStates onto the rows for an INTENDED-versus-ACTUAL pair of columns, and computes a per-policy verdict where an exclusion beats an inclusion. Adds ONE scope, Device.Read.All, to graph.js, the registration script and SECURITY.md.",
+      why: "MEDIUM — nothing breaks in production without it, but two things in it can only be judged against a real tenant. FIRST, $filter support on managedDevices is not documented per property and tenants differ; the code tries each filter on its own, records refusals, and falls back to listing the inventory. Nobody has yet seen which branch a real tenant takes. SECOND, matching a reported state to a policy is heuristic — the state record's id usually carries the policy id and displayName is the only other handle — so a tenant with duplicate policy names is the case that decides whether 'ambiguous, therefore unknown' is the right call or too conservative. It graduates when someone has used it to settle a real 'why has this laptop not got the policy' ticket.",
+      test: [
+        "THE ONE THAT MATTERS: take a device you KNOW should be getting a policy through a group, and confirm the row appears and names that group. Then take one you know is excluded, and confirm it says Excluded rather than being absent — an exclusion missing from this report is indistinguishable from a policy that was never assigned.",
+        "Find the same device four ways — display name, serial number, Intune device id, Entra device id — and confirm all four land on the same record. If the Entra device id path 404s, the alternate-key lookup is wrong; if it returns a different device, something worse is.",
+        "Check the line under the result that says how it was matched. On a tenant where $filter on serialNumber is refused, it must say the inventory was listed and how many devices were read. If a serial lookup is silently slow with no explanation, that message is not firing.",
+        "Search for a device that does not exist. It must say no device matches, and — if the scan stopped at ten pages — that it stopped, with the count. A bare 'not found' after a truncated scan is a lie.",
+        "Read the last check-in at the top against the same figure in the Intune portal. Then assign something new to the device's group and re-run WITHOUT waiting: every row must still be there and the check-in note must still be telling you it has not landed. That note is the point of the whole panel.",
+        "Find a policy the device reports as non-compliant and confirm the Reported column says so next to an assignment that says it reaches the device. Intended and actual disagreeing is the case this tool exists for.",
+        "Now the negative: find a policy assigned to the device that the device has NOT reported on, and confirm the state reads unknown with 'the device has not reported this policy' — not blank, and certainly not compliant.",
+        "Deliberately run as an account WITHOUT Device.Read.All consented. The device's own group memberships must come back as UNKNOWN, with a note saying policy assigned to a device group is not in the report, and the primary user's half must still work. If it silently shows zero device groups, the whole tool is quietly lying.",
+        "Create two policies with the SAME display name, both reaching the device. Their reported state must read unknown, and the report must carry the line saying a name matched more than one policy. Guessing here would attribute one policy's failure to the other.",
+        "Find or create a filtered assignment reaching the device's group. The row must say 'may reach it' and name the filter, and the caveat must appear. If it ever says the policy definitely applies, the filter has been evaluated by something that cannot evaluate filters.",
+        "A device with no primary user (a kiosk, a shared device): confirm All Users rows say they reach nobody here, and that the caveat about user-targeted policy appears.",
+        "Export all three formats and check the check-in caveat is in every one. A report circulated without it is an assignment list somebody will read as a confirmation.",
+        "NOT COVERED BY THE HEADLESS TESTS: whether Graph's per-device state ids really do carry the policy id. The suite proves the matching rule, using ids shaped the way the API documents them. Only a tenant proves the shape.",
+      ],
+      staying: [
+        "No per-setting drill-down. deviceConfigurationStates carries settingStates, and showing which individual setting failed is the obvious next thing — it is also a second N+1 and a much longer screen, and the policy-level answer is what a ticket actually needs.",
+        "No 'sync now'. This tool reads; making it able to poke a device would give a read-only tool a write scope for one button.",
+        "No device search by partial name. Names, serials and ids match exactly, because a partial match over an inventory that cannot be filtered server-side means listing the whole estate to be helpful, and a wrong device confidently analysed is worse than a miss.",
+        "Conditional Access is not here. It reaches this device too, and it needs scopes TUNO has no reason to hold — that is ENCA's half, as it is for T02.",
+      ],
+      files: ["js/devicewhy.js", "js/graph.js", "js/app.js", "index.html", "New-TunoAppRegistration.ps1", "SECURITY.md", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 25,
       title: "T05 — the platform list is fixed, with counts",
       tools: ["📄 Configuration documenter"],

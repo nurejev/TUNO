@@ -83,6 +83,12 @@ const Graph = (() => {
     devices: ["DeviceManagementManagedDevices.Read.All"],
     service: ["DeviceManagementServiceConfig.Read.All"],
     rbac: ["DeviceManagementRBAC.Read.All"],
+    // The ENTRA device object, which is not the Intune managedDevice record.
+    // Intune's own scope reads the enrolment; only the directory can say which
+    // groups a machine is in, and T06 answers "why did this device get that
+    // policy" by walking exactly that. Added at build 10330 with the tool that
+    // needs it — the registration script's rule, not an exception to it.
+    deviceObjects: ["Device.Read.All"],
     groups: ["Group.Read.All"],
     groupMembers: ["GroupMember.Read.All"],
     directory: ["User.Read.All", "Group.Read.All"],
