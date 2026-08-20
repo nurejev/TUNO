@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10340"></script>
+<script src="js/popup-guard.js?v=10341"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10340">
+<link rel="stylesheet" href="css/app.css?v=10341">
 </head>
 <body>
 
@@ -696,6 +696,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Two routes, and the difference is not a detail.</b> <b>Backup-mediated</b>: export tenant A with <span class="rm-ref">R08</span>, sign into tenant B, restore the archive — which is really <span class="rm-ref">R09</span> with a file that came from somewhere else, needs one sign-in at a time, and leaves an artefact on disk that says exactly what was copied. <b>Live</b>: both tenants signed in at once, read from A and write to B in one act. TenuVault supports both and so should this — but the backup-mediated route is the one that should exist first, because it is the one that cannot surprise you.</p>
             <p class="mini" style="margin:6px 0 0"><b>THE LIVE ROUTE BREAKS AN ASSUMPTION THE WHOLE APP RESTS ON.</b> TUNO holds one signed-in account. Every safety rule it has — the collision stop, the member count before an assignment, the tenant named in a backup manifest — assumes you are looking at the tenant you are changing. Live sync means two accounts in two tenants held at the same time, and a mistake is no longer a duplicate policy in the tenant in front of you; it is configuration created in the <i>wrong tenant</i>, quite possibly a customer's. MSAL can hold two accounts and the browser can carry both tokens, so this is buildable — but it needs the source and the target named, in words, on screen, at every step, and a confirmation that types the target tenant's domain rather than clicking a button. It is the sharpest edge on this roadmap and it should be built last.</p>
             <p class="mini" style="margin:6px 0 0"><b>What cannot travel, said here rather than found at the far end.</b> <b>Assignments do not copy</b> — a group id means nothing in another tenant, and one that happens to resolve there is worse than one that fails, so they are dropped and the report says which policies arrived unassigned. <b>Secrets do not copy</b>, for the same reason they are absent from a backup: Graph never returned them. Anything referencing a certificate, a Wi-Fi key or an encrypted setting arrives configured-but-incomplete and must be finished by hand, and the report will name every one. Objects that cannot be recreated at all — default and singleton enrolment configurations — are reported as skipped rather than attempted, which TenuVault learned the same way.</p>
+            <p class="mini" style="margin:6px 0 0"><p class="mini" style="margin:6px 0 0"><b>And the shortcut that will be tempting here is not available.</b> TenuVault signs in with no app registration at all by borrowing Microsoft's own Graph PowerShell client id — sound for a locally installed binary, and impossible for a web page: that application is registered as a public client with a <code>localhost</code> redirect, a browser needs a redirect URI of type single-page application, and Entra refuses the cross-origin token redemption outright. It could not be added either, since the application is Microsoft's. It would also be wrong if it worked — the consent record in a customer's tenant would name Graph PowerShell rather than TUNO, and every read would appear in the sign-in log as Microsoft's tool rather than this one. <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a> sets out the reasoning; the short version is that syncing between tenants means <b>two</b> consent records, both of which have to be real.</p>
             <p class="mini" style="margin:6px 0 0"><b>The rules from <span class="rm-ref">R09</span> apply unchanged, plus one of TenuVault's own:</b> create only, never patch or delete; a name prefix on everything created; a dry run listing every operation before anything is sent. And <b>a prefix-free sync is refused when source and target are the same tenant</b> — because at that point it is not a sync, it is a silent duplication of your own configuration, and TenuVault refuses it for exactly that reason.</p>
           </div>
           <div class="list-card rm-card">
@@ -836,20 +837,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10340"></script>
-<script src="js/version.js?v=10340"></script>
-<script src="js/promote.js?v=10340"></script>
-<script src="js/authConfig.js?v=10340"></script>
-<script src="js/changelog.js?v=10340"></script>
-<script src="js/msappcatalog.js?v=10340"></script>
-<script src="js/graph.js?v=10340"></script>
-<script src="js/groupuse.js?v=10340"></script>
-<script src="js/audit.js?v=10340"></script>
-<script src="js/backup.js?v=10340"></script>
-<script src="js/document.js?v=10340"></script>
-<script src="js/devicewhy.js?v=10340"></script>
-<script src="js/roles.js?v=10340"></script>
-<script src="js/applocker.js?v=10340"></script>
-<script src="js/app.js?v=10340"></script>
+<script src="js/branding.js?v=10341"></script>
+<script src="js/version.js?v=10341"></script>
+<script src="js/promote.js?v=10341"></script>
+<script src="js/authConfig.js?v=10341"></script>
+<script src="js/changelog.js?v=10341"></script>
+<script src="js/msappcatalog.js?v=10341"></script>
+<script src="js/graph.js?v=10341"></script>
+<script src="js/groupuse.js?v=10341"></script>
+<script src="js/audit.js?v=10341"></script>
+<script src="js/backup.js?v=10341"></script>
+<script src="js/document.js?v=10341"></script>
+<script src="js/devicewhy.js?v=10341"></script>
+<script src="js/roles.js?v=10341"></script>
+<script src="js/applocker.js?v=10341"></script>
+<script src="js/app.js?v=10341"></script>
 </body>
 </html>
