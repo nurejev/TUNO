@@ -49,6 +49,30 @@ const PROMOTE = {
 
   items: [
     {
+      n: 18,
+      title: "Incremental consent actually prompts, and asks once per run",
+      tools: ["All tools", "🔗 Group Analyzer"],
+      builds: [10322],
+      risk: "high",
+      what: "Two bugs that between them made every Intune read fail with no prompt shown. (1) token()'s interaction test looked for interaction_required / consent_required / login_required and missed AADSTS65001 / invalid_grant — the error that IS the consent error — so it threw instead of falling through to the popup. needsInteraction() now covers those plus the MFA step-up codes, and prefers MSAL's InteractionRequiredAuthError where available. (2) Scopes were requested lazily per surface, so a nine-surface sweep wanted nine popups several awaits deep, where a browser blocks all but the first. New Graph.ensureScopes(scopes) asks once at the top of the click for everything the run needs; T02 calls it before reading anything. Also: AADSTS90094 is now classified as admin BEFORE the consent test (it contains the word 'consent', so the old order caught it as a declined prompt), popup-blocked is detected and named, and a granted-scope cache from the token's scp claim short-circuits the check on repeat runs.",
+      why: "HIGH, and it is the first high on this queue. Every tool that reads a tenant is unusable on main without it — not degraded, unusable: the read fails and the user is never offered the consent that would fix it. T01's deploy path shares token() and is exposed to the same miss on its write scope. This is also the one item where the headless tests can only prove the classification, not the flow: no test can open a real consent dialog. It graduates when a NEW tenant, one that has never consented to TUNO, completes a sweep after a single prompt.",
+      test: [
+        "THE ONE THAT MATTERS, and it needs a tenant that has never consented to TUNO: sign in, run a sweep with all nine surfaces, and confirm ONE consent prompt appears listing all the scopes, and that the sweep then completes. Before this build that prompt never appeared at all.",
+        "Count the prompts. If a second one appears mid-run, something is still asking lazily and the browser will block it on a slower connection even if it worked here.",
+        "Decline the prompt. The run must stop, say consent was not granted, offer the admin-consent link, and read NOTHING — no page of surfaces marked unreadable.",
+        "Sign in as a non-admin in a tenant where these scopes need admin consent. The message must say an administrator is needed and must NOT tell them to retry and accept — retrying can never work for them.",
+        "Untick all but one surface and run. Only that surface's scope may be in the prompt. If all nine appear, the per-run granularity is gone and consent is being asked for things the run will not use.",
+        "Run a sweep, then run it again without reloading. The second must not prompt at all — the granted-scope cache should short-circuit it.",
+        "Block pop-ups for the site and run. It must say the browser blocked the window, not that the tenant refused.",
+        "RUN T01 STEP 5 AGAIN. token() was changed underneath it: a broader interaction test means a write can now trigger a consent popup where it previously threw. Confirm the deploy still works and still asks for the write scope on the click.",
+        "NOT COVERED BY THE HEADLESS TESTS: the popup itself. The suite proves which errors are classified as needing interaction and that consent is requested once before any read, against a stubbed MSAL. It cannot prove a real browser shows one dialog.",
+      ],
+      staying: [
+        "Scopes are still never requested at sign-in. That rule is untouched; only the moment within the click moved.",
+      ],
+      files: ["js/graph.js", "js/groupuse.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 17,
       title: "One column width for the whole app, and Help in reading order",
       tools: ["All tools", "🔐 AppLocker builder & validator"],

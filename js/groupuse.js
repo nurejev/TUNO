@@ -919,9 +919,21 @@ const GroupUseTool = (() => {
     ["guMd", "guHtml", "guCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
   }
 
-  function fail(msg) {
-    $("guBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc(msg)}</b></div></div>`;
+  // One failure renderer for both modes. A consent refusal is the failure this
+  // tool hits most, and it is the one where the next step is a link rather
+  // than a retry — so the link belongs here rather than in one branch.
+  function fail(e) {
+    const err = (typeof e === "string") ? null : e;
+    const msg = err ? GroupUse.shortErr(err, 400) : String(e);
+    let extra = "";
+    if (err && err.kind === "admin") {
+      extra = `<p class="mini" style="margin:8px 0 0">This needs an administrator to consent once for the whole tenant. ${err.consentUrl ? `<a href="${esc(err.consentUrl)}" target="_blank" rel="noopener">Open the admin-consent page →</a>` : ""}</p>`;
+    } else if (err && err.kind === "consent") {
+      extra = `<p class="mini" style="margin:8px 0 0">Nothing was read. Run it again and accept the permission prompt${err.consentUrl ? `, or have an administrator <a href="${esc(err.consentUrl)}" target="_blank" rel="noopener">consent for the tenant</a>` : ""}.</p>`;
+    }
+    $("guBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc(msg)}</b></div>${extra}</div>`;
     showExports(false);
+    prog("");
   }
 
   // ---------------------------------------------------------------- mode --
@@ -950,10 +962,26 @@ const GroupUseTool = (() => {
     inheritance: $("guSweepDeep").checked,
   });
 
+  // Everything a run will need, asked for once before it reads anything. A
+  // sweep of nine surfaces used to want nine popups, several awaits deep,
+  // where the browser blocks all but the first.
+  async function consentFor(areas, extra) {
+    const want = [...new Set([...GroupUse.scopesFor(areas), ...(extra || [])])];
+    prog(`Checking permissions — ${want.length} scope${want.length === 1 ? "" : "s"}…`);
+    await Graph.ensureScopes(want);
+  }
+
   async function runSweep() {
     const areas = chosen();
     if (!areas.length) { fail("Pick at least one place to look."); return; }
     const o = sweepOpts();
+    // The sweep needs group reads on top of the surfaces: naming the ids it
+    // finds, or enumerating groups, and the nesting lookups when asked for.
+    await consentFor(areas, [
+      ...Graph.SCOPES.groups,
+      ...(o.scope === "intune" ? Graph.SCOPES.directory : []),
+      ...(o.inheritance ? Graph.SCOPES.groupMembers : []),
+    ]);
     sweepRes = await GroupUse.sweep({ ...o, sourceIds: areas, onStatus: prog });
     prog("");
     renderSweep(o);
@@ -964,7 +992,7 @@ const GroupUseTool = (() => {
     if (mode === "all") {
       running = true; $("guRun").disabled = true; showExports(false); $("guBody").innerHTML = "";
       try { await runSweep(); showExports(true); }
-      catch (e) { fail(GroupUse.shortErr(e, 400)); prog(""); }
+      catch (e) { fail(e); }
       finally { running = false; $("guRun").disabled = false; }
       return;
     }
@@ -978,6 +1006,7 @@ const GroupUseTool = (() => {
     showExports(false);
     $("guBody").innerHTML = "";
     try {
+      await consentFor(areas, [...Graph.SCOPES.groups, ...Graph.SCOPES.groupMembers]);
       prog("Finding the group…");
       group = await GroupUse.resolveGroup(term);
       prog(`Reading membership of “${group.displayName}”…`);
@@ -994,14 +1023,9 @@ const GroupUseTool = (() => {
       render();
       showExports(true);
     } catch (e) {
-      // A GraphError already carries the tenant's own words; anything else is
-      // ours and is shown as-is rather than wrapped in a shrug.
-      fail(GroupUse.shortErr(e, 400));
-      if (e && e.consentUrl) {
-        $("guBody").insertAdjacentHTML("beforeend",
-          `<div class="list-card"><p class="mini">This needs an administrator to consent for the tenant. <a href="${esc(e.consentUrl)}" target="_blank" rel="noopener">Open the admin-consent page →</a></p></div>`);
-      }
-      prog("");
+      // A GraphError already carries the tenant's own words and its kind;
+      // fail() turns that into the right next step rather than a shrug.
+      fail(e);
     } finally {
       running = false;
       $("guRun").disabled = false;
