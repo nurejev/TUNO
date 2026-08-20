@@ -357,7 +357,7 @@ const BackupTool = (() => {
     const stat = (n, l, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(l)}</span>`;
     const kb = Math.round(s.bytes / 1024);
 
-    const head = `<div class="list-card gu-sticky">
+    const head = `<div class="gu-sticky">
       <span class="gu-who">${esc(out.folder)}
         <span class="mini muted">${s.areas} area${s.areas === 1 ? "" : "s"} read · about ${kb} KB before compression</span></span>
       <div class="gu-sum">

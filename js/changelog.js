@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10326, date: "2026-08-19", title: "The summary strips stop wearing a box",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The sticky summary strip at the top of Group use, Change audit, Backup and Documenter was marked as a card as well as a strip. A card draws a border; the strip sets its own padding to nothing horizontally, because it is meant to sit on the page background rather than inside a frame. Together that produced a box with its heading and its numbers pressed against the frame. It is a bare strip now, which is what ENCA has always had and what the styling was written for. It also follows the measured height of the header and tab bar instead of assuming they come to 106 pixels." },
+      { kind: "fixed", tool: "All tools", text: "The result cards in those same four tools had no padding at all, so their prose ran to the border on both sides. Cards in this app carry no padding of their own \u2014 every one sets its own \u2014 and these four never did. One rule now covers them, so the text is inset and the tables inside inset with it." },
+      { kind: "improved", tool: "All tools", text: "The summary pills are more compact: tighter padding, smaller type, less space between them. Four numbers do not need the height of a button. The figure is still larger than its label, so the number still leads." },
+    ],
+  },
+  {
     build: 10325, date: "2026-08-20", title: "Read it, browse it, write it down",
     items: [
       { kind: "new", tool: "📄 Configuration documenter", text: "The fifth tool, and it does two jobs from one read. The list is the one you use on a Tuesday: every policy in the tenant on one page, filterable by name, by any setting inside it, by platform and by whether it is assigned to anything at all, with the settings expandable underneath and assignments resolved to group names rather than left as identifiers. The document is the thing an auditor asks for and nobody has. They are one tool because reading thirteen surfaces twice would be absurd — you browse what you are about to document, and document what you have just browsed." },

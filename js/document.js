@@ -736,7 +736,7 @@ const DocsTool = (() => {
     const shown = sections.reduce((n, x) => n + x.items.length, 0);
     const stat = (n, l, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(l)}</span>`;
 
-    const head = `<div class="list-card gu-sticky">
+    const head = `<div class="gu-sticky">
       <span class="gu-who">Tenant configuration
         <span class="mini muted">${shown} of ${s.total} object${s.total === 1 ? "" : "s"} shown · ${s.sections} section${s.sections === 1 ? "" : "s"} read</span></span>
       <div class="gu-sum">

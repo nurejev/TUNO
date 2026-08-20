@@ -49,6 +49,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 22,
+      title: "The summary strips and result cards get their spacing back",
+      tools: ["\ud83d\udc65 Group use", "\ud83d\udd53 Change audit", "\ud83d\udcbe Backup", "\ud83d\udcc4 Documenter"],
+      builds: [10326],
+      risk: "low",
+      what: "The sticky summary strip in T02-T05 carried class=\"list-card gu-sticky\". .gu-sticky sets padding:10px 0 because it is a strip on the page background \u2014 ENCA's markup is a bare div \u2014 so adding a card's border round it framed the heading and pills with no horizontal inset. The card class is gone from all five call sites. .gu-sticky also moves from a hardcoded top:106px to var(--sticky-nav). Separately, .list-card carries no padding of its own and the four newer tools never set any, so #guBody/#auBody/#bkBody/#dcBody direct-child cards now get 16px 18px. And .gu-stat is compacted: padding 4px 12px to 2px 10px, 12.5px to 12px, figure 14px to 13px, gap 8px to 6px.",
+      why: "LOW \u2014 CSS and one class name removed from five markup strings; no logic anywhere. It graduates on sight across the four tools, which is four screens rather than one, and the padding rule is scoped by id so a fifth tool added later will need adding to it.",
+      test: [
+        "Open Group use, Change audit, Backup and Documenter in turn and run each one. The summary strip must read as a strip on the page, not a bordered box, with its heading and pills clear of the edges. Four screens, one change \u2014 but look at all four, because the id-scoped padding rule covers exactly these four and nothing else.",
+        "Scroll each tool with results on screen: the strip must stick BELOW the header and tab bar, not behind them. That is the same class of bug this build fixes in a second place, so it is worth watching rather than assuming.",
+        "THE ONE TO WATCH: confirm no card ANYWHERE ELSE moved. .list-card still carries no padding of its own and every other card in the app sets its own inline \u2014 if T01, Help, the Roadmap or What's new have shifted, the rule is not as scoped as it looks.",
+        "Read the pills at their new size on a normal display and on a scaled one. If the figures are now hard to pick out from their labels, the compaction went too far and .gu-stat b should go back up a point.",
+        "Check a strip with a failure pill in it (make a surface fail to read) \u2014 the red-bordered variant must still be legible at the smaller size.",
+      ],
+      files: ["css/app.css", "js/groupuse.js", "js/audit.js", "js/backup.js", "js/document.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 21,
       title: "T05 — Configuration documenter (browse + Markdown/HTML/Word)",
       tools: ["📄 Configuration documenter"],
