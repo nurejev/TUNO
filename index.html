@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10339"></script>
+<script src="js/popup-guard.js?v=10340"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10339">
+<link rel="stylesheet" href="css/app.css?v=10340">
 </head>
 <body>
 
@@ -691,6 +691,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="rm-era later">
           <h3>Later</h3>
           <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R17</span> 🔁 Tenant sync — copy configuration between tenants <span class="tag block">would write to the tenant</span></h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a>'s sync (Ugur Koc, MIT). Take configuration from one tenant and create it in another — whole types or named policies — for the jobs nobody has a good answer to today: standing up a new customer from a known-good baseline, keeping a pilot tenant and production in step, and lifting a policy set out of a tenant that is being decommissioned. A managed-service provider does this by hand, in the portal, once per tenant, and it is the single most repetitive thing in the job.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two routes, and the difference is not a detail.</b> <b>Backup-mediated</b>: export tenant A with <span class="rm-ref">R08</span>, sign into tenant B, restore the archive — which is really <span class="rm-ref">R09</span> with a file that came from somewhere else, needs one sign-in at a time, and leaves an artefact on disk that says exactly what was copied. <b>Live</b>: both tenants signed in at once, read from A and write to B in one act. TenuVault supports both and so should this — but the backup-mediated route is the one that should exist first, because it is the one that cannot surprise you.</p>
+            <p class="mini" style="margin:6px 0 0"><b>THE LIVE ROUTE BREAKS AN ASSUMPTION THE WHOLE APP RESTS ON.</b> TUNO holds one signed-in account. Every safety rule it has — the collision stop, the member count before an assignment, the tenant named in a backup manifest — assumes you are looking at the tenant you are changing. Live sync means two accounts in two tenants held at the same time, and a mistake is no longer a duplicate policy in the tenant in front of you; it is configuration created in the <i>wrong tenant</i>, quite possibly a customer's. MSAL can hold two accounts and the browser can carry both tokens, so this is buildable — but it needs the source and the target named, in words, on screen, at every step, and a confirmation that types the target tenant's domain rather than clicking a button. It is the sharpest edge on this roadmap and it should be built last.</p>
+            <p class="mini" style="margin:6px 0 0"><b>What cannot travel, said here rather than found at the far end.</b> <b>Assignments do not copy</b> — a group id means nothing in another tenant, and one that happens to resolve there is worse than one that fails, so they are dropped and the report says which policies arrived unassigned. <b>Secrets do not copy</b>, for the same reason they are absent from a backup: Graph never returned them. Anything referencing a certificate, a Wi-Fi key or an encrypted setting arrives configured-but-incomplete and must be finished by hand, and the report will name every one. Objects that cannot be recreated at all — default and singleton enrolment configurations — are reported as skipped rather than attempted, which TenuVault learned the same way.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The rules from <span class="rm-ref">R09</span> apply unchanged, plus one of TenuVault's own:</b> create only, never patch or delete; a name prefix on everything created; a dry run listing every operation before anything is sent. And <b>a prefix-free sync is refused when source and target are the same tenant</b> — because at that point it is not a sync, it is a silent duplication of your own configuration, and TenuVault refuses it for exactly that reason.</p>
+          </div>
+          <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R15</span> 📦 Backup, widened and checkable</h4>
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a> (MIT), which backs up <b>twenty-seven</b> policy types where <span class="rm-ref">R08</span> covers five. The missing twenty-two are not obscure: security-baseline intents, Autopilot profiles, enrolment configurations, feature, quality and driver update profiles, macOS custom-attribute scripts, assignment filters, scope tags, device categories, terms and conditions, notification templates, app configuration for devices and for managed apps, app protection for iOS, Android and Windows, Windows Information Protection, and app categories. Most of them TUNO already <i>reads</i> somewhere — <span class="rm-ref">R06</span> documents thirteen surfaces — so the gap is the archive, not the plumbing.</p>
             <p class="mini" style="margin:6px 0 0"><b>And an archive you can check.</b> TenuVault writes a SHA-256 per policy file and a <code>verify</code> that reports modified, missing and untracked files — entirely offline, no tenant. An archive nobody can verify is a file you hope is a backup. <b>Its atomicity trick is worth copying exactly</b>: <code>metadata.json</code> is written LAST, so its presence is what marks a backup complete, and a folder without one is hidden rather than offered. TUNO builds its zip in memory and hands it to the browser in one act, so a half-written archive is less likely — but "less likely" is not "cannot", and a manifest that only exists when the run finished is a better guarantee than a promise.</p>
@@ -809,7 +817,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <li><b><a href="https://github.com/Stuk/jszip" target="_blank" rel="noopener">JSZip</a></b> — by <b>Stuart Knightley</b>. Writes the archive in <span class="rm-ref">R08</span> without a server to zip it. Bundled in <code>vendor/</code> rather than loaded from a CDN, so the page's content-security policy can keep refusing every origin but Microsoft's. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R11</span>, <span class="rm-ref">R12</span> and <span class="rm-ref">R14</span>. Most of its assignment reading TUNO already does, which is worth saying plainly; what it has that nothing here does is the <b>simulation</b> — what a user or device would gain and lose by joining or leaving a group — and the idea that an assignment reaching an empty group is a finding rather than a row. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a></b> — by <b>Maxime Guillemin</b>. Behind <span class="rm-ref">R13</span>. A WPF application for bulk assignment editing across every policy, app and script type, with backup and restore of the assignments alone. The surface map is his; the write discipline TUNO would put around it is not. Licensed <b>MIT</b>.</li>
-          <li><b><a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R15</span> and <span class="rm-ref">R16</span>, and two rules borrowed into <span class="rm-ref">R09</span>. Twenty-seven policy types, a checksum per file with an offline verify, and a comparison between two archives that needs no tenant. The idea worth stealing outright is the smallest one: write the manifest LAST, so its presence is what proves the backup finished. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R15</span>, <span class="rm-ref">R16</span> and <span class="rm-ref">R17</span>, and two rules borrowed into <span class="rm-ref">R09</span>. Twenty-seven policy types, a checksum per file with an offline verify, and a comparison between two archives that needs no tenant. The idea worth stealing outright is the smallest one: write the manifest LAST, so its presence is what proves the backup finished. Licensed <b>MIT</b>.</li>
         </ul>
         <p class="mini" style="margin:8px 0 0">All are independently reimplemented here in browser-side JavaScript against Microsoft Graph — <b>no code was copied</b>, and where TUNO departs from an original the roadmap card says so rather than leaving you to find out. TUNO's own machinery — the shell, the tab bar, incremental consent, the changelog and promotion discipline — comes from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>.</p>
       </div>
@@ -828,20 +836,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10339"></script>
-<script src="js/version.js?v=10339"></script>
-<script src="js/promote.js?v=10339"></script>
-<script src="js/authConfig.js?v=10339"></script>
-<script src="js/changelog.js?v=10339"></script>
-<script src="js/msappcatalog.js?v=10339"></script>
-<script src="js/graph.js?v=10339"></script>
-<script src="js/groupuse.js?v=10339"></script>
-<script src="js/audit.js?v=10339"></script>
-<script src="js/backup.js?v=10339"></script>
-<script src="js/document.js?v=10339"></script>
-<script src="js/devicewhy.js?v=10339"></script>
-<script src="js/roles.js?v=10339"></script>
-<script src="js/applocker.js?v=10339"></script>
-<script src="js/app.js?v=10339"></script>
+<script src="js/branding.js?v=10340"></script>
+<script src="js/version.js?v=10340"></script>
+<script src="js/promote.js?v=10340"></script>
+<script src="js/authConfig.js?v=10340"></script>
+<script src="js/changelog.js?v=10340"></script>
+<script src="js/msappcatalog.js?v=10340"></script>
+<script src="js/graph.js?v=10340"></script>
+<script src="js/groupuse.js?v=10340"></script>
+<script src="js/audit.js?v=10340"></script>
+<script src="js/backup.js?v=10340"></script>
+<script src="js/document.js?v=10340"></script>
+<script src="js/devicewhy.js?v=10340"></script>
+<script src="js/roles.js?v=10340"></script>
+<script src="js/applocker.js?v=10340"></script>
+<script src="js/app.js?v=10340"></script>
 </body>
 </html>
