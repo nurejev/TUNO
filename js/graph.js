@@ -115,6 +115,45 @@ const Graph = (() => {
     return `https://login.microsoftonline.com/organizations/adminconsent?client_id=${cid}&redirect_uri=${uri}`;
   }
 
+  // Which scopes this session has actually been granted, read from the scp
+  // claim of every token that comes back. Lets a caller check BEFORE starting
+  // a long run whether it is about to need a popup — synchronously, so the
+  // check can be the first statement of a click handler.
+  const granted = new Set();
+  const scopeName = (s) => String(s).replace(/^https?:\/\/[^/]+\//i, "").toLowerCase();
+  function noteScopes(accessToken) {
+    try {
+      const p = JSON.parse(atob(String(accessToken).split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      (p.scp || "").split(" ").filter(Boolean).forEach((s) => granted.add(scopeName(s)));
+    } catch { /* opaque or malformed token — leave the cache alone */ }
+  }
+  const hasScopes = (scopes) => (scopes || []).every((s) => granted.has(scopeName(s)));
+
+  // DOES THIS ERROR MEAN "ASK THE USER"?
+  //
+  // Getting this wrong is not a small bug: answer no to an error that means
+  // yes and the app reports a permission failure for something the user was
+  // never given the chance to grant. That is exactly what happened — every
+  // Intune scope came back
+  //
+  //   invalid_grant: AADSTS65001: The user or administrator has not consented
+  //
+  // which is THE consent error, and the old test looked only for
+  // interaction_required / consent_required / login_required. AADSTS65001 and
+  // invalid_grant matched none of them, so nine surfaces reported "could not
+  // be read" without one prompt being shown.
+  //
+  // MSAL's own InteractionRequiredAuthError is checked first where available;
+  // the string tests are the fallback for the shapes it does not wrap.
+  function needsInteraction(e) {
+    if (!e) return false;
+    if (typeof msal !== "undefined" && msal.InteractionRequiredAuthError && e instanceof msal.InteractionRequiredAuthError) return true;
+    const s = `${(e.errorCode || "")} ${(e.name || "")} ${(e.message || "")}`;
+    return /interaction_required|consent_required|login_required|no_tokens_found|InteractionRequired|invalid_grant/i.test(s)
+      || /AADSTS65001|AADSTS50076|AADSTS50079|AADSTS16002|AADSTS50058/i.test(s)
+      || /has not consented|monitor_window_timeout/i.test(s);
+  }
+
   // Silent first, popup only when the tenant actually needs to be asked.
   // A popup that appears without a click is blocked by the browser and reads
   // as the app being broken, so every caller is a click handler.
@@ -122,22 +161,70 @@ const Graph = (() => {
     if (!signedIn()) throw new GraphError("auth", "Not signed in. Sign in with an account in the tenant you want to change.");
     const req = { scopes, account: account() };
     try {
-      return (await app().acquireTokenSilent(req)).accessToken;
+      const r = await app().acquireTokenSilent(req);
+      noteScopes(r.accessToken);
+      return r.accessToken;
     } catch (e) {
       const code = (e && (e.errorCode || e.name)) || "";
-      if (!/interaction_required|consent_required|login_required|no_tokens_found|InteractionRequired/i.test(code + " " + (e && e.message || "")))
+      if (!needsInteraction(e))
         throw new GraphError("auth", `Could not get a token for ${scopes.join(", ")}: ${(e && e.message) || code || "unknown error"}`);
       try {
-        return (await app().acquireTokenPopup({ scopes, account: account(), prompt: "consent" })).accessToken;
+        const r = await app().acquireTokenPopup({ scopes, account: account(), prompt: "consent" });
+        noteScopes(r.accessToken);
+        return r.accessToken;
       } catch (e2) {
         const m = (e2 && e2.message) || "";
+        // Admin-consent FIRST: AADSTS90094 also contains the word "consent",
+        // so testing for consent before admin classified every admin-only
+        // refusal as an ordinary declined prompt — and told the user to try
+        // again at something only their administrator can do.
+        if (/AADSTS90094|AADSTS65002|admin/i.test(m))
+          throw new GraphError("admin", "This permission needs an administrator to consent for the whole tenant — your account cannot grant it for itself.", { consentUrl: adminConsentUrl() });
         if (/AADSTS65001|consent/i.test(m))
           throw new GraphError("consent", "Consent was not granted for " + scopes.join(", ") + ".", { consentUrl: adminConsentUrl() });
-        if (/AADSTS90094|admin/i.test(m))
-          throw new GraphError("admin", "This permission needs an administrator to consent for the whole tenant — your account cannot grant it for itself.", { consentUrl: adminConsentUrl() });
+        if (isPopupBlocked(e2))
+          throw new GraphError("auth", "The consent window was blocked by the browser. Allow pop-ups for this site and run it again.");
         throw new GraphError("auth", m || "Sign-in was cancelled.");
       }
     }
+  }
+
+  function isPopupBlocked(e) {
+    const c = (e && (e.errorCode || e.name)) || "";
+    return /popup_window_error|empty_window_error|popup_blocked/i.test(c)
+      || /popup.*(blocked|window)/i.test((e && e.message) || "");
+  }
+
+  // ONE CONSENT PER RUN, AT THE TOP OF THE CLICK.
+  //
+  // Scopes are still asked for on the click and never at sign-in — that rule
+  // is unchanged. What changed is WHEN inside the click. Each surface asking
+  // for its own scope lazily meant a sweep of nine surfaces wanted nine
+  // popups, one per await, several awaits deep. Browsers grant a popup on the
+  // user gesture that opened it; the first might have appeared and the other
+  // eight would have been blocked, and the run would report eight permission
+  // failures for permissions nobody was asked about.
+  //
+  // So a run declares everything it needs and asks once, before it reads
+  // anything. A run limited to configuration profiles still asks only for the
+  // configuration scope — the incremental principle is per RUN rather than
+  // per request, which is the granularity a person can actually consent to.
+  async function ensureScopes(scopes) {
+    const want = [...new Set(scopes || [])];
+    if (!want.length || hasScopes(want)) return true;
+    if (!signedIn()) throw new GraphError("auth", "Not signed in.");
+    try {
+      const r = await app().acquireTokenSilent({ scopes: want, account: account() });
+      noteScopes(r.accessToken);
+      if (hasScopes(want)) return true;
+    } catch (e) {
+      if (!needsInteraction(e)) throw new GraphError("auth", `Could not get a token for ${want.join(", ")}: ${(e && e.message) || "unknown error"}`);
+    }
+    // token() carries the full error classification — admin consent, declined
+    // consent, blocked popup — so the interactive step goes through it rather
+    // than duplicating that here and getting it subtly different.
+    await token(want);
+    return true;
   }
 
   // An access token is a bearer credential: whoever holds it is the admin.
@@ -470,5 +557,8 @@ const Graph = (() => {
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,
     odata, isGuid, chunk, setThrottleHandler, safeGraphUrl,
+    // consent (build 10322)
+    ensureScopes, hasScopes, needsInteraction, isPopupBlocked,
+    grantedScopes: () => [...granted],
   };
 })();

@@ -36,6 +36,16 @@
 //     so in the step — knowing which check was skipped is worth more than a
 //     list that pretends all of them were run. An item with no `test[]`
 //     renders as "not written" on purpose: it is not finished.
+//   * `files[]` must list every file the change actually depends on,
+//     INCLUDING the ones that touch it at runtime. Item 2 (the TUNO mark)
+//     listed the three SVGs and index.html but not css/app.css, which
+//     carries the dark-mode swap as a content:url, nor js/branding.js,
+//     which sets the logo src from its own copy of the path — unversioned
+//     there, it would have overwritten the cache-busting in the HTML and
+//     served the old mark anyway. A promotion built from an incomplete
+//     files[] fails at exactly the thing the item was for. Found while
+//     promoting it; both were caught by reading the tree rather than the
+//     list.
 //   * `staying[]` records what is deliberately NOT promoted, so absence
 //     reads as a decision rather than an oversight.
 //
@@ -44,11 +54,30 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 3,
-  // the first promotion this repo has had (items 1-13, beta 10301-10317).
-  productionBuild: "v1.0.3",
+  // Verified against `git show main:js/version.js` — main is at build 4.
+  // Promotions so far: items 1-13 (beta 10301-10317) as build 3, and items
+  // 14-19 (beta 10318-10323) as build 4.
+  productionBuild: "v1.0.4",
 
   items: [
+    {
+      n: 28,
+      title: "Consent stops triggering MFA",
+      tools: ["All tools"],
+      builds: [10334],
+      risk: "medium",
+      what: "js/graph.js no longer passes prompt:\"consent\" to acquireTokenPopup. That parameter forces the authorization server to re-authenticate as well as re-consent, so every on-the-click scope grant put the admin through multi-factor authentication. ENCA has never passed a prompt on an interactive token call. It was added in 10310 to make the prompt appear when it was not appearing; the actual cause was needsInteraction() not matching AADSTS65001 / invalid_grant, fixed in 10322 \u2014 after which this only ever cost an MFA challenge.",
+      why: "MEDIUM \u2014 it changes how every permission in the app is obtained, and the failure mode if it is wrong is silent: the popup does not appear, a read reports 'could not be read', and nobody sees a prompt to blame. Low blast radius, but it needs exercising against a tenant on each of the paths that ask for a scope, not just one.",
+      test: [
+        "THE ONE THAT MATTERS: sign in fresh, then trigger a scope that has never been consented \u2014 the deploy in T01, or a read in T02. The consent screen must appear, list the permission, and NOT ask for a second factor. If MFA still appears, check the tenant's Conditional Access: a policy requiring MFA for the app will do this on its own and is nothing to do with this parameter.",
+        "Then trigger a SECOND scope in the same session. It must prompt once for that scope and not re-ask for the first \u2014 that is 10322's once-per-run behaviour, and this change must not have disturbed it.",
+        "Decline the consent screen. The panel must say consent was not granted and offer the admin-consent link, exactly as before; the popup path is unchanged apart from the missing parameter.",
+        "As a non-admin, trigger a scope needing admin consent. The refusal must still be classified as admin rather than as an ordinary declined prompt.",
+        "Sign-in itself is a different call and still passes prompt:select_account on purpose \u2014 confirm signing in still offers the account chooser rather than silently reusing the last account.",
+        "NOT REPRODUCIBLE HEADLESSLY: the suite asserts no prompt is passed and that ENCA passes none either, which is the invariant. Whether the tenant then asks for MFA is between the tenant and the browser.",
+      ],
+      files: ["js/graph.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
     {
       n: 27,
       title: "T07 — Intune role assignments",
@@ -250,152 +279,16 @@ const PROMOTE = {
       ],
       files: ["js/backup.js", "vendor/jszip.min.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
     },
-    {
-      n: 19,
-      title: "T03 — Change audit",
-      tools: ["🕓 Change audit"],
-      builds: [10323],
-      risk: "medium",
-      what: "A third tool: js/audit.js (engine + screen), tile, screen, tab, Help and roadmap. One read of deviceManagement/auditEvents, two views. Policy changes: configuration activity with a severity heuristic (failure or delete = high, create or patch = medium, assign = low). All events: every category with actor / activity / category / result filters, wildcards honoured as globs rather than substrings. ENCA's T16 decode() and diff() ported for field-level change detail, with scalar arrays compared as sets. Windows 1h/4h/24h/7d/30d — no 90d, because 30 is Intune's retention. Markdown, CSV and standalone-HTML export. Upstream fixes: full ISO-8601 UTC window in place of a bare date, categories derived from the data instead of a fixed list containing values Graph never emits, no five-row cap, and every resource on a record inspected rather than resources[0]. Also fixes a stale comment in app.js left by 10321.",
-      why: "MEDIUM. It writes nothing, but it is the tool somebody reaches for during an incident, and the two ways it can be quietly wrong both look like a clean run: the policy-changes filter can be too narrow and hide the change you are hunting, and the diff can render a value it failed to decode as though nothing moved. Neither is visible without a tenant where a known change was made. It graduates when a change made deliberately — edit a settings-catalog policy, change an assignment — has been found by the tool and its diff reconciled against what was actually altered.",
-      test: [
-        "THE ONE THAT MATTERS: make a change you control — edit a settings-catalog policy and change one setting — wait for the audit log, then find it in Policy changes and read the diff. The field you altered must be named, with the old and new value. If the diff is empty or shows a blob, decode() is not handling that payload shape.",
-        "Change an ASSIGNMENT on a policy and find that event. Both the policy and the group must appear in the name — this is the case where reading only the first resource loses the answer, and the whole point of the fix.",
-        "Delete something. It must come back as high severity. Then find a failed action: it must also be high, regardless of what it was.",
-        "Switch to All events and confirm the category dropdown contains only categories that produced results. If a category is listed and returns nothing when selected, it came from somewhere other than the data.",
-        "Type a bare word in the actor box and confirm it matches as contains. Then type admin* and confirm it matches only names starting with admin. A glob quietly treated as a substring returns more than was asked for.",
-        "Run the same window twice a few minutes apart and confirm the boundary moves — the window is relative to now, not to midnight. This is the bare-date bug and it is invisible unless you look for it.",
-        "In a busy tenant, run the 30-day window on Policy changes and count the rows. More than five means the cap is genuinely gone; the original returns exactly five.",
-        "Find an event with no field-level detail and confirm it SAYS so rather than rendering an empty list. Reading that as 'nothing changed' is the misinterpretation this wording exists to prevent.",
-        "Export all three formats. The CSV must carry the full change list in its own column; the HTML must be readable standalone and must carry the thirty-day retention note.",
-        "NOT COVERED BY THE HEADLESS TESTS: real audit payloads. The suite feeds the parser hand-built records of each shape it is known to encounter — plain strings, JSON strings, double-encoded JSON, single-element arrays. It cannot prove Graph has no fifth shape.",
-      ],
-      staying: [
-        "No email alerting. check-policy-changes can send mail; that needs either an application permission to send as an arbitrary mailbox, or sending as the signed-in user, and neither belongs in a read-only browser tool.",
-        "No scheduled runs. The original is built to run as a runbook; a static site cannot.",
-        "No snapshot-and-compare. ENCA's T16 can diff today's audit against a saved snapshot; T03 reads live only.",
-      ],
-      files: ["js/audit.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 18,
-      title: "Incremental consent actually prompts, and asks once per run",
-      tools: ["All tools", "🔗 Group Analyzer"],
-      builds: [10322],
-      risk: "high",
-      what: "Two bugs that between them made every Intune read fail with no prompt shown. (1) token()'s interaction test looked for interaction_required / consent_required / login_required and missed AADSTS65001 / invalid_grant — the error that IS the consent error — so it threw instead of falling through to the popup. needsInteraction() now covers those plus the MFA step-up codes, and prefers MSAL's InteractionRequiredAuthError where available. (2) Scopes were requested lazily per surface, so a nine-surface sweep wanted nine popups several awaits deep, where a browser blocks all but the first. New Graph.ensureScopes(scopes) asks once at the top of the click for everything the run needs; T02 calls it before reading anything. Also: AADSTS90094 is now classified as admin BEFORE the consent test (it contains the word 'consent', so the old order caught it as a declined prompt), popup-blocked is detected and named, and a granted-scope cache from the token's scp claim short-circuits the check on repeat runs.",
-      why: "HIGH, and it is the first high on this queue. Every tool that reads a tenant is unusable on main without it — not degraded, unusable: the read fails and the user is never offered the consent that would fix it. T01's deploy path shares token() and is exposed to the same miss on its write scope. This is also the one item where the headless tests can only prove the classification, not the flow: no test can open a real consent dialog. It graduates when a NEW tenant, one that has never consented to TUNO, completes a sweep after a single prompt.",
-      test: [
-        "THE ONE THAT MATTERS, and it needs a tenant that has never consented to TUNO: sign in, run a sweep with all nine surfaces, and confirm ONE consent prompt appears listing all the scopes, and that the sweep then completes. Before this build that prompt never appeared at all.",
-        "Count the prompts. If a second one appears mid-run, something is still asking lazily and the browser will block it on a slower connection even if it worked here.",
-        "Decline the prompt. The run must stop, say consent was not granted, offer the admin-consent link, and read NOTHING — no page of surfaces marked unreadable.",
-        "Sign in as a non-admin in a tenant where these scopes need admin consent. The message must say an administrator is needed and must NOT tell them to retry and accept — retrying can never work for them.",
-        "Untick all but one surface and run. Only that surface's scope may be in the prompt. If all nine appear, the per-run granularity is gone and consent is being asked for things the run will not use.",
-        "Run a sweep, then run it again without reloading. The second must not prompt at all — the granted-scope cache should short-circuit it.",
-        "Block pop-ups for the site and run. It must say the browser blocked the window, not that the tenant refused.",
-        "RUN T01 STEP 5 AGAIN. token() was changed underneath it: a broader interaction test means a write can now trigger a consent popup where it previously threw. Confirm the deploy still works and still asks for the write scope on the click.",
-        "NOT COVERED BY THE HEADLESS TESTS: the popup itself. The suite proves which errors are classified as needing interaction and that consent is requested once before any read, against a stubbed MSAL. It cannot prove a real browser shows one dialog.",
-      ],
-      staying: [
-        "Scopes are still never requested at sign-in. That rule is untouched; only the moment within the click moved.",
-      ],
-      files: ["js/graph.js", "js/groupuse.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
-    },
-    {
-      n: 17,
-      title: "One column width for the whole app, and Help in reading order",
-      tools: ["All tools", "🔐 AppLocker builder & validator"],
-      builds: [10321],
-      risk: "low",
-      what: "WIDE_SCREENS is empty: both tools drop the 1680px shell and use the same centred 1180px column as the tools home, Help, What's new and the Roadmap. The mechanism and its stylesheet stay, documented as an unused capability rather than deleted, with a note to remove both if still unused in a few builds. T01's split is re-sized for the narrower shell — the code panel floors at 340 rather than 400 and caps at 440 rather than 520, so the audit table gains roughly eighty pixels at a typical desktop width. The existing 1240px stack breakpoint is untouched. Help is re-ordered to match ENCA: What TUNO is, then the promotion queue (beta only), then the per-tool help and security model, then credits — each as its own card.",
-      why: "LOW — layout only, no logic. TWO THINGS SHARE THIS NUMBER, which the rules discourage: they are both pure shell layout, both verified by looking at the same three screens in one sitting, and splitting them would mean two promotions that have to happen together to avoid a half-restyled app. Promoting one without the other is not a decision anybody would want to make. It graduates on sight.",
-      test: [
-        "Open the tools home, then T01, then T02, then Help, then the Roadmap. The header, the tab bar and the content column must be the SAME width on all five and centred. That single continuous width is the whole point; if one screen still jumps, it was missed.",
-        "On T01, check the audit table and the code panel side by side at 1180px. The finding text must not wrap every few words. If it does, the panel floor is still too high and should come down further.",
-        "Narrow the window below 1240px on T01 and confirm the two columns stack — that breakpoint is unchanged, and this build briefly added a second one that moved it before the layout tests caught it.",
-        "On T02, run a sweep and read the group table at the new width. It has five fixed columns plus one per surface — if it needs a horizontal scrollbar that is acceptable, but the group name column must not collapse.",
-        "Open Help on the BETA site: What TUNO is, then Waiting for production, then the tools, then security, then credits. Then open Help on production and confirm the promotion card is absent entirely — it must never appear on tuno.limon-it.nl.",
-        "Check the four cards are visually separate rather than one long card with headings.",
-      ],
-      staying: [
-        "The wide-shell mechanism and its CSS. Unused, kept because a future tool may earn it, and flagged for deletion if it is still empty in a few builds.",
-      ],
-      files: ["js/app.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 16,
-      title: "The registration script stops clobbering its own documentation",
-      tools: ["All tools"],
-      builds: [10320],
-      risk: "low",
-      what: "New-TunoAppRegistration.ps1 patches the client ID into js/authConfig.js with a regex that was not anchored. That file mentions clientId twice — the real assignment, and a commented example showing a fork how to point at its own registration — so running the script rewrote the example into a hardcoded Limon-IT id. Silent, and only visible in a diff. The pattern is now anchored to the start of a line, so the commented one (preceded by //) is skipped, and the script counts matches first: not exactly one and it refuses to write, in red. js/authConfig.js has its placeholder restored.",
-      why: "LOW. It cannot affect a running deployment — authConfig.js on this branch is correct, and the damage was to a comment. It matters because of who reads that comment: somebody standing up their own single-tenant copy, who would have followed it straight into using our client ID. It graduates the next time the script is run and the diff on authConfig.js shows only the assignment line changing.",
-      test: [
-        "Run ./New-TunoAppRegistration.ps1 and then `git diff js/authConfig.js`. ONLY the assignment line may change. If the commented example moved, the anchor is wrong again.",
-        "Temporarily add a second real clientId line to authConfig.js and run the script. It must REFUSE, in red, naming the count — writing to an ambiguous file is how this happened.",
-        "Comment out the real assignment entirely and run it. It must refuse with a count of zero rather than reporting success — a silent no-op leaves the tool pointed at whatever registration it had.",
-        "Read the restored comment and confirm it says <your Application (client) ID> and not a GUID. That sentence is the whole reason this is a bug rather than a typo.",
-      ],
-      files: ["New-TunoAppRegistration.ps1", "js/authConfig.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
-    },
-    {
-      n: 15,
-      title: "T02 gains the tenant sweep",
-      tools: ["🔗 Group Analyzer"],
-      builds: [10319],
-      risk: "medium",
-      what: "A second mode on T02, ported from ENCA's sweep with the Conditional Access scope replaced by its Intune equivalent. One read per surface, matched against every group — 300 groups is still twenty reads. Five scopes: \"Only groups Intune assigns to\" (ids taken off the assignments as they are read, NO /groups enumeration at all), first 100/250/500, and every group. Name filter with starts/ends/contains, server-side where Graph supports the shape and local otherwise, with the local check always authoritative because $search matches tokens rather than substrings. Group nesting off by default, batched twenty at a time when on, crediting a parent's assignment to every child as inherited. Per-group tallies split direct/inherited/excluded with a column per surface, an unused-groups finding on the counted scopes only, and dangling references — an id an assignment names that the directory no longer has. Sweep-specific Markdown, CSV and standalone-HTML exports.",
-      why: "MEDIUM, and the reason is a specific way it can mislead rather than a way it can break. The unused-groups list is the output someone will act on — it is the one that ends with a group being deleted. It is only as complete as the surfaces that were read and the nesting that was walked, and both can be silently short: a surface that 403s and a nesting lookup left off both make a group look unused when it is not. The report says so in both places, and that claim is what needs checking against a real tenant. It graduates when a sweep's unused list has been reconciled against the portal for a tenant where at least one group is used only through a parent.",
-      test: [
-        "THE ONE THAT MATTERS: run a counted scope with nesting OFF against a tenant where some group receives policy only through a parent. That group MUST appear in the unused list, and the report MUST say nesting was not walked. Then re-run with nesting on: it must leave the unused list. If the warning is missing, this feature will get a group deleted.",
-        "Run the Intune scope and confirm the network shows NO /groups request. That is the whole claim of that scope; if it enumerates, it is just a slow counted scope wearing a different label.",
-        "On the Intune scope, confirm the unused count renders as a dash and not a zero, and that the export says the finding does not apply. A zero there reads as 'nothing is unused', which is the opposite of what it means.",
-        "Point an assignment at a group, delete the group, then sweep. The id must appear as a dangling reference and stay in the table. Nothing in the Intune portal surfaces this, so the tool is the only place it can be seen.",
-        "Sweep a tenant with more than 999 groups on the 'every group' scope and confirm paging brought them all — the count in the header against the portal's group count. A silently truncated sweep produces a confidently wrong unused list.",
-        "Try the name filter in all three modes, including one where $search will over-match (a token that is a prefix of a longer word). Only groups genuinely matching what you typed may appear — this is where trusting the server would show.",
-        "Time a sweep of the largest tenant to hand with nesting off, then on. The first should be flat regardless of group count; the second grows. If the first also grows, the one-read-per-surface property has been lost and the sweep is doing per-group work somewhere.",
-        "Export all three formats from a sweep and confirm each carries the nesting and unreadable-surface caveats, and that the CSV has NO column for a surface that failed — a zero in that column would be a lie rather than an omission.",
-        "Switch to sweep mode and back and confirm the tenant-wide toggle disappears and returns. In a sweep it would add the same rows to every group, which says nothing about any of them.",
-        "NOT COVERED BY THE HEADLESS TESTS: the throttling. A sweep of a large tenant is the first thing in TUNO likely to hit a 429 for real, and the read layer's backoff has never run against a live quota.",
-      ],
-      staying: [
-        "No per-group drill-down from the sweep table. ENCA opens a modal on a row; T02's table gives counts and you re-run the single-group mode for detail. The CSS for the modal is already there.",
-        "The sweep does not offer tenant-wide assignments — they would add identical rows to every group.",
-      ],
-      files: ["js/groupuse.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 14,
-      title: "T02 — Group Analyzer, the first tool that reads a tenant",
-      tools: ["🔗 Group Analyzer"],
-      builds: [10318],
-      risk: "medium",
-      what: "A second tool: js/groupuse.js (engine + screen), its tile, its screen, its tab, and Help and roadmap entries. Nine Intune assignment surfaces over twenty beta endpoints — configuration profiles (device / settings catalog / ADMX), compliance, scripts and remediations, application assignments, app protection, app configuration, enrolment restrictions, Autopilot, Windows update profiles. Per-surface incremental consent. Exclusions listed as assignments; inherited assignments included and attributed to the parent group they came through; tenant-wide All Users / All Devices targets behind an off-by-default toggle. A surface that fails is reported as UNKNOWN with the scope and the Intune RBAC role it needs, never as empty. Markdown, CSV and standalone-HTML export. It is the first consumer of the build-10316 read layer.",
-      why: "MEDIUM. It writes nothing and holds no write scope, so the worst case is a wrong answer rather than a changed tenant — but a wrong answer here is not harmless. This tool exists to be trusted when someone asks \"is it safe to add a user to this group\", and the two ways it can be quietly wrong are the two things to check: a surface that silently returns nothing when it should have returned rows, and inheritance that is not actually being walked. Neither is visible without a tenant that has assignments to look at. It graduates when it has been run against a real tenant and its output reconciled against the Intune portal for at least one group with a known-nonempty assignment set.",
-      test: [
-        "THE ONE THAT MATTERS: pick a group you already know receives policy, run it, and reconcile against the portal blade by blade. Every assignment the portal shows must appear here. A surface reporting zero when the portal shows rows is the failure mode this whole item is about — and it will look like a clean run.",
-        "Find a policy that EXCLUDES a group and analyze that group. The row must be present and marked Excluded. If exclusions are missing, the report is wrong in the direction nobody checks.",
-        "Nest a group inside another that has assignments, then analyze the CHILD. The parent's assignments must appear, with the Via column naming the parent. This is the behaviour the PowerShell original explicitly does not have, so there is nothing to compare against except the portal.",
-        "Run with the tenant-wide box ticked and then unticked on the same group. Ticked must add All Users / All Devices rows and nothing else; unticked must remove exactly those. If any group-targeted row changes between the two runs, the filter is wrong.",
-        "PROVE THE UNKNOWN PATH. Sign in as an account with an Intune role that cannot read one workload — or decline consent for the applications permission when it is asked — and confirm that surface appears under \"Could not be read\" with a role hint, and does NOT appear as zero assignments. Reporting unreadable as empty is the one bug that would make this tool actively dangerous.",
-        "Untick every surface but one and run. Only that surface's permission may be requested — the consent prompt is the test, and if it asks for all of them the per-surface consent is not working.",
-        "Export all three formats and open the HTML one in a private window with no tenant access. It must be fully readable standalone, and must carry the tenant-wide and inheritance caveats — an export that drops the caveats is a report that overstates its own completeness.",
-        "Analyze a group with NOTHING assigned. It must say so plainly and still mention that tenant-wide assignments were not included, so 'nothing' is not mistaken for 'nothing reaches these devices'.",
-        "Try a group name that matches several groups, and one that matches none. Both must produce a sentence a person can act on rather than an empty table.",
-        "NOT COVERED BY THE HEADLESS TESTS: everything above needs a tenant. The suite drives the engine against stubbed Graph responses — it proves the assignment-shape logic, the tenant-wide filter, the inheritance attribution and the exports, but it cannot prove the twenty endpoints are the right twenty.",
-      ],
-      staying: [
-        "Intune only. The Entra surfaces (Conditional Access, licensing, directory roles, access packages) need scopes this registration does not hold; the tool points at ENCA instead. This is a permanent split, not a gap.",
-        "No tenant-wide sweep. ENCA's T19 can sweep every group and find unused ones; T02 answers for one group at a time. The sweep is worth having and is not in this item.",
-      ],
-      files: ["js/groupuse.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
   ],
 
   staying: [
     {
       title: "🚚 This promotion queue",
       why: "Beta-only by design — js/promote.js and the Help section that renders it exist to describe the gap, so they have no meaning in production.",
+    },
+    {
+      title: "🌐 The absence of a CNAME file",
+      why: "This channel is served from nurejev.github.io/tuno-beta and must NOT claim tuno.limon-it.nl — two Pages sites naming one custom domain fight over it. The file was inherited from the scaffold when this branch was cut and removed in build 10333. It is listed here because it is the one change that must NEVER be promoted: main needs its CNAME, and a merge that carries this deletion across takes production off its own domain.",
     },
   ],
 };

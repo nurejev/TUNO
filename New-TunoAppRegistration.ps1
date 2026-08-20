@@ -311,11 +311,29 @@ if (-not $SkipAdminConsent) {
 }
 
 #--- 6. Patch js/authConfig.js -------------------------------------------
+#
+# THE ANCHOR IS THE POINT. authConfig.js contains the word clientId TWICE: the
+# real assignment, and a commented example showing a fork how to point at ITS
+# OWN registration via authConfig.local.js. An unanchored replace rewrote both,
+# so running this script turned that example into a hardcoded Limon-IT client
+# id — the exact opposite of what the comment is for, and silent.
+#
+# `(?m)^\s*clientId:` matches only a line where clientId is preceded by nothing
+# but whitespace. The commented one is preceded by "//" and is left alone.
 if (Test-Path $AuthConfigPath) {
   $cfg = Get-Content $AuthConfigPath -Raw
-  $cfg = $cfg -replace 'clientId:\s*"[^"]*"', "clientId: `"$($app.AppId)`""
-  Set-Content -Path $AuthConfigPath -Value $cfg -NoNewline
-  Write-Host "Patched clientId in $AuthConfigPath" -ForegroundColor Green
+  $pattern = '(?m)^(\s*)clientId:\s*"[^"]*"'
+  $hits = ([regex]$pattern).Matches($cfg).Count
+  if ($hits -ne 1) {
+    # Not a cosmetic problem: zero means the tool keeps whatever id it had and
+    # will sign in to the wrong registration; more than one means the anchor
+    # has stopped discriminating and the docs are about to be clobbered again.
+    Write-Host "authConfig.js has $hits assignable clientId lines (expected exactly 1) - NOT patched. Set it by hand." -ForegroundColor Red
+  } else {
+    $cfg = $cfg -replace $pattern, "`$1clientId: `"$($app.AppId)`""
+    Set-Content -Path $AuthConfigPath -Value $cfg -NoNewline
+    Write-Host "Patched clientId in $AuthConfigPath" -ForegroundColor Green
+  }
 } else {
   Write-Host "authConfig.js not found at $AuthConfigPath - set clientId manually." -ForegroundColor Yellow
 }
