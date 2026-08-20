@@ -65,6 +65,24 @@ const PROMOTE = {
   productionBuild: "v1.0.5",
 
   items: [
+    {
+      n: 30,
+      title: "The code panel is themed, and three cards open full screen",
+      tools: ["\ud83d\udd10 AppLocker builder & validator"],
+      builds: [10342],
+      risk: "low",
+      what: "The code panel and .al-code drop every hardcoded navy value for tokens: --warn-* in light (the same family as the deploy card beside it) and --ok-* in dark, switched by BOTH the explicit dark theme and the prefers-color-scheme block. Fs, ENCA's near-fullscreen popout, is ported into js/app.js with its markup in index.html; the code panel, #alFindings and #alCoverage each get a button that parks the CARD rather than the table, because render() replaces the table and keeps the card. Coverage loses its trailing action column \u2014 the fix button moves under the detail it acts on, as findings' did in 10312 \u2014 and both tables take proportional column widths instead of letting the longest sentence size them.",
+      why: "LOW \u2014 presentation and a ported module; no analysis, serialisation or export logic touched. Two things deserve a real look rather than a glance: the popout MOVES elements, so anything parking something a renderer replaces breaks on close; and the theme switch needs both dark blocks, because the app supports an explicit dark choice AND following the device, and a rule written for one leaves half the users on a cream panel in a dark room.",
+      test: [
+        "Open the code panel full screen, then press Copy and Download, switch between Policy XML and Intune profile, and edit the profile name. All of it must work \u2014 anything dead means something is being cloned rather than moved.",
+        "THE ONE THAT MATTERS: open Findings full screen and apply a fix from inside it. The table must redraw in place and the panel stay open. Close it and the card must be back in the left column, in its original position, with the page scrollable again.",
+        "Open one, then open another without closing the first. The first must return to the page rather than vanish \u2014 only one is ever parked.",
+        "Close it three ways: Escape, a click on the backdrop, the button. A click INSIDE the panel must not close it.",
+        "Light theme, dark theme, and the system theme with the app set to Auto. Cream in light, green in dark, never a bright slab on a dark page \u2014 and the command snippets in step 5 must match the panel.",
+        "Narrow the window until the coverage table needs a sideways scroll, then find Add allow rule without scrolling. Same for a fix button in Findings.",
+      ],
+      files: ["css/app.css", "js/app.js", "js/applocker.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
   ],
 
   staying: [

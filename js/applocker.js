@@ -1276,6 +1276,15 @@ const AppLockerTool = (() => {
       </tbody></table></div>` : (ev && ev.available ? `<p class="mini muted" style="margin-top:12px">No AppLocker events in the last ${esc(String(ev.daysBack))} days. Either no policy is applied on that device, or the Application Identity service is not running — the fact table above says which.</p>` : `<p class="mini muted" style="margin-top:12px">AppLocker event logs were not collected in this scan.</p>`)}`;
   }
 
+  // A popout button for a section heading. It parks the CARD, not the table:
+  // render() rewrites these cards by writing innerHTML INTO them, so the
+  // element itself survives a re-render wherever it currently sits — a fix can
+  // be applied while the panel is open and the table simply redraws inside it.
+  // Parking the table would leave Fs holding a node the next render had
+  // already thrown away.
+  const fsBtn = (target, label) => (typeof Fs === "undefined" ? ""
+    : `<button class="btn sm al-fs" data-fs="${target}" data-fslabel="${esc(label)}" style="float:right" title="Open ${esc(label)} full screen">\u26f6 Full screen</button>`);
+
   function render() {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
@@ -1322,8 +1331,8 @@ const AppLockerTool = (() => {
 
     // ---- findings ----
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
-    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th></tr></thead><tbody>` +
+    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Findings")}Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
+      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
         shown.map((f, i) => {
           const key = findingKey(f);
           const plan = planFix(f);
@@ -1336,7 +1345,7 @@ const AppLockerTool = (() => {
           // the first thing pushed off the edge on any narrow window, so the
           // one control on the row that does something was the one you had to
           // scroll sideways to reach.
-          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="min-width:160px;max-width:260px;word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini" style="min-width:200px">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
+          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
           const editor = (plan && plan.mode === "editor" && fixOpen === key)
             ? `<tr class="al-fixrow" data-i="${i}"><td colspan="6" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
             : "";
@@ -1347,8 +1356,8 @@ const AppLockerTool = (() => {
     shownFindings = shown;
 
     // ---- Microsoft coverage ----
-    $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
-      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>App</th><th>Verdict</th><th>Detail</th><th></th></tr></thead><tbody>` +
+    $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alCoverage", "Microsoft app coverage")}Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
+      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
         let detail;
@@ -1366,9 +1375,16 @@ const AppLockerTool = (() => {
           return s;
         }).join("<br>");
         const canFix = v.status === "blocked" || v.status === "conditional";
-        return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted" style="max-width:320px">${esc(row.app.context)}</div></td>
-          <td>${verdictTag(v.status, v.audit)}</td><td class="mini">${detail}</td>
-          <td>${canFix ? `<button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button>` : ""}</td></tr>`;
+        // The fix button goes UNDER the detail it acts on, not in a column of
+        // its own at the far right — as its own column it was the first thing
+        // pushed off the edge, so the only control on the row was the only
+        // thing you had to scroll sideways to reach. Same fix as the findings
+        // table got in 10312; this table was missed then.
+        return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted">${esc(row.app.context)}</div></td>
+          <td>${verdictTag(v.status, v.audit)}</td>
+          <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${detail}${canFix
+            ? `<div style="margin-top:8px"><button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button></div>`
+            : ""}</td></tr>`;
       }).join("") + `</tbody></table></div>`;
 
     // ---- rules / builder ----
@@ -1633,6 +1649,23 @@ const AppLockerTool = (() => {
     // Clipboard access is refused outright in some contexts (no gesture, a
     // policy-locked browser). Say so on the button rather than appearing to
     // copy — the download is right next to it.
+    // The popout. Delegated, because the section headings are rebuilt on every
+    // render; the code panel's own button is static but goes through the same
+    // path so there is one way in rather than two.
+    const expand = (el, label) => {
+      if (typeof Fs === "undefined" || !el) return;
+      Fs.open(label, { body: el, onChange: (on) => { el.classList.toggle("fs-in", on); } });
+    };
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest && e.target.closest(".al-fs");
+      if (!b) return;
+      expand($(b.dataset.fs), b.dataset.fslabel || "Full screen");
+    });
+    const alEx = $("alExpand");
+    if (alEx) alEx.addEventListener("click", () => {
+      expand(document.querySelector(".al-xml"), pane === "intune" ? "Intune profile" : "Policy XML");
+    });
+
     $("alCopyXml").addEventListener("click", (e) => {
       if (!policy) return;
       copyToClipboard(e.currentTarget, pane === "intune" ? intuneJson(intuneCfg.mode) : exportXml());

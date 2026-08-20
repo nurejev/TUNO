@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10342, date: "2026-08-20", title: "The code panel joins the product, and three things open full screen",
+    items: [
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "The code panel was a navy slab \u2014 the one thing on the screen wearing a colour this product does not own. It is themed now, and it changes family rather than shade: the warm cream of the deploy card in light mode, the greens in dark. Both come from variables the app already carries, so there is no fixed colour left in it and nothing to keep in step by hand. The command snippets in step 5 follow, because fixing the large blue block and leaving the small ones blue would only have moved the odd one out." },
+      { kind: "new", tool: "\ud83d\udd10 AppLocker builder & validator", text: "The code panel, the findings table and the Microsoft coverage table each open full screen. The panel MOVES the card into it rather than copying it, so every button, filter and fix inside keeps working \u2014 a copy would look right and do nothing, which is the worst kind of broken. Apply a fix while it is open and the table simply redraws in place; close it and the card goes back exactly where it was. Escape or a click outside closes it. Ported from ENCA, whose matrix has worked this way for a long time." },
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Both of those tables were losing their right-hand side. The coverage table kept its Add-allow-rule button in a column of its own at the far edge, so on any window that needed a sideways scroll the only control on the row was the only thing you could not reach \u2014 the same mistake the findings table had, fixed there in an earlier build and missed here. It now sits under the detail it acts on. Both tables also share their width out by proportion instead of letting the longest sentence decide, so the columns stop being pushed off the end." },
+    ],
+  },
+  {
     build: 10341, date: "2026-08-20", title: "Why TUNO does not borrow Microsoft's client id",
     items: [
       { kind: "improved", tool: "All tools", text: "A question worth writing down rather than answering twice. Several community Intune tools sign in with no app registration at all, by using the client identifier of Microsoft's own Graph PowerShell application — it exists in every tenant, it already carries broad consent, and it costs nobody a setup step. TenuVault does this, and for a program you install on your own machine it is a sound choice. The security documentation now says why TUNO cannot follow, and would not want to." },
