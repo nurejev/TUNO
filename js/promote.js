@@ -49,6 +49,36 @@ const PROMOTE = {
 
   items: [
     {
+      n: 27,
+      title: "T07 — Intune role assignments",
+      tools: ["🛡 Role assignments"],
+      builds: [10331],
+      risk: "medium",
+      what: "A seventh tool, js/roles.js: Roles (engine) + RolesTool (screen), a tile in a new 'Access & roles' home section, a screen, a tab and an entry in HISTORY_SCREENS. Reads /deviceManagement/roleDefinitions and /deviceManagement/roleAssignments, then one detail read per assignment with $expand=roleDefinition,microsoft.graph.deviceAndAppManagementRoleAssignment/roleScopeTags (falling back to roleDefinition alone, with scope tags named from /deviceManagement/roleScopeTags). Every member, scope group and scope member id in the report is resolved in one Graph.resolveNames() call. Empty roles behind a toggle that re-renders rather than re-reads. Observations, not a score. No new scopes: DeviceManagementRBAC.Read.All and the directory scopes were already consented.",
+      why: "MEDIUM — no new permission and nothing written, but the report is an ACCESS REVIEW and a wrong one is worse than none. Three things need a real tenant. The combined $expand is the one most likely to break: roleScopeTags hangs off the derived type and some tenants answer 400, which the code handles by falling back, but nobody has yet seen a tenant do either. The scope reading distinguishes 'all devices' from 'Graph did not say', which is a distinction the original does not make and which only real data can confirm is the right call. And the high-privilege role list is a judgement written into the code — four built-in names — that a tenant using custom roles heavily may find beside the point. It graduates when someone has used it to run an actual access review and the Entra caveat did NOT surprise them at the end of it.",
+      test: [
+        "THE ONE THAT MATTERS, and it is the reason the caveat exists: run this on a tenant where somebody holds Intune Administrator in Entra but no Intune RBAC role. They must NOT appear in the report, and the first line on the screen must tell you why. If a reviewer reads the page and does not come away knowing that Entra roles are missing from it, the wording has failed however correct the data is.",
+        "Compare the role list against Tenant administration > Roles in the portal. Every built-in role must be there, custom roles must say custom, and the counts must match. A missing role definition means the read is paged wrong.",
+        "Pick a role assigned to a GROUP and confirm the group is named, not a GUID, and that its type reads 'group'. Then pick one assigned to a USER directly and confirm the same. Both come out of one getByIds call — if one type resolves and the other does not, the types list in the resolver is wrong.",
+        "Find an assignment limited to scope tags and confirm the tags are named. Then check the same assignment in the portal. A tag shown as a GUID means the expand was refused AND the scope-tag list could not be read — the report says which, and both being silent would be the bug.",
+        "Find an assignment scoped to specific groups and one scoped to all devices, and confirm they read differently. Then look for one with NO resource scopes: it must say 'not stated by Graph' and produce an observation, not the word 'All'. This is the deliberate difference from the PowerShell original and the one most likely to be argued with.",
+        "Switch 'show roles with no assignments' on and off. The list must change without a second read — watch the progress line stay empty. If it re-reads, the toggle is wired to run() instead of render().",
+        "Delete a group that holds a role assignment (in a test tenant) and re-run. The member must show as its GUID with type 'unresolved', and the observation about unresolved members must appear. A blank there would be a silently empty role.",
+        "Read the observations out loud to somebody who owns the tenant. They should be able to say 'yes, that is fine, because…' for each one. If any of them reads as an accusation rather than a note, the wording is wrong — this is explicitly not a compliance score.",
+        "Check the many-members threshold is printed on screen where the observation appears. It is arbitrary and it has to say so, or somebody will treat 10 as a standard.",
+        "Export the CSV and confirm it has one row per MEMBER, that an assignment with no members still gets a row saying so, and that the Entra caveat is in the Markdown and HTML. A CSV where an empty assignment vanishes is a row an access review never sees.",
+        "Run as an account with DeviceManagementRBAC.Read.All but WITHOUT User.Read.All. Names must fail as a whole, the report must say every principal is a GUID, and it must still render. Half a report that admits it is half is fine; one that shows GUIDs with no explanation is not.",
+        "NOT COVERED BY THE HEADLESS TESTS: whether the combined $expand actually works on a live tenant. The suite proves both the expand path and the fallback, using responses shaped the way the API documents them. Only a tenant proves which one it takes.",
+      ],
+      staying: [
+        "No PIM. Eligible-versus-active assignment of Entra roles is a different API and a different scope, and half-reading it would suggest this report covers Entra when its whole point is saying it does not.",
+        "No write. Removing somebody from a role is a one-click way to lock an administrator out of their own tenant, and TUNO holds one write scope for one tool on purpose.",
+        "No score, no grade, no traffic light. The observations are facts about the tenant; scoring them would need a policy this tool has no way to know.",
+        "The high-privilege list is four built-in roles, named in the code with the reason each is on it. Custom roles are not assessed for privilege — the permission set is readable, but judging it would be inventing a standard rather than reporting one.",
+      ],
+      files: ["js/roles.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 26,
       title: "T06 — Intune device analyzer",
       tools: ["🖥 Device analyzer"],
