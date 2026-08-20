@@ -778,8 +778,17 @@ const DocsTool = (() => {
   // live before a read is how the platform list came to look broken: it was
   // empty because nothing had been read, and the control gave no hint of that
   // — it just offered one option and looked like a bug.
+  // The platform filter lives in the sticky selection bar, not in the setup
+  // form, so it stays reachable while you scroll a tenant's worth of policies
+  // — flipping platform is what you do repeatedly while scanning, and the
+  // form scrolls away after the first screenful. It is held here rather than
+  // read off the DOM because the bar is re-rendered on every change: an
+  // element that is destroyed and rebuilt cannot also be the source of truth.
+  let platformFilter = "All";
+  let platformOpts = [];
+
   function setFiltersEnabled(on) {
-    ["dcSearch", "dcPlatform", "dcState"].forEach((id) => { const el = $(id); if (el) el.disabled = !on; });
+    ["dcSearch", "dcState"].forEach((id) => { const el = $(id); if (el) el.disabled = !on; });
     const hint = $("dcFilterHint");
     if (hint) hint.style.display = on ? "none" : "";
   }
@@ -824,9 +833,9 @@ const DocsTool = (() => {
       // an answer — "Linux (0)" confirms there is no Linux estate, which an
       // absent Linux entry never could.
       const { counts, total } = Docs.platformCounts(res);
-      $("dcPlatform").innerHTML =
-        `<option value="All">All platforms (${total})</option>`
-        + Docs.platforms(res).map((p) => `<option value="${esc(p)}">${esc(p)} (${counts[p]})</option>`).join("");
+      platformOpts = [{ value: "All", label: `All platforms (${total})` }]
+        .concat(Docs.platforms(res).map((p) => ({ value: p, label: `${p} (${counts[p]})` })));
+      platformFilter = "All";
       setFiltersEnabled(true);
       // Everything selected to begin with: the common case is "document the
       // tenant", and starting at nothing would make the export buttons dead
@@ -839,7 +848,7 @@ const DocsTool = (() => {
     finally { running = false; $("dcRun").disabled = false; }
   }
 
-  const query = () => ({ text: $("dcSearch").value, platform: $("dcPlatform").value, state: $("dcState").value });
+  const query = () => ({ text: $("dcSearch").value, platform: platformFilter, state: $("dcState").value });
   const current = () => Docs.filterItems(res, query());
   // Every item that is ticked, in section order, regardless of the filter.
   const selectedSections = () => res.sections
@@ -903,6 +912,11 @@ const DocsTool = (() => {
     const total = Docs.summarize(res).total;
     const bar = `<div class="selbar visible">
       <span><b>${selected.size}</b> of ${total} selected <span class="selhint">— this is what the exports will contain</span></span>
+      <label class="sel-filter" title="Narrows what is shown below. It does NOT change the selection — the exports follow the ticks.">
+        <span>Platform</span>
+        <select id="dcPlatform">${platformOpts.map((o) =>
+          `<option value="${esc(o.value)}"${o.value === platformFilter ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+      </label>
       <div class="sel-actions">
         <button class="btn" data-sel="all">Select all</button>
         <button class="btn" data-sel="filtered">Select what is shown (${shown})</button>
@@ -1036,12 +1050,19 @@ const DocsTool = (() => {
     $("dcReset").addEventListener("click", () => {
       res = null; selected = new Set(); closePolicy(); $("dcBody").innerHTML = ""; prog(""); showExports(false);
       $("dcSearch").value = ""; $("dcState").value = "all";
-      $("dcPlatform").innerHTML = `<option value="All">All platforms</option>`;
+      platformFilter = "All"; platformOpts = [];
       setFiltersEnabled(false);
       document.querySelectorAll("#dcSections input[type=checkbox]").forEach((c) => { c.checked = true; c.closest(".gu-area").classList.add("on"); });
     });
     $("dcSearch").addEventListener("input", () => { if (res) render(); });
-    ["dcPlatform", "dcState"].forEach((id) => $(id).addEventListener("change", () => { if (res) render(); }));
+    $("dcState").addEventListener("change", () => { if (res) render(); });
+    // Delegated: #dcPlatform is inside the bar and is replaced on every render.
+    $("dcBody").addEventListener("change", (e) => {
+      const sel = e.target.closest && e.target.closest("#dcPlatform");
+      if (!sel) return;
+      platformFilter = sel.value;
+      render();
+    });
     $("dcMd").addEventListener("click", () => download(fileBase() + ".md", Docs.markdown(selectedSections(), res, m()), "text/markdown"));
     $("dcHtml").addEventListener("click", () => download(fileBase() + ".html", Docs.html(selectedSections(), res, m()), "text/html"));
     $("dcDocx").addEventListener("click", async () => {

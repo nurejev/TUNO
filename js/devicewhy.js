@@ -628,6 +628,80 @@ const DeviceWhyTool = (() => {
 
   let device = null, scope = null, states = null, result = null, found = null, running = false;
 
+  // ---- opening a policy to see what is actually in it ----
+  // The table answers "does this reach the device". The next question is
+  // always "and what does it set", which used to mean leaving for the
+  // Documenter and finding the policy again by name. The settings are read on
+  // demand, one policy at a time, and ONLY through the Documenter's own
+  // readers — Docs.catalogRows, Docs.admxRows and Docs.flatten — because
+  // those are where redaction lives. A second reader here would be a second
+  // place for a script body or a certificate to escape.
+  const openRows = new Map();      // key -> { state, rows, error }
+  const rowKey = (r) => `${r.source}:${r.id}`;
+
+  // `sub` is the kind already shown in the Kind column, set by the source
+  // that read it. It decides which endpoint holds the settings.
+  function detailFor(r) {
+    const sub = String(r.sub || "").toLowerCase();
+    const id = encodeURIComponent(r.id || "");
+    if (!id) return null;
+    if (sub.includes("settings catalog") && sub.includes("compliance"))
+      return { url: `/deviceManagement/compliancePolicies/${id}/settings`, kind: "catalog" };
+    if (sub.includes("settings catalog"))
+      return { url: `/deviceManagement/configurationPolicies/${id}/settings`, kind: "catalog" };
+    if (sub.includes("admx"))
+      return { url: `/deviceManagement/groupPolicyConfigurations/${id}/definitionValues?$expand=definition($select=id,classType,displayName,categoryPath),presentationValues`, kind: "admx" };
+    if (sub.includes("device configuration"))
+      return { url: `/deviceManagement/deviceConfigurations/${id}`, kind: "object" };
+    if (sub.includes("compliance policy"))
+      return { url: `/deviceManagement/deviceCompliancePolicies/${id}`, kind: "object" };
+    return null;
+  }
+
+  async function openPolicy(r) {
+    const key = rowKey(r);
+    const cur = openRows.get(key);
+    if (cur && cur.state !== "error") { openRows.delete(key); render(); return; }  // a second click closes it
+    const d = detailFor(r);
+    if (!d) {
+      openRows.set(key, { state: "none" });
+      render();
+      return;
+    }
+    openRows.set(key, { state: "loading" });
+    render();
+    try {
+      const got = await Graph.get(d.url, { scopes: Graph.SCOPES.config });
+      const rows = d.kind === "catalog" ? Docs.catalogRows(got && got.value ? got.value : got)
+        : d.kind === "admx" ? Docs.admxRows(got && got.value ? got.value : got)
+          : Docs.flatten(got);
+      openRows.set(key, { state: "ok", rows: rows || [] });
+    } catch (e) {
+      openRows.set(key, { state: "error", error: (e && e.message) || String(e) });
+    }
+    render();
+  }
+
+  function settingsRow(r, cols) {
+    const st = openRows.get(rowKey(r));
+    if (!st) return "";
+    const body =
+      st.state === "loading" ? `<span class="mini muted">Reading the settings…</span>`
+      : st.state === "none" ? `<span class="mini muted">This kind of object keeps no readable settings list — what reaches the device is the object itself. Open it in the portal.</span>`
+      : st.state === "error" ? `<span class="gu-how exc">could not be read</span> <span class="mini muted">${esc(st.error)}</span>`
+      : (st.rows.length
+        ? `<div class="gu-tw"><table class="cg-table"><tbody>${st.rows.slice(0, 200).map((x) => `<tr>
+             <td class="mini" style="width:45%">${esc(x.name)}</td>
+             <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(x.value)}</td></tr>`).join("")}
+             ${st.rows.length > 200 ? `<tr><td colspan="2" class="mini muted">…and ${st.rows.length - 200} more. The Documenter exports all of them.</td></tr>` : ""}
+           </tbody></table></div>`
+        : `<span class="mini muted">The policy reports no settings.</span>`);
+    return `<tr class="dw-settings"><td colspan="${cols}">
+      <div class="dw-settings-in"><b class="mini">${esc(r.name)}</b>
+        <span class="mini muted"> — secrets are redacted, exactly as in the Documenter.</span>
+        <div style="margin-top:6px">${body}</div></div></td></tr>`;
+  }
+
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));
@@ -784,13 +858,17 @@ const DeviceWhyTool = (() => {
         <div class="gu-tw"><table class="cg-table"><thead><tr>
           <th>Policy</th><th style="width:150px">Kind</th><th style="width:150px">Effect</th>
           <th style="width:250px">Why it reaches this device</th><th style="width:190px">Reported by the device</th></tr></thead>
-          <tbody>${grp.rows.map((r) => `<tr>
-            <td><b>${esc(r.name)}</b></td>
+          <tbody>${grp.rows.map((r, ri) => {
+            const open = openRows.has(rowKey(r));
+            return `<tr>
+            <td><button class="dw-open${open ? " on" : ""}" data-src="${esc(grp.source.id)}" data-ri="${ri}"
+                  title="Show what this policy actually sets">${esc(r.name)}</button></td>
             <td class="mini">${esc(r.sub || "")}</td>
             <td><span class="gu-how ${effClass[r.effect] || "inc"}">${esc(DeviceWhy.EFFECT_LABEL[r.effect] || r.effect)}</span>${r.filterMode ? `<div class="mini muted">filter: ${esc(r.filterName || r.filterMode)}</div>` : ""}</td>
             <td class="gu-via${r.pid === GroupUse.TENANT_WIDE ? " parent" : ""}">${esc(r.viaLabel)}</td>
             <td>${stCell(r)}</td>
-          </tr>`).join("")}</tbody></table></div>
+          </tr>` + settingsRow(r, 5);
+          }).join("")}</tbody></table></div>
       </div>`).join("");
 
     const failed = result.failed.length ? `<div class="list-card">
@@ -830,6 +908,16 @@ const DeviceWhyTool = (() => {
   function init() {
     if (!$("dvAreas")) return;
     renderAreas();
+    // Delegated: every row is rebuilt on each render, so the handler lives on
+    // the body. The row is found through the same grouping the table was
+    // drawn from, so the click and the markup cannot drift apart.
+    $("dvBody").addEventListener("click", (e) => {
+      const b = e.target.closest && e.target.closest(".dw-open");
+      if (!b || !result) return;
+      const grp = GroupUse.grouped(result.rows).find((g) => g.source.id === b.dataset.src);
+      const r = grp && grp.rows[+b.dataset.ri];
+      if (r) openPolicy(r);
+    });
     $("dvRun").addEventListener("click", run);
     $("dvReset").addEventListener("click", reset);
     $("dvTerm").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });

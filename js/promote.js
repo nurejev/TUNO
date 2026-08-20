@@ -61,6 +61,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 29,
+      title: "T06 opens a policy's settings; T05's platform filter follows the scroll",
+      tools: ["\ud83d\udda5 Device analyzer", "\ud83d\udcc4 Configuration documenter"],
+      builds: [10336],
+      risk: "medium",
+      what: "T06: policy names in the effect table become buttons that expand the policy's settings inline, read on demand via Graph.get with the config scope already held. The kind is decided from the row's own `sub` field \u2014 settings catalog, ADMX, device configuration, compliance \u2014 and rendered through Docs.catalogRows / Docs.admxRows / Docs.flatten, which is where redaction lives; nothing renders settings twice. Unmappable kinds say so; failures are reported; lists cap at 200 with the cap stated. The standalone HTML export stays static. T05: the platform filter moves out of the setup form and into the sticky selection bar, held in module state (platformFilter / platformOpts) with a delegated change handler, because the bar is re-rendered on every change. The filter hint says where it went.",
+      why: "MEDIUM \u2014 T06 now issues a Graph read per policy opened, and it renders values that can contain secrets. It is safe only because it goes through the Documenter's readers; the day someone adds a fourth kind here with its own renderer, that stops being true. The T05 half is presentational but changes where a control lives, which is the kind of thing that reads as a missing feature rather than a moved one.",
+      test: [
+        "THE ONE THAT MATTERS: in T06, open a policy KNOWN to contain a secret \u2014 a platform script with a body, or a profile with a certificate. The value must come back redacted, exactly as the Documenter shows it. If a raw value appears, a renderer has been added that bypasses Docs and the tool is leaking into a screen an admin will screenshot.",
+        "Open one policy of each kind: settings catalog, administrative template, device configuration, compliance. Each must show its settings. Then find a row whose kind is none of those \u2014 an app assignment, an enrolment restriction \u2014 and confirm it says it keeps no readable settings list rather than opening onto an empty box.",
+        "Open a policy, then open a second, then close the first. Each panel belongs to its own row and closing one must not disturb the other. Press the same name twice and it must close.",
+        "Sign in as somebody without the configuration scope and open a policy. The panel must report the refusal, not swallow it \u2014 and the rest of the table must keep working.",
+        "Open a policy with a great many settings and confirm the cap is stated rather than the list simply stopping. Compare the count against the Documenter for the same policy.",
+        "Export the standalone HTML from T06 and confirm the policy names are NOT buttons in it, and that it opens with no tenant access.",
+        "In T05, read a tenant and scroll to the bottom. The platform filter must still be on screen, in the selection bar. Change it: the list narrows, the SELECTION does not change, and the export count stays what it was.",
+        "Reset T05 and confirm the filter disappears with the results and the hint reappears explaining where it will be.",
+      ],
+      files: ["js/devicewhy.js", "js/document.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 28,
       title: "Consent stops triggering MFA",
       tools: ["All tools"],

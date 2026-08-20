@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10335"></script>
+<script src="js/popup-guard.js?v=10336"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10335">
+<link rel="stylesheet" href="css/app.css?v=10336">
 </head>
 <body>
 
@@ -522,8 +522,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="wi-grid">
         <label class="wi-f"><span>Search <span class="mini muted">name, description or any setting</span></span>
           <input id="dcSearch" placeholder="e.g. BitLocker" autocomplete="off" spellcheck="false"></label>
-        <label class="wi-f"><span>Platform</span>
-          <select id="dcPlatform"><option value="All">All platforms</option></select></label>
         <label class="wi-f"><span>Assignment</span>
           <select id="dcState">
             <option value="all">Assigned and unassigned</option>
@@ -531,7 +529,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <option value="unassigned">Unassigned only</option>
           </select></label>
       </div>
-      <p class="mini muted" id="dcFilterHint" style="margin:8px 0 0"><b>Nothing to filter yet.</b> These are switched off until you read the configuration — the platform list is built from what your tenant actually returns, so it cannot exist before then.</p>
+      <p class="mini muted" id="dcFilterHint" style="margin:8px 0 0"><b>Nothing to filter yet.</b> These are switched off until you read the configuration. <b>Platform</b> is not here: it appears in the selection bar once there is something to filter, and stays with you as you scroll — its list is built from what your tenant actually returns, with a count beside each entry, so it cannot exist before the read either.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>Filters apply to what has already been read</b>, so changing one costs nothing and asks the tenant nothing. <b>The exports follow the SELECTION, not the filter</b> — the filter narrows what you are looking at, the tick boxes decide what you are sending. That separation is what lets you filter to find three policies, tick them, clear the filter and still export three. Everything is selected after a read; every export's header states how many of how many were chosen, so a partial document can never be mistaken for a complete one.</p>
 
       <div class="tb-actions" style="margin-top:14px">
@@ -791,20 +789,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10335"></script>
-<script src="js/version.js?v=10335"></script>
-<script src="js/promote.js?v=10335"></script>
-<script src="js/authConfig.js?v=10335"></script>
-<script src="js/changelog.js?v=10335"></script>
-<script src="js/msappcatalog.js?v=10335"></script>
-<script src="js/graph.js?v=10335"></script>
-<script src="js/groupuse.js?v=10335"></script>
-<script src="js/audit.js?v=10335"></script>
-<script src="js/backup.js?v=10335"></script>
-<script src="js/document.js?v=10335"></script>
-<script src="js/devicewhy.js?v=10335"></script>
-<script src="js/roles.js?v=10335"></script>
-<script src="js/applocker.js?v=10335"></script>
-<script src="js/app.js?v=10335"></script>
+<script src="js/branding.js?v=10336"></script>
+<script src="js/version.js?v=10336"></script>
+<script src="js/promote.js?v=10336"></script>
+<script src="js/authConfig.js?v=10336"></script>
+<script src="js/changelog.js?v=10336"></script>
+<script src="js/msappcatalog.js?v=10336"></script>
+<script src="js/graph.js?v=10336"></script>
+<script src="js/groupuse.js?v=10336"></script>
+<script src="js/audit.js?v=10336"></script>
+<script src="js/backup.js?v=10336"></script>
+<script src="js/document.js?v=10336"></script>
+<script src="js/devicewhy.js?v=10336"></script>
+<script src="js/roles.js?v=10336"></script>
+<script src="js/applocker.js?v=10336"></script>
+<script src="js/app.js?v=10336"></script>
 </body>
 </html>

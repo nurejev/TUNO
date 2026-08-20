@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10336, date: "2026-08-20", title: "Open the policy where you are standing",
+    items: [
+      { kind: "improved", tool: "\ud83d\udda5 Device analyzer", text: "The table said which policies reach a device. The next question is always what they set, and answering it meant leaving for the Documenter and finding the policy again by name. Policy names are now buttons: press one and the settings open underneath it, read on demand, one policy at a time. Press it again and it closes. Settings catalog, administrative templates, device configuration and compliance policies all open; an object that keeps no readable settings list says so rather than opening onto nothing." },
+      { kind: "improved", tool: "\ud83d\udda5 Device analyzer", text: "It renders through the Documenter's own readers rather than its own, and that is a safety decision rather than a tidiness one: redaction lives in those readers. A second implementation here would be a second place for a script body, a certificate or a pre-shared key to escape. The standalone HTML export stays static \u2014 a downloaded report has no tenant to call, so a button in it would be a button that cannot work." },
+      { kind: "improved", tool: "\ud83d\udcc4 Configuration documenter", text: "The platform filter moved into the selection bar, which follows you down the page. Flipping platform is what you do repeatedly while scanning a tenant's worth of policies, and the setup form it used to live in scrolls away after the first screenful. Its value is now held by the tool rather than read off the control, because the bar is rebuilt on every change and something that gets destroyed and remade cannot also be where the answer is kept." },
+      { kind: "improved", tool: "\ud83d\udcc4 Configuration documenter", text: "The line explaining why the filters are switched off before a read now says where the platform filter went, instead of describing a control that is no longer on that part of the screen." },
+    ],
+  },
+  {
     build: 10335, date: "2026-08-20", title: "Second promotion — Group Analyzer and Change audit are production",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 4 and takes queue items 14 to 19 with it: the two tools that read a tenant, the setup-script fix, the single column width with Help reordered, and the consent fix that makes a missing permission prompt rather than report a surface as unreadable. Items 20 to 28 remain the gap \u2014 Backup, the Documenter, the device analyzer, role assignments, and the MFA fix." },
