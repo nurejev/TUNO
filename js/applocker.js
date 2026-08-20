@@ -347,7 +347,28 @@ const AppLockerTool = (() => {
       });
     }
 
-    // 3. What the run could not see. Stated, not implied.
+    // 3. Was this a reference machine? The single assumption everything else
+    //    rests on. The generated policy says "what is on this machine is allowed
+    //    and nothing else is" — sound from a clean image, and a way of handing
+    //    back two years of accumulation from somebody's working laptop.
+    const ref = b.referenceMachine;
+    if (ref && ref.looksClean === false) {
+      out.push({
+        sev: "High", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        cond: `${ref.profileArtifacts} executable(s) in ${ref.profileCount} profile(s)`,
+        reason: `The scanned device does not look like a clean reference machine — ${(ref.reasons || []).join("; ")}. Every rule generated from a user profile allows whatever was sitting in it.`,
+        rec: "Re-scan a freshly built reference image with your standard applications installed and nobody working in it. If you keep this scan, review every rule sourced from a profile before enforcing — those are the ones that hand a standard user back the ability to run what they put in their own directory, which is the thing AppLocker is here to stop.",
+      });
+    } else if (ref && ref.looksClean === true && ref.profileCount > 0) {
+      out.push({
+        sev: "Info", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        cond: `${ref.profileArtifacts} executable(s) in ${ref.profileCount} profile(s)`,
+        reason: "The scanned device looks like a clean reference machine, so the per-user applications found in the profile are the image's own and the rules built from them are a baseline rather than an accumulation.",
+        rec: "No change needed. Re-scan the reference image whenever it is rebuilt, and treat any new profile rule as a change to the baseline rather than a fix.",
+      });
+    }
+
+    // 4. What the run could not see. Stated, not implied.
     if (b.machine && b.machine.elevated === false) {
       out.push({
         sev: "Medium", source: "scan", collection: "(scan)", ruleType: "(scan)",
@@ -363,7 +384,7 @@ const AppLockerTool = (() => {
       });
     }
 
-    // 4. What the endpoint has already refused.
+    // 5. What the endpoint has already refused.
     const ev = b.events;
     if (ev && ev.available && ev.summary && (ev.summary.blocked || ev.summary.audited)) {
       out.push({

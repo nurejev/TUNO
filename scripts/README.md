@@ -19,10 +19,45 @@ unless you explicitly ask otherwise. Neither one applies a policy.
 
 ---
 
+## Run the scan on a clean reference machine
+
+This is the assumption everything else rests on, so it goes first.
+
+The policy this produces says: **everything on the scanned machine is allowed, and
+nothing else is.** From a freshly built image with your standard applications
+installed, that is a sound baseline. From a device somebody has been working in for
+two years it allows two years of accumulation — installers left in Downloads, a dev
+toolchain, whatever a colleague once ran out of a zip — which is precisely the
+permission AppLocker was deployed to take away.
+
+The scan checks whether the machine looks like a reference image — how many profiles
+exist, how many executables are in them, whether it can see Downloads content, browser
+profiles, `node_modules`, git working copies — and warns loudly when it cannot believe
+you. It will not refuse to run. It will not be quiet either.
+
+### The model it builds
+
+| | |
+|---|---|
+| **Allowed** | What is on the reference image, by publisher wherever possible |
+| **Allowed** | Anything the Intune Management Extension delivers — named explicitly in the policy, not left to the Windows and Program Files defaults to cover by accident |
+| **Allowed** | Anything a local administrator runs — application control does not meaningfully restrict an administrator, and pretending otherwise helps nobody |
+| **Blocked** | Everything else, and a standard user's own profile above all |
+
+The two sanctioned ways software reaches these devices are therefore Intune (IME and
+the Company Portal) and a local administrator. Both are written into the generated
+policy as named rules rather than implied, so that trimming a default rule later
+cannot kill software delivery estate-wide with nothing pointing at the cause.
+
+The scan also refuses to except an IME path out of the default allows even when it
+finds one user-writable — that would break Win32 app delivery and remediation scripts
+silently, days later, on every managed device. It reports the writable IME directory
+as a finding instead, which is the more useful answer: fix the permissions.
+
 ## The workflow
 
 ```
- 1. scan          Invoke-TunoAppLockerScan.ps1   on a representative device
+ 1. scan          Invoke-TunoAppLockerScan.ps1   on a CLEAN REFERENCE MACHINE
         │             writes TunoAppLockerScan-<DEVICE>-<stamp>.json
         ▼
  2. upload        T01 → Upload scan bundle

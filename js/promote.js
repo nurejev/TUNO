@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 32,
+      title: "Scan a reference machine, and say so",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10345],
+      risk: "high",
+      what: "The scan states its central assumption and checks it. Step 1 and the script header now say CLEAN REFERENCE MACHINE, and explain that the policy means \"everything on this machine is allowed and nothing else is\" — sound from a fresh image, and a way of handing back two years of accumulation from a working laptop. Test-ReferenceMachine counts profiles and profile executables and looks for the tells of a used device (Downloads, Desktop, Chrome profile, per-user Programs, node_modules, .vscode, .nuget, .git); a fail prints a STOP AND READ block, lands in the bundle as referenceMachine, and renders in T01 as a High finding with the evidence quoted. A pass renders at Info. The two sanctioned install routes are now NAMED in the generated policy — explicit allow rules for %WINDIR%\\IMECache and the Intune Management Extension folder in Exe/Script/Dll and Msi, and the administrator rules say in their descriptions that they are the other route. IME paths are protected from being excepted out of the default allows, checked both on the raw writable list and again on the compressed exception list; a writable IME directory becomes a warning instead. User profiles are recorded once rather than walked, and non-profile directories are inventoried first so -MaxArtifacts cannot be spent before Windows and Program Files are covered.",
+      why: "HIGH — this changes what the generated policy CONTAINS, on the tool whose output is meant to be enforced on endpoints. The IME rules are new allow rules; the profile change alters what evidence the bundle carries and therefore which findings appear; and the reference-machine verdict is a new High finding that will fire on most real scans, correctly. Like everything else in this script it is unexecuted here — no PowerShell runtime — so the PowerShell half is verified by argument and the browser half by 79 headless tests. It graduates when a scan of an actual reference image produces a policy in which the IME rules are present and no IME path has been excepted.",
+      test: [
+        "THE ONE THAT MATTERS: run the scan on a real reference image and on a used laptop. The first must report the profiles as clean at Info; the second must print STOP AND READ and produce a High finding in T01 naming what it found. If a used laptop passes, the tells are too narrow and the check is worse than nothing because it grants false confidence.",
+        "Open the generated Audit XML and confirm the IME rules are present in Exe, Script, Dll and Msi, and that NO exception path covers %WINDIR%\\IMECache or the Intune Management Extension folder. This is the rule set that would be deployed; the check is on the artefact, not on the console output.",
+        "Make an IME folder user-writable on a test machine, re-scan, and confirm the scan REFUSES to except it and warns instead. Then confirm Win32 app delivery still works with the resulting policy applied in audit. Breaking software deployment is the failure this guard exists to prevent and it fails silently and days late.",
+        "Deploy the audit policy to a pilot device and install something from the Company Portal. It must work. Then run a remediation script from Intune. It must run. Those are the two IME paths the rules name, and neither is exercised by anything else on this list.",
+        "Compare the writable-path count against the previous build on the same machine: the profile rows should collapse to one per profile. Confirm the artifacts from the profile are STILL inventoried — the point is to stop enumerating the directories, not to stop looking at what is installed in them.",
+        "Run with -Scope System,ProgramFiles,UserProfiles and a deliberately low -MaxArtifacts. Windows and Program Files must be inventoried before the cap is reached. If profile contents still crowd them out, the ordering did not take.",
+        "Upload a bundle from BEFORE this build. It must open and show no reference-machine finding at all, rather than inventing a verdict from a missing field.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/README.md", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 31,
       title: "The scan no longer throws itself away",
       tools: ["🔐 AppLocker builder & validator"],
