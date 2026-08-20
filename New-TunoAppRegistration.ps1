@@ -82,17 +82,83 @@ param(
   #   Group.Read.All
   #     Finding the pilot group to assign the profile to, and reading its
   #     member count so the confirmation can say how many people are about to
-  #     receive an application-control policy. Read-only.
+  #     receive an application-control policy. Also the group whose assignments
+  #     the Group Analyzer reports on. Read-only.
+  #
+  # --- the Intune read scopes (added at build 10317) --------------------
+  #
+  # THESE EIGHT ARE ALL READ-ONLY AND ALL NEED ADMIN CONSENT. None can be
+  # consented by an ordinary user, so a tenant that has not consented will see
+  # the ask refused rather than prompted — which is the correct failure, but
+  # only if somebody knows to expect it.
+  #
+  # NOTE ON THE FIRST ONE, because it looks redundant and is not.
+  # DeviceManagementConfiguration.Read.All is listed even though the ReadWrite
+  # variant above would functionally cover every read. Entra consents scopes by
+  # NAME: a token requested for Read.All is refused unless Read.All itself is
+  # consented, whatever else is on the registration. The alternative — pointing
+  # the read-only tools at the ReadWrite scope — would mean a tool that only
+  # reports could, on any future bug, write. The extra consent line is the
+  # cheaper of the two.
+  #
+  #   DeviceManagementConfiguration.Read.All
+  #     Configuration profiles, settings catalog policies, compliance policies
+  #     and administrative templates. R04 Group Analyzer, R05 Change audit,
+  #     R06 Documentation, R08 Backup — and it is the ONLY scope R08 needs.
+  #
+  #   DeviceManagementApps.Read.All
+  #     Application assignments and install intents, app protection and app
+  #     configuration policies. Also what Graph checks for the Intune audit
+  #     log itself. R04, R05, R06.
+  #
+  #   DeviceManagementScripts.Read.All
+  #     PowerShell scripts, macOS shell scripts and remediation scripts —
+  #     their assignments in R04, their bodies in R06 and R08.
+  #
+  #   DeviceManagementManagedDevices.Read.All
+  #     The device inventory: compliance state, last check-in, platform.
+  #     R03 Device analyzer, and the per-platform counts in R06.
+  #
+  #   DeviceManagementServiceConfig.Read.All
+  #     Tenant-level service configuration — enrolment restrictions, Autopilot
+  #     deployment profiles, Apple ADE tokens, cleanup rules. R06.
+  #
+  #   DeviceManagementRBAC.Read.All
+  #     Intune role definitions and their assignments, scope tags and
+  #     assignment filters. R07 Role assignments, and R06.
+  #
+  #   GroupMember.Read.All
+  #     Walking group membership so R04 can answer parent-group inheritance:
+  #     a policy assigned to a parent group lands on the child's members too,
+  #     and a report that stops at direct assignments is wrong about that.
+  #
+  #   User.Read.All
+  #     Turning the member and actor GUIDs that Intune returns into names,
+  #     through directoryObjects/getByIds. Without it R07 is a page of GUIDs.
   #
   # Adding a scope here is not the same as using it: a tool that never calls
   # Graph never triggers a consent prompt for one. But a scope consented is a
   # scope the app could use, so add them when the tool that needs them lands —
-  # not in advance.
+  # not in advance. THAT RULE IS BENT ONCE HERE, deliberately: the eight go on
+  # together at 10317 rather than one per tool, because each addition costs
+  # every customer tenant another admin-consent round trip, and eight of those
+  # spread over eight builds is a worse deal for them than one. The scopes are
+  # read-only, and the tools that use them are named above — so what is
+  # consented can still be checked against what exists.
   [string[]]$DelegatedScopes = @(
     "User.Read",
     "SecurityEvents.Read.All",
     "DeviceManagementConfiguration.ReadWrite.All",
-    "Group.Read.All"
+    "Group.Read.All",
+    # Intune reads — build 10317
+    "DeviceManagementConfiguration.Read.All",
+    "DeviceManagementApps.Read.All",
+    "DeviceManagementScripts.Read.All",
+    "DeviceManagementManagedDevices.Read.All",
+    "DeviceManagementServiceConfig.Read.All",
+    "DeviceManagementRBAC.Read.All",
+    "GroupMember.Read.All",
+    "User.Read.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent

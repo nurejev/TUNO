@@ -49,6 +49,28 @@ const PROMOTE = {
 
   items: [
     {
+      n: 13,
+      title: "The registration script asks for the eight Intune read scopes",
+      tools: ["All tools"],
+      builds: [10317],
+      risk: "medium",
+      what: "New-TunoAppRegistration.ps1's $DelegatedScopes grows from four to twelve: DeviceManagementConfiguration.Read.All, DeviceManagementApps.Read.All, DeviceManagementScripts.Read.All, DeviceManagementManagedDevices.Read.All, DeviceManagementServiceConfig.Read.All, DeviceManagementRBAC.Read.All, GroupMember.Read.All and User.Read.All. All read-only; all requiring admin consent. Each carries a comment naming the roadmap item that reads it. SECURITY.md gains a table of the same, and its \"register without write capability\" example is corrected — it named two scopes, which after this change would also strip every read the Intune tools need.",
+      why: "MEDIUM, and NOT for the reason it looks. No code changed and no tool uses these yet, so promoting the file is inert. The risk is that THE APP REGISTRATION IS SHARED BETWEEN BOTH CHANNELS — one clientId, a0ea0fc5, serves tuno.limon-it.nl and the beta site alike. The moment this script is RUN, production's registration changes too, whether or not this item was promoted. So the queue does not control the blast radius here; running the script does. It graduates once the script has been run against the real registration and a sign-in on production still works.",
+      test: [
+        "THE ORDER MATTERS: run the script BEFORE promoting, not after, and check production's sign-in still works afterwards. The registration is shared, so a bad scope list breaks tuno.limon-it.nl regardless of what is on main.",
+        "Run ./New-TunoAppRegistration.ps1 and read the summary line it prints. Twelve scopes, and every one resolved — the script throws on a name Graph does not know, so a typo fails loudly rather than silently dropping a permission.",
+        "In the portal, confirm the app still shows exactly ONE write permission (DeviceManagementConfiguration.ReadWrite.All). Eight read scopes went on; if a ninth write appeared, a name was wrong.",
+        "Sign in to production (tuno.limon-it.nl) and confirm the consent prompt does NOT list the new scopes. They are asked for on the click; if they appear at sign-in, something is requesting them up front and the incremental model has been broken.",
+        "Run T01 step 5 end to end after the script has run. Re-granting consent rewrites the OAuth2 permission grant wholesale, and the write scope has to survive that rewrite — if step 5 now asks for consent again, it did not.",
+        "Read the corrected SECURITY.md example and actually run it against a throwaway registration. An example that does not work is worse than none, and this one is what a security reviewer will try first.",
+      ],
+      staying: [
+        "No tool asks for any of the eight yet. R08 backup needs only the first and is the shortest path to proving one of them works.",
+        "The scopes are consented, not used. A tool that never calls Graph never triggers a prompt for one.",
+      ],
+      files: ["New-TunoAppRegistration.ps1", "SECURITY.md", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 12,
       title: "The Graph read layer — and a refactor of the write path to get it",
       tools: ["All tools"],
