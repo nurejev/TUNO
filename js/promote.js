@@ -407,5 +407,9 @@ const PROMOTE = {
       title: "🚚 This promotion queue",
       why: "Beta-only by design — js/promote.js and the Help section that renders it exist to describe the gap, so they have no meaning in production.",
     },
+    {
+      title: "🌐 The absence of a CNAME file",
+      why: "This channel is served from nurejev.github.io/tuno-beta and must NOT claim tuno.limon-it.nl — two Pages sites naming one custom domain fight over it. The file was inherited from the scaffold when this branch was cut and removed in build 10333. It is listed here because it is the one change that must NEVER be promoted: main needs its CNAME, and a merge that carries this deletion across takes production off its own domain.",
+    },
   ],
 };

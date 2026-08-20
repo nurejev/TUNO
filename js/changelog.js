@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10333, date: "2026-08-20", title: "This channel stops claiming the production domain",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The CNAME file naming tuno.limon-it.nl was on this branch as well as on production. It had been there since the scaffold \u2014 the beta branch was cut from build 1 and inherited it, and nobody took it off \u2014 so the beta site, which is served from its github.io address and wants no custom domain at all, was telling GitHub Pages it owned the production one. Two sites naming one domain fight over it, and the losing side is whichever GitHub decides; the README has said so in as many words since the beginning. It is removed here and only here. Production keeps its CNAME, and the promotion queue now lists this absence as something that must never be promoted \u2014 a merge carrying the deletion across would take production off its own domain." },
+    ],
+  },
+  {
     build: 10332, date: "2026-08-20", title: "The first promotion — items 1 to 13 are production",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves from build 2 to build 3, and takes queue items 1 through 13 with it: the AppLocker tool as a whole workflow rather than a policy reader, TUNO's own mark, the tab bar, the Graph layer, and a registration script that declares what the tools ask for. That is beta builds 10301 to 10317, which is exactly where item 13 ends and item 14 begins, so the cut needed no picking apart. The five tools that came after stay here \u2014 items 14 to 27 are still the gap." },
