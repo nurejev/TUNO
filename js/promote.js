@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 46,
+      title: "The cleanup for devices that already have a policy",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10362],
+      risk: "high",
+      what: "Two new scripts close the brownfield gap the carry-over findings describe. Clear-TunoAppLockerPolicy.ps1: backs up the effective policy, local policy and SrpV2 registry key; applies the empty (all-NotConfigured, zero-rule) policy, which is the genuinely inert state; clears the SrpV2 tattoo; verifies the effective policy is empty afterwards and exits 1 when it is not. It PRESERVES the AppLocker event logs by default (-ClearEventLogs exports them first even when set) and LEAVES AppIDSvc alone (-DisableAppIdService only for retiring AppLocker outright). Detect-TunoAppLockerPolicy.ps1 is the Intune Remediation detection half: exit 1 when the effective policy has rules or SrpV2 exists. It replaces Mihai's CloudFlow Remediate-AppLocker.ps1, which cleared the event logs unconditionally, disabled AppIDSvc, and exited 0 on failed verification. The migration order (unassign → cleanup → deploy under a NEW grouping) is now stated in the carry-over rec, step 5, the checklist and the README, plus the warning that the Remediation pair left assigned after the new policy lands will read that policy as state to remove.",
+      why: "HIGH — this script DELETES policy from production endpoints, by design, at SYSTEM, and like every .ps1 here it has never been executed (no PowerShell runtime in the build environment). Its worst failure modes are the quiet ones: a backup that silently failed before a delete that succeeded, or the pair left assigned after migration eating the new policy. It graduates when one device has been walked through the full unassign → cleanup → redeploy cycle and came out with the new policy live and the old one gone.",
+      test: [
+        "THE ONE THAT MATTERS: on a test device carrying a real policy, run the full migration — unassign the old profile, run the cleanup elevated, deploy the new grouping. The cleanup must exit 0, the backups must exist in C:\\DVL-Logs and be re-importable (restore one with Set-AppLockerPolicy to prove it), and the new policy must land clean.",
+        "Run the cleanup WITHOUT unassigning first, wait for a sync, and confirm the policy returns — then confirm the log's reminder line said it would. The loop is the failure users will hit; the script must have warned about it.",
+        "Run it on a device where SrpV2 cannot be fully removed (leave the old profile assigned) and confirm it exits 1, not 0. To a Remediation, exit 0 on a dirty device is a lie that hides exactly the machines needing a human.",
+        "Confirm the AppLocker event logs SURVIVE a default run — open Event Viewer after. Then run with -ClearEventLogs and confirm the .evtx exports landed in the log folder before the logs went.",
+        "Confirm AppIDSvc is untouched by a default run, and that the new policy deployed afterwards actually logs events — the old script's service handling is why a pilot could read clean while doing nothing.",
+        "Deploy the pair as an Intune Remediation to one device and watch a full detect→remediate cycle report correctly in the console. Then leave it assigned while the new policy deploys and confirm the documented failure happens — detection flags the new policy — so the warning in step 5 is proven true rather than assumed.",
+        "Run Detect on a clean device (exit 0) and on a policied device (exit 1). Detection inverted is remediation run on the wrong machines.",
+      ],
+      files: ["scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/Detect-TunoAppLockerPolicy.ps1", "scripts/AppLocker-Implementation-Checklist.md", "scripts/README.md", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 45,
       title: "A refresh no longer costs you an MFA prompt",
       tools: ["All tools"],

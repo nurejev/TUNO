@@ -366,7 +366,7 @@ const AppLockerTool = (() => {
             ? `Those rules are ENFORCING today${lc.mode === "NotConfigured" ? " (NotConfigured with rules means enforced)" : ""} and will go on enforcing afterwards, while this policy appears to say nothing about ${lc.type}.`
             : `Those rules are in ${lc.mode} today and will stay in ${lc.mode} afterwards.`) +
           (empty ? " An empty collection replaces the node over the Intune CSP, but Group Policy merges rather than replaces, so over GPO the device's rules survive it." : ""),
-        rec: `Decide, rather than letting the delivery path decide. To KEEP it, put the '${lc.type}' rules into this policy so one artefact describes the whole device. To REMOVE it, delete the OMA-URI that set it from the Intune profile that owns it (Intune sends a Delete), or clear the rules in the GPO carrying them — leaving it out here does nothing. The AppLocker CSP reboots the device on apply and on delete, so neither is silent.`,
+        rec: `Decide, rather than letting the delivery path decide. To KEEP it, put the '${lc.type}' rules into this policy so one artefact describes the whole device. To REMOVE it: unassign the Intune profile that owns it (Intune sends a Delete) or unlink the GPO carrying it, then run Clear-TunoAppLockerPolicy.ps1 — downloadable in step 5 — to sweep what unassignment leaves tattooed, and only then deploy this policy under a NEW grouping. Leaving it out here does nothing on its own, and cleanup without unassignment is a loop: the old policy returns at the next sync. The AppLocker CSP reboots the device on apply and on delete, so neither is silent.`,
       });
     }
     return out;

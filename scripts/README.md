@@ -14,6 +14,8 @@ copy you download always matches the build of T01 you are looking at.
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
+| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean | Intune Remediation or an elevated shell; exits 1 if not clean |
+| `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
 
 Both are MIT-licensed, like the rest of TUNO, and both are read-only on the device
 unless you explicitly ask otherwise. Neither one applies a policy.
@@ -244,6 +246,27 @@ Every AppLocker delivery path **adds** rather than replaces:
 A collection your new policy simply **omits keeps running**. If it was `NotConfigured`
 with rules, it keeps *blocking*, while the policy you just deployed appears to say
 nothing about that type at all.
+
+### Migrating a device that already has a policy
+
+Three steps, in this order, because each one exists to make the next one true:
+
+1. **Unassign** the old Intune profile (or unlink the old GPO). Skip this and the
+   cleanup is a loop — everything it removes returns at the next sync.
+2. **Run `Clear-TunoAppLockerPolicy.ps1`** — as an Intune Remediation paired with
+   `Detect-TunoAppLockerPolicy.ps1`, or by hand in an elevated shell. It backs up the
+   effective policy, the local policy and the SrpV2 registry key first; replaces the
+   local policy with the empty (genuinely inert) one; clears the SrpV2 tattoo; and
+   verifies the effective policy is actually empty afterwards, exiting 1 when it is
+   not so Intune reports the device rather than the wish. It deliberately **preserves
+   the AppLocker event logs** (the 8003/8006 audit evidence) and **leaves AppIDSvc
+   running** — the policy you deploy next needs both.
+3. **Deploy the new policy under a new grouping.** Never reuse the old deployment's
+   name or grouping — removal of shared groupings is broken by design in the CSP.
+
+If the Remediation pair stays assigned after the new policy lands, the detection will
+read the new policy as state to remove. Scope it to the migration window and unassign
+it when the window closes.
 
 To actually remove one: delete the OMA-URI from the profile that set it (Intune sends a
 Delete), or clear the rules in the GPO that carries them. Upload a scan bundle to T01 and

@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10361"></script>
+<script src="js/popup-guard.js?v=10362"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10361">
+<link rel="stylesheet" href="css/app.css?v=10362">
 </head>
 <body>
 
@@ -334,7 +334,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
                     <a class="btn" href="scripts/AppLocker-Implementation-Checklist.md" download>⭳ AppLocker-Implementation-Checklist.md</a>
                     <span class="mini muted" style="flex:1;min-width:240px">Every check that has to pass before this policy is enforced — the XML itself, the coverage, the audit period, the way back. Print it and keep the completed copy.</span>
                   </div>
+                  <!-- The brownfield pair. Deploying does not clear what came
+                       before, so a device with an OLD policy needs it removed
+                       deliberately — and the carry-over findings above point
+                       here when the scan sees one. -->
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
+                    <span class="mini muted" style="flex:1;min-width:240px">The cleanup for devices that already carry a policy: backs up, clears the local policy and the SrpV2 tattoo, verifies, and exits 1 when it is not clean. Preserves the audit event logs and AppIDSvc by default — the new policy needs both.</span>
+                  </div>
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
+                    <span class="mini muted" style="flex:1;min-width:240px">Its detection half, for deploying the pair as an Intune Remediation during the migration window. Unassign it once the new policy is out, or it will remove what you just deployed.</span>
+                  </div>
                 </div>
+                <p class="mini"><b>A device that already has an AppLocker policy</b> — the carry-over findings in the audit will say so — is a three-step migration, in this order: <b>unassign</b> the old profile or GPO (skipping this makes the cleanup a loop — everything returns at the next sync), <b>run the cleanup</b> to sweep what unassignment leaves tattooed, then <b>deploy this policy under a new grouping</b>. Never reuse the old deployment's name or grouping: removal of shared groupings is broken by design in the CSP.</p>
                 <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
 .\Convert-TunoAppLockerToIntune.ps1 `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
@@ -1105,24 +1118,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10361"></script>
-<script src="js/version.js?v=10361"></script>
-<script src="js/promote.js?v=10361"></script>
-<script src="js/authConfig.js?v=10361"></script>
-<script src="js/changelog.js?v=10361"></script>
-<script src="js/msappcatalog.js?v=10361"></script>
-<script src="js/graph.js?v=10361"></script>
-<script src="js/groupuse.js?v=10361"></script>
-<script src="js/audit.js?v=10361"></script>
-<script src="js/backup.js?v=10361"></script>
-<script src="js/document.js?v=10361"></script>
-<script src="js/devicewhy.js?v=10361"></script>
-<script src="js/whatif.js?v=10361"></script>
-<script src="js/health.js?v=10361"></script>
-<script src="js/settingsearch.js?v=10361"></script>
-<script src="js/assignedit.js?v=10361"></script>
-<script src="js/roles.js?v=10361"></script>
-<script src="js/applocker.js?v=10361"></script>
-<script src="js/app.js?v=10361"></script>
+<script src="js/branding.js?v=10362"></script>
+<script src="js/version.js?v=10362"></script>
+<script src="js/promote.js?v=10362"></script>
+<script src="js/authConfig.js?v=10362"></script>
+<script src="js/changelog.js?v=10362"></script>
+<script src="js/msappcatalog.js?v=10362"></script>
+<script src="js/graph.js?v=10362"></script>
+<script src="js/groupuse.js?v=10362"></script>
+<script src="js/audit.js?v=10362"></script>
+<script src="js/backup.js?v=10362"></script>
+<script src="js/document.js?v=10362"></script>
+<script src="js/devicewhy.js?v=10362"></script>
+<script src="js/whatif.js?v=10362"></script>
+<script src="js/health.js?v=10362"></script>
+<script src="js/settingsearch.js?v=10362"></script>
+<script src="js/assignedit.js?v=10362"></script>
+<script src="js/roles.js?v=10362"></script>
+<script src="js/applocker.js?v=10362"></script>
+<script src="js/app.js?v=10362"></script>
 </body>
 </html>
