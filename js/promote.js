@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 40,
+      title: "What's new actually shows up",
+      tools: ["All tools"],
+      builds: [10356],
+      risk: "low",
+      what: "js/changelog.js has claimed since the scaffold that it feeds \"the What's new overlay shown after sign-in\". There was no overlay — the header text came across from ENCA and the feature did not. Added: a modal after enter(), listing only the releases newer than the build recorded in localStorage under tuno.changelog.seen. Nothing shows on a first visit (the current build is recorded silently). Opening the What's new page marks it seen. Escape and backdrop clicks close WITHOUT marking, so only 'Got it' and 'Read the full list' burn the notice. localStorage is guarded the same way the theme is, so private mode degrades instead of breaking. One test seam, window.openWhatsNewOverlayForTest, because the real entry point is behind MSAL.",
+      why: "LOW — additive, on the shell rather than any tool, and it cannot block anything: the worst failure is a dialog that does not appear. It graduates once it has been seen firing on a real sign-in and dismissed, and once someone has confirmed a brand-new profile gets nothing.",
+      test: [
+        "THE ONE THAT MATTERS: sign in on a browser profile that has used TUNO before. The overlay must appear listing only builds newer than what you last read — not the whole changelog. If it shows everything, the stored build is not being read.",
+        "Sign in on a FRESH profile (or clear tuno.changelog.seen). NOTHING must appear, and the key must be written silently. A new customer getting fifty builds of history between them and the tools is the failure this rule exists to prevent.",
+        "Open it, press Escape, sign out and back in: it must come back. Then do the same with a click on the dark backdrop. Neither may mark it seen — losing a notice to a stray click is the one irreversible thing here.",
+        "Press 'Got it' and sign in again: it must NOT come back. Then check the same for 'Read the full list', which should land on the What's new screen and also count as read.",
+        "Open it at phone width and confirm it goes full-screen and the body scrolls, with the buttons still reachable. A modal you cannot dismiss on a phone is worse than no modal.",
+        "Turn off site data (private mode, or block storage for the site) and sign in. The app must work and must not throw — the overlay may appear every session, which is the acceptable degradation.",
+        "Check both themes: it is a dialog over the tools home and inherits the surface colours, so a light-on-light or dark-on-dark card would only show up here.",
+      ],
+      files: ["js/app.js", "css/app.css", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 39,
       title: "What the device already runs, and one grouping per profile",
       tools: ["🔐 AppLocker builder & validator"],

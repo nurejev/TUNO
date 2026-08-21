@@ -299,7 +299,23 @@ const Fs = (() => {
     $("homeBtn").style.display = "";
     buildToolNav();
     show("screen-home");
+    openWhatsNewOverlay();
   }
+  // Dismiss marks it seen; "Read the full list" hands over to the page, which
+  // marks it seen itself. Escape and the backdrop close WITHOUT marking, so a
+  // stray click does not lose the one showing you never got.
+  const wn = $("whatsNew");
+  if (wn) {
+    wn.addEventListener("click", (e) => {
+      if (e.target.closest("[data-wn-dismiss]")) { closeWhatsNew(true); return; }
+      if (e.target.closest("[data-wn-open]")) { closeWhatsNew(false); openChangelog(); return; }
+      if (e.target === wn) closeWhatsNew(false);           // backdrop
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && wn.style.display !== "none") closeWhatsNew(false);
+    });
+  }
+
   $("signInBtn").addEventListener("click", () => signIn(false));
   $("noPopupLink").addEventListener("click", (e) => { e.preventDefault(); signIn(true); });
   $("signOutBtn").addEventListener("click", () => {
@@ -436,7 +452,57 @@ const Fs = (() => {
     show("screen-changelog");
     $("clBody").innerHTML = (typeof CHANGELOG !== "undefined" ? CHANGELOG : []).map(clRelease).join("")
       || '<p class="mini">No changelog entries yet.</p>';
+    markChangelogSeen();
   }
+
+  // ---------- "What's new" on sign-in ----------
+  //
+  // js/changelog.js has described itself as the source for "the What's new
+  // overlay shown after sign-in" since TUNO was scaffolded from ENCA. There was
+  // no overlay — the text came across with the file and the feature did not.
+  //
+  // The rules it follows:
+  //   * Only what you have NOT seen. It lists the releases newer than the build
+  //     recorded when you last looked, not the whole changelog.
+  //   * NOTHING on a first visit. A new user does not need forty builds of
+  //     history in front of the tools; the current build is recorded silently
+  //     and the overlay starts working from the next release.
+  //   * Reading the What's new page counts as seeing it, so the overlay does
+  //     not reappear over something you just read.
+  //   * localStorage, guarded — private mode throws, and a browser that cannot
+  //     remember should show the overlay once per session rather than break.
+  const CL_SEEN_KEY = "tuno.changelog.seen";
+  const clSeen = () => { try { return Number(localStorage.getItem(CL_SEEN_KEY)) || 0; } catch { return 0; } };
+  function markChangelogSeen() {
+    try { localStorage.setItem(CL_SEEN_KEY, String(APP_BUILD.build)); } catch { /* private mode */ }
+  }
+  function unseenReleases() {
+    if (typeof CHANGELOG === "undefined" || !CHANGELOG.length) return [];
+    const since = clSeen();
+    if (!since) { markChangelogSeen(); return []; }      // first visit — record, say nothing
+    return CHANGELOG.filter((r) => r.build > since);
+  }
+  function openWhatsNewOverlay() {
+    const rels = unseenReleases();
+    const box = $("whatsNew");
+    if (!box || !rels.length) return;
+    const n = rels.reduce((t, r) => t + r.items.length, 0);
+    $("whatsNewSub").textContent =
+      `${n} change${n === 1 ? "" : "s"} across ${rels.length} build${rels.length === 1 ? "" : "s"}, since you last looked at build ${clSeen()}.`;
+    $("whatsNewBody").innerHTML = rels.map(clRelease).join("");
+    box.style.display = "";
+    box.querySelector(".wn-card").focus();
+  }
+  function closeWhatsNew(seen) {
+    const box = $("whatsNew");
+    if (!box) return;
+    box.style.display = "none";
+    if (seen) markChangelogSeen();
+  }
+  // The overlay decides what to show from localStorage and the changelog, and
+  // both are awkward to reach through MSAL. This is the seam the headless tests
+  // drive; everything else about the app stays private to this closure.
+  window.openWhatsNewOverlayForTest = openWhatsNewOverlay;
 
   // ---------- help, incl. the promotion queue on non-production hosts ----------
   function openHelp() {

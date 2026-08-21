@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10356, date: "2026-08-21", title: "What's new actually shows up",
+    items: [
+      { kind: "new", tool: "All tools", text: "This file has described itself as the source for \"the What's new overlay shown after sign-in\" since TUNO was first scaffolded, and there was no overlay. The text came across with the file; the feature did not. Now there is one. Sign in and anything released since you last looked is in front of you, with a link through to the full list." },
+      { kind: "improved", tool: "All tools", text: "It follows four rules so it stays a courtesy rather than an obstacle. It shows only what you have not seen, not the whole history. It shows nothing at all on a first visit — a new user does not need forty builds of other people's work between them and the tools, so the current build is recorded quietly and the notice starts working from the next release. Opening the What's new page counts as having seen it, so it never reappears over something you have just read. And closing it with Escape or a click outside does not mark it seen: only \"Got it\" and reading the full list do, so a stray click cannot cost you the one notice you were given." },
+    ],
+  },
+  {
     build: 10355, date: "2026-08-21", title: "What the device already runs, and one grouping per profile",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "Deploying an AppLocker policy does not clear what came before, and nothing in the tool said so. Every delivery path adds rather than replaces: the Intune CSP keeps one node per grouping and rule type until something explicitly deletes it, Group Policy merges rules from every linked object and will not overwrite ones already present, and a local policy persists until cleared. So a collection your new policy simply leaves out keeps running — and if it was the not-configured-with-rules kind, it keeps blocking, while the policy on screen appears to have nothing to say about that type at all. Upload a scan and the audit now names every collection the device is running that the policy in front of you does not cover, says whether those rules are enforcing today, and explains how to actually remove them. It is the one check that needs the device's own effective policy, which is exactly what the scan brings back." },
