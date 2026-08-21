@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10352, date: "2026-08-21", title: "The scan reaches AppLocker from PowerShell 7",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Running the scan under PowerShell 7 warned that the AppLocker module was not available, and fell back to reading certificates for every publisher. That was correct as far as it went \u2014 the module is a Windows PowerShell component and 7 cannot load it in-process however it is asked \u2014 but 7 on Windows can still REACH it, through a background Windows PowerShell session that proxies the commands across. The scan does that now, so a 7 session gets the same authoritative answers a 5.1 one does." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "With one deliberate limit, because the proxy is not free. Every call across that boundary is serialised, and the scan asks for file information ONCE PER FILE across thousands of them \u2014 so a fix that looked like a win could have turned a two-minute scan into an afternoon. The script times a single call before committing to it: if it is slow, the effective-policy read still goes through the proxy, which is one call and worth it, while the per-file work stays on certificate derivation. Either way the bundle records which of the three routes was taken, and the device card in the browser now shows it beside whether the scan ran elevated." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "None of this has been run on a real PowerShell 7 machine \u2014 there is no Windows host in the environment it was written in. The timing threshold in particular is a guess that wants one real measurement, and the script says so where the number is set." },
+    ],
+  },
+  {
     build: 10351, date: "2026-08-21", title: "The code panel's header stops fighting itself",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Adding the collection selector gave the panel header four controls and a two-line filename to fit on one row, in a column that is not wide enough for them. Nothing was allowed to wrap, so the layout resolved it by squeezing the filename block toward nothing \u2014 the line underneath broke to one word per line and read as a narrow column of text, while the Download button ran off the right-hand edge. The header wraps now: the actions move to a second row when they have to, and the filename keeps a minimum width so it can never be crushed like that again. Both of its lines clip with an ellipsis rather than wrapping, because a filename is an identifier and not a sentence." },

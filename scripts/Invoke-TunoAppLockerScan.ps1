@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.4.0'
-$script:TunoBuild = 10349
+$script:ScriptVersion = '1.5.0'
+$script:TunoBuild = 10352
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -274,6 +274,11 @@ $script:TunoIsBeta = $script:TunoBuild -ge 10000
 $script:TunoSite = if ($script:TunoIsBeta) { 'https://nurejev.github.io/tuno-beta/' } else { 'https://tuno.limon-it.nl' }
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
+# How long ONE proxied Get-AppLockerFileInformation call may take before the
+# per-file path gives up on the Windows PowerShell compatibility session. A
+# native call is around a millisecond; anything near this is a proxy, and the
+# scan makes one of these per file. A guess until measured on a real PS7 host.
+$script:AppLockerProxyBudgetMs = 40
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Output helpers
@@ -389,6 +394,8 @@ function Get-MachineFacts {
     $edition = 'Desktop'
     if ($PSVersionTable.PSObject.Properties.Name -contains 'PSEdition') { $edition = $PSVersionTable.PSEdition }
 
+    $alSource = Initialize-AppLockerModule
+
     [pscustomobject]@{
         name               = $env:COMPUTERNAME
         os                 = $caption
@@ -402,7 +409,67 @@ function Get-MachineFacts {
         scannedBy          = "$env:USERDOMAIN\$env:USERNAME"
         appIdentityService = $appId
         appLockerCmdlets   = [bool](Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue)
+        appLockerSource    = $alSource
     }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# The AppLocker module on PowerShell 7
+#
+# THE MODULE IS WINDOWS POWERSHELL ONLY. It is a binary module built against
+# the .NET Framework, so PowerShell 7 cannot load it in-process however it is
+# asked; `Import-Module AppLocker` there fails, which is why a 7 session used
+# to report "the AppLocker module is not available" and fall back to reading
+# certificates itself.
+#
+# PowerShell 7 on Windows can still REACH it: -UseWindowsPowerShell starts a
+# background Windows PowerShell session and proxies the cmdlets into this one.
+# That is a real fix for the effective-policy read, which is a single call.
+#
+# IT IS NOT FREE, and the cost lands exactly where it hurts. Every proxied call
+# is serialised across a process boundary, so Get-AppLockerFileInformation —
+# which the scan makes ONCE PER FILE, across thousands of them — can go from
+# imperceptible to minutes. So the import is attempted, and then a single call
+# is TIMED: if it is slow, the per-file path stays on certificate derivation
+# and the bundle says why. The one-shot policy read uses the proxy either way.
+#
+# NOT VERIFIED ON A REAL PS7 HOST. This was written and reviewed without a
+# Windows machine to run it on; the timing threshold in particular is a guess
+# that wants one real measurement.
+# ══════════════════════════════════════════════════════════════════════════════
+function Initialize-AppLockerModule {
+    if (Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue) { return 'native' }
+
+    $isWindows = -not ($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -or $PSVersionTable.Platform -eq 'Win32NT'
+    if (-not $isWindows) { return 'unavailable' }
+    if ($PSVersionTable.PSVersion.Major -lt 6) { return 'unavailable' }
+
+    try {
+        Import-Module AppLocker -UseWindowsPowerShell -ErrorAction Stop -WarningAction SilentlyContinue | Out-Null
+    }
+    catch {
+        Add-ScanWarning "PowerShell $($PSVersionTable.PSVersion) cannot load the AppLocker module, and the Windows PowerShell compatibility import also failed: $($_.Exception.Message)"
+        return 'unavailable'
+    }
+    if (-not (Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue)) { return 'unavailable' }
+
+    # One timed call decides whether the per-file path can afford the proxy.
+    $probe = $null
+    foreach ($c in @("$env:windir\System32\notepad.exe", "$env:windir\explorer.exe")) {
+        if (Test-Path -LiteralPath $c) { $probe = $c; break }
+    }
+    if (-not $probe) { return 'compat-policy-only' }
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    try { Get-AppLockerFileInformation -Path $probe -ErrorAction Stop | Out-Null }
+    catch { return 'compat-policy-only' }
+    $sw.Stop()
+
+    if ($sw.ElapsedMilliseconds -gt $script:AppLockerProxyBudgetMs) {
+        Add-ScanWarning ("The AppLocker module is reachable from PowerShell $($PSVersionTable.PSVersion) only through the Windows PowerShell compatibility session, and a single call took {0} ms. Across every file in the scan that is hours, so publisher and hash details are being derived from certificates instead. The effective-policy read still uses it. Run this in Windows PowerShell 5.1 for the authoritative per-file values." -f $sw.ElapsedMilliseconds)
+        return 'compat-policy-only'
+    }
+    return 'compat'
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1688,6 +1755,12 @@ if (-not $machine.elevated) {
 if (-not $machine.appLockerCmdlets) {
     Add-ScanWarning 'The AppLocker module is not available here. Publisher names will be derived from certificate subjects instead of read from Get-AppLockerFileInformation - accurate in the overwhelming majority of cases, but verify before enforcing.'
 }
+elseif ($machine.appLockerSource -eq 'compat') {
+    Write-Info 'AppLocker: via the Windows PowerShell compatibility session'
+}
+elseif ($machine.appLockerSource -eq 'compat-policy-only') {
+    Write-Info 'AppLocker: compatibility session, policy read only (see warnings)'
+}
 
 # ---- resolve the roots ----
 Write-Section 'Resolving scan roots'
@@ -1824,7 +1897,7 @@ if ($unsafeDirectories.Count -eq 0) {
 }
 else {
     $artifacts = Get-ArtifactInventory -Directories $unsafeDirectories -Limit $MaxArtifacts `
-        -UseAppLockerCmdlets $machine.appLockerCmdlets -Sniff:$SniffUnknownExtensions
+        -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only') -Sniff:$SniffUnknownExtensions
     $signedCount = @($artifacts | Where-Object { $_.signed }).Count
     Write-Ok ("$($artifacts.Count) artifact(s): $signedCount signed, $($artifacts.Count - $signedCount) unsigned")
 }

@@ -1149,6 +1149,10 @@ const AppLockerTool = (() => {
       L.push(`| OS | ${m.os || "—"} (build ${m.osBuild || "—"}) |`);
       L.push(`| Join state | ${m.join || "—"} |`);
       L.push(`| Elevated | ${m.elevated === false ? "**no — partial scan**" : "yes"} |`);
+      L.push(`| AppLocker cmdlets | ${(m.appLockerSource === "native" ? "yes"
+        : m.appLockerSource === "compat" ? "via Windows PowerShell compatibility"
+        : m.appLockerSource === "compat-policy-only" ? "compatibility session — policy read only, publishers from certificates"
+        : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates")} |`);
       L.push(`| Application Identity service | ${m.appIdentityService || "—"} |`);
       L.push(`| User-writable directories | ${scan.writablePaths.length} |`);
       L.push(`| Executables inventoried | ${scan.artifacts.length} (${scan.artifacts.filter((a) => a && !a.signed).length} unsigned) |`);
@@ -1334,6 +1338,10 @@ const AppLockerTool = (() => {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
         ${fact("Device", m.name)}${fact("OS", m.os)}${fact("Joined", m.join)}
         ${fact("Scanned by", m.scannedBy)}${fact("Elevated", m.elevated === false ? "NO — partial scan" : "yes")}
+        ${fact("AppLocker cmdlets", (m.appLockerSource === "native" ? "yes"
+        : m.appLockerSource === "compat" ? "via Windows PowerShell compatibility"
+        : m.appLockerSource === "compat-policy-only" ? "compatibility session — policy read only, publishers from certificates"
+        : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates"))}
         ${fact("Application Identity", m.appIdentityService)}
         ${fact("Writable directories", scan.writablePaths.length)}
         ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : ""))}
