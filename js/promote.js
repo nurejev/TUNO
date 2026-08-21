@@ -66,6 +66,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 44,
+      title: "Assignment editor — bulk changes behind four gates",
+      tools: ["✏️ Assignment editor"],
+      builds: [10360],
+      risk: "high",
+      what: "T11, after Maxime Guillemin's Intune-Toolkit (MIT). Add include / add exclude / remove a group across device configurations, settings catalog, compliance and ADMX — the four surfaces under the write scope the registration already holds; scripts and apps deliberately absent (each is a new write scope, the R18 rule). Pipeline enforced by the screen: read → dry run (group name + member count, empty-group warning, noops and REFUSALS listed — include-onto-excluding and exclude-onto-including are refused with T09's reasoning) → automatic backup file, apply locked until taken → removals confirmed by TYPING the group name → sequential writes, each preceded by a fresh read (drift = skip, never overwrite) and followed by a verify read-back. Untouched assignments re-serialised with filters preserved. No delete, no rename. Write scope asked at the apply click.",
+      why: "HIGH — the second write tool and the first at scale. The mistake it enables is a policy reaching the wrong population, which is invisible until devices behave differently. The specific things that must be true: filters survive the round trip on untouched assignments, the drift check actually fires, and the verify is the tenant's read-back rather than the POST's status. All three are asserted headlessly; none of the three has touched a real tenant yet.",
+      test: [
+        "THE ONE THAT MATTERS: take a policy with TWO assignments, one carrying an assignment filter. Add an unrelated group. After the write, open the policy in the portal and confirm the filtered assignment STILL HAS ITS FILTER. Losing it silently widens the assignment — the worst thing this tool can do, and invisible in the tool's own table.",
+        "Dry-run a removal and confirm apply stays locked until the backup is downloaded AND the group's name is typed exactly. Then restore from the backup file (POST /assign with the recorded list) and confirm the policy is back as it was — an untested backup is a hope, not a way back.",
+        "Between dry run and apply, change the policy's assignments in the portal from another window. Apply must SKIP it as drifted, not overwrite. This is the two-admins case and nothing else exercises it.",
+        "Add an include of a group the policy already excludes: the plan must REFUSE with the contradiction reason, not write. Then remove the exclusion and confirm the same operation now plans cleanly.",
+        "Add an include of an EMPTY group and confirm the dry run says it configures nothing until somebody joins. The write should still be allowed — preparing a landing zone is legitimate — but never silently.",
+        "Pull the network (or revoke the write scope) mid-apply with stop-on-failure on: the run must stop, the results table must say which policies were written-and-verified and which were not touched, and nothing may retry.",
+        "Verify the scope prompt appears at the APPLY click and not at read or dry-run — plan a change without ever consenting to ReadWrite and confirm reads alone got you there.",
+        "Confirm scripts and applications appear nowhere in the surface list, and that the screen says why.",
+      ],
+      files: ["js/assignedit.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 43,
       title: "Settings search — from the definition to the policy",
       tools: ["🔦 Settings search"],

@@ -81,7 +81,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -338,6 +338,7 @@ const Fs = (() => {
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
+    ["toolAssignEdit", "✏️ Assignment editor"],
     ["toolDevice", "🖥 Device analyzer"],
     ["toolAudit", "🕓 Change audit"],
     ["toolBackup", "📦 Backup configuration"],
@@ -436,6 +437,7 @@ const Fs = (() => {
   $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
+  $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Role assignments"); show("screen-roles"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
@@ -583,6 +585,7 @@ const Fs = (() => {
   if (typeof WhatIfTool !== "undefined") WhatIfTool.init();
   if (typeof HealthTool !== "undefined") HealthTool.init();
   if (typeof SettingSearchTool !== "undefined") SettingSearchTool.init();
+  if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();

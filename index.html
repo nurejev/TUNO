@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10359"></script>
+<script src="js/popup-guard.js?v=10360"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10359">
+<link rel="stylesheet" href="css/app.css?v=10360">
 </head>
 <body>
 
@@ -106,6 +106,10 @@
       <div class="tool" id="toolHealth">
         <div class="tool-ic">🩺</div><h3>Assignment health <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>The assignments that exist and reach nobody, in one place — every finding the same shape of problem: <b>something that looks configured and is not</b>. Policies assigned to <b>empty groups</b>, which have never applied and never will; assignments naming <b>deleted groups</b>, which target nobody silently; <b>unassigned policies</b>; policies whose every assignment is an <b>exclusion</b>, so there is nothing to exclude from; a group both included and excluded on one policy, where the exclusion wins and the include reads as reach. Optionally, the deployments Graph reports as <b>failing</b> — for the surfaces that keep a cheap status, with the ones that do not named as unchecked rather than passed off as healthy.</p>
+      </div>
+      <div class="tool" id="toolAssignEdit">
+        <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance and administrative templates; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
       </div>
       <div class="tool" id="toolDevice">
         <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -799,6 +803,56 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="ssBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ ASSIGNMENT EDITOR (T11) ============
+       The second thing in TUNO that writes, and the first at scale. The
+       gates live in this screen; the engine and the tests hold them. -->
+  <section id="screen-assignedit" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">✏️ Assignment editor <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">Bulk assignment changes across device configurations, settings catalog, compliance policies and administrative templates — after Maxime Guillemin's <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> (MIT), whose question this is. The write discipline is TUNO's own: <b>read → plan → backup → confirm → apply → verify</b>, in that order, enforced by the screen and not by your care. The write permission is asked for at the apply click and never before — reading and planning cost nothing but reads.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>What it will not do.</b> Scripts and applications each need a write permission the registration does not hold, and adding one is a decision to take in the open, not a feature's side effect — they are absent, not forgotten. Deleting and renaming policies stay in the Toolkit's own “Advanced Actions”; neither belongs in a browser tool whose whole argument is that it cannot do much harm. And the assign call <b>replaces the whole list</b>, so every policy is re-read at apply time: one that changed since the plan was made is skipped as <b>drifted</b> rather than overwritten, because replacing a list somebody else just edited is how two admins erase each other.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="aeRead">① Read the policies</button>
+      </div>
+      <div id="aePlanWrap" style="display:none;margin-top:12px">
+        <label class="wi-f"><span>Filter the list</span>
+          <input id="aeFilter" placeholder="Narrow by policy or surface name…" autocomplete="off" spellcheck="false"></label>
+        <div class="wi-grid" style="margin-top:10px">
+          <label class="wi-f"><span>Operation</span>
+            <div class="seg" id="aeActSeg">
+              <button class="active" data-aeact="add-include">Add include</button>
+              <button data-aeact="add-exclude">Add exclude</button>
+              <button data-aeact="remove">Remove group</button>
+            </div></label>
+          <label class="wi-f"><span>Group</span>
+            <input id="aeGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="tb-actions" style="margin-top:10px">
+          <button class="btn primary" id="aeDryRun">② Dry run — show every operation</button>
+        </div>
+      </div>
+      <div id="aeProg" class="mini muted" style="margin-top:10px"></div>
+      <div id="aeList" style="margin-top:12px"></div>
+      <div id="aePlanOut"></div>
+      <div id="aeApplyWrap" style="display:none;margin-top:12px">
+        <div class="tb-actions">
+          <button class="btn" id="aeBackupBtn">③ ⭳ Take the backup <span class="mini">— current assignments, as a file</span></button>
+        </div>
+        <div id="aeConfirmWrap"></div>
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px">
+          <input type="checkbox" id="aeStop" checked> Stop at the first failure</label>
+        <div class="tb-actions" style="margin-top:10px">
+          <button class="btn primary" id="aeApplyBtn" disabled>④ Apply — write to the tenant</button>
+        </div>
+        <p id="aeGate" class="mini muted" style="margin:8px 0 0"></p>
+      </div>
+      <div id="aeResults"></div>
+    </div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -870,6 +924,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0">A separate card because it needs a separate thing: the definition catalog itself, which is large, changes as Microsoft ships settings, and has to be fetched and cached rather than derived from the tenant. That is a different problem from reading assignments and it should not be smuggled into a tool that does not have it.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped, with one departure from this card's own caution.</b> The card said the catalog "has to be fetched and cached rather than derived from the tenant" — it is fetched per session and held in memory, not persisted: seventeen thousand definitions store fine in a tab and go stale on disk. Tenant usage is a second, separate read, and until it runs the "set by" column is <b>absent, not empty</b>. Values pass the documenter's redaction gate — the same implementation, because a second copy would be a second place for a pre-shared key to escape.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R13</span> ✏️ Assignment editor <span class="tag grant">live · beta 10360</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> by <b>Maxime Guillemin</b> (MIT) — a WPF application that does the thing every admin wants and the portal makes slow: <b>add and remove assignments in bulk</b>, across settings catalog, device configuration, compliance, administrative templates, endpoint security intents, Autopilot, app configuration, every application type and every script type. With filters and install intent. Plus backup and restore of <i>the assignments themselves</i>, which is a smaller and more useful thing than <span class="rm-ref">R08</span>'s full configuration archive: you can put assignments back without touching the policies.</p>
+            <p class="mini" style="margin:6px 0 0"><b>This would be the second thing in TUNO that writes, and the first that writes at scale.</b> T01 creates one profile after a read that refuses to overwrite. This changes what lands on real devices, in bulk, and the mistake it enables is not a duplicate policy but a policy reaching the wrong population — which is invisible until somebody's laptop behaves differently. It gets T01's rules and more: <code>ReadWrite</code> asked on the click and never at sign-in, a dry run listing every operation with the group NAME and its member count before anything is sent, removals confirmed separately from additions, and the assignment state captured to a file first so there is always a way back.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Four surfaces — device configurations, settings catalog, compliance, administrative templates — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
@@ -899,12 +960,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R16</span> 🔬 Backup drift — compare two archives, offline</h4>
             <p class="mini" style="margin:0">Also after <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a>, whose <code>compare</code> takes two backups and produces a stable, severity-ranked list of what moved between them. <b>The interesting part is that it needs no tenant at all</b> — it is two folders and a diff. In TUNO that means dropping two <span class="rm-ref">R08</span> archives onto the page and reading the answer <b>without signing in</b>, which almost nothing here can do; only the AppLocker analysis works that way today.</p>
             <p class="mini" style="margin:6px 0 0">Which makes it the right shape for the questions a backup is actually kept for. <i>What changed between Friday and Monday?</i> <i>What is different between the pilot tenant and production?</i> <i>Is this month's archive meaningfully different from last month's, or just re-serialised?</i> <span class="rm-ref">R05</span> answers the first from the audit log, but only for thirty days and only if the change was made through Intune; two archives answer it for as long as you have kept them. The field-level diff <span class="rm-ref">R05</span> already carries would do the comparing.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R13</span> ✏️ Assignment editor <span class="tag block">would write to the tenant</span></h4>
-            <p class="mini" style="margin:0">After <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> by <b>Maxime Guillemin</b> (MIT) — a WPF application that does the thing every admin wants and the portal makes slow: <b>add and remove assignments in bulk</b>, across settings catalog, device configuration, compliance, administrative templates, endpoint security intents, Autopilot, app configuration, every application type and every script type. With filters and install intent. Plus backup and restore of <i>the assignments themselves</i>, which is a smaller and more useful thing than <span class="rm-ref">R08</span>'s full configuration archive: you can put assignments back without touching the policies.</p>
-            <p class="mini" style="margin:6px 0 0"><b>This would be the second thing in TUNO that writes, and the first that writes at scale.</b> T01 creates one profile after a read that refuses to overwrite. This changes what lands on real devices, in bulk, and the mistake it enables is not a duplicate policy but a policy reaching the wrong population — which is invisible until somebody's laptop behaves differently. It gets T01's rules and more: <code>ReadWrite</code> asked on the click and never at sign-in, a dry run listing every operation with the group NAME and its member count before anything is sent, removals confirmed separately from additions, and the assignment state captured to a file first so there is always a way back.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R18</span> 📱 Minimum OS version maintainer <span class="tag block">would write to the tenant</span></h4>
@@ -1000,8 +1055,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <li><b><a href="https://github.com/ugurkocde/IntuneDocumentation" target="_blank" rel="noopener">IntuneDocumentation</a></b> — by <b>Ugur Koc</b>. The coverage plan behind <span class="rm-ref">R06</span>: which surfaces belong in a tenant document, in what order, and what has to be redacted before it leaves the tenant. Licensed <b>Elastic License 2.0</b> — which permits self-hosting but not offering the work as a hosted service, so TUNO's version is a reimplementation, not a fork.</li>
           <li><b><a href="https://github.com/daniel-fraubaum/laps-self-service-portal" target="_blank" rel="noopener">LAPS Self-Service Portal</a></b> — by <b>Daniel Fraubaum</b> (base-IT). The reason <span class="rm-ref">R10</span> is scoped the way it is. His architecture keeps the privileged token on a server precisely because the browser cannot be trusted to enforce “only your own device” — and documenting that clearly is what made it obvious which half of the problem a static site can honestly take on. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/Stuk/jszip" target="_blank" rel="noopener">JSZip</a></b> — by <b>Stuart Knightley</b>. Writes the archive in <span class="rm-ref">R08</span> without a server to zip it. Bundled in <code>vendor/</code> rather than loaded from a CDN, so the page's content-security policy can keep refusing every origin but Microsoft's. Licensed <b>MIT</b>.</li>
-          <li><b><a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R11</span>, <span class="rm-ref">R12</span> and <span class="rm-ref">R14</span>. Most of its assignment reading TUNO already does, which is worth saying plainly; what it has that nothing here does is the <b>simulation</b> — what a user or device would gain and lose by joining or leaving a group — and the idea that an assignment reaching an empty group is a finding rather than a row. Licensed <b>MIT</b>.</li>
-          <li><b><a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a></b> — by <b>Maxime Guillemin</b>. Behind <span class="rm-ref">R13</span>. A WPF application for bulk assignment editing across every policy, app and script type, with backup and restore of the assignments alone. The surface map is his; the write discipline TUNO would put around it is not. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R11</span>, <span class="rm-ref">R12</span> and <span class="rm-ref">R14</span>. Most of its assignment reading TUNO already did, which is worth saying plainly; what it had that nothing here did was the <b>simulation</b> — what a user or device would gain and lose by joining or leaving a group — and the idea that an assignment reaching an empty group is a finding rather than a row. Both shipped: the simulation as <b>🔮 Assignment what-if</b>, the findings as <b>🩺 Assignment health</b>, and the definition-catalog search as <b>🔦 Settings search</b>. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a></b> — by <b>Maxime Guillemin</b>. Behind <span class="rm-ref">R13</span>, shipped as <b>✏️ Assignment editor</b>. A WPF application for bulk assignment editing across every policy, app and script type, with backup and restore of the assignments alone. The surface map is his; the write discipline TUNO put around it — dry run, automatic backup, typed removal confirmation, drift detection, verify-by-read-back — is not. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/SkipToTheEndpoint/IntuneComplianceMaintainer" target="_blank" rel="noopener">IntuneComplianceMaintainer</a></b> — by <b>James Robinson</b> (Microsoft MVP, and the author of <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a>). Behind <span class="rm-ref">R18</span>. Which fields on a compliance and an app-protection policy hold the OS floor, where the supported versions come from for each platform, and the two rules that keep the automation from doing harm — a cadence before a release is enforced, and no silent downgrade. The Android handling is the part worth copying exactly: target the <i>oldest maintained</i> release, and treat the security patch level as a second floor of its own. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R15</span>, <span class="rm-ref">R16</span> and <span class="rm-ref">R17</span>, and two rules borrowed into <span class="rm-ref">R09</span>. Twenty-seven policy types, a checksum per file with an offline verify, and a comparison between two archives that needs no tenant. The idea worth stealing outright is the smallest one: write the manifest LAST, so its presence is what proves the backup finished. Licensed <b>MIT</b>.</li>
         </ul>
@@ -1043,23 +1098,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10359"></script>
-<script src="js/version.js?v=10359"></script>
-<script src="js/promote.js?v=10359"></script>
-<script src="js/authConfig.js?v=10359"></script>
-<script src="js/changelog.js?v=10359"></script>
-<script src="js/msappcatalog.js?v=10359"></script>
-<script src="js/graph.js?v=10359"></script>
-<script src="js/groupuse.js?v=10359"></script>
-<script src="js/audit.js?v=10359"></script>
-<script src="js/backup.js?v=10359"></script>
-<script src="js/document.js?v=10359"></script>
-<script src="js/devicewhy.js?v=10359"></script>
-<script src="js/whatif.js?v=10359"></script>
-<script src="js/health.js?v=10359"></script>
-<script src="js/settingsearch.js?v=10359"></script>
-<script src="js/roles.js?v=10359"></script>
-<script src="js/applocker.js?v=10359"></script>
-<script src="js/app.js?v=10359"></script>
+<script src="js/branding.js?v=10360"></script>
+<script src="js/version.js?v=10360"></script>
+<script src="js/promote.js?v=10360"></script>
+<script src="js/authConfig.js?v=10360"></script>
+<script src="js/changelog.js?v=10360"></script>
+<script src="js/msappcatalog.js?v=10360"></script>
+<script src="js/graph.js?v=10360"></script>
+<script src="js/groupuse.js?v=10360"></script>
+<script src="js/audit.js?v=10360"></script>
+<script src="js/backup.js?v=10360"></script>
+<script src="js/document.js?v=10360"></script>
+<script src="js/devicewhy.js?v=10360"></script>
+<script src="js/whatif.js?v=10360"></script>
+<script src="js/health.js?v=10360"></script>
+<script src="js/settingsearch.js?v=10360"></script>
+<script src="js/assignedit.js?v=10360"></script>
+<script src="js/roles.js?v=10360"></script>
+<script src="js/applocker.js?v=10360"></script>
+<script src="js/app.js?v=10360"></script>
 </body>
 </html>
