@@ -1725,3 +1725,22 @@ body.wide .readme p{max-width:1100px}
   .wn-wrap{padding:0}
   .wn-card{max-height:100vh;height:100vh;width:100vw;border:0;border-radius:0}
 }
+
+/* ---- T01: findings that do not fit become a summary that says so ----
+   The card is its own container; beside the XML panel it is half a screen,
+   where the six-column table wraps Reason into one word per line. Under
+   720px of CARD width the table yields to a compact list plus a pointer at
+   ⛶ Full screen, where the recommendations and fix buttons live. Browsers
+   without container queries keep the table — the status quo, not a break. */
+#alFindings{container-type:inline-size}
+.al-find-compact{display:none}
+@container (max-width: 720px){
+  #alFindings .al-find-table{display:none}
+  #alFindings .al-find-compact{display:block}
+}
+.al-fc-row{padding:8px 0;border-bottom:1px solid var(--border)}
+.al-fc-row:first-child{padding-top:2px}
+.al-fc-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.al-fc-reason{margin-top:3px;color:var(--muted);display:-webkit-box;
+  -webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.al-fc-more{display:block;width:100%;margin-top:10px;text-align:center}

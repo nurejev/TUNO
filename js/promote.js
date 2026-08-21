@@ -66,13 +66,31 @@ const PROMOTE = {
 
   items: [
     {
+      n: 48,
+      title: "Findings that do not fit become a summary that says so",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10365],
+      risk: "low",
+      what: "The findings card carries TWO renderings of the same filtered list and a CSS container query on the card's own width picks one: under 720px of card width (the split view beside the XML panel) a compact list — severity tag, 🛰 mark, collection, rule, reason clamped to three lines — ending in an ⛶ button that reuses the existing al-fs machinery to open the full screen popout; at any wider card width, the six-column table exactly as before, fixes included. The table markup, ids and handlers are unchanged — the compact list is additive, and the fix buttons/editors exist only in the table, so full screen is where fixing happens in the narrow layout. Browsers without container-query support keep the table (status quo).",
+      why: "LOW — presentation only, one card, no analysis or mutation logic touched, and the fallback for old browsers is exactly the previous behaviour. It graduates on sight at three widths. The one real risk is a browser that supports container queries but mismeasures the card inside the Fs popout, which would summarise where the fixes should be — that is the first thing to look at.",
+      test: [
+        "THE ONE THAT MATTERS: load a policy in the split view at a normal desktop width. The findings card must show the COMPACT list, not the wrapped table — and its last element must be the ⛶ button, which must open the popout showing the FULL table with working fix buttons.",
+        "In the popout, apply a fix and confirm the table redraws inside the popout (the card is parked, not cloned). Close it and confirm the compact list reflects the change.",
+        "Narrow the window below 1100px so the panel stacks: the card is now full-width and must show the TABLE, not the summary. The switch is card width, not window width — this is the case that proves it.",
+        "Change the severity filter in the summary bar and confirm the compact list follows it — both renderings come from the same `shown` array, so a mismatch means a second list crept in.",
+        "Check one old-ish browser (or emulate no container-query support): the table must show everywhere, as before.",
+        "Confirm the coverage and scan cards still render as tables — only findings got the treatment, deliberately; if they need it too, that is a decision, not a drive-by.",
+      ],
+      files: ["js/applocker.js", "css/app.css", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 47,
       title: "The same crash, second shape — no bare indexer survives",
       tools: ["🔐 AppLocker builder & validator"],
       builds: [10364],
       risk: "high",
       what: "Mihai's real 5.1 run failed rule generation again with ArgumentException('Argument types do not match') — this time at an indexed READ with a literal key ($collections['Dll']), where 10344's fix had only covered the indexed WRITE of a value type. The 10344 wrapping did its job: the scan survived, the bundle carried the evidence, and the recorded line number located the defect immediately. Fix: total discipline instead of case-by-case. Every write to the ordered dictionaries on the generation path goes through .Add(object, object); every read goes through a cast to [System.Collections.IDictionary], whose single this[object] indexer leaves the 5.1 expression compiler nothing to choose between. A mechanical sweep confirms no bare indexer remains on $collections/$byCollection/$artifactRules/$counts. Scan is 1.7.0; the guard also caught the .NOTES header still saying 1.4.0 from two builds that bumped only the constant.",
-      why: "HIGH — this is the second attempt at the same class of crash, on the script's core path, and like everything PowerShell here it is verified by argument rather than execution. The pattern (two shapes so far) argues the binder cannot be trusted with ANY OrderedDictionary indexing on 5.1, which is exactly what the fix assumes. It graduates only when a full scan on the same machine that failed twice produces the generated Audit and Enforce XML.",
+      why: "HIGH — this is the second attempt at the same class of crash, on the script's core path, and like everything PowerShell here it was verified by argument rather than execution. The pattern (two shapes so far) argues the binder cannot be trusted with ANY OrderedDictionary indexing on 5.1, which is exactly what the fix assumes. UPDATE: the graduation run has since HAPPENED — v1.7.0 build 10364 on CPC-mihai-2L8IB, the machine that failed twice, printed per-collection counts (Dll 20 built and omitted, 21 rules across 4 collections) and wrote all three files. Test step 1 is done; the PS7 run and the bundle inspection remain.",
       test: [
         "THE ONE THAT MATTERS: re-run the scan on CPC-mihai-2L8IB, same arguments, Windows PowerShell 5.1. 'Building the rule set' must print per-collection counts and the run must write all three files. That machine has now failed twice; it is the only oracle that counts.",
         "Run it under PowerShell 7 as well — the binder differs there, and the IDictionary casts must not have broken the path that already worked.",

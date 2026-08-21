@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10365, date: "2026-08-21", title: "Findings that do not fit become a summary that says so",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Beside the XML panel the findings card is roughly half a screen, and a six-column table in half a screen wraps its reason column into one word per line — rows five hundred pixels tall saying almost nothing. The card now carries two renderings of the same list and shows whichever fits its own width: in the narrow column, a compact summary — severity, collection, rule and the reason clamped to three lines — ending in a button that opens the full screen view; anywhere the card has room, the full table exactly as before. The recommendations and one-click fixes live where there is space for them, and the summary says so instead of squeezing them into a column where the fix button was the first thing pushed off the edge." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The switch is made by the card measuring itself rather than the window, so it comes out right in every layout it appears in: beside the XML panel it summarises, stacked under it at narrow window widths it shows the table, and in the full screen popout it always shows the table. Browsers without support for that measurement keep the table everywhere, which is exactly what they had before." },
+    ],
+  },
+  {
     build: 10364, date: "2026-08-21", title: "The same crash, second shape — and this time the scan survived it",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Rule generation failed again with the same \"argument types do not match\", and this run proves the recovery work: the scan finished, wrote the bundle with all the evidence, and recorded the failing line in its own warnings — which is exactly how the cause was found in minutes instead of another round trip. The defect is the same Windows PowerShell 5.1 compiler problem as before in a second shape: the ordered dictionary's two indexers can make the engine refuse an indexed READ just as they made it refuse an indexed write, and the first fix only covered the write. The discipline is now total instead of case-by-case: every write to those dictionaries goes through the explicit add method, and every read goes through a cast to the one-indexer dictionary interface, which leaves the compiler nothing to choose between. No bare indexer remains anywhere on the rule-generation path — checked mechanically, not by eye." },

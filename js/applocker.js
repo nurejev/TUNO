@@ -1482,9 +1482,32 @@ const AppLockerTool = (() => {
       }).join("") + `</tbody></table></div>`;
 
     // ---- findings ----
+    //
+    // TWO RENDERINGS OF ONE LIST, switched by the CARD'S OWN WIDTH. Beside the
+    // XML panel the card is roughly half a screen, and a six-column table in
+    // half a screen wraps its Reason column into one word per line — five
+    // hundred pixels of row height saying almost nothing. So the card carries
+    // the full table AND a compact summary, and a container query shows
+    // whichever fits: the summary in the narrow column, the table when the
+    // card has room — stacked layout, wide windows, and above all the ⛶ Full
+    // screen popout, which is where the recommendations and fix buttons live.
+    // A container query rather than a resize listener because the card knows
+    // its own width and render() should not need to care; browsers without
+    // container queries keep the table, which is the status quo.
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
+    const compact = shown.length ? `<div class="al-find-compact">` +
+      shown.map((f) => {
+        const mark = f.source === "scan" ? ` <span class="tag new" title="From the device scan">🛰</span>` : "";
+        return `<div class="al-fc-row">
+          <div class="al-fc-head">${sevTag(f.sev)}${mark} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
+          <div class="al-fc-reason mini">${esc(f.reason)}</div>
+        </div>`;
+      }).join("") +
+      `<button class="btn al-fs al-fc-more" data-fs="alFindings" data-fslabel="Findings">⛶ Open full screen for the recommendations and one-click fixes</button>
+      </div>` : "";
     $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Findings")}Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
+      compact +
+      (shown.length ? `<div class="al-find-table" style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
         shown.map((f, i) => {
           const key = findingKey(f);
           const plan = planFix(f);
