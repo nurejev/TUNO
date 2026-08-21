@@ -59,13 +59,31 @@ const PROMOTE = {
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, and
   // items 30-35 (10342, 10344-10348) as build 6.
   //
-  // THE QUEUE IS EMPTY. Every tool on this channel is also in production, and
-  // the only differences left are the two permanent ones in staying[]. An
-  // empty queue is a state worth keeping: it means "beta and main match", and
-  // the next item added is the whole of the next promotion.
+  // The queue was empty after build 6 and item 39 opens the next promotion. An
+  // empty queue is a state worth returning to: it means "beta and main match",
+  // and the next item added is the whole of the next promotion.
   productionBuild: "v1.0.6",
 
   items: [
+    {
+      n: 39,
+      title: "What the device already runs, and one grouping per profile",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10355],
+      risk: "high",
+      what: "Three related corrections about deploying, all from one question: what happens to a DLL collection that was already on the device when the new policy omits it. (1) A new carry-over check. analyzeCarryOver() parses the scan bundle's effectivePolicy and flags every collection the DEVICE is running that the policy on screen does not cover — absent or present-but-empty — High when those rules are enforcing today, with the removal procedure per delivery path and the reboot warning. (2) The grouping guidance was wrong in the dangerous direction: it told you to reuse one grouping across the audit and enforce profiles. Microsoft's AppLocker CSP page says grouping values must be UNIQUE, recommends a random GUID, and warns that duplicates break delete and unenrollment because the resource manager deletes duplicate URIs. Corrected in the tool tooltip, step 5, the converter's -Grouping help, the scripts README and the checklist, with the new instruction being one profile edited in place. (3) The CSP's automatic reboot on apply AND on delete was documented nowhere; it is now in the checklist and in step 5.",
+      why: "HIGH — the grouping correction reverses advice already given, and anyone who followed the old version has two profiles sharing a grouping right now, which is a removal problem waiting rather than a visible fault. The carry-over check is new analysis on real customer policies and will fire on most brownfield estates, correctly. None of it changes what the policy CONTAINS, which is the one thing keeping this off critical.",
+      test: [
+        "THE ONE THAT MATTERS: take a device that already has an AppLocker policy, scan it, and upload. The audit must name every collection the device runs that your policy does not cover, and get the enforcing/not-enforcing call right for each. Check it against Get-AppLockerPolicy -Effective -Xml on that device by hand — this is new analysis and nothing else verifies it.",
+        "Feed it a device whose effective policy has a collection set to NotConfigured WITH rules. It must come out High and say those rules are enforcing today. That combination is the whole reason the check exists.",
+        "Load the effective policy itself as the working policy and confirm NO carry-over findings appear — every collection is by definition covered. A check that fires against its own input is noise.",
+        "Confirm a policy that has the collection but EMPTY is still flagged, and that the wording distinguishes it: over the CSP an empty collection replaces the node, over GPO it merges and the device's rules survive. Both paths, one finding, and the text has to be right about both.",
+        "If you have already deployed using the old same-grouping advice: check the tenant for two profiles sharing a grouping, and work out the removal order BEFORE unassigning either. That is the real-world cost of the wrong guidance and it is worth doing before this promotes.",
+        "Re-read step 5 and the checklist section on grouping against Microsoft's AppLocker CSP page. The quote must be accurate and the instruction must be 'one profile, edited in place' — this document goes to customers.",
+        "Confirm the reboot warning appears in both the checklist and step 5, and that it says apply AND delete. The rollback being noisy is the half people plan for least.",
+      ],
+      files: ["js/applocker.js", "scripts/AppLocker-Implementation-Checklist.md", "scripts/README.md", "scripts/Convert-TunoAppLockerToIntune.ps1", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
     {
       n: 38,
       title: "The scan stops losing subtrees, and the AaronLocker review",

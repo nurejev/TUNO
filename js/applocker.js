@@ -322,8 +322,58 @@ const AppLockerTool = (() => {
     return null;
   }
 
-  function analyzeScan(b, model) {
+  // What is ALREADY on the device that this policy will not touch?
+  //
+  // Deploying a policy does not clear what came before. Every AppLocker delivery
+  // path adds rather than replaces: the CSP holds one node per grouping and type
+  // with Add/Delete/Get/Replace access, so a profile carrying no DLL setting
+  // leaves an existing DLL node exactly where it was; Group Policy merges, and
+  // "doesn't overwrite or replace rules that are already present in a linked
+  // GPO"; local policy persists until cleared.
+  //
+  // So a collection the device is running and this policy omits keeps running,
+  // invisibly — and if it is NotConfigured with rules, it keeps BLOCKING while
+  // the policy on screen looks like it has nothing to say about that type.
+  // Nothing else in the tool could catch this: it needs the device's effective
+  // policy, which only the scan can supply.
+  function analyzeCarryOver(b, model) {
     const out = [];
+    const eff = b && b.effectivePolicy;
+    if (!eff || !eff.available || !eff.xml) return out;
+
+    let live;
+    try { live = parsePolicy(eff.xml, "effective"); }
+    catch { return out; }
+
+    for (const lc of live.collections) {
+      if (!lc.rules.length) continue;                       // nothing on the device to carry over
+      const mine = model.collections.find((c) => c.type === lc.type);
+      if (mine && mine.rules.length) continue;              // this policy has its own say on that type
+
+      // Two shapes, one consequence. ABSENT is unambiguous: nothing here touches
+      // that node. EMPTY is worse, because it LOOKS deliberate — and whether it
+      // clears anything depends on the delivery path. Via the CSP an empty
+      // collection replaces the node and does clear it; via Group Policy the
+      // policies merge and an empty collection adds nothing, so the device's
+      // rules survive untouched.
+      const empty = !!mine;
+      const enforcing = lc.mode === "Enabled" || (lc.mode === "NotConfigured" && lc.rules.length > 0);
+      out.push({
+        sev: enforcing ? "High" : "Medium", source: "scan", collection: lc.type, ruleType: "(carry-over)",
+        cond: `device: ${lc.rules.length} rule${lc.rules.length === 1 ? "" : "s"}, ${lc.mode}`,
+        reason: `The device is already running a '${lc.type}' collection with ${lc.rules.length} rule${lc.rules.length === 1 ? "" : "s"}, and the policy on screen ${empty ? `carries an EMPTY '${lc.type}' collection` : `does NOT contain '${lc.type}' at all`} — deploying this will not reliably remove it. ` +
+          (enforcing
+            ? `Those rules are ENFORCING today${lc.mode === "NotConfigured" ? " (NotConfigured with rules means enforced)" : ""} and will go on enforcing afterwards, while this policy appears to say nothing about ${lc.type}.`
+            : `Those rules are in ${lc.mode} today and will stay in ${lc.mode} afterwards.`) +
+          (empty ? " An empty collection replaces the node over the Intune CSP, but Group Policy merges rather than replaces, so over GPO the device's rules survive it." : ""),
+        rec: `Decide, rather than letting the delivery path decide. To KEEP it, put the '${lc.type}' rules into this policy so one artefact describes the whole device. To REMOVE it, delete the OMA-URI that set it from the Intune profile that owns it (Intune sends a Delete), or clear the rules in the GPO carrying them — leaving it out here does nothing. The AppLocker CSP reboots the device on apply and on delete, so neither is silent.`,
+      });
+    }
+    return out;
+  }
+
+  function analyzeScan(b, model) {
+    const out = analyzeCarryOver(b, model);
     if (!b) return out;
 
     // 1. Writable directories that an allow rule still reaches.

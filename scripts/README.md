@@ -215,13 +215,43 @@ Online mode needs `Microsoft.Graph.Authentication` and the
 it is reused as-is; `-TenantId` doubles as a guard against creating the profile in the
 wrong customer's tenant.
 
-### The grouping is the important parameter
+### The grouping is the important parameter — make it unique
 
-The grouping segment is the policy's **identity on the device**. Two profiles sharing a
-grouping overwrite each other; two with different groupings are merged by the CSP. Use
-one grouping per intent — `Pilot`, `Production` — and when you promote audit to enforce,
-keep the **same** grouping so the new profile replaces the old one instead of stacking
-on top of it.
+The grouping segment names a CSP node. Microsoft's guidance on the AppLocker CSP:
+
+> *"Delete/unenrollment is not properly supported unless Grouping values are unique
+> across enrollments. If multiple enrollments use the same Grouping value, then
+> unenrollment will not work as expected since there are duplicate URIs that get deleted
+> by the resource manager… The best practice is to use a randomly generated GUID."*
+
+So **one grouping per profile**, ideally a GUID. Two profiles sharing a grouping write
+the same OMA-URIs, and unassigning one can delete the nodes the other still depends on.
+
+To move from audit to enforce, **edit the profile you already have** rather than
+deploying a second one beside it. One profile, one grouping, changed in place — no
+merge, no duplicate URIs, and nothing to unassign in the right order.
+
+### Deploying does not clear what came before
+
+Every AppLocker delivery path **adds** rather than replaces:
+
+- **Intune CSP** — each `{Grouping}/{Type}/Policy` is a node with Add/Delete/Get/Replace
+  access. A profile carrying no DLL setting leaves an existing DLL node untouched.
+- **Group Policy** — policies merge; Group Policy "doesn't overwrite or replace rules
+  that are already present in a linked GPO".
+- **Local policy** — persists until explicitly cleared.
+
+A collection your new policy simply **omits keeps running**. If it was `NotConfigured`
+with rules, it keeps *blocking*, while the policy you just deployed appears to say
+nothing about that type at all.
+
+To actually remove one: delete the OMA-URI from the profile that set it (Intune sends a
+Delete), or clear the rules in the GPO that carries them. Upload a scan bundle to T01 and
+the audit names every collection the device is running that the policy on screen does not
+contain.
+
+**Both apply and delete reboot the device** — the CSP's Policy nodes carry automatic
+reboot behaviour. Plan a window for the removal as well as the rollout.
 
 ### DLL is omitted — and `NotConfigured` is never written
 

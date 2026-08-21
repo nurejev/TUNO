@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10354"></script>
+<script src="js/popup-guard.js?v=10355"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10354">
+<link rel="stylesheet" href="css/app.css?v=10355">
 </head>
 <body>
 
@@ -98,6 +98,10 @@
       <div class="tool" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. Export as Markdown, CSV or a standalone HTML report.</p>
+      </div>
+      <div class="tool" id="toolWhatIf">
+        <div class="tool-ic">🔮</div><h3>Assignment what-if <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p><b>Before</b> you change a membership: pick a user or a device, name a group, and see the delta — policies gained, policies lost, applications that will install and applications that will be <b>uninstalled</b>. Joining brings the group's own parents with it; leaving only severs a direct edge, and a membership held through nesting says so instead of pretending it can be removed. An exclusion met by joining is shown as a <b>loss</b>, because joining a group can take policy away. Or put two to four groups side by side and see what each receives that the others do not. <b>A simulation, not a promise</b> — filtered assignments stay “may”, and reads only.</p>
       </div>
       <div class="tool" id="toolDevice">
         <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -262,7 +266,7 @@
             </div>
             <div class="al-intune-form" id="alIntuneForm" style="display:none">
               <label class="al-f"><span>Profile name</span><input id="alIntuneName" spellcheck="false"></label>
-              <label class="al-f"><span>Grouping <b title="The grouping is the policy's identity on the device: two profiles sharing a grouping overwrite each other, two with different groupings are merged by the CSP.">ⓘ</b></span><input id="alIntuneGrouping" spellcheck="false"></label>
+              <label class="al-f"><span>Grouping <b title="The grouping names a CSP node. Microsoft's guidance is that it must be UNIQUE — a randomly generated GUID is the best practice — because two profiles sharing a grouping write the same OMA-URIs, and unassigning one can delete the nodes the other depends on. Use one grouping per profile and move from audit to enforce by editing that profile, not by adding a second.">ⓘ</b></span><input id="alIntuneGrouping" spellcheck="false"></label>
               <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
               <p class="al-f-note">DLL is <b>left out of the profile entirely</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. It is omitted rather than marked NotConfigured because a collection in that state <b>carrying rules is enforced</b>, which would be the opposite of the intent. Absence is the only state that restricts nothing.</p>
             </div>
@@ -327,8 +331,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
                   <li>Make sure the <b>Application Identity</b> service is running on the targets, or AppLocker does nothing and logs nothing. Set it to start automatically via an Intune configuration profile or a remediation script.</li>
                   <li>Leave it in audit long enough to cover a month-end, a patch cycle and a new starter. Collect events 8003 and 8006 — the things that <i>would</i> have been blocked.</li>
                   <li>Re-run the scan, upload the new bundle here, and work the blocked list down to nothing.</li>
-                  <li>Only then assign the Enforced profile — <b>same grouping</b>, so it replaces the audit one on the device rather than sitting alongside it.</li>
+                  <li>Only then move to Enforced — by <b>editing the profile you already have</b>, not by assigning a second one. See the grouping note below; two live profiles is the trap.</li>
                 </ol>
+                <p class="mini"><b>One profile, one grouping, edited in place.</b> The grouping is a CSP node name, and Microsoft's guidance is that it should be unique — <i>"Delete/unenrollment is not properly supported unless Grouping values are unique… The best practice is to use a randomly generated GUID."</i> Two profiles sharing a grouping write the same OMA-URIs, so unassigning one can delete the nodes the other still depends on. So: give the profile a grouping of its own (a GUID is ideal), and go from audit to enforce by changing that profile's values rather than deploying a second profile beside it.</p>
+                <p class="mini"><b>Deploying does not clear what came before.</b> Every path adds rather than replaces — the CSP keeps one node per grouping and type until something explicitly deletes it, Group Policy merges rules from every linked GPO, and local policy persists until cleared. A collection your new policy simply omits <b>keeps running</b>. Upload a scan and the audit will name any collection the device is running that this policy does not contain.</p>
+                <p class="mini"><b>It reboots.</b> The AppLocker CSP's Policy nodes carry automatic reboot behaviour, on apply and on delete. Neither deploying nor removing is quiet — plan both for a window.</p>
                 <p class="mini"><b>Keep a way back.</b> Removing the assignment removes the policy, but a device that cannot run the management agent cannot be told that. Test the removal path on the pilot group before the estate depends on it.</p>
               </div>
             </details>
@@ -657,6 +664,67 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="rbBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ ASSIGNMENT WHAT-IF (T08) ============
+       The question asked while a change is still cheap to reverse. The
+       endpoint list is GroupUse.SOURCES — never a second copy. -->
+  <section id="screen-whatif" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🔮 Assignment what-if <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">What would change if this user or device joined — or left — that group? Policies gained, policies lost, applications that would install or be <b>uninstalled</b>, before anybody touches the membership. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> (MIT); assignments are read through the Group Analyzer's own source table, so the two tools can never disagree about which surfaces exist. <b>Reads only.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>A simulation, not a promise.</b> Assignment filters and dynamic-group rules are evaluated by the service against inventory a browser cannot see. Rows they touch say <i>may</i>, and the tool refuses to promote may to will in either direction. Tenant-wide assignments are not in the delta at all — they apply whatever the groups say.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <div class="seg" id="wfModeSeg" style="margin-bottom:12px">
+        <button class="active" data-wfmode="sim">User or device ± group</button>
+        <button data-wfmode="cmp">Compare groups</button>
+      </div>
+
+      <div id="wfSimWrap">
+        <div class="wi-grid">
+          <label class="wi-f"><span>Subject</span>
+            <div style="display:flex;gap:8px">
+              <div class="seg" id="wfKindSeg" style="flex:0 0 auto">
+                <button class="active" data-wfkind="user">User</button>
+                <button data-wfkind="device">Device</button>
+              </div>
+              <input id="wfSubject" placeholder="User principal name, display name or object ID…" autocomplete="off" spellcheck="false" style="flex:1 1 auto;min-width:0">
+            </div></label>
+          <label class="wi-f"><span>Group</span>
+            <div style="display:flex;gap:8px">
+              <div class="seg" id="wfDirSeg" style="flex:0 0 auto">
+                <button class="active" data-wfdir="join" title="What appears and disappears when they join">Joins</button>
+                <button data-wfdir="leave" title="What appears and disappears when they leave">Leaves</button>
+              </div>
+              <input id="wfGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false" style="flex:1 1 auto;min-width:0">
+            </div></label>
+        </div>
+        <p class="mini muted" style="margin:8px 0 0"><b>Joining brings the group's parents with it</b> — membership of a child is membership of its ancestors, and a what-if that forgot that would understate every join onto a nested group. <b>Leaving only severs a direct edge</b>: a membership held through another group cannot be resigned from here, and the answer says so rather than pretending.</p>
+      </div>
+
+      <div id="wfCmpWrap" style="display:none">
+        <label class="wi-f"><span>Groups to compare <span class="mini muted">two to four, one per line</span></span>
+          <textarea id="wfGroups" rows="4" placeholder="INT-DEV-Pilot&#10;INT-DEV-Production" spellcheck="false" style="width:100%;resize:vertical"></textarea></label>
+        <p class="mini muted" style="margin:8px 0 0">Each column is the group <b>plus what it inherits from its own parents</b>. The table shows only where they differ — a policy reaching all of them equally is counted, not listed.</p>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="mini" style="font-weight:600;margin-bottom:6px">Where to look <span class="mini muted" style="font-weight:400">— each asks for its own permission when it runs</span></div>
+        <div id="wfAreas" class="gu-areas"></div>
+      </div>
+
+      <div class="tb-actions" style="margin-top:14px">
+        <button class="btn primary" id="wfRun">🔮 Simulate</button>
+        <button class="btn" id="wfReset">Reset</button>
+        <button class="btn" id="wfMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="wfCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="wfProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="wfBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -877,20 +945,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10354"></script>
-<script src="js/version.js?v=10354"></script>
-<script src="js/promote.js?v=10354"></script>
-<script src="js/authConfig.js?v=10354"></script>
-<script src="js/changelog.js?v=10354"></script>
-<script src="js/msappcatalog.js?v=10354"></script>
-<script src="js/graph.js?v=10354"></script>
-<script src="js/groupuse.js?v=10354"></script>
-<script src="js/audit.js?v=10354"></script>
-<script src="js/backup.js?v=10354"></script>
-<script src="js/document.js?v=10354"></script>
-<script src="js/devicewhy.js?v=10354"></script>
-<script src="js/roles.js?v=10354"></script>
-<script src="js/applocker.js?v=10354"></script>
-<script src="js/app.js?v=10354"></script>
+<script src="js/branding.js?v=10355"></script>
+<script src="js/version.js?v=10355"></script>
+<script src="js/promote.js?v=10355"></script>
+<script src="js/authConfig.js?v=10355"></script>
+<script src="js/changelog.js?v=10355"></script>
+<script src="js/msappcatalog.js?v=10355"></script>
+<script src="js/graph.js?v=10355"></script>
+<script src="js/groupuse.js?v=10355"></script>
+<script src="js/audit.js?v=10355"></script>
+<script src="js/backup.js?v=10355"></script>
+<script src="js/document.js?v=10355"></script>
+<script src="js/devicewhy.js?v=10355"></script>
+<script src="js/roles.js?v=10355"></script>
+<script src="js/applocker.js?v=10355"></script>
+<script src="js/app.js?v=10355"></script>
 </body>
 </html>

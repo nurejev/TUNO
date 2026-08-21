@@ -46,10 +46,20 @@ mode - it will then be a collection that BLOCKS.
 One or more AppLocker policy XML files. Each produces its own Intune profile.
 
 .PARAMETER Grouping
-The grouping segment of the OMA-URI. This is the identity of the policy on the device:
-two profiles with the SAME grouping overwrite each other, two with DIFFERENT groupings
-are merged by the CSP. Use one grouping per intent, e.g. 'Pilot' or 'Production'.
-Whitespace is stripped.
+The grouping segment of the OMA-URI, which names a CSP node. MAKE IT UNIQUE PER PROFILE.
+
+Microsoft: "Delete/unenrollment is not properly supported unless Grouping values are
+unique across enrollments. If multiple enrollments use the same Grouping value, then
+unenrollment will not work as expected since there are duplicate URIs that get deleted
+by the resource manager ... The best practice is to use a randomly generated GUID."
+
+Two profiles sharing a grouping write the SAME OMA-URIs, so unassigning one can delete
+the nodes the other still depends on. Move from audit to enforce by editing the profile
+you already have, not by deploying a second one beside it. Whitespace is stripped.
+
+Note also that deploying does not clear what came before: each {Grouping}/{Type}/Policy
+node persists until something explicitly deletes it, so a collection this profile omits
+keeps running on the device. Both apply and delete reboot the device.
 
 .PARAMETER DisplayName
 Base name for the Intune profile. The suffix (see -NameSuffix) is appended.
@@ -112,7 +122,7 @@ PS> Invoke-MgGraphRequest -Method POST `
         -Body $body -ContentType 'application/json'
 
 .NOTES
-Version   : 1.2.0
+Version   : 1.3.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Standalone: no dependency on any customer-connection harness. In online mode it uses
@@ -163,8 +173,8 @@ $ErrorActionPreference = 'Stop'
 # See the note in Invoke-TunoAppLockerScan.ps1: ScriptVersion is this file's own
 # history, TunoBuild is the site build that served it, and a headless test holds
 # TunoBuild to js/version.js so they cannot drift.
-$script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10354
+$script:ScriptVersion = '1.3.0'
+$script:TunoBuild = 10355
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 

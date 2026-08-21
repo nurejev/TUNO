@@ -102,7 +102,11 @@ Check each of these is **allowed for a standard user**, not just for an admin:
 - [ ] You have a deployment method for that service — a configuration profile or a remediation script — not a one-off manual change.
 - [ ] The policy is **AuditOnly**. Every collection. No exceptions to this rule.
 - [ ] The **pilot group** is named, small, and contains people who will tell you when something breaks.
-- [ ] The **grouping value** (Intune OMA-URI) is decided. Two profiles sharing a grouping replace each other; two with different groupings are merged by the CSP. Use the **same** grouping for audit and enforce so the enforced one replaces rather than stacks.
+- [ ] The **grouping value** (Intune OMA-URI) is decided, and it is **unique to this profile** — a randomly generated GUID is Microsoft's stated best practice. Two profiles sharing a grouping write the same OMA-URIs, and unassigning one can delete the nodes the other still depends on: *"Delete/unenrollment is not properly supported unless Grouping values are unique."*
+- [ ] You are planning to go from audit to enforce by **editing that one profile**, not by assigning a second profile beside it. One profile, one grouping, changed in place.
+- [ ] You know that **deploying does not clear what came before.** Every path adds rather than replaces — the CSP keeps one node per grouping and type until something explicitly deletes it, Group Policy merges rules from every linked GPO, and local policy persists until cleared. A collection your new policy omits **keeps running**, and if it was `NotConfigured` with rules it keeps *blocking*.
+- [ ] You have listed what the target devices are **already** running (`Get-AppLockerPolicy -Effective -Xml`, or upload a scan bundle to T01 and read the carry-over findings) and decided, per collection, whether to absorb it into this policy or remove it deliberately.
+- [ ] You have a **maintenance window**. The AppLocker CSP's Policy nodes carry automatic reboot behaviour — on apply *and* on delete. Neither the rollout nor the rollback is quiet.
 - [ ] **You have tested the way back.** Remove the assignment on a pilot device and confirm the policy actually clears. Do this before the estate depends on it, not after.
 - [ ] A **local administrator account** you can still use exists and works on the pilot devices.
 - [ ] The **helpdesk knows** what an AppLocker block looks like to a user, and what to collect.
@@ -150,6 +154,9 @@ Check each of these is **allowed for a standard user**, not just for an admin:
 - **Publisher rules match the signing certificate's subject**, not the vendor's name as you'd write it.
 - **`%PROGRAMFILES%` matches both Program Files trees.** `%SYSTEM32%` matches System32 and SysWOW64.
 - **Removing an Intune assignment removes the policy** — but a device that cannot run its management agent cannot be told that. Test the removal path early.
+- **Omitting a collection does not remove it.** Deployment adds; it does not replace. What the device already runs keeps running unless you delete it at the source.
+- **Two profiles must never share a grouping.** Unassigning one can delete the CSP nodes the other depends on. Use a GUID per profile.
+- **Applying and removing an AppLocker CSP policy both reboot the device.**
 - **RDS and multi-session hosts** need their own thought: one writable profile directory per concurrent user.
 
 ---
