@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10363, date: "2026-08-21", title: "The cleanup pair is where the work starts",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The cleanup script and its detection half are downloadable from step 1, next to the scan, each with the same copy-able download command — not only from step 5. A device that already carries a policy needs the cleanup before the new policy means anything, so the download belongs where the work starts as well as where it ends. A line under the buttons says which two are for brownfield devices and points at step 5 for the full order: unassign, clean, deploy under a new grouping." },
+    ],
+  },
+  {
     build: 10362, date: "2026-08-21", title: "The cleanup for devices that already have a policy",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The brownfield gap is closed. The carry-over findings could already tell you a device was running an old policy the new one would not remove — now the tool also hands you the script that removes it. Clear-TunoAppLockerPolicy.ps1, downloadable in step 5 beside the checklist, backs up the effective policy, the local policy and the registry tattoo before touching anything, replaces the local policy with the genuinely inert empty one, sweeps the SrpV2 remnants, and then verifies the device is actually clean — exiting with a failure code when it is not, so an Intune Remediation reports the device rather than the wish. Its detection half, Detect-TunoAppLockerPolicy.ps1, makes the pair deployable as a Remediation for the migration window: unassign the old profile, let the cleanup sweep what unassignment leaves behind, deploy the new policy under a new grouping." },

@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10362"></script>
+<script src="js/popup-guard.js?v=10363"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10362">
+<link rel="stylesheet" href="css/app.css?v=10363">
 </head>
 <body>
 
@@ -187,7 +187,22 @@
               <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <!-- The brownfield pair sits here as well as in step 5: a device
+                 that already carries a policy needs the cleanup BEFORE the new
+                 policy means anything, so the download belongs where the work
+                 starts, not only where it ends. -->
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
+              <code class="al-dl-cmd" data-file="Clear-TunoAppLockerPolicy.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Clear-TunoAppLockerPolicy.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
+              <code class="al-dl-cmd" data-file="Detect-TunoAppLockerPolicy.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Detect-TunoAppLockerPolicy.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
           </div>
+          <p class="mini muted" style="margin:8px 0 0"><b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping the pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5.</p>
           <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site.</p>
           <details class="al-guide">
             <summary>How to run it, and what each switch is for</summary>
@@ -1118,24 +1133,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10362"></script>
-<script src="js/version.js?v=10362"></script>
-<script src="js/promote.js?v=10362"></script>
-<script src="js/authConfig.js?v=10362"></script>
-<script src="js/changelog.js?v=10362"></script>
-<script src="js/msappcatalog.js?v=10362"></script>
-<script src="js/graph.js?v=10362"></script>
-<script src="js/groupuse.js?v=10362"></script>
-<script src="js/audit.js?v=10362"></script>
-<script src="js/backup.js?v=10362"></script>
-<script src="js/document.js?v=10362"></script>
-<script src="js/devicewhy.js?v=10362"></script>
-<script src="js/whatif.js?v=10362"></script>
-<script src="js/health.js?v=10362"></script>
-<script src="js/settingsearch.js?v=10362"></script>
-<script src="js/assignedit.js?v=10362"></script>
-<script src="js/roles.js?v=10362"></script>
-<script src="js/applocker.js?v=10362"></script>
-<script src="js/app.js?v=10362"></script>
+<script src="js/branding.js?v=10363"></script>
+<script src="js/version.js?v=10363"></script>
+<script src="js/promote.js?v=10363"></script>
+<script src="js/authConfig.js?v=10363"></script>
+<script src="js/changelog.js?v=10363"></script>
+<script src="js/msappcatalog.js?v=10363"></script>
+<script src="js/graph.js?v=10363"></script>
+<script src="js/groupuse.js?v=10363"></script>
+<script src="js/audit.js?v=10363"></script>
+<script src="js/backup.js?v=10363"></script>
+<script src="js/document.js?v=10363"></script>
+<script src="js/devicewhy.js?v=10363"></script>
+<script src="js/whatif.js?v=10363"></script>
+<script src="js/health.js?v=10363"></script>
+<script src="js/settingsearch.js?v=10363"></script>
+<script src="js/assignedit.js?v=10363"></script>
+<script src="js/roles.js?v=10363"></script>
+<script src="js/applocker.js?v=10363"></script>
+<script src="js/app.js?v=10363"></script>
 </body>
 </html>
