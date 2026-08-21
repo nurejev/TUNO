@@ -1234,7 +1234,29 @@ const AppLockerTool = (() => {
   // functions their Copy and Download buttons hand over — never from a second
   // serialiser kept in step by hand, which is how a preview starts lying about
   // what it is about to write.
+  // What a download contains. The whole policy is the default and the right
+  // answer for a GPO import; a single collection is what Intune's MANUAL
+  // OMA-URI route asks for, one value per rule collection, and getting it out
+  // of here beats hand-cutting it from a file with five of them in.
+  //
+  // DLL is offered here even though the Intune PROFILE omits it: choosing it
+  // deliberately is a different act from having it shipped without being
+  // asked, and someone entering OMA-URIs by hand may well want it.
+  function renderDlParts() {
+    const sel = $("alDlPart");
+    if (!sel) return;
+    const keep = sel.value;
+    const cols = policy ? policy.collections.filter((c) => c.rules.length || c.mode !== "NotConfigured") : [];
+    sel.innerHTML = `<option value="all">Whole ${pane === "intune" ? "profile" : "policy"}</option>`
+      + cols.map((c) => `<option value="${esc(c.type)}">${esc(COLLECTION_LABEL[c.type] || c.type)} only (${c.rules.length} rule${c.rules.length === 1 ? "" : "s"})</option>`).join("");
+    // a collection that has gone away must not stay selected and silently
+    // download something else
+    sel.value = [...sel.options].some((o) => o.value === keep) ? keep : "all";
+    sel.style.display = cols.length > 1 ? "" : "none";
+  }
+
   function renderCodePane() {
+    renderDlParts();
     const sub = $("alXmlSub"), code = $("alXmlCode"), name = $("alXmlName");
     if (!sub || !code) return;
 
@@ -1249,7 +1271,20 @@ const AppLockerTool = (() => {
       return;
     }
 
+    // WHAT IS SHOWN IS WHAT DOWNLOADS. The part selector narrows both, or the
+    // panel would display the whole policy while the button handed over one
+    // collection — the same class of lie as a preview drifting from its file.
+    const part = ($("alDlPart") || {}).value || "all";
+    const one = part === "all" ? null : policy.collections.find((c) => c.type === part);
+
     if (pane === "intune") {
+      const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+      if (one) {
+        if (name) name.textContent = `AppLocker-${one.type}-OMA-URI.xml`;
+        sub.textContent = `the OMA-URI VALUE for ${esc(COLLECTION_LABEL[one.type] || one.type)} · grouping ${intuneGrouping() || "(none)"} · ${mode}`;
+        code.innerHTML = highlightXml(collectionLines(one, "", mode).join("\n"));
+        return;
+      }
       if (name) name.textContent = intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json";
       const n = policy.collections.filter((c) => OMA_TYPE[c.type]).length;
       sub.textContent = `${n} OMA-URI setting${n === 1 ? "" : "s"} · grouping ${intuneGrouping() || "(none)"} · ${intuneCfg.mode}`;
@@ -1257,6 +1292,12 @@ const AppLockerTool = (() => {
       return;
     }
 
+    if (one) {
+      if (name) name.textContent = `AppLockerPolicy-${one.type}.xml`;
+      sub.textContent = `${one.rules.length} rule${one.rules.length === 1 ? "" : "s"} · ${esc(COLLECTION_LABEL[one.type] || one.type)} only · ${esc(one.mode)}`;
+      code.innerHTML = highlightXml(['<AppLockerPolicy Version="1">', ...collectionLines(one, "  "), "</AppLockerPolicy>"].join("\n"));
+      return;
+    }
     if (name) name.textContent = "AppLockerPolicy.xml";
     const rules = policy.collections.reduce((n, c) => n + c.rules.length, 0);
     sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${policy.collections.length} collection${policy.collections.length === 1 ? "" : "s"}`;
@@ -1691,8 +1732,30 @@ const AppLockerTool = (() => {
     }));
     $("alXml").addEventListener("click", () => {
       if (!policy) return;
-      if (pane === "intune") download(intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json", intuneJson(intuneCfg.mode), "application/json");
-      else download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml");
+      const part = ($("alDlPart") || {}).value || "all";
+      const col = part === "all" ? null : policy.collections.find((c) => c.type === part);
+      if (part !== "all" && !col) return;
+
+      if (pane === "intune") {
+        if (!col) {
+          download(intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json", intuneJson(intuneCfg.mode), "application/json");
+          return;
+        }
+        // One collection from the Intune tab is the OMA-URI VALUE, not a
+        // fragment of JSON — that string is what the portal asks you to paste
+        // into a custom setting, so hand over exactly that.
+        const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+        download(`AppLocker-${col.type}-${intuneGrouping() || "Pilot"}-OMA-URI.xml`,
+          collectionLines(col, "", mode).join("\n"), "application/xml");
+        return;
+      }
+      if (!col) { download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml"); return; }
+      // A single collection still ships as a whole AppLockerPolicy document.
+      // A bare <RuleCollection> is not a policy and neither a GPO import nor
+      // Set-AppLockerPolicy will take it.
+      download(`AppLockerPolicy-TUNO-${col.type}.xml`,
+        ['<AppLockerPolicy Version="1">', ...collectionLines(col, "  "), "</AppLockerPolicy>"].join("\n"),
+        "application/xml");
     });
     // Clipboard access is refused outright in some contexts (no gesture, a
     // policy-locked browser). Say so on the button rather than appearing to
@@ -1709,6 +1772,9 @@ const AppLockerTool = (() => {
       if (!b) return;
       expand($(b.dataset.fs), b.dataset.fslabel || "Full screen");
     });
+    const dlSel = $("alDlPart");
+    if (dlSel) dlSel.addEventListener("change", renderCodePane);
+
     const alEx = $("alExpand");
     if (alEx) alEx.addEventListener("click", () => {
       expand(document.querySelector(".al-xml"), pane === "intune" ? "Intune profile" : "Policy XML");
@@ -1716,7 +1782,13 @@ const AppLockerTool = (() => {
 
     $("alCopyXml").addEventListener("click", (e) => {
       if (!policy) return;
-      copyToClipboard(e.currentTarget, pane === "intune" ? intuneJson(intuneCfg.mode) : exportXml());
+      const part = ($("alDlPart") || {}).value || "all";
+      const col = part === "all" ? null : policy.collections.find((c) => c.type === part);
+      const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+      copyToClipboard(e.currentTarget,
+        pane === "intune"
+          ? (col ? collectionLines(col, "", mode).join("\n") : intuneJson(intuneCfg.mode))
+          : (col ? ['<AppLockerPolicy Version="1">', ...collectionLines(col, "  "), "</AppLockerPolicy>"].join("\n") : exportXml()));
     });
     $("alMd").addEventListener("click", () => { if (policy) download("applocker-review.md", markdown(), "text/markdown"); });
 

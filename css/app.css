@@ -503,8 +503,17 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
    tables cap themselves against nothing, so both need saying. The point of
    the popout is the room, and a panel that opens to the same cramped box is
    a control that appears to do nothing. */
-.fs-body > .fs-in{height:100%;max-height:none;border:0;box-shadow:none;border-radius:0}
-.fs-body > .fs-in .al-xml-code{max-height:none}
+/* TWO DIFFERENT ANSWERS, because these cards scroll differently.
+   The code panel scrolls INSIDE itself, so it takes the panel's height and
+   its code area becomes the scroller — it needs flex:1 and min-height:0 to
+   do that, or it sizes to its content and overflows a fixed-height parent
+   that hides overflow, which is exactly how it ended up unscrollable.
+   A table card does the opposite: it grows to its content and lets the panel
+   body scroll. Giving it height:100% clipped everything past the fold with
+   no way to reach it, because .list-card hides its own overflow. */
+.fs-body > .al-xml.fs-in{height:100%;max-height:none;border:0;box-shadow:none;border-radius:0}
+.fs-body > .al-xml.fs-in .al-xml-code{flex:1;min-height:0;max-height:none;overflow:auto}
+.fs-body > .list-card.fs-in{height:auto;max-height:none;overflow:visible;border:0;box-shadow:none;border-radius:0}
 .fs-body > .fs-in > div[style*="overflow-x"]{overflow-x:visible}
 .fs-body > .fs-in table.plist{width:100%}
 /* the heading's own popout button is meaningless once it is open */

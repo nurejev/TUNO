@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10350, date: "2026-08-21", title: "The full-screen panel scrolls, and you can take one collection at a time",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Opening a card full screen showed the top of it and nothing else \u2014 no scroll, no way to reach the rest. One rule was making every parked card fill the panel exactly, and a card hides whatever does not fit, so everything past the fold was simply unreachable. The two kinds of card need opposite answers and now get them: the code panel takes the height and scrolls inside itself, a table grows to its content and lets the panel scroll it." },
+      { kind: "new", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Download and Copy can hand over ONE rule collection instead of the whole policy. A selector beside the button lists every collection that has anything in it, with its rule count. The whole policy stays the default and is still the right answer for a GPO import; a single collection is what Intune's manual route asks for, one value per collection, and cutting it by hand out of a file containing five was the alternative." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "A single collection means different things on the two tabs, so it produces different files. From the Policy XML tab it is a complete policy document containing that one collection \u2014 a bare rule collection is not a policy and neither a GPO import nor PowerShell will accept one. From the Intune tab it is the bare OMA-URI value, because that string is exactly what the portal asks you to paste into a custom setting." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "The panel follows the selector: pick a collection and the code on screen narrows to it, the filename changes, and the line underneath says what you are about to get. Showing the whole policy while the button hands over one collection would be the same kind of lie as a preview drifting from its file." },
+    ],
+  },
+  {
     build: 10349, date: "2026-08-21", title: "Fourth promotion — the AppLocker corrections are production",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 6 and takes queue items 30 to 35 with it — beta builds 10342 and 10344 to 10348. Three of the six were high risk and all three were corrections to the one tool whose output is meant to be enforced on endpoints: the scan that crashed at its last step and discarded a whole run, the reference-machine assumption now stated and checked, and the NotConfigured misreading that was both generating an enforcing DLL section and reporting imported policies as unenforced when they were blocking. The checklist, the script version stamps and the full-screen panels went with them. The queue is empty again." },
