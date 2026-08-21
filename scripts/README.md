@@ -5,9 +5,9 @@ equally deliberate limit: a browser cannot read a directory ACL, verify an Authe
 signature, or open an event log. Those three facts are most of what you need to know
 before you enforce AppLocker.
 
-So T01 (🔐 AppLocker builder & validator) hands out two PowerShell scripts instead of
-pretending the browser could work it out. They are served from the site itself, so the
-copy you download always matches the build of T01 you are looking at.
+So T01 (🔐 AppLocker builder & validator) hands out a small set of PowerShell scripts
+instead of pretending the browser could work it out. They are served from the site
+itself, so the copy you download always matches the build of T01 you are looking at.
 
 | File | What it does | Where the output goes |
 |---|---|---|
@@ -16,9 +16,11 @@ copy you download always matches the build of T01 you are looking at.
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
 | `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean | Intune Remediation or an elevated shell; exits 1 if not clean |
 | `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
+| `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
 
-Both are MIT-licensed, like the rest of TUNO, and both are read-only on the device
-unless you explicitly ask otherwise. Neither one applies a policy.
+All are MIT-licensed, like the rest of TUNO. The scan is read-only; the cleanup and the
+folder provisioning change exactly what their names say and nothing else. None of them
+applies an AppLocker policy — deploying is always a separate, deliberate act.
 
 ---
 
@@ -51,6 +53,15 @@ Intune Management Extension running as SYSTEM:
 
 The standing rules exist so nobody has to remember to add them. AppLocker has no
 `%PROGRAMDATA%` variable, so they are written as `%OSDRIVE%\ProgramData\IT-TOOLS\…`.
+
+**The folders must exist, with the right ACL, BEFORE the policy lands.** ProgramData's
+default permissions let a standard user create missing subfolders — and the creator
+owns what they create. A user who creates `IT-TOOLS\Apps` before IT does owns a folder
+every policy allows. `Initialize-TunoItToolsFolders.ps1` closes that: it creates the
+folders, disables inheritance, sets SYSTEM + Administrators full control and Users
+read-and-execute, resets anything a user pre-created, verifies by reading the ACL back,
+and exits 1 when a non-admin principal can still write. Deploy it as SYSTEM before (or
+with) the audit profile.
 
 **The rules are only as strong as the ACL.** Apps and Scripts must be writable by
 SYSTEM and Administrators alone — an allow rule on a user-writable folder is a door,

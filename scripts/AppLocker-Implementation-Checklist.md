@@ -62,6 +62,7 @@ A rule allowing `%PROGRAMFILES%\*` is only as strong as the ACLs underneath it.
 
 ### The IT-TOOLS house folders
 
+- [ ] **The house folders were provisioned BEFORE the policy** — `Initialize-TunoItToolsFolders.ps1`, as SYSTEM. ProgramData lets a standard user create missing subfolders and own them; a user who creates `IT-TOOLS\Apps` first owns a folder every policy allows. The script disables inheritance, sets admin-only writes, resets pre-created folders, and exits 1 if a non-admin can still write.
 - [ ] The standing allows for `%OSDRIVE%\ProgramData\IT-TOOLS\Apps` and `…\Scripts` are present in Exe, MSI and Script — every generated policy carries them so IT-deployed tooling always runs, without anyone remembering to add the rule.
 - [ ] **The ACL on both folders restricts writes to SYSTEM and Administrators.** This is the condition the standing allows depend on: a user-writable folder with a standing allow is a live bypass. The scan checks it — a clean scan with no IT-TOOLS warning means it held.
 - [ ] `IT-TOOLS\LOGS` exists for script logging (the cleanup writes there) and has **no** allow rule — logs are not executables.

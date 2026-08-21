@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10366"></script>
+<script src="js/popup-guard.js?v=10367"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10366">
+<link rel="stylesheet" href="css/app.css?v=10367">
 </head>
 <body>
 
@@ -201,8 +201,13 @@
               <code class="al-dl-cmd" data-file="Detect-TunoAppLockerPolicy.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Detect-TunoAppLockerPolicy.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Initialize-TunoItToolsFolders.ps1" download>⭳ Initialize-TunoItToolsFolders.ps1</a>
+              <code class="al-dl-cmd" data-file="Initialize-TunoItToolsFolders.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Initialize-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
           </div>
-          <p class="mini muted" style="margin:8px 0 0"><b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping the pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5.</p>
+          <p class="mini muted" style="margin:8px 0 0"><b>The fourth creates the IT-TOOLS house folders with the admin-only ACL the standing allow rules depend on</b> — deploy it BEFORE the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass. <b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping the pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5.</p>
           <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site.</p>
           <details class="al-guide">
             <summary>How to run it, and what each switch is for</summary>
@@ -1030,6 +1035,29 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p class="mini" style="margin:0 0 10px"><b>TUNO — Tenant Utilities for iNtune Operations</b> is ENCA's sister tool (<a href="https://enca.limon-it.nl" target="_blank" rel="noopener">enca.limon-it.nl</a>): the same idea — static files running entirely in your browser, minimal delegated Graph permissions asked per tool, nothing stored server-side because there is no server — applied to Intune and endpoint security instead of Conditional Access.</p>
       </div>
 
+      <!-- Section links, ENCA's pattern: one pill per section, in the order the
+           sections appear. Buttons rather than #anchors, because the shell owns
+           pushState and an in-page hash would fight the history handling; the
+           scroll offset for the sticky header lives in CSS (scroll-margin-top).
+           The queue pill is toggled with the queue box itself in openHelp(). -->
+      <nav class="help-toc" id="helpToc">
+        <button class="help-toc-pill" id="helpTocPromote" data-target="helpPromote" style="display:none">🚚 Waiting for production</button>
+        <button class="help-toc-pill" data-target="help-applocker">🔐 AppLocker builder &amp; validator</button>
+        <button class="help-toc-pill" data-target="help-grouping">🏷 AppLocker groupings</button>
+        <button class="help-toc-pill" data-target="help-groupuse">🔗 Group Analyzer</button>
+        <button class="help-toc-pill" data-target="help-whatif">🔮 Assignment what-if</button>
+        <button class="help-toc-pill" data-target="help-health">🩺 Assignment health</button>
+        <button class="help-toc-pill" data-target="help-assignedit">✏️ Assignment editor</button>
+        <button class="help-toc-pill" data-target="help-setsearch">🔦 Settings search</button>
+        <button class="help-toc-pill" data-target="help-device">🖥 Device analyzer</button>
+        <button class="help-toc-pill" data-target="help-roles">🛡 Role assignments</button>
+        <button class="help-toc-pill" data-target="help-audit">🕓 Change audit</button>
+        <button class="help-toc-pill" data-target="help-backup">📦 Backup configuration</button>
+        <button class="help-toc-pill" data-target="help-docs">📄 Configuration documenter</button>
+        <button class="help-toc-pill" data-target="help-security">🔒 Security model</button>
+        <button class="help-toc-pill" data-target="help-credits">🙏 Credits</button>
+      </nav>
+
       <!-- The promotion queue sits DIRECTLY under "What TUNO is", the way ENCA
            orders it: on a beta channel the first thing you need to know is what
            this build has that production does not. Hidden on production, so a
@@ -1037,51 +1065,67 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="list-card" id="helpPromote" style="display:none;padding:18px 22px"></div>
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
-        <h3 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator</h3>
+        <h3 id="help-applocker" style="margin:0 0 6px">🔐 AppLocker builder &amp; validator</h3>
         <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: what you upload is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported as policy XML, an Intune custom profile, or a Markdown report. Rule evaluation here is a faithful model — deny beats allow, exceptions carve back out, macros expand, publisher fields match — not the AppLocker engine itself. Test in AuditOnly before enforcing, always.</p>
         <p class="mini" style="margin:0 0 10px"><b>The five steps.</b> ① Download <code>Invoke-TunoAppLockerScan.ps1</code> and run it elevated on a representative device. ② Upload the <code>.json</code> bundle it writes. ③ Work through the findings and the coverage table, fixing what needs fixing. ④ Export the policy XML for a GPO, or the Intune custom profile. ⑤ Assign the AuditOnly profile to a pilot group, wait, re-scan, and only then enforce.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why there is a PowerShell script at all.</b> A browser cannot read a directory ACL, verify an Authenticode signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing <code>%PROGRAMFILES%\*</code> is only as strong as the permissions underneath it, and the XML does not say what those are. The scan does, and the tool marks every verdict that came from it with 🛰 so you can see which half of the analysis proved what. Skip the scan and the tool still works on a plain policy XML; it just cannot tell you about the holes it cannot see.</p>
         <p class="mini" style="margin:0 0 10px"><b>The scripts are served from this site</b> (<code>/scripts/</code>), so the copy you download always matches the build you are looking at. They are read-only on the device: neither one applies a policy, touches the local GPO, or starts the Application Identity service. Source and the full switch reference are in <a href="scripts/README.md" target="_blank" rel="noopener">scripts/README.md</a>.</p>
-        <h3 style="margin:14px 0 6px">🔗 Group Analyzer</h3>
+        <h3 id="help-groupuse" style="margin:14px 0 6px">🔗 Group Analyzer</h3>
         <p class="mini" style="margin:0 0 10px">Reads nine Intune assignment surfaces and reports every one that names your group — <b>including the ones that exclude it</b>. Each surface asks for its own scope when it runs, so a run limited to configuration profiles never prompts for the apps permission. Reads only; nothing is written, nothing is stored, and the exports are produced in your browser.</p>
         <p class="mini" style="margin:0 0 10px"><b>Three things the report says that a portal blade will not.</b> ① <b>Inherited assignments.</b> If your group is a member of another group, anything assigned to the parent reaches your members too — those rows are included and name the parent. If membership cannot be read, the report says the answer is direct-assignments-only rather than quietly narrowing. ② <b>Tenant-wide reach.</b> All Users and All Devices assignments are off by default and one toggle away; they are not <i>about</i> your group, but they land on it. ③ <b>Unknown is not empty.</b> A surface that returned 403 or 404 is listed as unreadable with the scope and the Intune RBAC role it would need — reporting it as “no assignments” is the most dangerous thing this tool could do.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why it stops at Intune.</b> “Where is this group used?” has an Entra half — Conditional Access, group-based licensing, directory roles, access packages — and answering it needs permissions TUNO holds none of. That is <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s Group Analyzer, which is signed in for it. Two tools, one question, split along the line where the permissions actually divide.</p>
       </div>
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
-        <h3 style="margin:14px 0 6px">🖥 Device analyzer</h3>
+        <h3 id="help-grouping" style="margin:14px 0 6px">🏷 AppLocker groupings — what they are, and why yours must be unique</h3>
+        <p class="mini" style="margin:0 0 10px"><b>What a grouping is.</b> When Intune delivers AppLocker, each rule collection is written to a CSP node whose address includes a name you choose: <code>./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/<b>{Grouping}</b>/EXE/Policy</code>. That name is the policy's <b>identity on the device</b> — not a label, an address. Everything else about groupings follows from that one fact.</p>
+        <p class="mini" style="margin:0 0 10px"><b>The why, in three consequences.</b> ① <b>Different groupings merge.</b> A device holding groupings <code>A</code> and <code>B</code> enforces both — deny beats allow across all of them, and a collection missing from <code>B</code> does not switch off its counterpart in <code>A</code>. Deploying a second grouping therefore never replaces the first; it stacks on it. ② <b>Same grouping means same address</b>, so two Intune <i>profiles</i> sharing a grouping write to identical nodes — and Microsoft's own warning is that removal then breaks: <i>“Delete/unenrollment is not properly supported unless Grouping values are unique… the best practice is to use a randomly generated GUID.”</i> Unassign one profile and the CSP can delete the nodes the other still depends on, leaving orphaned policy nothing in the portal points at. ③ <b>Apply and delete both reboot the device</b> — the CSP's Policy nodes carry automatic reboot behaviour, so neither rollout nor rollback is quiet.</p>
+        <p class="mini" style="margin:0 0 10px"><b>How to use it, then.</b> One profile, one grouping, a GUID — and you move from audit to enforce by <b>editing that profile in place</b>, never by assigning a second profile beside it. When migrating a device that already carries policy: unassign the old profile first (Intune sends the CSP delete), run <code>Clear-TunoAppLockerPolicy.ps1</code> to sweep what unassignment leaves behind, then deploy under a <b>new</b> grouping. The cleanup names every MDM grouping it finds on the device — the supported removal for a live grouping is unassigning its profile, and <code>-RemoveMdmGroupings</code> exists for the orphans the shared-grouping bug leaves. The tool's Intune tab and the converter both warn when a grouping looks wrong, and the carry-over findings show what other groupings already put on the device.</p>
+        <h3 id="help-whatif" style="margin:14px 0 6px">🔮 Assignment what-if</h3>
+        <p class="mini" style="margin:0 0 10px">What would change if this user or device joined, or left, that group — asked while the change is still cheap to reverse. Memberships today are read transitively, the hypothetical set is built (joining a group adds everything it is nested under; leaving severs one edge and rebuilds what remains), and every assignment surface is read once with each policy's effect computed under both sets. The difference is the answer. Reads only.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Four states, not two</b> — gained, lost, pre-excluded, unchanged — because <b>joining a group can take policy away</b>: an exclusion met by joining is a loss, and that is the most surprising row this tool produces. A filtered assignment stays <i>may</i> in both directions; a dynamic group cannot be joined by hand, so that answer is labelled conditional on the rule; an app with intent uninstall that starts to apply says <i>will be uninstalled</i>, not gained.</p>
+        <h3 id="help-health" style="margin:14px 0 6px">🩺 Assignment health</h3>
+        <p class="mini" style="margin:0 0 10px">The assignments that exist and reach nobody, in one place: assignments into empty groups, dangling references to groups the directory no longer has, unassigned policies, excluded-only policies, one group both included and excluded on the same policy (the exclusion wins), and optionally failed deployments where Graph keeps cheap status. Every finding is the same shape of problem — something that looks configured and is not.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Findings, not a score</b> — whether an empty group is a mistake or a landing zone prepared for next quarter is not something a tool can know. And unknown is never clean: a group that could not be peeked is unknown rather than empty, a surface whose status Graph keeps out of reach is named as unchecked rather than passed off as healthy.</p>
+        <h3 id="help-assignedit" style="margin:14px 0 6px">✏️ Assignment editor <span class="tag block">writes to tenant</span></h3>
+        <p class="mini" style="margin:0 0 10px">Bulk assignment changes — add an include, add an exclusion, or remove a group across many policies at once, the thing the portal makes you do one blade at a time. This is the tool in TUNO that writes at scale, and the pipeline is the point: read → plan → backup → confirm → apply → verify, enforced by the screen. The dry run names every group with its member count, the backup is automatic and applying stays locked until it exists, removals are confirmed by typing the group's name, and the write scope is asked for at the apply click — never at sign-in.</p>
+        <p class="mini" style="margin:0 0 10px"><b>What it refuses and what it will not do.</b> An include onto a policy that excludes the group, or an exclusion onto one that includes it, is refused as a contradiction rather than applied. A policy whose assignments changed since the plan was made is skipped as drifted rather than overwritten. Every write is verified by reading the tenant back, writes never retry, and there is no delete and no rename — neither belongs in a browser tool whose whole argument is that it cannot do much harm.</p>
+        <h3 id="help-setsearch" style="margin:14px 0 6px">🔦 Settings search</h3>
+        <p class="mini" style="margin:0 0 10px">“Which policies configure BitLocker, and to what value?” — answered from the setting <i>definitions</i> rather than the policy names. The settings-catalog definition catalog (roughly seventeen thousand entries, Microsoft's rather than the tenant's) is read once and searched as you type; a second, optional read of the tenant's own policies lets each result say who sets it and to what.</p>
+        <p class="mini" style="margin:0 0 10px"><b>Until that second read runs, the usage column is absent — not empty.</b> “Nobody sets this” and “nobody looked” are different answers, and the screen and the export both say which one you have. Values pass the documenter's redaction gate, because a settings search is exactly the tool somebody uses to hunt for “password”, and a result table printing secrets would be a disclosure engine with a search box.</p>
+        <h3 id="help-device" style="margin:14px 0 6px">🖥 Device analyzer</h3>
         <p class="mini" style="margin:0 0 10px">The Group Analyzer asks what a group receives. This asks what one <i>device</i> receives, and why — walking the same nine assignment surfaces backwards through the groups the machine is in, the groups its primary user is in, and the tenant-wide targets that name no group. Every row names the relationship that put it there. Reads only.</p>
         <p class="mini" style="margin:0 0 10px"><b>Read the check-in first.</b> Every assignment here is what Intune intends; what the device has is whatever it collected the last time it talked to the service. A policy assigned ten minutes ago has not reached a machine that last synced yesterday, and no amount of correct assignment data changes that — so the check-in time is the first thing on the page.</p>
         <p class="mini" style="margin:0 0 10px"><b>Three answers this tool refuses to guess at.</b> ① A <b>filtered</b> assignment may or may not reach this device: the rule is evaluated by the service against inventory a browser cannot see, and Graph offers no call that answers it. Those rows say <i>may reach it</i>. ② A policy the device has not reported on has state <b>unknown</b>, not compliant — and where a reported state cannot be tied to a policy with certainty, because two policies share a name, that is unknown too. ③ Where a policy is <b>included through one group and excluded through another</b>, an exclusion wins in Intune and the row says excluded — except when the two arrive through different kinds of group, device against user, where whether the exclusion applies depends on how the policy is targeted and the assignment does not say. That one is called a conflict and left to the portal.</p>
         <p class="mini" style="margin:0 0 10px"><b>Tenant-wide assignments are shown by default here</b>, unlike in the Group Analyzer. All Devices reaches this machine whatever else is true, so hiding those rows would hide policy it is definitely getting. All Users lands on the person, so a device with no primary user does not receive them — and the row says so rather than being dropped.</p>
-        <h3 style="margin:14px 0 6px">🛡 Role assignments</h3>
+        <h3 id="help-roles" style="margin:14px 0 6px">🛡 Role assignments</h3>
         <p class="mini" style="margin:0 0 10px">Every Intune role definition with its assignments, members, scope and scope tags, on one page. After <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Ugur Koc's PowerShell script</a> (MIT). Reads only: <code>DeviceManagementRBAC.Read.All</code>, plus <code>User.Read.All</code> and <code>Group.Read.All</code> to turn member GUIDs into names.</p>
         <p class="mini" style="margin:0 0 10px"><b>Read the first line on the screen before you rely on this.</b> It is Intune RBAC only. Global Administrator and Intune Administrator are Entra directory roles, they grant full access to Intune, and Graph does not return them from <code>deviceManagement/roleAssignments</code>. Nothing this tool can ask for would show them, so it says so rather than letting the report pass for a complete answer.</p>
         <p class="mini" style="margin:0 0 10px"><b>Empty roles are a toggle.</b> A role with no assignments is one membership change from being a live grant, so it is a fact worth seeing — off by default because most tenants use a handful of the built-in roles, and switching it on re-renders what was already read rather than asking the tenant again.</p>
         <p class="mini" style="margin:0 0 10px"><b>The flags are observations and there is no score.</b> An assignment scoped to all devices; a broad built-in role with a lot of members, at a threshold the screen states because it is arbitrary; a role whose members are all one group, where whoever can change that group can grant the role without holding it. Whether any of those is wrong depends on things the tool cannot see.</p>
-        <h3 style="margin:14px 0 6px">🕓 Change audit</h3>
+        <h3 id="help-audit" style="margin:14px 0 6px">🕓 Change audit</h3>
         <p class="mini" style="margin:0 0 10px">Reads the tenant's own audit log and says who changed what, when, from where, and <b>which fields moved</b>. Two views over one read: policy changes with a severity on each, and all events with actor / activity / category / result filters. Filters apply to what has already been read, so changing one costs nothing. Reads only.</p>
         <p class="mini" style="margin:0 0 10px"><b>Thirty days is the whole log.</b> Intune keeps audit data for thirty days and then it is gone from the service — not archived, not slower to reach. There is deliberately no ninety-day window: it would return an empty answer for days thirty-one to ninety that looks exactly like a quiet tenant.</p>
         <p class="mini" style="margin:0 0 10px"><b>Wildcards are wildcards.</b> In the actor and activity boxes, <code>admin*</code> means starts-with and <code>*Delete*</code> means contains. A term with no wildcard is treated as contains, which is what someone typing into a filter box means — but if you write a wildcard it is honoured exactly, rather than being quietly widened.</p>
         <p class="mini" style="margin:0 0 10px"><b>An event with no detail is not an event with no changes.</b> Some audit records carry no <code>modifiedProperties</code> at all — a create, usually, or a service-initiated action. Those say so explicitly rather than rendering as an empty list, because "nothing changed" and "the log does not say" are different answers.</p>
-        <h3 style="margin:14px 0 6px">📦 Backup configuration</h3>
+        <h3 id="help-backup" style="margin:14px 0 6px">📦 Backup configuration</h3>
         <p class="mini" style="margin:0 0 10px">Reads the configuration surface and writes one <code>.zip</code> in this tab. Nothing is uploaded and nothing is stored — the archive is built in memory and handed to your browser's download. One permission, read-only, asked on the click.</p>
         <p class="mini" style="margin:0 0 10px"><b>Interoperable on purpose.</b> The folder names and file names match <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/backup-intune-configuration.ps1" target="_blank" rel="noopener">the PowerShell original</a> exactly, because restore in both his script and TUNO's R09 is driven by folder names. A tidier scheme would have cost that, and interoperability is worth more.</p>
         <p class="mini" style="margin:0 0 10px"><b>Two things it cannot contain.</b> Graph never returns secret values, so encrypted OMA-URI settings, passwords and certificate payloads come back as references and must be re-entered by hand after a restore — that is a property of Graph, not of this tool. And a script saved without its body can be read but not put back; leaving bodies out is offered because they can be large, and every file it affects is marked in the manifest.</p>
         <p class="mini" style="margin:0 0 10px"><b>Missing beats wrong.</b> An object whose detail could not be read is left out of the archive rather than written without it, because a policy restored with the right name and no settings looks like it worked. An area that could not be read at all marks the whole archive partial, on screen and in the manifest.</p>
-        <h3 style="margin:14px 0 6px">📄 Configuration documenter</h3>
+        <h3 id="help-docs" style="margin:14px 0 6px">📄 Configuration documenter</h3>
         <p class="mini" style="margin:0 0 10px">Reads thirteen configuration surfaces once and gives you two things: a filterable list of every policy in the tenant with its settings expandable underneath, and a document you can hand to somebody. Filters apply to what has already been read, so changing one costs nothing — and they apply to the exports too, so you can narrow to exactly what you need to circulate.</p>
         <p class="mini" style="margin:0 0 10px"><b>Secrets are redacted and there is no switch.</b> Script bodies, certificates, passwords, pre-shared keys and encrypted OMA-URI values are replaced with a marker: the document records that a value is set without carrying it. This is the artefact most likely to be emailed, and a disclosure in one cannot be recalled.</p>
         <p class="mini" style="margin:0 0 10px"><b>Clicking a policy opens a popout.</b> Expanding in place was wrong for a list this long — a settings-catalog policy carries twenty-odd rows, so opening one pushed everything else off the screen and closing it lost your place. Escape, the Close button and the backdrop all dismiss it.</p>
         <p class="mini" style="margin:0 0 10px"><b>The exports follow the SELECTION, not the filter.</b> Two different jobs: the filter narrows what you are looking at, the tick boxes decide what you are sending. That is what lets you filter to find three policies, tick them, clear the filter, and still export three. Everything is selected after a read; with nothing selected the export buttons disappear, because a button that would produce an empty document is worse than no button.</p>
         <p class="mini" style="margin:0 0 10px"><b>A partial document says which kind of partial.</b> Every export header states how many of how many objects it holds and whether a person chose them or a filter produced them — “I picked these twelve” and “a platform filter left twelve” are different claims, and neither is “this is the tenant”.</p>
         <p class="mini" style="margin:0 0 10px"><b>Unknown is stated, not hidden — but differently from the backup tool.</b> A section that could not be read is named as unreadable and is absent from the document. A single policy whose settings could not be read is still <i>listed</i>, with the gap stated, because a document is for reading rather than restoring: knowing a policy exists and that its configuration could not be retrieved is worth more than the policy silently disappearing.</p>
-        <h3 style="margin:0 0 6px">Security model</h3>
+        <h3 id="help-security" style="margin:0 0 6px">🔒 Security model</h3>
         <p class="mini" style="margin:0">Sign-in is a SPA authorization-code + PKCE flow with no client secret — the same model as ENCA, documented in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>. You can run TUNO on your own single-tenant app registration: <code>New-TunoAppRegistration.ps1 -SingleTenant</code>.</p>
       </div>
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
-        <h3 style="margin:0 0 6px">Credits &amp; thanks</h3>
+        <h3 id="help-credits" style="margin:0 0 6px">🙏 Credits &amp; thanks</h3>
         <p class="mini" style="margin:0 0 8px">These community projects shaped the tools, and all deserve the credit:</p>
         <ul class="mini credits">
           <li><b><a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a></b> — by <b>Spencer Alessi</b>. The static check set behind <b>🔐 AppLocker builder &amp; validator</b>: which rules are weak, misconfigured or risky, and why. Licensed <b>MIT</b>.</li>
@@ -1133,24 +1177,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10366"></script>
-<script src="js/version.js?v=10366"></script>
-<script src="js/promote.js?v=10366"></script>
-<script src="js/authConfig.js?v=10366"></script>
-<script src="js/changelog.js?v=10366"></script>
-<script src="js/msappcatalog.js?v=10366"></script>
-<script src="js/graph.js?v=10366"></script>
-<script src="js/groupuse.js?v=10366"></script>
-<script src="js/audit.js?v=10366"></script>
-<script src="js/backup.js?v=10366"></script>
-<script src="js/document.js?v=10366"></script>
-<script src="js/devicewhy.js?v=10366"></script>
-<script src="js/whatif.js?v=10366"></script>
-<script src="js/health.js?v=10366"></script>
-<script src="js/settingsearch.js?v=10366"></script>
-<script src="js/assignedit.js?v=10366"></script>
-<script src="js/roles.js?v=10366"></script>
-<script src="js/applocker.js?v=10366"></script>
-<script src="js/app.js?v=10366"></script>
+<script src="js/branding.js?v=10367"></script>
+<script src="js/version.js?v=10367"></script>
+<script src="js/promote.js?v=10367"></script>
+<script src="js/authConfig.js?v=10367"></script>
+<script src="js/changelog.js?v=10367"></script>
+<script src="js/msappcatalog.js?v=10367"></script>
+<script src="js/graph.js?v=10367"></script>
+<script src="js/groupuse.js?v=10367"></script>
+<script src="js/audit.js?v=10367"></script>
+<script src="js/backup.js?v=10367"></script>
+<script src="js/document.js?v=10367"></script>
+<script src="js/devicewhy.js?v=10367"></script>
+<script src="js/whatif.js?v=10367"></script>
+<script src="js/health.js?v=10367"></script>
+<script src="js/settingsearch.js?v=10367"></script>
+<script src="js/assignedit.js?v=10367"></script>
+<script src="js/roles.js?v=10367"></script>
+<script src="js/applocker.js?v=10367"></script>
+<script src="js/app.js?v=10367"></script>
 </body>
 </html>

@@ -560,13 +560,32 @@ const Fs = (() => {
   window.openWhatsNewOverlayForTest = openWhatsNewOverlay;
 
   // ---------- help, incl. the promotion queue on non-production hosts ----------
+  // Section pills, ENCA's pattern. Buttons rather than #anchors because the
+  // shell owns pushState and an in-page hash would land in the history handling;
+  // the sticky-header offset is scroll-margin-top in the CSS.
+  const toc = $("helpToc");
+  if (toc) toc.addEventListener("click", (e) => {
+    const pill = e.target.closest(".help-toc-pill");
+    if (!pill) return;
+    const target = document.getElementById(pill.dataset.target);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   function openHelp() {
     crumb("❓ Help");
     show("screen-help");
     const box = $("helpPromote");
     if (!box) return;
-    if (isProduction() || typeof PROMOTE === "undefined") { box.style.display = "none"; return; }
+    // The queue pill exists only where the queue does — a link to a hidden box
+    // is a button that does nothing.
+    const queuePill = $("helpTocPromote");
+    if (isProduction() || typeof PROMOTE === "undefined") {
+      box.style.display = "none";
+      if (queuePill) queuePill.style.display = "none";
+      return;
+    }
     box.style.display = "";
+    if (queuePill) queuePill.style.display = "";
 
     // Ported verbatim from ENCA's renderPromotionQueue: the table is read to
     // decide WHAT to promote (number, risk, builds), and each row carries its

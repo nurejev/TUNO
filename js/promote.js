@@ -66,6 +66,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 50,
+      title: "Help TOC, the grouping explainer, and the folder trap",
+      tools: ["All tools", "🔐 AppLocker builder & validator"],
+      builds: [10367],
+      risk: "medium",
+      what: "Four related pieces. (1) Help section pills, ENCA's pattern: buttons (not #anchors — the shell owns pushState) with scroll-margin-top for the sticky header; queue pill toggled with the queue box in openHelp(). (2) Help sections for T08–T11, which had none, written from their TOOL_VERSIONS notes around their honest limits; the editor's is marked 'writes to tenant'. (3) A grouping explainer with the WHY: address-not-label, merge/stack semantics, the unique-grouping removal warning quoted, the reboot, and the one-profile-edited-in-place rule. (4) The folder trap Mihai's icacls run exposed: Initialize-TunoItToolsFolders.ps1 creates the house folders with inheritance disabled and admin-only writes, resets user-pre-created folders, verifies by ACL read-back, exit 1 on failure — because ProgramData lets a standard user create missing subfolders and OWN them, turning the standing allows into a bypass. Clear-TunoAppLockerPolicy.ps1 (1.2.0) also now names every cached MDM grouping and offers -RemoveMdmGroupings for orphans, with unassignment stated as the supported removal for live ones.",
+      why: "MEDIUM — the help changes are prose and navigation, but the provisioning script sets ACLs on ProgramData folders at SYSTEM and the cleanup gained a switch that deletes CSP cache folders. Both are unexecuted, and the MDM cache path (System32\\AppLocker\\MDM) is community-documented rather than contractual — if a Windows build lays it out differently the sweep finds nothing and verification still tells the truth, which is the designed failure mode. Graduates when the provisioning script has run on a real device and icacls shows the intended ACL, and when the grouping list in the cleanup log matches the profiles actually assigned.",
+      test: [
+        "THE ONE THAT MATTERS: run Initialize-TunoItToolsFolders.ps1 as SYSTEM (via IME or psexec), then icacls all four folders. SYSTEM and Administrators full control, Users read-and-execute, NO inherited Users create rights, exit 0. Then pre-create IT-TOOLS\\Apps as a standard user first, run the script, and confirm the user's ownership and ACEs are GONE.",
+        "Break it deliberately: grant Users write on Apps after provisioning and re-run — the script must exit 1 and name the folder and SID. A provisioning check that cannot fail is decoration.",
+        "Run the cleanup on a device with an assigned AppLocker profile: the log must NAME the grouping(s) and say unassignment is the removal — and must NOT delete them without -RemoveMdmGroupings. Then unassign, orphan a cache if you can manufacture one, and confirm -RemoveMdmGroupings clears it and verification passes after a reboot.",
+        "Click every Help pill at desktop width: each must land with its heading visible below the sticky header, not hidden behind it. Check the queue pill is present on beta and absent when isProduction() — the beta site cannot test the second half, so verify it on the production host after the next promotion.",
+        "Read the grouping section against the AppLocker CSP page: the quote must be verbatim and the merge/stack claim accurate. This is the section people will cite in change tickets.",
+        "Read the four new tool sections against the tools themselves — each claims specific behaviours (refusals, drift, absent-not-empty) that must actually match what the tool does today, not what it might do.",
+      ],
+      files: ["index.html", "css/app.css", "js/app.js", "scripts/Initialize-TunoItToolsFolders.ps1", "scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/README.md", "scripts/AppLocker-Implementation-Checklist.md", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 49,
       title: "The IT-TOOLS house convention",
       tools: ["🔐 AppLocker builder & validator"],

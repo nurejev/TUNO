@@ -58,8 +58,34 @@ Off by default: those events are the audit evidence.
 Also stop AppIDSvc and set it to Manual. Off by default: the next policy needs it.
 Use only when AppLocker is being retired, not replaced.
 
+.PARAMETER RemoveMdmGroupings
+ALSO delete the MDM-delivered grouping caches under %WINDIR%\System32\AppLocker\MDM.
+Off by default, and read this first:
+
+WHAT THIS SCRIPT CLEARS BY DEFAULT, AND WHAT IT DOES NOT. AppLocker policy reaches a
+device down three roads, and they leave state in three different places:
+
+    Local policy        cleared by the empty policy this script applies
+    GPO                 tattooed under Policies\SrpV2 - cleared by this script
+    Intune (CSP)        one cache per {grouping} under System32\AppLocker\MDM -
+                        NOT deleted by default
+
+The MDM groupings belong to their Intune profiles: unassigning the profile makes
+Intune send the CSP Delete, which is the supported removal. A grouping this script
+finds there while its profile is still assigned would simply RETURN at the next sync.
+
+The exception is an ORPHANED grouping - one whose profile is gone but whose cache
+survived, which is exactly the debris Microsoft's shared-grouping warning predicts
+("Delete/unenrollment is not properly supported unless Grouping values are unique").
+Those keep enforcing with nothing in the portal pointing at them, and
+-RemoveMdmGroupings is for them: it deletes the cached grouping folders so the next
+policy evaluation no longer merges them in. Every grouping found is LOGGED by name in
+either mode, so the log answers "what was on this device" even when nothing is removed.
+Expect a reboot to fully settle CSP state, and run it only after the old profiles are
+unassigned - against an assigned profile it is a loop, not a fix.
+
 .NOTES
-Version   : 1.1.0
+Version   : 1.2.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppLockerPolicy.ps1), run as
@@ -75,13 +101,14 @@ Reboot    : clearing CSP-delivered policy via profile unassignment reboots the d
 param(
     [string]$LogFolder = "$env:ProgramData\IT-TOOLS\LOGS",
     [switch]$ClearEventLogs,
-    [switch]$DisableAppIdService
+    [switch]$DisableAppIdService,
+    [switch]$RemoveMdmGroupings
 )
 
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
-$script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10366
+$script:ScriptVersion = '1.2.0'
+$script:TunoBuild = 10367
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
@@ -165,6 +192,42 @@ if (Test-Path $SrpV2) {
     catch { Write-Log "WARN: could not remove the SrpV2 key itself: $($_.Exception.Message)" }
 }
 else { Write-Log 'INFO: no SrpV2 key present - nothing tattooed' }
+
+# ── 3b. MDM groupings - NAMED always, removed only on request ────────────────
+# Intune-delivered policy is cached per {grouping} under System32\AppLocker\MDM.
+# Those caches belong to their profiles: unassignment is the supported removal,
+# and deleting one whose profile is still assigned just invites it back at the
+# next sync. But an ORPHANED grouping - profile gone, cache surviving, which is
+# the debris the CSP's shared-grouping delete bug leaves - keeps enforcing with
+# nothing in the portal pointing at it. So: every grouping found is logged by
+# name, and -RemoveMdmGroupings deletes them. Either way the verification below
+# is the arbiter - if anything still merges into the effective policy, exit 1.
+$mdmRoot = Join-Path $env:windir 'System32\AppLocker\MDM'
+if (Test-Path $mdmRoot) {
+    # Layout: MDM\<enrollment GUID>\<grouping>\<EXE|MSI|...>. Name the groupings.
+    $names = @(Get-ChildItem -Path $mdmRoot -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ChildItem -Path $_.FullName -Directory -ErrorAction SilentlyContinue } |
+        ForEach-Object { $_.Name } | Sort-Object -Unique)
+    if ($names.Count -gt 0) {
+        Write-Log ("FOUND: {0} MDM grouping(s) cached on this device: {1}" -f $names.Count, ($names -join ', '))
+        if ($RemoveMdmGroupings) {
+            try {
+                Get-ChildItem -Path $mdmRoot -Directory -ErrorAction SilentlyContinue |
+                    ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop }
+                Write-Log 'OK: removed the cached MDM grouping folders. A reboot fully settles CSP state; if a profile is still ASSIGNED, its grouping returns at the next sync.'
+            }
+            catch {
+                Write-Log "WARN: could not remove all MDM grouping caches: $($_.Exception.Message)"
+                $failures++
+            }
+        }
+        else {
+            Write-Log 'INFO: MDM groupings are NOT removed by default - they belong to Intune profiles, and unassigning the profile is the supported removal. If these are ORPHANS (profile already gone), re-run with -RemoveMdmGroupings. Verification below fails this run if they still enforce.'
+        }
+    }
+    else { Write-Log 'INFO: no MDM groupings cached' }
+}
+else { Write-Log 'INFO: no MDM AppLocker cache present on this device' }
 
 # ── 4. Event logs - PRESERVED unless explicitly asked, exported even then ────
 if ($ClearEventLogs) {
