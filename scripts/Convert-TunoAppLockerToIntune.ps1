@@ -28,12 +28,19 @@ TWO MODES
                       tenant. Needs the Microsoft.Graph.Authentication module and the
                       DeviceManagementConfiguration.ReadWrite.All scope.
 
-THE DLL COLLECTION IS FORCED TO NotConfigured
+THE DLL COLLECTION IS OMITTED
 AppLocker evaluates every DLL load. Enabled floods the endpoint; even AuditOnly floods
 the event log with Microsoft-signed System32 libraries, EDR AMSI providers and .NET
-native images. The DLL rules are still shipped in the profile - documented and inert -
-so the collection can be turned on deliberately later rather than being invisible.
-Pass -EnforceDllCollection if you know what you are asking for.
+native images.
+
+It is OMITTED rather than marked NotConfigured, because NotConfigured does not mean
+"off". Microsoft: "if any rules exist in a rule collection that is not configured, the
+rules WILL be enforced ... you should avoid using this value in your AppLocker
+policies." Shipping DLL rules that way would enforce DLL control, which is the
+opposite of the intent. Absence is the only state that restricts nothing.
+
+Pass -EnforceDllCollection to include the collection at the file's own enforcement
+mode - it will then be a collection that BLOCKS.
 
 .PARAMETER XmlPath
 One or more AppLocker policy XML files. Each produces its own Intune profile.
@@ -73,8 +80,8 @@ open against a different tenant the script stops rather than creating the profil
 wrong customer.
 
 .PARAMETER EnforceDllCollection
-Let the DLL collection take the file's enforcement mode instead of being forced to
-NotConfigured. Read the note above first.
+Include the DLL collection, at the file's own enforcement mode, instead of leaving it
+out. It will BLOCK. Read the note above first.
 
 .INPUTS
 None.
@@ -105,7 +112,7 @@ PS> Invoke-MgGraphRequest -Method POST `
         -Body $body -ContentType 'application/json'
 
 .NOTES
-Version   : 1.0.0
+Version   : 1.2.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Standalone: no dependency on any customer-connection harness. In online mode it uses
@@ -153,7 +160,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:ScriptVersion = '1.0.0'
+# See the note in Invoke-TunoAppLockerScan.ps1: ScriptVersion is this file's own
+# history, TunoBuild is the site build that served it, and a headless test holds
+# TunoBuild to js/version.js so they cannot drift.
+$script:ScriptVersion = '1.2.0'
+$script:TunoBuild = 6
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 
@@ -265,9 +276,18 @@ function New-IntuneCustomProfile {
             continue
         }
 
+        # DLL is OMITTED, not marked NotConfigured. Microsoft: "if any rules exist
+        # in a rule collection that is 'not configured', the rules WILL be
+        # enforced ... you should avoid using this value in your AppLocker
+        # policies." Shipping DLL rules as NotConfigured would therefore ENFORCE
+        # DLL control - the opposite of the intent - so the collection is left
+        # out entirely, which is the only state that restricts nothing.
+        if ($type -eq 'Dll' -and -not $AllowDllEnforcement) {
+            Write-Note "Dll collection omitted from the profile. Pass -EnforceDllCollection to include it at the file's own enforcement mode; it will then be a collection that BLOCKS."
+            continue
+        }
         $target = 'AuditOnly'
         if ($Mode -eq 'Enforce') { $target = 'Enabled' }
-        if ($type -eq 'Dll' -and -not $AllowDllEnforcement) { $target = 'NotConfigured' }
 
         # Rewrite the attribute on a CLONE so the caller's document is not mutated -
         # the same XML is converted twice when both Audit and Enforce are requested.
@@ -494,7 +514,7 @@ if ($dupes.Count -gt 0) {
 
 if (-not $EnforceDllCollection) {
     Write-Info ''
-    Write-Note 'The DLL collection will be shipped as NotConfigured. Pass -EnforceDllCollection to change that, and read the note in the help first.'
+    Write-Note 'The DLL collection will be OMITTED from the profile - not marked NotConfigured, because a NotConfigured collection carrying rules is enforced. Pass -EnforceDllCollection to include it, and read the note in the help first.'
 }
 
 # ---- build ----

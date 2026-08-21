@@ -9,20 +9,56 @@ So T01 (🔐 AppLocker builder & validator) hands out two PowerShell scripts ins
 pretending the browser could work it out. They are served from the site itself, so the
 copy you download always matches the build of T01 you are looking at.
 
-| Script | What it does | Where the output goes |
+| File | What it does | Where the output goes |
 |---|---|---|
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
+| `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
 
 Both are MIT-licensed, like the rest of TUNO, and both are read-only on the device
 unless you explicitly ask otherwise. Neither one applies a policy.
 
 ---
 
+## Run the scan on a clean reference machine
+
+This is the assumption everything else rests on, so it goes first.
+
+The policy this produces says: **everything on the scanned machine is allowed, and
+nothing else is.** From a freshly built image with your standard applications
+installed, that is a sound baseline. From a device somebody has been working in for
+two years it allows two years of accumulation — installers left in Downloads, a dev
+toolchain, whatever a colleague once ran out of a zip — which is precisely the
+permission AppLocker was deployed to take away.
+
+The scan checks whether the machine looks like a reference image — how many profiles
+exist, how many executables are in them, whether it can see Downloads content, browser
+profiles, `node_modules`, git working copies — and warns loudly when it cannot believe
+you. It will not refuse to run. It will not be quiet either.
+
+### The model it builds
+
+| | |
+|---|---|
+| **Allowed** | What is on the reference image, by publisher wherever possible |
+| **Allowed** | Anything the Intune Management Extension delivers — named explicitly in the policy, not left to the Windows and Program Files defaults to cover by accident |
+| **Allowed** | Anything a local administrator runs — application control does not meaningfully restrict an administrator, and pretending otherwise helps nobody |
+| **Blocked** | Everything else, and a standard user's own profile above all |
+
+The two sanctioned ways software reaches these devices are therefore Intune (IME and
+the Company Portal) and a local administrator. Both are written into the generated
+policy as named rules rather than implied, so that trimming a default rule later
+cannot kill software delivery estate-wide with nothing pointing at the cause.
+
+The scan also refuses to except an IME path out of the default allows even when it
+finds one user-writable — that would break Win32 app delivery and remediation scripts
+silently, days later, on every managed device. It reports the writable IME directory
+as a finding instead, which is the more useful answer: fix the permissions.
+
 ## The workflow
 
 ```
- 1. scan          Invoke-TunoAppLockerScan.ps1   on a representative device
+ 1. scan          Invoke-TunoAppLockerScan.ps1   on a CLEAN REFERENCE MACHINE
         │             writes TunoAppLockerScan-<DEVICE>-<stamp>.json
         ▼
  2. upload        T01 → Upload scan bundle
@@ -187,13 +223,38 @@ one grouping per intent — `Pilot`, `Production` — and when you promote audit
 keep the **same** grouping so the new profile replaces the old one instead of stacking
 on top of it.
 
-### DLL is forced to NotConfigured
+### DLL is omitted — and `NotConfigured` is never written
 
 AppLocker evaluates every DLL load. Enforced, it cripples the device; even AuditOnly
 buries the event log under Microsoft-signed System32 libraries, EDR AMSI providers and
-.NET native images. The DLL rules still ship in the profile — documented and inert — so
-the collection can be switched on deliberately later rather than being invisible. Pass
-`-EnforceDllCollection` if that is genuinely what you want.
+.NET native images.
+
+An earlier version shipped the DLL rules inside a `NotConfigured` collection and called
+them "documented and inert". **They would not have been inert.** From Microsoft's own
+documentation:
+
+> **Not configured**: Despite the name, this enforcement mode doesn't mean the rules are
+> ignored. On the contrary, if any rules exist in a rule collection that is "not
+> configured", the rules **will be enforced** unless a policy with a higher precedence
+> changes the enforcement mode to Audit only. Since this enforcement mode can be
+> confusing for policy authors, you should avoid using this value in your AppLocker
+> policies.
+
+So the three states are:
+
+| Collection state | What actually happens |
+|---|---|
+| Absent from the policy | Nothing enforced for that type |
+| Present, `NotConfigured`, **no rules** | Nothing enforced |
+| Present, `NotConfigured`, **with rules** | **Rules are enforced** |
+
+Absence is the only genuinely inert state, so that is what both scripts produce. The DLL
+artifacts are still recorded in the scan bundle, so the collection can be taken on later
+as its own project with the log volume and the application-start cost accepted on
+purpose. Pass `-EnforceDllCollection` to include it — it will then be a collection that
+**blocks**.
+
+Neither script ever writes `NotConfigured` into a generated policy, for any collection.
 
 ### It creates, it does not assign
 
@@ -201,6 +262,29 @@ Assignment is a deliberate act in the portal or a separate Graph call. AppLocker
 a policy you want landing on a group by accident.
 
 ---
+
+## Versioning — the rule, and how it is enforced
+
+Each script carries two numbers:
+
+- **`$script:ScriptVersion`** — the file's own history, printed in the banner and recorded
+  in the scan bundle. It is what identifies a copy that has been sitting on a share for
+  six months.
+- **`$script:TunoBuild`** — the site build that served it, which is what ties a bundle
+  back to a commit.
+
+**Edit a script, bump its version.** Both the constant and the `Version` line in the
+`.NOTES` block, which have to agree because the banner reads one and a human reads the
+other.
+
+This was forgotten twice in three builds, so it is no longer a thing to remember.
+`_to_delete/check-script-versions.js` compares the working tree against `HEAD` and fails
+if a script's content changed while its version did not — and separately holds
+`TunoBuild` to the build in `js/version.js`. Run it before committing:
+
+```bash
+node _to_delete/check-script-versions.js
+```
 
 ## Requirements
 

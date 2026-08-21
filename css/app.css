@@ -498,6 +498,17 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 .fs-body .toolbar{position:static;margin:0;padding:0;box-shadow:none;background:none}
 .fs-body .mtable thead th,.fs-body table.matrix thead th{top:0}
 .fs-body > div{margin-top:0 !important}
+/* A parked card fills the panel instead of keeping the height it had on the
+   page — the code panel caps itself against the sticky header, and the two
+   tables cap themselves against nothing, so both need saying. The point of
+   the popout is the room, and a panel that opens to the same cramped box is
+   a control that appears to do nothing. */
+.fs-body > .fs-in{height:100%;max-height:none;border:0;box-shadow:none;border-radius:0}
+.fs-body > .fs-in .al-xml-code{max-height:none}
+.fs-body > .fs-in > div[style*="overflow-x"]{overflow-x:visible}
+.fs-body > .fs-in table.plist{width:100%}
+/* the heading's own popout button is meaningless once it is open */
+.fs-body .al-fs{display:none}
 
 /* ---------- exclusion analyzer: grouped view ---------- */
 .ex-card{margin-bottom:14px}
@@ -1496,52 +1507,94 @@ body.wide .readme p{max-width:1100px}
   .al-xml{max-height:70vh}
 }
 
-/* The panel keeps its own dark surface in both themes: it is a code view,
-   and a light-mode code view of 300 lines of XML is harder to scan. */
+/* ---- T01: the code panel ----
+   It used to be a navy slab in both themes, which was the one thing on the
+   screen wearing a colour the product does not own. It is themed now, and it
+   changes FAMILY rather than just shade between the two:
+
+     light — the warm cream of “Let TUNO do it” (--warn-*)
+     dark  — the greens (--ok-*)
+
+   Both are variables that already carry the right value per theme, so there
+   is no hardcoded colour here and nothing to keep in step by hand. The panel
+   is quieter than the deploy card beside it because that one is a warning and
+   this one is not: same family in light, no border-left accent, no bold.
+
+   THE ONE THING WORTH KNOWING: the tokens do the theme switch, but the FAMILY
+   swap does not fall out of a variable — it needs the two blocks at the end,
+   one for the explicit dark theme and one for the auto/system one. Change a
+   colour here and check both. */
 .al-xml{display:flex;flex-direction:column;max-height:calc(100vh - var(--sticky-nav, 106px) - 76px);
-  background:#111c2e;border:1px solid #22355a;border-radius:var(--radius);
+  background:var(--warn-bg2);border:1px solid var(--warn-bd);border-radius:var(--radius);
   box-shadow:var(--shadow);overflow:hidden}
 .al-xml-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:11px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+  padding:11px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd)}
 .al-xml-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:13px;font-weight:700;color:#e7eefb}
-.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#7f96bb;margin-top:2px}
+  font-size:13px;font-weight:700;color:var(--warn-fg)}
+.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .al-xml-acts{display:flex;gap:8px;flex-shrink:0}
-.al-xml .btn{background:#1b2b45;border:1px solid #2c4266;color:#dbe6f7}
-.al-xml .btn:hover{background:#22354f;border-color:#4b6da3}
-.al-xml .btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
-.al-xml .btn.primary:hover{background:#356418;border-color:#356418}
-.al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:#a8e6a0;
+/* the buttons are the app's own now — nothing to override for a foreign surface */
+.al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:var(--ink);
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:12px;line-height:1.6;white-space:pre-wrap;
   /* Break between tokens where there is one, and only inside a token when
      there is no choice — word-break:break-word split every path mid-word
      even when the line had a space to break at. */
   word-break:normal;overflow-wrap:anywhere}
-.al-xml-code .x-tag{color:#7fb2ff}
-.al-xml-code .x-attr{color:#9ad5ff}
-.al-xml-code .x-val{color:#a8e6a0}
-.al-xml-code .x-punct{color:#5f7fa8}
-.al-xml-empty{color:#7f96bb;font-style:italic}
+.al-xml-code .x-tag{color:var(--green)}
+.al-xml-code .x-attr{color:var(--accent2)}
+.al-xml-code .x-val{color:var(--warn-fg)}
+.al-xml-code .x-punct{color:var(--muted)}
+.al-xml-empty{color:var(--muted);font-style:italic}
 
 /* ---- T01: the two artefacts share one panel ----
    The policy XML and the Intune profile are the same policy said twice. They
    get one panel and one pair of buttons, because two panels is how one of them
    quietly stops matching the other. */
-.al-pane-tabs{display:flex;background:#0a1220;border-bottom:1px solid #22355a}
+.al-pane-tabs{display:flex;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd)}
 .al-pane-tab{flex:1;padding:9px 10px;background:none;border:0;border-bottom:2px solid transparent;
-  color:#7f96bb;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
-.al-pane-tab:hover{color:#c6d6ee}
-.al-pane-tab.active{color:#e7eefb;border-bottom-color:var(--accent2)}
-.al-intune-form{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;background:#0c1524;border-bottom:1px solid #22355a}
+  color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+.al-pane-tab:hover{color:var(--ink)}
+.al-pane-tab.active{color:var(--ink);border-bottom-color:var(--accent2)}
+.al-intune-form{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd)}
 .al-f{display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px}
-.al-f>span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7f96bb}
+.al-f>span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .al-f>span b{cursor:help;color:var(--accent2)}
-.al-f input,.al-f select{background:#1b2b45;border:1px solid #2c4266;border-radius:8px;color:#e7eefb;
+.al-f input,.al-f select{background:var(--surface);border:1px solid var(--warn-bd);border-radius:8px;color:var(--ink);
   padding:6px 9px;font:inherit;font-size:12px;min-width:0}
-.al-f input:focus,.al-f select:focus{outline:none;border-color:#4b6da3}
-.al-f-note{flex-basis:100%;margin:0;font-size:11px;line-height:1.5;color:#8fa6c8}
-.al-f-note b{color:#c6d6ee}
+.al-f input:focus,.al-f select:focus{outline:none;border-color:var(--accent2)}
+.al-f-note{flex-basis:100%;margin:0;font-size:11px;line-height:1.5;color:var(--muted)}
+.al-f-note b{color:var(--ink)}
+
+/* DARK: the greens rather than the creams. A cream panel on a dark page is a
+   lamp; the warn family in dark mode is a dim olive that reads as a caution
+   the panel is not making. The ok family is already dark green in this theme. */
+:root[data-theme="dark"] .al-xml{background:var(--ok-bg2);border-color:var(--ok-bd)}
+:root[data-theme="dark"] .al-xml-head,
+:root[data-theme="dark"] .al-pane-tabs,
+:root[data-theme="dark"] .al-intune-form{background:var(--ok-bg);border-color:var(--ok-bd)}
+:root[data-theme="dark"] .al-xml-name{color:var(--ink)}
+:root[data-theme="dark"] .al-xml-code .x-tag{color:var(--ink)}
+:root[data-theme="dark"] .al-xml-code .x-val{color:var(--lemon)}
+:root[data-theme="dark"] .al-f input,
+:root[data-theme="dark"] .al-f select{border-color:var(--ok-bd)}
+:root[data-theme="dark"] .al-code{background:var(--ok-bg2);border-color:var(--ok-bd)}
+
+/* Same again for the system/auto theme. Two blocks rather than one because
+   the app supports an explicit dark choice AND following the device, and a
+   rule written for only one of them leaves half the users on a lamp. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-xml{background:var(--ok-bg2);border-color:var(--ok-bd)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-xml-head,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-pane-tabs,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-intune-form{background:var(--ok-bg);border-color:var(--ok-bd)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-xml-name{color:var(--ink)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-xml-code .x-tag{color:var(--ink)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-xml-code .x-val{color:var(--lemon)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-f input,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-f select{border-color:var(--ok-bd)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .al-code{background:var(--ok-bg2);border-color:var(--ok-bd)}
+}
 
 /* ---- T01: the numbered walkthrough ----
    Scan, upload, review, export, deploy. The steps carry numbers because the
@@ -1566,8 +1619,11 @@ body.wide .readme p{max-width:1100px}
 .al-guide-body{padding-top:8px}
 .al-guide-body p{margin:0 0 8px}
 .al-list{margin:0 0 10px;padding-left:20px;line-height:1.7}
-.al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#111c2e;color:#a8e6a0;
-  border:1px solid #22355a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+/* The command snippets follow the code panel — same families, same reason.
+   Fixing the big blue block and leaving these blue would just move the odd
+   one out. */
+.al-code{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:var(--warn-bg2);color:var(--ink);
+  border:1px solid var(--warn-bd);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:11.5px;line-height:1.65;overflow-x:auto;white-space:pre}
 
 /* The divider between "scan a device" and "upload what you have". Two cards

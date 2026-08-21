@@ -54,15 +54,16 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 5.
+  // Verified against `git show main:js/version.js` — main is at build 6.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
-  // (10318-10323) as build 4, and items 20-29 (10324-10336) as build 5.
+  // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, and
+  // items 30-35 (10342, 10344-10348) as build 6.
   //
   // THE QUEUE IS EMPTY. Every tool on this channel is also in production, and
   // the only differences left are the two permanent ones in staying[]. An
   // empty queue is a state worth keeping: it means "beta and main match", and
   // the next item added is the whole of the next promotion.
-  productionBuild: "v1.0.5",
+  productionBuild: "v1.0.6",
 
   items: [
   ],

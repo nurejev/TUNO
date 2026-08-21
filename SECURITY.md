@@ -53,6 +53,58 @@ Eight delegated **read-only** scopes cover the Intune tools, added together at b
 
 Each scope is still requested **on the click**, at the moment a tool needs it, not at sign-in. Consenting a scope makes it available to ask for; it does not make it used.
 
+
+## Why TUNO does not borrow Microsoft's client ID
+
+A common shortcut in community Intune tooling is to sign in using the
+**Microsoft Graph PowerShell** public client, `14d82eec-204b-4c2f-b7e8-296a70dab67e`.
+It exists in every tenant, carries broad pre-consented delegated permissions,
+and needs no app registration at all. [TenuVault](https://github.com/ugurkocde/TenuVault-TUI)
+does exactly this, and for a locally installed binary it is a sound choice.
+
+**TUNO cannot do it, and would not want to.**
+
+**It is technically impossible for a browser.** MSAL.js signs in with
+authorization code + PKCE and redeems the code with a cross-origin `fetch` to
+the token endpoint. Entra permits that only when the redirect URI is registered
+as type **Single-page application**; anything else is refused with
+
+```
+AADSTS9002326: Cross-origin token redemption is permitted only for the
+'Single-Page Application' client-type.
+```
+
+The Graph PowerShell app is registered as a **public/native client** — its
+redirect URIs are `http://localhost` and friends, which a locally installed
+program can listen on and a web page cannot. It has no SPA redirect URI, and
+one cannot be added, because the application belongs to Microsoft. This is not
+a setting to be worked around; it is the boundary Entra draws between the two
+client types.
+
+**And three reasons it would be the wrong answer even if it worked.**
+
+1. **The consent record would name the wrong application.** An administrator
+   auditing enterprise applications would see Microsoft Graph PowerShell, not
+   TUNO. Nothing in the tenant would record that this tool was used, was
+   granted anything, or by whom.
+2. **It would inherit consent nobody granted it.** Graph PowerShell is
+   *widely* consented already, frequently far more broadly than TUNO asks for.
+   Riding on that would mean TUNO silently acquiring permissions no one
+   approved for it — the exact opposite of asking per tool, on the click.
+3. **The sign-in log would attribute the activity to Microsoft.** Every read
+   this tool performs would appear as Graph PowerShell. In an incident review,
+   "who read the configuration" would have no answer.
+
+There is also a practical objection: tenants increasingly restrict the Graph
+PowerShell app through Conditional Access or by requiring app assignment,
+precisely because it is a broad, pre-consented client. A tool built on it stops
+working in exactly the security-conscious tenants it most wants to serve.
+
+TUNO's own multi-tenant registration costs one admin-consent round trip per
+tenant. That consent is a record, in the customer's directory, that says what
+this tool may do and who agreed to it — and the single-tenant option below
+removes even the need to trust a registration outside the directory.
+
 ## Two ways to run it
 
 1. **Shared, multi-tenant** (tuno.limon-it.nl): one app registration owned by Limon-IT; your tenant consents to it. Fast to adopt; an application outside your directory holds a delegated grant.

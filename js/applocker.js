@@ -27,6 +27,18 @@ const AppLockerTool = (() => {
   const COLLECTIONS = ["Exe", "Msi", "Script", "Dll", "Appx"];
   const COLLECTION_LABEL = { Exe: "EXE — executables", Msi: "MSI — installers", Script: "Script", Dll: "DLL", Appx: "Packaged app (Appx)" };
   const MODES = ["NotConfigured", "AuditOnly", "Enabled"];
+
+  // Is this collection actually restricting anything on the endpoint?
+  //
+  // "NotConfigured" is the trap: it does NOT mean off. Microsoft — "if any rules
+  // exist in a rule collection that is 'not configured', the rules WILL be
+  // enforced unless a policy with a higher precedence changes the enforcement
+  // mode to Audit only." So a NotConfigured collection carrying rules behaves as
+  // Enabled, and only an empty one lets everything through. Every evaluation in
+  // this tool goes through here rather than testing the string, because getting
+  // this backwards means telling an admin nothing is blocked while it is.
+  const isEnforcing = (col) => !!col && (col.mode === "Enabled" || col.mode === "AuditOnly" || (col.mode === "NotConfigured" && col.rules.length > 0));
+  const blocksOnMatch = (col) => !!col && (col.mode === "Enabled" || (col.mode === "NotConfigured" && col.rules.length > 0));
   const SEV_SCORE = { High: 3, Medium: 2, Low: 1, Info: 0 };
   const SEV_ORDER = ["High", "Medium", "Low", "Info"];
 
@@ -210,7 +222,13 @@ const AppLockerTool = (() => {
     for (const col of policy.collections) {
       const omaType = OMA_TYPE[col.type];
       if (!omaType) continue;
-      const collectionMode = col.type === "Dll" ? "NotConfigured" : target;
+      // DLL is OMITTED, not shipped as NotConfigured. Microsoft: "if any rules
+      // exist in a rule collection that is 'not configured', the rules WILL be
+      // enforced". Shipping DLL rules that way would enforce DLL control against
+      // whatever the policy happened to contain — the opposite of the intent.
+      // Absence is the only inert state.
+      if (col.type === "Dll") continue;
+      const collectionMode = target;
       omaSettings.push({
         "@odata.type": "#microsoft.graph.omaSettingString",
         displayName: omaType,
@@ -291,7 +309,7 @@ const AppLockerTool = (() => {
   // would be free to disagree with the one on screen.
   function evaluateProbePath(model, dirPath, collectionType) {
     const col = model.collections.find((c) => c.type === collectionType);
-    if (!col || col.mode === "NotConfigured") return null;
+    if (!isEnforcing(col)) return null;
     const art = { path: dirPath.replace(/\\+$/, "") + "\\tuno-probe.exe", publisher: { name: "", product: "*", binary: "*" } };
     for (const r of col.rules) {
       if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
@@ -347,7 +365,28 @@ const AppLockerTool = (() => {
       });
     }
 
-    // 3. What the run could not see. Stated, not implied.
+    // 3. Was this a reference machine? The single assumption everything else
+    //    rests on. The generated policy says "what is on this machine is allowed
+    //    and nothing else is" — sound from a clean image, and a way of handing
+    //    back two years of accumulation from somebody's working laptop.
+    const ref = b.referenceMachine;
+    if (ref && ref.looksClean === false) {
+      out.push({
+        sev: "High", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        cond: `${ref.profileArtifacts} executable(s) in ${ref.profileCount} profile(s)`,
+        reason: `The scanned device does not look like a clean reference machine — ${(ref.reasons || []).join("; ")}. Every rule generated from a user profile allows whatever was sitting in it.`,
+        rec: "Re-scan a freshly built reference image with your standard applications installed and nobody working in it. If you keep this scan, review every rule sourced from a profile before enforcing — those are the ones that hand a standard user back the ability to run what they put in their own directory, which is the thing AppLocker is here to stop.",
+      });
+    } else if (ref && ref.looksClean === true && ref.profileCount > 0) {
+      out.push({
+        sev: "Info", source: "scan", collection: "(scan)", ruleType: "(scan)",
+        cond: `${ref.profileArtifacts} executable(s) in ${ref.profileCount} profile(s)`,
+        reason: "The scanned device looks like a clean reference machine, so the per-user applications found in the profile are the image's own and the rules built from them are a baseline rather than an accumulation.",
+        rec: "No change needed. Re-scan the reference image whenever it is rebuilt, and treat any new profile rule as a change to the baseline rather than a fix.",
+      });
+    }
+
+    // 4. What the run could not see. Stated, not implied.
     if (b.machine && b.machine.elevated === false) {
       out.push({
         sev: "Medium", source: "scan", collection: "(scan)", ruleType: "(scan)",
@@ -363,7 +402,7 @@ const AppLockerTool = (() => {
       });
     }
 
-    // 4. What the endpoint has already refused.
+    // 5. What the endpoint has already refused.
     const ev = b.events;
     if (ev && ev.available && ev.summary && (ev.summary.blocked || ev.summary.audited)) {
       out.push({
@@ -465,7 +504,14 @@ const AppLockerTool = (() => {
       if (!present.has(t)) F("Info", { collection: t, ruleType: "(collection)", reason: `Collection '${t}' is not present in this XML — on the endpoint that means NotConfigured (default-allow for this type) unless another policy layer carries it.`, rec: `If ${t} should be governed, add the collection with its default rules and set enforcement.`, fix: { kind: "addCollection", type: t } });
     }
     for (const col of model.collections) {
-      if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured → default-allow for this type.`, rec: `Set EnforcementMode='Enabled' for '${col.type}' (or 'AuditOnly' during pilot).`, fix: { kind: "mode", type: col.type } });
+      // NotConfigured does NOT mean "off". Microsoft: "if any rules exist in a
+      // rule collection that is 'not configured', the rules WILL be enforced ...
+      // you should avoid using this value in your AppLocker policies." So the
+      // verdict depends entirely on whether the collection carries rules, and
+      // the two cases are opposites — one blocks nothing, the other blocks
+      // silently while reading as 'not configured' to whoever opens the policy.
+      if (col.mode === "NotConfigured" && col.rules.length) F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured but carries ${col.rules.length} rule${col.rules.length === 1 ? "" : "s"} — which means those rules ARE ENFORCED. 'NotConfigured' does not mean off: Microsoft's own guidance is that a rule collection in this state is enforced unless a higher-precedence policy sets it to Audit only, and that the value should never be used deliberately.`, rec: `Decide and say so: 'AuditOnly' if you want these rules evaluated and logged without blocking, 'Enabled' if you want them enforced. Leaving it as NotConfigured means this collection is blocking today while reading as inactive to the next person who opens the policy.`, fix: { kind: "mode", type: col.type } });
+      else if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured and carries no rules → nothing of this type is restricted.`, rec: `Add the rules this type needs and set 'AuditOnly' to start. Note that once rules exist, 'NotConfigured' stops meaning 'off' and starts meaning 'enforced' — so set the mode explicitly rather than leaving it.`, fix: { kind: "mode", type: col.type } });
       else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Stay in AuditOnly until the event log is clean across a full working month — a month-end, a patch cycle, a new starter — then enforce deliberately. Enforcing on the strength of a quiet week is how a policy takes out an estate.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") + (col.type === "Dll" ? " DLL is the one collection to think hardest about: AppLocker evaluates every DLL load, so enforcement costs application start time and audit alone floods the log." : ""), fix: { kind: "mode", type: col.type } });
       if (col.mode !== "NotConfigured" && !col.rules.length)
         F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.`, fix: { kind: "defaults", type: col.type } });
@@ -639,9 +685,11 @@ const AppLockerTool = (() => {
 
   function evaluateApp(model, app) {
     const col = model.collections.find((c) => c.type === app.collection);
-    if (!col || col.mode === "NotConfigured") {
-      return { status: "unenforced", detail: `The ${app.collection} collection is ${col ? "NotConfigured" : "absent"} — nothing of this type is restricted, so the app runs by default. The audit flags that separately.` };
+    if (!isEnforcing(col)) {
+      return { status: "unenforced", detail: `The ${app.collection} collection is ${col ? "NotConfigured with no rules" : "absent"} — nothing of this type is restricted, so the app runs by default. The audit flags that separately.` };
     }
+    // A NotConfigured collection carrying rules BLOCKS — it does not audit. Only
+    // an explicit AuditOnly evaluates without blocking.
     const audit = col.mode === "AuditOnly";
     const perArt = app.artifacts.map((art) => {
       // The question is "would a STANDARD USER run it" — rules scoped to
@@ -944,7 +992,7 @@ const AppLockerTool = (() => {
         <li>The Microsoft coverage table above says <b>allowed</b> for everything your users need, including per-user OneDrive.</li>
         <li>You have tested that <b>removing the assignment</b> puts a device back, on a device you can still reach.</li>
       </ul>
-      ${isDll ? `<p class="mini" style="margin:0 0 10px;color:var(--warn,#d08b28)"><b>DLL is a special case.</b> AppLocker evaluates every DLL load. Enabled measurably slows application start and blocks anything that loads a library from a writable path; even AuditOnly buries the log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET native images. TUNO's own scanner and Intune export ship DLL as NotConfigured for exactly this reason. Enable it only if you have a specific threat that needs it and the headroom to absorb the noise.</p>` : ""}
+      ${isDll ? `<p class="mini" style="margin:0 0 10px;color:var(--warn,#d08b28)"><b>DLL is a special case.</b> AppLocker evaluates every DLL load. Enabled measurably slows application start and blocks anything that loads a library from a writable path; even AuditOnly buries the log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET native images. TUNO's scanner and Intune export leave the DLL collection <b>out of the policy entirely</b> — absence is the only state that restricts nothing, because a collection marked NotConfigured while carrying rules is enforced. Take DLL on as its own project, with the log volume and the start-up cost accepted deliberately.</p>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
         <select class="btn al-fx-mode">${opts}</select>
         <button class="btn sm primary al-fx-apply">Apply</button>
@@ -1276,6 +1324,15 @@ const AppLockerTool = (() => {
       </tbody></table></div>` : (ev && ev.available ? `<p class="mini muted" style="margin-top:12px">No AppLocker events in the last ${esc(String(ev.daysBack))} days. Either no policy is applied on that device, or the Application Identity service is not running — the fact table above says which.</p>` : `<p class="mini muted" style="margin-top:12px">AppLocker event logs were not collected in this scan.</p>`)}`;
   }
 
+  // A popout button for a section heading. It parks the CARD, not the table:
+  // render() rewrites these cards by writing innerHTML INTO them, so the
+  // element itself survives a re-render wherever it currently sits — a fix can
+  // be applied while the panel is open and the table simply redraws inside it.
+  // Parking the table would leave Fs holding a node the next render had
+  // already thrown away.
+  const fsBtn = (target, label) => (typeof Fs === "undefined" ? ""
+    : `<button class="btn sm al-fs" data-fs="${target}" data-fslabel="${esc(label)}" style="float:right" title="Open ${esc(label)} full screen">\u26f6 Full screen</button>`);
+
   function render() {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
@@ -1322,8 +1379,8 @@ const AppLockerTool = (() => {
 
     // ---- findings ----
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
-    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Collection</th><th>Rule</th><th>Condition</th><th>Reason</th><th>Recommendation</th></tr></thead><tbody>` +
+    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Findings")}Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
+      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
         shown.map((f, i) => {
           const key = findingKey(f);
           const plan = planFix(f);
@@ -1336,7 +1393,7 @@ const AppLockerTool = (() => {
           // the first thing pushed off the edge on any narrow window, so the
           // one control on the row that does something was the one you had to
           // scroll sideways to reach.
-          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="min-width:160px;max-width:260px;word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini" style="min-width:200px">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
+          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
           const editor = (plan && plan.mode === "editor" && fixOpen === key)
             ? `<tr class="al-fixrow" data-i="${i}"><td colspan="6" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
             : "";
@@ -1347,8 +1404,8 @@ const AppLockerTool = (() => {
     shownFindings = shown;
 
     // ---- Microsoft coverage ----
-    $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
-      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>App</th><th>Verdict</th><th>Detail</th><th></th></tr></thead><tbody>` +
+    $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alCoverage", "Microsoft app coverage")}Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
+      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
         let detail;
@@ -1366,9 +1423,16 @@ const AppLockerTool = (() => {
           return s;
         }).join("<br>");
         const canFix = v.status === "blocked" || v.status === "conditional";
-        return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted" style="max-width:320px">${esc(row.app.context)}</div></td>
-          <td>${verdictTag(v.status, v.audit)}</td><td class="mini">${detail}</td>
-          <td>${canFix ? `<button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button>` : ""}</td></tr>`;
+        // The fix button goes UNDER the detail it acts on, not in a column of
+        // its own at the far right — as its own column it was the first thing
+        // pushed off the edge, so the only control on the row was the only
+        // thing you had to scroll sideways to reach. Same fix as the findings
+        // table got in 10312; this table was missed then.
+        return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted">${esc(row.app.context)}</div></td>
+          <td>${verdictTag(v.status, v.audit)}</td>
+          <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${detail}${canFix
+            ? `<div style="margin-top:8px"><button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button></div>`
+            : ""}</td></tr>`;
       }).join("") + `</tbody></table></div>`;
 
     // ---- rules / builder ----
@@ -1633,6 +1697,23 @@ const AppLockerTool = (() => {
     // Clipboard access is refused outright in some contexts (no gesture, a
     // policy-locked browser). Say so on the button rather than appearing to
     // copy — the download is right next to it.
+    // The popout. Delegated, because the section headings are rebuilt on every
+    // render; the code panel's own button is static but goes through the same
+    // path so there is one way in rather than two.
+    const expand = (el, label) => {
+      if (typeof Fs === "undefined" || !el) return;
+      Fs.open(label, { body: el, onChange: (on) => { el.classList.toggle("fs-in", on); } });
+    };
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest && e.target.closest(".al-fs");
+      if (!b) return;
+      expand($(b.dataset.fs), b.dataset.fslabel || "Full screen");
+    });
+    const alEx = $("alExpand");
+    if (alEx) alEx.addEventListener("click", () => {
+      expand(document.querySelector(".al-xml"), pane === "intune" ? "Intune profile" : "Policy XML");
+    });
+
     $("alCopyXml").addEventListener("click", (e) => {
       if (!policy) return;
       copyToClipboard(e.currentTarget, pane === "intune" ? intuneJson(intuneCfg.mode) : exportXml());

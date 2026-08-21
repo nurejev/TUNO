@@ -12,6 +12,31 @@ A modern, single-file reimplementation of the approach Microsoft's AaronLocker t
     scan the device  ->  upload the bundle to T01  ->  review and edit in the browser
                      ->  export  ->  deploy to Intune
 
+RUN THIS ON A CLEAN REFERENCE MACHINE. NOT ON YOUR OWN LAPTOP.
+
+That is not a nicety, it is the assumption the whole thing rests on. The policy it
+generates says, in effect: "everything on this machine is allowed, and nothing else
+is." On a freshly built image with your standard applications installed, that is a
+sound baseline. On a device somebody has been working in for two years it allows
+two years of accumulation - installers in Downloads, a dev toolchain, whatever a
+colleague once ran from a zip - which is precisely the permission AppLocker was
+deployed to take away.
+
+The scan checks whether the machine looks clean and says so loudly if it does not.
+It cannot refuse to run; it can refuse to be quiet.
+
+THE MODEL THIS BUILDS
+
+    Allowed : what is on the reference image, by publisher wherever possible
+    Allowed : anything the Intune Management Extension delivers - the sanctioned
+              install route, named explicitly in the policy rather than left to
+              the Windows and Program Files defaults to cover by accident
+    Allowed : anything a local administrator runs, because application control
+              does not meaningfully restrict an administrator and pretending
+              otherwise helps nobody
+    Blocked : everything else, and in particular everything a standard user can
+              write - their profile above all
+
 WHAT IT DOES
 
   1. WRITABLE-DIRECTORY SCAN. Walks %WINDIR%, %ProgramFiles%, %ProgramFiles(x86)% and
@@ -158,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.0.0
+Version    : 1.4.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -227,7 +252,26 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:ScriptVersion = '1.0.0'
+# TWO NUMBERS, ON PURPOSE.
+#
+# ScriptVersion is this file's own history, for somebody holding a copy that has
+# been sitting on a share for six months. TunoBuild is the site build that served
+# it, which is what actually identifies the artifact - and it is asserted against
+# js/version.js by a headless test, so the two cannot drift apart in a commit.
+# They already did once: the script shipped two substantive changes still calling
+# itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
+$script:ScriptVersion = '1.4.0'
+$script:TunoBuild = 6
+
+# WHICH CHANNEL SERVED THIS COPY.
+#
+# Same convention as js/version.js: a build >= 10000 is a beta build. A beta copy
+# of this script telling you to upload to production sends you to a different
+# build of the tool - one that may not read the bundle this version writes. So
+# the script works out where it came from rather than naming production and
+# hoping.
+$script:TunoIsBeta = $script:TunoBuild -ge 10000
+$script:TunoSite = if ($script:TunoIsBeta) { 'https://nurejev.github.io/tuno-beta/' } else { 'https://tuno.limon-it.nl' }
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 
@@ -1168,6 +1212,102 @@ $script:LolBinPatterns = @(
     '%SYSTEM32%\wsl.exe'
 )
 
+# The Intune Management Extension stages and executes on the endpoint's behalf.
+# If any of these is excepted out of the default %WINDIR% / %PROGRAMFILES% allow
+# rules, Win32 app delivery, remediation scripts and PowerShell script policies
+# stop working - and they stop working silently, on managed devices, days later.
+#
+# On an estate where software may only arrive through Intune, breaking IME does
+# not fail safe. It fails to "nothing can be installed and nobody knows why".
+$script:ImeProtectedPaths = @(
+    "$env:windir\IMECache"
+    "$env:windir\CCM\ServiceData"
+    "${env:ProgramFiles(x86)}\Microsoft Intune Management Extension"
+    "$env:ProgramFiles\Microsoft Intune Management Extension"
+    "$env:ProgramData\Microsoft\IntuneManagementExtension"
+)
+
+function Test-ReferenceMachine {
+    <#
+    .SYNOPSIS
+        Does this look like a clean reference image, or somebody's working laptop?
+    .DESCRIPTION
+        THE SCAN'S CENTRAL ASSUMPTION. Every rule it generates for a user profile
+        is generated because the profile is user-writable and something executable
+        is sitting in it. On a freshly built reference image that something is the
+        image's own per-user applications, and a rule for it is correct. On a
+        machine somebody has been working on for two years it is browser caches,
+        installers in Downloads, dev toolchains and whatever a colleague once ran
+        from a zip - and generating allow rules for THAT hands back exactly the
+        permission AppLocker was deployed to remove.
+
+        The script cannot refuse to run on the wrong machine; it can refuse to be
+        quiet about it. This returns the evidence either way and the caller warns.
+    #>
+    param(
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]]$Artifacts,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]]$ProfileRoots
+    )
+
+    $reasons = New-Object System.Collections.Generic.List[string]
+    $profileArtifacts = @($Artifacts | Where-Object {
+        $p = $_.path
+        $hit = $false
+        foreach ($r in $ProfileRoots) {
+            if ($r -and $p.StartsWith($r, [System.StringComparison]::OrdinalIgnoreCase)) { $hit = $true; break }
+        }
+        $hit
+    })
+
+    if ($ProfileRoots.Count -gt 1) {
+        $reasons.Add("$($ProfileRoots.Count) user profiles exist on this device. A reference image has one, and usually none that has been logged into.")
+    }
+    if ($profileArtifacts.Count -gt 200) {
+        $reasons.Add("$($profileArtifacts.Count) executables were found inside user profiles. A clean image carries a handful - OneDrive, Teams, the odd per-user agent.")
+    }
+    # Directories that only exist because somebody has been USING the machine.
+    $tells = @(
+        @{ frag = '\Downloads\';                     say = 'executables in a Downloads folder' }
+        @{ frag = '\Desktop\';                       say = 'executables on a Desktop' }
+        @{ frag = '\AppData\Local\Temp\';            say = 'executables in the user Temp folder' }
+        @{ frag = '\AppData\Local\Google\Chrome\';   say = 'a Chrome user profile' }
+        @{ frag = '\AppData\Local\Programs\';        say = 'per-user installed programs' }
+        @{ frag = '\node_modules\';                  say = 'a node_modules tree' }
+        @{ frag = '\.vscode';                        say = 'VS Code extensions' }
+        @{ frag = '\.nuget\';                        say = 'a NuGet package cache' }
+        @{ frag = '\.git\';                          say = 'a git working copy' }
+    )
+    foreach ($t in $tells) {
+        $n = @($profileArtifacts | Where-Object { $_.path -like "*$($t.frag)*" }).Count
+        if ($n -gt 0) { $reasons.Add("$n $($t.say)") }
+    }
+
+    return [pscustomobject]@{
+        looksClean       = ($reasons.Count -eq 0)
+        profileArtifacts = $profileArtifacts.Count
+        profileCount     = $ProfileRoots.Count
+        reasons          = $reasons.ToArray()
+    }
+}
+
+function Test-ImeProtectedPath {
+    <#
+    .SYNOPSIS
+        True when $Candidate IS one of the IME paths, or would cover one.
+    #>
+    param([Parameter(Mandatory)] [string]$Candidate)
+    $c = $Candidate.TrimEnd('\', '*').TrimEnd('\')
+    if (-not $c) { return $false }
+    foreach ($p in $script:ImeProtectedPaths) {
+        if (-not $p) { continue }
+        $t = $p.TrimEnd('\')
+        if ($c.Equals($t, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        # An exception on a PARENT of an IME path takes the IME path with it.
+        if ($t.StartsWith($c + '\', [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    return $false
+}
+
 function New-RuleId { return [guid]::NewGuid().ToString() }
 
 function New-PathRule {
@@ -1268,8 +1408,26 @@ function New-DefaultRuleSet {
             -ExceptionPaths $(if ($type -eq 'Exe') { $windirExceptions } else { @($WritableUnderWindir) })))
         $rules.Add((New-PathRule -Name "(Default Rule) All files" `
             -Sid $script:SidAdmins -Action 'Allow' -RulePath '*' `
-            -Description 'Allows members of the local Administrators group to run all applications. Application control does not meaningfully restrict an administrator; this rule states that plainly instead of pretending otherwise.' `
+            -Description 'Allows members of the local Administrators group to run all applications. Application control does not meaningfully restrict an administrator; this rule states that plainly instead of pretending otherwise. This is one of the two sanctioned ways software arrives on these devices: by IME, or by an administrator.' `
             -ExceptionPaths @()))
+
+        # THE SANCTIONED DELIVERY ROUTE, stated in the policy rather than implied.
+        #
+        # Win32 apps deployed from Intune are staged into %WINDIR%\IMECache and run
+        # from there; remediation and platform scripts run out of the extension's
+        # own folder. Both sit inside the two default allows above and would work
+        # without these rules - right up until somebody trims those defaults, or an
+        # exception lands on a parent directory, at which point software delivery
+        # dies estate-wide with nothing pointing at the cause.
+        #
+        # A policy whose intent is "software may only install via Intune or an
+        # admin" should contain that sentence. These are it.
+        foreach ($ime in @('%WINDIR%\IMECache\*', '%PROGRAMFILES%\Microsoft Intune Management Extension\*')) {
+            $rules.Add((New-PathRule -Name "TUNO: Intune Management Extension - software delivery ($ime)" `
+                -Sid $script:SidEveryone -Action 'Allow' -RulePath $ime `
+                -Description 'Allows the Intune Management Extension to stage and run the software it deploys. This is the sanctioned install route on this estate, so it is named explicitly instead of relying on the Windows and Program Files defaults to cover it. Remove this rule only if you also intend to stop deploying Win32 apps and remediation scripts from Intune.' `
+                -ExceptionPaths @()))
+        }
         $collections[$type] = $rules
     }
 
@@ -1280,16 +1438,19 @@ function New-DefaultRuleSet {
     $msi.Add((New-PathRule -Name '(Default Rule) All Windows Installer files in %WINDIR%\ccmcache' `
         -Sid $script:SidEveryone -Action 'Allow' -RulePath '%WINDIR%\ccmcache\*' `
         -Description 'Allows Everyone to run installer packages staged by Configuration Manager. Remove this rule if ConfigMgr is not in use.' -ExceptionPaths @()))
+    $msi.Add((New-PathRule -Name 'TUNO: Intune Management Extension - installer packages' `
+        -Sid $script:SidEveryone -Action 'Allow' -RulePath '%WINDIR%\IMECache\*' `
+        -Description 'Allows Windows Installer packages staged by the Intune Management Extension. Same reasoning as the EXE rule of the same name: the sanctioned install route belongs in the policy in writing.' -ExceptionPaths @()))
     $msi.Add((New-PathRule -Name '(Default Rule) All Windows Installer files' `
         -Sid $script:SidAdmins -Action 'Allow' -RulePath '*.*' `
-        -Description 'Allows members of the local Administrators group to run all Windows Installer files.' -ExceptionPaths @()))
+        -Description 'Allows members of the local Administrators group to run all Windows Installer files. The second of the two sanctioned routes: IME, or an administrator.' -ExceptionPaths @()))
     $collections['Msi'] = $msi
 
     $appx = New-Object System.Collections.Generic.List[object]
     $appx.Add((New-PublisherRule -Name '(Default Rule) All signed packaged apps' `
         -Sid $script:SidEveryone -Action 'Allow' -Publisher '*' -Product '*' -Binary '*' `
         -LowVersion '0.0.0.0' -HighVersion '*' `
-        -Description 'Allows members of the Everyone group to run packaged apps that are signed. Unsigned packaged apps cannot be installed on a supported Windows build, so this is narrower than it reads.'))
+        -Description 'Allows members of the Everyone group to run packaged apps that are signed. Unsigned packaged apps cannot be installed on a supported Windows build, so this is narrower than it reads. This is also what allows the Company Portal, and everything a user installs through it, to run.'))
     $collections['Appx'] = $appx
 
     return $collections
@@ -1454,20 +1615,35 @@ function ConvertTo-AppLockerPolicyXml {
         [Parameter(Mandatory)] [ValidateSet('Audit', 'Enforce')] [string]$Mode
     )
 
-    # DLL is deliberately never enforced or audited by default. AppLocker evaluates
-    # every DLL load, so even AuditOnly floods the event log with Microsoft-signed
-    # System32 libraries, EDR AMSI providers and .NET native images. The rules stay
-    # in the policy, documented and inert, until somebody decides otherwise.
+    # THE DLL COLLECTION IS OMITTED ENTIRELY, and NotConfigured is never written.
+    #
+    # An earlier version shipped the DLL rules inside a NotConfigured collection
+    # and called them "documented and inert". They would not have been inert.
+    # Microsoft's own documentation is explicit:
+    #
+    #   "Despite the name, this enforcement mode doesn't mean the rules are
+    #    ignored. On the contrary, if any rules exist in a rule collection that
+    #    is 'not configured', the rules WILL be enforced ... you should avoid
+    #    using this value in your AppLocker policies."
+    #
+    # So NotConfigured + rules = ENFORCED, which is the exact DLL enforcement the
+    # comment claimed to be preventing - and enforced against only the DLLs this
+    # scan happened to find, which would block DLL loads estate-wide.
+    #
+    # The only genuinely inert state is ABSENCE: a collection with no rules at
+    # all. The scan still records what it found for the Dll collection in the
+    # bundle, so the rules can be built later as a deliberate project, with the
+    # log volume and the application-start cost accepted on purpose.
     $enforcement = if ($Mode -eq 'Enforce') { 'Enabled' } else { 'AuditOnly' }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<AppLockerPolicy Version="1">')
-    foreach ($type in @('Appx', 'Dll', 'Exe', 'Msi', 'Script')) {
+    foreach ($type in @('Appx', 'Exe', 'Msi', 'Script')) {
         if (-not $Collections.Contains($type)) { continue }
         # NOT $mode: variable names are case-insensitive, so $mode IS the $Mode
         # parameter, and its [ValidateSet('Audit','Enforce')] is re-evaluated on
         # every assignment. Writing 'AuditOnly' into it throws.
-        $collectionMode = if ($type -eq 'Dll') { 'NotConfigured' } else { $enforcement }
+        $collectionMode = $enforcement
         [void]$sb.AppendLine("  <RuleCollection Type=""$type"" EnforcementMode=""$collectionMode"">")
         foreach ($r in $Collections[$type]) {
             [void]$sb.AppendLine("    <$($r.nodeName) Id=""$(ConvertTo-XmlAttribute $r.id)"" Name=""$(ConvertTo-XmlAttribute $r.name)"" Description=""$(ConvertTo-XmlAttribute $r.description)"" UserOrGroupSid=""$(ConvertTo-XmlAttribute $r.sid)"" Action=""$(ConvertTo-XmlAttribute $r.action)"">")
@@ -1495,7 +1671,8 @@ Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.
     'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions',
     'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
 
-Write-Section "TUNO AppLocker device scan  ·  v$script:ScriptVersion"
+Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
+Write-Info ("Served by  : {0}" -f $script:TunoSite)
 
 if (($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -and ($PSVersionTable.Platform -ne 'Win32NT')) {
     throw 'This script scans Windows AppLocker configuration and must run on Windows.'
@@ -1522,12 +1699,29 @@ if ($Scope -contains 'ProgramFiles') {
     if ($pf86 -and $pf86 -ne $env:ProgramFiles) { $roots.Add($pf86) }
 }
 if ($Scope -contains 'ProgramData') { $roots.Add($env:ProgramData) }
+
+# User profiles are handled SEPARATELY from the roots above, and deliberately not
+# walked for writable subdirectories.
+#
+# A user profile is user-writable by definition - that is what a profile IS - so
+# enumerating its writable subfolders answers a question nobody asked and buries
+# the ones that matter. The last real run returned 530 rows saying "the user can
+# write to their own profile", against 15 under Windows and 0 under Program Files,
+# and blew the artifact cap on browser caches before it reached anything useful.
+#
+# Nor do those directories need exceptions: no default rule ALLOWS execution from
+# a profile in the first place, so there is nothing to carve out of.
+#
+# What the profile is scanned for is the applications INSTALLED in it - the
+# per-user installs that stop working the day enforcement lands. So each profile
+# is recorded once, and inventoried.
+$profileRoots = New-Object System.Collections.Generic.List[string]
 if ($Scope -contains 'UserProfiles') {
     $usersRoot = Join-Path $env:SystemDrive 'Users'
     if (Test-Path -LiteralPath $usersRoot) {
         foreach ($p in (Get-ChildItem -LiteralPath $usersRoot -Directory -Force -ErrorAction SilentlyContinue)) {
             if ($p.Name -in @('Public', 'Default', 'Default User', 'All Users')) { continue }
-            $roots.Add($p.FullName)
+            $profileRoots.Add($p.FullName)
         }
     }
 }
@@ -1557,11 +1751,29 @@ foreach ($root in $roots) {
 }
 
 $writablePaths = @($writable | ForEach-Object { $_.path })
-# Compress as well as de-duplicate: a parent and its child both in this list means
-# the artifact inventory walks the same subtree twice.
-$unsafeDirectories = @(Compress-PathList -Paths (@($writablePaths) + @($extraPaths)))
 
-Write-Ok ("$($writable.Count) user-writable director$(if ($writable.Count -eq 1) { 'y' } else { 'ies' }) found")
+# Each profile is recorded ONCE, as a fact rather than a discovery, and is not
+# walked. See the note where $profileRoots is built.
+foreach ($pr in $profileRoots) {
+    Write-Info ("profile: {0} - user-writable by definition, recorded once and inventoried" -f $pr)
+    $writable.Add([pscustomobject]@{
+        path     = $pr
+        grantees = @([pscustomobject]@{
+            sid    = 'S-1-5-32-545'
+            name   = 'the profile owner'
+            reason = 'a user profile is writable by its owner by definition - this is not a misconfiguration, it is what a profile is'
+        })
+    })
+}
+
+# Compress as well as de-duplicate: a parent and its child both in this list means
+# the artifact inventory walks the same subtree twice. Non-profile directories go
+# FIRST so that Windows and Program Files are inventoried before any -MaxArtifacts
+# cap can be spent on profile contents.
+$unsafeDirectories = @(Compress-PathList -Paths (@($writablePaths) + @($extraPaths))) + @($profileRoots)
+
+Write-Ok ("$($writablePaths.Count) user-writable director$(if ($writablePaths.Count -eq 1) { 'y' } else { 'ies' }) found" +
+    $(if ($profileRoots.Count) { ", plus $($profileRoots.Count) user profile(s) taken as writable without walking" } else { '' }))
 
 # ---- exception lists, normalised to AppLocker macros ----
 $normWindir = New-Object System.Collections.Generic.List[string]
@@ -1571,12 +1783,37 @@ $normPf = New-Object System.Collections.Generic.List[string]
 # rules but leaving them inside the default %PROGRAMFILES%/%WINDIR% allow would
 # keep only half the promise the parameter makes.
 foreach ($p in (@($writablePaths) + @($extraPaths))) {
+    # An exception here REMOVES an allow. Do that to an Intune Management
+    # Extension path and Win32 app delivery, remediations and script policies stop
+    # working on managed devices - silently, and days later. So the exception is
+    # withheld and the writable directory is reported instead, which is a finding
+    # in its own right and a much more useful one.
+    if (Test-ImeProtectedPath -Candidate $p) {
+        Add-ScanWarning ("'{0}' is user-writable AND belongs to the Intune Management Extension. NO exception was generated for it, because excepting it would break app delivery on every managed device. Fix the permissions on that directory instead - as it stands a standard user can drop an executable into the path your software deployment runs from." -f $p)
+        continue
+    }
     $n = ConvertTo-AppLockerPath -LiteralPath $p
     if ($n.StartsWith('%WINDIR%', 'OrdinalIgnoreCase') -or $n.StartsWith('%SYSTEM32%', 'OrdinalIgnoreCase')) { $normWindir.Add($n) }
     elseif ($n.StartsWith('%PROGRAMFILES%', 'OrdinalIgnoreCase')) { $normPf.Add($n) }
 }
 $excWindir = @(Compress-PathList -Paths $normWindir.ToArray() | ForEach-Object { "$_\*" })
 $excPf = @(Compress-PathList -Paths $normPf.ToArray() | ForEach-Object { "$_\*" })
+
+# Compress-PathList can produce a SHORTER path than anything that went in, and a
+# short enough exception swallows an IME directory that was never writable itself.
+# Check the compressed result too, not just the inputs.
+$excWindir = @($excWindir | Where-Object {
+    if (Test-ImeProtectedPath -Candidate $_) {
+        Add-ScanWarning ("Exception '{0}' was dropped: it would have covered an Intune Management Extension path and broken app delivery." -f $_)
+        $false
+    } else { $true }
+})
+$excPf = @($excPf | Where-Object {
+    if (Test-ImeProtectedPath -Candidate $_) {
+        Add-ScanWarning ("Exception '{0}' was dropped: it would have covered an Intune Management Extension path and broken app delivery." -f $_)
+        $false
+    } else { $true }
+})
 Write-Info ("{0} exception path(s) under %WINDIR%, {1} under %PROGRAMFILES%" -f $excWindir.Count, $excPf.Count)
 
 # ---- artifact inventory ----
@@ -1590,6 +1827,33 @@ else {
         -UseAppLockerCmdlets $machine.appLockerCmdlets -Sniff:$SniffUnknownExtensions
     $signedCount = @($artifacts | Where-Object { $_.signed }).Count
     Write-Ok ("$($artifacts.Count) artifact(s): $signedCount signed, $($artifacts.Count - $signedCount) unsigned")
+}
+
+# ---- is this a reference machine? ----
+#
+# The scan's central assumption, checked out loud. Every rule it generates for a
+# user profile exists because something executable was found there; on a clean
+# image that is the image's own per-user software, and on a working laptop it is
+# two years of accumulation. The same code produces a sound policy from the first
+# and hands the estate back its own attack surface from the second.
+$reference = Test-ReferenceMachine -Artifacts $artifacts -ProfileRoots $profileRoots.ToArray()
+if ($profileRoots.Count -gt 0 -and -not $reference.looksClean) {
+    Write-Host ''
+    Write-Host '  [STOP AND READ]' -ForegroundColor Yellow
+    Write-Host '  This does not look like a clean reference machine.' -ForegroundColor Yellow
+    foreach ($r in $reference.reasons) { Write-Host "    - $r" -ForegroundColor Yellow }
+    Write-Info ''
+    Write-Info 'The point of AppLocker is that a user cannot run what they put in their own'
+    Write-Info 'profile. Rules built from a profile somebody has been working in give that'
+    Write-Info 'permission straight back - for whatever happens to be sitting there.'
+    Write-Info ''
+    Write-Info 'Run this on a freshly built reference image with your standard applications'
+    Write-Info 'installed and nobody yet working in it. Or drop -Scope UserProfiles and name'
+    Write-Info 'the per-user installs you actually intend to allow with -Path.'
+    Add-ScanWarning ("This does not look like a clean reference machine ({0}). Rules generated from user profiles on a working device legitimise whatever is in them - review every profile rule before enforcing, or re-scan a reference image." -f ($reference.reasons -join '; '))
+}
+elseif ($profileRoots.Count -gt 0) {
+    Write-Ok "The user profiles look clean - $($reference.profileArtifacts) executable(s) found in them."
 }
 
 # ---- events ----
@@ -1618,33 +1882,84 @@ else { Write-Note "Effective policy not captured: $($effective.reason)" }
 $generated = $null
 $auditXml = $null
 $enforceXml = $null
+# Rule generation is the LAST thing that happens and the only part that can be
+# rebuilt from what is already in hand. Everything before it - the ACL walk, the
+# signature inventory, the event logs - can take an hour and cannot be recovered
+# once the process exits. So a failure here must never take the scan with it: it
+# becomes a warning, $generated stays null, and the bundle is written anyway.
+# T01 already reads an evidence-only bundle and falls back to the device's
+# effective policy, so what lands on disk is still usable.
 if (-not $SkipRuleGeneration) {
     Write-Section 'Building the rule set'
-    $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
-    $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
-    foreach ($type in $artifactRules.Keys) {
-        if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
-        foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
-    }
+    try {
+        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
+        $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
+        foreach ($type in $artifactRules.Keys) {
+            if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
+            foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
+        }
 
-    $counts = [ordered]@{}
-    $total = 0
-    foreach ($type in $collections.Keys) {
-        $counts[$type] = @($collections[$type]).Count
-        $total += $counts[$type]
-        Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $counts[$type])
-    }
-    Write-Ok "$total rules across $($collections.Keys.Count) collections"
+        # Drop the Dll collection before anything counts or serialises it, so the
+        # counts on screen, the counts in the bundle and the XML all agree. See
+        # the long note in ConvertTo-AppLockerPolicyXml: the only inert state for
+        # a DLL collection is not being there.
+        $dllRuleCount = 0
+        if ($collections.Contains('Dll')) {
+            $dllRuleCount = @($collections['Dll']).Count
+            $collections.Remove('Dll')
+        }
+        if ($dllRuleCount -gt 0) {
+            Write-Info ("Dll     {0,4} rule(s) built and OMITTED - see the note below" -f $dllRuleCount)
+        }
 
-    $auditXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Audit'
-    $enforceXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Enforce'
-    $generated = [pscustomobject]@{
-        granularity     = $PublisherRuleGranularity
-        ruleCount       = $total
-        rulesByCollection = $counts
-        dllNote         = 'The Dll collection ships as NotConfigured on purpose: AppLocker evaluates every DLL load, so even AuditOnly floods the event log. The rules are present and inert.'
-        auditXml        = $auditXml
-        enforceXml      = $enforceXml
+        # .Add(), NOT $counts[$type] = <int>.
+        #
+        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - so
+        # PowerShell compiles an indexed assignment into a conditional that picks
+        # between them at runtime. When the value being stored is a VALUE type, the
+        # two branches of that conditional have incompatible types and
+        # Expression.Condition throws "Argument types do not match" before the
+        # assignment ever happens. It is thrown by the compiler, not the dictionary,
+        # which is why the error carries no useful line and names Condition as its
+        # target site.
+        #
+        # Storing a reference type is fine, which is exactly why every other ordered
+        # assignment in this script works and only the rule COUNT - an Int32 - failed.
+        # .Add(object, object) boxes explicitly and sidesteps the binder entirely.
+        $counts = [ordered]@{}
+        $total = 0
+        foreach ($type in $collections.Keys) {
+            $n = @($collections[$type]).Count
+            $counts.Add($type, $n)
+            $total += $n
+            Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $n)
+        }
+        Write-Ok "$total rules across $($collections.Keys.Count) collections"
+
+        $auditXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Audit'
+        $enforceXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Enforce'
+        $generated = [pscustomobject]@{
+            granularity     = $PublisherRuleGranularity
+            ruleCount       = $total
+            rulesByCollection = $counts
+            dllRulesOmitted = $dllRuleCount
+            dllNote         = "The Dll collection is OMITTED from this policy, not shipped as NotConfigured. Microsoft's documentation is explicit that a NotConfigured collection containing rules is ENFORCED, so shipping DLL rules that way would have enforced DLL control - against only the DLLs this scan happened to find. Absence is the only inert state. $dllRuleCount DLL rule(s) were built and left out; the DLL artifacts are still listed in this bundle, so the collection can be taken on later as a deliberate project with its log volume and application-start cost accepted on purpose."
+            auditXml        = $auditXml
+            enforceXml      = $enforceXml
+        }
+    }
+    catch {
+        $generated = $null
+        $auditXml = $null
+        $enforceXml = $null
+        Write-Host ''
+        Write-Host '  [ERR]  Rule generation failed - but the scan itself is intact.' -ForegroundColor Red
+        Write-Host ("         {0}" -f $_.Exception.Message) -ForegroundColor Red
+        Write-Info 'The bundle below still carries every writable directory, every artifact,'
+        Write-Info 'the event analysis and the device effective policy. Upload it to T01 and'
+        Write-Info 'build the rules there. Nothing has been lost except the generated XML.'
+        Add-ScanWarning ("Rule generation failed and no policy was generated: {0} (at {1}). The evidence in this bundle is complete and unaffected." -f
+            $_.Exception.Message, (($_.ScriptStackTrace -split "`n" | Select-Object -First 1) -replace '\s+', ' '))
     }
 }
 else {
@@ -1664,6 +1979,9 @@ $bundle = [pscustomobject]@{
     generator = [pscustomobject]@{
         script      = 'Invoke-TunoAppLockerScan.ps1'
         version     = $script:ScriptVersion
+        tunoBuild   = $script:TunoBuild
+        channel     = $(if ($script:TunoIsBeta) { 'beta' } else { 'production' })
+        site        = $script:TunoSite
         product     = 'TUNO - Tenant Utilities for iNtune Operations'
         generatedUtc = (Get-Date).ToUniversalTime().ToString('o')
         priorArt    = 'Scanning strategy after Microsoft AaronLocker (Aaron Margosis); static check set in T01 after AppLockerInspector (Spencer Alessi).'
@@ -1691,6 +2009,7 @@ $bundle = [pscustomobject]@{
         programFiles = $excPf
         lolBins      = $script:LolBinPatterns
     }
+    referenceMachine = $reference
     artifacts = @($artifacts)
     events    = $events
     effectivePolicy = $effective
@@ -1704,7 +2023,10 @@ $json = $bundle | ConvertTo-Json -Depth 12 -Compress:$false
 Write-Ok "bundle  -> $bundlePath"
 
 $written = @($bundlePath)
-if (-not $SkipRuleGeneration) {
+# Gated on $generated, not on -SkipRuleGeneration: rule generation can also have
+# been ATTEMPTED and failed, in which case $auditXml is null and WriteAllText
+# would throw at the very last step, after the bundle had already been saved.
+if ($generated) {
     $auditPath = Join-Path $OutputPath ("AppLockerRules-Audit-{0}.xml" -f $stamp)
     $enforcePath = Join-Path $OutputPath ("AppLockerRules-Enforce-{0}.xml" -f $stamp)
     [System.IO.File]::WriteAllText($auditPath, $auditXml, (New-Object System.Text.UTF8Encoding($false)))
@@ -1716,7 +2038,10 @@ if (-not $SkipRuleGeneration) {
 
 Write-Section 'Next'
 Write-Info 'Upload the .json bundle to TUNO T01 (AppLocker builder & validator):'
-Write-Info '    https://tuno.limon-it.nl  ->  AppLocker builder & validator  ->  Upload scan result'
+Write-Info ("    {0}  ->  AppLocker builder & validator  ->  Upload scan result" -f $script:TunoSite)
+if ($script:TunoIsBeta) {
+    Write-Note "This is a BETA build of the scan (build $script:TunoBuild). Take the bundle to the BETA site above, not to production - the two channels are not the same tool, and a bundle written by a beta scan can carry fields production does not yet read."
+}
 Write-Info ''
 Write-Info 'T01 audits the generated policy, tells you which Microsoft apps a standard user'
 Write-Info 'would no longer be able to run, lets you edit the rules, and exports the result'

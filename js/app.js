@@ -4,6 +4,64 @@
 // Kept deliberately small: tools live in their own files (js/applocker.js);
 // this file owns branding, theme, auth, navigation, changelog and Help.
 // ======================================================================
+// ======================================================================
+// Fs — the near-fullscreen popout. Ported verbatim from ENCA.
+//
+// It MOVES the element into the panel and moves it back on close; it does
+// not clone. A clone looks identical and does nothing, because every handler
+// stays bound to the original — and the bug that produces is the worst kind,
+// since the thing on screen is visibly correct.
+//
+// Two consequences worth knowing before using it:
+//   * Park a STABLE element. A tool that re-renders by writing innerHTML into
+//     a card can park that card safely — the element survives, only its
+//     contents change, wherever it currently lives. Parking something the
+//     renderer REPLACES leaves the marker comment in a destroyed subtree and
+//     close() has nowhere to put it back.
+//   * Sticky positioning is forced to static while parked, because a toolbar
+//     that sticks to the page cannot stick inside a panel.
+// ======================================================================
+const Fs = (() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  let open = false, slots = [];
+  function park(el, host) {
+    if (!el) return;
+    const mark = document.createComment("fs");
+    el.parentNode.insertBefore(mark, el);
+    slots.push({ el, mark, sticky: el.style.position });
+    el.style.position = "static";
+    host.appendChild(el);
+  }
+  return {
+    isOpen: () => open,
+    open(title, { controls, body, onChange } = {}) {
+      if (open) this.close();
+      $("fsTitle").textContent = title;
+      park(controls, $("fsControls"));
+      park(body, $("fsBody"));
+      $("fsModal").classList.add("show");
+      document.body.style.overflow = "hidden";
+      open = true; this._onChange = onChange;
+      onChange && onChange(true);
+    },
+    close() {
+      if (!open) return;
+      slots.reverse().forEach(({ el, mark, sticky }) => {
+        el.style.position = sticky || "";
+        mark.parentNode.insertBefore(el, mark);
+        mark.remove();
+      });
+      slots = [];
+      $("fsModal").classList.remove("show");
+      document.body.style.overflow = "";
+      open = false;
+      const cb = this._onChange; this._onChange = null;
+      cb && cb(false);
+    },
+  };
+})();
+
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
@@ -439,6 +497,11 @@
       <p class="mini muted" style="margin-top:14px"><b>Promoting one of these is four steps, not one:</b> remove the row and bump the production build here; set the roadmap card on <b>main</b> to <code>live · build NNN</code>; set the <b>same card on this channel</b> to <code>live · beta NNNNN · production NNN</code>; and add the changelog entry on both. The third is the one that gets missed — each channel carries its own roadmap, so promoting touches main's copy and this one keeps claiming the work is beta-only.</p>
       <p class="help-x">This list is written by hand — the app is static files in a browser and cannot read git or diff two branches. It is maintained alongside <b>📋 What's new</b>; if an entry looks stale, trust the changelog and the build numbers over this table.</p>`;
   }
+
+  // ---------- the popout ----------
+  $("fsClose").addEventListener("click", () => Fs.close());
+  $("fsModal").addEventListener("click", (e) => { if (e.target.id === "fsModal") Fs.close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && Fs.isOpen()) Fs.close(); });
 
   // ---------- tools ----------
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
