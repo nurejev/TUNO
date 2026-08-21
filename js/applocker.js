@@ -1347,11 +1347,16 @@ const AppLockerTool = (() => {
         ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : ""))}
         ${fact("Scan taken", scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "—")}
       </div>
+      ${(!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? `<div class="gu-fail" style="margin-bottom:12px">
+        <b>This bundle carries NO generated rule set, so you are editing the policy the device was already running.</b>
+        <span class="why">That is why the collections here are whatever Intune or Group Policy had put on the device \u2014 typically a sparse policy with a Dll collection and a placeholder rule \u2014 rather than the publisher-first set the scan builds from what it found.
+        The scan reports this: rule generation is wrapped so a failure cannot cost you the evidence, and when it fails it writes the reason into the warnings below and prints it in red at the time. It also does not run at all under <code>-SkipRuleGeneration</code>.
+        Re-run the scan, read that line, and upload the new bundle.</span></div>` : ""}
       ${sources.length > 1 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
         <span class="mini muted">Editing ${esc(SCAN_SOURCE_LABEL[scanSource] || scanSource)} —</span>
         ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${scanSource === v ? "primary" : ""}" data-src="${v}">${esc(l)}</button>`).join("")}
       </div>` : ""}
-      ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+      ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, (!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? 20 : 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       ${topPaths.length ? `<h4 class="mini" style="margin:12px 0 6px">User-writable directories <span class="muted">— showing ${topPaths.length} of ${scan.writablePaths.length}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
         ${topPaths.map((w) => {

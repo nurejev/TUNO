@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10353, date: "2026-08-21", title: "A bundle with no generated rules says so",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "When a scan bundle carries no generated rule set, the tool falls back to the policy the device was already running \u2014 which is the right thing to do, and it was doing it almost silently. The only sign was a line of small text naming what you were editing, next to buttons offering the choice. So a bundle whose rule generation had failed looked like a scan that had found almost nothing: a sparse policy with a Dll collection and a placeholder rule, exactly what Intune leaves on a device, and no obvious reason why." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "It now says so plainly, at the top of the device card, and explains where the reason is: the scan wraps rule generation so that a failure cannot cost you the evidence it already gathered, and when it fails it writes the reason into the bundle's warnings and prints it in red at the time. All the warnings are shown in that case rather than the first six, because the one that matters is likely to be among the ones that were being hidden." },
+    ],
+  },
+  {
     build: 10352, date: "2026-08-21", title: "The scan reaches AppLocker from PowerShell 7",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Running the scan under PowerShell 7 warned that the AppLocker module was not available, and fell back to reading certificates for every publisher. That was correct as far as it went \u2014 the module is a Windows PowerShell component and 7 cannot load it in-process however it is asked \u2014 but 7 on Windows can still REACH it, through a background Windows PowerShell session that proxies the commands across. The scan does that now, so a 7 session gets the same authoritative answers a 5.1 one does." },
