@@ -67,6 +67,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 38,
+      title: "The scan stops losing subtrees, and the AaronLocker review",
+      tools: ["\ud83d\udd10 AppLocker builder & validator"],
+      builds: [10354],
+      risk: "medium",
+      what: "Get-WritableDirectory converts paths to the \\\\?\\ extended form before listing and reading DACLs, and back before they reach a rule. A PathTooLongException on 5.1 was being counted as one unreadable directory when it actually skipped the whole subtree beneath. Attribute-read failures and reparse points are now counted and reported instead of silently skipped, and the single unreadable counter is split into four (DACL unreadable, listing failed, too long, attributes unknown) with a warning each. Also scripts/REVIEW-AaronLocker.md: a written comparison of the two designs. Script 1.5.0 to 1.6.0.",
+      why: "MEDIUM \u2014 it changes which directories the scan finds, so it changes the generated rules. The extended-path form is the specific risk: it is accepted by the .NET path APIs and by DirectorySecurity, but that is reasoned from documentation, not observed, and if any call in the chain rejects it the walk would fail on EVERY directory rather than a few. NOT RUN ON WINDOWS.",
+      test: [
+        "THE ONE THAT MATTERS, AND IT HAS NOT BEEN DONE: run the scan on a real device, elevated, on 5.1 and on 7. Compare the writable-directory count against the previous build. It should go UP, not down \u2014 and if it goes to zero, the extended path form is being rejected somewhere in the chain and every directory is failing.",
+        "Create a directory nested past 260 characters with a writable ACL at the bottom, and confirm it is found. That is the case this build exists for, and it cannot be tested any other way.",
+        "Check the warnings: they must now distinguish permission-read failures from listing failures from paths too long from attributes unknown. Run non-elevated and confirm the counts move in the way you would expect.",
+        "Confirm no path in the generated XML carries a \\\\?\\ prefix. AppLocker would take the rule and it would match nothing.",
+        "Compare the writable directories found against AccessChk on the same machine (accesschk.exe -w -d -s). Where the two disagree, work out WHICH is right before trusting either \u2014 the review says we over-report on nested groups and that is the likely shape of any difference.",
+        "Read scripts/REVIEW-AaronLocker.md against the current script. It makes four claims about our own code that were true when written; if any has drifted, the review is worse than no review.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/Convert-TunoAppLockerToIntune.ps1", "scripts/REVIEW-AaronLocker.md", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 37,
       title: "The scan reaches AppLocker from PowerShell 7",
       tools: ["\ud83d\udd10 AppLocker builder & validator"],

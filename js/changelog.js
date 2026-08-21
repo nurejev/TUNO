@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10354, date: "2026-08-21", title: "The scan stops losing whole subtrees, and a full review against AaronLocker",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "The scan was missing directories, and it was not the permission check \u2014 that part is careful. It was the walk around it. A path longer than 260 characters throws on Windows PowerShell, and the throw happens when listing the PARENT, so the failure did not cost one directory: it cost everything beneath it. Deep folders under ProgramData and AppData are exactly where a droppable directory lives, so this was a hole in the most interesting part of the disk. Paths are now handled in the extended form Windows provides for the purpose, and converted back before they reach a rule, where that form would be wrong." },
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Two silent skips are now counted and named. A directory whose attributes could not be read was passed over without a word \u2014 so something whose nature was UNKNOWN was treated as if it had been examined. Reparse points, skipped on purpose, were never mentioned either. And three different failures shared one counter and one warning telling you to run elevated, which is useless advice for a path that is simply too long. They are separate now, because the remedies are." },
+      { kind: "improved", tool: "\ud83d\udd10 AppLocker builder & validator", text: "A full written review against Microsoft's AaronLocker ships alongside the scripts. The short version: our permission evaluation is the better of the two \u2014 theirs counts an explicit Deny as a grant, loses permissions held by deleted accounts, and unions rights across different people \u2014 but theirs computes what an account can ACTUALLY do, resolving nested groups, where ours compares identifiers against a list. That difference makes us over-report rather than miss things, which is the safer error and still an error. It also names what neither tool sees: a writable FILE inside a locked directory." },
+    ],
+  },
+  {
     build: 10353, date: "2026-08-21", title: "A bundle with no generated rules says so",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "When a scan bundle carries no generated rule set, the tool falls back to the policy the device was already running \u2014 which is the right thing to do, and it was doing it almost silently. The only sign was a line of small text naming what you were editing, next to buttons offering the choice. So a bundle whose rule generation had failed looked like a scan that had found almost nothing: a sparse policy with a Dll collection and a placeholder rule, exactly what Intune leaves on a device, and no obvious reason why." },

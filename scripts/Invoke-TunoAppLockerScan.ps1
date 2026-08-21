@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.5.0'
-$script:TunoBuild = 10353
+$script:ScriptVersion = '1.6.0'
+$script:TunoBuild = 10354
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -731,6 +731,33 @@ function Get-DirectoryWriteGrantee {
 # ══════════════════════════════════════════════════════════════════════════════
 # The directory walk
 # ══════════════════════════════════════════════════════════════════════════════
+# Win32 long-path form. Windows PowerShell 5.1 runs on .NET Framework, where
+# almost every path API still enforces MAX_PATH (260) unless the path is given
+# in \\?\ form - and a PathTooLongException in the walk below took the whole
+# SUBTREE with it, because the throw happens on the parent's GetDirectories.
+# Deep trees under ProgramData and AppData are exactly where droppable
+# directories live, so this was not a rare edge: it was a silent hole in the
+# middle of the most interesting part of the disk.
+#
+# PowerShell 7 on .NET Core does not need this, but the prefix is harmless
+# there, so there is one code path rather than two.
+function ConvertTo-LongPath {
+    param([string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $Path }
+    if ($Path.StartsWith('\\?\')) { return $Path }
+    if ($Path.StartsWith('\\'))    { return '\\?\UNC\' + $Path.Substring(2) }
+    if ($Path -match '^[A-Za-z]:\\')  { return '\\?\' + $Path }
+    return $Path
+}
+# Only for display and for the rules: a \\?\ prefix in a policy is wrong.
+function ConvertFrom-LongPath {
+    param([string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $Path }
+    if ($Path.StartsWith('\\?\UNC\')) { return '\\' + $Path.Substring(8) }
+    if ($Path.StartsWith('\\?\'))      { return $Path.Substring(4) }
+    return $Path
+}
+
 function Get-WritableDirectory {
     param(
         [Parameter(Mandatory)] [string]$Root,
@@ -741,7 +768,14 @@ function Get-WritableDirectory {
     $results = New-Object System.Collections.Generic.List[object]
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return , $results.ToArray() }
 
-    $unreadable = 0
+    # Counted apart, because they mean different things and the fix differs.
+    # Lumping them into one number was hiding the long-path failures behind the
+    # access-denied ones, which have an obvious cause and an obvious remedy.
+    $unreadableAcl = 0     # DACL could not be read
+    $unreadableDir = 0     # children could not be listed
+    $tooLong = 0           # MAX_PATH, even in \\?\ form
+    $skippedAttr = 0       # attributes unreadable, so reparse status unknown
+    $reparse = 0           # deliberately not followed
     $visited = 0
     $stack = New-Object System.Collections.Generic.Stack[string]
     $stack.Push($Root)
@@ -754,11 +788,11 @@ function Get-WritableDirectory {
             Write-Progress -Activity "Scanning $Root" -Status "$visited directories, $($results.Count) writable" -Id 1
         }
 
-        $grantees = Get-DirectoryWriteGrantee -DirectoryPath $dir -TrustedSet $TrustedSet
-        if ($null -eq $grantees) { $unreadable++ }
+        $grantees = Get-DirectoryWriteGrantee -DirectoryPath (ConvertTo-LongPath $dir) -TrustedSet $TrustedSet
+        if ($null -eq $grantees) { $unreadableAcl++ }
         elseif ($grantees.Count -gt 0) {
             $results.Add([pscustomobject]@{
-                path     = $dir
+                path     = (ConvertFrom-LongPath $dir)
                 grantees = $grantees
             })
             # The rule this produces is "<dir>\*", which already covers everything
@@ -770,25 +804,48 @@ function Get-WritableDirectory {
         # mid-foreach on the first unreadable child and abandons every sibling
         # after it - silently skipping whole subtrees while incrementing the
         # unreadable counter exactly once. The eager call fails as one directory.
+        #
+        # The \\?\ form is what lets this get past MAX_PATH on 5.1 at all. A
+        # PathTooLongException here does not skip one directory, it skips the
+        # entire subtree beneath it - so it is counted separately and named in
+        # its own warning rather than folded into "could not be read".
         $subs = @()
-        try { $subs = [System.IO.Directory]::GetDirectories($dir) }
-        catch { $unreadable++ }
+        try { $subs = [System.IO.Directory]::GetDirectories((ConvertTo-LongPath $dir)) }
+        catch [System.IO.PathTooLongException] { $tooLong++ }
+        catch { $unreadableDir++ }
 
         foreach ($sub in $subs) {
             try {
                 $attr = [System.IO.File]::GetAttributes($sub)
-                if (($attr -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
             }
-            catch { continue }
+            catch {
+                # Attributes unreadable means reparse status UNKNOWN. Skipping
+                # was right; skipping silently was not - an unknown is a hole
+                # the report has to admit to rather than quietly drop.
+                $skippedAttr++
+                continue
+            }
+            if (($attr -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { $reparse++; continue }
             $stack.Push($sub)
         }
     }
 
     if (-not $Quiet) { Write-Progress -Activity "Scanning $Root" -Completed -Id 1 }
-    if ($unreadable -gt 0) {
-        Add-ScanWarning "$unreadable director$(if ($unreadable -eq 1) { 'y' } else { 'ies' }) under $Root could not be read. Run elevated for a complete picture."
+    if ($unreadableAcl -gt 0 -or $unreadableDir -gt 0) {
+        $unreadable = $unreadableAcl + $unreadableDir
+        Add-ScanWarning "$unreadable director$(if ($unreadable -eq 1) { 'y' } else { 'ies' }) under $Root could not be read ($unreadableAcl permission read failed, $unreadableDir listing failed). Run elevated for a complete picture."
     }
-    Write-Info ("{0,-6} writable of {1} directories under {2}" -f $results.Count, $visited, $Root)
+    # These three were silent before. Each is a place the scan did NOT look, and
+    # a rule set built from an incomplete walk reads exactly like one built from
+    # a complete walk - which is the failure this whole tool exists to prevent.
+    if ($tooLong -gt 0) {
+        Add-ScanWarning "$tooLong director$(if ($tooLong -eq 1) { 'y' } else { 'ies' }) under $Root exceeded the maximum path length even in extended form, and EVERYTHING BENEATH THEM WAS SKIPPED. This is not one missed directory each; it is a missed subtree each."
+    }
+    if ($skippedAttr -gt 0) {
+        Add-ScanWarning "$skippedAttr director$(if ($skippedAttr -eq 1) { 'y' } else { 'ies' }) under $Root could not have their attributes read, so whether they are reparse points is unknown and they were not walked."
+    }
+    Write-Info ("{0,-6} writable of {1} directories under {2}{3}" -f $results.Count, $visited, $Root,
+        $(if ($reparse -gt 0) { " ($reparse reparse point(s) not followed)" } else { '' }))
     return , $results.ToArray()
 }
 
