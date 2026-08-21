@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 45,
+      title: "A refresh no longer costs you an MFA prompt",
+      tools: ["All tools"],
+      builds: [10361],
+      risk: "high",
+      what: "Two auth defects. (1) authInitInner() only adopted an account from handleRedirectPromise(), which returns one only just after a redirect completes — so an ordinary F5 found nothing and dropped to the sign-in screen with a live session still in the sessionStorage cache underneath. It now falls through to getAllAccounts()/getActiveAccount() and restores; more than one account with none active still asks, because guessing signs you into the wrong customer. (2) loginPopup and loginRedirect both passed prompt:'select_account', which forces a fresh authorization and makes the IdP re-run its policy — MFA — on every entry. Removed; Sign out already covers account switching, and it now also clears the active account so the next sign-in cannot silently reuse the one just left. A new adopt() sets the MSAL ACTIVE account alongside the local one, which acquireTokenSilent in js/graph.js needs or it re-prompts anyway. Separately, T01's left column is reordered: enforcement modes and the add-rule form above the evidence, coverage, findings and rule list.",
+      why: "HIGH — it changes the sign-in path for every tool, and sign-in is the one thing that fails closed for everybody at once. The upside is large (an MFA prompt per refresh is why nobody refreshes) but the risk is in the cases the headless tests can only simulate: a real redirect flow, a real multi-tenant consultant laptop, and a real Conditional Access policy. It graduates when it has been signed into two customer tenants in turn without either leaking into the other.",
+      test: [
+        "THE ONE THAT MATTERS: sign in, then press F5. You must land back on the tools with no prompt at all. That is the whole bug.",
+        "Then CLOSE the tab and reopen the site. You must be asked to sign in — the cache is sessionStorage on purpose, and a refresh surviving must not turn into a session that outlives the tab.",
+        "Sign out, then sign in again. Confirm you are asked, and confirm you can reach a DIFFERENT account — the chooser was removed and Sign out is now the only route to it. If you cannot switch tenants this way, the removal was the wrong call and needs a Switch account action instead.",
+        "On a laptop with two customer tenants: sign into A, sign out, sign into B, refresh. You must stay in B. Any leak of A here is the failure that matters most and no test in the repo can see it.",
+        "Open a tool that needs an incremental scope (T02 or T06) after a refresh-restored session. The token must be acquired silently — if it prompts, setActiveAccount is not taking effect and the restore is only cosmetic.",
+        "Try the no-popup link so the REDIRECT path runs end to end. handleRedirectPromise still has to win over the cache branch; a redirect that lands on the sign-in screen means the ordering regressed.",
+        "In T01: confirm the enforcement card and the add-rule form are above the coverage and findings, that adding a rule still works from its new position, and that the rule list still renders below. The form moved hosts; its ids and wiring did not.",
+      ],
+      files: ["js/app.js", "js/applocker.js", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 44,
       title: "Assignment editor — bulk changes behind four gates",
       tools: ["✏️ Assignment editor"],

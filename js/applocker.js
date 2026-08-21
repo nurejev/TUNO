@@ -1549,8 +1549,12 @@ const AppLockerTool = (() => {
             <td>${esc(r.name)}${risky.has(r.id) ? ' <span class="tag new">⚠ flagged</span>' : ""}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div></td>
             <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
             <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
-        }).join("") + `</tbody></table></div>` : "").join("") +
-      `<div class="list-card" style="margin-top:14px;padding:16px">
+        }).join("") + `</tbody></table></div>` : "").join("");
+
+    // The add-rule form lives in its own host high in the column, not at the
+    // bottom of the rules list. Same markup, same ids, wired by the same
+    // wireDynamic() below — only its address changed.
+    $("alAddRule").innerHTML = `<div class="list-card" style="padding:16px">
         <h4 style="margin:0 0 8px">＋ Add a rule</h4>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select id="alNewCol" class="btn">${COLLECTIONS.map((t) => `<option>${t}</option>`).join("")}</select>
@@ -1575,6 +1579,7 @@ const AppLockerTool = (() => {
         </div>
         <p class="mini muted" style="margin:8px 0 0">Publisher-first is the house style: a path allow is only as strong as the ACL on the folder, which this browser cannot see.</p>
       </div>`;
+
 
     wireDynamic();
   }

@@ -245,6 +245,15 @@ const Fs = (() => {
     try { return authInitInner(); }
     catch (e) { console.error("MSAL init failed:", e); msalApp = null; return Promise.resolve(false); }
   }
+  // One place that records the signed-in account, so the active account MSAL
+  // uses for silent token acquisition can never drift from the one the UI
+  // shows. js/graph.js reads `account` through the provider; acquireTokenSilent
+  // needs the same one set active or it re-prompts.
+  function adopt(acc) {
+    account = acc;
+    try { msalApp.setActiveAccount(acc); } catch { /* older msal-browser */ }
+    return true;
+  }
   function authInitInner() {
     msalApp = new msal.PublicClientApplication({
       auth: {
@@ -261,7 +270,29 @@ const Fs = (() => {
     return msalApp.initialize()
       .then(() => msalApp.handleRedirectPromise())
       .then((res) => {
-        if (res && res.account) { account = res.account; return true; }
+        if (res && res.account) { return adopt(res.account); }
+
+        // A REFRESH MUST NOT COST A SIGN-IN.
+        //
+        // handleRedirectPromise() only returns an account in the moments after
+        // a redirect completes. On an ordinary F5 it returns null — and this
+        // used to be the end of it, so the shell dropped to the sign-in screen
+        // with a perfectly good session sitting in the cache underneath it.
+        // Clicking Sign in then ran a full interactive authorization, which is
+        // where the MFA prompt on every refresh came from: not Conditional
+        // Access being strict, just the app throwing its own session away.
+        //
+        // cacheLocation is sessionStorage, which SURVIVES a refresh in the same
+        // tab (and deliberately does not survive closing it). So the account is
+        // there to be picked up.
+        const cached = msalApp.getAllAccounts() || [];
+        if (!cached.length) return false;
+        const active = msalApp.getActiveAccount();
+        if (active) return adopt(active);
+        if (cached.length === 1) return adopt(cached[0]);
+        // More than one account and none marked active: picking for the user
+        // would be guessing which tenant they meant, and guessing wrong signs
+        // them into a customer they did not choose. Let them choose.
         return false;
       })
       .catch((e) => { console.error("Redirect sign-in did not complete:", e); return false; });
@@ -281,9 +312,21 @@ const Fs = (() => {
       return;
     }
     try {
-      if (useRedirect) { await msalApp.loginRedirect({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" }); return; }
-      const res = await msalApp.loginPopup({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" });
-      account = res.account;
+      // NO `prompt: "select_account"`.
+      //
+      // It forced a fresh authorization on every sign-in, which meant the
+      // identity provider re-ran its policy — including MFA — even when a
+      // perfectly good browser session was there to be reused. It was doing
+      // one useful thing, letting somebody with several accounts choose, and
+      // Sign out already covers that: it calls logoutPopup, so the next sign-in
+      // asks. Paying an MFA prompt on every entry to keep a chooser nobody
+      // reaches for is the wrong trade.
+      //
+      // Left silent, MSAL reuses the session when there is one and asks when
+      // there is not, which is the behaviour people expect.
+      if (useRedirect) { await msalApp.loginRedirect({ scopes: AUTH_CONFIG.scopes }); return; }
+      const res = await msalApp.loginPopup({ scopes: AUTH_CONFIG.scopes });
+      adopt(res.account);
       enter();
     } catch (e) {
       loginErr("Sign-in failed: " + (e && e.message ? e.message : e));
@@ -325,6 +368,10 @@ const Fs = (() => {
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
     show("screen-login");
+    // Clear the active account as well as the local one: leaving it set means
+    // the next sign-in silently reuses the account somebody just signed out of,
+    // which on a consultancy laptop is the wrong customer's tenant.
+    if (msalApp) { try { msalApp.setActiveAccount(null); } catch { /* older msal-browser */ } }
     if (msalApp && acc) msalApp.logoutPopup({ account: acc }).catch(() => {});
   });
   authInit().then((cameBack) => { if (cameBack) enter(); });
