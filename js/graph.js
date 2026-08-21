@@ -544,6 +544,20 @@ const Graph = (() => {
 
   const createProfile = (profile) => post("/deviceManagement/deviceConfigurations", profile, { scopes: SCOPES.profiles });
 
+  // ---------- Intune Remediations (deviceHealthScripts) ----------
+  //
+  // Same write scope as the profiles: DeviceManagementConfiguration covers
+  // deviceHealthScripts, so deploying the cleanup pair asks for nothing the
+  // profile deploy has not already asked for.
+  // BETA, absolutely: deviceHealthScripts does not exist on v1.0 (see the
+  // read-layer note above), and a relative path here would 404 against the
+  // default base while looking perfectly plausible.
+  async function remediations() {
+    const r = await get(`${BETA}/deviceManagement/deviceHealthScripts?$top=999&$select=id,displayName,lastModifiedDateTime`, { scopes: SCOPES.profiles });
+    return (r && r.value) || [];
+  }
+  const createRemediation = (body) => post(`${BETA}/deviceManagement/deviceHealthScripts`, body, { scopes: SCOPES.profiles });
+
   // ---------- groups, for the pilot assignment ----------
 
   async function searchGroups(term) {
@@ -568,6 +582,7 @@ const Graph = (() => {
   return {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
     get, post, customProfiles, collisions, createProfile,
+    remediations, createRemediation,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,

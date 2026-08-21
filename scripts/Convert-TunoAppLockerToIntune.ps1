@@ -181,7 +181,7 @@ $ErrorActionPreference = 'Stop'
 # history, TunoBuild is the site build that served it, and a headless test holds
 # TunoBuild to js/version.js so they cannot drift.
 $script:ScriptVersion = '1.4.0'
-$script:TunoBuild = 10368
+$script:TunoBuild = 10369
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 

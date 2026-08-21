@@ -286,7 +286,9 @@ Three steps, in this order, because each one exists to make the next one true:
 
 1. **Unassign** the old Intune profile (or unlink the old GPO). Skip this and the
    cleanup is a loop — everything it removes returns at the next sync.
-2. **Run `Clear-TunoAppLockerPolicy.ps1`** — as an Intune Remediation paired with
+2. **Run `Clear-TunoAppLockerPolicy.ps1`** — T01's deploy section can create the
+   Remediation pair in the tenant for you (unassigned, house name prefilled), or
+   deploy it yourself as an Intune Remediation paired with
    `Detect-TunoAppLockerPolicy.ps1`, or by hand in an elevated shell. It backs up the
    effective policy, the local policy and the SrpV2 registry key first; replaces the
    local policy with the empty (genuinely inert) one; clears the SrpV2 tattoo; and

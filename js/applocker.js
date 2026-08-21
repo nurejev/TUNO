@@ -94,7 +94,6 @@ const AppLockerTool = (() => {
 
   const newGuid = () => ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-  intuneCfg.grouping = newGrouping();
 
   // ================================================================
   // PARSE — AppLocker policy XML → model
@@ -221,7 +220,21 @@ const AppLockerTool = (() => {
   // .NET native images. The rules still ship — documented and inert — so the
   // collection can be switched on deliberately later instead of being invisible.
   // ================================================================
-  const intuneGrouping = () => (intuneCfg.grouping || "").replace(/\s+/g, "");
+  let groupingMinted = false;
+  const intuneGrouping = () => {
+    // Minted ONCE, on first read (see the note at intuneCfg) — not at module
+    // load, and never again after: a user who clears the field is saying
+    // something, and refilling it would fight them mid-edit and make the
+    // empty-grouping issue unreachable. The form input is synced here because
+    // bind() copied the value before the mint existed.
+    if (!intuneCfg.grouping && !groupingMinted) {
+      groupingMinted = true;
+      intuneCfg.grouping = newGrouping();
+      const inp = document.getElementById("alIntuneGrouping");
+      if (inp && !inp.value) inp.value = intuneCfg.grouping;
+    }
+    return (intuneCfg.grouping || "").replace(/\s+/g, "");
+  };
 
   function intuneProfileName(mode) {
     const base = (intuneCfg.displayName || "AppLocker").trim();
@@ -2006,7 +2019,60 @@ const AppLockerTool = (() => {
     picked: null,         // { id, displayName, count }
     error: null,          // last GraphError, shown verbatim
     note: "",
+    // The cleanup Remediation. Name in the house naming scheme, editable.
+    remedyName: "Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8",
+    remedyCreated: null,  // the deviceHealthScript as created THIS session
+    remedyColl: null,     // same-name scripts found by the preflight read
   };
+
+  // Fetch a script from this site and base64 it the way deviceHealthScripts
+  // wants. TextEncoder first: the scripts carry a BOM and non-ASCII box
+  // characters, and btoa on raw text throws on anything outside Latin-1.
+  async function fetchScriptB64(file) {
+    const r = await fetch(new URL("scripts/" + file, document.baseURI).href, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Could not fetch ${file} from this site (HTTP ${r.status}).`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return btoa(bin);
+  }
+
+  async function deployRemediation() {
+    const d = deployState;
+    d.error = null;
+    d.busy = "remedy";
+    renderDeploy();
+    try {
+      const name = (d.remedyName || "").trim();
+      if (!name) throw new Error("The Remediation needs a name.");
+      // Read before write — same rule as the profiles. TUNO never overwrites
+      // a script it did not create; a same-name hit stops the deploy.
+      const existing = await Graph.remediations();
+      const coll = existing.filter((s) => String(s.displayName || "").trim().toLowerCase() === name.toLowerCase());
+      d.remedyColl = coll;
+      if (coll.length) { d.busy = ""; renderDeploy(); return; }
+      // The exact bytes this site serves, not a copy pasted into the code —
+      // one source, the same discipline as the download buttons.
+      const [detect, remediate] = await Promise.all([
+        fetchScriptB64("Detect-TunoAppLockerPolicy.ps1"),
+        fetchScriptB64("Clear-TunoAppLockerPolicy.ps1"),
+      ]);
+      const made = await Graph.createRemediation({
+        displayName: name,
+        description: `AppLocker migration cleanup, deployed from ${BRANDING.name} ${APP_BUILD.label}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean. SCOPE THIS TO THE MIGRATION WINDOW and unassign it once the new policy is live — left assigned, the detection reads the new policy as state to remove.`,
+        publisher: BRANDING.name,
+        runAsAccount: "system",
+        runAs32Bit: false,
+        enforceSignatureCheck: false,
+        detectionScriptContent: detect,
+        remediationScriptContent: remediate,
+      });
+      made._name = name;
+      d.remedyCreated = made;
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
 
   const escq = (s) => esc(s);
 
@@ -2031,6 +2097,9 @@ const AppLockerTool = (() => {
     const d = deployState;
     const noGraph = typeof Graph === "undefined";
     const signedIn = !noGraph && Graph.signedIn();
+    if (noGraph || !policy) { box.innerHTML = ""; return; }
+    // AFTER the early return: computing these is what mints the grouping, and
+    // a build with no Graph should not mint identities it can never deploy.
     const name = intuneProfileName("Audit");
     const grouping = intuneGrouping();
     const issues = intuneIssues().filter((i) => i.sev === "High");
@@ -2041,8 +2110,6 @@ const AppLockerTool = (() => {
         ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
         ${d.error.consentUrl ? `<div class="mini" style="margin-top:6px">An administrator of this tenant grants it once, here: <a href="${escq(d.error.consentUrl)}" target="_blank" rel="noopener">admin consent for TUNO</a>. Nothing is granted by opening the link — it shows what is being asked for first.</div>` : ""}
       </div>` : "";
-
-    if (noGraph || !policy) { box.innerHTML = ""; return; }
 
     if (!signedIn) {
       box.innerHTML = `<div class="al-dep">
@@ -2105,6 +2172,19 @@ const AppLockerTool = (() => {
         ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
       </div>
 
+      <div class="al-dep-sub">
+        <b class="mini">E · The cleanup pair, as an Intune Remediation</b>
+        <p class="mini muted" style="margin:2px 0 6px">For the migration window on brownfield devices: creates a Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.</p>
+        <div class="al-dep-row">
+          <input id="alDepRemedyName" class="al-dep-in" style="flex:1;min-width:320px" value="${escq(d.remedyName)}" spellcheck="false">
+          <button class="btn primary sm" id="alDepRemedy" ${d.busy ? "disabled" : ""}>${d.busy === "remedy" ? "Creating…" : "🚀 Create the Remediation"}</button>
+        </div>
+        ${d.remedyColl && d.remedyColl.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
+          <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
+          <ul class="mini al-list" style="margin-top:6px">${d.remedyColl.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+        ${d.remedyCreated ? `<div class="al-dep-ok"><b>Created.</b> ${escq(d.remedyCreated.displayName || d.remedyCreated._name)} — id <code>${escq(d.remedyCreated.id)}</code>, assigned to nobody. In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.</div>` : ""}
+      </div>
+
       <p class="mini muted" style="margin:8px 0 0">Whatever happens here, the <b>Application Identity</b> service still has to be running on the targets or AppLocker does nothing and logs nothing — and removing the assignment is the way back, so test that on the pilot group before the estate depends on it.</p>
     </div>`;
 
@@ -2147,6 +2227,14 @@ const AppLockerTool = (() => {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepAudit", "click", () => deployProfile("Audit"));
     on("alDepEnforce", "click", () => deployProfile("Enforce"));
+    on("alDepRemedy", "click", () => deployRemediation());
+    on("alDepRemedyName", "input", (e) => {
+      deployState.remedyName = e.target.value;
+      // A new name invalidates the last collision verdict — it was about the
+      // old name, and keeping the stop-box up against a name nobody is using
+      // would read as a refusal that is not happening.
+      deployState.remedyColl = null;
+    });
     on("alDepCancel", "click", () => { deployState.picked = null; renderDeploy(); });
     on("alDepGroupFind", "click", async () => {
       const q = ($("alDepGroupQ") || {}).value || "";

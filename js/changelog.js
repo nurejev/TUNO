@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10369, date: "2026-08-21", title: "The cleanup pair deploys as a Remediation, from the browser",
+    items: [
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The deploy section gained part E: create the migration cleanup as an Intune Remediation — the detection and clear scripts as one deviceHealthScript, running as SYSTEM, 64-bit, carrying the exact bytes this site serves rather than a copy pasted into the code. The name prefills the house scheme and is editable. Same write discipline as the profiles: the tenant is read first, a Remediation already carrying that name stops the deploy rather than being overwritten, the write scope is asked for at the click, and nothing retries." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "It is created unassigned, on purpose twice over. Assignment carries a schedule and a scope, which are decisions for the portal — and this pair in particular must be scoped to the migration window and unassigned once the new policy is live, because its detection reads any AppLocker state as something to remove, the new policy included. The created-card says exactly that, and suggests putting the unassignment date in the change ticket at creation time, which is when people still remember why." },
+    ],
+  },
+  {
     build: 10368, date: "2026-08-21", title: "The grouping names itself",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The Intune tab no longer suggests \"Pilot\" as the grouping. It prefills the house format instead — AppLocker- followed by a fresh GUID — which is unique the way Microsoft's guidance requires and still recognisable in a cleanup log or a carry-over finding, which a bare GUID is not. A ↻ button mints a new identity for when an export is a genuinely new deployment rather than an edit of an existing profile. The converter does the same when no grouping is supplied, and prints what it generated so it can be recorded." },

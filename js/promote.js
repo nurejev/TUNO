@@ -66,6 +66,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 52,
+      title: "The cleanup pair deploys as a Remediation",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10369],
+      risk: "high",
+      what: "Deploy section E: creates an Intune Remediation (deviceHealthScript, BETA endpoint — absent on v1.0) carrying Detect-TunoAppLockerPolicy.ps1 as detection and Clear-TunoAppLockerPolicy.ps1 as remediation, fetched same-origin at click time and base64'd through bytes (TextEncoder path — btoa on text throws on the BOM and box characters). runAsAccount system, runAs32Bit false, publisher TUNO. Name prefilled 'Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8', editable; editing the name clears the last collision verdict. Same discipline as the profile deploy: read-before-write via Graph.remediations(), same-name stops, same write scope (DeviceManagementConfiguration.ReadWrite.All covers deviceHealthScripts — no new consent), no retry, created UNASSIGNED with the scope-to-migration-window/unassign-after warning on the created card.",
+      why: "HIGH — a new kind of write to the tenant, and the thing it deploys DELETES AppLocker policy from endpoints at SYSTEM once somebody assigns it. The browser half follows the established discipline but is unexecuted against a real tenant; the deviceHealthScripts request shape (field names, base64, runAsAccount casing) is per Graph docs and community usage, not verified here. Graduates when one Remediation has been created from the browser, read back correctly in the portal, and a detect→remediate cycle has run on a scoped test device.",
+      test: [
+        "THE ONE THAT MATTERS: sign in, create the Remediation, and open it in the portal (Devices → Scripts and remediations). Both script bodies must be intact — BOM, box characters and all: compare a downloaded copy from the portal against the site's own files byte-for-byte. Base64 through bytes is exactly the step that silently corrupts if wrong.",
+        "Confirm it arrived as SYSTEM / 64-bit / signature check off, publisher TUNO, and UNASSIGNED.",
+        "Create it again without renaming: the deploy must STOP on the same-name collision, and the existing script must be untouched (check lastModified). Then edit the name and confirm the stop-box clears.",
+        "Assign it to a scoped test group with a schedule, watch one detect→remediate cycle report in the console, and confirm the exit-1-when-dirty behaviour surfaces as 'with issues' rather than 'fixed'.",
+        "Confirm the write scope prompt appears at the CLICK for a fresh session, not at sign-in, and that a read-only session can still use every other part of T01 without it.",
+        "Confirm the created-card's warning survives into practice: leave the pair assigned while the new policy deploys on the test device and verify the documented failure occurs (detection flags the new policy) — the warning must describe reality, not theory.",
+      ],
+      files: ["js/applocker.js", "js/graph.js", "index.html", "scripts/README.md", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 51,
       title: "The grouping names itself",
       tools: ["🔐 AppLocker builder & validator"],
