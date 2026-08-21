@@ -183,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.4.0
+Version    : 1.7.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.6.0'
-$script:TunoBuild = 10363
+$script:ScriptVersion = '1.7.0'
+$script:TunoBuild = 10364
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1552,7 +1552,7 @@ function New-DefaultRuleSet {
                 -Description 'Allows the Intune Management Extension to stage and run the software it deploys. This is the sanctioned install route on this estate, so it is named explicitly instead of relying on the Windows and Program Files defaults to cover it. Remove this rule only if you also intend to stop deploying Win32 apps and remediation scripts from Intune.' `
                 -ExceptionPaths @()))
         }
-        $collections[$type] = $rules
+        $collections.Add($type, $rules)
     }
 
     $msi = New-Object System.Collections.Generic.List[object]
@@ -1568,14 +1568,14 @@ function New-DefaultRuleSet {
     $msi.Add((New-PathRule -Name '(Default Rule) All Windows Installer files' `
         -Sid $script:SidAdmins -Action 'Allow' -RulePath '*.*' `
         -Description 'Allows members of the local Administrators group to run all Windows Installer files. The second of the two sanctioned routes: IME, or an administrator.' -ExceptionPaths @()))
-    $collections['Msi'] = $msi
+    $collections.Add('Msi', $msi)
 
     $appx = New-Object System.Collections.Generic.List[object]
     $appx.Add((New-PublisherRule -Name '(Default Rule) All signed packaged apps' `
         -Sid $script:SidEveryone -Action 'Allow' -Publisher '*' -Product '*' -Binary '*' `
         -LowVersion '0.0.0.0' -HighVersion '*' `
         -Description 'Allows members of the Everyone group to run packaged apps that are signed. Unsigned packaged apps cannot be installed on a supported Windows build, so this is narrower than it reads. This is also what allows the Company Portal, and everything a user installs through it, to run.'))
-    $collections['Appx'] = $appx
+    $collections.Add('Appx', $appx)
 
     return $collections
 }
@@ -1620,7 +1620,7 @@ function New-ArtifactRuleSet {
 
     foreach ($a in $Artifacts) {
         $col = $a.collection
-        if (-not $byCollection.Contains($col)) { $byCollection[$col] = New-Object System.Collections.Generic.List[object] }
+        if (-not $byCollection.Contains($col)) { $byCollection.Add($col, (New-Object System.Collections.Generic.List[object])) }
 
         if ($a.signed -and $a.publisher) {
             $p = $a.publisher
@@ -1655,7 +1655,7 @@ function New-ArtifactRuleSet {
             $rule = New-PublisherRule -Name "TUNO: $label" -Sid $script:SidEveryone -Action 'Allow' `
                 -Publisher $p.name -Product $product -Binary $binary -LowVersion $low -HighVersion '*' -Description $desc
             $pubSeen[$key] = $rule
-            $byCollection[$col].Add($rule)
+            ([System.Collections.IDictionary]$byCollection)[$col].Add($rule)
             continue
         }
 
@@ -1679,7 +1679,7 @@ function New-ArtifactRuleSet {
         $rule = New-HashRule -Name "TUNO: $($a.name) (hash)" -Sid $script:SidEveryone -Action 'Allow' `
             -Hash $a.hash -SourceFileName $a.name -SourceFileLength $a.sizeBytes `
             -Description "TUNO scan: found at $($a.path), and it is NOT SIGNED, so a hash rule is the only option. This rule stops working the moment the file is updated - track it, or press the vendor to sign."
-        $byCollection[$col].Add($rule)
+        ([System.Collections.IDictionary]$byCollection)[$col].Add($rule)
     }
 
     if ($skippedJs -gt 0) {
@@ -1769,7 +1769,7 @@ function ConvertTo-AppLockerPolicyXml {
         # every assignment. Writing 'AuditOnly' into it throws.
         $collectionMode = $enforcement
         [void]$sb.AppendLine("  <RuleCollection Type=""$type"" EnforcementMode=""$collectionMode"">")
-        foreach ($r in $Collections[$type]) {
+        foreach ($r in ([System.Collections.IDictionary]$Collections)[$type]) {
             [void]$sb.AppendLine("    <$($r.nodeName) Id=""$(ConvertTo-XmlAttribute $r.id)"" Name=""$(ConvertTo-XmlAttribute $r.name)"" Description=""$(ConvertTo-XmlAttribute $r.description)"" UserOrGroupSid=""$(ConvertTo-XmlAttribute $r.sid)"" Action=""$(ConvertTo-XmlAttribute $r.action)"">")
             $conds = ($r.conditions | ForEach-Object { ConvertTo-ConditionXml -Condition $_ }) -join ''
             [void]$sb.AppendLine("      <Conditions>$conds</Conditions>")
@@ -2025,8 +2025,8 @@ if (-not $SkipRuleGeneration) {
         $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
         $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
         foreach ($type in $artifactRules.Keys) {
-            if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
-            foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
+            if (-not $collections.Contains($type)) { $collections.Add($type, (New-Object System.Collections.Generic.List[object])) }
+            foreach ($r in ([System.Collections.IDictionary]$artifactRules)[$type]) { ([System.Collections.IDictionary]$collections)[$type].Add($r) }
         }
 
         # Drop the Dll collection before anything counts or serialises it, so the
@@ -2035,31 +2035,32 @@ if (-not $SkipRuleGeneration) {
         # a DLL collection is not being there.
         $dllRuleCount = 0
         if ($collections.Contains('Dll')) {
-            $dllRuleCount = @($collections['Dll']).Count
+            $dllRuleCount = @(([System.Collections.IDictionary]$collections)['Dll']).Count
             $collections.Remove('Dll')
         }
         if ($dllRuleCount -gt 0) {
             Write-Info ("Dll     {0,4} rule(s) built and OMITTED - see the note below" -f $dllRuleCount)
         }
 
-        # .Add(), NOT $counts[$type] = <int>.
+        # NO BARE INDEXER ON AN ORDERED DICTIONARY, in either direction.
         #
-        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - so
-        # PowerShell compiles an indexed assignment into a conditional that picks
-        # between them at runtime. When the value being stored is a VALUE type, the
-        # two branches of that conditional have incompatible types and
-        # Expression.Condition throws "Argument types do not match" before the
-        # assignment ever happens. It is thrown by the compiler, not the dictionary,
-        # which is why the error carries no useful line and names Condition as its
-        # target site.
+        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - and
+        # Windows PowerShell 5.1's expression compiler builds a runtime choice
+        # between them that can throw ArgumentException("Argument types do not
+        # match") from Expression.Condition. It bit twice, in two shapes, both
+        # only on a real 5.1 host: first an indexed SET storing an Int32 (fixed in
+        # 10344 with .Add), then an indexed GET with a literal key at what was
+        # line 2038 (caught by the wrapped rule-generation of 10344, which is the
+        # only reason the second failure cost a red block instead of the scan).
         #
-        # Storing a reference type is fine, which is exactly why every other ordered
-        # assignment in this script works and only the rule COUNT - an Int32 - failed.
-        # .Add(object, object) boxes explicitly and sidesteps the binder entirely.
+        # So the discipline is total rather than case-by-case: writes go through
+        # .Add(object, object), and reads go through a cast to
+        # [System.Collections.IDictionary], which declares exactly ONE indexer -
+        # this[object] - leaving the binder nothing to choose between.
         $counts = [ordered]@{}
         $total = 0
         foreach ($type in $collections.Keys) {
-            $n = @($collections[$type]).Count
+            $n = @(([System.Collections.IDictionary]$collections)[$type]).Count
             $counts.Add($type, $n)
             $total += $n
             Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $n)

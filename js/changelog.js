@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10364, date: "2026-08-21", title: "The same crash, second shape — and this time the scan survived it",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Rule generation failed again with the same \"argument types do not match\", and this run proves the recovery work: the scan finished, wrote the bundle with all the evidence, and recorded the failing line in its own warnings — which is exactly how the cause was found in minutes instead of another round trip. The defect is the same Windows PowerShell 5.1 compiler problem as before in a second shape: the ordered dictionary's two indexers can make the engine refuse an indexed READ just as they made it refuse an indexed write, and the first fix only covered the write. The discipline is now total instead of case-by-case: every write to those dictionaries goes through the explicit add method, and every read goes through a cast to the one-indexer dictionary interface, which leaves the compiler nothing to choose between. No bare indexer remains anywhere on the rule-generation path — checked mechanically, not by eye." },
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The version guard caught a drift while this was being fixed: the scan's help header still said 1.4.0 while the script itself had moved to 1.6.0 — two builds had bumped one and not the other. Both now say 1.7.0, and the banner, the help and the bundle agree about which script produced what." },
+    ],
+  },
+  {
     build: 10363, date: "2026-08-21", title: "The cleanup pair is where the work starts",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The cleanup script and its detection half are downloadable from step 1, next to the scan, each with the same copy-able download command — not only from step 5. A device that already carries a policy needs the cleanup before the new policy means anything, so the download belongs where the work starts as well as where it ends. A line under the buttons says which two are for brownfield devices and points at step 5 for the full order: unassign, clean, deploy under a new grouping." },

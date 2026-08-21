@@ -66,6 +66,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 47,
+      title: "The same crash, second shape — no bare indexer survives",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10364],
+      risk: "high",
+      what: "Mihai's real 5.1 run failed rule generation again with ArgumentException('Argument types do not match') — this time at an indexed READ with a literal key ($collections['Dll']), where 10344's fix had only covered the indexed WRITE of a value type. The 10344 wrapping did its job: the scan survived, the bundle carried the evidence, and the recorded line number located the defect immediately. Fix: total discipline instead of case-by-case. Every write to the ordered dictionaries on the generation path goes through .Add(object, object); every read goes through a cast to [System.Collections.IDictionary], whose single this[object] indexer leaves the 5.1 expression compiler nothing to choose between. A mechanical sweep confirms no bare indexer remains on $collections/$byCollection/$artifactRules/$counts. Scan is 1.7.0; the guard also caught the .NOTES header still saying 1.4.0 from two builds that bumped only the constant.",
+      why: "HIGH — this is the second attempt at the same class of crash, on the script's core path, and like everything PowerShell here it is verified by argument rather than execution. The pattern (two shapes so far) argues the binder cannot be trusted with ANY OrderedDictionary indexing on 5.1, which is exactly what the fix assumes. It graduates only when a full scan on the same machine that failed twice produces the generated Audit and Enforce XML.",
+      test: [
+        "THE ONE THAT MATTERS: re-run the scan on CPC-mihai-2L8IB, same arguments, Windows PowerShell 5.1. 'Building the rule set' must print per-collection counts and the run must write all three files. That machine has now failed twice; it is the only oracle that counts.",
+        "Run it under PowerShell 7 as well — the binder differs there, and the IDictionary casts must not have broken the path that already worked.",
+        "Check the bundle's generatedPolicy is populated and rulesByCollection lists each collection with a plausible count, and that Dll is absent with dllRulesOmitted recording what was dropped.",
+        "Grep the script for bare indexing on the four dictionaries and confirm none — and keep that check in review for any future edit to the generation path; the two failures were five hundred lines apart.",
+        "Confirm the banner, the .NOTES header and the bundle all say 1.7.0. The guard now compares header to constant on every change, so this should be impossible to regress silently — verify the guard fails if you knock one out of step.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 46,
       title: "The cleanup for devices that already have a policy",
       tools: ["🔐 AppLocker builder & validator"],
