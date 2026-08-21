@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10356"></script>
+<script src="js/popup-guard.js?v=10357"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10356">
+<link rel="stylesheet" href="css/app.css?v=10357">
 </head>
 <body>
 
@@ -777,6 +777,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Concentrations are OBSERVATIONS and there is deliberately no score.</b> An assignment scoped to all devices; a broad built-in role with a lot of members, at a threshold that is stated on the screen because it is arbitrary; a role whose members are all one group, where whoever can change that group's membership can grant the role without holding it. Whether any of those is wrong depends on things this tool cannot see, and a number would invite somebody to chase it rather than read it.</p>
             <p class="mini" style="margin:6px 0 0"><b>And the sentence neither the script nor the portal says</b>, which is on the screen and in all three exports: <i>this is Intune RBAC only</i>. Global Administrator and Intune Administrator are Entra directory roles, they grant full access to Intune, and they do not appear in <code>deviceManagement/roleAssignments</code> at all. An access review that takes this for the whole list is missing the accounts with the most access.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R11</span> 🔮 Assignment what-if <span class="tag grant">live · beta 10357</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> (MIT). <b>Before</b> you add somebody to a group, what will they receive — and if you take them out, what will they lose? Pick a user or a device, name a group, and get the delta against what they have today: policies gained, policies lost, applications that will install, applications that will be <i>uninstalled</i>. Then the comparison the portal cannot do at all: put two or more groups side by side and see what each receives that the other does not.</p>
+            <p class="mini" style="margin:6px 0 0"><b>This is the one capability of his suite that TUNO has nothing like.</b> The reading half is already here — <span class="rm-ref">R04</span> answers “what does this group receive”, <span class="rm-ref">R03</span> answers “why did this device get that”, and both already show exclusions, inheritance and filters. What neither answers is <i>what would happen if</i>, and that is the question asked at the moment a change is still cheap to reverse. It also brings the third subject: TUNO can start from a group or a device, not yet from a <b>person</b>.</p>
+            <p class="mini" style="margin:6px 0 0"><b>It reads only, and it is a simulation rather than a promise.</b> Group membership rules, assignment filters and per-device applicability all sit between an assignment and a device, and a browser can evaluate none of them with certainty — so the answer will say which parts are computed and which are inferred, the same way <span class="rm-ref">R03</span> already refuses to claim a filtered assignment applies.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped as promised, with the mechanics stated rather than implied.</b> Joins carry the group's own parents; leaves rebuild the closure from the remaining direct memberships, so a policy still reachable through a second group is not reported lost; a membership held only through nesting says so instead of simulating a removal the portal does not offer. The delta's third state is the reason to run it: <b>joining a group can take policy away</b>, and an uninstall intent that starts to apply reads "will be uninstalled" rather than "gained". Person-subject support arrived with it — the third subject the card asked for.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
@@ -806,12 +813,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R16</span> 🔬 Backup drift — compare two archives, offline</h4>
             <p class="mini" style="margin:0">Also after <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a>, whose <code>compare</code> takes two backups and produces a stable, severity-ranked list of what moved between them. <b>The interesting part is that it needs no tenant at all</b> — it is two folders and a diff. In TUNO that means dropping two <span class="rm-ref">R08</span> archives onto the page and reading the answer <b>without signing in</b>, which almost nothing here can do; only the AppLocker analysis works that way today.</p>
             <p class="mini" style="margin:6px 0 0">Which makes it the right shape for the questions a backup is actually kept for. <i>What changed between Friday and Monday?</i> <i>What is different between the pilot tenant and production?</i> <i>Is this month's archive meaningfully different from last month's, or just re-serialised?</i> <span class="rm-ref">R05</span> answers the first from the audit log, but only for thirty days and only if the change was made through Intune; two archives answer it for as long as you have kept them. The field-level diff <span class="rm-ref">R05</span> already carries would do the comparing.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R11</span> 🔮 Assignment what-if</h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> (MIT). <b>Before</b> you add somebody to a group, what will they receive — and if you take them out, what will they lose? Pick a user or a device, name a group, and get the delta against what they have today: policies gained, policies lost, applications that will install, applications that will be <i>uninstalled</i>. Then the comparison the portal cannot do at all: put two or more groups side by side and see what each receives that the other does not.</p>
-            <p class="mini" style="margin:6px 0 0"><b>This is the one capability of his suite that TUNO has nothing like.</b> The reading half is already here — <span class="rm-ref">R04</span> answers “what does this group receive”, <span class="rm-ref">R03</span> answers “why did this device get that”, and both already show exclusions, inheritance and filters. What neither answers is <i>what would happen if</i>, and that is the question asked at the moment a change is still cheap to reverse. It also brings the third subject: TUNO can start from a group or a device, not yet from a <b>person</b>.</p>
-            <p class="mini" style="margin:6px 0 0"><b>It reads only, and it is a simulation rather than a promise.</b> Group membership rules, assignment filters and per-device applicability all sit between an assignment and a device, and a browser can evaluate none of them with certainty — so the answer will say which parts are computed and which are inferred, the same way <span class="rm-ref">R03</span> already refuses to claim a filtered assignment applies.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R12</span> 🩺 Assignment health</h4>
@@ -966,20 +967,21 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10356"></script>
-<script src="js/version.js?v=10356"></script>
-<script src="js/promote.js?v=10356"></script>
-<script src="js/authConfig.js?v=10356"></script>
-<script src="js/changelog.js?v=10356"></script>
-<script src="js/msappcatalog.js?v=10356"></script>
-<script src="js/graph.js?v=10356"></script>
-<script src="js/groupuse.js?v=10356"></script>
-<script src="js/audit.js?v=10356"></script>
-<script src="js/backup.js?v=10356"></script>
-<script src="js/document.js?v=10356"></script>
-<script src="js/devicewhy.js?v=10356"></script>
-<script src="js/roles.js?v=10356"></script>
-<script src="js/applocker.js?v=10356"></script>
-<script src="js/app.js?v=10356"></script>
+<script src="js/branding.js?v=10357"></script>
+<script src="js/version.js?v=10357"></script>
+<script src="js/promote.js?v=10357"></script>
+<script src="js/authConfig.js?v=10357"></script>
+<script src="js/changelog.js?v=10357"></script>
+<script src="js/msappcatalog.js?v=10357"></script>
+<script src="js/graph.js?v=10357"></script>
+<script src="js/groupuse.js?v=10357"></script>
+<script src="js/audit.js?v=10357"></script>
+<script src="js/backup.js?v=10357"></script>
+<script src="js/document.js?v=10357"></script>
+<script src="js/devicewhy.js?v=10357"></script>
+<script src="js/whatif.js?v=10357"></script>
+<script src="js/roles.js?v=10357"></script>
+<script src="js/applocker.js?v=10357"></script>
+<script src="js/app.js?v=10357"></script>
 </body>
 </html>

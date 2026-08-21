@@ -59,12 +59,32 @@ const PROMOTE = {
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, and
   // items 30-35 (10342, 10344-10348) as build 6.
   //
-  // The queue was empty after build 6 and item 39 opens the next promotion. An
+  // The queue was empty after build 6 and item 36 opens the next promotion. An
   // empty queue is a state worth returning to: it means "beta and main match",
   // and the next item added is the whole of the next promotion.
   productionBuild: "v1.0.6",
 
   items: [
+    {
+      n: 41,
+      title: "Assignment what-if — the delta before the change",
+      tools: ["🔮 Assignment what-if"],
+      builds: [10357],
+      risk: "medium",
+      what: "T08, after Ugur Koc's IntuneAssignmentChecker (MIT). Pick a user or a device, name a group, and see what joining or leaving would change: gained, lost, pre-excluded, unchanged — with 'lost by joining' (an exclusion on the group) called out, uninstall intents labelled as removals, filtered rows kept at 'may' in both directions, and tenant-wide targets excluded from the delta because membership does not move them. Joins carry the group's own transitive parents; leaves rebuild the closure from the remaining direct memberships; a membership held only through nesting says so instead of simulating an impossible removal. Compare mode: two to four groups side by side, differences only. Assignments read through GroupUse.SOURCES — no second endpoint list. Reads only.",
+      why: "MEDIUM — a new read-only tool; nothing existing changes behaviour. The risk is an answer that is WRONG rather than missing: a simulation that overstates or understates a delta invites a membership change on bad evidence. The closure logic (join inherits parents, leave recomputes from remaining directs) is the part that most needs a real directory, because nested and dynamic groups are exactly where hand-reasoning fails.",
+      test: [
+        "THE ONE THAT MATTERS: take a user, pick a group with at least one policy assigned, and run the join simulation. Then actually add them, run T02 or T06 for the real answer, and compare. Every gained row must appear; anything that applied which the simulation did not predict is a miss worth a bug report. Remove them afterwards.",
+        "Join a group that is EXCLUDED from a policy the user receives today. The policy must appear under LOST with 'an exclusion on this group takes it away' — this is the row the tool exists for.",
+        "Simulate joining a group that is itself a member of a parent carrying assignments. The parent's policies must appear as gained, marked as coming through inheritance. A what-if that misses this understates every nested join.",
+        "Simulate leaving a group the subject is only in through nesting. The tool must say the membership is inherited and produce an empty delta — not simulate a removal the portal cannot perform.",
+        "Simulate leaving a group whose policies the subject ALSO receives through a second group. Those policies must NOT appear as lost — the closure rebuild is what this checks, and it is the easiest thing to get wrong.",
+        "Pick a dynamic group and confirm the answer is labelled as conditional on the rule, for join and for leave both.",
+        "Compare two groups with deliberately different assignments and confirm only the differences are listed, with the identical remainder counted. Then compare a group with itself via a parent-child pair and confirm the child column includes everything the parent's does.",
+        "Run as a device subject on a machine with no Entra device id and confirm the refusal is explained rather than an empty answer.",
+      ],
+      files: ["js/whatif.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
     {
       n: 40,
       title: "What's new actually shows up",

@@ -81,7 +81,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -336,6 +336,7 @@ const Fs = (() => {
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
     ["toolGroupUse", "🔗 Group Analyzer"],
+    ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolDevice", "🖥 Device analyzer"],
     ["toolAudit", "🕓 Change audit"],
     ["toolBackup", "📦 Backup configuration"],
@@ -430,6 +431,7 @@ const Fs = (() => {
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
+  $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Role assignments"); show("screen-roles"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
@@ -574,6 +576,7 @@ const Fs = (() => {
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
   if (typeof AuditTool !== "undefined") AuditTool.init();
   if (typeof DeviceWhyTool !== "undefined") DeviceWhyTool.init();
+  if (typeof WhatIfTool !== "undefined") WhatIfTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
