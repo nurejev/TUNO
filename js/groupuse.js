@@ -51,6 +51,9 @@ const GroupUse = (() => {
   // so it can never collide with a real one, and carried through the same
   // pipeline as everything else rather than living in a parallel code path.
   const TENANT_WIDE = "*tenant-wide*";
+  // And one for objects that carry no assignment at all (T09). Same idea:
+  // not a GUID, cannot collide, rides the ordinary pipeline.
+  const UNASSIGNED = "*unassigned*";
 
   const lc = (s) => String(s || "").toLowerCase();
   const mdCell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
@@ -111,6 +114,17 @@ const GroupUse = (() => {
         filterMode: fmode && lc(fmode) !== "none" ? String(fmode) : "",
         detail: bits.filter(Boolean).join(" · "),
       });
+    }
+    // T09 (build 10358): an object with NO assignments at all is itself an
+    // answer — configuration that has never applied and never will until
+    // somebody assigns it. Emitted ONLY when asked for (opts.unassigned), so
+    // T02/T06/T08, which ask "who receives this", are unchanged: for them an
+    // unassigned policy is correctly not a row. The condition is on the
+    // ASSIGNMENTS ARRAY being empty, not on `out` being empty — a policy
+    // whose assignments all name groups outside the match set is assigned,
+    // just not to anyone being asked about.
+    if (o.unassigned && !(item.assignments || []).length) {
+      out.push({ pid: UNASSIGNED, name, id: item.id, how: "unassigned", filterId: "", filterMode: "", detail: "" });
     }
     return out;
   }
@@ -367,7 +381,11 @@ const GroupUse = (() => {
       onSource && onSource(src);
       const ctx = {
         ids,
-        opts: { tenantWide: !!tenantWide },
+        // `unassigned` (T09) rides the same channel as tenantWide: analyze()
+        // is the only path into the sources, so a flag that skipped it would
+        // work for the callers that pass ctx by hand and silently not for
+        // the one that matters.
+        opts: { tenantWide: !!tenantWide, unassigned: !!opts.unassigned },
         note: (m) => notes.push(m),
         status: (s) => onStatus && onStatus(`${src.label} — ${s}`, done, list.length),
       };
@@ -859,7 +877,7 @@ footer a{color:#2b4c9b}`;
   }
 
   return {
-    TENANT_WIDE, SOURCES, HOW_LABEL, SCOPES_IN,
+    TENANT_WIDE, UNASSIGNED, SOURCES, HOW_LABEL, SCOPES_IN,
     sourceById, allSourceIds, scopesFor,
     intuneHits, resolveGroup, buildScope, memberCount, analyze, resolveFilters,
     grouped, totals, whyFailed, shortErr,
