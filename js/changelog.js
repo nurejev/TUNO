@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10372, date: "2026-08-21", title: "Remediations have their own write scope",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The Remediation deploy asked for the wrong permission and the tenant refused it — correctly. Build 10369 shipped it under the profile write scope on the claim that DeviceManagementConfiguration.ReadWrite.All covers Remediations; the first real click proved otherwise, with Graph naming the scope it actually wants, and the API reference confirms it: creating a deviceHealthScript accepts only DeviceManagementScripts.ReadWrite.All. TUNO now requests exactly that, for the collision check and the create alike, making it the second write scope TUNO holds — added to the registration script and the security documentation in the open, because a new write scope is a decision, not a side effect. If your registration predates this build, add DeviceManagementScripts.ReadWrite.All as a delegated permission and admin-consent it, or the click keeps failing exactly as it did." },
+    ],
+  },
+  {
     build: 10371, date: "2026-08-21", title: "A refresh restores the session, never the screen",
     items: [
       { kind: "fixed", tool: "TUNO", text: "Refreshing the page no longer drops you straight into the app. Every refresh lands on the sign-in screen, always — entering a tool that can write to a tenant is a deliberate act, not a side effect of pressing F5. Build 10361 fixed the MFA-on-every-refresh problem by restoring the cached session, but over-corrected by also skipping the screen; the two are now split. The session is still restored underneath, so nothing is paid for the gate: the sign-in screen names whose session will be continued, and clicking Sign in enters without a popup, a redirect, or a new authorization — and therefore without MFA. Closing the tab still drops the session entirely, sign out still ends it properly, and coming back from the no-popup redirect flow still enters directly, because that is the completion of a sign-in, not a refresh." },

@@ -2121,7 +2121,7 @@ const AppLockerTool = (() => {
     const signedIn = !noGraph && Graph.signedIn();
 
     if (!signedIn) {
-      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and this becomes a button. TUNO asks for <code>DeviceManagementConfiguration.ReadWrite.All</code> at the moment you press it — the same write scope the profile deploy in step 5 uses, so no new consent line. The downloads above stay the manual route.</p>`;
+      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and this becomes a button. TUNO asks for <code>DeviceManagementScripts.ReadWrite.All</code> at the moment you press it — Remediations have their own write scope, separate from the one the profile deploy in step 5 uses, and it must be consented on the app registration first. The downloads above stay the manual route.</p>`;
       return;
     }
 
