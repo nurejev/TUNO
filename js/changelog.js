@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10351, date: "2026-08-21", title: "The code panel's header stops fighting itself",
+    items: [
+      { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Adding the collection selector gave the panel header four controls and a two-line filename to fit on one row, in a column that is not wide enough for them. Nothing was allowed to wrap, so the layout resolved it by squeezing the filename block toward nothing \u2014 the line underneath broke to one word per line and read as a narrow column of text, while the Download button ran off the right-hand edge. The header wraps now: the actions move to a second row when they have to, and the filename keeps a minimum width so it can never be crushed like that again. Both of its lines clip with an ellipsis rather than wrapping, because a filename is an identifier and not a sentence." },
+    ],
+  },
+  {
     build: 10350, date: "2026-08-21", title: "The full-screen panel scrolls, and you can take one collection at a time",
     items: [
       { kind: "fixed", tool: "\ud83d\udd10 AppLocker builder & validator", text: "Opening a card full screen showed the top of it and nothing else \u2014 no scroll, no way to reach the rest. One rule was making every parked card fill the panel exactly, and a card hides whatever does not fit, so everything past the fold was simply unreachable. The two kinds of card need opposite answers and now get them: the code panel takes the height and scrolls inside itself, a table grows to its content and lets the panel scroll it." },
