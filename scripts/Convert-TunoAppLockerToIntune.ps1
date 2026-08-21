@@ -108,7 +108,7 @@ Online  : the created deviceConfiguration objects.
 # The normal case - convert both exports to JSON, review before anything touches a tenant.
 PS> .\Convert-TunoAppLockerToIntune.ps1 `
         -XmlPath .\AppLockerRules-Audit-20260819-1530.xml, .\AppLockerRules-Enforce-20260819-1530.xml `
-        -DisplayName 'Win - Device Security - AppLocker'
+        -DisplayName 'Win - SEC - Device Security - AppLocker'
 # No -Grouping: one is generated as AppLocker-<guid> and printed. Import ONE of the
 # two profiles; move it from audit to enforce later by EDITING it, not by importing
 # the second beside it.
@@ -117,8 +117,8 @@ PS> .\Convert-TunoAppLockerToIntune.ps1 `
 # Create the audit profile in the tenant.
 PS> .\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
         -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-        -DisplayName 'Win - Device Security - AppLocker' `
-        -NameSuffix '(AuditOnly) - R1 - v1.0'
+        -DisplayName 'Win - SEC - Device Security - AppLocker' `
+        -NameSuffix '(AuditOnly) - R27.1 - V4.0'
 
 .EXAMPLE
 # Import a JSON produced earlier (by this script, or exported from TUNO T01) with Graph:
@@ -129,7 +129,7 @@ PS> Invoke-MgGraphRequest -Method POST `
         -Body $body -ContentType 'application/json'
 
 .NOTES
-Version   : 1.4.0
+Version   : 1.4.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Standalone: no dependency on any customer-connection harness. In online mode it uses
@@ -149,7 +149,7 @@ param(
     [string]$Grouping,
 
     [Parameter()]
-    [string]$DisplayName = 'Win - Device Security - AppLocker',
+    [string]$DisplayName = 'Win - SEC - Device Security - AppLocker',
 
     [Parameter()]
     [string[]]$NameSuffix,
@@ -180,8 +180,8 @@ $ErrorActionPreference = 'Stop'
 # See the note in Invoke-TunoAppLockerScan.ps1: ScriptVersion is this file's own
 # history, TunoBuild is the site build that served it, and a headless test holds
 # TunoBuild to js/version.js so they cannot drift.
-$script:ScriptVersion = '1.4.0'
-$script:TunoBuild = 10369
+$script:ScriptVersion = '1.4.1'
+$script:TunoBuild = 10370
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 

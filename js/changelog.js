@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10370, date: "2026-08-21", title: "Cleanup deploy moves up to step 1, and the names take their final form",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The Remediation deploy moved from the bottom of the page into a collapsed panel right under the script downloads in step 1 — because that is where it belongs in time. The cleanup pair runs at the START of a brownfield migration, before there is any policy to upload or export, so the section no longer waits behind step 5 and no longer requires a policy at all: sign in, open the panel, create. It stays collapsed by default because it writes to the tenant, and a write should be opened deliberately, not scrolled past. Everything else about it is unchanged — read first, stop on a name collision, created unassigned." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Both default names now follow the house scheme in full. The Remediation prefills \"[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8\", and the Intune profile name field prefills \"Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0\" — the complete final name, release suffix included, instead of a base the tool silently appended to. The mode token is swapped in place when exporting Enforce, so audit and enforce still get distinct names from the one field, and editing the R/V numbers is editing the field, not the code. The converter script's default and examples follow." },
+    ],
+  },
+  {
     build: 10369, date: "2026-08-21", title: "The cleanup pair deploys as a Remediation, from the browser",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The deploy section gained part E: create the migration cleanup as an Intune Remediation — the detection and clear scripts as one deviceHealthScript, running as SYSTEM, 64-bit, carrying the exact bytes this site serves rather than a copy pasted into the code. The name prefills the house scheme and is editable. Same write discipline as the profiles: the tenant is read first, a Remediation already carrying that name stops the deploy rather than being overwritten, the write scope is asked for at the click, and nothing retries." },

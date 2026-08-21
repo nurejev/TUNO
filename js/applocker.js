@@ -85,7 +85,11 @@ const AppLockerTool = (() => {
   const newGrouping = () => "AppLocker-" + newGuid();
   // grouping is filled in just below newGuid's definition — calling it here
   // would be a use-before-init on the const.
-  const intuneCfg = { displayName: "Win - Device Security - AppLocker", grouping: "", mode: "Audit" };
+  // The default carries the house naming scheme IN FULL, mode token included —
+  // the field then shows exactly the name Intune will get, and the R/V release
+  // suffix is edited in place rather than living in code. intuneProfileName()
+  // swaps the (AuditOnly)/(Enforced) token for the mode being exported.
+  const intuneCfg = { displayName: "Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0", grouping: "", mode: "Audit" };
 
   // AppLocker rule-collection Type → the segment the AppLocker CSP expects in the
   // OMA-URI. Anything not in here has no CSP node and cannot be shipped by Intune.
@@ -238,7 +242,14 @@ const AppLockerTool = (() => {
 
   function intuneProfileName(mode) {
     const base = (intuneCfg.displayName || "AppLocker").trim();
-    return `${base} (${mode === "Enforce" ? "Enforced" : "AuditOnly"})`;
+    const token = mode === "Enforce" ? "(Enforced)" : "(AuditOnly)";
+    // The name field holds the FULL house name with the mode token inline
+    // (Win - SEC - … - AppLocker (AuditOnly) - R27.1 - V4.0). Swap whichever
+    // token it contains for the mode being exported, so Audit and Enforce still
+    // get distinct names from one field — the collision checks depend on that.
+    // A name without a token keeps the old behaviour: token appended at the end.
+    if (/\((?:AuditOnly|Enforced)\)/i.test(base)) return base.replace(/\((?:AuditOnly|Enforced)\)/gi, token);
+    return `${base} ${token}`;
   }
 
   function intuneProfile(mode) {
@@ -1979,6 +1990,13 @@ const AppLockerTool = (() => {
     renderDeploy();
 
     // ---- the download panel ----
+    // The Remediation box lives in step 1 and needs no policy — render it now,
+    // and re-render when its panel is opened, which is the moment the sign-in
+    // state matters and may have changed since page load.
+    renderRemedy();
+    const remedyDetails = document.getElementById("alRemedyDetails");
+    if (remedyDetails) remedyDetails.addEventListener("toggle", () => { if (remedyDetails.open) renderRemedy(); });
+
     const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
     document.querySelectorAll(".al-dl-cmd").forEach((el) => { el.textContent = cmdFor(el.dataset.file); });
     document.querySelectorAll(".al-dl-copy").forEach((b) => b.addEventListener("click", (e) => {
@@ -2020,7 +2038,7 @@ const AppLockerTool = (() => {
     error: null,          // last GraphError, shown verbatim
     note: "",
     // The cleanup Remediation. Name in the house naming scheme, editable.
-    remedyName: "Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8",
+    remedyName: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8",
     remedyCreated: null,  // the deviceHealthScript as created THIS session
     remedyColl: null,     // same-name scripts found by the preflight read
   };
@@ -2091,7 +2109,53 @@ const AppLockerTool = (() => {
     return "";
   }
 
+  // The Remediation deploy, in step 1's collapsed panel beside the downloads it
+  // automates. Deliberately NOT gated on a loaded policy: a brownfield cleanup
+  // happens BEFORE there is a policy worth uploading, and parking this in the
+  // deploy panel hid it from exactly the person who needed it first.
+  function renderRemedy() {
+    const box = $("alRemedyBox");
+    if (!box) return;
+    const d = deployState;
+    const noGraph = typeof Graph === "undefined";
+    const signedIn = !noGraph && Graph.signedIn();
+
+    if (!signedIn) {
+      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and this becomes a button. TUNO asks for <code>DeviceManagementConfiguration.ReadWrite.All</code> at the moment you press it — the same write scope the profile deploy in step 5 uses, so no new consent line. The downloads above stay the manual route.</p>`;
+      return;
+    }
+
+    const err = d.error && d.busy !== "audit" && d.busy !== "enforce" ? `<div class="al-dep-err">
+        <b>${escq(d.error.kind === "admin" ? "The tenant refused this" : d.error.kind === "consent" ? "Consent was not granted" : d.error.kind === "throttled" ? "The tenant is throttling" : "Graph refused this")}.</b>
+        <div style="margin-top:4px">${escq(d.error.message)}</div>
+        ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
+      </div>` : "";
+
+    box.innerHTML = `
+      <p class="mini muted" style="margin:0 0 6px">Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.</p>
+      ${err}
+      <div class="al-dep-row">
+        <input id="alDepRemedyName" class="al-dep-in" style="flex:1;min-width:320px" value="${escq(d.remedyName)}" spellcheck="false">
+        <button class="btn primary sm" id="alDepRemedy" ${d.busy ? "disabled" : ""}>${d.busy === "remedy" ? "Creating…" : "🚀 Create the Remediation"}</button>
+      </div>
+      ${d.remedyColl && d.remedyColl.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
+        <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
+        <ul class="mini al-list" style="margin-top:6px">${d.remedyColl.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+      ${d.remedyCreated ? `<div class="al-dep-ok"><b>Created.</b> ${escq(d.remedyCreated.displayName || d.remedyCreated._name)} — id <code>${escq(d.remedyCreated.id)}</code>, assigned to nobody. In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.</div>` : ""}`;
+
+    const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+    on("alDepRemedy", "click", () => deployRemediation());
+    on("alDepRemedyName", "input", (e) => {
+      deployState.remedyName = e.target.value;
+      // A new name invalidates the last collision verdict — it was about the
+      // old name, and a stop-box against a name nobody is using reads as a
+      // refusal that is not happening.
+      deployState.remedyColl = null;
+    });
+  }
+
   function renderDeploy() {
+    renderRemedy();
     const box = $("alDeploy");
     if (!box) return;
     const d = deployState;
@@ -2172,19 +2236,6 @@ const AppLockerTool = (() => {
         ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
       </div>
 
-      <div class="al-dep-sub">
-        <b class="mini">E · The cleanup pair, as an Intune Remediation</b>
-        <p class="mini muted" style="margin:2px 0 6px">For the migration window on brownfield devices: creates a Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.</p>
-        <div class="al-dep-row">
-          <input id="alDepRemedyName" class="al-dep-in" style="flex:1;min-width:320px" value="${escq(d.remedyName)}" spellcheck="false">
-          <button class="btn primary sm" id="alDepRemedy" ${d.busy ? "disabled" : ""}>${d.busy === "remedy" ? "Creating…" : "🚀 Create the Remediation"}</button>
-        </div>
-        ${d.remedyColl && d.remedyColl.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
-          <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
-          <ul class="mini al-list" style="margin-top:6px">${d.remedyColl.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
-        ${d.remedyCreated ? `<div class="al-dep-ok"><b>Created.</b> ${escq(d.remedyCreated.displayName || d.remedyCreated._name)} — id <code>${escq(d.remedyCreated.id)}</code>, assigned to nobody. In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.</div>` : ""}
-      </div>
-
       <p class="mini muted" style="margin:8px 0 0">Whatever happens here, the <b>Application Identity</b> service still has to be running on the targets or AppLocker does nothing and logs nothing — and removing the assignment is the way back, so test that on the pilot group before the estate depends on it.</p>
     </div>`;
 
@@ -2227,14 +2278,9 @@ const AppLockerTool = (() => {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepAudit", "click", () => deployProfile("Audit"));
     on("alDepEnforce", "click", () => deployProfile("Enforce"));
-    on("alDepRemedy", "click", () => deployRemediation());
-    on("alDepRemedyName", "input", (e) => {
-      deployState.remedyName = e.target.value;
-      // A new name invalidates the last collision verdict — it was about the
-      // old name, and keeping the stop-box up against a name nobody is using
-      // would read as a refusal that is not happening.
-      deployState.remedyColl = null;
-    });
+    // The Remediation controls are wired by renderRemedy() itself — its box
+    // renders on a different cadence, and wiring them here as well would
+    // attach a second listener and double every click into two POSTs.
     on("alDepCancel", "click", () => { deployState.picked = null; renderDeploy(); });
     on("alDepGroupFind", "click", async () => {
       const q = ($("alDepGroupQ") || {}).value || "";

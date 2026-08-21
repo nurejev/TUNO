@@ -235,13 +235,13 @@ where `<TYPE>` is `EXE`, `MSI`, `Script`, `DLL` or `StoreApps`, and the value is
 # Offline (default) — write the profile JSON, review before anything touches a tenant
 .\Convert-TunoAppLockerToIntune.ps1 `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
-    -DisplayName 'Win - Device Security - AppLocker'
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
 # No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
 
 # Online — create the profile in the tenant
 .\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-    -DisplayName 'Win - Device Security - AppLocker'
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
 # No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
 ```
 
