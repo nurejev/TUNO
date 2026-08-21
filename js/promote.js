@@ -66,6 +66,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 53,
+      title: "A refresh restores the session, never the screen",
+      tools: ["TUNO"],
+      builds: [10371],
+      risk: "medium",
+      what: "Splits what 10361 conflated. authInitInner() still ADOPTS the cached account on refresh (active account set, silent tokens, no fresh authorization → no MFA) but now always returns false for the refresh paths, so every F5 lands on the sign-in screen; only handleRedirectPromise() returning an account — the completion of an actual interactive sign-in — enters directly. The screen shows a note naming whose session will be continued (new #loginResume, hidden when there is none, hidden again on sign out), and signIn() short-circuits: with an adopted account the click calls enter() with NO loginPopup/loginRedirect at all. Multi-account-none-active is unchanged (nothing adopted, interactive chooser runs); sign out clears the local account so a just-ended session cannot take the short-circuit.",
+      why: "MEDIUM — auth entry flow, everything passes through it, and it reverses half of a fix that graduated reasoning: the deliberate-entry gate matters more now that 10370 made a tenant write reachable before any policy upload. The restore half of 10361 is untouched, so the MFA regression it fixed cannot return by this change alone — but the redirect return path and real-IdP behaviour are only argued here, not executed. Graduates on one manual pass of the four flows against the real IdP.",
+      test: [
+        "THE ONE THAT MATTERS: sign in, F5. You must land on the sign-in screen, see your own UPN in the note, and clicking Sign in must enter with NO account picker, NO password, NO MFA — instantly. If MFA appears, the restore half regressed; if the app appears without the click, the gate half regressed.",
+        "Close the tab, reopen the site: sign-in screen with NO note, and the click runs a full interactive sign-in (sessionStorage is per-tab by design).",
+        "Use the no-popup redirect link end to end: landing back from the IdP must enter the app DIRECTLY — that path is a sign-in completing, not a refresh, and forcing a second click there would loop.",
+        "Sign out, then click Sign in again: it must ASK (chooser/credentials), not silently re-enter the session just ended — the short-circuit must be dead after sign out, and the note gone.",
+        "With two accounts cached and none active (sign in to A, sign out, sign in to B in another tab of the same session if reproducible): the screen must show no note and the click must open the interactive chooser, not guess.",
+      ],
+      files: ["js/app.js", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 52,
       title: "The cleanup pair deploys as a Remediation",
       tools: ["🔐 AppLocker builder & validator"],

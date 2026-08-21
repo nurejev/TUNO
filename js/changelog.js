@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10371, date: "2026-08-21", title: "A refresh restores the session, never the screen",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Refreshing the page no longer drops you straight into the app. Every refresh lands on the sign-in screen, always — entering a tool that can write to a tenant is a deliberate act, not a side effect of pressing F5. Build 10361 fixed the MFA-on-every-refresh problem by restoring the cached session, but over-corrected by also skipping the screen; the two are now split. The session is still restored underneath, so nothing is paid for the gate: the sign-in screen names whose session will be continued, and clicking Sign in enters without a popup, a redirect, or a new authorization — and therefore without MFA. Closing the tab still drops the session entirely, sign out still ends it properly, and coming back from the no-popup redirect flow still enters directly, because that is the completion of a sign-in, not a refresh." },
+    ],
+  },
+  {
     build: 10370, date: "2026-08-21", title: "Cleanup deploy moves up to step 1, and the names take their final form",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The Remediation deploy moved from the bottom of the page into a collapsed panel right under the script downloads in step 1 — because that is where it belongs in time. The cleanup pair runs at the START of a brownfield migration, before there is any policy to upload or export, so the section no longer waits behind step 5 and no longer requires a policy at all: sign in, open the panel, create. It stays collapsed by default because it writes to the tenant, and a write should be opened deliberately, not scrolled past. Everything else about it is unchanged — read first, stop on a name collision, created unassigned." },
