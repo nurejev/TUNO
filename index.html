@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10358"></script>
+<script src="js/popup-guard.js?v=10359"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10358">
+<link rel="stylesheet" href="css/app.css?v=10359">
 </head>
 <body>
 
@@ -121,6 +121,10 @@
       <div class="tool" id="toolDocs">
         <div class="tool-ic">📄</div><h3>Configuration documenter <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Every policy in the tenant, in one list you can filter and read — settings expanded underneath, assignments resolved to group names. Then write it down: Markdown for a wiki, a standalone HTML page, or a Word document for the auditor who will edit it. <b>Secrets are redacted and that cannot be switched off</b> — a script body or a certificate in a document somebody emails is a disclosure you cannot recall. A section that could not be read is named as unreadable rather than left out silently.</p>
+      </div>
+      <div class="tool" id="toolSetSearch">
+        <div class="tool-ic">🔦</div><h3>Settings search <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>“Which policies configure BitLocker, and to what value?” — answered from the <b>setting definitions</b> rather than the policy names. One read brings Microsoft's settings-catalog definition catalog, roughly seventeen thousand entries, searched as you type with ranked matching over names, keywords and descriptions. A second, separate read brings the tenant's own settings-catalog policies, so each result can say <b>who sets it and to what</b> — and until that read has run, the column says absent rather than empty. <b>Values pass the documenter's redaction gate</b>: a settings search is exactly the tool somebody uses to hunt for “password”, and it will not become a disclosure engine with a search box.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>🕓 Monitoring</h3><p>What changed, and who changed it.</p></div>
@@ -760,6 +764,41 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="hlBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ SETTINGS SEARCH (T10) ============
+       Searches the definition catalog (Microsoft's), then optionally the
+       tenant's policies (yours). Values pass Docs.redactValue — ONE gate. -->
+  <section id="screen-setsearch" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🔦 Settings search <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Search across what <b>can</b> be configured — the settings-catalog definition catalog, roughly seventeen thousand definitions — and then across what <b>is</b>: which of the tenant's policies set a matching definition, and to what value. The last piece of Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> (MIT) worth having. The 📄 Configuration documenter searches the settings of policies it has read — that finds a setting only if you already know which policy holds it; this searches the other way round. <b>Reads only.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Two reads, deliberately separate.</b> The catalog is Microsoft's and says nothing about your tenant; it is read once per session and searched in memory. The tenant read is the same one-request-per-policy cost the backup pays, and it is optional — until it runs, the “set by” column is <b>absent, not empty</b>. Secret-bearing values are redacted through the documenter's own gate, with no switch to turn that off.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="ssCatalogBtn">① Read the definition catalog</button>
+        <button class="btn" id="ssUsageBtn">② Read the tenant's policies (who sets what)</button>
+        <button class="btn" id="ssMd" style="display:none">⭳ Export MD</button>
+      </div>
+      <div id="ssState" class="gu-sum" style="margin-top:10px"></div>
+      <div id="ssSearchWrap" style="display:none;margin-top:12px">
+        <div class="wi-grid">
+          <label class="wi-f"><span>Search</span>
+            <input id="ssQuery" placeholder="e.g. bitlocker recovery, defender asr, screen timeout…" autocomplete="off" spellcheck="false"></label>
+          <label class="wi-f"><span>Platform</span>
+            <select id="ssPlatform">
+              <option value="">All platforms</option>
+              <option>Windows</option><option>macOS</option><option>iOS/iPadOS</option><option>Android</option><option>Linux</option>
+            </select></label>
+        </div>
+        <p class="mini muted" style="margin:8px 0 0">Every word must match somewhere. A name that starts with the term outranks a name that contains it, which outranks a keyword, which outranks the description.</p>
+      </div>
+      <div id="ssProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="ssBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ROADMAP ============ -->
   <section id="screen-roadmap" class="screen">
     <div class="help-page">
@@ -825,6 +864,12 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0">Distinct from what <span class="rm-ref">R04</span>'s sweep already finds. That reports <b>dangling</b> references — an assignment naming a group the directory no longer has. An empty group still exists; it simply has nobody in it, which is a different fault with the same symptom.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped with three findings the card did not promise:</b> excluded-only policies (every assignment an exclusion — nothing to carve from), one group included <i>and</i> excluded on the same policy (the exclusion wins; the include reads as reach), and deleted-group references listed per assignment. Deployment failures are read where Graph keeps a cheap per-policy status, and <b>the surfaces that keep theirs behind the reports API are named as unchecked</b> rather than passed off as healthy. Enrolment defaults are exempt from the unassigned finding — unassigned is their normal state.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R14</span> 🔦 Settings search <span class="tag grant">live · beta 10359</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">The last piece of <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> worth having: search across <b>setting definitions</b> rather than policy names. “Which policies configure BitLocker, and to what value?” — answered against the settings-catalog definition catalog, roughly seventeen thousand definitions, with the abbreviations and near-misses an admin actually types. <span class="rm-ref">R06</span> searches the settings of the policies it has already read, which finds a setting only if you already know which policy holds it; this searches the other way round.</p>
+            <p class="mini" style="margin:6px 0 0">A separate card because it needs a separate thing: the definition catalog itself, which is large, changes as Microsoft ships settings, and has to be fetched and cached rather than derived from the tenant. That is a different problem from reading assignments and it should not be smuggled into a tool that does not have it.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped, with one departure from this card's own caution.</b> The card said the catalog "has to be fetched and cached rather than derived from the tenant" — it is fetched per session and held in memory, not persisted: seventeen thousand definitions store fine in a tab and go stale on disk. Tenant usage is a second, separate read, and until it runs the "set by" column is <b>absent, not empty</b>. Values pass the documenter's redaction gate — the same implementation, because a second copy would be a second place for a pre-shared key to escape.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
@@ -870,11 +915,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Two permission facts, both of which fail at the click rather than at sign-in.</b> Writing needs <code>DeviceManagementConfiguration.ReadWrite.All</code>, which TUNO's registration already declares, and — for app-protection policies — <code>DeviceManagementApps.ReadWrite.All</code>, which it does not. That would be the <b>second write scope in the whole application</b>, and adding one is a decision to take deliberately rather than a line in a script. Reading the Windows catalog needs <code>WindowsUpdates.Read.All</code>: the original asks for <code>ReadWrite</code>, and read is enough, so this asks for less. But the same endpoint also requires the signed-in <i>person</i> to hold <b>Intune Administrator</b> or <b>Windows Update Deployment Administrator</b> as an Entra directory role — an Intune RBAC role will not do it, consent will not fix it, and it surfaces as a 403 on the Windows half only. Better said on the screen before the run than discovered inside it.</p>
             <p class="mini" style="margin:6px 0 0"><b>And one thing that cannot be slipped in quietly: the page would have to talk to a host that is not Microsoft's.</b> TUNO's content-security-policy allows <code>connect-src</code> to <code>graph.microsoft.com</code> and <code>login.microsoftonline.com</code> and nothing else, which is a large part of why the security documentation can say what it says. endoflife.date would be the <b>first third-party origin this application has ever contacted</b>, and what comes back from it decides what gets written into a customer's tenant. Two ways out, and the choice belongs on the table rather than in a commit: widen the policy by exactly one host and say so in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>, or take the target version as something you enter, which keeps the origin list intact and moves the trust to the person pressing the button. The Windows half needs no new origin at all — that catalog is Graph.</p>
             <p class="mini" style="margin:6px 0 0"><b>The rest of the original's safety rules carry over unchanged</b>, because they are the right ones: dry run first and by default, downgrade protection on so a policy is never quietly loosened, and a <b>cadence</b> — a release is not enforced until it has been out long enough for devices to have actually got it, which is the difference between a compliance policy and an outage. TUNO adds the one its own rules require: <code>ReadWrite</code> asked on the click, never at sign-in.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R14</span> 🔦 Settings search</h4>
-            <p class="mini" style="margin:0">The last piece of <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> worth having: search across <b>setting definitions</b> rather than policy names. “Which policies configure BitLocker, and to what value?” — answered against the settings-catalog definition catalog, roughly seventeen thousand definitions, with the abbreviations and near-misses an admin actually types. <span class="rm-ref">R06</span> searches the settings of the policies it has already read, which finds a setting only if you already know which policy holds it; this searches the other way round.</p>
-            <p class="mini" style="margin:6px 0 0">A separate card because it needs a separate thing: the definition catalog itself, which is large, changes as Microsoft ships settings, and has to be fetched and cached rather than derived from the tenant. That is a different problem from reading assignments and it should not be smuggled into a tool that does not have it.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R09</span> 📥 Restore Intune configuration</h4>
@@ -1003,22 +1043,23 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10358"></script>
-<script src="js/version.js?v=10358"></script>
-<script src="js/promote.js?v=10358"></script>
-<script src="js/authConfig.js?v=10358"></script>
-<script src="js/changelog.js?v=10358"></script>
-<script src="js/msappcatalog.js?v=10358"></script>
-<script src="js/graph.js?v=10358"></script>
-<script src="js/groupuse.js?v=10358"></script>
-<script src="js/audit.js?v=10358"></script>
-<script src="js/backup.js?v=10358"></script>
-<script src="js/document.js?v=10358"></script>
-<script src="js/devicewhy.js?v=10358"></script>
-<script src="js/whatif.js?v=10358"></script>
-<script src="js/health.js?v=10358"></script>
-<script src="js/roles.js?v=10358"></script>
-<script src="js/applocker.js?v=10358"></script>
-<script src="js/app.js?v=10358"></script>
+<script src="js/branding.js?v=10359"></script>
+<script src="js/version.js?v=10359"></script>
+<script src="js/promote.js?v=10359"></script>
+<script src="js/authConfig.js?v=10359"></script>
+<script src="js/changelog.js?v=10359"></script>
+<script src="js/msappcatalog.js?v=10359"></script>
+<script src="js/graph.js?v=10359"></script>
+<script src="js/groupuse.js?v=10359"></script>
+<script src="js/audit.js?v=10359"></script>
+<script src="js/backup.js?v=10359"></script>
+<script src="js/document.js?v=10359"></script>
+<script src="js/devicewhy.js?v=10359"></script>
+<script src="js/whatif.js?v=10359"></script>
+<script src="js/health.js?v=10359"></script>
+<script src="js/settingsearch.js?v=10359"></script>
+<script src="js/roles.js?v=10359"></script>
+<script src="js/applocker.js?v=10359"></script>
+<script src="js/app.js?v=10359"></script>
 </body>
 </html>

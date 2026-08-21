@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10359, date: "2026-08-21", title: "Search what can be configured, then who configures it",
+    items: [
+      { kind: "new", tool: "🔦 Settings search", text: "The tenth tool. 'Which policies configure BitLocker, and to what value?' — answered from the setting definitions rather than the policy names. One read brings the settings-catalog definition catalog, roughly seventeen thousand definitions covering everything that can be configured, searched as you type: every word must match somewhere, and a name that starts with the term outranks a name that contains it, which outranks a keyword, which outranks the description. The catalog is Microsoft's, not the tenant's — it says what exists, not what you use." },
+      { kind: "new", tool: "🔦 Settings search", text: "A second, separate read brings the tenant's own settings-catalog policies with their settings, so each search result can say who sets it and to what. Until that read has run, the 'set by' column is absent rather than empty — 'nobody sets this' and 'nobody looked' are different answers and the screen keeps them apart. Child settings are indexed under their own definitions, so a setting configured inside somebody's choice is still found. The documenter finds a setting if you know which policy holds it; this finds the policy when all you know is the setting." },
+      { kind: "new", tool: "🔦 Settings search", text: "Values pass the documenter's redaction gate — the same implementation, deliberately not a copy. A settings search is exactly the tool somebody uses to hunt for 'password', and a result table that printed secret-bearing values would be a disclosure engine with a search box. There is no switch to turn the redaction off, for the same reason the documenter has none." },
+    ],
+  },
+  {
     build: 10358, date: "2026-08-21", title: "The assignments that reach nobody",
     items: [
       { kind: "new", tool: "🩺 Assignment health", text: "The ninth tool. Every finding it makes is the same shape of problem — something that looks configured and is not. Policies assigned to empty groups, which have never applied and never will; assignments naming deleted groups, which target nobody silently and forever; policies with no assignment at all; policies whose every assignment is an exclusion, so there is nothing left to exclude from; and one group both included and excluded on the same policy, where the exclusion wins and the include reads as reach it does not deliver. After Ugur Koc's Intune Assignment Checker, whose idea this is: an assignment reaching an empty group is a finding, not a row." },
