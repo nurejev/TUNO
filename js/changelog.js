@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10368, date: "2026-08-21", title: "The grouping names itself",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The Intune tab no longer suggests \"Pilot\" as the grouping. It prefills the house format instead — AppLocker- followed by a fresh GUID — which is unique the way Microsoft's guidance requires and still recognisable in a cleanup log or a carry-over finding, which a bare GUID is not. A ↻ button mints a new identity for when an export is a genuinely new deployment rather than an edit of an existing profile. The converter does the same when no grouping is supplied, and prints what it generated so it can be recorded." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Why not Pilot and Production as prefilled choices? Because those names encode the exact mistake the grouping rules exist to prevent. The pilot-versus-production distinction lives in which group the one profile is assigned to and whether its mode is audit or enforce — edited in place — not in the grouping name. Two groupings merge on any device that ever received both, and a hand-reusable word is precisely what produces two profiles sharing one, which is the case where removal breaks. Type a name like that anyway and the panel says so: the Intune form now shows every issue with the profile, not only the ones severe enough to block a deploy — a warning nobody can see is a warning that does not exist." },
+    ],
+  },
+  {
     build: 10367, date: "2026-08-21", title: "Help you can navigate, groupings explained, and the folder trap closed",
     items: [
       { kind: "new", tool: "All tools", text: "Help gained section links, the way ENCA has them: one pill per section, in page order, jumping to the section with the sticky header accounted for. And the four newest tools — Assignment what-if, Assignment health, the Assignment editor and Settings search — finally have help sections at all, each written around its honest limits rather than its feature list. The Waiting-for-production pill appears only where the queue itself does." },

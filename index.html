@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10367"></script>
+<script src="js/popup-guard.js?v=10368"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10367">
+<link rel="stylesheet" href="css/app.css?v=10368">
 </head>
 <body>
 
@@ -305,8 +305,11 @@
             </div>
             <div class="al-intune-form" id="alIntuneForm" style="display:none">
               <label class="al-f"><span>Profile name</span><input id="alIntuneName" spellcheck="false"></label>
-              <label class="al-f"><span>Grouping <b title="The grouping names a CSP node. Microsoft's guidance is that it must be UNIQUE — a randomly generated GUID is the best practice — because two profiles sharing a grouping write the same OMA-URIs, and unassigning one can delete the nodes the other depends on. Use one grouping per profile and move from audit to enforce by editing that profile, not by adding a second.">ⓘ</b></span><input id="alIntuneGrouping" spellcheck="false"></label>
+              <label class="al-f"><span>Grouping <b title="The grouping names a CSP node and must be UNIQUE per profile — Microsoft's stated best practice is a random GUID, because two profiles sharing a grouping write the same OMA-URIs and unassigning one can delete the nodes the other depends on. TUNO prefills AppLocker-<guid>: unique like a GUID, recognisable in logs and carry-over findings. Do NOT name it pilot or production — that distinction lives in the assignment and the mode, edited in place.">ⓘ</b></span>
+                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneGrouping" spellcheck="false" style="flex:1;min-width:0">
+                <button class="btn" id="alIntuneRegroup" title="Mint a fresh AppLocker-<guid> grouping — use when this export is a NEW deployment rather than an edit of an existing profile">↻</button></span></label>
               <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
+              <div class="al-f-note" id="alIntuneIssues" style="flex-basis:100%"></div>
               <p class="al-f-note">DLL is <b>left out of the profile entirely</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. It is omitted rather than marked NotConfigured because a collection in that state <b>carrying rules is enforced</b>, which would be the opposite of the intent. Absence is the only state that restricts nothing.</p>
             </div>
             <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
@@ -371,12 +374,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
                 <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
 .\Convert-TunoAppLockerToIntune.ps1 `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
-    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'
+    -DisplayName 'Win - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
 
 # Online — create the audit profile in the tenant
 .\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'</pre>
+    -DisplayName 'Win - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.</pre>
                 <p class="mini"><b>Then, in every case:</b></p>
                 <ol class="mini al-list">
                   <li><b>Assign the AuditOnly profile first</b>, to a small pilot group. Nothing here assigns anything for you — an AppLocker policy landing on a group by accident is not a recoverable afternoon.</li>
@@ -1080,7 +1085,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <h3 id="help-grouping" style="margin:14px 0 6px">🏷 AppLocker groupings — what they are, and why yours must be unique</h3>
         <p class="mini" style="margin:0 0 10px"><b>What a grouping is.</b> When Intune delivers AppLocker, each rule collection is written to a CSP node whose address includes a name you choose: <code>./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/<b>{Grouping}</b>/EXE/Policy</code>. That name is the policy's <b>identity on the device</b> — not a label, an address. Everything else about groupings follows from that one fact.</p>
         <p class="mini" style="margin:0 0 10px"><b>The why, in three consequences.</b> ① <b>Different groupings merge.</b> A device holding groupings <code>A</code> and <code>B</code> enforces both — deny beats allow across all of them, and a collection missing from <code>B</code> does not switch off its counterpart in <code>A</code>. Deploying a second grouping therefore never replaces the first; it stacks on it. ② <b>Same grouping means same address</b>, so two Intune <i>profiles</i> sharing a grouping write to identical nodes — and Microsoft's own warning is that removal then breaks: <i>“Delete/unenrollment is not properly supported unless Grouping values are unique… the best practice is to use a randomly generated GUID.”</i> Unassign one profile and the CSP can delete the nodes the other still depends on, leaving orphaned policy nothing in the portal points at. ③ <b>Apply and delete both reboot the device</b> — the CSP's Policy nodes carry automatic reboot behaviour, so neither rollout nor rollback is quiet.</p>
-        <p class="mini" style="margin:0 0 10px"><b>How to use it, then.</b> One profile, one grouping, a GUID — and you move from audit to enforce by <b>editing that profile in place</b>, never by assigning a second profile beside it. When migrating a device that already carries policy: unassign the old profile first (Intune sends the CSP delete), run <code>Clear-TunoAppLockerPolicy.ps1</code> to sweep what unassignment leaves behind, then deploy under a <b>new</b> grouping. The cleanup names every MDM grouping it finds on the device — the supported removal for a live grouping is unassigning its profile, and <code>-RemoveMdmGroupings</code> exists for the orphans the shared-grouping bug leaves. The tool's Intune tab and the converter both warn when a grouping looks wrong, and the carry-over findings show what other groupings already put on the device.</p>
+        <p class="mini" style="margin:0 0 10px"><b>How to use it, then.</b> One profile, one grouping, a GUID — and you move from audit to enforce by <b>editing that profile in place</b>, never by assigning a second profile beside it. When migrating a device that already carries policy: unassign the old profile first (Intune sends the CSP delete), run <code>Clear-TunoAppLockerPolicy.ps1</code> to sweep what unassignment leaves behind, then deploy under a <b>new</b> grouping. The cleanup names every MDM grouping it finds on the device — the supported removal for a live grouping is unassigning its profile, and <code>-RemoveMdmGroupings</code> exists for the orphans the shared-grouping bug leaves. T01 prefills the house format — <code>AppLocker-&lt;guid&gt;</code>, unique like the GUID Microsoft asks for, recognisable in logs unlike a bare one — with a ↻ button to mint a fresh identity for a genuinely new deployment; the converter generates the same when <code>-Grouping</code> is omitted. Resist naming groupings <i>pilot</i> or <i>production</i>: that distinction lives in the assignment and the mode, and a hand-reusable word is exactly what produces two profiles sharing a grouping. The Intune tab warns when it sees one, and the carry-over findings show what other groupings already put on the device.</p>
         <h3 id="help-whatif" style="margin:14px 0 6px">🔮 Assignment what-if</h3>
         <p class="mini" style="margin:0 0 10px">What would change if this user or device joined, or left, that group — asked while the change is still cheap to reverse. Memberships today are read transitively, the hypothetical set is built (joining a group adds everything it is nested under; leaving severs one edge and rebuilds what remains), and every assignment surface is read once with each policy's effect computed under both sets. The difference is the answer. Reads only.</p>
         <p class="mini" style="margin:0 0 10px"><b>Four states, not two</b> — gained, lost, pre-excluded, unchanged — because <b>joining a group can take policy away</b>: an exclusion met by joining is a loss, and that is the most surprising row this tool produces. A filtered assignment stays <i>may</i> in both directions; a dynamic group cannot be joined by hand, so that answer is labelled conditional on the rule; an app with intent uninstall that starts to apply says <i>will be uninstalled</i>, not gained.</p>
@@ -1177,24 +1182,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10367"></script>
-<script src="js/version.js?v=10367"></script>
-<script src="js/promote.js?v=10367"></script>
-<script src="js/authConfig.js?v=10367"></script>
-<script src="js/changelog.js?v=10367"></script>
-<script src="js/msappcatalog.js?v=10367"></script>
-<script src="js/graph.js?v=10367"></script>
-<script src="js/groupuse.js?v=10367"></script>
-<script src="js/audit.js?v=10367"></script>
-<script src="js/backup.js?v=10367"></script>
-<script src="js/document.js?v=10367"></script>
-<script src="js/devicewhy.js?v=10367"></script>
-<script src="js/whatif.js?v=10367"></script>
-<script src="js/health.js?v=10367"></script>
-<script src="js/settingsearch.js?v=10367"></script>
-<script src="js/assignedit.js?v=10367"></script>
-<script src="js/roles.js?v=10367"></script>
-<script src="js/applocker.js?v=10367"></script>
-<script src="js/app.js?v=10367"></script>
+<script src="js/branding.js?v=10368"></script>
+<script src="js/version.js?v=10368"></script>
+<script src="js/promote.js?v=10368"></script>
+<script src="js/authConfig.js?v=10368"></script>
+<script src="js/changelog.js?v=10368"></script>
+<script src="js/msappcatalog.js?v=10368"></script>
+<script src="js/graph.js?v=10368"></script>
+<script src="js/groupuse.js?v=10368"></script>
+<script src="js/audit.js?v=10368"></script>
+<script src="js/backup.js?v=10368"></script>
+<script src="js/document.js?v=10368"></script>
+<script src="js/devicewhy.js?v=10368"></script>
+<script src="js/whatif.js?v=10368"></script>
+<script src="js/health.js?v=10368"></script>
+<script src="js/settingsearch.js?v=10368"></script>
+<script src="js/assignedit.js?v=10368"></script>
+<script src="js/roles.js?v=10368"></script>
+<script src="js/applocker.js?v=10368"></script>
+<script src="js/app.js?v=10368"></script>
 </body>
 </html>

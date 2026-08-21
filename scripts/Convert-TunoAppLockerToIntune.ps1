@@ -47,6 +47,10 @@ One or more AppLocker policy XML files. Each produces its own Intune profile.
 
 .PARAMETER Grouping
 The grouping segment of the OMA-URI, which names a CSP node. MAKE IT UNIQUE PER PROFILE.
+When omitted, one is GENERATED in the house format 'AppLocker-<guid>' and printed -
+unique as Microsoft's guidance requires, recognisable in logs unlike a bare GUID. Do
+not name it Pilot or Production: that distinction belongs in the assignment and the
+enforcement mode of one profile edited in place, not in the grouping.
 
 Microsoft: "Delete/unenrollment is not properly supported unless Grouping values are
 unique across enrollments. If multiple enrollments use the same Grouping value, then
@@ -104,13 +108,16 @@ Online  : the created deviceConfiguration objects.
 # The normal case - convert both exports to JSON, review before anything touches a tenant.
 PS> .\Convert-TunoAppLockerToIntune.ps1 `
         -XmlPath .\AppLockerRules-Audit-20260819-1530.xml, .\AppLockerRules-Enforce-20260819-1530.xml `
-        -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'
+        -DisplayName 'Win - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Import ONE of the
+# two profiles; move it from audit to enforce later by EDITING it, not by importing
+# the second beside it.
 
 .EXAMPLE
 # Create the audit profile in the tenant.
 PS> .\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
         -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-        -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker' `
+        -DisplayName 'Win - Device Security - AppLocker' `
         -NameSuffix '(AuditOnly) - R1 - v1.0'
 
 .EXAMPLE
@@ -122,7 +129,7 @@ PS> Invoke-MgGraphRequest -Method POST `
         -Body $body -ContentType 'application/json'
 
 .NOTES
-Version   : 1.3.0
+Version   : 1.4.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Standalone: no dependency on any customer-connection harness. In online mode it uses
@@ -138,7 +145,7 @@ param(
     [Parameter(Mandatory)]
     [string[]]$XmlPath,
 
-    [Parameter(Mandatory)]
+    [Parameter()]
     [string]$Grouping,
 
     [Parameter()]
@@ -173,8 +180,8 @@ $ErrorActionPreference = 'Stop'
 # See the note in Invoke-TunoAppLockerScan.ps1: ScriptVersion is this file's own
 # history, TunoBuild is the site build that served it, and a headless test holds
 # TunoBuild to js/version.js so they cannot drift.
-$script:ScriptVersion = '1.3.0'
-$script:TunoBuild = 10367
+$script:ScriptVersion = '1.4.0'
+$script:TunoBuild = 10368
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 
@@ -415,7 +422,16 @@ function New-IntuneProfileInTenant {
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 $Grouping = ($Grouping -replace '\s', '').Trim()
-if (-not $Grouping) { throw '-Grouping cannot be empty once whitespace is removed.' }
+if (-not $Grouping) {
+    # No grouping supplied: generate the house format. Unique like the GUID
+    # Microsoft's guidance asks for, recognisable in logs unlike a bare one.
+    # Deliberately NOT 'Pilot' or 'Production' - that distinction lives in the
+    # assignment and the enforcement mode of ONE profile edited in place, and a
+    # hand-reusable word is exactly what produces two profiles sharing a
+    # grouping, which is the case where removal breaks.
+    $Grouping = 'AppLocker-' + [guid]::NewGuid().ToString()
+    Write-Note "No -Grouping supplied - generated '$Grouping'. Record it: it is this deployment's identity on every device, and the cleanup log will name it."
+}
 # The grouping becomes one segment of the OMA-URI. A slash in it silently creates
 # a different, wrong CSP node - the profile is accepted and simply never applies.
 if ($Grouping -notmatch '^[A-Za-z0-9_.-]+$') {

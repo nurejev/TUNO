@@ -73,7 +73,19 @@ const AppLockerTool = (() => {
   let scan = null;          // the uploaded TUNO scan bundle, or null
   let scanSource = "";      // "generated-audit" | "generated-enforce" | "effective"
   let pane = "xml";         // which artefact the code panel is showing
-  const intuneCfg = { displayName: "Win - Device Security - AppLocker", grouping: "Pilot", mode: "Audit" };
+  // The grouping default is GENERATED, not a word. Microsoft's guidance is that
+  // groupings must be unique (removal breaks on duplicates — the CSP deletes
+  // duplicate URIs) and recommends a random GUID; a bare GUID, though, is
+  // unreadable in the cleanup log and the carry-over findings, so the house
+  // format is a recognisable prefix plus the GUID. Deliberately NOT "Pilot" or
+  // "Production": that distinction lives in the ASSIGNMENT (which group the one
+  // profile is assigned to) and the MODE (audit or enforce, edited in place) —
+  // encoding it in the grouping name is how two groupings end up merged on a
+  // device that saw both.
+  const newGrouping = () => "AppLocker-" + newGuid();
+  // grouping is filled in just below newGuid's definition — calling it here
+  // would be a use-before-init on the const.
+  const intuneCfg = { displayName: "Win - Device Security - AppLocker", grouping: "", mode: "Audit" };
 
   // AppLocker rule-collection Type → the segment the AppLocker CSP expects in the
   // OMA-URI. Anything not in here has no CSP node and cannot be shipped by Intune.
@@ -82,6 +94,7 @@ const AppLockerTool = (() => {
 
   const newGuid = () => ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+  intuneCfg.grouping = newGrouping();
 
   // ================================================================
   // PARSE — AppLocker policy XML → model
@@ -253,6 +266,12 @@ const AppLockerTool = (() => {
     if (!policy) return out;
     if (!intuneGrouping()) out.push({ sev: "High", text: "The grouping is empty. The OMA-URI has no identity without it and the profile will not apply." });
     else if (!/^[A-Za-z0-9._-]+$/.test(intuneGrouping())) out.push({ sev: "Medium", text: "The grouping contains characters other than letters, digits, dot, dash and underscore. The CSP node name is part of a URI — keep it simple." });
+    // A hand-reusable word is exactly what produces two profiles sharing a
+    // grouping — the case Microsoft says breaks removal. Warn, do not block:
+    // the field is editable precisely so a deliberate choice stays possible.
+    else if (/^(pilot|prod|production|test|tst|acc|acceptance|audit|auditonly|enforce|enforced|applocker|default|standard)$/i.test(intuneGrouping())) {
+      out.push({ sev: "Medium", text: `The grouping '${intuneGrouping()}' is the kind of name that gets typed again. Groupings must be unique per profile — two profiles sharing one write the same CSP addresses, and unassigning one can delete the nodes the other depends on. Use the generated 'AppLocker-<guid>' (the ↻ button mints a fresh one); the pilot/production distinction belongs in the assignment and the mode, not in this name.` });
+    }
     if (!(intuneCfg.displayName || "").trim()) out.push({ sev: "Medium", text: "The profile has no display name. Intune will accept it and nobody will ever find it again." });
     const unmapped = policy.collections.filter((c) => !OMA_TYPE[c.type]);
     if (unmapped.length) out.push({ sev: "Medium", text: `Collection${unmapped.length === 1 ? "" : "s"} ${unmapped.map((c) => c.type).join(", ")} ${unmapped.length === 1 ? "has" : "have"} no AppLocker CSP node and ${unmapped.length === 1 ? "is" : "are"} left out of the profile.` });
@@ -1358,6 +1377,16 @@ const AppLockerTool = (() => {
     const one = part === "all" ? null : policy.collections.find((c) => c.type === part);
 
     if (pane === "intune") {
+      // The issues list, ALL severities. The deploy panel filters to High
+      // because it decides whether to block a write; here the question is "is
+      // this profile right", and a Medium warning nobody can see — the
+      // reusable-grouping one above all — is a warning that does not exist.
+      const issuesBox = $("alIntuneIssues");
+      if (issuesBox) {
+        const iss = intuneIssues();
+        issuesBox.innerHTML = iss.map((i) => `<div style="margin-top:4px">${i.sev === "High" ? "⛔" : "⚠️"} ${esc(i.text)}</div>`).join("");
+        issuesBox.style.display = iss.length ? "" : "none";
+      }
       const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
       if (one) {
         if (name) name.textContent = `AppLocker-${one.type}-OMA-URI.xml`;
@@ -1919,6 +1948,13 @@ const AppLockerTool = (() => {
     };
     bind("alIntuneName", "displayName");
     bind("alIntuneGrouping", "grouping");
+    const regroup = $("alIntuneRegroup");
+    if (regroup) regroup.addEventListener("click", () => {
+      intuneCfg.grouping = newGrouping();
+      const inp = $("alIntuneGrouping");
+      if (inp) inp.value = intuneCfg.grouping;
+      renderCodePane();
+    });
     bind("alIntuneMode", "mode");
     // The deploy panel reads the same three fields, so it has to be redrawn
     // when they change — otherwise it offers to create a profile under a name

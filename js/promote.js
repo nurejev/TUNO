@@ -66,6 +66,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 51,
+      title: "The grouping names itself",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10368],
+      risk: "low",
+      what: "The Intune tab's grouping default is generated — 'AppLocker-' + GUID — instead of the literal 'Pilot', with a ↻ button to mint a fresh identity; the converter generates the same when -Grouping is omitted (now optional, 1.4.0) and prints it. Deliberately NOT prefilled pilot/production choices: that distinction lives in the assignment and the mode of ONE profile edited in place, and a hand-reusable word is what produces two profiles sharing a grouping — the broken-removal case. Typing such a word (pilot, production, test, audit, enforce, default …) raises a Medium issue. And the issues list is now VISIBLE: a new box under the Intune form shows all severities, where previously only High issues rendered (in the deploy gate) and every Medium warning was computed and shown nowhere.",
+      why: "LOW — defaults and warnings; nothing changes in generated rule content, and the field stays editable so any deliberate choice still works. The invisible-Medium fix matters beyond this feature: the charset and display-name warnings were also silent. Graduates on sight plus one converter run.",
+      test: [
+        "Open the Intune tab on a fresh load: the grouping must read AppLocker-<guid>, the profile's OMA-URIs must carry it, and ↻ must mint a different one with the JSON following.",
+        "Type 'Pilot' into the grouping: a visible warning must appear under the form saying why, and typing a GUID-style name must clear it.",
+        "Run the converter WITHOUT -Grouping: it must generate, print, and use AppLocker-<guid>. With -Grouping still supplied, behaviour unchanged.",
+        "THE ONE THAT MATTERS: confirm the old advice is gone everywhere — no example, tooltip or doc still says to reuse one grouping across audit and enforce profiles, and none prefills 'Pilot'. Grep is the test; a stale example outlives any UI.",
+        "Blank the grouping and confirm the High 'no identity' issue still shows and the deploy gate still blocks.",
+      ],
+      files: ["js/applocker.js", "index.html", "scripts/Convert-TunoAppLockerToIntune.ps1", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 50,
       title: "Help TOC, the grouping explainer, and the folder trap",
       tools: ["All tools", "🔐 AppLocker builder & validator"],
