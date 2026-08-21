@@ -66,6 +66,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 49,
+      title: "The IT-TOOLS house convention",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10366],
+      risk: "medium",
+      what: "House convention encoded in both producers and the docs. (1) Standing allow rules for %OSDRIVE%\\ProgramData\\IT-TOOLS\\Apps\\* and \\Scripts\\* in every generated Exe/Msi/Script collection — scanner's New-DefaultRuleSet and T01's DEFAULT_RULES both — so they never have to be remembered. AppLocker has no %PROGRAMDATA% variable; %OSDRIVE%\\ProgramData is the correct macro form. (2) The scan gains Test-ItToolsAllowedPath: a user-writable directory inside a house folder raises a live-bypass warning, louder than the IME case because here the policy itself hands out the permission. (3) The audit reports house-rule paths at Info with the ACL condition stated, instead of the generic Medium ProgramData flag — the 10315 no-arguing-with-own-defaults rule. (4) Clear-TunoAppLockerPolicy.ps1's default log folder moved from C:\\DVL-Logs to $env:ProgramData\\IT-TOOLS\\LOGS (script 1.1.0; scan 1.8.0). Convention documented in README and checklist.",
+      why: "MEDIUM — this widens every generated policy by two path allows for Everyone, by design. The safety of that rests entirely on the ACL claim, which only the scan can check and only on devices that get scanned. If the IME packaging that creates IT-TOOLS ever creates it with inherited user-write access, the standing allow is a standing hole on every device — which is exactly what the new warning exists to catch, and why the ACL check needs to be seen firing once before this is trusted.",
+      test: [
+        "THE ONE THAT MATTERS: on a real device, check the ACL on %ProgramData%\\IT-TOOLS\\Apps and \\Scripts (icacls). If Users or Authenticated Users can write, fix the deployment BEFORE this promotes — the rules make that a bypass. Then make a subfolder user-writable deliberately, re-scan, and confirm the live-bypass warning fires and names the path.",
+        "Generate a policy and confirm both house rules appear in Exe, Msi AND Script, as %OSDRIVE%\\ProgramData\\IT-TOOLS\\..., and NOT in Dll or Appx.",
+        "Drop an unsigned exe into IT-TOOLS\\Apps on an audit-policied device and run it as a standard user: it must produce NO 8003 event (it is allowed — that is the point). Then drop the same exe into IT-TOOLS\\LOGS and confirm it IS audited — LOGS deliberately has no rule.",
+        "In T01, add default rules and confirm the audit shows the house rules at Info naming the ACL condition — not Medium, and not absent.",
+        "Run the cleanup and confirm the log and backups land in %ProgramData%\\IT-TOOLS\\LOGS, created if missing, including when run as SYSTEM via Intune.",
+        "Check the checklist and README state the convention and the LOGS-has-no-rule rule; this is the page a future admin reads when wondering why these rules are in every policy.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/README.md", "scripts/AppLocker-Implementation-Checklist.md", "js/applocker.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 48,
       title: "Findings that do not fit become a summary that says so",
       tools: ["🔐 AppLocker builder & validator"],

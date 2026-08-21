@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10366, date: "2026-08-21", title: "The IT-TOOLS house convention, so nobody has to remember it",
+    items: [
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "Everything IT puts on an endpoint lives under ProgramData\\IT-TOOLS, and the policy machinery now knows it. The Apps and Scripts folders get standing allow rules in every generated Exe, MSI and Script collection — from the scanner and from the tool's own add-default-rules — so IT-deployed tooling always runs without anyone remembering to add the rule. AppLocker has no ProgramData variable, so the rules are written against the OS drive, which lands on the same folder on every standard install." },
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "A standing allow is only as strong as the folder's permissions, and that condition is enforced rather than hoped for. The folders must be writable by SYSTEM and Administrators alone — the Intune Management Extension deploys as SYSTEM, so delivery keeps working — and the device scan now checks exactly that: a user-writable directory inside a house folder raises the loudest warning the scan has, because at that point the standing allow is a live bypass a standard user can walk through. The audit, for its part, reports the house rules at Info instead of flagging the tool's own convention as a risk on every run — with the ACL condition stated, and a pointer at what a clean scan proves." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The cleanup script's logs and backups moved home: ProgramData\\IT-TOOLS\\LOGS, the same convention, instead of a folder in the drive root. LOGS deliberately gets no allow rule — logs are not executables. The convention is written down in the scripts README and the implementation checklist, which is where it will outlive anybody's memory, including this tool's." },
+    ],
+  },
+  {
     build: 10365, date: "2026-08-21", title: "Findings that do not fit become a summary that says so",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Beside the XML panel the findings card is roughly half a screen, and a six-column table in half a screen wraps its reason column into one word per line — rows five hundred pixels tall saying almost nothing. The card now carries two renderings of the same list and shows whichever fits its own width: in the narrow column, a compact summary — severity, collection, rule and the reason clamped to three lines — ending in a button that opens the full screen view; anywhere the card has room, the full table exactly as before. The recommendations and one-click fixes live where there is space for them, and the summary says so instead of squeezing them into a column where the fix button was the first thing pushed off the edge." },

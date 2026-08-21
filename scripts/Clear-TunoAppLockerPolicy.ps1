@@ -47,7 +47,8 @@ WHAT IT DOES:
      if that is true; exit 1 otherwise, so Intune reports the device, not the wish.
 
 .PARAMETER LogFolder
-Where the log and the backups go. Default C:\DVL-Logs.
+Where the log and the backups go. Default %ProgramData%\IT-TOOLS\LOGS - the house
+convention for everything IT writes on an endpoint.
 
 .PARAMETER ClearEventLogs
 Also clear the four AppLocker event logs - AFTER exporting them to the log folder.
@@ -58,7 +59,7 @@ Also stop AppIDSvc and set it to Manual. Off by default: the next policy needs i
 Use only when AppLocker is being retired, not replaced.
 
 .NOTES
-Version   : 1.0.0
+Version   : 1.1.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppLockerPolicy.ps1), run as
@@ -72,15 +73,15 @@ Reboot    : clearing CSP-delivered policy via profile unassignment reboots the d
 
 [CmdletBinding()]
 param(
-    [string]$LogFolder = 'C:\DVL-Logs',
+    [string]$LogFolder = "$env:ProgramData\IT-TOOLS\LOGS",
     [switch]$ClearEventLogs,
     [switch]$DisableAppIdService
 )
 
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
-$script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10365
+$script:ScriptVersion = '1.1.0'
+$script:TunoBuild = 10366
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
@@ -223,6 +224,6 @@ else {
     # Exit 1, deliberately. To Intune Remediations 0 means remediated; reporting a
     # half-clean device as clean hides exactly the machines that need a human.
     Write-Log "RESULT: NOT clean ($failures check(s) failed). See the log. Most likely the old profile or GPO is still assigned."
-    Write-Output 'AppLocker cleanup incomplete - see C:\DVL-Logs\AppLocker-Cleanup.log'
+    Write-Output "AppLocker cleanup incomplete - see $LogFile"
     exit 1
 }

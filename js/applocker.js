@@ -576,6 +576,15 @@ const AppLockerTool = (() => {
         if (c.kind === "path") {
           const reasons = [], recs = []; let score = -1;
           const cond = c.path;
+          // The IT-TOOLS house folders are allowed BY CONVENTION — every policy
+          // this tool generates carries these rules, so flagging them Medium on
+          // every audit would be the tool arguing with its own defaults (the
+          // 10315 lesson, again). The fact still gets stated, at Info, with the
+          // condition that makes it safe: the ACL, which the device scan checks.
+          if (r.action === "Allow" && IT_TOOLS_RE.test(cond)) {
+            F("Info", Object.assign({}, base, { condType: "Path", cond, reason: "IT-TOOLS house folder, allowed by convention — IT-deployed applications and scripts land here, written by the Intune Management Extension as SYSTEM.", rec: "Safe exactly as long as the folder's ACL restricts writes to SYSTEM and Administrators. The device scan verifies that and raises a loud warning when it is not true; if a scan bundle is loaded and no such warning appears among the findings, the ACL was checked and held." }));
+            continue;
+          }
           if (r.action === "Allow") {
             for (const k of PATH_RISKS) {
               if (k.re.test(cond)) {
@@ -792,21 +801,38 @@ const AppLockerTool = (() => {
   function mkRule(nodeName, name, sid, action, conditions, description) {
     return { nodeName, id: newGuid(), name, description: description || `Added by ${BRANDING.name} ${APP_BUILD.label}`, sid, action, conditions, exceptions: [] };
   }
+  // The IT-TOOLS house rules: %ProgramData%\IT-TOOLS\Apps and \Scripts are where
+  // IT-deployed tooling lands (written by IME as SYSTEM), and the convention is
+  // that every Exe/Msi/Script policy allows them WITHOUT anyone having to
+  // remember to add the rule. AppLocker has no %PROGRAMDATA% variable, so the
+  // macro form is %OSDRIVE%\ProgramData. The rules are only as strong as the
+  // ACL — SYSTEM and Administrators write, nobody else — and the scan checks
+  // exactly that; the audit reports these paths at Info rather than flagging
+  // the tool's own convention as a finding (the 10315 lesson).
+  const IT_TOOLS_RULES = [
+    ["TUNO: IT-TOOLS house folder (Apps)", "S-1-1-0", { kind: "path", path: "%OSDRIVE%\\ProgramData\\IT-TOOLS\\Apps\\*" }],
+    ["TUNO: IT-TOOLS house folder (Scripts)", "S-1-1-0", { kind: "path", path: "%OSDRIVE%\\ProgramData\\IT-TOOLS\\Scripts\\*" }],
+  ];
+  const IT_TOOLS_RE = /\\ProgramData\\IT-TOOLS\\(Apps|Scripts)(\\|$)/i;
+
   const DEFAULT_RULES = {
     Exe: [
       ["(Default Rule) All files located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],
       ["(Default Rule) All files located in the Windows folder", "S-1-1-0", { kind: "path", path: "%WINDIR%\\*" }],
       ["(Default Rule) All files", "S-1-5-32-544", { kind: "path", path: "*" }],
+      ...IT_TOOLS_RULES,
     ],
     Msi: [
       ["(Default Rule) All digitally signed Windows Installer files", "S-1-1-0", { kind: "publisher", publisher: "*", product: "*", binary: "*", low: "*", high: "*" }],
       ["(Default Rule) All Windows Installer files in %systemdrive%\\Windows\\Installer", "S-1-1-0", { kind: "path", path: "%WINDIR%\\Installer\\*" }],
       ["(Default Rule) All Windows Installer files", "S-1-5-32-544", { kind: "path", path: "*.*" }],
+      ...IT_TOOLS_RULES,
     ],
     Script: [
       ["(Default Rule) All scripts located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],
       ["(Default Rule) All scripts located in the Windows folder", "S-1-1-0", { kind: "path", path: "%WINDIR%\\*" }],
       ["(Default Rule) All scripts", "S-1-5-32-544", { kind: "path", path: "*" }],
+      ...IT_TOOLS_RULES,
     ],
     Dll: [
       ["(Default Rule) All DLLs located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],

@@ -38,6 +38,26 @@ exist, how many executables are in them, whether it can see Downloads content, b
 profiles, `node_modules`, git working copies — and warns loudly when it cannot believe
 you. It will not refuse to run. It will not be quiet either.
 
+### The IT-TOOLS house convention
+
+Everything IT puts on an endpoint lives under `%ProgramData%\IT-TOOLS`, deployed by the
+Intune Management Extension running as SYSTEM:
+
+| Folder | Purpose | In the policy |
+|---|---|---|
+| `IT-TOOLS\Apps` | IT-deployed applications | **Always allowed** — standing rule in every generated Exe/Msi/Script collection |
+| `IT-TOOLS\Scripts` | IT-deployed scripts | **Always allowed** — same standing rule |
+| `IT-TOOLS\LOGS` | Where the scripts here write their logs (the cleanup's default) | Not allowed — logs are not executables |
+
+The standing rules exist so nobody has to remember to add them. AppLocker has no
+`%PROGRAMDATA%` variable, so they are written as `%OSDRIVE%\ProgramData\IT-TOOLS\…`.
+
+**The rules are only as strong as the ACL.** Apps and Scripts must be writable by
+SYSTEM and Administrators alone — an allow rule on a user-writable folder is a door,
+not a policy. The scan checks exactly this and raises a loud warning when a
+user-writable directory sits inside a house folder, because at that point the standing
+allow is a live bypass.
+
 ### The model it builds
 
 | | |

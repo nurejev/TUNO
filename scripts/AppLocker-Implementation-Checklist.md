@@ -60,6 +60,12 @@ A rule allowing `%PROGRAMFILES%\*` is only as strong as the ACLs underneath it.
 - [ ] **No UNC path is allowed** unless you have verified both the share and the NTFS ACLs on it. A browser cannot check this and neither can the XML.
 - [ ] **No wildcard reaches a drive root** — `*`, `C:\*`, `%OSDRIVE%\*` for anyone other than administrators.
 
+### The IT-TOOLS house folders
+
+- [ ] The standing allows for `%OSDRIVE%\ProgramData\IT-TOOLS\Apps` and `…\Scripts` are present in Exe, MSI and Script — every generated policy carries them so IT-deployed tooling always runs, without anyone remembering to add the rule.
+- [ ] **The ACL on both folders restricts writes to SYSTEM and Administrators.** This is the condition the standing allows depend on: a user-writable folder with a standing allow is a live bypass. The scan checks it — a clean scan with no IT-TOOLS warning means it held.
+- [ ] `IT-TOOLS\LOGS` exists for script logging (the cleanup writes there) and has **no** allow rule — logs are not executables.
+
 ### Do not break your own delivery mechanism
 
 - [ ] **`%WINDIR%\IMECache` is allowed and NOT excepted.** Intune stages Win32 apps there and runs the installer from it. Except it and app delivery dies estate-wide, silently, days later.

@@ -183,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.7.0
+Version    : 1.8.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.7.0'
-$script:TunoBuild = 10365
+$script:ScriptVersion = '1.8.0'
+$script:TunoBuild = 10366
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1414,6 +1414,33 @@ function Test-ReferenceMachine {
     }
 }
 
+# The house convention: IT-deployed tooling lives under %ProgramData%\IT-TOOLS.
+# Apps and Scripts get standing allow rules in every generated Exe/Script/Msi
+# collection; LOGS is where scripts write their logs. Deployed by IME as SYSTEM,
+# and the ACLs must keep it that way - the scan warns when they do not.
+$script:ItToolsAllowPaths = @(
+    '%OSDRIVE%\ProgramData\IT-TOOLS\Apps\*'
+    '%OSDRIVE%\ProgramData\IT-TOOLS\Scripts\*'
+)
+
+function Test-ItToolsAllowedPath {
+    <#
+    .SYNOPSIS
+        Is this writable directory inside (or above) a folder the standing
+        IT-TOOLS allow rules point at? If yes, that allow is a live bypass.
+    #>
+    param([Parameter(Mandatory)] [string]$Candidate)
+    $c = $Candidate.TrimEnd('\', '*').TrimEnd('\')
+    if (-not $c) { return $false }
+    foreach ($p in @("$env:ProgramData\IT-TOOLS\Apps", "$env:ProgramData\IT-TOOLS\Scripts")) {
+        $t = $p.TrimEnd('\')
+        if ($c.Equals($t, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if ($c.StartsWith($t + '\', [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if ($t.StartsWith($c + '\', [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    return $false
+}
+
 function Test-ImeProtectedPath {
     <#
     .SYNOPSIS
@@ -1550,6 +1577,20 @@ function New-DefaultRuleSet {
             $rules.Add((New-PathRule -Name "TUNO: Intune Management Extension - software delivery ($ime)" `
                 -Sid $script:SidEveryone -Action 'Allow' -RulePath $ime `
                 -Description 'Allows the Intune Management Extension to stage and run the software it deploys. This is the sanctioned install route on this estate, so it is named explicitly instead of relying on the Windows and Program Files defaults to cover it. Remove this rule only if you also intend to stop deploying Win32 apps and remediation scripts from Intune.' `
+                -ExceptionPaths @()))
+        }
+        # THE HOUSE FOLDERS, always allowed so nobody has to remember them.
+        # %ProgramData%\IT-TOOLS\Apps and \Scripts are where IT-deployed tooling
+        # lands (written by IME running as SYSTEM). AppLocker has no
+        # %PROGRAMDATA% variable, so the macro form is %OSDRIVE%\ProgramData.
+        # THE RULES ARE ONLY AS STRONG AS THE ACL: these folders must be
+        # writable by SYSTEM and Administrators alone, and the scan checks and
+        # warns when they are not - an allow rule on a user-writable directory
+        # is a door, not a policy.
+        foreach ($house in $script:ItToolsAllowPaths) {
+            $rules.Add((New-PathRule -Name "TUNO: IT-TOOLS house folder ($house)" `
+                -Sid $script:SidEveryone -Action 'Allow' -RulePath $house `
+                -Description 'Standing allow for the IT-TOOLS house folders under ProgramData, where IT-deployed applications and scripts land (written by the Intune Management Extension as SYSTEM). Present in every generated policy by design, so it never has to be remembered. The ACL on these folders must restrict writes to SYSTEM and Administrators - the scan verifies this and warns when it is not true.' `
                 -ExceptionPaths @()))
         }
         $collections.Add($type, $rules)
@@ -1921,6 +1962,14 @@ foreach ($p in (@($writablePaths) + @($extraPaths))) {
     if (Test-ImeProtectedPath -Candidate $p) {
         Add-ScanWarning ("'{0}' is user-writable AND belongs to the Intune Management Extension. NO exception was generated for it, because excepting it would break app delivery on every managed device. Fix the permissions on that directory instead - as it stands a standard user can drop an executable into the path your software deployment runs from." -f $p)
         continue
+    }
+    # The standing IT-TOOLS allows make these folders part of the policy's trust
+    # base. A user-writable directory inside one is therefore a LIVE BYPASS -
+    # the allow rule this scan always generates would let a standard user run
+    # whatever they drop there. Louder than the IME case, because here the
+    # policy itself hands out the permission.
+    if (Test-ItToolsAllowedPath -Candidate $p) {
+        Add-ScanWarning ("'{0}' is user-writable AND sits inside an IT-TOOLS house folder that every generated policy ALLOWS. That combination is a live bypass: a standard user can drop an executable there and the standing allow rule runs it. Fix the ACL so only SYSTEM and Administrators can write (IME deploys as SYSTEM, so delivery keeps working), or remove the house rule from the policy before enforcing." -f $p)
     }
     $n = ConvertTo-AppLockerPath -LiteralPath $p
     if ($n.StartsWith('%WINDIR%', 'OrdinalIgnoreCase') -or $n.StartsWith('%SYSTEM32%', 'OrdinalIgnoreCase')) { $normWindir.Add($n) }
