@@ -72,6 +72,9 @@ const AppLockerTool = (() => {
   let shownFindings = [];   // the filtered rows render() last drew, for handlers
   let scan = null;          // the uploaded TUNO scan bundle, or null
   let scanSource = "";      // "generated-audit" | "generated-enforce" | "effective"
+  let eventsEvidence = null; // the uploaded tuno.applocker.events bundle, or null.
+  // Kept when the policy changes: the verdict column is computed LIVE against
+  // whatever draft is on screen, so the evidence stays truthful across edits.
   let pane = "xml";         // which artefact the code panel is showing
   // The grouping default is GENERATED, not a word. Microsoft's guidance is that
   // groupings must be unique (removal breaks on duplicates — the CSP deletes
@@ -95,6 +98,10 @@ const AppLockerTool = (() => {
   // OMA-URI. Anything not in here has no CSP node and cannot be shipped by Intune.
   const OMA_TYPE = { Exe: "EXE", Msi: "MSI", Script: "Script", Dll: "DLL", Appx: "StoreApps" };
   const SCAN_SCHEMA_PREFIX = "tuno.applocker.scan/";
+  // The fleet events bundle Get-TunoAppControlEvents.ps1 writes — same entry
+  // shape as the scan bundle's events section, harvested from many devices by
+  // the collection Remediation rather than from one reference machine.
+  const EVENTS_SCHEMA_PREFIX = "tuno.applocker.events/";
 
   const newGuid = () => ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -341,6 +348,134 @@ const AppLockerTool = (() => {
     "generated-enforce": "the rule set the scan generated, Enforced",
     "effective": "the policy the device was actually running",
   };
+
+  // ================================================================
+  // FLEET EVENTS BUNDLE — Get-TunoAppControlEvents.ps1 output
+  // ================================================================
+  function parseEventsBundle(b, sourceName) {
+    const ev = (b && typeof b.events === "object" && b.events) || {};
+    ev.entries = Array.isArray(ev.entries) ? ev.entries : [];
+    ev.summary = (ev.summary && typeof ev.summary === "object") ? ev.summary : {};
+    return {
+      sourceName: sourceName || "",
+      machine: (b.machine && typeof b.machine === "object") ? b.machine : {},
+      generator: (b.generator && typeof b.generator === "object") ? b.generator : {},
+      events: ev,
+      codeIntegrity: (b.codeIntegrity && typeof b.codeIntegrity === "object") ? b.codeIntegrity : {},
+      warnings: Array.isArray(b.warnings) ? b.warnings : [],
+    };
+  }
+
+  // Which collection judges an event? The log names the family; the extension
+  // splits EXE-and-DLL and MSI-and-Script into their actual collections.
+  function eventCollectionType(en) {
+    const log = String(en.log || "");
+    const ext = ((/\.([a-z0-9]+)$/i.exec(String(en.path || "")) || [])[1] || "").toLowerCase();
+    if (/packaged app/i.test(log)) return "Appx";
+    if (/msi and script/i.test(log)) return (ext === "msi" || ext === "msp" || ext === "mst") ? "Msi" : "Script";
+    if (/exe and dll/i.test(log)) return ext === "dll" ? "Dll" : "Exe";
+    return "Exe";
+  }
+
+  // What the CURRENT draft would do with this event's file — same standard-user
+  // model as evaluateProbePath: broad-audience allow rules only (a rule scoped
+  // to some group proves nothing about an arbitrary user), deny beats allow,
+  // exceptions honoured, all via the same matcher the rest of the tool uses.
+  function draftVerdictForEvent(en) {
+    if (!policy) return { s: "no-policy", text: "no policy loaded" };
+    const type = eventCollectionType(en);
+    const col = policy.collections.find((c) => c.type === type);
+    if (!col || !col.rules.length) return { s: "no-rules", text: `the draft has no ${type} rules — nothing of this type is restricted` };
+    const art = { path: String(en.path || ""), publisher: { name: en.publisher || "", product: en.product || "*", binary: en.binary || "*" } };
+    for (const r of col.rules) {
+      if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
+      if (ruleMatchesArtifact(r, art)) {
+        const denied = col.rules.some((d) => d.action === "Deny" && principalCovers(d.sid, r.sid) && ruleMatchesArtifact(d, art));
+        if (!denied) return { s: "allowed", text: `would run — allowed by “${r.name}”`, rule: r };
+      }
+    }
+    return { s: "blocked", text: col.mode === "AuditOnly" ? "audited under the draft — blocked once enforced" : "stays blocked under the draft" };
+  }
+
+  // One row per (file, verdict), counted — a fleet bundle repeats the same
+  // OneDrive updater ten thousand times and nobody reads ten thousand rows.
+  function aggregateFleetEvents(entries) {
+    const m = new Map();
+    for (const en of entries) {
+      if (en.verdict !== "Blocked" && en.verdict !== "Audited") continue;
+      const key = (en.path || en.binary || en.eventId || "?") + "|" + en.verdict;
+      let row = m.get(key);
+      if (!row) {
+        row = { path: String(en.path || ""), verdict: en.verdict, publisher: en.publisher || "", product: en.product || "",
+          binary: en.binary || "", signed: !!en.signed, count: 0, users: new Set(), ids: new Set(), sample: en };
+        m.set(key, row);
+      }
+      row.count++;
+      if (en.userSid) row.users.add(en.userSid);
+      if (en.eventId != null) row.ids.add(en.eventId);
+    }
+    return [...m.values()].sort((a, b) => (a.verdict === b.verdict ? b.count - a.count : a.verdict === "Blocked" ? -1 : 1));
+  }
+
+  // The recommendation, which is the point of the exercise. Two questions per
+  // row: does the DRAFT already cover it (then the block belonged to the old
+  // policy and there is nothing to do), and if not, does it LOOK like the
+  // policy working (user-writable origin) or like a missing rule (machine
+  // space)? Publisher rules are recommended over paths every time the file is
+  // signed — a path into a profile is the hole AppLocker exists to close.
+  function fleetEventRecommendation(row, dv) {
+    if (dv.s === "no-policy") return "Load the policy draft (scan bundle or XML) and this column fills in.";
+    if (dv.s === "allowed") return "Covered — nothing to add. The event came from the OLD policy on that device.";
+    if (dv.s === "no-rules") return "Undecided in the draft: with no rules for this type, nothing is restricted. Decide the collection before enforcing.";
+    const userArea = /(^|%OSDRIVE%|[a-z]:)\\users\\/i.test(row.path || "");
+    if (userArea) {
+      return row.signed
+        ? "Stays blocked — it ran from a user-writable area, which is what this policy exists to stop. If the business needs it, deploy it to machine space or allow it by PUBLISHER; never a path into the profile."
+        : "Stays blocked — unsigned, from a user-writable area. That is the policy working. Establish what it is before even considering a rule.";
+    }
+    return row.signed
+      ? "Would still be blocked — likely a missing rule. It is signed: add a publisher rule."
+      : "Would still be blocked and is UNSIGNED outside user space — add a hash rule only if it is legitimate, and ask why it is unsigned.";
+  }
+
+  function renderEventsCard() {
+    const host = $("alEvents");
+    if (!host) return;
+    if (!eventsEvidence) { host.style.display = "none"; host.innerHTML = ""; return; }
+    host.style.display = "";
+
+    const ev = eventsEvidence.events || {};
+    const s = ev.summary || {};
+    const ci = eventsEvidence.codeIntegrity || {};
+    const m = eventsEvidence.machine || {};
+    const rows = aggregateFleetEvents(ev.entries || []);
+    const shown = rows.slice(0, 50);
+
+    const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
+
+    host.innerHTML = `
+      <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span></h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px">
+        ${fact("Device", m.name)}${fact("Window", (ev.daysBack || m.daysBack || "?") + " days")}
+        ${fact("Blocked", s.blocked)}${fact("Audited (would block)", s.audited)}${fact("Allowed", s.allowed)}
+        ${fact("WDAC 3076 audit", ci.audit3076)}${fact("WDAC 3077 block", ci.block3077)}
+      </div>
+      ${(eventsEvidence.warnings || []).length ? `<div class="al-dep-err mini" style="margin-bottom:10px"><b>The collector could not see everything:</b><ul class="al-list" style="margin:4px 0 0">${eventsEvidence.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+      ${!rows.length ? `<p class="mini muted" style="margin:0">No blocked or audited events in the window — either the estate is quiet or the policy was not reaching these devices. The allowed count above says which.</p>` : `
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:34%">File</th><th style="width:110px">Fleet events</th><th style="width:24%">Under the current draft</th><th>Recommendation</th></tr></thead><tbody>
+        ${shown.map((row) => {
+          const dv = draftVerdictForEvent(row.sample);
+          return `<tr>
+            <td style="overflow-wrap:anywhere"><code>${esc(row.path || row.binary || "(no path)")}</code>${row.publisher ? `<div class="mini muted">${esc(row.publisher)}${row.product && row.product !== "*" ? " · " + esc(row.product) : ""}</div>` : `<div class="mini muted">unsigned</div>`}</td>
+            <td style="white-space:nowrap"><b>${row.count}</b>× ${row.verdict === "Blocked" ? "⛔ blocked" : "📝 audited"}${row.users.size ? `<div class="mini muted">${row.users.size} user${row.users.size === 1 ? "" : "s"}</div>` : ""}</td>
+            <td class="mini">${esc(dv.text)}</td>
+            <td class="mini">${esc(fleetEventRecommendation(row, dv))}</td>
+          </tr>`;
+        }).join("")}
+      </tbody></table></div>
+      ${rows.length > shown.length ? `<p class="mini muted" style="margin:6px 0 0">Showing the ${shown.length} most frequent of ${rows.length} distinct files — the rest repeat the same verdicts with smaller counts.</p>` : ""}`}
+    `;
+  }
 
   // ---- scan-derived findings ----
   //
@@ -1522,6 +1657,7 @@ const AppLockerTool = (() => {
     renderCodePane();
     renderDeploy();
     renderScanCard();
+    renderEventsCard();
     if (!policy) return;
     const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
     findings.forEach((f) => counts[f.sev]++);
@@ -1840,6 +1976,18 @@ const AppLockerTool = (() => {
   function importFile(text, name) {
     const looksJson = /\.json$/i.test(name) || /^\s*\{/.test(text);
     if (looksJson) {
+      // Route by the schema the file DECLARES. Two JSON kinds arrive here: the
+      // reference-machine scan bundle (which carries a policy and replaces what
+      // is loaded) and the fleet events bundle (which is evidence ABOUT the
+      // loaded policy and must not touch it). The events bundle often arrives
+      // named .log — the collector writes it that way so Intune diagnostics
+      // gathers it — which is why this sniffs content, never extension.
+      let peek = null;
+      try { peek = JSON.parse(text); } catch (e) { throw new Error("Not valid JSON: " + e.message); }
+      if (peek && typeof peek.schema === "string" && peek.schema.startsWith(EVENTS_SCHEMA_PREFIX)) {
+        eventsEvidence = parseEventsBundle(peek, name);
+        return;
+      }
       const b = parseBundle(text, name);
       const chosen = bundleXml(b);
       if (!chosen) throw new Error("That bundle carries no policy: the scan ran with -SkipRuleGeneration and the device's effective policy could not be read either. Re-run the scan without -SkipRuleGeneration.");
@@ -1876,7 +2024,16 @@ const AppLockerTool = (() => {
     $("alFile").addEventListener("change", async (e) => {
       const f = e.target.files[0];
       if (!f) return;
-      try { importFile(await f.text(), f.name); loadFresh(); }
+      try {
+        importFile(await f.text(), f.name);
+        if (policy) loadFresh();
+        else {
+          render();
+          // An events bundle accepted with nothing to judge it against: say so
+          // now, or the upload looks like it did nothing.
+          if (eventsEvidence) alert("Events bundle loaded. Now load the policy it should be judged against — a scan bundle or a policy XML — and the fleet evidence card appears with it.");
+        }
+      }
       catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
     });
@@ -2042,6 +2199,7 @@ const AppLockerTool = (() => {
     remedy: {
       cleanup: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8", created: null, coll: null },
       ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
+      events: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9", created: null, coll: null },
     },
   };
 
@@ -2067,6 +2225,14 @@ const AppLockerTool = (() => {
       blurb: `Creates one Remediation carrying <code>Detect-TunoItToolsFolders.ps1</code> and <code>Initialize-TunoItToolsFolders.ps1</code> — the folders provisioning as a detect-and-fix pair. Detection reports a device where the house folders are missing, where anyone outside SYSTEM and Administrators can write, or where SYSTEM itself cannot write (the house scripts log to <code>IT-TOOLS\\LOGS</code> as SYSTEM); remediation creates the folders, resets the ACL, and proves the log path by writing to it. Created <b>unassigned</b> — but unlike the cleanup pair this one is a <b>standing assignment</b>: leave it scheduled, because a folder that drifts writable after provisioning is exactly what it exists to catch. Assign it <b>before (or with) the audit profile</b>, never after the enforced one.`,
       description: `IT-TOOLS house-folder provisioning, deployed from {SITE}. Detection: a house folder is missing, writable by anyone outside SYSTEM/Administrators, or SYSTEM cannot write (logging). Remediation: creates %ProgramData%\\IT-TOOLS, \\Apps, \\Scripts and \\LOGS, disables inheritance, sets SYSTEM+Administrators full control and Users read-and-execute, verifies by ACL read-back AND by writing a log line, exit 1 when not clean. STANDING ASSIGNMENT: leave it scheduled — the standing AppLocker allows for these folders are only safe while this detection stays quiet.`,
       createdNote: `In the portal: Devices → Scripts and remediations → assign it to the estate that gets the AppLocker policy, with a recurring schedule, and LEAVE it assigned — this pair is the guard on the ACL the standing allow rules depend on, before the policy lands and after.`,
+    },
+    events: {
+      detect: "Detect-TunoAppControlEvents.ps1",
+      remediate: "Get-TunoAppControlEvents.ps1",
+      button: "Create the events-collection Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppControlEvents.ps1</code> and <code>Get-TunoAppControlEvents.ps1</code> — the evidence pump. Its detection <b>always reports non-compliant on purpose</b>: the "remediation" IS the harvest, reading the CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report, and a <b>JSON events bundle this tool imports</b> — upload that bundle here and every blocked or audited event is matched against the draft on screen, with a recommendation per file. The report and bundle land in the Intune Management Extension Logs folder named <code>.log</code> so <b>Collect diagnostics</b> gathers them; MDE Live Response users zip them with <code>Compress-TunoAppControlReport.ps1</code>. Know the console cost: every device shows "Issue fixed" every pass — this pair's numbers mean "the collector ran", never "the device is fine".`,
+      description: `App Control events collection, deployed from {SITE}. Detection: always non-compliant (the remediation IS the collection). Remediation: harvests CodeIntegrity and AppLocker events (30 days) into CSV/XML exports, an HTML report, and the TUNO JSON events bundle, all retrievable via Intune device diagnostics or MDE Live Response. Collection cadence pair - do not read its compliance numbers as device health, and unassign it when the campaign ends.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the AUDIT ring with a recurring schedule (daily during the audit month is the usual cadence). Retrieve the harvest per device via Collect diagnostics, upload the <code>AppControlEvents_Bundle_*.log</code> file here, and the evidence card fills in. Unassign when the collection campaign ends — its "Issue fixed" numbers are cadence, not health.`,
     },
   };
 

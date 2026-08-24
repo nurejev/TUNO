@@ -1224,12 +1224,29 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    inline, and the four tools added in 10321–10325 did not, so their prose
    sat hard against the border. One rule instead of twenty inline styles.
    The tables inside keep their own scrollers and simply inset with it. */
-#guBody > .list-card,
-#auBody > .list-card,
-#bkBody > .list-card,
-#dvBody > .list-card,
-#rbBody > .list-card,
-#dcBody > .list-card{padding:16px 18px}
+/* Every tool body's cards get the same padding (build 10395). This was an
+   id list — guBody, auBody, bkBody, dvBody, rbBody, dcBody — and every
+   tool added after it rendered its text flush against the card border:
+   T08, T09 and T10 shipped that way unnoticed, then T12, T13 and T14
+   repeated it. The suffix selector makes the rule true for every tool
+   body that exists and every one that comes, which is what the id list
+   pretended to be. aePlanOut and rsPlan are named because they are the
+   two result containers that do not follow the *Body convention. */
+main [id$="Body"] > .list-card,
+#aePlanOut > .list-card,
+#rsPlan > .list-card{padding:16px 18px}
+/* …and stacked cards SEPARATE (build 10396). A run of cards with no gap
+   reads as one long surface — the conflict scan's findings merged into a
+   wall. Convention again, not a list: any tool body that stacks cards
+   gets the gap. */
+main [id$="Body"] > .list-card + .list-card,
+#aePlanOut > .list-card + .list-card,
+#rsPlan > .list-card + .list-card{margin-top:14px}
+
+/* ---- TunoProgress (build 10397): ENCA's read, in the middle ---- */
+main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-align:center;padding:28px 26px}
+.cg-progress.indet > div{width:30% !important;animation:progslide 1.3s ease-in-out infinite}
+@keyframes progslide{0%{margin-left:0}50%{margin-left:70%}100%{margin-left:0}}
 .gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
 .gu-who .mini{font-weight:400}
 .gu-sticky .gu-sum{margin-top:6px}
@@ -1489,6 +1506,210 @@ body.wide .toolnav-inner{max-width:1680px}
    text 1600px long is unreadable however tidy the edge looks. */
 body.wide .readme{max-width:none}
 body.wide .readme p{max-width:1100px}
+/* The same mismatch returned with the 1500px console shell (build 10399):
+   every tool's intro card stopped at 1180 while the form card under it ran
+   the full column — two widths on one screen reads as a bug, which is the
+   10321 lesson all over again. The card matches its neighbours; the
+   PARAGRAPH keeps a measure, because a 1500px line of text is not more
+   readable, it is less. */
+body.with-side .readme{max-width:none}
+body.with-side .readme p{max-width:1100px}
+
+/* ---- side navigation shell (build 10380) ----
+   The console layout the category leaders use: a fixed sidebar with every
+   tool on the left, the working screen beside it, and a wider content column
+   because 1180px was sized for a shell with nothing next to it. body.with-side
+   is set at sign-in and removed at sign-out, so the sign-in screen keeps its
+   centred card and none of this exists before authentication.
+
+   The sidebar starts BELOW the sticky chrome — top is --sticky-nav (header
+   plus tab bar, kept current by syncStickyTops()), so the tab bar never draws
+   across it and the sidebar never hides under it.
+
+   ONE WIDTH FOR EVERYTHING, still: the 10321 rule said moving between screens
+   must not change the app's size, and it does not — every signed-in screen
+   shares the same sidebar and the same content column. The content is
+   left-anchored beside the sidebar rather than centred in the remainder,
+   which is how a console reads; capped at 1500px because a longer line is
+   not more information, it is less readable information. */
+.sidenav{position:fixed;left:0;top:var(--sticky-nav,58px);bottom:0;width:240px;overflow-y:auto;z-index:40;
+  background:var(--surface);border-right:1px solid var(--border);padding:12px 10px 24px}
+.sidenav h4{margin:16px 10px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.sidenav h4:first-of-type{margin-top:12px}
+.sidenav button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
+  font:inherit;font-size:13px;font-weight:600;padding:7px 10px;border-radius:8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidenav button:hover{background:var(--soft)}
+.sidenav button.active{background:var(--green);color:#fff}
+:root[data-theme="dark"] .sidenav button.active{color:var(--green-deep)}
+/* CENTRED IN THE REMAINDER, both sidebar states (build 10389). 10380
+   left-anchored the column beside the sidebar; collapsing the rail then
+   slid the whole page 188px left and the right side gaped — the collapse
+   read as a relayout instead of a rail folding. Now the column centres in
+   whatever space the rail leaves, clamped so it can never slide under it:
+   left = max(rail + 24px, (100vw − 1500 + rail)/2). Expanded and collapsed
+   land within ~90px of each other on any monitor, which reads as the same
+   page with a narrower rail — visually the same, which is the point. */
+body.with-side main{max-width:1500px;margin:0 auto;margin-left:max(264px, calc((100vw - 1260px)/2));padding:28px 32px 80px}
+body.with-side .hwrap{max-width:none}
+/* the tab strip starts where the content starts, not under the sidebar —
+   and the auto-margin centring trick must come off or the tabs float to the
+   middle of the now-uncapped bar */
+body.with-side .toolnav-inner{max-width:none;padding:0 24px;padding-left:max(264px, calc((100vw - 1260px)/2))}
+body.with-side .toolnav-inner > :first-child{margin-left:0}
+body.with-side .toolnav-inner > :last-child{margin-right:0}
+/* ---- collapsed rail (build 10387) ----
+   The « toggle folds the sidebar to a 56px icon rail; every button already
+   carries the full label as its title, so hover shows the name natively —
+   a CSS tooltip inside this overflow:auto column would clip at the edge.
+   Section headings become divider lines: the grouping stays visible even
+   when its words do not. All of it scoped under with-side so none of it
+   exists on the sign-in screen. */
+.sidenav .sn-ic{display:inline-block;width:22px;text-align:center;margin-right:6px}
+.sn-toggle{display:block;width:100%;text-align:right;border:0;background:none;color:var(--muted);cursor:pointer;
+  font:inherit;font-size:15px;font-weight:700;padding:2px 10px 6px;border-radius:8px}
+.sn-toggle:hover{background:var(--soft);color:var(--ink)}
+/* The PEEK (build 10391): hovering the collapsed rail expands it AS AN
+   OVERLAY — the content does not move, the rail floats over it at full
+   width, and picking a tool collapses it again. That is why every
+   collapsed rule below carries :not(.peek): a peeked rail renders exactly
+   like the expanded one, just on top instead of beside. */
+body.with-side.side-min .sidenav:not(.peek){width:56px;padding:12px 6px 24px}
+body.with-side.side-min .sidenav:not(.peek) h4{height:0;overflow:hidden;padding:0;margin:10px 8px;border-top:1px solid var(--border)}
+body.with-side.side-min .sidenav:not(.peek) .sn-txt{display:none}
+body.with-side.side-min .sidenav:not(.peek) button{text-align:center;padding:7px 0}
+body.with-side.side-min .sidenav:not(.peek) .sn-ic{margin:0;width:100%}
+body.with-side.side-min .sidenav:not(.peek) .sn-toggle{text-align:center;padding:2px 0 6px}
+body.with-side.side-min .sidenav.peek{width:240px;z-index:60;box-shadow:6px 0 24px rgba(0,0,0,.16)}
+body.with-side.side-min main{margin-left:max(76px, calc((100vw - 1444px)/2))}
+body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444px)/2))}
+
+/* ---- Suggest: tenant autocomplete (build 10388) ----
+   Fixed on body — the toolnav-menu's own approach — so no card, column or
+   sidebar overflow can clip it. Styling matches that menu deliberately. */
+.sug-menu{position:fixed;z-index:420;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;max-width:520px;max-height:320px;overflow:auto}
+.sug-menu button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
+  font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sug-menu button:hover,.sug-menu button.on{background:var(--soft)}
+
+/* ---- T11: the Toolkit split (build 10390) — surfaces left, list right ---- */
+/* ONE column until the surface rail exists (build 10405). The rail is
+   display:none before a read, and a hidden grid item generates no track
+   occupant — so the list wrapper became the FIRST item and landed in the
+   230px RAIL column: the progress card rendered 230px wide, hard left.
+   assignedit.js adds .has-rail in the same breath that shows the rail. */
+.ae-split{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.ae-split.has-rail{grid-template-columns:230px minmax(0,1fr)}
+.ae-surfs{position:sticky;top:calc(var(--sticky-nav,106px) + 14px);
+  max-height:calc(100vh - var(--sticky-nav,106px) - 28px);overflow-y:auto}
+/* The rail was sticky from birth and never stuck (build 10403): .list-card
+   carries overflow:hidden, and an overflow ancestor becomes the sticky
+   element's containment box — the rail was pinned to a card that does not
+   scroll, which is pinned to nothing. The editor's card lets its overflow
+   show; the rounded corners survive because nothing in this card bleeds. */
+#screen-assignedit .list-card.wi-form{overflow:visible}
+.ae-surfs button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;
+  border:1px solid transparent;background:none;color:var(--ink);cursor:pointer;font:inherit;font-size:13px;font-weight:600;
+  padding:8px 10px;border-radius:8px}
+.ae-surfs button:hover{background:var(--soft)}
+.ae-surfs button.active{background:var(--green);color:#fff}
+:root[data-theme="dark"] .ae-surfs button.active{color:var(--green-deep)}
+.ae-surfs button.active .muted{color:inherit;opacity:.8}
+@media (max-width:1240px){.ae-split,.ae-split.has-rail{grid-template-columns:1fr}.ae-surfs{position:static;display:flex;flex-wrap:wrap;gap:6px}.ae-surfs button{width:auto}.ae-selbar{left:24px;right:24px}}
+
+/* ---- fit pass (build 10393): everything must fit the card ----
+   The rule/value columns are the ones that ran away: a filter rule or a
+   settings value can be hundreds of characters, and an auto-layout table
+   sizes itself to the longest cell and scrolls. table-layout:fixed makes
+   the declared widths real, and overflow-wrap:anywhere lets a rule wrap at
+   any character rather than pushing the actions column off the card. */
+.af-table{table-layout:fixed;width:100%}
+.af-table code{overflow-wrap:anywhere}
+.af-acts{width:132px;white-space:nowrap;text-align:right}
+.cf-item .cg-table{table-layout:fixed;width:100%}
+.cf-item .cg-table td:last-child{overflow-wrap:anywhere}
+
+/* ---- T11: the floating selection bar (build 10400) ----
+   ENCA's .selbar, floated to the bottom instead of stuck to the top — the
+   left edge tracks the content column's own formula in both sidebar
+   states, so the bar sits under the list it acts on. Inside the section,
+   so leaving the tool hides it with the screen. */
+.ae-selbar{display:none;position:fixed;bottom:14px;z-index:55;align-items:center;gap:12px;flex-wrap:wrap;row-gap:8px;
+  background:var(--green-deep);color:#fff;border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);
+  left:calc(max(264px, (100vw - 1260px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 240px)/2));
+  /* A PILL, not a plank (build 10405, mockup round): the bar shrinks to its
+     controls and the auto margins centre it between the left/right bounds,
+     which keep doing their real job — clearing the sidebar in both states.
+     Full width left the ✕ floating mid-bar with dead green to its right. */
+  width:fit-content;max-width:calc(100% - 48px);margin-inline:auto}
+.ae-selbar.visible{display:flex}
+body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 56px)/2))}
+.ae-selbar b{color:var(--lemon);white-space:nowrap}
+/* The controls wear T01's warm family (build 10401), not bare surface
+   white — a white slab on the deep green read as a hole in the bar. The
+   --warn-* variables already flip per theme, so light gets the cream of
+   "Let TUNO do it" and dark gets the deep amber it already had; the
+   active choice and the act itself are lemon, ENCA's own selbar accent. */
+.ae-selbar .seg{background:var(--warn-bg2);border-color:var(--warn-bd)}
+.ae-selbar .seg button{color:var(--warn-fg)}
+.ae-selbar .seg button.active{background:var(--lemon);color:var(--green-deep)}
+/* The INPUT is the exception to the warm family (build 10402): it takes
+   the app's own field look — the wi-f input every tool uses, T08's
+   included — because a field should look like every other field wherever
+   it stands. Only the seg and the buttons wear the bar's colours. */
+.ae-selbar input{flex:1;min-width:200px;height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.ae-selbar input:focus{outline:none;border-color:var(--lemon)}
+.ae-selbar select{height:38px;max-width:240px;padding:0 8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px}
+.ae-selbar select:focus{outline:none;border-color:var(--lemon)}
+.ae-selbar .btn.primary{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
+.ae-selbar .btn.primary:hover{background:var(--lemon)}
+.ae-selbar-x{border:0;background:none;color:#cfe9d8;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:8px}
+.ae-selbar-x:hover{background:rgba(255,255,255,.14);color:#fff}
+@media (max-width:1240px){.ae-selbar{left:16px;right:16px}}
+
+/* T14 (build 10394): the references chip is a filter, a count expands */
+a.gu-stat{text-decoration:none;cursor:pointer}
+a.gu-stat:hover{border-color:var(--green)}
+.gu-stat.af-on{background:var(--green);border-color:var(--green);color:#fff}
+.gu-stat.af-on b{color:inherit}
+:root[data-theme="dark"] .gu-stat.af-on{color:var(--green-deep)}
+td.gu-num a{color:inherit;text-decoration:none}
+td.gu-num a:hover b{color:var(--green);text-decoration:underline}
+.af-userow td{background:var(--soft)}
+
+/* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
+   third of the screen: it goes, and the shell returns to the centred column.
+   The tab bar and the home grid keep every tool reachable — the sidebar is a
+   convenience, never the only door. */
+@media (max-width:1240px){
+  .sidenav{display:none !important}
+  body.with-side main,body.with-side.side-min main{margin:0 auto;padding:28px 24px 80px}
+  body.with-side .toolnav-inner,body.with-side.side-min .toolnav-inner{padding:0 24px}
+}
+
+/* ---- R19: the assignment matrix (build 10381) ----
+   A grid over the sweep's own numbers. The group column and the header row
+   are sticky so a 300-group tenant stays readable; the grid scrolls inside
+   its own card rather than pushing the page wide. */
+.gu-mx{max-height:72vh;overflow:auto}
+.gu-mx table{border-collapse:separate;border-spacing:0}
+.gu-mx thead th{position:sticky;top:0;background:var(--surface);z-index:2}
+.gu-mx .gu-mx-name{position:sticky;left:0;background:var(--surface);z-index:1;min-width:220px;max-width:360px}
+.gu-mx thead .gu-mx-name{z-index:3}
+.gu-mx .gu-mx-name a{color:inherit;text-decoration:none}
+.gu-mx .gu-mx-name a:hover b{color:var(--green);text-decoration:underline}
+.gu-mx-exc{color:var(--off);font-weight:700;font-size:11.5px;white-space:nowrap}
+
+/* ---- T12: setting conflict scan (build 10382) ----
+   Verdict is carried by a left accent, worst first: can = the row worth
+   reading, may = open question, cannot = context. Same three colours the
+   app already owns. */
+.cf-item.cf-can{border-left:3px solid var(--off)}
+.cf-item.cf-may{border-left:3px solid var(--warn,#c90)}
+.cf-item.cf-cannot{border-left:3px solid var(--border)}
 /* Sized for the 1180px shell (build 10321), not the 1680px one it was drawn
    in. At 1680 the code panel could hold 400-520px and still leave the audit
    table room; at 1180 that same floor squeezed the table to under 700px and

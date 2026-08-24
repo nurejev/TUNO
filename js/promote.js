@@ -54,38 +54,77 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 7.
+  // Verified against `git show main:js/version.js` — main is at build 8.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
-  // 30-35 (10342, 10344-10348) as build 6, and items 36-40 plus 45-52 and
-  // 54-57 (10350-10356, 10361-10376; 53 retired into 57) as build 7.
+  // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
+  // 54-57 (10350-10356, 10361-10376; 53 retired into 57) as build 7, and
+  // items 44, 58, 59 and 63-67 (10360, 10378-10380, 10384-10405 less the
+  // held builds) as build 8 — the second partial promotion.
   //
-  // What remains is exactly the four new tools — T08 what-if, T09 health,
-  // T10 settings search, T11 assignment editor — held in beta on purpose
-  // until each has run against a real tenant. They are the whole of the
-  // next promotion.
-  productionBuild: "v1.0.7",
+  // What remains: T08 what-if, T09 health, T10 settings search (41-43),
+  // and the three IntuneShade reads — the assignment matrix (60), the
+  // setting conflict scan (61) and the compliance report (62) — each held
+  // in beta until it has run against a real tenant.
+  productionBuild: "v1.0.8",
 
   items: [
     {
-      n: 44,
-      title: "Assignment editor — bulk changes behind four gates",
-      tools: ["✏️ Assignment editor"],
-      builds: [10360],
-      risk: "high",
-      what: "T11, after Maxime Guillemin's Intune-Toolkit (MIT). Add include / add exclude / remove a group across device configurations, settings catalog, compliance and ADMX — the four surfaces under the write scope the registration already holds; scripts and apps deliberately absent (each is a new write scope, the R18 rule). Pipeline enforced by the screen: read → dry run (group name + member count, empty-group warning, noops and REFUSALS listed — include-onto-excluding and exclude-onto-including are refused with T09's reasoning) → automatic backup file, apply locked until taken → removals confirmed by TYPING the group name → sequential writes, each preceded by a fresh read (drift = skip, never overwrite) and followed by a verify read-back. Untouched assignments re-serialised with filters preserved. No delete, no rename. Write scope asked at the apply click.",
-      why: "HIGH — the second write tool and the first at scale. The mistake it enables is a policy reaching the wrong population, which is invisible until devices behave differently. The specific things that must be true: filters survive the round trip on untouched assignments, the drift check actually fires, and the verify is the tenant's read-back rather than the POST's status. All three are asserted headlessly; none of the three has touched a real tenant yet.",
+      n: 62,
+      title: "R22 — the compliance report (T13)",
+      tools: ["📈 Compliance report"],
+      builds: [10383, 10395, 10398],
+      risk: "medium",
+      what: "New tool T13 (js/compliance.js), after Alper Atar's IntuneShade (MIT). Estate: managedDevices ($select minimal, paged) bucketed compliant/noncompliant/grace/unknown/other, stale threshold on screen (default 30 days, never-synced counts stale), compliant-AND-stale counted in both columns with the tension stated. Policies: deviceCompliancePolicies?$expand=assignments, then deviceStatusOverview + deviceSettingStateSummaries per policy via $batch; only settings failing somewhere shown, worst-first sort; status-gap tag when a rollup could not be read (unknown ≠ clean); unassigned = 'evaluates nobody' tag. Failed estate/policy read marks that half unknown, not zero. No new scope. Exports MD + CSV + stale CSV. Tile (Monitoring), screen, tab, sidebar, t:13. R22 card to Now with the HTML-export departure tagged 'next'.",
+      why: "MEDIUM — reads only on existing scopes, but the two rollup endpoints' field names (successCount/failedCount, settingName, nonCompliantDeviceCount) are asserted against fabricated shapes, not a real tenant's, and beta moves. The stale arithmetic and the both-columns rule are headlessly proven; whether Graph's rollup matches the portal's numbers on a real tenant is not provable here. Graduates when a real tenant's report matches the portal's compliance blade for the same policies, give or take the rollup's refresh lag.",
       test: [
-        "THE ONE THAT MATTERS: take a policy with TWO assignments, one carrying an assignment filter. Add an unrelated group. After the write, open the policy in the portal and confirm the filtered assignment STILL HAS ITS FILTER. Losing it silently widens the assignment — the worst thing this tool can do, and invisible in the tool's own table.",
-        "Dry-run a removal and confirm apply stays locked until the backup is downloaded AND the group's name is typed exactly. Then restore from the backup file (POST /assign with the recorded list) and confirm the policy is back as it was — an untested backup is a hope, not a way back.",
-        "Between dry run and apply, change the policy's assignments in the portal from another window. Apply must SKIP it as drifted, not overwrite. This is the two-admins case and nothing else exercises it.",
-        "Add an include of a group the policy already excludes: the plan must REFUSE with the contradiction reason, not write. Then remove the exclusion and confirm the same operation now plans cleanly.",
-        "Add an include of an EMPTY group and confirm the dry run says it configures nothing until somebody joins. The write should still be allowed — preparing a landing zone is legitimate — but never silently.",
-        "Pull the network (or revoke the write scope) mid-apply with stop-on-failure on: the run must stop, the results table must say which policies were written-and-verified and which were not touched, and nothing may retry.",
-        "Verify the scope prompt appears at the APPLY click and not at read or dry-run — plan a change without ever consenting to ReadWrite and confirm reads alone got you there.",
-        "Confirm scripts and applications appear nowhere in the surface list, and that the screen says why.",
+        "THE ONE THAT MATTERS: run against a real tenant and compare three policies' numbers with the portal's compliance blade — same order of magnitude, differences explained by the rollup's refresh schedule.",
+        "A device that has not synced for more than the threshold must appear in the stale table, oldest first; set the threshold to 1 day and watch the stale count grow accordingly.",
+        "A compliant device with an old last-sync must be counted in BOTH compliant and stale, and the both-columns warning must appear.",
+        "An unassigned compliance policy must wear the 'unassigned' tag; a tenant with none must show no false tags.",
+        "Revoke DeviceManagementManagedDevices.Read.All mid-session: the estate half must read as unknown while the policy half still renders (and vice versa for the config scope).",
+        "A policy whose deviceStatusOverview 404s must be listed with 'status gap', never dropped, and the MD export must name it in the gaps line.",
+        "Exports: MD tables well-formed; stale CSV row count equals the on-screen stale count.",
       ],
-      files: ["js/assignedit.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      files: ["js/compliance.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
+      n: 61,
+      title: "R20 — the setting conflict scan (T12)",
+      tools: ["⚔️ Setting conflict scan"],
+      builds: [10382, 10393, 10395, 10396],
+      risk: "medium",
+      what: "New tool T12 (js/conflict.js), after Alper Atar's IntuneShade (MIT). Reads via Docs.collect() over settingsCatalog + deviceConfigurations + admx — no second read path. Identity: sc defId / admx category+name / dc type+property; cross-surface CSP collisions stated as NOT detected. Verdicts from assignments: can (shared include or tenant-wide meets reach), may (different groups; any filter caps at may), cannot (one side has no include and no tenant-wide — reaches nobody by construction). Docs.assignmentOf now carries filterId/filterType (additive; nothing else renders them). Redacted values skipped and counted, agreement is not a finding, unread surfaces named. MD + CSV exports. Tile, screen, tab, sidebar, t:12.",
+      why: "MEDIUM — reads only over an already-proven read path, but the engine's judgements (identity keys, verdict boundaries) have run against fabricated shapes, not a real tenant's, and a conflict scan that mis-keys produces confident nonsense. Graduates when a real tenant's scan shows a known-true conflict as 'can', a known-deliberate baseline split as 'may', and no cross-type device-config false positives.",
+      test: [
+        "THE ONE THAT MATTERS: create two settings-catalog policies setting the same definition to different values, assign both to one group — the scan must find exactly that setting, verdict 'can collide', both values shown.",
+        "Re-assign one to a different group: verdict drops to 'may collide' with the shared-members reason.",
+        "Put an assignment filter on one: verdict must cap at 'may' and name the filter as the reason.",
+        "Unassign one policy entirely: 'cannot collide — reaches nobody as assigned'.",
+        "Two policies agreeing on a value must NOT appear; a secret-bearing setting (e.g. a password field) must be skipped and counted, never compared.",
+        "Two device configurations of DIFFERENT types with same-named properties must not be matched; two of the SAME type must be.",
+        "Revoke the config read scope: the scan must name the unread surfaces as unknown, not report a clean tenant.",
+      ],
+      files: ["js/conflict.js", "js/document.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
+      n: 60,
+      title: "R19 — the assignment matrix, the sweep's second face",
+      tools: ["🔗 Group Analyzer"],
+      builds: [10381],
+      risk: "low",
+      what: "T02 v0.4, after Alper Atar's IntuneShade (MIT). The sweep gains a Table/Matrix view switch rendered from the ONE read it already does — switching asks the tenant nothing. Matrix: groups × surfaces grid, includes as the count, exclusions as their own red −n per surface (sweepTotals grew bySourceExc; bySource still counts everything, so the table and all three exports are unchanged), dangling groups keep the deleted flag, group click opens single-group mode via the tile's own handler. Opt-in empty-group peek: $top=1 transitiveMembers per group, $batch 20/trip (T09's technique), GroupMember.Read.All asked on the click; failed probe renders 'reach?' (unknown), success 'empty' or nothing. Absent-not-empty until run, and the screen says so.",
+      why: "LOW — reads only, one optional scope already in the app's read set, no export or table changes (asserted headless). The judgement calls worth real eyes: the sticky first column and header on a 300-group matrix, and whether −n reads as exclusions without a legend.",
+      test: [
+        "THE ONE THAT MATTERS: sweep a real tenant, switch to Matrix — no network activity on the switch (DevTools), counts per cell must equal the table's per-surface numbers, with exclusions split out as −n.",
+        "A group with only exclusions on a surface must show only −n in that cell, never a positive count.",
+        "Click 'Check which groups are empty': one consent prompt at most, then batched probes; a known-empty group reads 'empty', a populated one gains no tag, and the button disappears once peeked.",
+        "Break one probe (revoke GroupMember.Read.All mid-session or use a group you cannot read): that row must say 'reach?', not 'empty'.",
+        "Click a group name in the matrix: single-group mode opens and runs with that group, tab bar and sidebar still agree.",
+        "Dangling (deleted) groups: flagged in the matrix, not clickable, never counted as coverage.",
+        "Exports (MD/CSV/HTML) byte-identical to a pre-10381 sweep of the same tenant, modulo timestamps.",
+      ],
+      files: ["js/groupuse.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
     },
     {
       n: 43,

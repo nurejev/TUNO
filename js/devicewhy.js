@@ -732,10 +732,7 @@ const DeviceWhyTool = (() => {
     });
   }
 
-  function prog(msg, n, of) {
-    const el = $("dvProg");
-    if (el) el.innerHTML = msg ? `${of ? `<b>${n}/${of}</b> · ` : ""}${esc(msg)}` : "";
-  }
+  function prog(msg, n, of) { TunoProgress.show("dvBody", "dvProg", msg, n, of); }   // ENCA-style centred card (10397)
 
   function showExports(on) {
     ["dvMd", "dvHtml", "dvCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });

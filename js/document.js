@@ -772,7 +772,7 @@ const DocsTool = (() => {
   let selected = new Set();
   const keyOf = (secId, itemId) => secId + "|" + itemId;
 
-  const prog = (m) => { const el = $("dcProg"); if (el) el.textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("dcBody", "dcProg", m);   // ENCA-style centred card (10397)
 
   // THE FILTERS ARE DEAD UNTIL THERE IS SOMETHING TO FILTER. Leaving them
   // live before a read is how the platform list came to look broken: it was
