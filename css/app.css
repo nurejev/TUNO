@@ -1506,6 +1506,14 @@ body.wide .toolnav-inner{max-width:1680px}
    text 1600px long is unreadable however tidy the edge looks. */
 body.wide .readme{max-width:none}
 body.wide .readme p{max-width:1100px}
+/* The same mismatch returned with the 1500px console shell (build 10399):
+   every tool's intro card stopped at 1180 while the form card under it ran
+   the full column — two widths on one screen reads as a bug, which is the
+   10321 lesson all over again. The card matches its neighbours; the
+   PARAGRAPH keeps a measure, because a 1500px line of text is not more
+   readable, it is less. */
+body.with-side .readme{max-width:none}
+body.with-side .readme p{max-width:1100px}
 
 /* ---- side navigation shell (build 10380) ----
    The console layout the category leaders use: a fixed sidebar with every

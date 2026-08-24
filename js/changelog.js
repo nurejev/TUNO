@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10399, date: "2026-08-24", title: "One width per screen, again",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Every tool's intro card stopped at the old 1180-pixel width while the cards under it ran the full 1500-pixel column — two widths on one screen reads as a bug, which is the same lesson the wide-shell experiment taught back in build 10321. The intro card now matches its neighbours in every tool; the paragraphs inside it keep their measure, because a line of text the full column wide is not more readable, it is less." },
+    ],
+  },
+  {
     build: 10398, date: "2026-08-24", title: "A stale device answers to a click",
     items: [
       { kind: "improved", tool: "📈 Compliance report", text: "A device in the stale table is now a link: clicking it opens the Device analyzer on that machine — the question a stale row raises is exactly the one that tool answers, why does this device have what it has and when did it last say so. The click goes through the tool's own front door, so the tab bar and the sidebar follow along." },
