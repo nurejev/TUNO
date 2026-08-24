@@ -1489,6 +1489,51 @@ body.wide .toolnav-inner{max-width:1680px}
    text 1600px long is unreadable however tidy the edge looks. */
 body.wide .readme{max-width:none}
 body.wide .readme p{max-width:1100px}
+
+/* ---- side navigation shell (build 10380) ----
+   The console layout the category leaders use: a fixed sidebar with every
+   tool on the left, the working screen beside it, and a wider content column
+   because 1180px was sized for a shell with nothing next to it. body.with-side
+   is set at sign-in and removed at sign-out, so the sign-in screen keeps its
+   centred card and none of this exists before authentication.
+
+   The sidebar starts BELOW the sticky chrome — top is --sticky-nav (header
+   plus tab bar, kept current by syncStickyTops()), so the tab bar never draws
+   across it and the sidebar never hides under it.
+
+   ONE WIDTH FOR EVERYTHING, still: the 10321 rule said moving between screens
+   must not change the app's size, and it does not — every signed-in screen
+   shares the same sidebar and the same content column. The content is
+   left-anchored beside the sidebar rather than centred in the remainder,
+   which is how a console reads; capped at 1500px because a longer line is
+   not more information, it is less readable information. */
+.sidenav{position:fixed;left:0;top:var(--sticky-nav,58px);bottom:0;width:240px;overflow-y:auto;z-index:40;
+  background:var(--surface);border-right:1px solid var(--border);padding:12px 10px 24px}
+.sidenav h4{margin:16px 10px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.sidenav h4:first-of-type{margin-top:12px}
+.sidenav button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
+  font:inherit;font-size:13px;font-weight:600;padding:7px 10px;border-radius:8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidenav button:hover{background:var(--soft)}
+.sidenav button.active{background:var(--green);color:#fff}
+:root[data-theme="dark"] .sidenav button.active{color:var(--green-deep)}
+body.with-side main{max-width:1500px;margin:0 auto 0 264px;padding:28px 32px 80px}
+body.with-side .hwrap{max-width:none}
+/* the tab strip starts where the content starts, not under the sidebar —
+   and the auto-margin centring trick must come off or the tabs float to the
+   middle of the now-uncapped bar */
+body.with-side .toolnav-inner{max-width:none;padding:0 24px 0 264px}
+body.with-side .toolnav-inner > :first-child{margin-left:0}
+body.with-side .toolnav-inner > :last-child{margin-right:0}
+/* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
+   third of the screen: it goes, and the shell returns to the centred column.
+   The tab bar and the home grid keep every tool reachable — the sidebar is a
+   convenience, never the only door. */
+@media (max-width:1240px){
+  .sidenav{display:none !important}
+  body.with-side main{margin:0 auto;padding:28px 24px 80px}
+  body.with-side .toolnav-inner{padding:0 24px}
+}
 /* Sized for the 1180px shell (build 10321), not the 1680px one it was drawn
    in. At 1680 the code panel could hold 400-520px and still leave the audit
    table room; at 1180 that same floor squeezed the table to under 700px and

@@ -372,6 +372,11 @@ const Fs = (() => {
     $("tenantBox").style.display = "flex";
     $("homeBtn").style.display = "";
     buildToolNav();
+    // the sidebar and the wide shell exist only signed in — the sign-in
+    // screen keeps its centred card
+    renderSideNav();
+    $("sideNav").style.display = "";
+    document.body.classList.add("with-side");
     show("screen-home");
     openWhatsNewOverlay();
   }
@@ -400,6 +405,8 @@ const Fs = (() => {
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
+    $("sideNav").style.display = "none";
+    document.body.classList.remove("with-side");
     show("screen-login");
     // Clear the active account as well as the local one: leaving it set means
     // the next sign-in silently reuses the account somebody just signed out of,
@@ -459,6 +466,7 @@ const Fs = (() => {
     $("toolNav").innerHTML = `<div class="toolnav-inner">${home}${tabs}${add}${closeAll}${help}</div>`;
     // the bar only appears once a tool is open (empty at the tools home)
     $("toolNav").style.display = openTabs.length ? "block" : "none";
+    renderSideActive();   // the sidebar highlights whatever the tabs say is active
     syncStickyTops();
     // keep the tab you're on visible when the strip overflows
     const act = $("toolNav").querySelector(".toolnav-tab.active, .toolnav-btn.home.active");
@@ -513,6 +521,47 @@ const Fs = (() => {
     else { activeTab = null; }
     renderTabs();
   }
+
+  // ---------- side navigation (build 10380) ----------
+  // The sidebar is the console's map: every tool, grouped exactly as on the
+  // home grid, reachable from anywhere once signed in. The tab bar stays and
+  // the two do different jobs — the sidebar is where you CAN go, the tabs are
+  // what you HAVE open.
+  //
+  // It is built by WALKING THE HOME GRID (section heading, then tile ids, in
+  // document order), so there is no second copy of the grouping to fall out of
+  // step when a tool is added. But the LABELS come from the tool list via
+  // labelFor() — the same rule the tabs follow — because the old tab strip
+  // scraped tile headings and dragged the NEW/BETA tag text into every label.
+  function renderSideNav() {
+    const secs = [];
+    let cur = null;
+    document.querySelectorAll("#screen-home .tool-sec, #screen-home .tool").forEach((el) => {
+      if (el.classList.contains("tool-sec")) {
+        const h = el.querySelector("h3");
+        cur = { title: h ? h.textContent : "", ids: [] };
+        secs.push(cur);
+      } else if (cur && el.id) cur.ids.push(el.id);
+    });
+    const item = (id) => `<button data-nav="${id}" id="side-${id}">${esc(labelFor(id))}</button>`;
+    $("sideNav").innerHTML =
+      `<button data-navhome id="side-home">🏠 Overview</button>` +
+      secs.map((s) => `<h4>${esc(s.title)}</h4>` + s.ids.map(item).join("")).join("");
+    renderSideActive();
+  }
+  // Active state follows the tabs' own truth (activeTab, set by crumb), so the
+  // sidebar and the tab bar can never disagree about where you are.
+  function renderSideActive() {
+    const nav = $("sideNav"); if (!nav) return;
+    nav.querySelectorAll("button.active").forEach((b) => b.classList.remove("active"));
+    const on = activeTab ? nav.querySelector("#side-" + activeTab) : nav.querySelector("#side-home");
+    if (on) on.classList.add("active");
+  }
+  $("sideNav").addEventListener("click", (e) => {
+    if (e.target.closest("[data-navhome]")) { crumb(""); show("screen-home"); return; }
+    const b = e.target.closest("[data-nav]");
+    if (b) $(b.dataset.nav).click();   // the tile's own handler: crumb, screen, setup
+  });
   $("homeBtn").addEventListener("click", () => { crumb(""); show("screen-home"); });
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
