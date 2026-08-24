@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10382"></script>
+<script src="js/popup-guard.js?v=10383"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10382">
+<link rel="stylesheet" href="css/app.css?v=10383">
 </head>
 <body>
 
@@ -147,6 +147,10 @@
     </div>
     <div class="tool-sec"><h3>🕓 Monitoring</h3><p>What changed, and who changed it.</p></div>
     <div class="tools">
+      <div class="tool" id="toolCompliance">
+        <div class="tool-ic">📈</div><h3>Compliance report <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
+      </div>
       <div class="tool" id="toolAudit">
         <div class="tool-ic">🕓</div><h3>Change audit <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Who changed which policy, profile, script, app assignment or enrolment setting — when, from where, and <b>what actually moved</b>, field by field, rather than two blobs of JSON printed side by side. Two views over one read: <b>policy changes</b> with a severity on each, and <b>all events</b> filtered by actor, activity, category and result. Incident windows down to the last hour, review windows out to thirty days — which is where Intune's audit retention ends, and the tool says so rather than offering a window that returns a confidently empty answer.</p>
@@ -921,6 +925,31 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="cfBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ COMPLIANCE REPORT (T13) ============
+       R22, after IntuneShade. The cheap status rollup, honestly labelled;
+       per-device drill-down stays T06's job. -->
+  <section id="screen-compliance" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">📈 Compliance report <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">The estate, the policies, and what is failing — in one read instead of a morning of portal blades. After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> (Alper Atar, MIT). The numbers are Graph's <b>cheap per-policy rollup</b>, refreshed on Intune's schedule rather than live, and the report says so; the per-device answer for one machine — intended versus actual, with the check-in first — is the 🖥 Device analyzer's job and this page points there rather than half-doing it. <b>Reads only</b>, on permissions earlier tools already brought in.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Stale is its own column.</b> A compliance verdict is whatever the device reported at its last check-in; a machine silent for six weeks “is compliant” the way a photograph is the weather. Compliant-but-stale devices are counted in both columns, deliberately — resolving that tension quietly in either direction would be a lie in that direction.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="wi-grid">
+        <label class="wi-f"><span>Stale after <span class="mini muted">days without a check-in</span></span>
+          <input id="cpStaleDays" type="number" min="1" value="30" style="width:120px"></label>
+      </div>
+      <div class="tb-actions" style="margin-top:12px">
+        <button class="btn primary" id="cpRun">📈 Build the report</button>
+        <button class="btn" id="cpMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="cpCsv" style="display:none">⭳ Export CSV</button>
+        <button class="btn" id="cpStale" style="display:none">⭳ Stale devices CSV</button>
+      </div>
+      <div id="cpProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="cpBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ASSIGNMENT EDITOR (T11) ============
        The second thing in TUNO that writes, and the first at scale. The
        gates live in this screen; the engine and the tests hold them. -->
@@ -1061,6 +1090,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>The step past the original arrived as promised: a collision is only a conflict if the two policies can meet on a device.</b> Every finding carries a verdict from the assignments — <i>can collide</i> (a shared included group, or tenant-wide reach meeting anything), <i>may collide</i>, <i>cannot collide</i>. And “cannot” is narrower than the card first said, on purpose: it is claimed only where one policy <b>reaches nobody by construction</b> — no include, no tenant-wide target. “Disjoint populations” cannot be claimed from group ids, because two different groups can share members and a browser cannot see membership: different groups are <b>may</b>, an assignment filter caps any verdict at may (the filter id now rides along on the documenter's assignment rows for exactly this), and may means may — the <span class="rm-ref">R03</span> rule.</p>
             <p class="mini" style="margin:6px 0 0"><b>Identity is exact or it is not claimed — a departure from this card's own first draft.</b> The card said <span class="rm-ref">R14</span>'s catalog would recognise a setting “across settings catalog, device configuration and ADMX”. It cannot: a legacy device configuration's typed property carries no definition id, and matching it to a catalog setting would be display-name matching wearing a canonical hat. Shipped instead: definition id within the settings catalog, definition-plus-category within ADMX, typed property within one policy type for device configurations — and a cross-surface collision on the same CSP is stated as <b>not detected</b> rather than half-detected. Redacted values are never compared: two secrets are not known to be equal, and a conflict row printing them would be a disclosure. Findings, not a score. Reads only, no new scope.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R22</span> 📈 Compliance report <span class="tag grant">live · beta 10383</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every policy with its verdicts, and which <i>setting</i> is failing where Graph keeps a per-setting summary, worst first. <b>Stale is its own column, not a flavour of compliant</b>: the threshold is on screen (default 30 days), and a compliant-but-stale device sits in <i>both</i> columns with the tension stated, because a verdict is as old as the check-in that produced it.</p>
+            <p class="mini" style="margin:6px 0 0"><b>No new scope</b>, as promised — the estate rides <span class="rm-ref">R03</span>'s device read, the policies ride the config read. The <span class="rm-ref">R12</span> honesty rule arrived with it: the numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule and labelled so; a policy whose statuses could not be read is <b>listed with the gap stated</b>, never absent; and per-device drill-down for one machine is named as <span class="rm-ref">R03</span>'s job rather than half-done here. Exports Markdown, CSV, and a stale-devices CSV. <span class="tag">HTML export next</span></p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
@@ -1072,11 +1106,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag block">second half would write to the tenant</span></h4>
             <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. Assignment filters are load-bearing and invisible: <span class="rm-ref">R03</span> can only say <i>may reach it</i> because a filter is in the way, <span class="rm-ref">R13</span> re-serialises them carefully so an edit does not drop one — but nothing in TUNO shows the filters themselves. First half, reads only: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — which is <span class="rm-ref">R04</span>'s source table read from a different angle. The portal shows a filter's rule; it does not show what breaks if you change it.</p>
             <p class="mini" style="margin:6px 0 0"><b>The second half is create, edit and delete</b>, under the write scope the registration already holds and <span class="rm-ref">R13</span>'s rules unchanged: dry run, fresh read before write, read-back after. Plus one of its own — <b>delete is refused while usage is non-zero</b>, because deleting a filter still referenced by an assignment silently widens that assignment to the whole target group, which is the worst kind of change: one that makes things reach <i>more</i> devices by removing something.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R22</span> 📈 Compliance report</h4>
-            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. The tenant's compliance story on one page: every compliance policy with its per-device verdicts rolled up, which <i>setting</i> is failing where the status endpoints say, and the devices that have not checked in recently enough for their verdict to mean anything — stale is its own column, not a flavour of compliant. <span class="rm-ref">R03</span> reads compliance state for one device; this is the same read pointed at the estate. Exports Markdown, CSV and standalone HTML, <span class="rm-ref">R06</span>-style, for the monthly report that today is screenshots of portal blades.</p>
-            <p class="mini" style="margin:6px 0 0"><b>No new scope</b> — <code>DeviceManagementManagedDevices.Read.All</code> came in with <span class="rm-ref">R03</span>. And the <span class="rm-ref">R12</span> honesty rule applies: the surfaces that keep their status behind the reports API are named as unchecked rather than passed off as healthy, and a policy whose statuses could not be read is listed with the gap stated, never absent.</p>
           </div>
         </div>
         <div class="rm-era later">
@@ -1284,25 +1313,26 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10382"></script>
-<script src="js/version.js?v=10382"></script>
-<script src="js/promote.js?v=10382"></script>
-<script src="js/authConfig.js?v=10382"></script>
-<script src="js/changelog.js?v=10382"></script>
-<script src="js/msappcatalog.js?v=10382"></script>
-<script src="js/graph.js?v=10382"></script>
-<script src="js/groupuse.js?v=10382"></script>
-<script src="js/audit.js?v=10382"></script>
-<script src="js/backup.js?v=10382"></script>
-<script src="js/document.js?v=10382"></script>
-<script src="js/devicewhy.js?v=10382"></script>
-<script src="js/whatif.js?v=10382"></script>
-<script src="js/health.js?v=10382"></script>
-<script src="js/settingsearch.js?v=10382"></script>
-<script src="js/conflict.js?v=10382"></script>
-<script src="js/assignedit.js?v=10382"></script>
-<script src="js/roles.js?v=10382"></script>
-<script src="js/applocker.js?v=10382"></script>
-<script src="js/app.js?v=10382"></script>
+<script src="js/branding.js?v=10383"></script>
+<script src="js/version.js?v=10383"></script>
+<script src="js/promote.js?v=10383"></script>
+<script src="js/authConfig.js?v=10383"></script>
+<script src="js/changelog.js?v=10383"></script>
+<script src="js/msappcatalog.js?v=10383"></script>
+<script src="js/graph.js?v=10383"></script>
+<script src="js/groupuse.js?v=10383"></script>
+<script src="js/audit.js?v=10383"></script>
+<script src="js/backup.js?v=10383"></script>
+<script src="js/document.js?v=10383"></script>
+<script src="js/devicewhy.js?v=10383"></script>
+<script src="js/whatif.js?v=10383"></script>
+<script src="js/health.js?v=10383"></script>
+<script src="js/settingsearch.js?v=10383"></script>
+<script src="js/conflict.js?v=10383"></script>
+<script src="js/compliance.js?v=10383"></script>
+<script src="js/assignedit.js?v=10383"></script>
+<script src="js/roles.js?v=10383"></script>
+<script src="js/applocker.js?v=10383"></script>
+<script src="js/app.js?v=10383"></script>
 </body>
 </html>

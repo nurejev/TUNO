@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10383, date: "2026-08-24", title: "The compliance report — the estate on one page",
+    items: [
+      { kind: "new", tool: "📈 Compliance report", text: "R22 ships as T13: the tenant's compliance story on one page instead of a morning of portal blades. The estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts worst first, and which setting is failing where Graph keeps a per-setting summary, read as two cheap rollups per policy folded into batch requests. Stale is its own column, not a flavour of compliant: the threshold is on screen, default 30 days, a device that has never synced counts as stale, and a compliant-but-stale machine sits in both columns with the tension stated, because a compliance verdict is exactly as old as the check-in that produced it." },
+      { kind: "new", tool: "📈 Compliance report", text: "The honesty rules ride along: the numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule rather than live, and the page says so; a policy whose statuses could not be read is listed with a status-gap tag rather than dropped, because unknown is not clean; an unassigned compliance policy is flagged as evaluating nobody; and the per-device answer for one machine is named as the Device analyzer's job rather than half-done here. No new permission — the estate rides the device read that came with the Device analyzer, the policies ride the config read. Exports Markdown, CSV, and a stale-devices CSV with every stale machine, oldest first." },
+    ],
+  },
+  {
     build: 10382, date: "2026-08-24", title: "The setting conflict scan — value-shaped contradictions",
     items: [
       { kind: "new", tool: "⚔️ Setting conflict scan", text: "R20 ships as T12: the same setting configured to different values in two policies, where Assignment health finds the assignment-shaped contradictions. The read is the documenter's own collect — same three configuration surfaces, same redaction, same honesty about what could not be read — because a second copy of that reading is how two tools start disagreeing about one tenant. Identity is exact or it is not claimed: definition id in the settings catalog, definition plus category in administrative templates, and the typed property within one policy type for device configurations. A collision that spans surfaces — a catalog policy and a legacy device configuration driving the same CSP — is stated as not detected rather than guessed at, which is a deliberate departure from the roadmap card's first draft, said on the card." },

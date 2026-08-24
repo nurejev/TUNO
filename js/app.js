@@ -117,7 +117,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -432,6 +432,7 @@ const Fs = (() => {
     ["toolHealth", "🩺 Assignment health"],
     ["toolAssignEdit", "✏️ Assignment editor"],
     ["toolDevice", "🖥 Device analyzer"],
+    ["toolCompliance", "📈 Compliance report"],
     ["toolAudit", "🕓 Change audit"],
     ["toolBackup", "📦 Backup configuration"],
     ["toolDocs", "📄 Configuration documenter"],
@@ -569,6 +570,7 @@ const Fs = (() => {
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
+  $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
   $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
@@ -741,6 +743,7 @@ const Fs = (() => {
   if (typeof HealthTool !== "undefined") HealthTool.init();
   if (typeof SettingSearchTool !== "undefined") SettingSearchTool.init();
   if (typeof ConflictTool !== "undefined") ConflictTool.init();
+  if (typeof ComplianceTool !== "undefined") ComplianceTool.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
