@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10386, date: "2026-08-24", title: "The events collector survives its first real machine",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Get-TunoAppControlEvents.ps1 (now 1.0.2) crashed on its first real run with PowerShell 5.1's dictionary-binder defect — the same 'Argument types do not match' that hit the scan script twice, and it took two rounds to kill here because it has more shapes than the house discipline covered. The first crash was in the ordered-dictionary handling the cast rule was written for; the fix for that added a crash reporter that names the failing line, and the very next run pointed it at something the rule did not cover: dot access on a plain hashtable goes through the same broken binder. The discipline is now total and written into the script: no ordered dictionaries anywhere, every object that gets dot-accessed is a pscustomobject — the shape the scan bundle has always used, on the same machine, without incident — and dictionary writes go through the Add method. The crash reporter stays: it turned a useless position-1,1 error into a one-paste diagnosis, and every future house script starts with one." },
+      { kind: "fixed", tool: "TUNO", text: "The scripts' build stamps caught up: builds 10379 through 10385 bumped the site build without bumping the TunoBuild constant the scripts carry, so a freshly downloaded script introduced itself as five builds older than the site that served it. All nine now say 10386, and the guard that should have said so runs before every commit again." },
+    ],
+  },
+  {
     build: 10385, date: "2026-08-24", title: "Restore — the backup tool learns the other direction",
     items: [
       { kind: "new", tool: "📦 Backup configuration", text: "R09 ships inside the backup tool, because the file you load is the file the other half wrote — and the original PowerShell script's archives load too, since the folder layout is shared in both directions. Load a zip, pick a single policy, a selection or everything, dry-run, apply. The dry run lists every operation including the administrative-template definition-value child writes the original's WhatIf never shows, and every create is verified by reading the object back: created is the tenant's word, not the request's status code." },

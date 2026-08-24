@@ -70,7 +70,7 @@ convention for everything IT writes on an endpoint.
 Skip the HTML report. The CSV/XML exports and the JSON bundle are still written.
 
 .NOTES
-Version   : 1.0.0
+Version   : 1.0.2
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppControlEvents.ps1), run as
@@ -98,8 +98,8 @@ param(
 # Two numbers, same discipline as every house script: ScriptVersion is this file's
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
-$script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10378
+$script:ScriptVersion = '1.0.2'
+$script:TunoBuild = 10386
 
 $ErrorActionPreference = 'Stop'
 
@@ -125,6 +125,19 @@ function ConvertTo-HtmlSafe {
     ([string]$Text).Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
 }
 
+# Crash reporter - the scan's lesson applied from day one here too: an
+# unhandled throw surfaces to the caller as one useless line ("Argument types
+# do not match", position 1,1). This names the LINE and the first stack frame,
+# in the log and on the console, so the next defect diagnoses itself.
+trap {
+    $failLine  = $_.InvocationInfo.ScriptLineNumber
+    $failFrame = (($_.ScriptStackTrace -split "`n" | Select-Object -First 1) -replace '\s+', ' ')
+    $failMsg   = "FATAL at line ${failLine}: $($_.Exception.Message) [$failFrame]"
+    try { Write-Log $failMsg } catch { }
+    Write-Output $failMsg
+    exit 1
+}
+
 Write-Log "========== TUNO App Control events collection v$script:ScriptVersion (build $script:TunoBuild) =========="
 Write-Log "Computer: $env:COMPUTERNAME  User: $env:USERNAME  Window: last $DaysBack day(s), cap $MaxEvents per provider"
 
@@ -136,12 +149,19 @@ function Add-CollectWarning { param([string]$m) $Warnings.Add($m); Write-Log "WA
 # AppLocker: per log, exactly the IDs that log emits - and every verdict ID.
 # 8005/8006/8007 for MSI and Script were the gap in the replaced script: the
 # ENFORCED-block evidence (8007) was never collected.
-$AppLockerLogs = [ordered]@{
-    'Microsoft-Windows-AppLocker/EXE and DLL'              = @(8002, 8003, 8004)
-    'Microsoft-Windows-AppLocker/MSI and Script'           = @(8005, 8006, 8007, 8028, 8029, 8036, 8037, 8038, 8039, 8040)
-    'Microsoft-Windows-AppLocker/Packaged app-Execution'   = @(8020, 8021, 8022)
-    'Microsoft-Windows-AppLocker/Packaged app-Deployment'  = @(8023, 8024, 8025)
-}
+#
+# AN ARRAY, NOT [ordered]. PowerShell 5.1's dynamic binder mis-compiles indexed
+# access on OrderedDictionary ("Argument types do not match" from deep inside
+# Expression.Condition) - it crashed the scan script twice and this script's
+# 1.0.0 once. The house rule after the third strike: no [ordered] anywhere on a
+# path that runs on endpoints. An array of objects keeps the reading order and
+# has nothing to mis-bind.
+$AppLockerLogs = @(
+    [pscustomobject]@{ Log = 'Microsoft-Windows-AppLocker/EXE and DLL';             Ids = @(8002, 8003, 8004) }
+    [pscustomobject]@{ Log = 'Microsoft-Windows-AppLocker/MSI and Script';          Ids = @(8005, 8006, 8007, 8028, 8029, 8036, 8037, 8038, 8039, 8040) }
+    [pscustomobject]@{ Log = 'Microsoft-Windows-AppLocker/Packaged app-Execution';  Ids = @(8020, 8021, 8022) }
+    [pscustomobject]@{ Log = 'Microsoft-Windows-AppLocker/Packaged app-Deployment'; Ids = @(8023, 8024, 8025) }
+)
 # Verdicts, same table the T01 scan uses - allowed / audited-would-block / blocked.
 $Verdict = @{
     8002 = 'Allowed'; 8005 = 'Allowed'; 8020 = 'Allowed'; 8023 = 'Allowed'
@@ -214,11 +234,9 @@ Write-Log "CodeIntegrity: $ciRaw raw, $($ciEvents.Count) unique"
 $alEvents  = New-Object System.Collections.Generic.List[object]
 $alRaw     = 0
 $logsRead  = New-Object System.Collections.Generic.List[string]
-foreach ($logName in $AppLockerLogs.Keys) {
-    # IDictionary cast on EVERY indexed read of an [ordered] dictionary - the
-    # PS 5.1 binder defect that produced "Argument types do not match" twice in
-    # the scan script. Total discipline, no exceptions.
-    $ids = [int[]](([System.Collections.IDictionary]$AppLockerLogs)[$logName])
+foreach ($logEntry in $AppLockerLogs) {
+    $logName = [string]$logEntry.Log
+    $ids = [int[]]$logEntry.Ids
     $r = Get-EventsChunked -LogName $logName -Ids $ids -Cap ($MaxEvents - $alEvents.Count)
     if ($r.Readable) { $logsRead.Add($logName) }
     if ($r.Capped)   { Add-CollectWarning "AppLocker collection stopped at the $MaxEvents cap in '$logName' - counts are a floor, not a total." }
@@ -241,7 +259,8 @@ function Export-PerId {
     }
 }
 Export-PerId -Events $ciEvents -Prefix 'CodeIntegrity'
-foreach ($logName in $AppLockerLogs.Keys) {
+foreach ($logEntry in $AppLockerLogs) {
+    $logName = [string]$logEntry.Log
     Export-PerId -Events @($alEvents | Where-Object { $_.LogName -eq $logName }) -Prefix "AppLocker_$logName"
 }
 Write-Log "CSV/XML exports written to $EventLogFolder"
@@ -300,33 +319,41 @@ $allowed = @($entries | Where-Object { $_.verdict -eq 'Allowed' })
 
 # CodeIntegrity: counts per ID for the bundle. 3076/3077 are called out because
 # they are WDAC's audit/block pair - the CI numbers T01 surfaces first.
+# Plain variables up front so both the bundle and the HTML read simple locals.
 $ciCounts = @{}
-foreach ($g in ($ciEvents | Group-Object Id)) { $ciCounts[[string]$g.Name] = $g.Count }
+# .Add(), not indexed set — Group-Object keys are unique so Add cannot collide,
+# and the method call keeps the whole script off the 5.1 dictionary binder.
+foreach ($g in ($ciEvents | Group-Object Id)) { $ciCounts.Add([string]$g.Name, [int]$g.Count) }
+$ci3076 = 0; if ($ciCounts.ContainsKey('3076')) { $ci3076 = [int]$ciCounts['3076'] }
+$ci3077 = 0; if ($ciCounts.ContainsKey('3077')) { $ci3077 = [int]$ciCounts['3077'] }
 
 # ── JSON events bundle ───────────────────────────────────────────────────────
 # Written into the IME Logs ROOT with a .log extension ON PURPOSE - the same
 # trick as the HTML report: Intune device diagnostics collects *.log from that
 # folder, so the bundle rides home on the built-in mechanism. T01's upload
 # detects JSON by CONTENT, not by extension, so the file imports as-is.
-$bundle = [ordered]@{
+# [pscustomobject], never [ordered] - the same shape the scan bundle uses, for
+# the same reason: property order survives ConvertTo-Json and nothing touches
+# the 5.1 dictionary binder (see the note at $AppLockerLogs).
+$bundle = [pscustomobject]@{
     schema    = 'tuno.applocker.events/1'
-    generator = [ordered]@{
+    generator = [pscustomobject]@{
         script    = 'Get-TunoAppControlEvents.ps1'
         version   = $script:ScriptVersion
         tunoBuild = $script:TunoBuild
     }
-    machine   = [ordered]@{
+    machine   = [pscustomobject]@{
         name         = $env:COMPUTERNAME
         collectedUtc = (Get-Date).ToUniversalTime().ToString('o')
         daysBack     = $DaysBack
         sinceUtc     = $Since.ToUniversalTime().ToString('o')
     }
-    events    = [ordered]@{
+    events    = [pscustomobject]@{
         available = ($logsRead.Count -gt 0)
         logsRead  = $logsRead.ToArray()
         daysBack  = $DaysBack
         sinceUtc  = $Since.ToUniversalTime().ToString('o')
-        summary   = [ordered]@{
+        summary   = [pscustomobject]@{
             total   = $entries.Count
             blocked = $blocked.Count
             audited = $audited.Count
@@ -334,11 +361,11 @@ $bundle = [ordered]@{
         }
         entries   = $entries.ToArray()
     }
-    codeIntegrity = [ordered]@{
+    codeIntegrity = [pscustomobject]@{
         available = $ciResult.Readable
         total     = $ciEvents.Count
-        audit3076 = $(if ($ciCounts.ContainsKey('3076')) { $ciCounts['3076'] } else { 0 })
-        block3077 = $(if ($ciCounts.ContainsKey('3077')) { $ciCounts['3077'] } else { 0 })
+        audit3076 = $ci3076
+        block3077 = $ci3077
         countsById = $ciCounts
     }
     warnings  = $Warnings.ToArray()
@@ -364,20 +391,27 @@ if (-not $SkipHtmlReport) {
     $H.Add('<div class="card">')
     $H.Add("<p><b>Computer:</b> $(ConvertTo-HtmlSafe $env:COMPUTERNAME) &nbsp; <b>Generated:</b> $(ConvertTo-HtmlSafe (Get-Date)) &nbsp; <b>Window:</b> last $DaysBack day(s)</p>")
     $H.Add("<p><b>AppLocker:</b> $alRaw raw &rarr; $($alEvents.Count) unique &mdash; $($blocked.Count) blocked, $($audited.Count) audited (would block), $($allowed.Count) allowed</p>")
-    $H.Add("<p><b>CodeIntegrity:</b> $ciRaw raw &rarr; $($ciEvents.Count) unique &mdash; 3076 audit: $($bundle.codeIntegrity.audit3076), 3077 block: $($bundle.codeIntegrity.block3077)</p>")
+    $H.Add("<p><b>CodeIntegrity:</b> $ciRaw raw &rarr; $($ciEvents.Count) unique &mdash; 3076 audit: $ci3076, 3077 block: $ci3077</p>")
     $H.Add("<p><b>Exports:</b> $(ConvertTo-HtmlSafe $EventLogFolder) &nbsp; <b>T01 bundle:</b> $(ConvertTo-HtmlSafe $BundlePath)</p>")
     foreach ($w in $Warnings) { $H.Add("<p style='color:#856404'><b>WARN:</b> $(ConvertTo-HtmlSafe $w)</p>") }
     $H.Add('</div>')
 
+    # [pscustomobject] here too. 1.0.1 used plain hashtables and died on the
+    # very first `$section.Events` - dot access on a Hashtable goes through the
+    # same broken 5.1 member binder as [ordered] indexing ("Argument types do
+    # not match", the trap named this exact line). A pscustomobject's dot
+    # access is a real adapted property; the scan uses it everywhere and runs.
     foreach ($section in @(
-        @{ Title = 'AppLocker events'; Events = $alEvents; Badge = 'Microsoft-Windows-AppLocker' },
-        @{ Title = 'CodeIntegrity events'; Events = $ciEvents; Badge = 'Microsoft-Windows-CodeIntegrity' }
+        [pscustomobject]@{ Title = 'AppLocker events'; Events = $alEvents.ToArray(); Badge = 'Microsoft-Windows-AppLocker' },
+        [pscustomobject]@{ Title = 'CodeIntegrity events'; Events = @($ciEvents); Badge = 'Microsoft-Windows-CodeIntegrity' }
     )) {
         $H.Add("<div class='card'><h2>$($section.Title)<span class='b'>$($section.Badge)</span></h2>")
-        if (@($section.Events).Count -eq 0) { $H.Add('<p>No events in the window.</p>') }
+        $sectionEvents = @($section.Events)
+        if ($sectionEvents.Count -eq 0) { $H.Add('<p>No events in the window.</p>') }
         else {
-            foreach ($lg in (@($section.Events) | Group-Object LogName | Sort-Object Name)) {
-                if ((@($section.Events | Group-Object LogName)).Count -gt 1) { $H.Add("<h3>$(ConvertTo-HtmlSafe $lg.Name)</h3>") }
+            $byLog = @($sectionEvents | Group-Object LogName | Sort-Object Name)
+            foreach ($lg in $byLog) {
+                if ($byLog.Count -gt 1) { $H.Add("<h3>$(ConvertTo-HtmlSafe $lg.Name)</h3>") }
                 foreach ($g in ($lg.Group | Group-Object Id | Sort-Object { [int]$_.Name })) {
                     $H.Add("<details><summary>Event ID $($g.Name)<span class='b'>$($g.Count) events</span></summary><table>")
                     $H.Add('<tr><th>TimeCreated</th><th>Level</th><th>Message</th></tr>')
