@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10378"></script>
+<script src="js/popup-guard.js?v=10379"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10378">
+<link rel="stylesheet" href="css/app.css?v=10379">
 </head>
 <body>
 
@@ -1023,6 +1023,26 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
           </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R19</span> 🧮 Assignment matrix</h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> by <b>Alper Atar</b> (MIT), whose single best screen this is: every group down the side, every policy surface across the top, one grid instead of one portal blade per policy. <b>TUNO has already paid for the data</b> — <span class="rm-ref">R04</span>'s tenant sweep reads each surface once and matches every group against it — so this is a view over a read that exists, not a new read: zero new Graph calls, zero new scopes, and a cell click lands in the group's own detail.</p>
+            <p class="mini" style="margin:6px 0 0"><b>A cell is a claim, and the grid must not overstate it.</b> A mark means an assignment exists — not that it reaches anyone. So exclusions render distinctly from includes rather than fattening the same count, a dangling reference wears the sweep's own flag instead of counting as coverage, and a group the sweep found empty says so in its row, because a dense-looking grid over empty groups is exactly the false comfort <span class="rm-ref">R12</span> exists to puncture. The sweep's scope caveat travels with the view: built from the assignment-derived scope, the matrix cannot show unused groups, and the screen says which scope produced it.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R20</span> ⚔️ Setting conflict scan</h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, which checks what TUNO so far does not: <b>the same setting configured to different values in two policies</b>. <span class="rm-ref">R12</span> finds assignment-shaped contradictions — include+exclude on one policy, reach that reaches nobody; this finds value-shaped ones. The pieces are all here: <span class="rm-ref">R06</span> already reads every policy's settings across the config surfaces, <span class="rm-ref">R14</span>'s definition catalog gives every setting a canonical id so the same setting is recognised across settings catalog, device configuration and ADMX rather than matched by display name.</p>
+            <p class="mini" style="margin:6px 0 0"><b>And one step past the original: a collision is only a conflict if the two policies can meet on a device.</b> IntuneShade flags every same-setting difference; most are deliberate — a kiosk baseline and a knowledge-worker baseline disagreeing is the tenant working. <span class="rm-ref">R04</span>'s machinery already answers whether two assignment sets can overlap, so the scan splits its findings: <i>can collide</i> (overlapping reach, different values — the row worth reading), <i>cannot collide</i> (disjoint populations), and <i>may collide</i> where a filter or a dynamic rule sits in between and a browser cannot evaluate it — may, never yes, the <span class="rm-ref">R03</span> rule. Findings, not a score; values pass the documenter's redaction gate on every export. Reads only, no new scope.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag block">second half would write to the tenant</span></h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. Assignment filters are load-bearing and invisible: <span class="rm-ref">R03</span> can only say <i>may reach it</i> because a filter is in the way, <span class="rm-ref">R13</span> re-serialises them carefully so an edit does not drop one — but nothing in TUNO shows the filters themselves. First half, reads only: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — which is <span class="rm-ref">R04</span>'s source table read from a different angle. The portal shows a filter's rule; it does not show what breaks if you change it.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The second half is create, edit and delete</b>, under the write scope the registration already holds and <span class="rm-ref">R13</span>'s rules unchanged: dry run, fresh read before write, read-back after. Plus one of its own — <b>delete is refused while usage is non-zero</b>, because deleting a filter still referenced by an assignment silently widens that assignment to the whole target group, which is the worst kind of change: one that makes things reach <i>more</i> devices by removing something.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R22</span> 📈 Compliance report</h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. The tenant's compliance story on one page: every compliance policy with its per-device verdicts rolled up, which <i>setting</i> is failing where the status endpoints say, and the devices that have not checked in recently enough for their verdict to mean anything — stale is its own column, not a flavour of compliant. <span class="rm-ref">R03</span> reads compliance state for one device; this is the same read pointed at the estate. Exports Markdown, CSV and standalone HTML, <span class="rm-ref">R06</span>-style, for the monthly report that today is screenshots of portal blades.</p>
+            <p class="mini" style="margin:6px 0 0"><b>No new scope</b> — <code>DeviceManagementManagedDevices.Read.All</code> came in with <span class="rm-ref">R03</span>. And the <span class="rm-ref">R12</span> honesty rule applies: the surfaces that keep their status behind the reports API are named as unchecked rather than passed off as healthy, and a policy whose statuses could not be read is listed with the gap stated, never absent.</p>
+          </div>
         </div>
         <div class="rm-era later">
           <h3>Later</h3>
@@ -1061,6 +1081,12 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a>. Take an R08 archive and put a single policy, a selection, or the whole thing back into a tenant. <b>This is the second thing in TUNO that writes, and it gets T01's rules rather than the script's.</b> The original never checks whether the object already exists — it always creates, so a re-run silently produces a second copy of every policy, and its own notes say so. TUNO reads first: a policy whose name already exists <b>stops</b> the restore for that object and offers overwrite, skip or rename as a decision you make, not a prefix you hope you remembered. <code>DeviceManagementConfiguration.ReadWrite.All</code> is asked for on the click and never at sign-in. A dry run lists <b>every</b> operation before anything is sent, including the child writes the original's <code>-WhatIf</code> never shows — the ADMX definition values and the assignments. Assignments stay off unless asked for, and are checked against the target tenant first, because a group GUID from the source tenant either does not exist there or, worse, names a different group.</p>
             <p class="mini" style="margin:6px 0 0"><b>Two rules borrowed from <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a></b> (Ugur Koc, MIT), which solves the same problem in a terminal. <b>Create only.</b> It never patches and never deletes — the single exception is rolling back an administrative template it failed halfway through creating itself, which is cleaning up its own mess rather than touching yours. And <b>every restored object gets a name prefix</b>, <code>[Restored]</code> by default. Between them those two turn the original's silent-duplicate problem into a visible one: you still get a second copy, but it is labelled, and nothing you already had was altered to produce it. TUNO keeps its collision stop on top of that, because a labelled duplicate is better than an overwrite and worse than being asked.</p>
             <p class="mini" style="margin:6px 0 0"><b>And one detail worth stealing outright:</b> TenuVault creates restored Conditional Access policies <i>disabled</i>. TUNO does not read Conditional Access — that is ENCA's — but the principle generalises to anything whose restoration could immediately change who gets access, and R09 will apply it wherever Intune has an equivalent.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R23</span> 🤖 AI policy analysis <span class="tag">bring your own key</span></h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, which sends a policy to Claude and gets back what it does, what is risky about it and what to reconsider — and, on a conflict, a suggested resolution with the reasoning. Paired with <span class="rm-ref">R20</span> that is genuinely useful: the scan finds the collision, the model argues about which value should win, the admin decides. <b>Bring your own key, and the feature does not exist until one is entered</b> — no key, no button, nothing sent anywhere.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Without the server IntuneShade needed.</b> Its Azure Function exists only to forward the request; the Anthropic API accepts direct browser calls (a request header exists precisely to declare that choice), so TUNO can do this and remain static files. The key lives in memory for the session — not <code>localStorage</code>, where the original keeps it and where it survives the tab. And the payload passes the <b>documenter's redaction gate before it leaves the browser</b>: a policy sent for analysis is exactly as likely to carry a pre-shared key as one sent to a wiki, the original sends it raw, and this will not.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The sharp edge is the same one <span class="rm-ref">R18</span> already named: a new origin.</b> The content-security policy allows Microsoft's two hosts and nothing else, and <code>api.anthropic.com</code> would be the second third-party origin ever proposed for this application — a decision to take in the open in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>, not a line in a commit. It sits in Later on purpose: <span class="rm-ref">R20</span> must exist first, and the origin question decided first. <b>One of the original's AI features is deliberately not coming</b>: the script generator. TUNO ships curated, reviewed, versioned PowerShell — generated scripts with a tenant's write scopes at hand is the opposite of the argument this application makes.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R10</span> 🔑 LAPS viewer <span class="tag">admin-side — not the self-service portal</span></h4>
@@ -1183,6 +1209,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <li><b><a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a></b> — by <b>Maxime Guillemin</b>. Behind <span class="rm-ref">R13</span>, shipped as <b>✏️ Assignment editor</b>. A WPF application for bulk assignment editing across every policy, app and script type, with backup and restore of the assignments alone. The surface map is his; the write discipline TUNO put around it — dry run, automatic backup, typed removal confirmation, drift detection, verify-by-read-back — is not. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/SkipToTheEndpoint/IntuneComplianceMaintainer" target="_blank" rel="noopener">IntuneComplianceMaintainer</a></b> — by <b>James Robinson</b> (Microsoft MVP, and the author of <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a>). Behind <span class="rm-ref">R18</span>. Which fields on a compliance and an app-protection policy hold the OS floor, where the supported versions come from for each platform, and the two rules that keep the automation from doing harm — a cadence before a release is enforced, and no silent downgrade. The Android handling is the part worth copying exactly: target the <i>oldest maintained</i> release, and treat the security patch level as a second floor of its own. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R15</span>, <span class="rm-ref">R16</span> and <span class="rm-ref">R17</span>, and two rules borrowed into <span class="rm-ref">R09</span>. Twenty-seven policy types, a checksum per file with an offline verify, and a comparison between two archives that needs no tenant. The idea worth stealing outright is the smallest one: write the manifest LAST, so its presence is what proves the backup finished. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a></b> — by <b>Alper Atar</b>. Behind <span class="rm-ref">R19</span>, <span class="rm-ref">R20</span>, <span class="rm-ref">R21</span>, <span class="rm-ref">R22</span> and <span class="rm-ref">R23</span>. A React console that covers much of the same ground TUNO does, and four ideas here are its: the groups-by-surfaces <b>assignment matrix</b>, <b>setting-level</b> conflict detection rather than only assignment-level, a dedicated <b>assignment filters</b> view with per-filter usage, and <b>AI policy analysis</b> on a bring-your-own key. Where the cards depart from it — overlap-aware conflict findings, redaction before anything leaves the browser, a key that dies with the session, no script generator — the card says so. Licensed <b>MIT</b>.</li>
         </ul>
         <p class="mini" style="margin:8px 0 0">All are independently reimplemented here in browser-side JavaScript against Microsoft Graph — <b>no code was copied</b>, and where TUNO departs from an original the roadmap card says so rather than leaving you to find out. TUNO's own machinery — the shell, the tab bar, incremental consent, the changelog and promotion discipline — comes from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>.</p>
       </div>
@@ -1222,24 +1249,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10378"></script>
-<script src="js/version.js?v=10378"></script>
-<script src="js/promote.js?v=10378"></script>
-<script src="js/authConfig.js?v=10378"></script>
-<script src="js/changelog.js?v=10378"></script>
-<script src="js/msappcatalog.js?v=10378"></script>
-<script src="js/graph.js?v=10378"></script>
-<script src="js/groupuse.js?v=10378"></script>
-<script src="js/audit.js?v=10378"></script>
-<script src="js/backup.js?v=10378"></script>
-<script src="js/document.js?v=10378"></script>
-<script src="js/devicewhy.js?v=10378"></script>
-<script src="js/whatif.js?v=10378"></script>
-<script src="js/health.js?v=10378"></script>
-<script src="js/settingsearch.js?v=10378"></script>
-<script src="js/assignedit.js?v=10378"></script>
-<script src="js/roles.js?v=10378"></script>
-<script src="js/applocker.js?v=10378"></script>
-<script src="js/app.js?v=10378"></script>
+<script src="js/branding.js?v=10379"></script>
+<script src="js/version.js?v=10379"></script>
+<script src="js/promote.js?v=10379"></script>
+<script src="js/authConfig.js?v=10379"></script>
+<script src="js/changelog.js?v=10379"></script>
+<script src="js/msappcatalog.js?v=10379"></script>
+<script src="js/graph.js?v=10379"></script>
+<script src="js/groupuse.js?v=10379"></script>
+<script src="js/audit.js?v=10379"></script>
+<script src="js/backup.js?v=10379"></script>
+<script src="js/document.js?v=10379"></script>
+<script src="js/devicewhy.js?v=10379"></script>
+<script src="js/whatif.js?v=10379"></script>
+<script src="js/health.js?v=10379"></script>
+<script src="js/settingsearch.js?v=10379"></script>
+<script src="js/assignedit.js?v=10379"></script>
+<script src="js/roles.js?v=10379"></script>
+<script src="js/applocker.js?v=10379"></script>
+<script src="js/app.js?v=10379"></script>
 </body>
 </html>

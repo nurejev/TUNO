@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10379, date: "2026-08-24", title: "Five roadmap cards from the IntuneShade comparison",
+    items: [
+      { kind: "new", tool: "🗺 Roadmap", text: "Five cards join the roadmap, after a feature-by-feature comparison with Alper Atar's IntuneShade (MIT) — a React console covering much of the same ground. Where the two overlap, TUNO's tools go deeper; these five are what it genuinely has that TUNO does not. In Next: R19 Assignment matrix, a groups-by-surfaces grid rendered from the tenant sweep R04 already runs, zero new reads; R20 Setting conflict scan, the same setting configured to different values across policies — with one step past the original, because a collision only matters if the two assignment sets can meet on a device; R21 Assignment filters, the per-filter usage view and later the create/edit/delete, with delete refused while anything still references the filter; R22 Compliance report, the estate-wide rollup on a scope R03 already brought in. In Later: R23 AI policy analysis on a bring-your-own key — without the server the original needed, with redaction before anything leaves the browser, and with the new-origin decision named as the R18-shaped question it is. The script generator is deliberately not coming. IntuneShade joins the credits." },
+    ],
+  },
+  {
     build: 10378, date: "2026-08-24", title: "The fleet's events come home — and T01 reads them",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "A third script set joins step 1: App Control events collection. Deployed as an Intune Remediation (the third pair in the deploy panel), it harvests the CodeIntegrity log and all four AppLocker logs from every device in the assigned ring — per-event-ID CSV and XML for digging, an HTML report for reading, and a JSON events bundle for this tool. The report and the bundle are written into the Intune Management Extension logs folder with a .log name on purpose: Collect diagnostics gathers *.log from exactly there, so the harvest rides home on a mechanism the tenant already has. For the impatient there is a Live Response companion that zips the newest report and bundle and prints the path ready for getfile. The detection half always reports non-compliant, deliberately — the remediation IS the collection — and everything that describes the pair says plainly what that does to the console numbers." },
