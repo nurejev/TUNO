@@ -54,107 +54,21 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 7.
+  // Verified against `git show main:js/version.js` — main is at build 8.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
-  // 30-35 (10342, 10344-10348) as build 6, and items 36-40 plus 45-52 and
-  // 54-57 (10350-10356, 10361-10376; 53 retired into 57) as build 7.
+  // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
+  // 54-57 (10350-10356, 10361-10376; 53 retired into 57) as build 7, and
+  // items 44, 58, 59 and 63-67 (10360, 10378-10380, 10384-10405 less the
+  // held builds) as build 8 — the second partial promotion.
   //
-  // What remains is exactly the four new tools — T08 what-if, T09 health,
-  // T10 settings search, T11 assignment editor — held in beta on purpose
-  // until each has run against a real tenant. They are the whole of the
-  // next promotion.
-  productionBuild: "v1.0.7",
+  // What remains: T08 what-if, T09 health, T10 settings search (41-43),
+  // and the three IntuneShade reads — the assignment matrix (60), the
+  // setting conflict scan (61) and the compliance report (62) — each held
+  // in beta until it has run against a real tenant.
+  productionBuild: "v1.0.8",
 
   items: [
-    {
-      n: 67,
-      title: "TunoProgress — ENCA's centred read card behind every tool",
-      tools: ["TUNO"],
-      builds: [10397],
-      risk: "low",
-      what: "js/progress.js: TunoProgress.show(bodyId, lineId, msg, n, of) — centred list-card (spinner + step + cg-progress bar, determinate on n/of, sweeping otherwise) rendered into the tool's empty result body, with the small text line kept in step. All fourteen prog() functions delegate; restore is deliberately line-only (its plan table must stay visible during an apply). RESULTS ARE NEVER COVERED: the card only claims an EMPTY body — a re-read over existing results keeps the line. prog('') removes card and line, which is what every tool already meant by it. The .spinner and .cg-progress CSS existed since the scaffold, unused; an indet animation was added.",
-      why: "LOW — presentation only, no reads or writes change. The two judgement calls needing eyes: a tool whose body is NOT empty at read start (T11 re-read) must degrade to the line without flicker, and the card must vanish the instant results render rather than flashing over them.",
-      test: [
-        "THE ONE THAT MATTERS: run the Group Analyzer sweep — the centred card appears with a filling bar during batched steps, and is gone the moment the table renders (no flash of both).",
-        "Documenter and backup: the per-policy N+1 shows n/of counting up on the card.",
-        "T11: first read shows the card; read AGAIN with the list on screen — line only, the table stays put.",
-        "Restore: dry-run and apply show line-only progress; the plan table never disappears.",
-        "A failing read: the card is replaced by the error card, not left spinning above it.",
-      ],
-      files: ["js/progress.js", "css/app.css", "index.html", "js/assignedit.js", "js/audit.js", "js/backup.js", "js/compliance.js", "js/conflict.js", "js/devicewhy.js", "js/document.js", "js/filters.js", "js/groupuse.js", "js/health.js", "js/restore.js", "js/roles.js", "js/settingsearch.js", "js/whatif.js", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 66,
-      title: "T07 renamed to Intune RBAC — role assignments becomes its first section",
-      tools: ["🛡 Intune RBAC"],
-      builds: [10392],
-      risk: "low",
-      what: "Rename only, structured for growth: tile, screen title, tab/crumb label, Help TOC and heading all read Intune RBAC; a section seg (Role assignments, sole and active) lands above the tool's controls as the slot where scope tags, custom-role review and other RBAC surfaces arrive as sections rather than tiles. TOOL_TABS label and the crumb string changed TOGETHER (idForCrumb matches by label — changing one without the other orphans the tab). No logic, no reads, no exports changed; T07 v0.2.",
-      why: "LOW — a rename with a one-button seg. The single real risk is the tab/crumb pair, asserted headlessly; the rest is words. Graduates on sight.",
-      test: [
-        "Open the tool from the tile, from the + menu, and from the sidebar: every path shows the Intune RBAC label, the tab appears and highlights, the sidebar agrees.",
-        "The section seg shows Role assignments active; the tool reads and renders exactly as before the rename (same roles, same flags, same exports).",
-        "Help: the TOC pill and the section heading both read Intune RBAC and the pill still lands on the section.",
-      ],
-      files: ["index.html", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 65,
-      title: "Tenant autocomplete on every directory-object input",
-      tools: ["TUNO"],
-      builds: [10388, 10402],
-      risk: "low",
-      what: "js/suggest.js — one shared typeahead, registry-attached to guTerm, wfSubject (kind follows the User/Device seg), wfGroup, wfGroups (textarea, completes the current line), aeGroup, dvTerm. Server-side startswith only (groups via Graph.searchGroups; users by displayName OR userPrincipalName, fills UPN; devices via the Entra /devices object). CONSENT UNCHANGED: no read on a keystroke unless the scope is already granted this session — otherwise one 'enable suggestions' row, read on that click. Menu is position:fixed on body (no overflow clipping), keyboard up/down/enter/escape with Enter captured so the tools' own Enter-to-run cannot fire mid-pick, stale responses dropped by sequence, failures are silence. GUID-shaped terms are not suggested — ids resolve typed. T01's pilot-group step keeps its own search (it needs the member count).",
-      why: "LOW — reads only, existing scopes, and ignoring the feature costs nothing. The judgement calls needing real eyes: the Enter-capture must not swallow Enter when no suggestion is highlighted, and the fixed-position menu must sit right on a zoomed/scrolled page.",
-      test: [
-        "THE ONE THAT MATTERS: in the Group Analyzer, type three letters of a real group — suggestions appear only if the scope is in hand; pick one with Enter; pressing Enter AGAIN (no menu) must run the analysis, not re-open the menu.",
-        "What-if: flip User↔Device and type the same prefix — the suggestion source follows the switch (UPNs vs device names); picking a user fills the UPN.",
-        "Compare box: two lines, cursor on line two — suggestions complete line two only, line one untouched.",
-        "Fresh session, no scopes yet: the single 'enable suggestions' row appears; clicking it prompts consent once and then suggests; ignoring it and typing a full name still resolves on run.",
-        "Paste a GUID: no menu. Type a serial in the device box: no menu (startswith is displayName only), and the run still finds it.",
-        "Scroll the page with a menu open: it closes rather than floating detached.",
-      ],
-      files: ["js/suggest.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 64,
-      title: "R09 — restore, inside the backup tool",
-      tools: ["📦 Backup configuration"],
-      builds: [10385, 10393],
-      risk: "high",
-      what: "T04 v0.2 (js/restore.js), after Ugur Koc's restore script + TenuVault's rules. Parses this tool's zips AND the original script's (shared folder layout; manifest optional). CREATE ONLY — no patch, no delete of yours; the one exception is TenuVault's kept exactly: an ADMX template the restore half-created is rolled back on a failed child write. Editable [Restored] prefix per row; collision stop at dry run AND re-checked fresh per create; overwrite deliberately not offered (departure, said on card); assignments NOT restored — everything arrives unassigned (departure from off-by-default, said on card). Bodies: settings-catalog settings inline on the create; compliance scheduledActionsForRule with source ids stripped; ADMX children bound to Microsoft's own definition/presentation ids; scripts to their own surface with body, non-restorable unselectable. Read-back verify per create. Scopes at apply: profiles + scriptsWrite (both declared).",
-      why: "HIGH — the fourth writer, and the one that creates many objects in one act. The create-body shapes (settings inline, scheduledActionsForRule, the ADMX odata binds) are asserted against fabricated archives; whether a real tenant accepts them, and whether the ADMX rollback fires cleanly, only a live restore proves. The collision stop and create-only sequencing are headlessly proven by operation order. Graduates after a real round trip: back up a test tenant, restore into it (collisions must SKIP everything), restore into a clean tenant (objects must arrive, prefixed, unassigned, settings intact in the portal).",
-      test: [
-        "THE ONE THAT MATTERS: back up a test tenant with T04, restore the same archive into the SAME tenant — every object must skip as collided (the names exist), zero creates.",
-        "Rename one object in the restore column and apply: exactly that object is created, prefixed name, unassigned, settings present in the portal (settings catalog: open it and count; ADMX: definition values enabled as archived).",
-        "Restore an archive from Ugur Koc's backup script (not TUNO's): it must parse, list, and restore the same way.",
-        "Break one ADMX definition value (edit the archive JSON to a bogus definition id): the create must fail, the half-created template must be ROLLED BACK, and the result row must say so — verify nothing remains in the portal.",
-        "A compliance policy must arrive with its scheduled actions (open it in the portal — the block action must be there).",
-        "A script archived without bodies (skip-content backup) must be unselectable with the reason shown.",
-        "Kill the network between dry run and apply: the per-create fresh check must fail loudly, not create blind.",
-      ],
-      files: ["js/restore.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 63,
-      title: "R21 — assignment filters, read and write (T14)",
-      tools: ["🧩 Assignment filters"],
-      builds: [10384, 10393, 10394, 10395],
-      risk: "high",
-      what: "New tool T14 (js/filters.js), after Alper Atar's IntuneShade (MIT). READ: assignmentFilters list; per-filter usage via GroupUse.analyze over its own SOURCES (match-all + tenant-wide), grouped by filterId; used-by ABSENT until scanned, zeros are floors when a surface failed. WRITE (the third writer, T11's rules for one object): create → read-back; edit → fresh read + lastModifiedDateTime drift stop (refused, nothing written) → PATCH → read-back verified field-for-field; delete → typed name confirm → FRESH $expand=payloads association check at the moment of the act (any reference REFUSES; a failed check REFUSES) → DELETE → notfound read-back. Cached usage dropped after every write. Graph layer gains patch/del under the no-retry write rule — first PATCH/DELETE in the app. Platform fixed after creation. Tile (Assignments & scope), screen, tab, sidebar, t:14, MD export.",
-      why: "HIGH — a write tool, and its worst mistake is the quiet one: a deleted in-use filter widens every assignment that carried it, invisibly, tenant-wide. The gate order (check THEN delete), the drift stop, and the refuse-on-unverifiable rule are headlessly proven against fakes; what no fake proves is whether $expand=payloads reports every real association shape on a live tenant, and that is exactly the fact the gate rests on. Graduates only after the delete gate has REFUSED a real in-use filter in a real tenant, and a create/edit/delete round-trip has been verified in the portal.",
-      test: [
-        "THE ONE THAT MATTERS: in a test tenant, reference a filter from one assignment, then try to delete it here — REFUSED, naming the reference; remove the reference in the portal, delete again — it goes, and the read-back agrees.",
-        "Create a filter here; confirm in the portal (name, platform, rule, type). Edit its rule here; confirm the portal shows the new rule and the read-back message carried the tenant's lastModified.",
-        "Drift stop: load a filter for edit, change its description in the portal, then apply here — REFUSED as drifted, nothing written (portal still shows the portal's version).",
-        "Usage scan on a tenant with filtered assignments: counts match a portal spot-check; the used-by column is a dash before the scan, never 0.",
-        "Break one surface (revoke its scope): the scan must name it and the zeros must be labelled floors.",
-        "Delete with the network cut between check and act (devtools offline): the error is the ambiguous-write wording, not a silent success.",
-        "The typed-name confirm: the Delete button stays disabled until the name matches exactly.",
-      ],
-      files: ["js/filters.js", "js/graph.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
     {
       n: 62,
       title: "R22 — the compliance report (T13)",
@@ -211,69 +125,6 @@ const PROMOTE = {
         "Exports (MD/CSV/HTML) byte-identical to a pre-10381 sweep of the same tenant, modulo timestamps.",
       ],
       files: ["js/groupuse.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 59,
-      title: "The console shell — sidebar navigation and a 1500px content column",
-      tools: ["TUNO"],
-      builds: [10380, 10387, 10389, 10391, 10399],
-      risk: "medium",
-      what: "Layout parity with the console-style tooling (the IntuneShade comparison, beta 10379): a fixed left sidebar (240px) listing every tool, grouped as on the home grid — built at sign-in by walking the grid's own sections and tiles, labels from the tool list via labelFor() (never scraped from tile headings, the old tab-strip bug). Overview on top; clicking an item fires the tile's own handler, so crumb/tab/screen logic is untouched. The tab bar STAYS — sidebar is where you can go, tabs are what you have open — and the sidebar highlight follows activeTab, set in renderTabs(), so the two cannot disagree. Shell: body.with-side at enter(), removed at sign-out; content column 1180 → 1500px, left-anchored beside the sidebar; hwrap uncapped; toolnav-inner starts at the content edge with the auto-margin centring taken off. Sidebar top is --sticky-nav so the tab bar never draws across it. Below 1240px (the stylesheet's existing breakpoint) the sidebar is display:none and every with-side override reverts to the centred column. Sign-in screen unchanged — none of this exists before authentication. Build 10387 adds the COLLAPSE: the « toggle folds the sidebar to a 56px icon rail (body.side-min), names appear on hover via native title — every button already carries its full label as title, chosen over a CSS tooltip because the overflow:auto column would clip one at the edge — section headings become divider lines so the grouping survives losing its words, main/toolnav indent 264px → 76px, and the state persists the theme's guarded-localStorage way (private mode opens expanded). All scoped under with-side; the 1240px breakpoint overrides both states.",
-      why: "MEDIUM — no Graph surface is touched and no tool logic changes, but this restyles the shell every tool lives in, and layout is exactly what headless jsdom cannot prove: jsdom does not do layout, so the fixed-position maths, the sticky interplay and the 1240px collapse are asserted as stylesheet text, not as rendered pixels. The 10321 lesson (two widths read as a bug) says shell changes deserve real eyes. Graduates when the beta site has been driven on a wide monitor, a laptop, and a sub-1240px window — tabs open and closed, a tool entered from tile, sidebar and + menu, sign-out and back in — with nothing overlapping and nothing unreachable.",
-      test: [
-        "THE ONE THAT MATTERS: on the beta site at full width, sign in — sidebar appears with every tool grouped as on the home grid, Overview highlighted; open a tool from a TILE — sidebar highlight and tab agree; open a second from the SIDEBAR — a tab appears for it; close that tab — the sidebar highlight follows to the neighbour tab, not the closed tool.",
-        "Collapse (10387): click « — icon rail, headings become divider lines, content re-indents, hover any icon shows the full name, active highlight still visible; click a rail icon — the tool opens; refresh — still collapsed; expand, refresh — still expanded; private/incognito window — opens expanded without erroring.",
-        "The tab bar must start at the content edge, not under the sidebar, and must not draw across the sidebar when it appears (open first tool: sidebar shifts down by the bar's height — no overlap, no gap).",
-        "Narrow the window below 1240px: sidebar gone, content centred, everything still reachable via tab bar and home grid. Widen again: sidebar back, highlight still correct.",
-        "Sign out: sidebar gone, sign-in card centred exactly as before this build (compare against production).",
-        "Scroll a long screen (Roadmap, Help): sidebar stays put and scrolls independently when its own list overflows; the fs popout still covers everything including the sidebar.",
-        "Both themes: sidebar surface, borders, hover and the green active state match the tab bar's; dark-theme active text uses green-deep like the tabs.",
-        "The home grid still shows all tools and the sidebar lists exactly the same set — same count as homeCount says.",
-      ],
-      files: ["index.html", "css/app.css", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      // n is NEXT FREE, not next visible: 45-57 existed and graduated (or
-      // retired), so reusing a low number would collide with what the
-      // sign-in suite still asserts about the old item 45.
-      n: 58,
-      title: "The App Control events set — collect, retrieve, and judge against the draft",
-      tools: ["🔐 AppLocker builder & validator"],
-      builds: [10378, 10386],
-      risk: "medium",
-      what: "10386 (collector 1.0.2): the first real run crashed with the PS 5.1 dictionary-binder defect — TWICE, in two shapes. 1.0.0 died on [ordered] handling despite the IDictionary-cast discipline; 1.0.1 added a trap that names the failing line, and the very next run named line 402: dot access on a PLAIN HASHTABLE ($section.Events) goes through the same broken member binder. The discipline is now total: no [ordered] anywhere, every dot-accessed object is [pscustomobject] (the scan's proven shape), dictionary writes via .Add(), and the only indexed read left ($Verdict[[int]id]) is byte-identical to the scan's working construct. The trap stays — it turned a position-1,1 mystery into a one-paste diagnosis. Also folds in the scripts' TunoBuild stamp realignment: builds 10379-10385 bumped the site without bumping the scripts. ORIGINAL ITEM: three new scripts (guarded): Get-TunoAppControlEvents.ps1 harvests CodeIntegrity + all four AppLocker logs into per-ID CSV/XML, an HTML report, and a tuno.applocker.events/1 JSON bundle — report and bundle written to the IME Logs root as .log so Collect diagnostics gathers them; Detect-TunoAppControlEvents.ps1 always exits 1 (the remediation IS the harvest — the docs say what that does to the console numbers); Compress-TunoAppControlReport.ps1 zips the newest report+bundle for Live Response getfile. T01: third entry in REMEDY_PAIRS (name '[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9'), three download rows, and a new import path — the upload sniffs JSON by CONTENT (the bundle arrives named .log), routes on the schema, and the events bundle NEVER touches the loaded policy: it renders an evidence card aggregating blocked/audited events per file, judged against the draft with the same matcher as the coverage table (broad-audience allows only, deny beats allow, exceptions honoured), one recommendation per row. Replaces CloudFlows Remedate_ACB with three defects fixed: missing 8005/8007 (enforced MSI/script blocks left NO evidence), global SilentlyContinue making every catch dead, 48-ID FilterHashtable exceeding the ~23-comparison XPath limit and silently returning zero CodeIntegrity events. The guard now also sweeps scripts/*.ps1 for unlisted files — Detect-TunoItToolsFolders.ps1 had shipped a build unguarded — and five stale suite assertions from the 10374 pair-table refactor were repaired (including parseFloat('0.10') reading the tenth iteration as a tenth).",
-      why: "MEDIUM — the collector only reads logs and writes reports, and the browser half only adds an import path and a third row in machinery two pairs already exercise. But the PowerShell is UNEXECUTED here (no PS runtime in this environment): the UserData XML parse, the chunked queries, and the JSON shape are verified by argument and by the headless suite's source assertions, not by a run. The Remediation deploy path is the proven one. Graduates when one device has produced a bundle that imports cleanly.",
-      test: [
-        "10386: re-run the collector on the machine where 1.0.0 and 1.0.1 crashed — it must reach 'Collection complete' and print the summary line. Check the log banner says v1.0.2. If it FATALs again, the trap names the line: paste it.",
-        "THE ONE THAT MATTERS: run Get-TunoAppControlEvents.ps1 elevated on a device with AppLocker events (the reference machine after the audit profile has run works), then upload the AppControlEvents_Bundle_*.log it writes to T01 with a policy loaded. The card must show the same counts the script's summary line printed, and a known blocked-from-Downloads event must read 'stays blocked — the policy working'.",
-        "Check the JSON parses: PowerShell 5.1 AND 7, machine WITH events and machine WITHOUT (empty entries must not make the card lie about a quiet estate vs an unreached one — the allowed count is the discriminator).",
-        "Deploy the pair from the browser: the third card must create it with the [REPAIR_TOOLS] Collect name, SYSTEM/64-bit, unassigned; same-name second click must STOP.",
-        "Assign to one test device with a schedule, let a pass run, then Devices → Collect diagnostics: the HTML report AND the bundle must be in the collected zip (the .log naming is the mechanism — if diagnostics misses them, the trick regressed).",
-        "Run Compress-TunoAppControlReport.ps1 in a Live Response session: ARCHIVE: line, zip under IT-TOOLS\\Apps, both files inside, getfile retrieves it.",
-        "Enforced-block evidence: on a device with an ENFORCED MSI/Script policy, block an .msi and confirm event 8007 lands in the bundle — the exact evidence the old collector dropped.",
-        "Sanity-check the CodeIntegrity numbers against Event Viewer on one machine: the chunked queries must not double-count (dedupe) or under-count (the old XPath-limit failure).",
-      ],
-      files: ["scripts/Get-TunoAppControlEvents.ps1", "scripts/Detect-TunoAppControlEvents.ps1", "scripts/Compress-TunoAppControlReport.ps1", "js/applocker.js", "index.html", "scripts/README.md", "js/changelog.js", "js/version.js", "js/promote.js"],
-    },
-    {
-      n: 44,
-      title: "Assignment editor — bulk changes behind four gates",
-      tools: ["✏️ Assignment editor"],
-      builds: [10360, 10390, 10400, 10401, 10402, 10403, 10404, 10405],
-      risk: "high",
-      what: "T11, after Maxime Guillemin's Intune-Toolkit (MIT). Add include / add exclude / remove a group across device configurations, settings catalog, compliance and ADMX — the four surfaces under the write scope the registration already holds; scripts and apps deliberately absent (each is a new write scope, the R18 rule). Pipeline enforced by the screen: read → dry run (group name + member count, empty-group warning, noops and REFUSALS listed — include-onto-excluding and exclude-onto-including are refused with T09's reasoning) → automatic backup file, apply locked until taken → removals confirmed by TYPING the group name → sequential writes, each preceded by a fresh read (drift = skip, never overwrite) and followed by a verify read-back. Untouched assignments re-serialised with filters preserved. No delete, no rename. Write scope asked at the apply click. 10405 fixes the screen's two layout faults: the surface rail's grid column no longer swallows the list before a read (the split is single-column until the rail exists — the progress card had been rendering 230px wide, hard left), and the selection bar is a centred PILL sized to its controls rather than a full-width plank with the ✕ adrift mid-bar; chosen via mockup round.",
-      why: "HIGH — the second write tool and the first at scale. The mistake it enables is a policy reaching the wrong population, which is invisible until devices behave differently. The specific things that must be true: filters survive the round trip on untouched assignments, the drift check actually fires, and the verify is the tenant's read-back rather than the POST's status. All three are asserted headlessly; none of the three has touched a real tenant yet.",
-      test: [
-        "THE ONE THAT MATTERS: take a policy with TWO assignments, one carrying an assignment filter. Add an unrelated group. After the write, open the policy in the portal and confirm the filtered assignment STILL HAS ITS FILTER. Losing it silently widens the assignment — the worst thing this tool can do, and invisible in the tool's own table.",
-        "Dry-run a removal and confirm apply stays locked until the backup is downloaded AND the group's name is typed exactly. Then restore from the backup file (POST /assign with the recorded list) and confirm the policy is back as it was — an untested backup is a hope, not a way back.",
-        "Between dry run and apply, change the policy's assignments in the portal from another window. Apply must SKIP it as drifted, not overwrite. This is the two-admins case and nothing else exercises it.",
-        "Add an include of a group the policy already excludes: the plan must REFUSE with the contradiction reason, not write. Then remove the exclusion and confirm the same operation now plans cleanly.",
-        "Add an include of an EMPTY group and confirm the dry run says it configures nothing until somebody joins. The write should still be allowed — preparing a landing zone is legitimate — but never silently.",
-        "Pull the network (or revoke the write scope) mid-apply with stop-on-failure on: the run must stop, the results table must say which policies were written-and-verified and which were not touched, and nothing may retry.",
-        "Verify the scope prompt appears at the APPLY click and not at read or dry-run — plan a change without ever consenting to ReadWrite and confirm reads alone got you there.",
-        "Confirm scripts and applications appear nowhere in the surface list, and that the screen says why.",
-      ],
-      files: ["js/assignedit.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
     },
     {
       n: 43,

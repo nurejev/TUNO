@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10406, date: "2026-08-24", title: "Sixth promotion — the console shell and three writers are production",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 8 and takes queue items 44, 58, 59 and 63 to 67 with it — the console shell with its sidebar, the Assignment editor at v0.5 with the Toolkit parity work and today's layout fixes, Assignment filters with the gated delete, restore inside the backup tool, the App Control events loop, tenant autocomplete, the Intune RBAC rename and the progress card. The second partial promotion: items 41 to 43 (what-if, health, settings search) and 60 to 62 (the assignment matrix, the setting conflict scan, the compliance report) stay on this channel until each has run against a real tenant — they are the whole of the next promotion." },
+      { kind: "improved", tool: "All tools", text: "On main the held tools' files, tiles, screens and help are absent; the Group Analyzer keeps its pre-matrix form there with only the progress-card delegation carried across, and the documenter goes without the filter fields that belong to the conflict scan. The nine PowerShell scripts carry build 8 in production and name the production site as their home. The queue here drops to six items, productionBuild reads v1.0.8, and the roadmap cards for the editor, the filters and restore now carry both build numbers." },
+    ],
+  },
+  {
     build: 10405, date: "2026-08-24", title: "The editor's screen stops fighting its own layout",
     items: [
       { kind: "fixed", tool: "✏️ Assignment editor", text: "Before a read, the reading progress card rendered 230 pixels wide and hard against the left edge. The surface rail's grid column was the culprit: the rail is hidden until the policies are read, and a hidden grid item leaves its 230-pixel column to whoever comes next — which was the list, progress card and all. The split is single-column until the rail actually exists, so the card now sits centred where every other tool puts it." },
