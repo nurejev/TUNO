@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10400, date: "2026-08-24", title: "The editor's operation follows the selection",
+    items: [
+      { kind: "improved", tool: "✏️ Assignment editor", text: "The operation controls left the top of the card for a floating bar at the bottom of the screen — ENCA's selection bar, floated — that exists exactly while something is ticked. It carries the count, the include/exclude/remove switch, the group box and the dry run, because the operation belongs to the selection and an empty selection has nothing to operate on. A cross clears the selection and the bar leaves with it; the policy list keeps its full height; and the filter stays where filters live, at the top. Chosen over a sticky top bar after a mockup round." },
+    ],
+  },
+  {
     build: 10399, date: "2026-08-24", title: "One width per screen, again",
     items: [
       { kind: "fixed", tool: "TUNO", text: "Every tool's intro card stopped at the old 1180-pixel width while the cards under it ran the full 1500-pixel column — two widths on one screen reads as a bug, which is the same lesson the wide-shell experiment taught back in build 10321. The intro card now matches its neighbours in every tool; the paragraphs inside it keep their measure, because a line of text the full column wide is not more readable, it is less." },

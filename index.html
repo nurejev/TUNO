@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10399"></script>
+<script src="js/popup-guard.js?v=10400"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10399">
+<link rel="stylesheet" href="css/app.css?v=10400">
 </head>
 <body>
 
@@ -1014,19 +1014,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div id="aePlanWrap" style="display:none;margin-top:12px">
         <label class="wi-f"><span>Filter the list</span>
           <input id="aeFilter" placeholder="Narrow by policy or surface name…" autocomplete="off" spellcheck="false"></label>
-        <div class="wi-grid" style="margin-top:10px">
-          <label class="wi-f"><span>Operation</span>
-            <div class="seg" id="aeActSeg">
-              <button class="active" data-aeact="add-include">Add include</button>
-              <button data-aeact="add-exclude">Add exclude</button>
-              <button data-aeact="remove">Remove group</button>
-            </div></label>
-          <label class="wi-f"><span>Group</span>
-            <input id="aeGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false"></label>
-        </div>
-        <div class="tb-actions" style="margin-top:10px">
-          <button class="btn primary" id="aeDryRun">② Dry run — show every operation</button>
-        </div>
       </div>
       <div id="aeProg" class="mini muted" style="margin-top:10px"></div>
       <!-- The Intune Toolkit's shape (build 10390): sections on the left,
@@ -1035,6 +1022,25 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="ae-split" style="margin-top:12px">
         <div id="aeSurfSide" class="ae-surfs" style="display:none"></div>
         <div style="min-width:0"><div id="aeList"></div></div>
+      </div>
+
+      <!-- The floating selection bar (build 10400) — ENCA's selbar, floated
+           to the bottom of the viewport. It exists only while something is
+           TICKED: the operation belongs to the selection, and an empty
+           selection has nothing to operate on. It lives inside this section
+           so leaving the tool hides it with the screen. Picked over a
+           sticky top bar in the mockup round: the list keeps its height,
+           and the bar carries the count the decision is about. -->
+      <div class="ae-selbar" id="aeSelbar">
+        <b id="aeSelCount">0 selected</b>
+        <div class="seg" id="aeActSeg">
+          <button class="active" data-aeact="add-include">Add include</button>
+          <button data-aeact="add-exclude">Add exclude</button>
+          <button data-aeact="remove">Remove group</button>
+        </div>
+        <input id="aeGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false">
+        <button class="btn primary" id="aeDryRun">② Dry run — every operation</button>
+        <button class="ae-selbar-x" id="aeSelClear" title="Clear the selection — the bar goes with it">✕</button>
       </div>
       <div id="aePlanOut"></div>
       <div id="aeApplyWrap" style="display:none;margin-top:12px">
@@ -1366,30 +1372,30 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10399"></script>
-<script src="js/version.js?v=10399"></script>
-<script src="js/promote.js?v=10399"></script>
-<script src="js/authConfig.js?v=10399"></script>
-<script src="js/changelog.js?v=10399"></script>
-<script src="js/msappcatalog.js?v=10399"></script>
-<script src="js/graph.js?v=10399"></script>
-<script src="js/suggest.js?v=10399"></script>
-<script src="js/progress.js?v=10399"></script>
-<script src="js/groupuse.js?v=10399"></script>
-<script src="js/audit.js?v=10399"></script>
-<script src="js/backup.js?v=10399"></script>
-<script src="js/document.js?v=10399"></script>
-<script src="js/devicewhy.js?v=10399"></script>
-<script src="js/whatif.js?v=10399"></script>
-<script src="js/health.js?v=10399"></script>
-<script src="js/settingsearch.js?v=10399"></script>
-<script src="js/conflict.js?v=10399"></script>
-<script src="js/compliance.js?v=10399"></script>
-<script src="js/filters.js?v=10399"></script>
-<script src="js/restore.js?v=10399"></script>
-<script src="js/assignedit.js?v=10399"></script>
-<script src="js/roles.js?v=10399"></script>
-<script src="js/applocker.js?v=10399"></script>
-<script src="js/app.js?v=10399"></script>
+<script src="js/branding.js?v=10400"></script>
+<script src="js/version.js?v=10400"></script>
+<script src="js/promote.js?v=10400"></script>
+<script src="js/authConfig.js?v=10400"></script>
+<script src="js/changelog.js?v=10400"></script>
+<script src="js/msappcatalog.js?v=10400"></script>
+<script src="js/graph.js?v=10400"></script>
+<script src="js/suggest.js?v=10400"></script>
+<script src="js/progress.js?v=10400"></script>
+<script src="js/groupuse.js?v=10400"></script>
+<script src="js/audit.js?v=10400"></script>
+<script src="js/backup.js?v=10400"></script>
+<script src="js/document.js?v=10400"></script>
+<script src="js/devicewhy.js?v=10400"></script>
+<script src="js/whatif.js?v=10400"></script>
+<script src="js/health.js?v=10400"></script>
+<script src="js/settingsearch.js?v=10400"></script>
+<script src="js/conflict.js?v=10400"></script>
+<script src="js/compliance.js?v=10400"></script>
+<script src="js/filters.js?v=10400"></script>
+<script src="js/restore.js?v=10400"></script>
+<script src="js/assignedit.js?v=10400"></script>
+<script src="js/roles.js?v=10400"></script>
+<script src="js/applocker.js?v=10400"></script>
+<script src="js/app.js?v=10400"></script>
 </body>
 </html>

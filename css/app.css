@@ -1617,6 +1617,22 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .cf-item .cg-table{table-layout:fixed;width:100%}
 .cf-item .cg-table td:last-child{overflow-wrap:anywhere}
 
+/* ---- T11: the floating selection bar (build 10400) ----
+   ENCA's .selbar, floated to the bottom instead of stuck to the top — the
+   left edge tracks the content column's own formula in both sidebar
+   states, so the bar sits under the list it acts on. Inside the section,
+   so leaving the tool hides it with the screen. */
+.ae-selbar{display:none;position:fixed;bottom:14px;z-index:55;align-items:center;gap:12px;flex-wrap:wrap;row-gap:8px;
+  background:var(--green-deep);color:#fff;border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);
+  left:calc(max(264px, (100vw - 1260px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 240px)/2))}
+.ae-selbar.visible{display:flex}
+body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 56px)/2))}
+.ae-selbar b{color:var(--lemon);white-space:nowrap}
+.ae-selbar input{flex:1;min-width:200px}
+.ae-selbar-x{border:0;background:none;color:#cfe9d8;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:8px}
+.ae-selbar-x:hover{background:rgba(255,255,255,.14);color:#fff}
+@media (max-width:1240px){.ae-selbar{left:16px;right:16px}}
+
 /* T14 (build 10394): the references chip is a filter, a count expands */
 a.gu-stat{text-decoration:none;cursor:pointer}
 a.gu-stat:hover{border-color:var(--green)}

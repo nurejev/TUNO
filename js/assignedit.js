@@ -265,6 +265,16 @@ const AssignEditTool = (() => {
   // the section on the left, filter on top, list beside it.
   let surfView = "all";
 
+  // The floating selection bar (build 10400): visible exactly while the
+  // tick-set is non-empty. The operation belongs to the selection.
+  function syncSelbar() {
+    const bar = $("aeSelbar");
+    if (!bar) return;
+    bar.classList.toggle("visible", sel.size > 0 && !!read);
+    const c = $("aeSelCount");
+    if (c) c.textContent = `${sel.size} selected`;
+  }
+
   function renderSurfaces() {
     const side = $("aeSurfSide");
     if (!side) return;
@@ -291,6 +301,7 @@ const AssignEditTool = (() => {
     const picks = sel.size ? `<p class="mini ae-picks" style="margin:8px 0 0"><b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.</p>` : "";
     $("aeList").innerHTML = `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
     renderSurfaces();
+    syncSelbar();
     $("aePlanWrap").style.display = "";
   }
   const lcq = (s) => String(s || "").toLowerCase();
@@ -433,6 +444,7 @@ const AssignEditTool = (() => {
       // re-render — re-rendering on every tick would throw away the scroll
       // position on a 300-row list, which makes bulk ticking miserable
       renderSurfaces();
+      syncSelbar();
       let line = $("aeList").querySelector(":scope > p.ae-picks");
       if (!sel.size) { if (line) line.remove(); return; }
       if (!line) { line = document.createElement("p"); line.className = "mini ae-picks"; line.style.margin = "8px 0 0"; $("aeList").appendChild(line); }
@@ -445,6 +457,7 @@ const AssignEditTool = (() => {
     });
     $("aeGroup").addEventListener("input", invalidatePlan);
     $("aeDryRun").addEventListener("click", dryRun);
+    $("aeSelClear").addEventListener("click", () => { sel.clear(); invalidatePlan(); renderPolicies(); });
     $("aeBackupBtn").addEventListener("click", () => {
       if (!plan) return;
       download(`assignments-before-${new Date().toISOString().slice(0, 10)}.json`, AssignEdit.backupJson(plan));
