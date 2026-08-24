@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10393, date: "2026-08-24", title: "Everything fits the card",
+    items: [
+      { kind: "fixed", tool: "🧩 Assignment filters", text: "The filter table fits its card instead of scrolling sideways: the columns have real widths now, a rule wraps at any character rather than pushing the Edit and Delete buttons off the edge, and the actions stay pinned right. The same fit pass covers the conflict scan's value tables and the restore picker — a long value wraps inside its column, and nothing forces the page wide." },
+    ],
+  },
+  {
     build: 10392, date: "2026-08-24", title: "Role assignments grows into Intune RBAC",
     items: [
       { kind: "improved", tool: "🛡 Intune RBAC", text: "The tool formerly titled Role assignments is now Intune RBAC, and role assignments is its first section — because the tool is the RBAC surface, not one question about it. The section switch at the top is where scope tags, custom-role review and whatever else belongs to Intune RBAC will land, each as a section here rather than a new tile: one tool per surface, sections per question. Everything the tool did is unchanged, including the line that matters most — this is Intune RBAC only, and the Entra directory roles that also grant full Intune access are not in it." },

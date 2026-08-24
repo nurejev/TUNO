@@ -238,8 +238,8 @@ const FiltersTool = (() => {
         ${scanned
           ? `<td class="gu-num${u.length ? "" : " gu-zero"}" title="${esc(u.map((x) => x.policy).join(", "))}">${u.length}</td>`
           : `<td class="gu-num mini muted" title="Usage has not been scanned — absent, not zero">—</td>`}
-        <td class="mini"><code style="word-break:break-all">${esc(String(f.rule || "").slice(0, 120))}${String(f.rule || "").length > 120 ? "…" : ""}</code></td>
-        <td style="white-space:nowrap">
+        <td class="mini"><code style="overflow-wrap:anywhere">${esc(String(f.rule || "").slice(0, 160))}${String(f.rule || "").length > 160 ? "…" : ""}</code></td>
+        <td class="af-acts">
           <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
           <button class="btn sm" data-afdel="${esc(f.id)}" title="Refused while any assignment references this filter">🗑 Delete</button>
         </td></tr>`;
@@ -255,8 +255,8 @@ const FiltersTool = (() => {
     </div>
     <div class="list-card">
       ${usageNote}
-      <div class="gu-tw"><table class="cg-table"><thead><tr>
-        <th>Filter</th><th style="width:150px">Platform</th><th style="width:90px">Type</th><th class="gu-num" style="width:80px">Used by</th><th>Rule</th><th style="width:150px"></th>
+      <div class="gu-tw"><table class="cg-table af-table"><thead><tr>
+        <th style="width:24%">Filter</th><th style="width:130px">Platform</th><th style="width:70px">Type</th><th class="gu-num" style="width:66px">Used by</th><th>Rule</th><th style="width:132px"></th>
       </tr></thead><tbody>${rows || `<tr><td colspan="6" class="mini">No assignment filters exist in this tenant.</td></tr>`}</tbody></table></div>
     </div>
     <div id="afFormWrap"></div>`;

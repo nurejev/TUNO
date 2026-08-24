@@ -291,7 +291,7 @@ const RestoreTool = (() => {
     $("rsBody").innerHTML = `${tenantLine}
       ${problems.length ? `<div class="gu-fail"><b>${problems.length} file(s) could not be parsed</b> — ${problems.map((p) => esc(p.path)).join(", ")}</div>` : ""}
       <p class="mini muted" style="margin:0 0 8px"><b>Create only, prefixed, unassigned.</b> Nothing of yours is patched or deleted; every object arrives under the name in the right-hand column (edit it per row); assignments are not restored. Secrets did not survive the backup — anything encrypted arrives as a reference to re-enter by hand.</p>
-      <div class="gu-tw"><table class="cg-table"><tbody>${rows}</tbody></table></div>
+      <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:44%"><col></colgroup><tbody>${rows}</tbody></table></div>
       <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="rsDry">🔍 Dry run</button></div>
       <div id="rsPlan" style="margin-top:10px"></div>`;
     $("rsDry").addEventListener("click", dryRun);

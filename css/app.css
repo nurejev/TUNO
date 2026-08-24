@@ -1580,6 +1580,18 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .ae-surfs button.active .muted{color:inherit;opacity:.8}
 @media (max-width:1240px){.ae-split{grid-template-columns:1fr}.ae-surfs{position:static;display:flex;flex-wrap:wrap;gap:6px}.ae-surfs button{width:auto}}
 
+/* ---- fit pass (build 10393): everything must fit the card ----
+   The rule/value columns are the ones that ran away: a filter rule or a
+   settings value can be hundreds of characters, and an auto-layout table
+   sizes itself to the longest cell and scrolls. table-layout:fixed makes
+   the declared widths real, and overflow-wrap:anywhere lets a rule wrap at
+   any character rather than pushing the actions column off the card. */
+.af-table{table-layout:fixed;width:100%}
+.af-table code{overflow-wrap:anywhere}
+.af-acts{width:132px;white-space:nowrap;text-align:right}
+.cf-item .cg-table{table-layout:fixed;width:100%}
+.cf-item .cg-table td:last-child{overflow-wrap:anywhere}
+
 /* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
    third of the screen: it goes, and the shell returns to the centred column.
    The tab bar and the home grid keep every tool reachable — the sidebar is a
