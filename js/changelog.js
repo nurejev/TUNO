@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10390, date: "2026-08-24", title: "The Assignment editor takes the Toolkit's shape",
+    items: [
+      { kind: "improved", tool: "✏️ Assignment editor", text: "The list works the way the Intune Toolkit's does: surfaces on the left — a sticky rail with All on top, a count per surface and a live tick-count beside it, unreadable surfaces named under the rail — the filter on top, and the policy list beside. Click a surface to see only its policies; the filter narrows within it." },
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "The selection now survives everything, which it quietly did not: ticks used to live only in the checkboxes, so every filter keystroke re-rendered the table and silently dropped every one — and a surface rail would have made picking across surfaces impossible. The tick-set lives in the tool now: checkboxes render from it and write into it, switching surfaces and filtering keep every tick, ticking a row no longer re-renders the table (the scroll position survives bulk ticking), and a line under the list counts the selection across all surfaces. A fresh read clears it, because a fresh read is a fresh decision." },
+    ],
+  },
+  {
     build: 10389, date: "2026-08-24", title: "Collapsing the sidebar no longer moves the page",
     items: [
       { kind: "fixed", tool: "TUNO", text: "The content column now centres itself in whatever space the sidebar leaves, in both states. Build 10380 anchored the column against the expanded sidebar, so folding the rail slid the whole page left and left the right side gaping — the collapse read as a relayout rather than a rail folding. Now expanded and collapsed land within a few dozen pixels of each other on any monitor: the same page, with a narrower rail. The column still can never slide under the rail, and below 1240 pixels nothing changes." },

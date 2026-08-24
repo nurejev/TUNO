@@ -1562,6 +1562,18 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
   font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sug-menu button:hover,.sug-menu button.on{background:var(--soft)}
 
+/* ---- T11: the Toolkit split (build 10390) — surfaces left, list right ---- */
+.ae-split{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;align-items:start}
+.ae-surfs{position:sticky;top:calc(var(--sticky-nav,106px) + 14px)}
+.ae-surfs button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;
+  border:1px solid transparent;background:none;color:var(--ink);cursor:pointer;font:inherit;font-size:13px;font-weight:600;
+  padding:8px 10px;border-radius:8px}
+.ae-surfs button:hover{background:var(--soft)}
+.ae-surfs button.active{background:var(--green);color:#fff}
+:root[data-theme="dark"] .ae-surfs button.active{color:var(--green-deep)}
+.ae-surfs button.active .muted{color:inherit;opacity:.8}
+@media (max-width:1240px){.ae-split{grid-template-columns:1fr}.ae-surfs{position:static;display:flex;flex-wrap:wrap;gap:6px}.ae-surfs button{width:auto}}
+
 /* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
    third of the screen: it goes, and the shell returns to the centred column.
    The tab bar and the home grid keep every tool reachable — the sidebar is a

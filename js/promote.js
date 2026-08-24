@@ -227,7 +227,7 @@ const PROMOTE = {
       n: 44,
       title: "Assignment editor — bulk changes behind four gates",
       tools: ["✏️ Assignment editor"],
-      builds: [10360],
+      builds: [10360, 10390],
       risk: "high",
       what: "T11, after Maxime Guillemin's Intune-Toolkit (MIT). Add include / add exclude / remove a group across device configurations, settings catalog, compliance and ADMX — the four surfaces under the write scope the registration already holds; scripts and apps deliberately absent (each is a new write scope, the R18 rule). Pipeline enforced by the screen: read → dry run (group name + member count, empty-group warning, noops and REFUSALS listed — include-onto-excluding and exclude-onto-including are refused with T09's reasoning) → automatic backup file, apply locked until taken → removals confirmed by TYPING the group name → sequential writes, each preceded by a fresh read (drift = skip, never overwrite) and followed by a verify read-back. Untouched assignments re-serialised with filters preserved. No delete, no rename. Write scope asked at the apply click.",
       why: "HIGH — the second write tool and the first at scale. The mistake it enables is a policy reaching the wrong population, which is invisible until devices behave differently. The specific things that must be true: filters survive the round trip on untouched assignments, the drift check actually fires, and the verify is the tenant's read-back rather than the POST's status. All three are asserted headlessly; none of the three has touched a real tenant yet.",

@@ -252,22 +252,45 @@ const AssignEditTool = (() => {
   }
   const prog = (m) => { $("aeProg").textContent = m || ""; };
 
-  const picked = () => {
-    if (!read) return [];
-    const ids = new Set([...document.querySelectorAll("[data-aepol]:checked")].map((b) => b.dataset.aepol));
-    return read.policies.filter((p) => ids.has(`${p.surface}|${p.id}`));
-  };
+  // The SELECTION lives here, not in the DOM (build 10390). It used to be
+  // read off the checkboxes, which meant every filter keystroke re-rendered
+  // the table and silently dropped every tick — with a surface rail that
+  // would have made cross-surface picking impossible. Checkboxes render
+  // FROM this set and write INTO it; picked() never looks at the DOM.
+  const sel = new Set();
+  const keyOf = (p) => `${p.surface}|${p.id}`;
+  const picked = () => (read ? read.policies.filter((p) => sel.has(keyOf(p))) : []);
+
+  // Which surface the rail has active — the Intune Toolkit's shape: pick
+  // the section on the left, filter on top, list beside it.
+  let surfView = "all";
+
+  function renderSurfaces() {
+    const side = $("aeSurfSide");
+    if (!side) return;
+    const count = (id) => read.policies.filter((p) => id === "all" || p.surface === id).length;
+    const selCount = (id) => read.policies.filter((p) => (id === "all" || p.surface === id) && sel.has(keyOf(p))).length;
+    const item = (id, icon, label) => `<button data-aesurf="${esc(id)}" class="${surfView === id ? "active" : ""}">
+      <span>${esc(icon)} ${esc(label)}</span>
+      <span class="mini ${selCount(id) ? "" : "muted"}">${selCount(id) ? `${selCount(id)} ✓ · ` : ""}${count(id)}</span></button>`;
+    side.innerHTML = item("all", "🗂", "All surfaces") +
+      AssignEdit.SURFACES.map((s) => item(s.id, s.icon, s.label)).join("") +
+      (read.failed.length ? `<p class="mini muted" style="margin:8px 6px 0">${read.failed.map((f) => esc(f.label)).join(", ")} could not be read — not listed, not editable this run.</p>` : "");
+    side.style.display = "";
+  }
 
   function renderPolicies() {
     const q = lcq($("aeFilter").value);
-    const rows = read.policies
-      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q))
-      .map((p) => `<tr>
-        <td style="width:34px"><input type="checkbox" data-aepol="${esc(p.surface)}|${esc(p.id)}"></td>
+    const list = read.policies
+      .filter((p) => surfView === "all" || p.surface === surfView)
+      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q));
+    const rows = list.map((p) => `<tr>
+        <td style="width:34px"><input type="checkbox" data-aepol="${esc(keyOf(p))}" ${sel.has(keyOf(p)) ? "checked" : ""}></td>
         <td><b>${esc(p.name)}</b></td><td>${esc(p.icon)} ${esc(p.surfaceLabel)}</td>
         <td>${p.assignments.length} assignment${p.assignments.length === 1 ? "" : "s"}</td></tr>`).join("");
-    const failed = read.failed.length ? `<div class="gu-fail" style="margin-top:10px"><b>${read.failed.map((f) => esc(f.label)).join(", ")} could not be read</b> — policies there cannot be edited from here this run.</div>` : "";
-    $("aeList").innerHTML = `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows}</tbody></table></div>${failed}`;
+    const picks = sel.size ? `<p class="mini ae-picks" style="margin:8px 0 0"><b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.</p>` : "";
+    $("aeList").innerHTML = `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
+    renderSurfaces();
     $("aePlanWrap").style.display = "";
   }
   const lcq = (s) => String(s || "").toLowerCase();
@@ -386,6 +409,7 @@ const AssignEditTool = (() => {
     try {
       await Graph.ensureScopes(AssignEdit.READ());
       read = await AssignEdit.readPolicies(null, prog);
+      sel.clear(); surfView = "all";   // a fresh read is a fresh decision
       prog(`${read.policies.length} policies read.`);
       renderPolicies();
     } catch (e) { prog(""); $("aeList").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`; }
@@ -396,6 +420,24 @@ const AssignEditTool = (() => {
     if (!$("aeRead")) return;
     $("aeRead").addEventListener("click", readAll);
     $("aeFilter").addEventListener("input", () => read && renderPolicies());
+    // the surface rail and the tick-set (both build 10390)
+    $("aeSurfSide").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-aesurf]");
+      if (b && read) { surfView = b.dataset.aesurf; renderPolicies(); }
+    });
+    $("aeList").addEventListener("change", (e) => {
+      const c = e.target.closest("[data-aepol]");
+      if (!c) return;
+      c.checked ? sel.add(c.dataset.aepol) : sel.delete(c.dataset.aepol);
+      // the rail's ✓ counts and the selected line follow WITHOUT a table
+      // re-render — re-rendering on every tick would throw away the scroll
+      // position on a 300-row list, which makes bulk ticking miserable
+      renderSurfaces();
+      let line = $("aeList").querySelector(":scope > p.ae-picks");
+      if (!sel.size) { if (line) line.remove(); return; }
+      if (!line) { line = document.createElement("p"); line.className = "mini ae-picks"; line.style.margin = "8px 0 0"; $("aeList").appendChild(line); }
+      line.innerHTML = `<b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.`;
+    });
     $("aeActSeg").addEventListener("click", (e) => {
       const b = e.target.closest("[data-aeact]"); if (!b) return;
       [...$("aeActSeg").children].forEach((x) => x.classList.toggle("active", x === b));
