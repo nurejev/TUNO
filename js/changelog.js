@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10395, date: "2026-08-24", title: "Card padding is a rule, not a list",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Result cards in several tools rendered their text flush against the card border — the padding rule was a hand-kept list of six tool bodies, and every tool added since fell outside it: Assignment what-if, Assignment health and Settings search shipped that way unnoticed, then the conflict scan, the compliance report and Assignment filters repeated it. The rule now matches every tool body by convention rather than by name, so the next tool cannot repeat it either." },
+    ],
+  },
+  {
     build: 10394, date: "2026-08-24", title: "The references count answers back",
     items: [
       { kind: "improved", tool: "🧩 Assignment filters", text: "After a usage scan, the references chip is a filter: click it and the list narrows to only the filters something actually uses; click again and everything returns. And a row's used-by count expands in place into the references themselves — which policy, on which surface, include or exclude, and the filter mode — instead of hiding them in a hover title. Both exist only once usage has been scanned, because a filter on an absent column would be a filter on nothing; after any write the scan drops back to absent and both reset with it." },

@@ -1224,12 +1224,17 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    inline, and the four tools added in 10321–10325 did not, so their prose
    sat hard against the border. One rule instead of twenty inline styles.
    The tables inside keep their own scrollers and simply inset with it. */
-#guBody > .list-card,
-#auBody > .list-card,
-#bkBody > .list-card,
-#dvBody > .list-card,
-#rbBody > .list-card,
-#dcBody > .list-card{padding:16px 18px}
+/* Every tool body's cards get the same padding (build 10395). This was an
+   id list — guBody, auBody, bkBody, dvBody, rbBody, dcBody — and every
+   tool added after it rendered its text flush against the card border:
+   T08, T09 and T10 shipped that way unnoticed, then T12, T13 and T14
+   repeated it. The suffix selector makes the rule true for every tool
+   body that exists and every one that comes, which is what the id list
+   pretended to be. aePlanOut and rsPlan are named because they are the
+   two result containers that do not follow the *Body convention. */
+main [id$="Body"] > .list-card,
+#aePlanOut > .list-card,
+#rsPlan > .list-card{padding:16px 18px}
 .gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
 .gu-who .mini{font-weight:400}
 .gu-sticky .gu-sum{margin-top:6px}
