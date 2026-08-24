@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10375, date: "2026-08-24", title: "The Sign out button existed and never rendered",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "The tenant identity in the header — your name, avatar, the Sign out button, and since build 10373 the cfdev badge — has never been visible to anyone. The markup was there and the sign-in path switched it on by adding a class named on, but no rule in the stylesheet has ever mentioned that class, so the box stayed at its display none default from the day TUNO was scaffolded. ENCA never had the problem because it shows the box directly rather than through a class, and that is the fix here: the same mechanism, ported. Signing out was always wired and always worked — there was just no button on screen to press." },
+      { kind: "fixed", tool: "TUNO", text: "The cfdev tenant detection now matches the tenant's real sign-in domain. Build 10373 listed only cloudfellows.dev, but accounts in that tenant sign in as user at devcf.onmicrosoft.com — the tenant's initial domain — so the detection could never fire from the UPN. Both names are on the list now: devcf.onmicrosoft.com because that is what the UPN carries, cloudfellows.dev kept for a UPN on the verified domain and for the org-name half of the check. Same matching rules, one list, one place." },
+    ],
+  },
+  {
     build: 10374, date: "2026-08-24", title: "The folder provisioning becomes a Remediation pair",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The IT-TOOLS house-folder provisioning now ships the same way the AppLocker cleanup does: as a detect-and-remediate pair. Detect-TunoItToolsFolders.ps1 is new — it reports a device as non-compliant when a house folder is missing, when anyone outside SYSTEM and Administrators can write inside one, or when SYSTEM itself has lost write access, and it changes nothing, ever. It evaluates the DACL with the same write mask and the same trusted principals the provisioning script verifies with, deliberately, because a detection and a remediation that disagree loop forever. The pair is downloadable in step 1 beside the others, and the Remediation deploy panel now creates either pair from the browser — same discipline as before: the exact bytes this site serves, read-before-write with a same-name stop, created unassigned. One difference that matters more than any mechanics, and the screen says it: the cleanup pair is scoped to the migration window and unassigned after, this pair is a standing assignment — a folder that drifts writable after provisioning is exactly what its detection exists to catch." },

@@ -83,7 +83,11 @@ const Fs = (() => {
   // TunoTenant.setOrgName. The UPN-domain half of the check is the one that
   // answers today, and it is the reliable half anyway.
   let tenantName = "", tenantDomain = "";
-  const CFDEV_TENANTS = ["cloudfellows.dev"];
+  // Two entries because the tenant answers to two names: devcf.onmicrosoft.com
+  // is what the sign-in UPN actually carries (the tenant's initial domain), and
+  // cloudfellows.dev is the verified domain ENCA's list names — kept so a UPN
+  // on the verified domain, or the org display name, still matches.
+  const CFDEV_TENANTS = ["cloudfellows.dev", "devcf.onmicrosoft.com"];
   function isCfdevTenant() {
     const n = (tenantName || "").toLowerCase(), d = (tenantDomain || "").toLowerCase();
     return CFDEV_TENANTS.some((t) => d === t || d.endsWith("." + t) || n.includes(t.split(".")[0]));
@@ -385,7 +389,11 @@ const Fs = (() => {
     $("tenantUser").textContent = account ? account.username : "";
     const nm = account && (account.name || account.username) || "?";
     $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
-    $("tenantBox").classList.add("on");
+    // ENCA's way, ported: the stylesheet keeps .tenant at display:none and the
+    // app shows it directly. The previous classList.add("on") toggled a class
+    // no CSS rule has ever mentioned, so the tenant identity — name, avatar,
+    // the SIGN OUT button, the cfdev badge — never rendered for anybody.
+    $("tenantBox").style.display = "flex";
     $("homeBtn").style.display = "";
     buildToolNav();
     show("screen-home");
@@ -413,7 +421,7 @@ const Fs = (() => {
     account = null; signedIn = false;
     tenantDomain = ""; tenantName = "";
     $("cfdevBadge").style.display = "none";
-    $("tenantBox").classList.remove("on");
+    $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
     // The restored-session note no longer applies — the session is being ended.

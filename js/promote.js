@@ -66,6 +66,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 56,
+      title: "The tenant box renders — Sign out becomes reachable",
+      tools: ["TUNO"],
+      builds: [10375],
+      risk: "medium",
+      what: "The header's tenant identity (name, avatar, Sign out, the cfdev badge) never rendered: enter() toggled class 'on' on #tenantBox, and no CSS rule for .tenant.on has ever existed, so .tenant{display:none} always won. Fixed ENCA's way, ported: enter() sets style.display flex directly, sign out sets none. No CSS change, no markup change — two lines of JS.",
+      why: "MEDIUM — it makes a whole strip of header UI appear for every signed-in user for the first time, including the Sign out button, whose handler has been wired and untested-by-humans since the scaffold. The narrow-viewport layout rule for .tenant has also never been seen with content in it. Graduates on sight: box visible after sign-in with name/UPN/avatar correct, Sign out ends the session, box gone after.",
+      test: [
+        "THE ONE THAT MATTERS: sign in. The tenant box must appear in the header — org domain, UPN, avatar initials, Sign out. Before this build there was nothing there; if there is still nothing, the fix missed.",
+        "Click Sign out: back to the sign-in screen with NO resume note, box hidden, and the next Sign in must ASK rather than silently continue the session just ended (item 53's gate must survive this, it shares the handler).",
+        "Narrow the window to phone width signed in: the box wraps to its own full-width row (the flex rule at 1254 has never been exercised with content) — nothing may overflow the header.",
+        "On the cfdev tenant, confirm the badge now renders inside the visible box — 10373's badge test could never actually have been seen; this build is where item 54's on-sight checks become possible.",
+      ],
+      files: ["js/app.js", "js/changelog.js", "js/version.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 55,
       title: "The IT-TOOLS provisioning ships as a Remediation pair",
       tools: ["🔐 AppLocker builder & validator"],
@@ -88,12 +104,12 @@ const PROMOTE = {
       n: 54,
       title: "TUNO knows its home tenant (cfdev detection)",
       tools: ["TUNO"],
-      builds: [10373],
+      builds: [10373, 10375],
       risk: "low",
-      what: "ENCA's tenant discovery ported with the same list and matching rules: CFDEV_TENANTS = ['cloudfellows.dev'], matched against the signed-in account's UPN domain (exact or subdomain) and — when a tool has filled it in — the org display name carrying the first label. enter() sets the domain and toggles a header badge beside the tenant identity ('cfdev — extra features', #cfdevBadge, hidden by default and on sign out); sign out clears both values. window.TunoTenant is the one seam tools gate cfdev-only features through (isCfdev, domain, setOrgName), so the list never gets a second copy; a _setForTest setter exists for the headless tests. NOTHING IS GATED YET — this item is detection, badge and seam only. Difference from ENCA, stated in the code: ENCA fills tenantName from /organization at sign-in; TUNO reads no org (User.Read only), so the name half of the check is dormant until a tool sets it.",
+      what: "ENCA's tenant discovery ported with the same matching rules: CFDEV_TENANTS, matched against the signed-in account's UPN domain (exact or subdomain) and — when a tool has filled it in — the org display name carrying the first label. 10375 corrected the list to reality: the tenant's sign-in UPNs carry devcf.onmicrosoft.com (the initial domain), which 10373's cloudfellows.dev-only list could never match from the UPN — both names are listed now, cloudfellows.dev kept for verified-domain UPNs and the org-name half. enter() sets the domain and toggles a header badge beside the tenant identity ('cfdev — extra features', #cfdevBadge, hidden by default and on sign out); sign out clears both values. window.TunoTenant is the one seam tools gate cfdev-only features through (isCfdev, domain, setOrgName), so the list never gets a second copy; a _setForTest setter exists for the headless tests. NOTHING IS GATED YET — this item is detection, badge and seam only. Difference from ENCA, stated in the code: ENCA fills tenantName from /organization at sign-in; TUNO reads no org (User.Read only), so the name half of the check is dormant until a tool sets it.",
       why: "LOW — additive, nothing existing changes behaviour, and on every tenant that is not cloudfellows.dev the entire feature is a hidden span and two empty strings. The one real risk is the opposite direction: a future cfdev-only feature leaking to customer tenants because the gate was mis-evaluated — which is why the detection is one function in one place and the badge makes its verdict visible on sight. Graduates when the badge has been seen on a real cloudfellows.dev sign-in and confirmed absent on a customer tenant.",
       test: [
-        "THE ONE THAT MATTERS: sign in with an @cloudfellows.dev account. The badge must appear in the header beside the tenant identity, and window.TunoTenant.isCfdev() in the console must return true.",
+        "THE ONE THAT MATTERS: sign in with an @devcf.onmicrosoft.com account (the tenant's real UPNs). The badge must appear in the header beside the tenant identity, and window.TunoTenant.isCfdev() in the console must return true. Needs 10375's tenant-box fix (item 56) to be visible at all.",
         "Sign in to any customer tenant: no badge, isCfdev() false. This is the leak direction and the more important half.",
         "Sign out from a cfdev session: the badge must disappear immediately, and isCfdev() must return false before any new sign-in.",
         "Sign in with a subdomain UPN (user@sub.cloudfellows.dev) if one exists: the badge must appear — the endsWith rule is ENCA's and this is its only test. If no such account exists, say so rather than nodding it through.",
