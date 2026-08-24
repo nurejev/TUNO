@@ -68,6 +68,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 66,
+      title: "T07 renamed to Intune RBAC — role assignments becomes its first section",
+      tools: ["🛡 Intune RBAC"],
+      builds: [10392],
+      risk: "low",
+      what: "Rename only, structured for growth: tile, screen title, tab/crumb label, Help TOC and heading all read Intune RBAC; a section seg (Role assignments, sole and active) lands above the tool's controls as the slot where scope tags, custom-role review and other RBAC surfaces arrive as sections rather than tiles. TOOL_TABS label and the crumb string changed TOGETHER (idForCrumb matches by label — changing one without the other orphans the tab). No logic, no reads, no exports changed; T07 v0.2.",
+      why: "LOW — a rename with a one-button seg. The single real risk is the tab/crumb pair, asserted headlessly; the rest is words. Graduates on sight.",
+      test: [
+        "Open the tool from the tile, from the + menu, and from the sidebar: every path shows the Intune RBAC label, the tab appears and highlights, the sidebar agrees.",
+        "The section seg shows Role assignments active; the tool reads and renders exactly as before the rename (same roles, same flags, same exports).",
+        "Help: the TOC pill and the section heading both read Intune RBAC and the pill still lands on the section.",
+      ],
+      files: ["index.html", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 65,
       title: "Tenant autocomplete on every directory-object input",
       tools: ["TUNO"],

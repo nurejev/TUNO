@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10391"></script>
+<script src="js/popup-guard.js?v=10392"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10391">
+<link rel="stylesheet" href="css/app.css?v=10392">
 </head>
 <body>
 
@@ -163,7 +163,7 @@
     <div class="tool-sec"><h3>🛡 Access &amp; roles</h3><p>Who can change Intune, and how much of it.</p></div>
     <div class="tools">
       <div class="tool" id="toolRoles">
-        <div class="tool-ic">🛡</div><h3>Role assignments <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <div class="tool-ic">🛡</div><h3>Intune RBAC <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Every Intune role definition, built-in and custom, with each assignment under it, the users and groups in it <b>resolved to names</b>, the scope tags it is limited to and what it is scoped over — in one page rather than one blade per role. Roles with nobody in them are one toggle away, because an empty role is a fact worth seeing and it is one membership change from being live. Concentrations worth a second look are flagged as <b>observations, never a score</b>. And the line nothing else says: this is Intune RBAC only, so the Entra directory roles that also grant full Intune access are not in it. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
@@ -770,13 +770,21 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
        also grant Intune access are not in it. -->
   <section id="screen-roles" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
-      <h2 style="margin:0 0 6px">🛡 Role assignments <span class="tag new">BETA</span></h2>
+      <h2 style="margin:0 0 6px">🛡 Intune RBAC <span class="tag new">BETA</span></h2>
       <p class="mini" style="margin:0">Who can change Intune, in one page: every role definition — built-in and custom — each assignment under it, the users and groups in it resolved to names, and what it is scoped to. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (MIT), whose question this is. The portal makes you click into each role one at a time, which is why nobody audits this. <b>Reads only</b>: <code>DeviceManagementRBAC.Read.All</code> for the roles, <code>User.Read.All</code> and <code>Group.Read.All</code> to turn member GUIDs into names.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>This is Intune RBAC only, and that is the most important line on the page.</b> The Entra directory roles — Global Administrator, Intune Administrator — grant full access to Intune and do not appear in <code>deviceManagement/roleAssignments</code> at all, so they are not here. An access review that reads this as the complete list of who can change Intune is missing the accounts with the most access. That sentence is in every export too.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>Names are resolved in one call, not two per member.</b> The original probes <code>/users/{id}</code> and then <code>/groups/{id}</code> for each member — up to two round trips each, on a surface where a hundred members is ordinary. Every principal in the report goes through <code>directoryObjects/getByIds</code> here, a thousand at a time, and the response says what type each object is, so there is nothing to probe.</p>
     </div>
 
     <div class="list-card wi-form">
+      <!-- The tool is the RBAC surface, not one question about it (build
+           10392): Role assignments is its FIRST section, and the seg is
+           where scope tags, custom-role review and whatever else belongs to
+           Intune RBAC will land — each as a section here rather than a new
+           tile. One tool per surface, sections per question. -->
+      <div class="seg" id="rbSectSeg" style="margin-bottom:12px">
+        <button class="active">🛡 Role assignments</button>
+      </div>
       <label class="chk" style="display:inline-flex;gap:8px;align-items:center">
         <input type="checkbox" id="rbEmpty"> Show roles with no assignments
       </label>
@@ -1230,7 +1238,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <button class="help-toc-pill" data-target="help-assignedit">✏️ Assignment editor</button>
         <button class="help-toc-pill" data-target="help-setsearch">🔦 Settings search</button>
         <button class="help-toc-pill" data-target="help-device">🖥 Device analyzer</button>
-        <button class="help-toc-pill" data-target="help-roles">🛡 Role assignments</button>
+        <button class="help-toc-pill" data-target="help-roles">🛡 Intune RBAC</button>
         <button class="help-toc-pill" data-target="help-audit">🕓 Change audit</button>
         <button class="help-toc-pill" data-target="help-backup">📦 Backup configuration</button>
         <button class="help-toc-pill" data-target="help-docs">📄 Configuration documenter</button>
@@ -1278,7 +1286,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p class="mini" style="margin:0 0 10px"><b>Read the check-in first.</b> Every assignment here is what Intune intends; what the device has is whatever it collected the last time it talked to the service. A policy assigned ten minutes ago has not reached a machine that last synced yesterday, and no amount of correct assignment data changes that — so the check-in time is the first thing on the page.</p>
         <p class="mini" style="margin:0 0 10px"><b>Three answers this tool refuses to guess at.</b> ① A <b>filtered</b> assignment may or may not reach this device: the rule is evaluated by the service against inventory a browser cannot see, and Graph offers no call that answers it. Those rows say <i>may reach it</i>. ② A policy the device has not reported on has state <b>unknown</b>, not compliant — and where a reported state cannot be tied to a policy with certainty, because two policies share a name, that is unknown too. ③ Where a policy is <b>included through one group and excluded through another</b>, an exclusion wins in Intune and the row says excluded — except when the two arrive through different kinds of group, device against user, where whether the exclusion applies depends on how the policy is targeted and the assignment does not say. That one is called a conflict and left to the portal.</p>
         <p class="mini" style="margin:0 0 10px"><b>Tenant-wide assignments are shown by default here</b>, unlike in the Group Analyzer. All Devices reaches this machine whatever else is true, so hiding those rows would hide policy it is definitely getting. All Users lands on the person, so a device with no primary user does not receive them — and the row says so rather than being dropped.</p>
-        <h3 id="help-roles" style="margin:14px 0 6px">🛡 Role assignments</h3>
+        <h3 id="help-roles" style="margin:14px 0 6px">🛡 Intune RBAC</h3>
         <p class="mini" style="margin:0 0 10px">Every Intune role definition with its assignments, members, scope and scope tags, on one page. After <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Ugur Koc's PowerShell script</a> (MIT). Reads only: <code>DeviceManagementRBAC.Read.All</code>, plus <code>User.Read.All</code> and <code>Group.Read.All</code> to turn member GUIDs into names.</p>
         <p class="mini" style="margin:0 0 10px"><b>Read the first line on the screen before you rely on this.</b> It is Intune RBAC only. Global Administrator and Intune Administrator are Entra directory roles, they grant full access to Intune, and Graph does not return them from <code>deviceManagement/roleAssignments</code>. Nothing this tool can ask for would show them, so it says so rather than letting the report pass for a complete answer.</p>
         <p class="mini" style="margin:0 0 10px"><b>Empty roles are a toggle.</b> A role with no assignments is one membership change from being a live grant, so it is a fact worth seeing — off by default because most tenants use a handful of the built-in roles, and switching it on re-renders what was already read rather than asking the tenant again.</p>
@@ -1358,29 +1366,29 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10391"></script>
-<script src="js/version.js?v=10391"></script>
-<script src="js/promote.js?v=10391"></script>
-<script src="js/authConfig.js?v=10391"></script>
-<script src="js/changelog.js?v=10391"></script>
-<script src="js/msappcatalog.js?v=10391"></script>
-<script src="js/graph.js?v=10391"></script>
-<script src="js/suggest.js?v=10391"></script>
-<script src="js/groupuse.js?v=10391"></script>
-<script src="js/audit.js?v=10391"></script>
-<script src="js/backup.js?v=10391"></script>
-<script src="js/document.js?v=10391"></script>
-<script src="js/devicewhy.js?v=10391"></script>
-<script src="js/whatif.js?v=10391"></script>
-<script src="js/health.js?v=10391"></script>
-<script src="js/settingsearch.js?v=10391"></script>
-<script src="js/conflict.js?v=10391"></script>
-<script src="js/compliance.js?v=10391"></script>
-<script src="js/filters.js?v=10391"></script>
-<script src="js/restore.js?v=10391"></script>
-<script src="js/assignedit.js?v=10391"></script>
-<script src="js/roles.js?v=10391"></script>
-<script src="js/applocker.js?v=10391"></script>
-<script src="js/app.js?v=10391"></script>
+<script src="js/branding.js?v=10392"></script>
+<script src="js/version.js?v=10392"></script>
+<script src="js/promote.js?v=10392"></script>
+<script src="js/authConfig.js?v=10392"></script>
+<script src="js/changelog.js?v=10392"></script>
+<script src="js/msappcatalog.js?v=10392"></script>
+<script src="js/graph.js?v=10392"></script>
+<script src="js/suggest.js?v=10392"></script>
+<script src="js/groupuse.js?v=10392"></script>
+<script src="js/audit.js?v=10392"></script>
+<script src="js/backup.js?v=10392"></script>
+<script src="js/document.js?v=10392"></script>
+<script src="js/devicewhy.js?v=10392"></script>
+<script src="js/whatif.js?v=10392"></script>
+<script src="js/health.js?v=10392"></script>
+<script src="js/settingsearch.js?v=10392"></script>
+<script src="js/conflict.js?v=10392"></script>
+<script src="js/compliance.js?v=10392"></script>
+<script src="js/filters.js?v=10392"></script>
+<script src="js/restore.js?v=10392"></script>
+<script src="js/assignedit.js?v=10392"></script>
+<script src="js/roles.js?v=10392"></script>
+<script src="js/applocker.js?v=10392"></script>
+<script src="js/app.js?v=10392"></script>
 </body>
 </html>

@@ -439,7 +439,7 @@ const Fs = (() => {
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
-    ["toolRoles", "🛡 Role assignments"],
+    ["toolRoles", "🛡 Intune RBAC"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -620,7 +620,7 @@ const Fs = (() => {
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
-  $("toolRoles").addEventListener("click", () => { crumb("🛡 Role assignments"); show("screen-roles"); });
+  $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());

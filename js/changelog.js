@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10392, date: "2026-08-24", title: "Role assignments grows into Intune RBAC",
+    items: [
+      { kind: "improved", tool: "🛡 Intune RBAC", text: "The tool formerly titled Role assignments is now Intune RBAC, and role assignments is its first section — because the tool is the RBAC surface, not one question about it. The section switch at the top is where scope tags, custom-role review and whatever else belongs to Intune RBAC will land, each as a section here rather than a new tile: one tool per surface, sections per question. Everything the tool did is unchanged, including the line that matters most — this is Intune RBAC only, and the Entra directory roles that also grant full Intune access are not in it." },
+    ],
+  },
+  {
     build: 10391, date: "2026-08-24", title: "The collapsed rail peeks open on hover",
     items: [
       { kind: "improved", tool: "TUNO", text: "Hover the collapsed sidebar and it expands in place — as an overlay, so the page behind it does not move — showing the full names; move away and it folds back. Picking a tool while peeked collapses it again, because the peek is a glance, not a state change: the rail stays collapsed until the chevron says otherwise. A short delay keeps a cursor merely passing on its way to the content from flaring it open." },
