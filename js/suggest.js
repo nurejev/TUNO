@@ -92,11 +92,23 @@ const Suggest = (() => {
     return menu;
   }
   function close() { if (menu) menu.style.display = "none"; items = []; active = -1; }
+  // Below the input when there is room, ABOVE it when there is not (build
+  // 10402): the editor's group box lives in a bar at the bottom of the
+  // viewport, and a menu opened downwards from there rendered off-screen —
+  // which read as "autocomplete does not work" and was worse than a bug,
+  // because the read had happened and the answer was invisible.
   function place(input) {
     const r = input.getBoundingClientRect();
     menu.style.left = `${Math.round(r.left)}px`;
-    menu.style.top = `${Math.round(r.bottom + 4)}px`;
     menu.style.minWidth = `${Math.round(r.width)}px`;
+    const below = window.innerHeight - r.bottom;
+    if (below < 300) {
+      menu.style.top = "";
+      menu.style.bottom = `${Math.round(window.innerHeight - r.top + 4)}px`;
+    } else {
+      menu.style.bottom = "";
+      menu.style.top = `${Math.round(r.bottom + 4)}px`;
+    }
   }
   function renderRows() {
     menu.innerHTML = items.map((it, i) =>

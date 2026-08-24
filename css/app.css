@@ -1636,8 +1636,12 @@ body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32p
 .ae-selbar .seg{background:var(--warn-bg2);border-color:var(--warn-bd)}
 .ae-selbar .seg button{color:var(--warn-fg)}
 .ae-selbar .seg button.active{background:var(--lemon);color:var(--green-deep)}
-.ae-selbar input{flex:1;min-width:200px;background:var(--warn-bg2);border:1px solid var(--warn-bd);color:var(--ink)}
-.ae-selbar input::placeholder{color:var(--warn-fg)}
+/* The INPUT is the exception to the warm family (build 10402): it takes
+   the app's own field look — the wi-f input every tool uses, T08's
+   included — because a field should look like every other field wherever
+   it stands. Only the seg and the buttons wear the bar's colours. */
+.ae-selbar input{flex:1;min-width:200px;height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
 .ae-selbar input:focus{outline:none;border-color:var(--lemon)}
 .ae-selbar .btn.primary{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
 .ae-selbar .btn.primary:hover{background:var(--lemon)}

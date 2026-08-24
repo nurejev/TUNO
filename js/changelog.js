@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10402, date: "2026-08-24", title: "The bar's group box suggests upwards, and looks like a field",
+    items: [
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "Autocomplete in the selection bar's group box looked broken and was not: the suggestion menu always opened downwards, and from a bar at the bottom of the viewport that put the answers off-screen — the read had happened, the menu was simply invisible. The menu now flips above its anchor whenever there is no room below, everywhere the shared typeahead is used. And the group box itself takes the app's own field look — the same input every tool has, the what-if's included — because a field should look like every other field wherever it stands; only the operation switch and the buttons wear the bar's warm colours." },
+    ],
+  },
+  {
     build: 10401, date: "2026-08-24", title: "The selection bar dresses for the light",
     items: [
       { kind: "fixed", tool: "✏️ Assignment editor", text: "In light mode the selection bar's controls rendered as bare white slabs on the deep green — holes in the bar rather than parts of it. They now wear the AppLocker tool's warm family: the cream of the Let-TUNO-do-it panel in light mode, the deep amber the bar already had in dark, because those variables flip per theme on their own. The active operation and the dry run button are lemon — the same accent ENCA's selection bar has always used on this green." },
