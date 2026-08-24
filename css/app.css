@@ -1544,12 +1544,18 @@ body.with-side .toolnav-inner > :last-child{margin-right:0}
 .sn-toggle{display:block;width:100%;text-align:right;border:0;background:none;color:var(--muted);cursor:pointer;
   font:inherit;font-size:15px;font-weight:700;padding:2px 10px 6px;border-radius:8px}
 .sn-toggle:hover{background:var(--soft);color:var(--ink)}
-body.with-side.side-min .sidenav{width:56px;padding:12px 6px 24px}
-body.with-side.side-min .sidenav h4{height:0;overflow:hidden;padding:0;margin:10px 8px;border-top:1px solid var(--border)}
-body.with-side.side-min .sidenav .sn-txt{display:none}
-body.with-side.side-min .sidenav button{text-align:center;padding:7px 0}
-body.with-side.side-min .sidenav .sn-ic{margin:0;width:100%}
-body.with-side.side-min .sn-toggle{text-align:center;padding:2px 0 6px}
+/* The PEEK (build 10391): hovering the collapsed rail expands it AS AN
+   OVERLAY — the content does not move, the rail floats over it at full
+   width, and picking a tool collapses it again. That is why every
+   collapsed rule below carries :not(.peek): a peeked rail renders exactly
+   like the expanded one, just on top instead of beside. */
+body.with-side.side-min .sidenav:not(.peek){width:56px;padding:12px 6px 24px}
+body.with-side.side-min .sidenav:not(.peek) h4{height:0;overflow:hidden;padding:0;margin:10px 8px;border-top:1px solid var(--border)}
+body.with-side.side-min .sidenav:not(.peek) .sn-txt{display:none}
+body.with-side.side-min .sidenav:not(.peek) button{text-align:center;padding:7px 0}
+body.with-side.side-min .sidenav:not(.peek) .sn-ic{margin:0;width:100%}
+body.with-side.side-min .sidenav:not(.peek) .sn-toggle{text-align:center;padding:2px 0 6px}
+body.with-side.side-min .sidenav.peek{width:240px;z-index:60;box-shadow:6px 0 24px rgba(0,0,0,.16)}
 body.with-side.side-min main{margin-left:max(76px, calc((100vw - 1444px)/2))}
 body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444px)/2))}
 

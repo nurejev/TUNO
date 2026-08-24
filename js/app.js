@@ -544,6 +544,7 @@ const Fs = (() => {
   const sideStored = () => { try { return localStorage.getItem(SIDE_KEY) === "1"; } catch { return false; } };
   function setSideCollapsed(on) {
     document.body.classList.toggle("side-min", !!on);
+    $("sideNav") && $("sideNav").classList.remove("peek");
     try { on ? localStorage.setItem(SIDE_KEY, "1") : localStorage.removeItem(SIDE_KEY); } catch { /* private mode */ }
     const t = $("sideToggle");
     if (t) { t.textContent = on ? "»" : "«"; t.title = on ? "Expand the sidebar" : "Collapse the sidebar — icons stay, names appear on hover"; }
@@ -587,9 +588,23 @@ const Fs = (() => {
   }
   $("sideNav").addEventListener("click", (e) => {
     if (e.target.closest("[data-navtoggle]")) { setSideCollapsed(!document.body.classList.contains("side-min")); return; }
-    if (e.target.closest("[data-navhome]")) { crumb(""); show("screen-home"); return; }
+    // picking a destination while peeked collapses the rail again — the
+    // peek is a glance, not a state change (build 10391)
+    if (e.target.closest("[data-navhome]")) { $("sideNav").classList.remove("peek"); crumb(""); show("screen-home"); return; }
     const b = e.target.closest("[data-nav]");
-    if (b) $(b.dataset.nav).click();   // the tile's own handler: crumb, screen, setup
+    if (b) { $("sideNav").classList.remove("peek"); $(b.dataset.nav).click(); }   // the tile's own handler: crumb, screen, setup
+  });
+  // The peek (build 10391): hovering the collapsed rail expands it as an
+  // overlay; leaving closes it. The 120ms delay keeps a cursor merely
+  // passing on its way to the content from flaring the rail open.
+  let peekTimer = null;
+  $("sideNav").addEventListener("mouseenter", () => {
+    if (!document.body.classList.contains("side-min")) return;
+    peekTimer = setTimeout(() => $("sideNav").classList.add("peek"), 120);
+  });
+  $("sideNav").addEventListener("mouseleave", () => {
+    clearTimeout(peekTimer);
+    $("sideNav").classList.remove("peek");
   });
   $("homeBtn").addEventListener("click", () => { crumb(""); show("screen-home"); });
   // logo returns to the tools overview when signed in (does nothing on login)

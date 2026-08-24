@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10391, date: "2026-08-24", title: "The collapsed rail peeks open on hover",
+    items: [
+      { kind: "improved", tool: "TUNO", text: "Hover the collapsed sidebar and it expands in place — as an overlay, so the page behind it does not move — showing the full names; move away and it folds back. Picking a tool while peeked collapses it again, because the peek is a glance, not a state change: the rail stays collapsed until the chevron says otherwise. A short delay keeps a cursor merely passing on its way to the content from flaring it open." },
+    ],
+  },
+  {
     build: 10390, date: "2026-08-24", title: "The Assignment editor takes the Toolkit's shape",
     items: [
       { kind: "improved", tool: "✏️ Assignment editor", text: "The list works the way the Intune Toolkit's does: surfaces on the left — a sticky rail with All on top, a count per surface and a live tick-count beside it, unreadable surfaces named under the rail — the filter on top, and the policy list beside. Click a surface to see only its policies; the filter narrows within it." },
