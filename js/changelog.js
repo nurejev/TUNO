@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10404, date: "2026-08-24", title: "The editor learns the Toolkit's other targets",
+    items: [
+      { kind: "new", tool: "✏️ Assignment editor", text: "The selection bar grows the Intune Toolkit's remaining targeting: a target switch — Group, All devices, All users — and an assignment-filter dropdown fed by the Assignment filters tool's own list. A tenant-wide plan says what it is in capitals: the whole tenant, every device or user it has now and every one it gains later. Adding an exclusion of a tenant-wide target is refused, because Graph has no such thing — an exclusion names a group, and pretending otherwise would plan an operation the tenant cannot hold. Filters ride on adds only, with their include or exclude mode; a removal takes the whole assignment, filter included." },
+      { kind: "improved", tool: "✏️ Assignment editor", text: "The group-read permission now rides along with the read-policies click, so the group box suggests from the tenant from the first keystroke rather than after the first dry run. The controls follow the choice: pick a tenant-wide target and the group box steps aside, pick remove and the filter dropdown does." },
+    ],
+  },
+  {
     build: 10403, date: "2026-08-24", title: "The surface rail actually sticks",
     items: [
       { kind: "fixed", tool: "✏️ Assignment editor", text: "The surface rail was designed to stay put while the policy list scrolls, and never did: the card it lives in clips its overflow, and a clipping ancestor becomes the box a sticky element sticks inside — the rail was pinned to something that does not scroll, which is pinned to nothing. The editor's card now lets its overflow show, the rail stays visible for the whole scroll, and a rail taller than the window scrolls within itself rather than losing its bottom entries." },

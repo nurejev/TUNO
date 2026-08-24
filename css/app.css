@@ -1650,6 +1650,9 @@ body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32p
 .ae-selbar input{flex:1;min-width:200px;height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
 .ae-selbar input:focus{outline:none;border-color:var(--lemon)}
+.ae-selbar select{height:38px;max-width:240px;padding:0 8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px}
+.ae-selbar select:focus{outline:none;border-color:var(--lemon)}
 .ae-selbar .btn.primary{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
 .ae-selbar .btn.primary:hover{background:var(--lemon)}
 .ae-selbar-x{border:0;background:none;color:#cfe9d8;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:8px}

@@ -101,6 +101,14 @@ const AssignEdit = (() => {
   const isInclude = (a) => lc((a.target || {})["@odata.type"]).includes("groupassignmenttarget") && !lc((a.target || {})["@odata.type"]).includes("exclusion");
   const isExclude = (a) => lc((a.target || {})["@odata.type"]).includes("exclusiongroupassignmenttarget");
   const targets = (a) => lc((a.target || {}).groupId || "");
+  // Tenant-wide targets (build 10404, Toolkit parity). Graph has exactly two,
+  // and NO exclusion variant of either — that asymmetry drives the refusals.
+  const TW_TYPE = {
+    allDevices: "#microsoft.graph.allDevicesAssignmentTarget",
+    allUsers: "#microsoft.graph.allLicensedUsersAssignmentTarget",
+  };
+  const isTW = (a, kind) => lc((a.target || {})["@odata.type"])
+    .includes(kind === "allDevices" ? "alldevicesassignmenttarget" : "alllicensedusersassignmenttarget");
 
   // ------------------------------------------------------------------ read --
   async function readPolicies(surfaceIds, onStatus) {
@@ -128,26 +136,52 @@ const AssignEdit = (() => {
   // policy: change|noop|refused, each with its reason — a plan that hides
   // its noops invites "why did nothing happen", and one that hides its
   // refusals invites doing the refused thing by hand.
-  function planFor(policies, action, group) {
+  // `group` may instead carry { tenantWide: "allDevices"|"allUsers",
+  // displayName } — the Toolkit's other two targets. `filter` is
+  // { id, mode } or null, and rides only on ADDS: a removal takes the whole
+  // assignment with it, filter included, and "remove just the filter" would
+  // be an edit wearing a removal's name.
+  function planFor(policies, action, group, filter) {
+    const tw = group.tenantWide || null;
     const gid = lc(group.id);
+    const withFilter = (t) => {
+      if (filter && filter.id) {
+        t.deviceAndAppManagementAssignmentFilterId = filter.id;
+        t.deviceAndAppManagementAssignmentFilterType = filter.mode === "exclude" ? "exclude" : "include";
+      }
+      return t;
+    };
     const ops = [];
     for (const p of policies) {
       const before = p.assignments || [];
-      const hasInc = before.some((a) => isInclude(a) && targets(a) === gid);
-      const hasExc = before.some((a) => isExclude(a) && targets(a) === gid);
       let op = null;
-      if (action === "add-include") {
-        if (hasInc) op = { change: "noop", reason: "already assigned to this group" };
-        else if (hasExc) op = { change: "refused", reason: "this policy EXCLUDES the group — adding an include would create the include+exclude contradiction the health tool flags. Remove the exclusion first if that is really the intent." };
-        else op = { change: "modify", after: cleanAssignments(before).concat([{ target: { "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId: group.id } }]) };
-      } else if (action === "add-exclude") {
-        if (hasExc) op = { change: "noop", reason: "already excluded" };
-        else if (hasInc) op = { change: "refused", reason: "this policy INCLUDES the group — an exclusion on top of an include is a contradiction, not a removal. Use “remove group” to take the include away." };
-        else op = { change: "modify", after: cleanAssignments(before).concat([{ target: { "@odata.type": "#microsoft.graph.exclusionGroupAssignmentTarget", groupId: group.id } }]) };
-      } else if (action === "remove") {
-        if (!hasInc && !hasExc) op = { change: "noop", reason: "no assignment names this group" };
-        else op = { change: "modify", after: cleanAssignments(before.filter((a) => targets(a) !== gid)),
-          removes: before.filter((a) => targets(a) === gid).map((a) => (isExclude(a) ? "exclusion" : "include")).join(", ") };
+      if (tw) {
+        const has = before.some((a) => isTW(a, tw));
+        if (action === "add-include") {
+          if (has) op = { change: "noop", reason: `already targets ${group.displayName}` };
+          else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": TW_TYPE[tw] }) }]) };
+        } else if (action === "add-exclude") {
+          op = { change: "refused", reason: `Graph has no tenant-wide exclusion — ${group.displayName} can only be a target, never an exception. An exclusion names a group.` };
+        } else {
+          if (!has) op = { change: "noop", reason: `no ${group.displayName} target on this policy` };
+          else op = { change: "modify", after: cleanAssignments(before.filter((a) => !isTW(a, tw))), removes: "tenant-wide target" };
+        }
+      } else {
+        const hasInc = before.some((a) => isInclude(a) && targets(a) === gid);
+        const hasExc = before.some((a) => isExclude(a) && targets(a) === gid);
+        if (action === "add-include") {
+          if (hasInc) op = { change: "noop", reason: "already assigned to this group" };
+          else if (hasExc) op = { change: "refused", reason: "this policy EXCLUDES the group — adding an include would create the include+exclude contradiction the health tool flags. Remove the exclusion first if that is really the intent." };
+          else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId: group.id }) }]) };
+        } else if (action === "add-exclude") {
+          if (hasExc) op = { change: "noop", reason: "already excluded" };
+          else if (hasInc) op = { change: "refused", reason: "this policy INCLUDES the group — an exclusion on top of an include is a contradiction, not a removal. Use “remove group” to take the include away." };
+          else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": "#microsoft.graph.exclusionGroupAssignmentTarget", groupId: group.id }) }]) };
+        } else if (action === "remove") {
+          if (!hasInc && !hasExc) op = { change: "noop", reason: "no assignment names this group" };
+          else op = { change: "modify", after: cleanAssignments(before.filter((a) => targets(a) !== gid)),
+            removes: before.filter((a) => targets(a) === gid).map((a) => (isExclude(a) ? "exclusion" : "include")).join(", ") };
+        }
       }
       ops.push({
         policy: p, action, group,
@@ -160,7 +194,7 @@ const AssignEdit = (() => {
       changes: ops.filter((o) => o.change === "modify"),
       noops: ops.filter((o) => o.change === "noop"),
       refused: ops.filter((o) => o.change === "refused"),
-      action, group,
+      action, group, filter: (filter && filter.id) ? filter : null,
     };
   }
 
@@ -318,12 +352,23 @@ const AssignEditTool = (() => {
       const pols = picked();
       if (!pols.length) throw new Error("Tick at least one policy.");
       const action = document.querySelector("[data-aeact].active").dataset.aeact;
-      prog("Finding the group…");
-      await Graph.ensureScopes([...AssignEdit.READ(), ...Graph.SCOPES.groups]);
-      const group = await GroupUse.resolveGroup($("aeGroup").value);
-      const members = await GroupUse.memberCount(group.id);
+      // the target: a group, or one of Graph's two tenant-wide targets
+      // (build 10404 — Toolkit parity)
+      const tsel = (document.querySelector("[data-aetarget].active") || {}).dataset?.aetarget || "group";
+      let group, members = null;
+      if (tsel === "group") {
+        prog("Finding the group…");
+        await Graph.ensureScopes([...AssignEdit.READ(), ...Graph.SCOPES.groups]);
+        group = await GroupUse.resolveGroup($("aeGroup").value);
+        members = await GroupUse.memberCount(group.id);
+      } else {
+        group = { id: "", displayName: tsel === "allDevices" ? "All devices" : "All users", tenantWide: tsel };
+      }
+      const filter = $("aeFilterSel") && $("aeFilterSel").value && action !== "remove"
+        ? { id: $("aeFilterSel").value, mode: $("aeFilterMode").value }
+        : null;
       groupMeta = { group, members };
-      plan = AssignEdit.planFor(pols, action, group);
+      plan = AssignEdit.planFor(pols, action, group, filter);
       prog("");
       renderPlan();
     } catch (e) { prog(""); $("aePlanOut").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`; }
@@ -335,17 +380,22 @@ const AssignEditTool = (() => {
   function renderPlan() {
     const g = groupMeta;
     const dyn = g.group.membershipRule ? ` <span class="gu-how exc">dynamic</span>` : "";
-    const memberLine = g.members == null
-      ? `<b>member count unknown</b> — the read failed, so the blast radius is unknown too`
-      : g.members === 0
-        ? `<b>0 members</b> — ${plan.action === "remove" ? "" : "assigning to an empty group configures NOTHING until somebody joins it"}`
-        : `<b>${g.members}</b> direct member${g.members === 1 ? "" : "s"}`;
+    const memberLine = g.group.tenantWide
+      ? `<b>THE WHOLE TENANT</b> — every ${g.group.tenantWide === "allDevices" ? "managed device" : "licensed user"} it has, now and every one it gains later`
+      : g.members == null
+        ? `<b>member count unknown</b> — the read failed, so the blast radius is unknown too`
+        : g.members === 0
+          ? `<b>0 members</b> — ${plan.action === "remove" ? "" : "assigning to an empty group configures NOTHING until somebody joins it"}`
+          : `<b>${g.members}</b> direct member${g.members === 1 ? "" : "s"}`;
+    const filterLine = plan.filter
+      ? ` The add carries <b>assignment filter</b> “${esc((($("aeFilterSel") || {}).selectedOptions || [{}])[0].textContent || plan.filter.id)}” (${esc(plan.filter.mode)}) — the filter narrows the reach, and the service evaluates it, not this tool.`
+      : "";
     const row = (o, cls, extra) => `<tr class="${cls || ""}">
       <td><b>${esc(o.policy.name)}</b></td><td>${esc(o.policy.surfaceLabel)}</td>
       <td>${o.before.length} → ${o.after ? o.after.length : o.before.length}</td><td class="mini">${esc(extra || o.reason || "")}</td></tr>`;
     const removals = plan.action === "remove" && plan.changes.length;
     $("aePlanOut").innerHTML = `<div class="list-card" style="margin-top:12px">
-      <p class="mini" style="margin:0 0 8px">This plan will <b>${ACTION_LABEL[plan.action]}</b> “<b>${esc(g.group.displayName)}</b>”${dyn} — ${memberLine} — on <b>${plan.changes.length}</b> polic${plan.changes.length === 1 ? "y" : "ies"}. ${plan.noops.length ? `${plan.noops.length} skipped as already correct.` : ""} ${plan.refused.length ? `<b>${plan.refused.length} REFUSED</b> — see below.` : ""}</p>
+      <p class="mini" style="margin:0 0 8px">This plan will <b>${ACTION_LABEL[plan.action]}</b> “<b>${esc(g.group.displayName)}</b>”${dyn} — ${memberLine} — on <b>${plan.changes.length}</b> polic${plan.changes.length === 1 ? "y" : "ies"}.${filterLine} ${plan.noops.length ? `${plan.noops.length} skipped as already correct.` : ""} ${plan.refused.length ? `<b>${plan.refused.length} REFUSED</b> — see below.` : ""}</p>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Policy</th><th>Surface</th><th>Assignments</th><th>Note</th></tr></thead><tbody>
         ${plan.changes.map((o) => row(o, "", o.removes ? `removes the ${o.removes}` : "")).join("")}
         ${plan.refused.map((o) => row(o, "", "REFUSED: " + o.reason)).join("")}
@@ -418,11 +468,25 @@ const AssignEditTool = (() => {
     if (busy) return;
     busy = true; invalidatePlan();
     try {
-      await Graph.ensureScopes(AssignEdit.READ());
+      // Groups ride along with the read consent (build 10404): the dry run
+      // needs the scope anyway, and asking here means the group box suggests
+      // from the tenant from the first keystroke instead of after the first
+      // dry run.
+      await Graph.ensureScopes([...new Set([...AssignEdit.READ(), ...Graph.SCOPES.groups])]);
       read = await AssignEdit.readPolicies(null, prog);
       sel.clear(); surfView = "all";   // a fresh read is a fresh decision
       prog(`${read.policies.length} policies read.`);
       renderPolicies();
+      // T14's own filter list fills the dropdown — same read scope, one
+      // request, and a tenant without filters simply keeps "No filter".
+      try {
+        if (typeof Filters !== "undefined") {
+          const fl = await Filters.list();
+          $("aeFilterSel").innerHTML = `<option value="">No filter</option>` +
+            fl.sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)))
+              .map((f) => `<option value="${esc(f.id)}">${esc(f.displayName)} (${esc(Filters.platformLabel(f.platform))})</option>`).join("");
+        }
+      } catch { /* filters are an option, not a requirement — the dropdown stays at No filter */ }
     } catch (e) { prog(""); $("aeList").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`; }
     finally { busy = false; }
   }
@@ -450,11 +514,32 @@ const AssignEditTool = (() => {
       if (!line) { line = document.createElement("p"); line.className = "mini ae-picks"; line.style.margin = "8px 0 0"; $("aeList").appendChild(line); }
       line.innerHTML = `<b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.`;
     });
+    // The bar's controls follow the choice (build 10404): removals carry no
+    // filter (they take the whole assignment, filter included), and a
+    // tenant-wide target has no group box to fill.
+    const syncBarControls = () => {
+      const action = (document.querySelector("[data-aeact].active") || {}).dataset?.aeact;
+      const tsel = (document.querySelector("[data-aetarget].active") || {}).dataset?.aetarget || "group";
+      $("aeGroup").style.display = tsel === "group" ? "" : "none";
+      const filterable = action !== "remove";
+      $("aeFilterSel").style.display = filterable ? "" : "none";
+      $("aeFilterMode").style.display = filterable && $("aeFilterSel").value ? "" : "none";
+    };
     $("aeActSeg").addEventListener("click", (e) => {
       const b = e.target.closest("[data-aeact]"); if (!b) return;
       [...$("aeActSeg").children].forEach((x) => x.classList.toggle("active", x === b));
+      syncBarControls();
       invalidatePlan();
     });
+    $("aeTargetSeg").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-aetarget]"); if (!b) return;
+      [...$("aeTargetSeg").children].forEach((x) => x.classList.toggle("active", x === b));
+      syncBarControls();
+      invalidatePlan();
+    });
+    $("aeFilterSel").addEventListener("change", () => { syncBarControls(); invalidatePlan(); });
+    $("aeFilterMode").addEventListener("change", invalidatePlan);
+    syncBarControls();
     $("aeGroup").addEventListener("input", invalidatePlan);
     $("aeDryRun").addEventListener("click", dryRun);
     $("aeSelClear").addEventListener("click", () => { sel.clear(); invalidatePlan(); renderPolicies(); });
