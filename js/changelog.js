@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10403, date: "2026-08-24", title: "The surface rail actually sticks",
+    items: [
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "The surface rail was designed to stay put while the policy list scrolls, and never did: the card it lives in clips its overflow, and a clipping ancestor becomes the box a sticky element sticks inside — the rail was pinned to something that does not scroll, which is pinned to nothing. The editor's card now lets its overflow show, the rail stays visible for the whole scroll, and a rail taller than the window scrolls within itself rather than losing its bottom entries." },
+    ],
+  },
+  {
     build: 10402, date: "2026-08-24", title: "The bar's group box suggests upwards, and looks like a field",
     items: [
       { kind: "fixed", tool: "✏️ Assignment editor", text: "Autocomplete in the selection bar's group box looked broken and was not: the suggestion menu always opened downwards, and from a bar at the bottom of the viewport that put the answers off-screen — the read had happened, the menu was simply invisible. The menu now flips above its anchor whenever there is no room below, everywhere the shared typeahead is used. And the group box itself takes the app's own field look — the same input every tool has, the what-if's included — because a field should look like every other field wherever it stands; only the operation switch and the buttons wear the bar's warm colours." },

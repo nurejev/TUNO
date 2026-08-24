@@ -1595,7 +1595,14 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 
 /* ---- T11: the Toolkit split (build 10390) — surfaces left, list right ---- */
 .ae-split{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;align-items:start}
-.ae-surfs{position:sticky;top:calc(var(--sticky-nav,106px) + 14px)}
+.ae-surfs{position:sticky;top:calc(var(--sticky-nav,106px) + 14px);
+  max-height:calc(100vh - var(--sticky-nav,106px) - 28px);overflow-y:auto}
+/* The rail was sticky from birth and never stuck (build 10403): .list-card
+   carries overflow:hidden, and an overflow ancestor becomes the sticky
+   element's containment box — the rail was pinned to a card that does not
+   scroll, which is pinned to nothing. The editor's card lets its overflow
+   show; the rounded corners survive because nothing in this card bleeds. */
+#screen-assignedit .list-card.wi-form{overflow:visible}
 .ae-surfs button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;
   border:1px solid transparent;background:none;color:var(--ink);cursor:pointer;font:inherit;font-size:13px;font-weight:600;
   padding:8px 10px;border-radius:8px}
