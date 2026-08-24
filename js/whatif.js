@@ -394,7 +394,7 @@ const WhatIfTool = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
-  const prog = (m) => { $("wfProg").textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("wfBody", "wfProg", m);   // ENCA-style centred card (10397)
 
   function renderAreas() {
     $("wfAreas").innerHTML = GroupUse.SOURCES.map((s) =>

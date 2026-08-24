@@ -517,7 +517,7 @@ const RolesTool = (() => {
   }
 
   const showEmpty = () => !!($("rbEmpty") && $("rbEmpty").checked);
-  const prog = (m) => { const el = $("rbProg"); if (el) el.textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("rbBody", "rbProg", m);   // ENCA-style centred card (10397)
   const showExports = (on) => ["rbMd", "rbCsv", "rbHtml"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
 
   function fail(e) {

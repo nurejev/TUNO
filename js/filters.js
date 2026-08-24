@@ -191,7 +191,7 @@ const FiltersTool = (() => {
   let usedOnly = false;
   const openUse = new Set();
 
-  function prog(msg) { const el = $("afProg"); if (el) el.innerHTML = msg ? esc(msg) : ""; }
+  function prog(msg) { TunoProgress.show("afBody", "afProg", msg); }   // ENCA-style centred card (10397)
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));

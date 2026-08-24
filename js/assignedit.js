@@ -250,7 +250,7 @@ const AssignEditTool = (() => {
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  const prog = (m) => { $("aeProg").textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("aeList", "aeProg", m);   // ENCA-style centred card (10397)
 
   // The SELECTION lives here, not in the DOM (build 10390). It used to be
   // read off the checkboxes, which meant every filter keystroke re-rendered

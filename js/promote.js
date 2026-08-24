@@ -68,6 +68,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 67,
+      title: "TunoProgress — ENCA's centred read card behind every tool",
+      tools: ["TUNO"],
+      builds: [10397],
+      risk: "low",
+      what: "js/progress.js: TunoProgress.show(bodyId, lineId, msg, n, of) — centred list-card (spinner + step + cg-progress bar, determinate on n/of, sweeping otherwise) rendered into the tool's empty result body, with the small text line kept in step. All fourteen prog() functions delegate; restore is deliberately line-only (its plan table must stay visible during an apply). RESULTS ARE NEVER COVERED: the card only claims an EMPTY body — a re-read over existing results keeps the line. prog('') removes card and line, which is what every tool already meant by it. The .spinner and .cg-progress CSS existed since the scaffold, unused; an indet animation was added.",
+      why: "LOW — presentation only, no reads or writes change. The two judgement calls needing eyes: a tool whose body is NOT empty at read start (T11 re-read) must degrade to the line without flicker, and the card must vanish the instant results render rather than flashing over them.",
+      test: [
+        "THE ONE THAT MATTERS: run the Group Analyzer sweep — the centred card appears with a filling bar during batched steps, and is gone the moment the table renders (no flash of both).",
+        "Documenter and backup: the per-policy N+1 shows n/of counting up on the card.",
+        "T11: first read shows the card; read AGAIN with the list on screen — line only, the table stays put.",
+        "Restore: dry-run and apply show line-only progress; the plan table never disappears.",
+        "A failing read: the card is replaced by the error card, not left spinning above it.",
+      ],
+      files: ["js/progress.js", "css/app.css", "index.html", "js/assignedit.js", "js/audit.js", "js/backup.js", "js/compliance.js", "js/conflict.js", "js/devicewhy.js", "js/document.js", "js/filters.js", "js/groupuse.js", "js/health.js", "js/restore.js", "js/roles.js", "js/settingsearch.js", "js/whatif.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 66,
       title: "T07 renamed to Intune RBAC — role assignments becomes its first section",
       tools: ["🛡 Intune RBAC"],

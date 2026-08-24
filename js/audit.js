@@ -429,7 +429,7 @@ const AuditTool = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
-  const prog = (m) => { const el = $("auProg"); if (el) el.textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("auBody", "auProg", m);   // ENCA-style centred card (10397)
   const showExports = (on) => ["auMd", "auCsv", "auHtml"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
 
   function fail(e) {

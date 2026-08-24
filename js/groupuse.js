@@ -942,10 +942,7 @@ const GroupUseTool = (() => {
     });
   }
 
-  function prog(msg, n, of) {
-    const el = $("guProg");
-    if (el) el.innerHTML = msg ? `${of ? `<b>${n}/${of}</b> · ` : ""}${esc(msg)}` : "";
-  }
+  function prog(msg, n, of) { TunoProgress.show("guBody", "guProg", msg, n, of); }   // ENCA-style centred card (10397)
 
   function showExports(on) {
     ["guMd", "guHtml", "guCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });

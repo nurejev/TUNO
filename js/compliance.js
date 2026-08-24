@@ -217,7 +217,7 @@ const ComplianceTool = (() => {
 
   let rep = null, running = false;
 
-  function prog(msg) { const el = $("cpProg"); if (el) el.innerHTML = msg ? esc(msg) : ""; }
+  function prog(msg) { TunoProgress.show("cpBody", "cpProg", msg); }   // ENCA-style centred card (10397)
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));

@@ -282,7 +282,7 @@ const BackupTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   let out = null, running = false;
 
-  const prog = (m) => { const el = $("bkProg"); if (el) el.textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("bkBody", "bkProg", m);   // ENCA-style centred card (10397)
   const chosen = () => [...document.querySelectorAll("#bkAreas input[type=checkbox]")].filter((c) => c.checked).map((c) => c.value);
 
   function renderAreas() {

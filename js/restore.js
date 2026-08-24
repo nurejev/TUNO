@@ -247,7 +247,7 @@ const RestoreTool = (() => {
 
   let parsed = null, planned = null, running = false;
 
-  function prog(msg) { const el = $("rsProg"); if (el) el.innerHTML = msg ? esc(msg) : ""; }
+  function prog(msg) { TunoProgress.show(null, "rsProg", msg); }   // line only — the plan table must stay visible during an apply (10397)
 
   async function loadZip(file) {
     parsed = null; planned = null;

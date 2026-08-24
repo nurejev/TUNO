@@ -1242,6 +1242,11 @@ main [id$="Body"] > .list-card,
 main [id$="Body"] > .list-card + .list-card,
 #aePlanOut > .list-card + .list-card,
 #rsPlan > .list-card + .list-card{margin-top:14px}
+
+/* ---- TunoProgress (build 10397): ENCA's read, in the middle ---- */
+main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-align:center;padding:28px 26px}
+.cg-progress.indet > div{width:30% !important;animation:progslide 1.3s ease-in-out infinite}
+@keyframes progslide{0%{margin-left:0}50%{margin-left:70%}100%{margin-left:0}}
 .gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
 .gu-who .mini{font-weight:400}
 .gu-sticky .gu-sum{margin-top:6px}

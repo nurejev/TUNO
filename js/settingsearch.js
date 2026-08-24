@@ -248,7 +248,7 @@ const SettingSearchTool = (() => {
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  const prog = (m) => { $("ssProg").textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("ssBody", "ssProg", m);   // ENCA-style centred card (10397)
 
   function renderState() {
     const c = SettingSearch.catalogState(), u = SettingSearch.usageState();

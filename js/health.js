@@ -320,7 +320,7 @@ const HealthTool = (() => {
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  const prog = (m) => { $("hlProg").textContent = m || ""; };
+  const prog = (m) => TunoProgress.show("hlBody", "hlProg", m);   // ENCA-style centred card (10397)
 
   function renderAreas() {
     $("hlAreas").innerHTML = GroupUse.SOURCES.map((s) =>
