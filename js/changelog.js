@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10387, date: "2026-08-24", title: "The sidebar folds to an icon rail",
+    items: [
+      { kind: "improved", tool: "TUNO", text: "The sidebar gained its collapse: the chevron at the top folds it to a 56-pixel icon rail and the content takes the room. Hover an icon and the tool's full name appears — every button carries its label natively, which is deliberate: a styled tooltip inside a scrolling column would clip at the edge, and a name you cannot read is worse than a plain one you can. Section headings become divider lines, so the grouping survives losing its words; the active highlight stays visible on the rail; clicking an icon opens the tool exactly as the full-width item does. The choice persists across refreshes the same way the theme does, and a browser that cannot remember simply opens expanded. Below 1240 pixels nothing changes — the sidebar already steps aside there in either state." },
+    ],
+  },
+  {
     build: 10386, date: "2026-08-24", title: "The events collector survives its first real machine",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Get-TunoAppControlEvents.ps1 (now 1.0.2) crashed on its first real run with PowerShell 5.1's dictionary-binder defect — the same 'Argument types do not match' that hit the scan script twice, and it took two rounds to kill here because it has more shapes than the house discipline covered. The first crash was in the ordered-dictionary handling the cast rule was written for; the fix for that added a crash reporter that names the failing line, and the very next run pointed it at something the rule did not cover: dot access on a plain hashtable goes through the same broken binder. The discipline is now total and written into the script: no ordered dictionaries anywhere, every object that gets dot-accessed is a pscustomobject — the shape the scan bundle has always used, on the same machine, without incident — and dictionary writes go through the Add method. The crash reporter stays: it turned a useless position-1,1 error into a one-paste diagnosis, and every future house script starts with one." },

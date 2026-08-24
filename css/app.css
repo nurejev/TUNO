@@ -1525,14 +1525,34 @@ body.with-side .hwrap{max-width:none}
 body.with-side .toolnav-inner{max-width:none;padding:0 24px 0 264px}
 body.with-side .toolnav-inner > :first-child{margin-left:0}
 body.with-side .toolnav-inner > :last-child{margin-right:0}
+/* ---- collapsed rail (build 10387) ----
+   The « toggle folds the sidebar to a 56px icon rail; every button already
+   carries the full label as its title, so hover shows the name natively —
+   a CSS tooltip inside this overflow:auto column would clip at the edge.
+   Section headings become divider lines: the grouping stays visible even
+   when its words do not. All of it scoped under with-side so none of it
+   exists on the sign-in screen. */
+.sidenav .sn-ic{display:inline-block;width:22px;text-align:center;margin-right:6px}
+.sn-toggle{display:block;width:100%;text-align:right;border:0;background:none;color:var(--muted);cursor:pointer;
+  font:inherit;font-size:15px;font-weight:700;padding:2px 10px 6px;border-radius:8px}
+.sn-toggle:hover{background:var(--soft);color:var(--ink)}
+body.with-side.side-min .sidenav{width:56px;padding:12px 6px 24px}
+body.with-side.side-min .sidenav h4{height:0;overflow:hidden;padding:0;margin:10px 8px;border-top:1px solid var(--border)}
+body.with-side.side-min .sidenav .sn-txt{display:none}
+body.with-side.side-min .sidenav button{text-align:center;padding:7px 0}
+body.with-side.side-min .sidenav .sn-ic{margin:0;width:100%}
+body.with-side.side-min .sn-toggle{text-align:center;padding:2px 0 6px}
+body.with-side.side-min main{margin-left:76px}
+body.with-side.side-min .toolnav-inner{padding-left:76px}
+
 /* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
    third of the screen: it goes, and the shell returns to the centred column.
    The tab bar and the home grid keep every tool reachable — the sidebar is a
    convenience, never the only door. */
 @media (max-width:1240px){
   .sidenav{display:none !important}
-  body.with-side main{margin:0 auto;padding:28px 24px 80px}
-  body.with-side .toolnav-inner{padding:0 24px}
+  body.with-side main,body.with-side.side-min main{margin:0 auto;padding:28px 24px 80px}
+  body.with-side .toolnav-inner,body.with-side.side-min .toolnav-inner{padding:0 24px}
 }
 
 /* ---- R19: the assignment matrix (build 10381) ----

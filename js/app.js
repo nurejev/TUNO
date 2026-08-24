@@ -536,6 +536,19 @@ const Fs = (() => {
   // step when a tool is added. But the LABELS come from the tool list via
   // labelFor() — the same rule the tabs follow — because the old tab strip
   // scraped tile headings and dragged the NEW/BETA tag text into every label.
+  // Collapsed (build 10387): an icon rail, names on hover. The state
+  // survives a refresh the same guarded-localStorage way the theme does —
+  // private mode throws, and a browser that cannot remember simply opens
+  // expanded.
+  const SIDE_KEY = "tuno.sideCollapsed";
+  const sideStored = () => { try { return localStorage.getItem(SIDE_KEY) === "1"; } catch { return false; } };
+  function setSideCollapsed(on) {
+    document.body.classList.toggle("side-min", !!on);
+    try { on ? localStorage.setItem(SIDE_KEY, "1") : localStorage.removeItem(SIDE_KEY); } catch { /* private mode */ }
+    const t = $("sideToggle");
+    if (t) { t.textContent = on ? "»" : "«"; t.title = on ? "Expand the sidebar" : "Collapse the sidebar — icons stay, names appear on hover"; }
+    syncStickyTops();
+  }
   function renderSideNav() {
     const secs = [];
     let cur = null;
@@ -546,10 +559,22 @@ const Fs = (() => {
         secs.push(cur);
       } else if (cur && el.id) cur.ids.push(el.id);
     });
-    const item = (id) => `<button data-nav="${id}" id="side-${id}">${esc(labelFor(id))}</button>`;
+    // Every label is "<emoji> <name>" from the tool list; the split lets the
+    // collapsed rail keep the icon and drop the text. The FULL label rides
+    // every button as its title, so the collapsed rail's hover names cost
+    // nothing and clip nowhere — a CSS tooltip inside an overflow:auto
+    // sidebar would be cut off at the edge, which is why it is native.
+    const item = (id) => {
+      const label = labelFor(id);
+      const sp = label.indexOf(" ");
+      const [ic, txt] = sp > 0 ? [label.slice(0, sp), label.slice(sp + 1)] : ["·", label];
+      return `<button data-nav="${id}" id="side-${id}" title="${esc(label)}"><span class="sn-ic">${esc(ic)}</span><span class="sn-txt">${esc(txt)}</span></button>`;
+    };
     $("sideNav").innerHTML =
-      `<button data-navhome id="side-home">🏠 Overview</button>` +
-      secs.map((s) => `<h4>${esc(s.title)}</h4>` + s.ids.map(item).join("")).join("");
+      `<button class="sn-toggle" id="sideToggle" data-navtoggle>«</button>` +
+      `<button data-navhome id="side-home" title="🏠 Overview"><span class="sn-ic">🏠</span><span class="sn-txt">Overview</span></button>` +
+      secs.map((s) => `<h4 title="${esc(s.title)}">${esc(s.title)}</h4>` + s.ids.map(item).join("")).join("");
+    setSideCollapsed(sideStored());
     renderSideActive();
   }
   // Active state follows the tabs' own truth (activeTab, set by crumb), so the
@@ -561,6 +586,7 @@ const Fs = (() => {
     if (on) on.classList.add("active");
   }
   $("sideNav").addEventListener("click", (e) => {
+    if (e.target.closest("[data-navtoggle]")) { setSideCollapsed(!document.body.classList.contains("side-min")); return; }
     if (e.target.closest("[data-navhome]")) { crumb(""); show("screen-home"); return; }
     const b = e.target.closest("[data-nav]");
     if (b) $(b.dataset.nav).click();   // the tile's own handler: crumb, screen, setup
