@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10373"></script>
+<script src="js/popup-guard.js?v=10374"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10373">
+<link rel="stylesheet" href="css/app.css?v=10374">
 </head>
 <body>
 
@@ -211,8 +211,13 @@
               <code class="al-dl-cmd" data-file="Initialize-TunoItToolsFolders.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Initialize-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Detect-TunoItToolsFolders.ps1" download>⭳ Detect-TunoItToolsFolders.ps1</a>
+              <code class="al-dl-cmd" data-file="Detect-TunoItToolsFolders.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Detect-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
           </div>
-          <p class="mini muted" style="margin:8px 0 0"><b>The fourth creates the IT-TOOLS house folders with the admin-only ACL the standing allow rules depend on</b> — deploy it BEFORE the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass. <b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping the pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5.</p>
+          <p class="mini muted" style="margin:8px 0 0"><b>The fourth and fifth are the IT-TOOLS provisioning pair</b> — the fourth creates the house folders with the admin-only ACL the standing allow rules depend on (and proves SYSTEM can write to <code>IT-TOOLS\LOGS</code>, where the house scripts log), the fifth is its detection half so the pair ships as an Intune Remediation. Deploy it BEFORE the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass — and unlike the cleanup pair, leave it assigned: a folder that drifts writable after provisioning is exactly what its detection exists to catch. <b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping that pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5.</p>
           <!-- The Remediation deploy lives HERE, with the downloads, because it
                is the same act done for you — and it needs no policy on the
                table, so gating it behind an upload (as it was in step 5's
@@ -220,7 +225,7 @@
                first. Collapsed: it writes to a tenant, and a write should be
                opened deliberately rather than scrolled past. -->
           <details class="al-guide" id="alRemedyDetails">
-            <summary>🚀 Deploy the pair as an Intune Remediation from here <span class="tag new">writes to your tenant</span></summary>
+            <summary>🚀 Deploy the pairs as Intune Remediations from here <span class="tag new">writes to your tenant</span></summary>
             <div class="al-guide-body" id="alRemedyBox"></div>
           </details>
           <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site.</p>
@@ -1197,24 +1202,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10373"></script>
-<script src="js/version.js?v=10373"></script>
-<script src="js/promote.js?v=10373"></script>
-<script src="js/authConfig.js?v=10373"></script>
-<script src="js/changelog.js?v=10373"></script>
-<script src="js/msappcatalog.js?v=10373"></script>
-<script src="js/graph.js?v=10373"></script>
-<script src="js/groupuse.js?v=10373"></script>
-<script src="js/audit.js?v=10373"></script>
-<script src="js/backup.js?v=10373"></script>
-<script src="js/document.js?v=10373"></script>
-<script src="js/devicewhy.js?v=10373"></script>
-<script src="js/whatif.js?v=10373"></script>
-<script src="js/health.js?v=10373"></script>
-<script src="js/settingsearch.js?v=10373"></script>
-<script src="js/assignedit.js?v=10373"></script>
-<script src="js/roles.js?v=10373"></script>
-<script src="js/applocker.js?v=10373"></script>
-<script src="js/app.js?v=10373"></script>
+<script src="js/branding.js?v=10374"></script>
+<script src="js/version.js?v=10374"></script>
+<script src="js/promote.js?v=10374"></script>
+<script src="js/authConfig.js?v=10374"></script>
+<script src="js/changelog.js?v=10374"></script>
+<script src="js/msappcatalog.js?v=10374"></script>
+<script src="js/graph.js?v=10374"></script>
+<script src="js/groupuse.js?v=10374"></script>
+<script src="js/audit.js?v=10374"></script>
+<script src="js/backup.js?v=10374"></script>
+<script src="js/document.js?v=10374"></script>
+<script src="js/devicewhy.js?v=10374"></script>
+<script src="js/whatif.js?v=10374"></script>
+<script src="js/health.js?v=10374"></script>
+<script src="js/settingsearch.js?v=10374"></script>
+<script src="js/assignedit.js?v=10374"></script>
+<script src="js/roles.js?v=10374"></script>
+<script src="js/applocker.js?v=10374"></script>
+<script src="js/app.js?v=10374"></script>
 </body>
 </html>

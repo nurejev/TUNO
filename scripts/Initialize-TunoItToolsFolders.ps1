@@ -28,16 +28,31 @@ WHAT IT DOES, idempotently:
   3. Verifies by re-reading the ACL, and exits 1 if any non-admin principal can
      still write - so an Intune Remediation reports the device rather than the wish.
 
+  4. Proves SYSTEM can write by writing: appends a provisioning record to
+     IT-TOOLS\LOGS\Initialize-TunoItToolsFolders.log. The house scripts (the
+     AppLocker cleanup, this pair) log there as SYSTEM, so an ACL that verifies
+     clean but cannot take a log line is still a failure - and it is found by
+     doing the thing, not by reasoning about it.
+
 The scan double-checks this on every run (a user-writable directory inside a house
 folder raises its loudest warning); this script is what makes that check come back
 quiet.
 
+REMEDIATION HALF of the pair with Detect-TunoItToolsFolders.ps1, which evaluates
+the same folders with the same write mask and trusted set - the two halves MUST
+stay in agreement, or the pair loops (this half "fixes", detection still objects).
+Unlike the AppLocker cleanup pair, this pair is a STANDING assignment: leave it
+scheduled on the estate, because a folder that drifts writable after provisioning
+is exactly what it exists to catch and re-tighten.
+
 .NOTES
-Version   : 1.0.0
+Version   : 1.1.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
-Deploy as : Intune platform script or Remediation, SYSTEM, 64-bit. Assign it BEFORE
-            (or with) the AppLocker audit profile - never after the enforced one.
+Deploy as : Intune Remediation remediation script (with Detect-TunoItToolsFolders.ps1
+            as detection) or a standalone platform script, SYSTEM, 64-bit. Assign it
+            BEFORE (or with) the AppLocker audit profile - never after the enforced
+            one - and leave the pair assigned.
 #>
 
 [CmdletBinding()]
@@ -47,8 +62,8 @@ param(
 
 # Same discipline as the other scripts: ScriptVersion is this file's history,
 # TunoBuild the site build that served it, held to js/version.js by the guard.
-$script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10372
+$script:ScriptVersion = '1.1.0'
+$script:TunoBuild = 10374
 
 $ErrorActionPreference = 'Stop'
 
@@ -105,8 +120,24 @@ foreach ($f in $folders) {
     }
 }
 
+# ── Prove SYSTEM can write by writing ────────────────────────────────────────
+# The house scripts log to IT-TOOLS\LOGS as SYSTEM (the AppLocker cleanup, this
+# pair). An ACL that reads back clean but cannot take a log line is still a
+# broken deployment, so the check is a WRITE, not another read: append one
+# provisioning record. Its failure is a finding like any other.
+try {
+    $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $line = "{0:yyyy-MM-dd HH:mm:ss}Z  Initialize-TunoItToolsFolders {1} (TUNO build {2}) ran as {3} - {4}" -f
+        [DateTime]::UtcNow, $script:ScriptVersion, $script:TunoBuild, $who,
+        $(if ($bad.Count -eq 0) { 'ACL verified clean' } else { 'ACL verification FAILED: ' + ($bad -join '; ') })
+    Add-Content -LiteralPath (Join-Path $Root 'LOGS\Initialize-TunoItToolsFolders.log') -Value $line -Encoding UTF8 -ErrorAction Stop
+}
+catch {
+    $bad += "LOGS write test failed for $((Join-Path $Root 'LOGS')): $($_.Exception.Message)"
+}
+
 if ($bad.Count -eq 0) {
-    Write-Output "IT-TOOLS folders provisioned: $($folders -join ', ') - writes restricted to SYSTEM and Administrators."
+    Write-Output "IT-TOOLS folders provisioned: $($folders -join ', ') - writes restricted to SYSTEM and Administrators, log line taken."
     exit 0
 }
 else {

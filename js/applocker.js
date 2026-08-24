@@ -2037,10 +2037,37 @@ const AppLockerTool = (() => {
     picked: null,         // { id, displayName, count }
     error: null,          // last GraphError, shown verbatim
     note: "",
-    // The cleanup Remediation. Name in the house naming scheme, editable.
-    remedyName: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8",
-    remedyCreated: null,  // the deviceHealthScript as created THIS session
-    remedyColl: null,     // same-name scripts found by the preflight read
+    // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
+    // naming scheme, editable; created / coll are this session's state per pair.
+    remedy: {
+      cleanup: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8", created: null, coll: null },
+      ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
+    },
+  };
+
+  // The Remediations T01 can create — one definition each. deployRemedyPair()
+  // and renderRemedy() both read THIS table, so a third pair is one entry
+  // here rather than a second copy of the deploy machinery. The two differ in
+  // one thing that matters more than any field: the cleanup pair is scoped to
+  // the migration window and unassigned after, the IT-TOOLS pair is a STANDING
+  // assignment — its point is catching a folder that drifts writable later.
+  const REMEDY_PAIRS = {
+    cleanup: {
+      detect: "Detect-TunoAppLockerPolicy.ps1",
+      remediate: "Clear-TunoAppLockerPolicy.ps1",
+      button: "Create the cleanup Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.`,
+      description: `AppLocker migration cleanup, deployed from {SITE}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean. SCOPE THIS TO THE MIGRATION WINDOW and unassign it once the new policy is live — left assigned, the detection reads the new policy as state to remove.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.`,
+    },
+    ittools: {
+      detect: "Detect-TunoItToolsFolders.ps1",
+      remediate: "Initialize-TunoItToolsFolders.ps1",
+      button: "Create the IT-TOOLS Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoItToolsFolders.ps1</code> and <code>Initialize-TunoItToolsFolders.ps1</code> — the folders provisioning as a detect-and-fix pair. Detection reports a device where the house folders are missing, where anyone outside SYSTEM and Administrators can write, or where SYSTEM itself cannot write (the house scripts log to <code>IT-TOOLS\\LOGS</code> as SYSTEM); remediation creates the folders, resets the ACL, and proves the log path by writing to it. Created <b>unassigned</b> — but unlike the cleanup pair this one is a <b>standing assignment</b>: leave it scheduled, because a folder that drifts writable after provisioning is exactly what it exists to catch. Assign it <b>before (or with) the audit profile</b>, never after the enforced one.`,
+      description: `IT-TOOLS house-folder provisioning, deployed from {SITE}. Detection: a house folder is missing, writable by anyone outside SYSTEM/Administrators, or SYSTEM cannot write (logging). Remediation: creates %ProgramData%\\IT-TOOLS, \\Apps, \\Scripts and \\LOGS, disables inheritance, sets SYSTEM+Administrators full control and Users read-and-execute, verifies by ACL read-back AND by writing a log line, exit 1 when not clean. STANDING ASSIGNMENT: leave it scheduled — the standing AppLocker allows for these folders are only safe while this detection stays quiet.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the estate that gets the AppLocker policy, with a recurring schedule, and LEAVE it assigned — this pair is the guard on the ACL the standing allow rules depend on, before the policy lands and after.`,
+    },
   };
 
   // Fetch a script from this site and base64 it the way deviceHealthScripts
@@ -2055,29 +2082,32 @@ const AppLockerTool = (() => {
     return btoa(bin);
   }
 
-  async function deployRemediation() {
+  async function deployRemedyPair(key) {
     const d = deployState;
+    const p = REMEDY_PAIRS[key];
+    const r = d.remedy[key];
+    if (!p || !r) return;
     d.error = null;
-    d.busy = "remedy";
+    d.busy = "remedy-" + key;
     renderDeploy();
     try {
-      const name = (d.remedyName || "").trim();
+      const name = (r.name || "").trim();
       if (!name) throw new Error("The Remediation needs a name.");
       // Read before write — same rule as the profiles. TUNO never overwrites
       // a script it did not create; a same-name hit stops the deploy.
       const existing = await Graph.remediations();
       const coll = existing.filter((s) => String(s.displayName || "").trim().toLowerCase() === name.toLowerCase());
-      d.remedyColl = coll;
+      r.coll = coll;
       if (coll.length) { d.busy = ""; renderDeploy(); return; }
       // The exact bytes this site serves, not a copy pasted into the code —
       // one source, the same discipline as the download buttons.
       const [detect, remediate] = await Promise.all([
-        fetchScriptB64("Detect-TunoAppLockerPolicy.ps1"),
-        fetchScriptB64("Clear-TunoAppLockerPolicy.ps1"),
+        fetchScriptB64(p.detect),
+        fetchScriptB64(p.remediate),
       ]);
       const made = await Graph.createRemediation({
         displayName: name,
-        description: `AppLocker migration cleanup, deployed from ${BRANDING.name} ${APP_BUILD.label}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean. SCOPE THIS TO THE MIGRATION WINDOW and unassign it once the new policy is live — left assigned, the detection reads the new policy as state to remove.`,
+        description: p.description.replace("{SITE}", `${BRANDING.name} ${APP_BUILD.label}`),
         publisher: BRANDING.name,
         runAsAccount: "system",
         runAs32Bit: false,
@@ -2086,7 +2116,7 @@ const AppLockerTool = (() => {
         remediationScriptContent: remediate,
       });
       made._name = name;
-      d.remedyCreated = made;
+      r.created = made;
       d.busy = "";
       renderDeploy();
     } catch (e) { depFail(e); }
@@ -2121,7 +2151,7 @@ const AppLockerTool = (() => {
     const signedIn = !noGraph && Graph.signedIn();
 
     if (!signedIn) {
-      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and this becomes a button. TUNO asks for <code>DeviceManagementScripts.ReadWrite.All</code> at the moment you press it — Remediations have their own write scope, separate from the one the profile deploy in step 5 uses, and it must be consented on the app registration first. The downloads above stay the manual route.</p>`;
+      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and these become buttons. TUNO asks for <code>DeviceManagementScripts.ReadWrite.All</code> at the moment you press one — Remediations have their own write scope, separate from the one the profile deploy in step 5 uses, and it must be consented on the app registration first. The downloads above stay the manual route.</p>`;
       return;
     }
 
@@ -2131,27 +2161,31 @@ const AppLockerTool = (() => {
         ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
       </div>` : "";
 
-    box.innerHTML = `
-      <p class="mini muted" style="margin:0 0 6px">Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.</p>
-      ${err}
+    box.innerHTML = err + Object.entries(REMEDY_PAIRS).map(([key, p], i) => {
+      const r = d.remedy[key];
+      return `<div${i ? ` style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"` : ""}>
+      <p class="mini muted" style="margin:0 0 6px">${p.blurb}</p>
       <div class="al-dep-row">
-        <input id="alDepRemedyName" class="al-dep-in" style="flex:1;min-width:320px" value="${escq(d.remedyName)}" spellcheck="false">
-        <button class="btn primary sm" id="alDepRemedy" ${d.busy ? "disabled" : ""}>${d.busy === "remedy" ? "Creating…" : "🚀 Create the Remediation"}</button>
+        <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name)}" spellcheck="false">
+        <button class="btn primary sm al-dep-remedy" data-pair="${key}" ${d.busy ? "disabled" : ""}>${d.busy === "remedy-" + key ? "Creating…" : "🚀 " + escq(p.button)}</button>
       </div>
-      ${d.remedyColl && d.remedyColl.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
+      ${r.coll && r.coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
         <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
-        <ul class="mini al-list" style="margin-top:6px">${d.remedyColl.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
-      ${d.remedyCreated ? `<div class="al-dep-ok"><b>Created.</b> ${escq(d.remedyCreated.displayName || d.remedyCreated._name)} — id <code>${escq(d.remedyCreated.id)}</code>, assigned to nobody. In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.</div>` : ""}`;
+        <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}</div>` : ""}
+      </div>`;
+    }).join("");
 
-    const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
-    on("alDepRemedy", "click", () => deployRemediation());
-    on("alDepRemedyName", "input", (e) => {
-      deployState.remedyName = e.target.value;
+    box.querySelectorAll(".al-dep-remedy").forEach((b) => b.addEventListener("click", () => deployRemedyPair(b.dataset.pair)));
+    box.querySelectorAll(".al-dep-remedy-name").forEach((el) => el.addEventListener("input", (e) => {
+      const r = deployState.remedy[el.dataset.pair];
+      if (!r) return;
+      r.name = e.target.value;
       // A new name invalidates the last collision verdict — it was about the
       // old name, and a stop-box against a name nobody is using reads as a
       // refusal that is not happening.
-      deployState.remedyColl = null;
-    });
+      r.coll = null;
+    }));
   }
 
   function renderDeploy() {

@@ -17,6 +17,7 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean | Intune Remediation or an elevated shell; exits 1 if not clean |
 | `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
 | `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
+| `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
 
 All are MIT-licensed, like the rest of TUNO. The scan is read-only; the cleanup and the
 folder provisioning change exactly what their names say and nothing else. None of them
@@ -60,8 +61,15 @@ owns what they create. A user who creates `IT-TOOLS\Apps` before IT does owns a 
 every policy allows. `Initialize-TunoItToolsFolders.ps1` closes that: it creates the
 folders, disables inheritance, sets SYSTEM + Administrators full control and Users
 read-and-execute, resets anything a user pre-created, verifies by reading the ACL back,
-and exits 1 when a non-admin principal can still write. Deploy it as SYSTEM before (or
-with) the audit profile.
+and exits 1 when a non-admin principal can still write. It also proves SYSTEM can
+write by writing: a provisioning record is appended to
+`IT-TOOLS\LOGS\Initialize-TunoItToolsFolders.log`, because the house scripts log
+there as SYSTEM and an ACL that locks SYSTEM out breaks that silently. Deploy it as
+SYSTEM before (or with) the audit profile — and with `Detect-TunoItToolsFolders.ps1`
+as its detection half, the pair ships as an Intune Remediation (T01 creates it from
+the browser). Unlike the cleanup pair, LEAVE THIS ONE ASSIGNED on a schedule: a
+folder that drifts writable after provisioning is exactly what the detection exists
+to catch and the remediation to re-tighten.
 
 **The rules are only as strong as the ACL.** Apps and Scripts must be writable by
 SYSTEM and Administrators alone — an allow rule on a user-writable folder is a door,

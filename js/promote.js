@@ -66,6 +66,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 55,
+      title: "The IT-TOOLS provisioning ships as a Remediation pair",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10374],
+      risk: "medium",
+      what: "Detect-TunoItToolsFolders.ps1 (new, 1.0.0): the detection half for Initialize-TunoItToolsFolders.ps1, read-only, exit 1 when a house folder is missing, when a principal outside SYSTEM/Administrators/CREATOR OWNER can write, or when SYSTEM itself cannot write — same write mask and trusted set as the provisioning script's own verify, so the pair cannot loop. Initialize (1.1.0) now also PROVES SYSTEM write by appending a provisioning record to IT-TOOLS\\LOGS\\Initialize-TunoItToolsFolders.log; a failed write is exit 1. T01: the detect script joins the step-1 downloads, and the Remediation deploy panel is now table-driven (REMEDY_PAIRS) — both pairs deploy from the browser with the same read-before-write, same-name stop, created-unassigned discipline; per-pair name fields, stop boxes and created cards. The screen states the standing-assignment difference: cleanup pair = migration window only, IT-TOOLS pair = leave assigned.",
+      why: "MEDIUM — the new detection is read-only and the deploy machinery is a refactor of what item 52 graduates, but two things are argued rather than executed: the detection's ACL evaluation on a real device (like every .ps1 here, no PowerShell runtime in the build environment), and the loop property — that a device Initialize just fixed always detects compliant. If those disagree in practice, an estate-wide standing assignment remediates every device every cycle, which is a reboot-free but noisy failure. Graduates when one device has been seen going non-compliant → remediated → compliant in the console, and a compliant device stays quiet across cycles.",
+      test: [
+        "THE ONE THAT MATTERS: on a device WITHOUT the folders, run Detect (exit 1, names the missing folders), then Initialize (exit 0, log line taken), then Detect again — exit 0. If the second Detect still objects, the two halves disagree and the pair loops; do not promote until this cycle has been seen clean.",
+        "Grant Users write on IT-TOOLS\\Apps after provisioning and run Detect: exit 1 naming the folder and SID. Re-run Initialize, confirm the ACE is gone and Detect is quiet again — this is the drift case the standing assignment exists for.",
+        "Deny SYSTEM write on IT-TOOLS (icacls /deny) and confirm Detect exits 1 saying SYSTEM cannot write — the logging-broken case, and the check that is easy to get backwards.",
+        "Confirm Initialize's log line actually lands in IT-TOOLS\\LOGS\\Initialize-TunoItToolsFolders.log when run as SYSTEM, and that a run with LOGS made unwritable exits 1 even though the ACL verify passed.",
+        "Create both Remediations from the browser in one session: two POSTs total (watch the network tab — the table-driven wiring must not double-fire either button), each stop-box and created-card under its own pair, and editing one pair's name must clear only that pair's collision verdict.",
+        "In the portal, confirm the IT-TOOLS Remediation arrived as SYSTEM / 64-bit / signature check off with both script bodies byte-identical to the site's files, and run one detect→remediate cycle on a scoped device.",
+        "Read the step-1 paragraph and the deploy panel text: the cleanup pair must still say migration-window-and-unassign, the IT-TOOLS pair must say leave-assigned — the two opposite instructions are the thing a reader must not be able to confuse.",
+      ],
+      files: ["scripts/Detect-TunoItToolsFolders.ps1", "scripts/Initialize-TunoItToolsFolders.ps1", "scripts/README.md", "js/applocker.js", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 54,
       title: "TUNO knows its home tenant (cfdev detection)",
       tools: ["TUNO"],
