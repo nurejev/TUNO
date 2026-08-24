@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10401, date: "2026-08-24", title: "The selection bar dresses for the light",
+    items: [
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "In light mode the selection bar's controls rendered as bare white slabs on the deep green — holes in the bar rather than parts of it. They now wear the AppLocker tool's warm family: the cream of the Let-TUNO-do-it panel in light mode, the deep amber the bar already had in dark, because those variables flip per theme on their own. The active operation and the dry run button are lemon — the same accent ENCA's selection bar has always used on this green." },
+    ],
+  },
+  {
     build: 10400, date: "2026-08-24", title: "The editor's operation follows the selection",
     items: [
       { kind: "improved", tool: "✏️ Assignment editor", text: "The operation controls left the top of the card for a floating bar at the bottom of the screen — ENCA's selection bar, floated — that exists exactly while something is ticked. It carries the count, the include/exclude/remove switch, the group box and the dry run, because the operation belongs to the selection and an empty selection has nothing to operate on. A cross clears the selection and the bar leaves with it; the policy list keeps its full height; and the filter stays where filters live, at the top. Chosen over a sticky top bar after a mockup round." },

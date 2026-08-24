@@ -1628,7 +1628,19 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .ae-selbar.visible{display:flex}
 body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 56px)/2))}
 .ae-selbar b{color:var(--lemon);white-space:nowrap}
-.ae-selbar input{flex:1;min-width:200px}
+/* The controls wear T01's warm family (build 10401), not bare surface
+   white — a white slab on the deep green read as a hole in the bar. The
+   --warn-* variables already flip per theme, so light gets the cream of
+   "Let TUNO do it" and dark gets the deep amber it already had; the
+   active choice and the act itself are lemon, ENCA's own selbar accent. */
+.ae-selbar .seg{background:var(--warn-bg2);border-color:var(--warn-bd)}
+.ae-selbar .seg button{color:var(--warn-fg)}
+.ae-selbar .seg button.active{background:var(--lemon);color:var(--green-deep)}
+.ae-selbar input{flex:1;min-width:200px;background:var(--warn-bg2);border:1px solid var(--warn-bd);color:var(--ink)}
+.ae-selbar input::placeholder{color:var(--warn-fg)}
+.ae-selbar input:focus{outline:none;border-color:var(--lemon)}
+.ae-selbar .btn.primary{background:var(--lemon);border-color:var(--lemon-deep);color:var(--green-deep)}
+.ae-selbar .btn.primary:hover{background:var(--lemon)}
 .ae-selbar-x{border:0;background:none;color:#cfe9d8;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:8px}
 .ae-selbar-x:hover{background:rgba(255,255,255,.14);color:#fff}
 @media (max-width:1240px){.ae-selbar{left:16px;right:16px}}
