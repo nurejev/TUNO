@@ -308,30 +308,19 @@ const Fs = (() => {
       .then((res) => {
         if (res && res.account) { return adopt(res.account); }
 
-        // A REFRESH RESTORES THE SESSION, NOT THE SCREEN (10371).
+        // THERE IS ALWAYS A SIGN-IN — ENCA's model, restored (10376).
         //
-        // handleRedirectPromise() only returns an account in the moments after
-        // a redirect completes; on an ordinary F5 it returns null. The account
-        // is still sitting in the sessionStorage cache (which survives refresh
-        // in the same tab and deliberately not closing it), so it is ADOPTED
-        // here — that is what keeps token acquisition silent and the next
-        // sign-in click free of a fresh authorization and its MFA prompt.
-        //
-        // But adopting is NOT entering. Every refresh lands on the sign-in
-        // screen, always — entry to a tool that can write to a tenant is a
-        // deliberate act, not a side effect of F5 (10361 conflated the two; the
-        // 10370 remedy panel making writes reachable pre-policy is why it
-        // matters). So this branch returns false either way: the shell stays on
-        // the sign-in screen, which says whose session will be continued, and
-        // signIn() short-circuits straight into the app without a new prompt.
-        const cached = msalApp.getAllAccounts() || [];
-        if (!cached.length) return false;
-        const active = msalApp.getActiveAccount();
-        if (active) { adopt(active); return false; }
-        if (cached.length === 1) { adopt(cached[0]); return false; }
-        // More than one account and none marked active: picking for the user
-        // would be guessing which tenant they meant, and guessing wrong signs
-        // them into a customer they did not choose. Let them choose.
+        // handleRedirectPromise() returns an account only in the moments after
+        // a redirect completes; that is the ONE path that enters directly,
+        // because it is a sign-in finishing, not a refresh. Everything else —
+        // an F5, a reopened tab, a cached session in sessionStorage — lands on
+        // the sign-in screen and goes through a real interactive sign-in on
+        // the click. 10361/10371 tried restoring the cached account so the
+        // click could enter silently; that made entry a click-through rather
+        // than an authentication, and the agreement is the opposite: entry to
+        // a tool that can write to a tenant is authenticated every time, the
+        // identity provider re-running its policy included. The cost (an MFA
+        // prompt per entry) is ENCA's known, accepted cost.
         return false;
       })
       .catch((e) => { console.error("Redirect sign-in did not complete:", e); return false; });
@@ -351,28 +340,15 @@ const Fs = (() => {
       return;
     }
     try {
-      // A session restored on refresh short-circuits here: the account was
-      // already adopted by authInitInner and its tokens are in the cache, so
-      // the click IS the deliberate gate — the app is entered without a popup,
-      // a redirect, or a new authorization (and so without MFA). Sign out
-      // clears `account`, so a session somebody just left cannot take this
-      // path; and with several cached accounts none is adopted, so the
-      // interactive chooser below still runs for that case.
-      if (account) { enter(); return; }
-      // NO `prompt: "select_account"`.
-      //
-      // It forced a fresh authorization on every sign-in, which meant the
-      // identity provider re-ran its policy — including MFA — even when a
-      // perfectly good browser session was there to be reused. It was doing
-      // one useful thing, letting somebody with several accounts choose, and
-      // Sign out already covers that: it calls logoutPopup, so the next sign-in
-      // asks. Paying an MFA prompt on every entry to keep a chooser nobody
-      // reaches for is the wrong trade.
-      //
-      // Left silent, MSAL reuses the session when there is one and asks when
-      // there is not, which is the behaviour people expect.
-      if (useRedirect) { await msalApp.loginRedirect({ scopes: AUTH_CONFIG.scopes }); return; }
-      const res = await msalApp.loginPopup({ scopes: AUTH_CONFIG.scopes });
+      // ENCA's sign-in, verbatim: `prompt: "select_account"` on both paths, so
+      // every entry is a fresh authorization — the chooser appears, and the
+      // identity provider re-runs its policy, MFA included. 10361 removed the
+      // prompt and 10371 added a cached-session short-circuit on top; both are
+      // reversed here, because the agreement is that there is ALWAYS a
+      // sign-in. Within the session, incremental consent still acquires
+      // tokens silently — adopt() sets the active account for that.
+      if (useRedirect) { await msalApp.loginRedirect({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" }); return; }
+      const res = await msalApp.loginPopup({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" });
       adopt(res.account);
       enter();
     } catch (e) {
@@ -424,8 +400,6 @@ const Fs = (() => {
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
-    // The restored-session note no longer applies — the session is being ended.
-    $("loginResume").style.display = "none";
     show("screen-login");
     // Clear the active account as well as the local one: leaving it set means
     // the next sign-in silently reuses the account somebody just signed out of,
@@ -435,15 +409,9 @@ const Fs = (() => {
   });
   authInit().then((cameBack) => {
     // Only a COMPLETED interactive sign-in (the redirect flow landing back
-    // here) enters directly — anything else, including a refresh with a live
-    // session, stays on the sign-in screen. When a session was restored, the
-    // screen says whose, so continuing it is an informed click.
-    if (cameBack) { enter(); return; }
-    if (account) {
-      const el = $("loginResume");
-      el.style.display = "";
-      el.textContent = "A session for " + account.username + " is still active in this tab — Sign in continues it without a new prompt. Not you? Close this tab to drop it.";
-    }
+    // here) enters directly — it is a sign-in finishing, not a refresh.
+    // Everything else stays on the sign-in screen and signs in for real.
+    if (cameBack) enter();
   });
 
   // ---------- tool tab bar (ENCA's browser-style tabs, ported verbatim) ----------

@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10376, date: "2026-08-24", title: "There is always a sign-in",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Every entry to the app is a real interactive sign-in again — ENCA's model, restored verbatim. Builds 10361 and 10371 had softened this in two steps: first the account chooser was removed so a live browser session could be reused silently, then a refresh started restoring the cached session so the Sign in click dropped you straight into the app with no prompt at all. That made entry a click-through rather than an authentication, and the rule is the opposite: a tool that can write to a tenant authenticates you every time you enter it, with the identity provider re-running its whole policy — multi-factor prompts included, which is the accepted cost and how the sister app has always behaved. Concretely: a refresh or a reopened tab lands on the sign-in screen with no session note, the click opens the account chooser, and only the completion of a redirect sign-in enters directly, because that is a sign-in finishing rather than being skipped. Within a session nothing gets slower — the incremental permissions tools ask for on the click are still acquired silently." },
+    ],
+  },
+  {
     build: 10375, date: "2026-08-24", title: "The Sign out button existed and never rendered",
     items: [
       { kind: "fixed", tool: "TUNO", text: "The tenant identity in the header — your name, avatar, the Sign out button, and since build 10373 the cfdev badge — has never been visible to anyone. The markup was there and the sign-in path switched it on by adding a class named on, but no rule in the stylesheet has ever mentioned that class, so the box stayed at its display none default from the day TUNO was scaffolded. ENCA never had the problem because it shows the box directly rather than through a class, and that is the fix here: the same mechanism, ported. Signing out was always wired and always worked — there was just no button on screen to press." },
