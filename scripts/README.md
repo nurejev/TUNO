@@ -18,10 +18,38 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
 | `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
 | `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
+| `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
+| `Detect-TunoAppControlEvents.ps1` | Detection half of that pair — **always exits 1 on purpose**: the "remediation" IS the collection | Its compliance numbers mean "the collector ran", never "the device is fine" |
+| `Compress-TunoAppControlReport.ps1` | Zips the newest report + bundle for MDE Live Response `getfile` | `%ProgramData%\IT-TOOLS\Apps\ACB-Report_<HOST>_<stamp>.zip`; final line is `ARCHIVE: <path>` |
 
 All are MIT-licensed, like the rest of TUNO. The scan is read-only; the cleanup and the
-folder provisioning change exactly what their names say and nothing else. None of them
-applies an AppLocker policy — deploying is always a separate, deliberate act.
+folder provisioning change exactly what their names say and nothing else; the events
+set only reads logs and writes reports. None of them applies an AppLocker policy —
+deploying is always a separate, deliberate act.
+
+## The events-collection set
+
+The audit month runs on events, and the events live on the endpoints. The pair
+`Detect-TunoAppControlEvents.ps1` + `Get-TunoAppControlEvents.ps1` deploys as an Intune
+Remediation against the AUDIT ring on a recurring schedule (T01's step-1 panel creates
+it for you). Detection always reports non-compliant — deliberately, because in this
+pair the "remediation" is the harvest — so read its console numbers as cadence, not
+health, and unassign it when the campaign ends.
+
+Each pass leaves on the device: per-event-ID CSV/XML under the IME `Logs\EventLogs`
+folder, an HTML report for reading, and a **JSON events bundle**
+(`AppControlEvents_Bundle_*.log`, schema `tuno.applocker.events/1`) for T01. Both of
+the last two are named `.log` so Intune's **Collect diagnostics** brings them home;
+`Compress-TunoAppControlReport.ps1` zips them for MDE Live Response instead. Upload the
+bundle to T01 and every blocked or audited event is matched against the policy draft on
+screen — covered, stays-blocked-by-design, or missing-rule, with a recommendation per
+file.
+
+It replaces the CloudFlows/michaelsendpoint `Remedate_ACB.ps1` set, with three defects
+fixed: MSI/Script event IDs 8005/8007 were never collected (an ENFORCED block on an MSI
+left no evidence), a global `SilentlyContinue` made every `catch` dead code, and the
+48-ID CodeIntegrity query exceeded the ~23-comparison XPath limit and silently returned
+nothing on machines where it mattered.
 
 ---
 

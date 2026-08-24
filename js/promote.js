@@ -68,6 +68,28 @@ const PROMOTE = {
 
   items: [
     {
+      // n is NEXT FREE, not next visible: 45-57 existed and graduated (or
+      // retired), so reusing a low number would collide with what the
+      // sign-in suite still asserts about the old item 45.
+      n: 58,
+      title: "The App Control events set — collect, retrieve, and judge against the draft",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10378],
+      risk: "medium",
+      what: "Three new scripts (all 1.0.0, guarded): Get-TunoAppControlEvents.ps1 harvests CodeIntegrity + all four AppLocker logs into per-ID CSV/XML, an HTML report, and a tuno.applocker.events/1 JSON bundle — report and bundle written to the IME Logs root as .log so Collect diagnostics gathers them; Detect-TunoAppControlEvents.ps1 always exits 1 (the remediation IS the harvest — the docs say what that does to the console numbers); Compress-TunoAppControlReport.ps1 zips the newest report+bundle for Live Response getfile. T01: third entry in REMEDY_PAIRS (name '[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9'), three download rows, and a new import path — the upload sniffs JSON by CONTENT (the bundle arrives named .log), routes on the schema, and the events bundle NEVER touches the loaded policy: it renders an evidence card aggregating blocked/audited events per file, judged against the draft with the same matcher as the coverage table (broad-audience allows only, deny beats allow, exceptions honoured), one recommendation per row. Replaces CloudFlows Remedate_ACB with three defects fixed: missing 8005/8007 (enforced MSI/script blocks left NO evidence), global SilentlyContinue making every catch dead, 48-ID FilterHashtable exceeding the ~23-comparison XPath limit and silently returning zero CodeIntegrity events. The guard now also sweeps scripts/*.ps1 for unlisted files — Detect-TunoItToolsFolders.ps1 had shipped a build unguarded — and five stale suite assertions from the 10374 pair-table refactor were repaired (including parseFloat('0.10') reading the tenth iteration as a tenth).",
+      why: "MEDIUM — the collector only reads logs and writes reports, and the browser half only adds an import path and a third row in machinery two pairs already exercise. But the PowerShell is UNEXECUTED here (no PS runtime in this environment): the UserData XML parse, the chunked queries, and the JSON shape are verified by argument and by the headless suite's source assertions, not by a run. The Remediation deploy path is the proven one. Graduates when one device has produced a bundle that imports cleanly.",
+      test: [
+        "THE ONE THAT MATTERS: run Get-TunoAppControlEvents.ps1 elevated on a device with AppLocker events (the reference machine after the audit profile has run works), then upload the AppControlEvents_Bundle_*.log it writes to T01 with a policy loaded. The card must show the same counts the script's summary line printed, and a known blocked-from-Downloads event must read 'stays blocked — the policy working'.",
+        "Check the JSON parses: PowerShell 5.1 AND 7, machine WITH events and machine WITHOUT (empty entries must not make the card lie about a quiet estate vs an unreached one — the allowed count is the discriminator).",
+        "Deploy the pair from the browser: the third card must create it with the [REPAIR_TOOLS] Collect name, SYSTEM/64-bit, unassigned; same-name second click must STOP.",
+        "Assign to one test device with a schedule, let a pass run, then Devices → Collect diagnostics: the HTML report AND the bundle must be in the collected zip (the .log naming is the mechanism — if diagnostics misses them, the trick regressed).",
+        "Run Compress-TunoAppControlReport.ps1 in a Live Response session: ARCHIVE: line, zip under IT-TOOLS\\Apps, both files inside, getfile retrieves it.",
+        "Enforced-block evidence: on a device with an ENFORCED MSI/Script policy, block an .msi and confirm event 8007 lands in the bundle — the exact evidence the old collector dropped.",
+        "Sanity-check the CodeIntegrity numbers against Event Viewer on one machine: the chunked queries must not double-count (dedupe) or under-count (the old XPath-limit failure).",
+      ],
+      files: ["scripts/Get-TunoAppControlEvents.ps1", "scripts/Detect-TunoAppControlEvents.ps1", "scripts/Compress-TunoAppControlReport.ps1", "js/applocker.js", "index.html", "scripts/README.md", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 44,
       title: "Assignment editor — bulk changes behind four gates",
       tools: ["✏️ Assignment editor"],
