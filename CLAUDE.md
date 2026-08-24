@@ -29,6 +29,20 @@ Commits are authored as **Mihai Monte &lt;mihai@limon-it.nl&gt;** — set in thi
 repo's local git config. If a session finds the config empty, set exactly
 that; never invent an identity from the environment.
 
+## Push commands: one per block
+
+When handing Mihai the push commands, put each in ITS OWN code block,
+stacked — never two commands in one block. One block copies as one
+command; two in a block copy as two lines and paste as a mess.
+
+```
+git push tuno-beta beta:main
+```
+
+```
+git push origin beta:beta
+```
+
 ## The other standing rules, in one breath
 
 Work lands on `beta`, never on `main`; every commit is a build with its
