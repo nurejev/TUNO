@@ -387,10 +387,20 @@ const AppLockerTool = (() => {
     const col = policy.collections.find((c) => c.type === type);
     if (!col || !col.rules.length) return { s: "no-rules", text: `the draft has no ${type} rules — nothing of this type is restricted` };
     const art = { path: String(en.path || ""), publisher: { name: en.publisher || "", product: en.product || "*", binary: en.binary || "*" } };
+    // Events carry a FileHash where coverage artifacts do not, so hash
+    // conditions are matched HERE and only here — ruleMatchesArtifact stays
+    // hash-blind on purpose (nothing else has a hash to compare). Without
+    // this, closing a gap with a hash rule would leave the row reading as a
+    // gap forever. FileHashRule has no Exceptions element in the schema, so
+    // there is no carve-out to honour.
+    const norm = (x) => String(x || "").replace(/^SHA256\s*/i, "").replace(/^0x/i, "").toLowerCase();
+    const evHash = norm(en.hash);
+    const hits = (r) => !!ruleMatchesArtifact(r, art)
+      || (!!evHash && r.conditions.some((c) => c.kind === "hash" && (c.hashes || []).some((h) => norm(h.data) === evHash)));
     for (const r of col.rules) {
       if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
-      if (ruleMatchesArtifact(r, art)) {
-        const denied = col.rules.some((d) => d.action === "Deny" && principalCovers(d.sid, r.sid) && ruleMatchesArtifact(d, art));
+      if (hits(r)) {
+        const denied = col.rules.some((d) => d.action === "Deny" && principalCovers(d.sid, r.sid) && hits(d));
         if (!denied) return { s: "allowed", text: `would run — allowed by “${r.name}”`, rule: r };
       }
     }
@@ -438,6 +448,133 @@ const AppLockerTool = (() => {
       : "Would still be blocked and is UNSIGNED outside user space — add a hash rule only if it is legitimate, and ask why it is unsigned.";
   }
 
+  // GAP / BY DESIGN / COVERED / UNDECIDED — the classification the gap report
+  // and the fix buttons hang off. A "gap" is a file the fleet actually tried
+  // to run that the draft would STILL block and that does not look like the
+  // policy doing its job — machine space, not a user profile. A user-profile
+  // block is BY DESIGN: closing it is a business decision, not a repair, so it
+  // gets an offer worded as one rather than a recommendation.
+  function fleetRowClass(row, dv) {
+    if (dv.s === "no-policy" || dv.s === "no-rules") return "undecided";
+    if (dv.s === "allowed") return "covered";
+    return /(^|%OSDRIVE%|[a-z]:)\\users\\/i.test(row.path || "") ? "bydesign" : "gap";
+  }
+
+  // Which rule closes this row, best evidence first: PUBLISHER when the event
+  // carries a signer (survives updates, follows the signer), HASH when it
+  // carries only a hash (goes stale on the next file update, and says so),
+  // exact PATH as the last resort (weak, and the rule's description says to
+  // replace it). Never a directory path — a directory allow from event
+  // evidence is how the hole gets rebuilt.
+  function fleetFixPlan(row) {
+    const type = eventCollectionType(row.sample);
+    if (row.signed && row.publisher) return { kind: "publisher", type, label: "Allow by publisher" };
+    if (String((row.sample && row.sample.hash) || "").trim()) return { kind: "hash", type, label: "Allow by hash" };
+    if (row.path) return { kind: "path", type, label: "Allow this exact path" };
+    return null;
+  }
+
+  function addFixForFleetRow(row) {
+    const plan = fleetFixPlan(row);
+    if (!plan) return false;
+    const col = ensureCollection(plan.type);
+    const base = row.binary || (row.path ? String(row.path).split("\\").pop() : "file");
+    const name = `${BRANDING.name}: allow ${base} (fleet gap)`;
+    if (col.rules.some((r) => r.name === name)) return false;
+    const desc = `Closed from the fleet events evidence: ${row.count} ${String(row.verdict).toLowerCase()} event(s) for ${row.path || base}.`;
+    if (plan.kind === "publisher") {
+      col.rules.push(mkRule("FilePublisherRule", name, "S-1-1-0", "Allow",
+        [{ kind: "publisher", publisher: row.publisher, product: row.product && row.product !== "-" ? row.product : "*", binary: "*", low: "*", high: "*" }],
+        desc + " Publisher rule — survives updates, follows the signer."));
+    } else if (plan.kind === "hash") {
+      let h = String(row.sample.hash || "").replace(/^SHA256\s*/i, "").trim();
+      if (!/^0x/i.test(h)) h = "0x" + h;
+      col.rules.push(mkRule("FileHashRule", name, "S-1-1-0", "Allow",
+        [{ kind: "hash", hashes: [{ type: "SHA256", data: h, file: base, length: "0" }] }],
+        desc + " Hash rule from the event's FileHash — it goes STALE on the file's next update. SourceFileLength is 0 because the event does not carry it."));
+    } else {
+      col.rules.push(mkRule("FilePathRule", name, "S-1-1-0", "Allow",
+        [{ kind: "path", path: row.path }],
+        desc + " Exact-path rule, the weakest shape — the file was unsigned and the event carried no hash. Replace it with a publisher or hash rule once the file is in hand."));
+    }
+    return true;
+  }
+
+  // The gap report — the same judgement the card shows, as a document that can
+  // sit in the change ticket: what the fleet ran into, what the draft already
+  // answers, what stays blocked on purpose, and what needs a decision.
+  function fleetGapReport() {
+    const ev = eventsEvidence.events || {};
+    const s = ev.summary || {};
+    const ci = eventsEvidence.codeIntegrity || {};
+    const m = eventsEvidence.machine || {};
+    const rows = aggregateFleetEvents(ev.entries || []);
+    const cls = { gap: [], bydesign: [], covered: [], undecided: [] };
+    for (const row of rows) {
+      const dv = draftVerdictForEvent(row.sample);
+      cls[fleetRowClass(row, dv)].push({ row, dv });
+    }
+    const cell = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+    const L = [];
+    L.push(`# App Control gap report — ${m.name || "unknown device"}`);
+    L.push("");
+    L.push(`Generated by ${BRANDING.name} ${APP_BUILD.label} on ${new Date().toISOString().slice(0, 10)}, from ${eventsEvidence.sourceName || "an events bundle"} (${ev.daysBack || m.daysBack || "?"}-day window) judged against **${importedXmlName || "the loaded policy"}**.`);
+    L.push("");
+    L.push(`| | Count |`);
+    L.push(`|---|---|`);
+    L.push(`| Fleet events — blocked / audited / allowed | ${s.blocked ?? "?"} / ${s.audited ?? "?"} / ${s.allowed ?? "?"} |`);
+    L.push(`| Distinct denied files | ${rows.length} |`);
+    L.push(`| **GAPS — would still be blocked, machine space** | **${cls.gap.length}** |`);
+    L.push(`| Blocked by design — user-writable origin | ${cls.bydesign.length} |`);
+    L.push(`| Covered — the draft already allows it | ${cls.covered.length} |`);
+    L.push(`| Undecided — no rules for the type${policy ? "" : " (no policy loaded)"} | ${cls.undecided.length} |`);
+    L.push(`| WDAC CodeIntegrity 3076 audit / 3077 block | ${ci.audit3076 ?? 0} / ${ci.block3077 ?? 0} |`);
+    L.push("");
+    const table = (list, withFix) => {
+      L.push(`| File | Publisher | Events | Users | Under the draft |${withFix ? " Suggested fix |" : ""}`);
+      L.push(`|---|---|---|---|---|${withFix ? "---|" : ""}`);
+      for (const { row, dv } of list) {
+        const plan = withFix ? fleetFixPlan(row) : null;
+        L.push(`| ${cell(row.path || row.binary || "(no path)")} | ${cell(row.publisher || "unsigned")} | ${row.count}× ${row.verdict} | ${row.users.size} | ${cell(dv.text)} |${withFix ? ` ${plan ? cell(plan.label + " (" + plan.type + ")") : "no evidence to build a rule from"} |` : ""}`);
+      }
+      L.push("");
+    };
+    L.push(`## Gaps — need a decision before enforcing (${cls.gap.length})`);
+    L.push("");
+    if (!cls.gap.length) L.push("None. Every denied file is either covered by the draft or blocked by design.");
+    else table(cls.gap, true);
+    L.push("");
+    L.push(`## Blocked by design (${cls.bydesign.length})`);
+    L.push("");
+    L.push("These ran from user-writable locations — the population AppLocker exists to stop. Allowing one is a business decision; if taken, deploy the software to machine space or allow it by publisher, never by a path into a profile.");
+    L.push("");
+    if (cls.bydesign.length) table(cls.bydesign, false);
+    L.push(`## Covered by the draft (${cls.covered.length})`);
+    L.push("");
+    if (cls.covered.length) table(cls.covered, false);
+    else L.push("None.");
+    if (cls.undecided.length) {
+      L.push("");
+      L.push(`## Undecided (${cls.undecided.length})`);
+      L.push("");
+      L.push(policy ? "The draft has no rules for these types — nothing is restricted, so there is no verdict to give. Decide the collections before enforcing." : "No policy is loaded — load the draft this evidence should be judged against and regenerate this report.");
+      L.push("");
+      table(cls.undecided, false);
+    }
+    if ((eventsEvidence.warnings || []).length) {
+      L.push("");
+      L.push(`## What the collector could not see`);
+      L.push("");
+      for (const w of eventsEvidence.warnings) L.push(`- ${w}`);
+    }
+    L.push("");
+    return L.join("\n");
+  }
+
+  // Rendered rows, keyed, so the fix buttons can find their row after the
+  // innerHTML they live in has been rebuilt.
+  let fleetRowByKey = new Map();
+
   function renderEventsCard() {
     const host = $("alEvents");
     if (!host) return;
@@ -450,31 +587,62 @@ const AppLockerTool = (() => {
     const m = eventsEvidence.machine || {};
     const rows = aggregateFleetEvents(ev.entries || []);
     const shown = rows.slice(0, 50);
+    fleetRowByKey = new Map();
+
+    // Classify everything (the chips and the report cover ALL rows, not the 50
+    // shown) — the counts must agree with the report this card downloads.
+    let nGap = 0, nDesign = 0, nCovered = 0, nUndecided = 0;
+    for (const row of rows) {
+      const c = fleetRowClass(row, draftVerdictForEvent(row.sample));
+      if (c === "gap") nGap++; else if (c === "bydesign") nDesign++; else if (c === "covered") nCovered++; else nUndecided++;
+    }
 
     const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
 
     host.innerHTML = `
-      <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span></h3>
+      <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span>
+        ${rows.length ? `<button class="btn sm" id="alEvGapDl" style="float:right" title="Download the gap report as Markdown — the same judgement as this card, for the change ticket">⭳ Gap report</button>` : ""}</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px">
         ${fact("Device", m.name)}${fact("Window", (ev.daysBack || m.daysBack || "?") + " days")}
         ${fact("Blocked", s.blocked)}${fact("Audited (would block)", s.audited)}${fact("Allowed", s.allowed)}
         ${fact("WDAC 3076 audit", ci.audit3076)}${fact("WDAC 3077 block", ci.block3077)}
       </div>
+      ${rows.length ? `<div class="mini" style="margin-bottom:10px"><b>${nGap}</b> gap${nGap === 1 ? "" : "s"} to close · <b>${nDesign}</b> blocked by design · <b>${nCovered}</b> covered by the draft${nUndecided ? ` · <b>${nUndecided}</b> undecided` : ""}</div>` : ""}
       ${(eventsEvidence.warnings || []).length ? `<div class="al-dep-err mini" style="margin-bottom:10px"><b>The collector could not see everything:</b><ul class="al-list" style="margin:4px 0 0">${eventsEvidence.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       ${!rows.length ? `<p class="mini muted" style="margin:0">No blocked or audited events in the window — either the estate is quiet or the policy was not reaching these devices. The allowed count above says which.</p>` : `
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:34%">File</th><th style="width:110px">Fleet events</th><th style="width:24%">Under the current draft</th><th>Recommendation</th></tr></thead><tbody>
-        ${shown.map((row) => {
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:32%">File</th><th style="width:110px">Fleet events</th><th style="width:22%">Under the current draft</th><th>Recommendation</th></tr></thead><tbody>
+        ${shown.map((row, i) => {
           const dv = draftVerdictForEvent(row.sample);
+          const c = fleetRowClass(row, dv);
+          const key = "r" + i;
+          fleetRowByKey.set(key, row);
+          const plan = (c === "gap" || c === "bydesign") && policy ? fleetFixPlan(row) : null;
+          // Gaps get the fix as the offered action; by-design rows get the SAME
+          // mechanics behind a deliberately cooler label — closing one is a
+          // business decision, and the button should read like one.
+          const fixBtn = plan ? `<div style="margin-top:6px"><button class="btn sm ${c === "gap" ? "primary" : ""} al-ev-fix" data-key="${key}" title="${esc(c === "gap" ? "Add the rule to the draft — undo is one click" : "This block is the policy working. Only allow it as a deliberate business decision.")}">🔧 ${esc(c === "gap" ? plan.label : "Allow anyway — " + plan.label.toLowerCase())}</button></div>` : "";
           return `<tr>
             <td style="overflow-wrap:anywhere"><code>${esc(row.path || row.binary || "(no path)")}</code>${row.publisher ? `<div class="mini muted">${esc(row.publisher)}${row.product && row.product !== "*" ? " · " + esc(row.product) : ""}</div>` : `<div class="mini muted">unsigned</div>`}</td>
             <td style="white-space:nowrap"><b>${row.count}</b>× ${row.verdict === "Blocked" ? "⛔ blocked" : "📝 audited"}${row.users.size ? `<div class="mini muted">${row.users.size} user${row.users.size === 1 ? "" : "s"}</div>` : ""}</td>
-            <td class="mini">${esc(dv.text)}</td>
-            <td class="mini">${esc(fleetEventRecommendation(row, dv))}</td>
+            <td class="mini">${c === "gap" ? "🕳 " : ""}${esc(dv.text)}</td>
+            <td class="mini">${esc(fleetEventRecommendation(row, dv))}${fixBtn}</td>
           </tr>`;
         }).join("")}
       </tbody></table></div>
-      ${rows.length > shown.length ? `<p class="mini muted" style="margin:6px 0 0">Showing the ${shown.length} most frequent of ${rows.length} distinct files — the rest repeat the same verdicts with smaller counts.</p>` : ""}`}
+      ${rows.length > shown.length ? `<p class="mini muted" style="margin:6px 0 0">Showing the ${shown.length} most frequent of ${rows.length} distinct files — the gap report below the download button covers all of them.</p>` : ""}`}
     `;
+
+    // Own wiring, renderRemedy's pattern: this card rebuilds its innerHTML on
+    // every render, so the handlers must be attached here and nowhere else.
+    const dl = host.querySelector("#alEvGapDl");
+    if (dl) dl.addEventListener("click", () => {
+      download(`AppControl-GapReport-${String(m.name || "device").replace(/[^A-Za-z0-9-]/g, "_")}.md`, fleetGapReport(), "text/markdown");
+    });
+    host.querySelectorAll(".al-ev-fix").forEach((b) => b.addEventListener("click", () => {
+      const row = fleetRowByKey.get(b.dataset.key);
+      if (!row) return;
+      mutate(`allowed ${row.binary || row.path || "a fleet-denied file"} from the fleet evidence`, () => addFixForFleetRow(row));
+    }));
   }
 
   // ---- scan-derived findings ----

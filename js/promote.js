@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 70,
+      title: "The fleet gap report, and fixes that close it",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10409],
+      risk: "medium",
+      what: "T01 v0.12. The events-evidence card classifies every denied fleet file against the draft — GAP (still blocked, machine space), BLOCKED BY DESIGN (user-writable origin), COVERED, UNDECIDED — with chips counting ALL rows and a ⭳ Gap report Markdown download (summary, per-section tables, suggested fix per gap, collector warnings). Per-row 🔧 fixes add the rule through mutate()/undo: publisher when signed, hash from the event's FileHash when not (0x-normalised, SourceFileLength 0 with the reason in the rule description), exact path last — NEVER a directory. By-design rows get 'Allow anyway' wording (business decision, not repair). draftVerdictForEvent() additionally matches hash conditions for event rows only — ruleMatchesArtifact stays hash-blind for coverage — so a hash fix flips its row to covered.",
+      why: "MEDIUM — everything happens in the browser against the draft, rides the existing mutate/undo path, and 171/171 headless including click-through of both fix kinds and undo. The judgement that needs real eyes: whether SourceFileLength=0 hash rules survive Set-AppLockerPolicy and GPO import on a real endpoint (the schema requires the attribute; the event does not carry the length), and whether the gap/by-design boundary (machine space vs \\Users\\) matches how the estate actually reads.",
+      test: [
+        "THE ONE THAT MATTERS: upload a real device's bundle with the real draft loaded, download the gap report, and check it against Event Viewer by hand for three files — one covered, one gap, one user-profile block. The classifications must match what the endpoint would actually do.",
+        "Close a signed gap by publisher, export the XML, and import it on a test device (Set-AppLockerPolicy or GPO): the file must now run, and the rule must read sensibly in the GPO editor.",
+        "Close an unsigned gap by hash, export, and IMPORT: this is the SourceFileLength=0 question — if the import rejects the rule, the length needs to become optional-honest (omit the attribute) rather than zero, and this item stays in beta until decided.",
+        "Undo after a fix: the rule leaves the draft and the row returns to being a gap, chips included.",
+        "A bundle from a device the policy never reached (everything Allowed, nothing denied): the card must say the estate-quiet-or-unreached line, not render an empty gap report.",
+      ],
+      files: ["js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 69,
       title: "Self-host branding — the ⚙ gear, ported from ENCA",
       tools: ["TUNO"],
