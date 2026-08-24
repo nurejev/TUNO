@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10396, date: "2026-08-24", title: "Stacked cards get their gap back",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Tools that stack result cards — the conflict scan's findings above all — rendered them edge to edge, and a run of cards with no gap reads as one long wall. Like the padding fix before it, the gap is now a convention over every tool body rather than something each tool remembers: any stacked cards separate, in every tool that exists and every one that comes." },
+    ],
+  },
+  {
     build: 10395, date: "2026-08-24", title: "Card padding is a rule, not a list",
     items: [
       { kind: "fixed", tool: "TUNO", text: "Result cards in several tools rendered their text flush against the card border — the padding rule was a hand-kept list of six tool bodies, and every tool added since fell outside it: Assignment what-if, Assignment health and Settings search shipped that way unnoticed, then the conflict scan, the compliance report and Assignment filters repeated it. The rule now matches every tool body by convention rather than by name, so the next tool cannot repeat it either." },

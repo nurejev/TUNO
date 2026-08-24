@@ -1235,6 +1235,13 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 main [id$="Body"] > .list-card,
 #aePlanOut > .list-card,
 #rsPlan > .list-card{padding:16px 18px}
+/* …and stacked cards SEPARATE (build 10396). A run of cards with no gap
+   reads as one long surface — the conflict scan's findings merged into a
+   wall. Convention again, not a list: any tool body that stacks cards
+   gets the gap. */
+main [id$="Body"] > .list-card + .list-card,
+#aePlanOut > .list-card + .list-card,
+#rsPlan > .list-card + .list-card{margin-top:14px}
 .gu-who{display:block;font-size:14px;font-weight:600;margin-bottom:2px}
 .gu-who .mini{font-weight:400}
 .gu-sticky .gu-sum{margin-top:6px}
