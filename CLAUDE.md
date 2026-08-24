@@ -23,6 +23,12 @@ This applies to LAYOUT — placement, structure, chrome. It does not apply to
 fixes with one honest answer (a clipped menu, a missing padding rule, a
 table that does not fit): fix those directly.
 
+## Commit identity
+
+Commits are authored as **Mihai Monte &lt;mihai@limon-it.nl&gt;** — set in this
+repo's local git config. If a session finds the config empty, set exactly
+that; never invent an identity from the environment.
+
 ## The other standing rules, in one breath
 
 Work lands on `beta`, never on `main`; every commit is a build with its
