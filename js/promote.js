@@ -68,6 +68,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 63,
+      title: "R21 — assignment filters, read and write (T14)",
+      tools: ["🧩 Assignment filters"],
+      builds: [10384],
+      risk: "high",
+      what: "New tool T14 (js/filters.js), after Alper Atar's IntuneShade (MIT). READ: assignmentFilters list; per-filter usage via GroupUse.analyze over its own SOURCES (match-all + tenant-wide), grouped by filterId; used-by ABSENT until scanned, zeros are floors when a surface failed. WRITE (the third writer, T11's rules for one object): create → read-back; edit → fresh read + lastModifiedDateTime drift stop (refused, nothing written) → PATCH → read-back verified field-for-field; delete → typed name confirm → FRESH $expand=payloads association check at the moment of the act (any reference REFUSES; a failed check REFUSES) → DELETE → notfound read-back. Cached usage dropped after every write. Graph layer gains patch/del under the no-retry write rule — first PATCH/DELETE in the app. Platform fixed after creation. Tile (Assignments & scope), screen, tab, sidebar, t:14, MD export.",
+      why: "HIGH — a write tool, and its worst mistake is the quiet one: a deleted in-use filter widens every assignment that carried it, invisibly, tenant-wide. The gate order (check THEN delete), the drift stop, and the refuse-on-unverifiable rule are headlessly proven against fakes; what no fake proves is whether $expand=payloads reports every real association shape on a live tenant, and that is exactly the fact the gate rests on. Graduates only after the delete gate has REFUSED a real in-use filter in a real tenant, and a create/edit/delete round-trip has been verified in the portal.",
+      test: [
+        "THE ONE THAT MATTERS: in a test tenant, reference a filter from one assignment, then try to delete it here — REFUSED, naming the reference; remove the reference in the portal, delete again — it goes, and the read-back agrees.",
+        "Create a filter here; confirm in the portal (name, platform, rule, type). Edit its rule here; confirm the portal shows the new rule and the read-back message carried the tenant's lastModified.",
+        "Drift stop: load a filter for edit, change its description in the portal, then apply here — REFUSED as drifted, nothing written (portal still shows the portal's version).",
+        "Usage scan on a tenant with filtered assignments: counts match a portal spot-check; the used-by column is a dash before the scan, never 0.",
+        "Break one surface (revoke its scope): the scan must name it and the zeros must be labelled floors.",
+        "Delete with the network cut between check and act (devtools offline): the error is the ambiguous-write wording, not a silent success.",
+        "The typed-name confirm: the Delete button stays disabled until the name matches exactly.",
+      ],
+      files: ["js/filters.js", "js/graph.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 62,
       title: "R22 — the compliance report (T13)",
       tools: ["📈 Compliance report"],

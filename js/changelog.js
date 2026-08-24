@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10384, date: "2026-08-24", title: "Assignment filters — visible at last, and deletable only when safe",
+    items: [
+      { kind: "new", tool: "🧩 Assignment filters", text: "R21 ships as T14, both halves. The read half shows what the portal does not: every filter with its platform and rule, and — as its own optional read — which assignments on which policies reference it, scanned through the Group Analyzer's own surface table so a surface added there is automatically counted here. Until the scan runs the used-by column is absent, not zero, and a surface that could not be read makes every zero a floor, which the screen says plainly." },
+      { kind: "new", tool: "🧩 Assignment filters", text: "The write half is the third thing in TUNO that writes, under the Assignment editor's rules sized for one object: the write permission asked at the click, an edit preceded by a fresh read and refused as drifted if anybody changed the filter since it was loaded, every write verified by reading it back, and delete confirmed by typing the filter's name. The rule the tool exists for: delete is refused while any assignment references the filter — verified against the tenant immediately before the act, not against the session's cached scan, with 'could not check' refusing too — because a filter deleted while in use silently widens every assignment that carried it to the whole target group. After any write the cached usage scan is dropped rather than trusted stale." },
+      { kind: "improved", tool: "TUNO", text: "The Graph layer gains PATCH and DELETE, arriving with the tool that needed them and under the same rule writes have always had: no retry, ever — an ambiguous timeout is reported as ambiguous, not resent — and a refusal comes back in the tenant's own words." },
+    ],
+  },
+  {
     build: 10383, date: "2026-08-24", title: "The compliance report — the estate on one page",
     items: [
       { kind: "new", tool: "📈 Compliance report", text: "R22 ships as T13: the tenant's compliance story on one page instead of a morning of portal blades. The estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts worst first, and which setting is failing where Graph keeps a per-setting summary, read as two cheap rollups per policy folded into batch requests. Stale is its own column, not a flavour of compliant: the threshold is on screen, default 30 days, a device that has never synced counts as stale, and a compliant-but-stale machine sits in both columns with the tension stated, because a compliance verdict is exactly as old as the check-in that produced it." },

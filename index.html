@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10383"></script>
+<script src="js/popup-guard.js?v=10384"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10383">
+<link rel="stylesheet" href="css/app.css?v=10384">
 </head>
 <body>
 
@@ -120,6 +120,10 @@
       <div class="tool" id="toolAssignEdit">
         <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
         <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance and administrative templates; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
+      </div>
+      <div class="tool" id="toolFilters">
+        <div class="tool-ic">🧩</div><h3>Assignment filters <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Assignment filters are load-bearing and invisible: every “may reach it” in the Device analyzer is a filter in the way, and nothing in the portal shows <b>what breaks if you change one</b>. Every filter with its platform and rule, and — as its own optional read — <b>per-filter usage</b>: which assignments on which policies reference it, matched across the Group Analyzer's own surface table. Until that scan runs, the used-by column is absent, not zero. Then the write half, under the editor's rules: create, edit with a <b>drift stop</b> (a filter changed since you loaded it is refused, never overwritten), read-back after every write — and <b>delete refused while anything references it</b>, checked against the tenant at the moment of the click, because deleting a used filter silently widens every assignment that carried it.</p>
       </div>
       <div class="tool" id="toolDevice">
         <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -925,6 +929,27 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="cfBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ ASSIGNMENT FILTERS (T14) ============
+       R21, after IntuneShade. Read half free-standing; write half under
+       T11's rules, with the fresh association gate on delete. -->
+  <section id="screen-filters" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🧩 Assignment filters <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">The portal shows a filter's rule; it does not show <b>what breaks if you change it</b>. After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> (Alper Atar, MIT). Reading the list costs one request; the <b>usage scan</b> is one read per assignment surface — the 🔗 Group Analyzer's own source table, so the day a surface is added there it is counted here — and until it runs the used-by column is <b>absent, not zero</b>.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The writes carry the ✏️ editor's rules</b>: the write permission is asked at the click and never before; an edit is preceded by a fresh read and <b>refused as drifted</b> if anybody changed the filter since it was loaded; every write is followed by a read-back, so “done” is the tenant's word. And the rule this tool exists for: <b>delete is refused while any assignment references the filter</b> — verified against the tenant immediately before the act, with “could not check” refusing too — because a filter deleted while in use silently widens every assignment that carried it to the whole target group.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="afRead">🧩 Read the filters</button>
+        <button class="btn" id="afScan" style="display:none" title="One read per assignment surface — fills the used-by column">🔎 Scan usage</button>
+        <button class="btn" id="afNew" style="display:none">＋ New filter</button>
+        <button class="btn" id="afMd" style="display:none">⭳ Export MD</button>
+      </div>
+      <div id="afProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="afBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ COMPLIANCE REPORT (T13) ============
        R22, after IntuneShade. The cheap status rollup, honestly labelled;
        per-device drill-down stays T06's job. -->
@@ -1095,17 +1120,17 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every policy with its verdicts, and which <i>setting</i> is failing where Graph keeps a per-setting summary, worst first. <b>Stale is its own column, not a flavour of compliant</b>: the threshold is on screen (default 30 days), and a compliant-but-stale device sits in <i>both</i> columns with the tension stated, because a verdict is as old as the check-in that produced it.</p>
             <p class="mini" style="margin:6px 0 0"><b>No new scope</b>, as promised — the estate rides <span class="rm-ref">R03</span>'s device read, the policies ride the config read. The <span class="rm-ref">R12</span> honesty rule arrived with it: the numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule and labelled so; a policy whose statuses could not be read is <b>listed with the gap stated</b>, never absent; and per-device drill-down for one machine is named as <span class="rm-ref">R03</span>'s job rather than half-done here. Exports Markdown, CSV, and a stale-devices CSV. <span class="tag">HTML export next</span></p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag grant">live · beta 10384</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, and both halves shipped together. The read half: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — read through <span class="rm-ref">R04</span>'s own source table, exactly as the card promised, so a surface added there is counted here. The usage scan is optional and the used-by column is <b>absent, not zero</b>, until it runs; a surface that could not be read makes every zero a floor, and the screen says so.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The writes carry <span class="rm-ref">R13</span>'s rules</b>, sized for one object: the write scope at the click, an edit preceded by a fresh read and <b>refused as drifted</b> if the filter changed since it was loaded, every write verified by read-back, delete confirmed by typing the name. And the rule the card was written for: <b>delete is refused while usage is non-zero</b> — checked against the tenant's own payload associations <i>at the moment of the act</i>, not against the session's cached scan, and “could not check” refuses too, because a filter deleted while in use silently widens every assignment that carried it. This is the first PATCH and the first DELETE in the application; both arrived in the Graph layer with the same no-retry rule writes have always had.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag block">second half would write to the tenant</span></h4>
-            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>. Assignment filters are load-bearing and invisible: <span class="rm-ref">R03</span> can only say <i>may reach it</i> because a filter is in the way, <span class="rm-ref">R13</span> re-serialises them carefully so an edit does not drop one — but nothing in TUNO shows the filters themselves. First half, reads only: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — which is <span class="rm-ref">R04</span>'s source table read from a different angle. The portal shows a filter's rule; it does not show what breaks if you change it.</p>
-            <p class="mini" style="margin:6px 0 0"><b>The second half is create, edit and delete</b>, under the write scope the registration already holds and <span class="rm-ref">R13</span>'s rules unchanged: dry run, fresh read before write, read-back after. Plus one of its own — <b>delete is refused while usage is non-zero</b>, because deleting a filter still referenced by an assignment silently widens that assignment to the whole target group, which is the worst kind of change: one that makes things reach <i>more</i> devices by removing something.</p>
           </div>
         </div>
         <div class="rm-era later">
@@ -1313,26 +1338,27 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10383"></script>
-<script src="js/version.js?v=10383"></script>
-<script src="js/promote.js?v=10383"></script>
-<script src="js/authConfig.js?v=10383"></script>
-<script src="js/changelog.js?v=10383"></script>
-<script src="js/msappcatalog.js?v=10383"></script>
-<script src="js/graph.js?v=10383"></script>
-<script src="js/groupuse.js?v=10383"></script>
-<script src="js/audit.js?v=10383"></script>
-<script src="js/backup.js?v=10383"></script>
-<script src="js/document.js?v=10383"></script>
-<script src="js/devicewhy.js?v=10383"></script>
-<script src="js/whatif.js?v=10383"></script>
-<script src="js/health.js?v=10383"></script>
-<script src="js/settingsearch.js?v=10383"></script>
-<script src="js/conflict.js?v=10383"></script>
-<script src="js/compliance.js?v=10383"></script>
-<script src="js/assignedit.js?v=10383"></script>
-<script src="js/roles.js?v=10383"></script>
-<script src="js/applocker.js?v=10383"></script>
-<script src="js/app.js?v=10383"></script>
+<script src="js/branding.js?v=10384"></script>
+<script src="js/version.js?v=10384"></script>
+<script src="js/promote.js?v=10384"></script>
+<script src="js/authConfig.js?v=10384"></script>
+<script src="js/changelog.js?v=10384"></script>
+<script src="js/msappcatalog.js?v=10384"></script>
+<script src="js/graph.js?v=10384"></script>
+<script src="js/groupuse.js?v=10384"></script>
+<script src="js/audit.js?v=10384"></script>
+<script src="js/backup.js?v=10384"></script>
+<script src="js/document.js?v=10384"></script>
+<script src="js/devicewhy.js?v=10384"></script>
+<script src="js/whatif.js?v=10384"></script>
+<script src="js/health.js?v=10384"></script>
+<script src="js/settingsearch.js?v=10384"></script>
+<script src="js/conflict.js?v=10384"></script>
+<script src="js/compliance.js?v=10384"></script>
+<script src="js/filters.js?v=10384"></script>
+<script src="js/assignedit.js?v=10384"></script>
+<script src="js/roles.js?v=10384"></script>
+<script src="js/applocker.js?v=10384"></script>
+<script src="js/app.js?v=10384"></script>
 </body>
 </html>

@@ -338,6 +338,11 @@ const Graph = (() => {
 
   const get = (path, opts) => call("GET", path, opts);
   const post = (path, body, opts) => call("POST", path, Object.assign({ body }, opts));
+  // PATCH and DELETE arrive with T14 (build 10384), under the same rules as
+  // POST: no retry — an ambiguous timeout is said, not resent — and the
+  // tenant's own words on refusal. DELETE's 204 comes back as null above.
+  const patch = (path, body, opts) => call("PATCH", path, Object.assign({ body }, opts));
+  const del = (path, opts) => call("DELETE", path, opts);
 
   // ======================================================================
   // READ LAYER
@@ -593,7 +598,7 @@ const Graph = (() => {
 
   return {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, customProfiles, collisions, createProfile,
+    get, post, patch, del, customProfiles, collisions, createProfile,
     remediations, createRemediation,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)

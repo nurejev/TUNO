@@ -117,7 +117,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -431,6 +431,7 @@ const Fs = (() => {
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
     ["toolAssignEdit", "✏️ Assignment editor"],
+    ["toolFilters", "🧩 Assignment filters"],
     ["toolDevice", "🖥 Device analyzer"],
     ["toolCompliance", "📈 Compliance report"],
     ["toolAudit", "🕓 Change audit"],
@@ -577,6 +578,7 @@ const Fs = (() => {
   $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
+  $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Role assignments"); show("screen-roles"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
@@ -744,6 +746,7 @@ const Fs = (() => {
   if (typeof SettingSearchTool !== "undefined") SettingSearchTool.init();
   if (typeof ConflictTool !== "undefined") ConflictTool.init();
   if (typeof ComplianceTool !== "undefined") ComplianceTool.init();
+  if (typeof FiltersTool !== "undefined") FiltersTool.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
