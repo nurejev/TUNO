@@ -183,7 +183,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.4.0
+Version    : 1.8.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -260,8 +260,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.4.0'
-$script:TunoBuild = 6
+$script:ScriptVersion = '1.8.0'
+$script:TunoBuild = 7
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -274,6 +274,11 @@ $script:TunoIsBeta = $script:TunoBuild -ge 10000
 $script:TunoSite = if ($script:TunoIsBeta) { 'https://nurejev.github.io/tuno-beta/' } else { 'https://tuno.limon-it.nl' }
 $script:BundleSchema = 'tuno.applocker.scan/1'
 $script:Warnings = New-Object System.Collections.Generic.List[string]
+# How long ONE proxied Get-AppLockerFileInformation call may take before the
+# per-file path gives up on the Windows PowerShell compatibility session. A
+# native call is around a millisecond; anything near this is a proxy, and the
+# scan makes one of these per file. A guess until measured on a real PS7 host.
+$script:AppLockerProxyBudgetMs = 40
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Output helpers
@@ -389,6 +394,8 @@ function Get-MachineFacts {
     $edition = 'Desktop'
     if ($PSVersionTable.PSObject.Properties.Name -contains 'PSEdition') { $edition = $PSVersionTable.PSEdition }
 
+    $alSource = Initialize-AppLockerModule
+
     [pscustomobject]@{
         name               = $env:COMPUTERNAME
         os                 = $caption
@@ -402,7 +409,67 @@ function Get-MachineFacts {
         scannedBy          = "$env:USERDOMAIN\$env:USERNAME"
         appIdentityService = $appId
         appLockerCmdlets   = [bool](Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue)
+        appLockerSource    = $alSource
     }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# The AppLocker module on PowerShell 7
+#
+# THE MODULE IS WINDOWS POWERSHELL ONLY. It is a binary module built against
+# the .NET Framework, so PowerShell 7 cannot load it in-process however it is
+# asked; `Import-Module AppLocker` there fails, which is why a 7 session used
+# to report "the AppLocker module is not available" and fall back to reading
+# certificates itself.
+#
+# PowerShell 7 on Windows can still REACH it: -UseWindowsPowerShell starts a
+# background Windows PowerShell session and proxies the cmdlets into this one.
+# That is a real fix for the effective-policy read, which is a single call.
+#
+# IT IS NOT FREE, and the cost lands exactly where it hurts. Every proxied call
+# is serialised across a process boundary, so Get-AppLockerFileInformation —
+# which the scan makes ONCE PER FILE, across thousands of them — can go from
+# imperceptible to minutes. So the import is attempted, and then a single call
+# is TIMED: if it is slow, the per-file path stays on certificate derivation
+# and the bundle says why. The one-shot policy read uses the proxy either way.
+#
+# NOT VERIFIED ON A REAL PS7 HOST. This was written and reviewed without a
+# Windows machine to run it on; the timing threshold in particular is a guess
+# that wants one real measurement.
+# ══════════════════════════════════════════════════════════════════════════════
+function Initialize-AppLockerModule {
+    if (Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue) { return 'native' }
+
+    $isWindows = -not ($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -or $PSVersionTable.Platform -eq 'Win32NT'
+    if (-not $isWindows) { return 'unavailable' }
+    if ($PSVersionTable.PSVersion.Major -lt 6) { return 'unavailable' }
+
+    try {
+        Import-Module AppLocker -UseWindowsPowerShell -ErrorAction Stop -WarningAction SilentlyContinue | Out-Null
+    }
+    catch {
+        Add-ScanWarning "PowerShell $($PSVersionTable.PSVersion) cannot load the AppLocker module, and the Windows PowerShell compatibility import also failed: $($_.Exception.Message)"
+        return 'unavailable'
+    }
+    if (-not (Get-Command -Name Get-AppLockerFileInformation -ErrorAction SilentlyContinue)) { return 'unavailable' }
+
+    # One timed call decides whether the per-file path can afford the proxy.
+    $probe = $null
+    foreach ($c in @("$env:windir\System32\notepad.exe", "$env:windir\explorer.exe")) {
+        if (Test-Path -LiteralPath $c) { $probe = $c; break }
+    }
+    if (-not $probe) { return 'compat-policy-only' }
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    try { Get-AppLockerFileInformation -Path $probe -ErrorAction Stop | Out-Null }
+    catch { return 'compat-policy-only' }
+    $sw.Stop()
+
+    if ($sw.ElapsedMilliseconds -gt $script:AppLockerProxyBudgetMs) {
+        Add-ScanWarning ("The AppLocker module is reachable from PowerShell $($PSVersionTable.PSVersion) only through the Windows PowerShell compatibility session, and a single call took {0} ms. Across every file in the scan that is hours, so publisher and hash details are being derived from certificates instead. The effective-policy read still uses it. Run this in Windows PowerShell 5.1 for the authoritative per-file values." -f $sw.ElapsedMilliseconds)
+        return 'compat-policy-only'
+    }
+    return 'compat'
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -664,6 +731,33 @@ function Get-DirectoryWriteGrantee {
 # ══════════════════════════════════════════════════════════════════════════════
 # The directory walk
 # ══════════════════════════════════════════════════════════════════════════════
+# Win32 long-path form. Windows PowerShell 5.1 runs on .NET Framework, where
+# almost every path API still enforces MAX_PATH (260) unless the path is given
+# in \\?\ form - and a PathTooLongException in the walk below took the whole
+# SUBTREE with it, because the throw happens on the parent's GetDirectories.
+# Deep trees under ProgramData and AppData are exactly where droppable
+# directories live, so this was not a rare edge: it was a silent hole in the
+# middle of the most interesting part of the disk.
+#
+# PowerShell 7 on .NET Core does not need this, but the prefix is harmless
+# there, so there is one code path rather than two.
+function ConvertTo-LongPath {
+    param([string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $Path }
+    if ($Path.StartsWith('\\?\')) { return $Path }
+    if ($Path.StartsWith('\\'))    { return '\\?\UNC\' + $Path.Substring(2) }
+    if ($Path -match '^[A-Za-z]:\\')  { return '\\?\' + $Path }
+    return $Path
+}
+# Only for display and for the rules: a \\?\ prefix in a policy is wrong.
+function ConvertFrom-LongPath {
+    param([string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return $Path }
+    if ($Path.StartsWith('\\?\UNC\')) { return '\\' + $Path.Substring(8) }
+    if ($Path.StartsWith('\\?\'))      { return $Path.Substring(4) }
+    return $Path
+}
+
 function Get-WritableDirectory {
     param(
         [Parameter(Mandatory)] [string]$Root,
@@ -674,7 +768,14 @@ function Get-WritableDirectory {
     $results = New-Object System.Collections.Generic.List[object]
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return , $results.ToArray() }
 
-    $unreadable = 0
+    # Counted apart, because they mean different things and the fix differs.
+    # Lumping them into one number was hiding the long-path failures behind the
+    # access-denied ones, which have an obvious cause and an obvious remedy.
+    $unreadableAcl = 0     # DACL could not be read
+    $unreadableDir = 0     # children could not be listed
+    $tooLong = 0           # MAX_PATH, even in \\?\ form
+    $skippedAttr = 0       # attributes unreadable, so reparse status unknown
+    $reparse = 0           # deliberately not followed
     $visited = 0
     $stack = New-Object System.Collections.Generic.Stack[string]
     $stack.Push($Root)
@@ -687,11 +788,11 @@ function Get-WritableDirectory {
             Write-Progress -Activity "Scanning $Root" -Status "$visited directories, $($results.Count) writable" -Id 1
         }
 
-        $grantees = Get-DirectoryWriteGrantee -DirectoryPath $dir -TrustedSet $TrustedSet
-        if ($null -eq $grantees) { $unreadable++ }
+        $grantees = Get-DirectoryWriteGrantee -DirectoryPath (ConvertTo-LongPath $dir) -TrustedSet $TrustedSet
+        if ($null -eq $grantees) { $unreadableAcl++ }
         elseif ($grantees.Count -gt 0) {
             $results.Add([pscustomobject]@{
-                path     = $dir
+                path     = (ConvertFrom-LongPath $dir)
                 grantees = $grantees
             })
             # The rule this produces is "<dir>\*", which already covers everything
@@ -703,25 +804,48 @@ function Get-WritableDirectory {
         # mid-foreach on the first unreadable child and abandons every sibling
         # after it - silently skipping whole subtrees while incrementing the
         # unreadable counter exactly once. The eager call fails as one directory.
+        #
+        # The \\?\ form is what lets this get past MAX_PATH on 5.1 at all. A
+        # PathTooLongException here does not skip one directory, it skips the
+        # entire subtree beneath it - so it is counted separately and named in
+        # its own warning rather than folded into "could not be read".
         $subs = @()
-        try { $subs = [System.IO.Directory]::GetDirectories($dir) }
-        catch { $unreadable++ }
+        try { $subs = [System.IO.Directory]::GetDirectories((ConvertTo-LongPath $dir)) }
+        catch [System.IO.PathTooLongException] { $tooLong++ }
+        catch { $unreadableDir++ }
 
         foreach ($sub in $subs) {
             try {
                 $attr = [System.IO.File]::GetAttributes($sub)
-                if (($attr -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
             }
-            catch { continue }
+            catch {
+                # Attributes unreadable means reparse status UNKNOWN. Skipping
+                # was right; skipping silently was not - an unknown is a hole
+                # the report has to admit to rather than quietly drop.
+                $skippedAttr++
+                continue
+            }
+            if (($attr -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { $reparse++; continue }
             $stack.Push($sub)
         }
     }
 
     if (-not $Quiet) { Write-Progress -Activity "Scanning $Root" -Completed -Id 1 }
-    if ($unreadable -gt 0) {
-        Add-ScanWarning "$unreadable director$(if ($unreadable -eq 1) { 'y' } else { 'ies' }) under $Root could not be read. Run elevated for a complete picture."
+    if ($unreadableAcl -gt 0 -or $unreadableDir -gt 0) {
+        $unreadable = $unreadableAcl + $unreadableDir
+        Add-ScanWarning "$unreadable director$(if ($unreadable -eq 1) { 'y' } else { 'ies' }) under $Root could not be read ($unreadableAcl permission read failed, $unreadableDir listing failed). Run elevated for a complete picture."
     }
-    Write-Info ("{0,-6} writable of {1} directories under {2}" -f $results.Count, $visited, $Root)
+    # These three were silent before. Each is a place the scan did NOT look, and
+    # a rule set built from an incomplete walk reads exactly like one built from
+    # a complete walk - which is the failure this whole tool exists to prevent.
+    if ($tooLong -gt 0) {
+        Add-ScanWarning "$tooLong director$(if ($tooLong -eq 1) { 'y' } else { 'ies' }) under $Root exceeded the maximum path length even in extended form, and EVERYTHING BENEATH THEM WAS SKIPPED. This is not one missed directory each; it is a missed subtree each."
+    }
+    if ($skippedAttr -gt 0) {
+        Add-ScanWarning "$skippedAttr director$(if ($skippedAttr -eq 1) { 'y' } else { 'ies' }) under $Root could not have their attributes read, so whether they are reparse points is unknown and they were not walked."
+    }
+    Write-Info ("{0,-6} writable of {1} directories under {2}{3}" -f $results.Count, $visited, $Root,
+        $(if ($reparse -gt 0) { " ($reparse reparse point(s) not followed)" } else { '' }))
     return , $results.ToArray()
 }
 
@@ -1290,6 +1414,33 @@ function Test-ReferenceMachine {
     }
 }
 
+# The house convention: IT-deployed tooling lives under %ProgramData%\IT-TOOLS.
+# Apps and Scripts get standing allow rules in every generated Exe/Script/Msi
+# collection; LOGS is where scripts write their logs. Deployed by IME as SYSTEM,
+# and the ACLs must keep it that way - the scan warns when they do not.
+$script:ItToolsAllowPaths = @(
+    '%OSDRIVE%\ProgramData\IT-TOOLS\Apps\*'
+    '%OSDRIVE%\ProgramData\IT-TOOLS\Scripts\*'
+)
+
+function Test-ItToolsAllowedPath {
+    <#
+    .SYNOPSIS
+        Is this writable directory inside (or above) a folder the standing
+        IT-TOOLS allow rules point at? If yes, that allow is a live bypass.
+    #>
+    param([Parameter(Mandatory)] [string]$Candidate)
+    $c = $Candidate.TrimEnd('\', '*').TrimEnd('\')
+    if (-not $c) { return $false }
+    foreach ($p in @("$env:ProgramData\IT-TOOLS\Apps", "$env:ProgramData\IT-TOOLS\Scripts")) {
+        $t = $p.TrimEnd('\')
+        if ($c.Equals($t, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if ($c.StartsWith($t + '\', [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+        if ($t.StartsWith($c + '\', [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    return $false
+}
+
 function Test-ImeProtectedPath {
     <#
     .SYNOPSIS
@@ -1428,7 +1579,21 @@ function New-DefaultRuleSet {
                 -Description 'Allows the Intune Management Extension to stage and run the software it deploys. This is the sanctioned install route on this estate, so it is named explicitly instead of relying on the Windows and Program Files defaults to cover it. Remove this rule only if you also intend to stop deploying Win32 apps and remediation scripts from Intune.' `
                 -ExceptionPaths @()))
         }
-        $collections[$type] = $rules
+        # THE HOUSE FOLDERS, always allowed so nobody has to remember them.
+        # %ProgramData%\IT-TOOLS\Apps and \Scripts are where IT-deployed tooling
+        # lands (written by IME running as SYSTEM). AppLocker has no
+        # %PROGRAMDATA% variable, so the macro form is %OSDRIVE%\ProgramData.
+        # THE RULES ARE ONLY AS STRONG AS THE ACL: these folders must be
+        # writable by SYSTEM and Administrators alone, and the scan checks and
+        # warns when they are not - an allow rule on a user-writable directory
+        # is a door, not a policy.
+        foreach ($house in $script:ItToolsAllowPaths) {
+            $rules.Add((New-PathRule -Name "TUNO: IT-TOOLS house folder ($house)" `
+                -Sid $script:SidEveryone -Action 'Allow' -RulePath $house `
+                -Description 'Standing allow for the IT-TOOLS house folders under ProgramData, where IT-deployed applications and scripts land (written by the Intune Management Extension as SYSTEM). Present in every generated policy by design, so it never has to be remembered. The ACL on these folders must restrict writes to SYSTEM and Administrators - the scan verifies this and warns when it is not true.' `
+                -ExceptionPaths @()))
+        }
+        $collections.Add($type, $rules)
     }
 
     $msi = New-Object System.Collections.Generic.List[object]
@@ -1444,14 +1609,14 @@ function New-DefaultRuleSet {
     $msi.Add((New-PathRule -Name '(Default Rule) All Windows Installer files' `
         -Sid $script:SidAdmins -Action 'Allow' -RulePath '*.*' `
         -Description 'Allows members of the local Administrators group to run all Windows Installer files. The second of the two sanctioned routes: IME, or an administrator.' -ExceptionPaths @()))
-    $collections['Msi'] = $msi
+    $collections.Add('Msi', $msi)
 
     $appx = New-Object System.Collections.Generic.List[object]
     $appx.Add((New-PublisherRule -Name '(Default Rule) All signed packaged apps' `
         -Sid $script:SidEveryone -Action 'Allow' -Publisher '*' -Product '*' -Binary '*' `
         -LowVersion '0.0.0.0' -HighVersion '*' `
         -Description 'Allows members of the Everyone group to run packaged apps that are signed. Unsigned packaged apps cannot be installed on a supported Windows build, so this is narrower than it reads. This is also what allows the Company Portal, and everything a user installs through it, to run.'))
-    $collections['Appx'] = $appx
+    $collections.Add('Appx', $appx)
 
     return $collections
 }
@@ -1496,7 +1661,7 @@ function New-ArtifactRuleSet {
 
     foreach ($a in $Artifacts) {
         $col = $a.collection
-        if (-not $byCollection.Contains($col)) { $byCollection[$col] = New-Object System.Collections.Generic.List[object] }
+        if (-not $byCollection.Contains($col)) { $byCollection.Add($col, (New-Object System.Collections.Generic.List[object])) }
 
         if ($a.signed -and $a.publisher) {
             $p = $a.publisher
@@ -1531,7 +1696,7 @@ function New-ArtifactRuleSet {
             $rule = New-PublisherRule -Name "TUNO: $label" -Sid $script:SidEveryone -Action 'Allow' `
                 -Publisher $p.name -Product $product -Binary $binary -LowVersion $low -HighVersion '*' -Description $desc
             $pubSeen[$key] = $rule
-            $byCollection[$col].Add($rule)
+            ([System.Collections.IDictionary]$byCollection)[$col].Add($rule)
             continue
         }
 
@@ -1555,7 +1720,7 @@ function New-ArtifactRuleSet {
         $rule = New-HashRule -Name "TUNO: $($a.name) (hash)" -Sid $script:SidEveryone -Action 'Allow' `
             -Hash $a.hash -SourceFileName $a.name -SourceFileLength $a.sizeBytes `
             -Description "TUNO scan: found at $($a.path), and it is NOT SIGNED, so a hash rule is the only option. This rule stops working the moment the file is updated - track it, or press the vendor to sign."
-        $byCollection[$col].Add($rule)
+        ([System.Collections.IDictionary]$byCollection)[$col].Add($rule)
     }
 
     if ($skippedJs -gt 0) {
@@ -1645,7 +1810,7 @@ function ConvertTo-AppLockerPolicyXml {
         # every assignment. Writing 'AuditOnly' into it throws.
         $collectionMode = $enforcement
         [void]$sb.AppendLine("  <RuleCollection Type=""$type"" EnforcementMode=""$collectionMode"">")
-        foreach ($r in $Collections[$type]) {
+        foreach ($r in ([System.Collections.IDictionary]$Collections)[$type]) {
             [void]$sb.AppendLine("    <$($r.nodeName) Id=""$(ConvertTo-XmlAttribute $r.id)"" Name=""$(ConvertTo-XmlAttribute $r.name)"" Description=""$(ConvertTo-XmlAttribute $r.description)"" UserOrGroupSid=""$(ConvertTo-XmlAttribute $r.sid)"" Action=""$(ConvertTo-XmlAttribute $r.action)"">")
             $conds = ($r.conditions | ForEach-Object { ConvertTo-ConditionXml -Condition $_ }) -join ''
             [void]$sb.AppendLine("      <Conditions>$conds</Conditions>")
@@ -1687,6 +1852,12 @@ if (-not $machine.elevated) {
 }
 if (-not $machine.appLockerCmdlets) {
     Add-ScanWarning 'The AppLocker module is not available here. Publisher names will be derived from certificate subjects instead of read from Get-AppLockerFileInformation - accurate in the overwhelming majority of cases, but verify before enforcing.'
+}
+elseif ($machine.appLockerSource -eq 'compat') {
+    Write-Info 'AppLocker: via the Windows PowerShell compatibility session'
+}
+elseif ($machine.appLockerSource -eq 'compat-policy-only') {
+    Write-Info 'AppLocker: compatibility session, policy read only (see warnings)'
 }
 
 # ---- resolve the roots ----
@@ -1792,6 +1963,14 @@ foreach ($p in (@($writablePaths) + @($extraPaths))) {
         Add-ScanWarning ("'{0}' is user-writable AND belongs to the Intune Management Extension. NO exception was generated for it, because excepting it would break app delivery on every managed device. Fix the permissions on that directory instead - as it stands a standard user can drop an executable into the path your software deployment runs from." -f $p)
         continue
     }
+    # The standing IT-TOOLS allows make these folders part of the policy's trust
+    # base. A user-writable directory inside one is therefore a LIVE BYPASS -
+    # the allow rule this scan always generates would let a standard user run
+    # whatever they drop there. Louder than the IME case, because here the
+    # policy itself hands out the permission.
+    if (Test-ItToolsAllowedPath -Candidate $p) {
+        Add-ScanWarning ("'{0}' is user-writable AND sits inside an IT-TOOLS house folder that every generated policy ALLOWS. That combination is a live bypass: a standard user can drop an executable there and the standing allow rule runs it. Fix the ACL so only SYSTEM and Administrators can write (IME deploys as SYSTEM, so delivery keeps working), or remove the house rule from the policy before enforcing." -f $p)
+    }
     $n = ConvertTo-AppLockerPath -LiteralPath $p
     if ($n.StartsWith('%WINDIR%', 'OrdinalIgnoreCase') -or $n.StartsWith('%SYSTEM32%', 'OrdinalIgnoreCase')) { $normWindir.Add($n) }
     elseif ($n.StartsWith('%PROGRAMFILES%', 'OrdinalIgnoreCase')) { $normPf.Add($n) }
@@ -1824,7 +2003,7 @@ if ($unsafeDirectories.Count -eq 0) {
 }
 else {
     $artifacts = Get-ArtifactInventory -Directories $unsafeDirectories -Limit $MaxArtifacts `
-        -UseAppLockerCmdlets $machine.appLockerCmdlets -Sniff:$SniffUnknownExtensions
+        -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only') -Sniff:$SniffUnknownExtensions
     $signedCount = @($artifacts | Where-Object { $_.signed }).Count
     Write-Ok ("$($artifacts.Count) artifact(s): $signedCount signed, $($artifacts.Count - $signedCount) unsigned")
 }
@@ -1895,8 +2074,8 @@ if (-not $SkipRuleGeneration) {
         $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
         $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
         foreach ($type in $artifactRules.Keys) {
-            if (-not $collections.Contains($type)) { $collections[$type] = New-Object System.Collections.Generic.List[object] }
-            foreach ($r in $artifactRules[$type]) { $collections[$type].Add($r) }
+            if (-not $collections.Contains($type)) { $collections.Add($type, (New-Object System.Collections.Generic.List[object])) }
+            foreach ($r in ([System.Collections.IDictionary]$artifactRules)[$type]) { ([System.Collections.IDictionary]$collections)[$type].Add($r) }
         }
 
         # Drop the Dll collection before anything counts or serialises it, so the
@@ -1905,31 +2084,32 @@ if (-not $SkipRuleGeneration) {
         # a DLL collection is not being there.
         $dllRuleCount = 0
         if ($collections.Contains('Dll')) {
-            $dllRuleCount = @($collections['Dll']).Count
+            $dllRuleCount = @(([System.Collections.IDictionary]$collections)['Dll']).Count
             $collections.Remove('Dll')
         }
         if ($dllRuleCount -gt 0) {
             Write-Info ("Dll     {0,4} rule(s) built and OMITTED - see the note below" -f $dllRuleCount)
         }
 
-        # .Add(), NOT $counts[$type] = <int>.
+        # NO BARE INDEXER ON AN ORDERED DICTIONARY, in either direction.
         #
-        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - so
-        # PowerShell compiles an indexed assignment into a conditional that picks
-        # between them at runtime. When the value being stored is a VALUE type, the
-        # two branches of that conditional have incompatible types and
-        # Expression.Condition throws "Argument types do not match" before the
-        # assignment ever happens. It is thrown by the compiler, not the dictionary,
-        # which is why the error carries no useful line and names Condition as its
-        # target site.
+        # OrderedDictionary exposes TWO indexers - this[int] and this[object] - and
+        # Windows PowerShell 5.1's expression compiler builds a runtime choice
+        # between them that can throw ArgumentException("Argument types do not
+        # match") from Expression.Condition. It bit twice, in two shapes, both
+        # only on a real 5.1 host: first an indexed SET storing an Int32 (fixed in
+        # 10344 with .Add), then an indexed GET with a literal key at what was
+        # line 2038 (caught by the wrapped rule-generation of 10344, which is the
+        # only reason the second failure cost a red block instead of the scan).
         #
-        # Storing a reference type is fine, which is exactly why every other ordered
-        # assignment in this script works and only the rule COUNT - an Int32 - failed.
-        # .Add(object, object) boxes explicitly and sidesteps the binder entirely.
+        # So the discipline is total rather than case-by-case: writes go through
+        # .Add(object, object), and reads go through a cast to
+        # [System.Collections.IDictionary], which declares exactly ONE indexer -
+        # this[object] - leaving the binder nothing to choose between.
         $counts = [ordered]@{}
         $total = 0
         foreach ($type in $collections.Keys) {
-            $n = @($collections[$type]).Count
+            $n = @(([System.Collections.IDictionary]$collections)[$type]).Count
             $counts.Add($type, $n)
             $total += $n
             Write-Info ("{0,-7} {1,4} rule(s)" -f $type, $n)

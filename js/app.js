@@ -67,6 +67,42 @@ const Fs = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   let signedIn = false;
 
+  // ---------- tenant discovery (ENCA's, ported verbatim) ----------
+  // Same list and same matching rules as ENCA's isBaselineTenant(): the
+  // signed-in account's UPN domain against the tenant list — exact match, or a
+  // subdomain of it, or the org display name carrying the first label. ENCA
+  // calls these BASELINE_TENANTS because the CA baseline is built there; in
+  // TUNO the same tenant unlocks the cfdev-only extras, so the name follows
+  // the meaning here. A request marked "cfdev detect" is a feature gated on
+  // this and nothing else.
+  //
+  // ONE DIFFERENCE FROM ENCA, stated rather than hidden: ENCA reads
+  // /organization at sign-in and fills tenantName with the org's display
+  // name; TUNO signs in with User.Read only and reads no org, so tenantName
+  // stays empty until a tool that has read the org fills it through
+  // TunoTenant.setOrgName. The UPN-domain half of the check is the one that
+  // answers today, and it is the reliable half anyway.
+  let tenantName = "", tenantDomain = "";
+  // Two entries because the tenant answers to two names: devcf.onmicrosoft.com
+  // is what the sign-in UPN actually carries (the tenant's initial domain), and
+  // cloudfellows.dev is the verified domain ENCA's list names — kept so a UPN
+  // on the verified domain, or the org display name, still matches.
+  const CFDEV_TENANTS = ["cloudfellows.dev", "devcf.onmicrosoft.com"];
+  function isCfdevTenant() {
+    const n = (tenantName || "").toLowerCase(), d = (tenantDomain || "").toLowerCase();
+    return CFDEV_TENANTS.some((t) => d === t || d.endsWith("." + t) || n.includes(t.split(".")[0]));
+  }
+  // Tools live in their own files and gate cfdev-only features through this
+  // seam rather than keeping a second copy of the list — the first time two
+  // lists exist, one of them is wrong. The headless tests drive it too.
+  window.TunoTenant = {
+    isCfdev: isCfdevTenant,
+    domain: () => tenantDomain,
+    setOrgName: (n) => { tenantName = String(n || ""); },
+    // for the headless tests only — the real values are set by enter()/sign out
+    _setForTest: (d, n) => { tenantDomain = String(d || ""); tenantName = String(n || ""); },
+  };
+
   // ---------- sticky stack: measured, not assumed (ENCA pattern) ----------
   function syncStickyTops() {
     const h = document.querySelector("header");
@@ -245,6 +281,15 @@ const Fs = (() => {
     try { return authInitInner(); }
     catch (e) { console.error("MSAL init failed:", e); msalApp = null; return Promise.resolve(false); }
   }
+  // One place that records the signed-in account, so the active account MSAL
+  // uses for silent token acquisition can never drift from the one the UI
+  // shows. js/graph.js reads `account` through the provider; acquireTokenSilent
+  // needs the same one set active or it re-prompts.
+  function adopt(acc) {
+    account = acc;
+    try { msalApp.setActiveAccount(acc); } catch { /* older msal-browser */ }
+    return true;
+  }
   function authInitInner() {
     msalApp = new msal.PublicClientApplication({
       auth: {
@@ -261,7 +306,21 @@ const Fs = (() => {
     return msalApp.initialize()
       .then(() => msalApp.handleRedirectPromise())
       .then((res) => {
-        if (res && res.account) { account = res.account; return true; }
+        if (res && res.account) { return adopt(res.account); }
+
+        // THERE IS ALWAYS A SIGN-IN — ENCA's model, restored (10376).
+        //
+        // handleRedirectPromise() returns an account only in the moments after
+        // a redirect completes; that is the ONE path that enters directly,
+        // because it is a sign-in finishing, not a refresh. Everything else —
+        // an F5, a reopened tab, a cached session in sessionStorage — lands on
+        // the sign-in screen and goes through a real interactive sign-in on
+        // the click. 10361/10371 tried restoring the cached account so the
+        // click could enter silently; that made entry a click-through rather
+        // than an authentication, and the agreement is the opposite: entry to
+        // a tool that can write to a tenant is authenticated every time, the
+        // identity provider re-running its policy included. The cost (an MFA
+        // prompt per entry) is ENCA's known, accepted cost.
         return false;
       })
       .catch((e) => { console.error("Redirect sign-in did not complete:", e); return false; });
@@ -281,9 +340,16 @@ const Fs = (() => {
       return;
     }
     try {
+      // ENCA's sign-in, verbatim: `prompt: "select_account"` on both paths, so
+      // every entry is a fresh authorization — the chooser appears, and the
+      // identity provider re-runs its policy, MFA included. 10361 removed the
+      // prompt and 10371 added a cached-session short-circuit on top; both are
+      // reversed here, because the agreement is that there is ALWAYS a
+      // sign-in. Within the session, incremental consent still acquires
+      // tokens silently — adopt() sets the active account for that.
       if (useRedirect) { await msalApp.loginRedirect({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" }); return; }
       const res = await msalApp.loginPopup({ scopes: AUTH_CONFIG.scopes, prompt: "select_account" });
-      account = res.account;
+      adopt(res.account);
       enter();
     } catch (e) {
       loginErr("Sign-in failed: " + (e && e.message ? e.message : e));
@@ -292,26 +358,61 @@ const Fs = (() => {
   function enter() {
     signedIn = true;
     $("tenantName").textContent = (account && (account.tenantId ? account.username.split("@")[1] : "")) || "";
+    tenantDomain = (account && account.username ? account.username.split("@")[1] : "") || "";
+    // Extended behaviour is said where the tenant identity lives instead of
+    // being a hidden mode — ENCA's rule, ported with the badge.
+    $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
     $("tenantUser").textContent = account ? account.username : "";
     const nm = account && (account.name || account.username) || "?";
     $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
-    $("tenantBox").classList.add("on");
+    // ENCA's way, ported: the stylesheet keeps .tenant at display:none and the
+    // app shows it directly. The previous classList.add("on") toggled a class
+    // no CSS rule has ever mentioned, so the tenant identity — name, avatar,
+    // the SIGN OUT button, the cfdev badge — never rendered for anybody.
+    $("tenantBox").style.display = "flex";
     $("homeBtn").style.display = "";
     buildToolNav();
     show("screen-home");
+    openWhatsNewOverlay();
   }
+  // Dismiss marks it seen; "Read the full list" hands over to the page, which
+  // marks it seen itself. Escape and the backdrop close WITHOUT marking, so a
+  // stray click does not lose the one showing you never got.
+  const wn = $("whatsNew");
+  if (wn) {
+    wn.addEventListener("click", (e) => {
+      if (e.target.closest("[data-wn-dismiss]")) { closeWhatsNew(true); return; }
+      if (e.target.closest("[data-wn-open]")) { closeWhatsNew(false); openChangelog(); return; }
+      if (e.target === wn) closeWhatsNew(false);           // backdrop
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && wn.style.display !== "none") closeWhatsNew(false);
+    });
+  }
+
   $("signInBtn").addEventListener("click", () => signIn(false));
   $("noPopupLink").addEventListener("click", (e) => { e.preventDefault(); signIn(true); });
   $("signOutBtn").addEventListener("click", () => {
     const acc = account;
     account = null; signedIn = false;
-    $("tenantBox").classList.remove("on");
+    tenantDomain = ""; tenantName = "";
+    $("cfdevBadge").style.display = "none";
+    $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
     show("screen-login");
+    // Clear the active account as well as the local one: leaving it set means
+    // the next sign-in silently reuses the account somebody just signed out of,
+    // which on a consultancy laptop is the wrong customer's tenant.
+    if (msalApp) { try { msalApp.setActiveAccount(null); } catch { /* older msal-browser */ } }
     if (msalApp && acc) msalApp.logoutPopup({ account: acc }).catch(() => {});
   });
-  authInit().then((cameBack) => { if (cameBack) enter(); });
+  authInit().then((cameBack) => {
+    // Only a COMPLETED interactive sign-in (the redirect flow landing back
+    // here) enters directly — it is a sign-in finishing, not a refresh.
+    // Everything else stays on the sign-in screen and signs in for real.
+    if (cameBack) enter();
+  });
 
   // ---------- tool tab bar (ENCA's browser-style tabs, ported verbatim) ----------
   // The tools, in home-grid order. Each carries the exact crumb string its tile
@@ -436,16 +537,85 @@ const Fs = (() => {
     show("screen-changelog");
     $("clBody").innerHTML = (typeof CHANGELOG !== "undefined" ? CHANGELOG : []).map(clRelease).join("")
       || '<p class="mini">No changelog entries yet.</p>';
+    markChangelogSeen();
   }
 
+  // ---------- "What's new" on sign-in ----------
+  //
+  // js/changelog.js has described itself as the source for "the What's new
+  // overlay shown after sign-in" since TUNO was scaffolded from ENCA. There was
+  // no overlay — the text came across with the file and the feature did not.
+  //
+  // The rules it follows:
+  //   * Only what you have NOT seen. It lists the releases newer than the build
+  //     recorded when you last looked, not the whole changelog.
+  //   * NOTHING on a first visit. A new user does not need forty builds of
+  //     history in front of the tools; the current build is recorded silently
+  //     and the overlay starts working from the next release.
+  //   * Reading the What's new page counts as seeing it, so the overlay does
+  //     not reappear over something you just read.
+  //   * localStorage, guarded — private mode throws, and a browser that cannot
+  //     remember should show the overlay once per session rather than break.
+  const CL_SEEN_KEY = "tuno.changelog.seen";
+  const clSeen = () => { try { return Number(localStorage.getItem(CL_SEEN_KEY)) || 0; } catch { return 0; } };
+  function markChangelogSeen() {
+    try { localStorage.setItem(CL_SEEN_KEY, String(APP_BUILD.build)); } catch { /* private mode */ }
+  }
+  function unseenReleases() {
+    if (typeof CHANGELOG === "undefined" || !CHANGELOG.length) return [];
+    const since = clSeen();
+    if (!since) { markChangelogSeen(); return []; }      // first visit — record, say nothing
+    return CHANGELOG.filter((r) => r.build > since);
+  }
+  function openWhatsNewOverlay() {
+    const rels = unseenReleases();
+    const box = $("whatsNew");
+    if (!box || !rels.length) return;
+    const n = rels.reduce((t, r) => t + r.items.length, 0);
+    $("whatsNewSub").textContent =
+      `${n} change${n === 1 ? "" : "s"} across ${rels.length} build${rels.length === 1 ? "" : "s"}, since you last looked at build ${clSeen()}.`;
+    $("whatsNewBody").innerHTML = rels.map(clRelease).join("");
+    box.style.display = "";
+    box.querySelector(".wn-card").focus();
+  }
+  function closeWhatsNew(seen) {
+    const box = $("whatsNew");
+    if (!box) return;
+    box.style.display = "none";
+    if (seen) markChangelogSeen();
+  }
+  // The overlay decides what to show from localStorage and the changelog, and
+  // both are awkward to reach through MSAL. This is the seam the headless tests
+  // drive; everything else about the app stays private to this closure.
+  window.openWhatsNewOverlayForTest = openWhatsNewOverlay;
+
   // ---------- help, incl. the promotion queue on non-production hosts ----------
+  // Section pills, ENCA's pattern. Buttons rather than #anchors because the
+  // shell owns pushState and an in-page hash would land in the history handling;
+  // the sticky-header offset is scroll-margin-top in the CSS.
+  const toc = $("helpToc");
+  if (toc) toc.addEventListener("click", (e) => {
+    const pill = e.target.closest(".help-toc-pill");
+    if (!pill) return;
+    const target = document.getElementById(pill.dataset.target);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   function openHelp() {
     crumb("❓ Help");
     show("screen-help");
     const box = $("helpPromote");
     if (!box) return;
-    if (isProduction() || typeof PROMOTE === "undefined") { box.style.display = "none"; return; }
+    // The queue pill exists only where the queue does — a link to a hidden box
+    // is a button that does nothing.
+    const queuePill = $("helpTocPromote");
+    if (isProduction() || typeof PROMOTE === "undefined") {
+      box.style.display = "none";
+      if (queuePill) queuePill.style.display = "none";
+      return;
+    }
     box.style.display = "";
+    if (queuePill) queuePill.style.display = "";
 
     // Ported verbatim from ENCA's renderPromotionQueue: the table is read to
     // decide WHAT to promote (number, risk, builds), and each row carries its

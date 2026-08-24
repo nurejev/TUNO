@@ -503,8 +503,17 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
    tables cap themselves against nothing, so both need saying. The point of
    the popout is the room, and a panel that opens to the same cramped box is
    a control that appears to do nothing. */
-.fs-body > .fs-in{height:100%;max-height:none;border:0;box-shadow:none;border-radius:0}
-.fs-body > .fs-in .al-xml-code{max-height:none}
+/* TWO DIFFERENT ANSWERS, because these cards scroll differently.
+   The code panel scrolls INSIDE itself, so it takes the panel's height and
+   its code area becomes the scroller — it needs flex:1 and min-height:0 to
+   do that, or it sizes to its content and overflows a fixed-height parent
+   that hides overflow, which is exactly how it ended up unscrollable.
+   A table card does the opposite: it grows to its content and lets the panel
+   body scroll. Giving it height:100% clipped everything past the fold with
+   no way to reach it, because .list-card hides its own overflow. */
+.fs-body > .al-xml.fs-in{height:100%;max-height:none;border:0;box-shadow:none;border-radius:0}
+.fs-body > .al-xml.fs-in .al-xml-code{flex:1;min-height:0;max-height:none;overflow:auto}
+.fs-body > .list-card.fs-in{height:auto;max-height:none;overflow:visible;border:0;box-shadow:none;border-radius:0}
 .fs-body > .fs-in > div[style*="overflow-x"]{overflow-x:visible}
 .fs-body > .fs-in table.plist{width:100%}
 /* the heading's own popout button is meaningless once it is open */
@@ -1527,12 +1536,28 @@ body.wide .readme p{max-width:1100px}
 .al-xml{display:flex;flex-direction:column;max-height:calc(100vh - var(--sticky-nav, 106px) - 76px);
   background:var(--warn-bg2);border:1px solid var(--warn-bd);border-radius:var(--radius);
   box-shadow:var(--shadow);overflow:hidden}
-.al-xml-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+/* The head WRAPS. It carries four controls and a two-line identity, and the
+   panel is a side column — at that width they cannot share one row. Without
+   wrapping, flex squeezed the identity block toward zero (min-width:0 let it)
+   and the subtitle broke to one word per line while Download ran off the
+   edge. The identity keeps a floor so it can never be squeezed that far
+   again, and the actions move to a second row instead. */
+.al-xml-head{display:flex;align-items:center;justify-content:space-between;
+  gap:8px 12px;flex-wrap:wrap;
   padding:11px 14px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd)}
+.al-xml-id{flex:1 1 190px;min-width:0}
 .al-xml-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:13px;font-weight:700;color:var(--warn-fg)}
-.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:2px}
-.al-xml-acts{display:flex;gap:8px;flex-shrink:0}
+  font-size:13px;font-weight:700;color:var(--warn-fg);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* one line, clipped — a filename is an identifier, not prose, and wrapping it
+   is what turned a three-word subtitle into a column */
+.al-xml-sub{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-xml-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:0 1 auto;min-width:0}
+.al-xml-acts .btn{white-space:nowrap}
+/* the part selector is the only control here that can grow with its content —
+   a collection label plus a rule count is long, so cap it and ellipsis it */
+#alDlPart{max-width:190px;text-overflow:ellipsis}
 /* the buttons are the app's own now — nothing to override for a foreign surface */
 .al-xml-code{margin:0;padding:14px 16px;overflow:auto;color:var(--ink);
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -1683,3 +1708,50 @@ body.wide .readme p{max-width:1100px}
 .pq-test[open] summary::before{transform:rotate(90deg)}
 .pq-steps{margin:6px 0 0;padding-left:20px;line-height:1.65}
 .pq-steps li{margin-bottom:5px}
+
+/* ---- "What's new" on sign-in ----
+   Only the releases you have not seen, and never on a first visit. It sits over
+   the tools home rather than replacing it, because the point is to be dismissed
+   and get out of the way — the full list has a screen of its own. */
+.wn-wrap{position:fixed;inset:0;z-index:500;background:rgba(8,14,24,.55);
+  display:flex;align-items:center;justify-content:center;padding:24px}
+.wn-card{display:flex;flex-direction:column;max-height:min(78vh,760px);width:min(100%,720px);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 24px 64px rgba(0,0,0,.35);outline:none;overflow:hidden}
+.wn-head{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.wn-body{padding:6px 20px 12px;overflow:auto}
+.wn-foot{display:flex;gap:8px;align-items:center;padding:12px 20px;border-top:1px solid var(--border);background:var(--soft)}
+@media (max-width:640px){
+  .wn-wrap{padding:0}
+  .wn-card{max-height:100vh;height:100vh;width:100vw;border:0;border-radius:0}
+}
+
+/* ---- T01: findings that do not fit become a summary that says so ----
+   The card is its own container; beside the XML panel it is half a screen,
+   where the six-column table wraps Reason into one word per line. Under
+   720px of CARD width the table yields to a compact list plus a pointer at
+   ⛶ Full screen, where the recommendations and fix buttons live. Browsers
+   without container queries keep the table — the status quo, not a break. */
+#alFindings{container-type:inline-size}
+.al-find-compact{display:none}
+@container (max-width: 720px){
+  #alFindings .al-find-table{display:none}
+  #alFindings .al-find-compact{display:block}
+}
+.al-fc-row{padding:8px 0;border-bottom:1px solid var(--border)}
+.al-fc-row:first-child{padding-top:2px}
+.al-fc-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.al-fc-reason{margin-top:3px;color:var(--muted);display:-webkit-box;
+  -webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.al-fc-more{display:block;width:100%;margin-top:10px;text-align:center}
+
+/* ---- Help: section links, ENCA's pattern ---- */
+.help-toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.help-toc-pill{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+  padding:7px 14px;font:inherit;font-size:13px;color:var(--text);cursor:pointer;
+  transition:border-color .15s,background .15s}
+.help-toc-pill:hover{border-color:var(--accent2);background:var(--soft)}
+/* Jump targets sit under a sticky header + tab bar; without this the heading
+   lands hidden behind them. */
+.help-page h3[id]{scroll-margin-top:130px}
+.help-page #helpPromote{scroll-margin-top:130px}

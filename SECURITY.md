@@ -9,9 +9,12 @@ TUNO shares ENCA's architecture one-for-one; this document states the model and 
 * **Sign-in** is a SPA **authorization code + PKCE** flow (MSAL.js). No client secret exists. Tokens live in `sessionStorage` and die with the tab.
 * **Permissions are minimal and incremental.** Base scope: `User.Read` (who signed in — nothing else). Everything beyond it is requested at the moment it is used, so consent matches use.
 
-### The one thing TUNO writes
+### What TUNO writes
 
-Step 5 of the AppLocker tool can create the Intune custom profile in your tenant. That is the only write TUNO performs, and it holds one write scope: **`DeviceManagementConfiguration.ReadWrite.All`** (plus read-only **`Group.Read.All`** to find the pilot group and read its member count). Graph offers no narrower split — the read that checks for an existing profile and the write that creates one are the same scope.
+Two write surfaces, both in the AppLocker tool, each under its own scope — Graph separates them, so the registration must too:
+
+* **Step 5** can create the Intune custom profile in your tenant, under **`DeviceManagementConfiguration.ReadWrite.All`** (plus read-only **`Group.Read.All`** to find the pilot group and read its member count). Graph offers no narrower split — the read that checks for an existing profile and the write that creates one are the same scope.
+* **Step 1's collapsed panel** can create the AppLocker cleanup pair as an Intune Remediation, under **`DeviceManagementScripts.ReadWrite.All`** — the only scope Graph accepts for creating a `deviceHealthScript`; the Configuration write scope does not cover it. The Remediation is created unassigned, and TUNO has no path that assigns it.
 
 Constraints deliberately narrower than the permission allows:
 
@@ -21,7 +24,7 @@ Constraints deliberately narrower than the permission allows:
 * **Writes are never retried.** A request that fails mid-flight is reported as ambiguous — it may or may not have reached the tenant — rather than sent again.
 * **Nothing is deleted.** TUNO has no delete path and no scope that would permit one.
 
-If you would rather TUNO could not write at all, omit the write scope when you register it — keep the read scopes and drop `DeviceManagementConfiguration.ReadWrite.All`:
+If you would rather TUNO could not write at all, omit the write scopes when you register it — keep the read scopes and drop `DeviceManagementConfiguration.ReadWrite.All` and `DeviceManagementScripts.ReadWrite.All`:
 
 ```powershell
 ./New-TunoAppRegistration.ps1 -DelegatedScopes `

@@ -5,18 +5,23 @@ equally deliberate limit: a browser cannot read a directory ACL, verify an Authe
 signature, or open an event log. Those three facts are most of what you need to know
 before you enforce AppLocker.
 
-So T01 (🔐 AppLocker builder & validator) hands out two PowerShell scripts instead of
-pretending the browser could work it out. They are served from the site itself, so the
-copy you download always matches the build of T01 you are looking at.
+So T01 (🔐 AppLocker builder & validator) hands out a small set of PowerShell scripts
+instead of pretending the browser could work it out. They are served from the site
+itself, so the copy you download always matches the build of T01 you are looking at.
 
 | File | What it does | Where the output goes |
 |---|---|---|
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
+| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean | Intune Remediation or an elevated shell; exits 1 if not clean |
+| `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
+| `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
+| `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
 
-Both are MIT-licensed, like the rest of TUNO, and both are read-only on the device
-unless you explicitly ask otherwise. Neither one applies a policy.
+All are MIT-licensed, like the rest of TUNO. The scan is read-only; the cleanup and the
+folder provisioning change exactly what their names say and nothing else. None of them
+applies an AppLocker policy — deploying is always a separate, deliberate act.
 
 ---
 
@@ -35,6 +40,42 @@ The scan checks whether the machine looks like a reference image — how many pr
 exist, how many executables are in them, whether it can see Downloads content, browser
 profiles, `node_modules`, git working copies — and warns loudly when it cannot believe
 you. It will not refuse to run. It will not be quiet either.
+
+### The IT-TOOLS house convention
+
+Everything IT puts on an endpoint lives under `%ProgramData%\IT-TOOLS`, deployed by the
+Intune Management Extension running as SYSTEM:
+
+| Folder | Purpose | In the policy |
+|---|---|---|
+| `IT-TOOLS\Apps` | IT-deployed applications | **Always allowed** — standing rule in every generated Exe/Msi/Script collection |
+| `IT-TOOLS\Scripts` | IT-deployed scripts | **Always allowed** — same standing rule |
+| `IT-TOOLS\LOGS` | Where the scripts here write their logs (the cleanup's default) | Not allowed — logs are not executables |
+
+The standing rules exist so nobody has to remember to add them. AppLocker has no
+`%PROGRAMDATA%` variable, so they are written as `%OSDRIVE%\ProgramData\IT-TOOLS\…`.
+
+**The folders must exist, with the right ACL, BEFORE the policy lands.** ProgramData's
+default permissions let a standard user create missing subfolders — and the creator
+owns what they create. A user who creates `IT-TOOLS\Apps` before IT does owns a folder
+every policy allows. `Initialize-TunoItToolsFolders.ps1` closes that: it creates the
+folders, disables inheritance, sets SYSTEM + Administrators full control and Users
+read-and-execute, resets anything a user pre-created, verifies by reading the ACL back,
+and exits 1 when a non-admin principal can still write. It also proves SYSTEM can
+write by writing: a provisioning record is appended to
+`IT-TOOLS\LOGS\Initialize-TunoItToolsFolders.log`, because the house scripts log
+there as SYSTEM and an ACL that locks SYSTEM out breaks that silently. Deploy it as
+SYSTEM before (or with) the audit profile — and with `Detect-TunoItToolsFolders.ps1`
+as its detection half, the pair ships as an Intune Remediation (T01 creates it from
+the browser). Unlike the cleanup pair, LEAVE THIS ONE ASSIGNED on a schedule: a
+folder that drifts writable after provisioning is exactly what the detection exists
+to catch and the remediation to re-tighten.
+
+**The rules are only as strong as the ACL.** Apps and Scripts must be writable by
+SYSTEM and Administrators alone — an allow rule on a user-writable folder is a door,
+not a policy. The scan checks exactly this and raises a loud warning when a
+user-writable directory sits inside a house folder, because at that point the standing
+allow is a live bypass.
 
 ### The model it builds
 
@@ -202,12 +243,14 @@ where `<TYPE>` is `EXE`, `MSI`, `Script`, `DLL` or `StoreApps`, and the value is
 # Offline (default) — write the profile JSON, review before anything touches a tenant
 .\Convert-TunoAppLockerToIntune.ps1 `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
-    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
 
 # Online — create the profile in the tenant
 .\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
     -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-    -Grouping 'Pilot' -DisplayName 'Win - Device Security - AppLocker'
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
 ```
 
 Online mode needs `Microsoft.Graph.Authentication` and the
@@ -215,13 +258,66 @@ Online mode needs `Microsoft.Graph.Authentication` and the
 it is reused as-is; `-TenantId` doubles as a guard against creating the profile in the
 wrong customer's tenant.
 
-### The grouping is the important parameter
+### The grouping is the important parameter — make it unique
 
-The grouping segment is the policy's **identity on the device**. Two profiles sharing a
-grouping overwrite each other; two with different groupings are merged by the CSP. Use
-one grouping per intent — `Pilot`, `Production` — and when you promote audit to enforce,
-keep the **same** grouping so the new profile replaces the old one instead of stacking
-on top of it.
+The grouping segment names a CSP node. Microsoft's guidance on the AppLocker CSP:
+
+> *"Delete/unenrollment is not properly supported unless Grouping values are unique
+> across enrollments. If multiple enrollments use the same Grouping value, then
+> unenrollment will not work as expected since there are duplicate URIs that get deleted
+> by the resource manager… The best practice is to use a randomly generated GUID."*
+
+So **one grouping per profile**, ideally a GUID. Two profiles sharing a grouping write
+the same OMA-URIs, and unassigning one can delete the nodes the other still depends on.
+
+To move from audit to enforce, **edit the profile you already have** rather than
+deploying a second one beside it. One profile, one grouping, changed in place — no
+merge, no duplicate URIs, and nothing to unassign in the right order.
+
+### Deploying does not clear what came before
+
+Every AppLocker delivery path **adds** rather than replaces:
+
+- **Intune CSP** — each `{Grouping}/{Type}/Policy` is a node with Add/Delete/Get/Replace
+  access. A profile carrying no DLL setting leaves an existing DLL node untouched.
+- **Group Policy** — policies merge; Group Policy "doesn't overwrite or replace rules
+  that are already present in a linked GPO".
+- **Local policy** — persists until explicitly cleared.
+
+A collection your new policy simply **omits keeps running**. If it was `NotConfigured`
+with rules, it keeps *blocking*, while the policy you just deployed appears to say
+nothing about that type at all.
+
+### Migrating a device that already has a policy
+
+Three steps, in this order, because each one exists to make the next one true:
+
+1. **Unassign** the old Intune profile (or unlink the old GPO). Skip this and the
+   cleanup is a loop — everything it removes returns at the next sync.
+2. **Run `Clear-TunoAppLockerPolicy.ps1`** — T01's deploy section can create the
+   Remediation pair in the tenant for you (unassigned, house name prefilled), or
+   deploy it yourself as an Intune Remediation paired with
+   `Detect-TunoAppLockerPolicy.ps1`, or by hand in an elevated shell. It backs up the
+   effective policy, the local policy and the SrpV2 registry key first; replaces the
+   local policy with the empty (genuinely inert) one; clears the SrpV2 tattoo; and
+   verifies the effective policy is actually empty afterwards, exiting 1 when it is
+   not so Intune reports the device rather than the wish. It deliberately **preserves
+   the AppLocker event logs** (the 8003/8006 audit evidence) and **leaves AppIDSvc
+   running** — the policy you deploy next needs both.
+3. **Deploy the new policy under a new grouping.** Never reuse the old deployment's
+   name or grouping — removal of shared groupings is broken by design in the CSP.
+
+If the Remediation pair stays assigned after the new policy lands, the detection will
+read the new policy as state to remove. Scope it to the migration window and unassign
+it when the window closes.
+
+To actually remove one: delete the OMA-URI from the profile that set it (Intune sends a
+Delete), or clear the rules in the GPO that carries them. Upload a scan bundle to T01 and
+the audit names every collection the device is running that the policy on screen does not
+contain.
+
+**Both apply and delete reboot the device** — the CSP's Policy nodes carry automatic
+reboot behaviour. Plan a window for the removal as well as the rollout.
 
 ### DLL is omitted — and `NotConfigured` is never written
 

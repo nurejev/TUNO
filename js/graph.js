@@ -76,6 +76,10 @@ const Graph = (() => {
   const SCOPES = {
     // write — T01 deploy, and (later) R09 restore
     profiles: ["DeviceManagementConfiguration.ReadWrite.All"],
+    // write — T01's Remediation deploy only. Create/Update deviceHealthScript
+    // accept ONLY this scope (the tenant said so before the docs did) — the
+    // Configuration write scope does not cover them.
+    scriptsWrite: ["DeviceManagementScripts.ReadWrite.All"],
     // read
     config: ["DeviceManagementConfiguration.Read.All"],
     apps: ["DeviceManagementApps.Read.All"],
@@ -544,6 +548,28 @@ const Graph = (() => {
 
   const createProfile = (profile) => post("/deviceManagement/deviceConfigurations", profile, { scopes: SCOPES.profiles });
 
+  // ---------- Intune Remediations (deviceHealthScripts) ----------
+  //
+  // THEIR OWN WRITE SCOPE — 10369 shipped these under SCOPES.profiles on the
+  // claim that DeviceManagementConfiguration covers deviceHealthScripts. The
+  // tenant refused it, naming the scope it wanted, and the Graph reference
+  // agrees: Create/Update deviceHealthScript accept ONLY
+  // DeviceManagementScripts.ReadWrite.All (List/Get take the Read variant).
+  // So this is a second write scope, asked for — like every scope — at the
+  // click that needs it, and it must be consented on the app registration
+  // (New-TunoAppRegistration.ps1 lists it) before that ask can succeed.
+  // The whole flow runs under ReadWrite: it satisfies the List call too, and
+  // asking Read first only to ask ReadWrite two seconds later is two consent
+  // prompts for one decision.
+  // BETA, absolutely: deviceHealthScripts does not exist on v1.0 (see the
+  // read-layer note above), and a relative path here would 404 against the
+  // default base while looking perfectly plausible.
+  async function remediations() {
+    const r = await get(`${BETA}/deviceManagement/deviceHealthScripts?$top=999&$select=id,displayName,lastModifiedDateTime`, { scopes: SCOPES.scriptsWrite });
+    return (r && r.value) || [];
+  }
+  const createRemediation = (body) => post(`${BETA}/deviceManagement/deviceHealthScripts`, body, { scopes: SCOPES.scriptsWrite });
+
   // ---------- groups, for the pilot assignment ----------
 
   async function searchGroups(term) {
@@ -568,6 +594,7 @@ const Graph = (() => {
   return {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
     get, post, customProfiles, collisions, createProfile,
+    remediations, createRemediation,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,

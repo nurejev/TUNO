@@ -71,13 +71,23 @@ param(
   #     Secure Score visualizer (roadmap R02). Read-only, on demand.
   #
   #   DeviceManagementConfiguration.ReadWrite.All
-  #     THE ONLY WRITE SCOPE TUNO HOLDS. The AppLocker builder & validator uses
-  #     it in step 5 to read the tenant's existing custom profiles (the check
-  #     that refuses to overwrite one it did not create), to create the
+  #     The first of TUNO's TWO write scopes. The AppLocker builder & validator
+  #     uses it in step 5 to read the tenant's existing custom profiles (the
+  #     check that refuses to overwrite one it did not create), to create the
   #     AppLocker profile, and to assign it. Graph has no narrower split: the
   #     read side of that check and the write are the same scope. Everything
   #     up to step 4 — import, audit, coverage, rewrite, export — still reads
   #     NOTHING from the tenant and works signed out of Intune entirely.
+  #
+  #   DeviceManagementScripts.ReadWrite.All
+  #     The second write scope — added at build 10372, in the open, the way the
+  #     R18 rule demands. T01's step-1 panel that creates the AppLocker cleanup
+  #     pair as an Intune Remediation needs it: Create deviceHealthScript
+  #     accepts ONLY this scope. Build 10369 shipped that feature claiming the
+  #     Configuration write scope covered it; the first real click was refused
+  #     by the tenant, naming this scope, and the Graph reference agrees.
+  #     Drop it to make Remediation deploy fall back to the manual downloads —
+  #     everything else keeps working.
   #
   #   Group.Read.All
   #     Finding the pilot group to assign the profile to, and reading its
@@ -164,6 +174,7 @@ param(
     "User.Read",
     "SecurityEvents.Read.All",
     "DeviceManagementConfiguration.ReadWrite.All",
+    "DeviceManagementScripts.ReadWrite.All",
     "Group.Read.All",
     # Intune reads — build 10317
     "DeviceManagementConfiguration.Read.All",

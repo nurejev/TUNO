@@ -73,7 +73,23 @@ const AppLockerTool = (() => {
   let scan = null;          // the uploaded TUNO scan bundle, or null
   let scanSource = "";      // "generated-audit" | "generated-enforce" | "effective"
   let pane = "xml";         // which artefact the code panel is showing
-  const intuneCfg = { displayName: "Win - Device Security - AppLocker", grouping: "Pilot", mode: "Audit" };
+  // The grouping default is GENERATED, not a word. Microsoft's guidance is that
+  // groupings must be unique (removal breaks on duplicates — the CSP deletes
+  // duplicate URIs) and recommends a random GUID; a bare GUID, though, is
+  // unreadable in the cleanup log and the carry-over findings, so the house
+  // format is a recognisable prefix plus the GUID. Deliberately NOT "Pilot" or
+  // "Production": that distinction lives in the ASSIGNMENT (which group the one
+  // profile is assigned to) and the MODE (audit or enforce, edited in place) —
+  // encoding it in the grouping name is how two groupings end up merged on a
+  // device that saw both.
+  const newGrouping = () => "AppLocker-" + newGuid();
+  // grouping is filled in just below newGuid's definition — calling it here
+  // would be a use-before-init on the const.
+  // The default carries the house naming scheme IN FULL, mode token included —
+  // the field then shows exactly the name Intune will get, and the R/V release
+  // suffix is edited in place rather than living in code. intuneProfileName()
+  // swaps the (AuditOnly)/(Enforced) token for the mode being exported.
+  const intuneCfg = { displayName: "Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0", grouping: "", mode: "Audit" };
 
   // AppLocker rule-collection Type → the segment the AppLocker CSP expects in the
   // OMA-URI. Anything not in here has no CSP node and cannot be shipped by Intune.
@@ -208,11 +224,32 @@ const AppLockerTool = (() => {
   // .NET native images. The rules still ship — documented and inert — so the
   // collection can be switched on deliberately later instead of being invisible.
   // ================================================================
-  const intuneGrouping = () => (intuneCfg.grouping || "").replace(/\s+/g, "");
+  let groupingMinted = false;
+  const intuneGrouping = () => {
+    // Minted ONCE, on first read (see the note at intuneCfg) — not at module
+    // load, and never again after: a user who clears the field is saying
+    // something, and refilling it would fight them mid-edit and make the
+    // empty-grouping issue unreachable. The form input is synced here because
+    // bind() copied the value before the mint existed.
+    if (!intuneCfg.grouping && !groupingMinted) {
+      groupingMinted = true;
+      intuneCfg.grouping = newGrouping();
+      const inp = document.getElementById("alIntuneGrouping");
+      if (inp && !inp.value) inp.value = intuneCfg.grouping;
+    }
+    return (intuneCfg.grouping || "").replace(/\s+/g, "");
+  };
 
   function intuneProfileName(mode) {
     const base = (intuneCfg.displayName || "AppLocker").trim();
-    return `${base} (${mode === "Enforce" ? "Enforced" : "AuditOnly"})`;
+    const token = mode === "Enforce" ? "(Enforced)" : "(AuditOnly)";
+    // The name field holds the FULL house name with the mode token inline
+    // (Win - SEC - … - AppLocker (AuditOnly) - R27.1 - V4.0). Swap whichever
+    // token it contains for the mode being exported, so Audit and Enforce still
+    // get distinct names from one field — the collision checks depend on that.
+    // A name without a token keeps the old behaviour: token appended at the end.
+    if (/\((?:AuditOnly|Enforced)\)/i.test(base)) return base.replace(/\((?:AuditOnly|Enforced)\)/gi, token);
+    return `${base} ${token}`;
   }
 
   function intuneProfile(mode) {
@@ -253,6 +290,12 @@ const AppLockerTool = (() => {
     if (!policy) return out;
     if (!intuneGrouping()) out.push({ sev: "High", text: "The grouping is empty. The OMA-URI has no identity without it and the profile will not apply." });
     else if (!/^[A-Za-z0-9._-]+$/.test(intuneGrouping())) out.push({ sev: "Medium", text: "The grouping contains characters other than letters, digits, dot, dash and underscore. The CSP node name is part of a URI — keep it simple." });
+    // A hand-reusable word is exactly what produces two profiles sharing a
+    // grouping — the case Microsoft says breaks removal. Warn, do not block:
+    // the field is editable precisely so a deliberate choice stays possible.
+    else if (/^(pilot|prod|production|test|tst|acc|acceptance|audit|auditonly|enforce|enforced|applocker|default|standard)$/i.test(intuneGrouping())) {
+      out.push({ sev: "Medium", text: `The grouping '${intuneGrouping()}' is the kind of name that gets typed again. Groupings must be unique per profile — two profiles sharing one write the same CSP addresses, and unassigning one can delete the nodes the other depends on. Use the generated 'AppLocker-<guid>' (the ↻ button mints a fresh one); the pilot/production distinction belongs in the assignment and the mode, not in this name.` });
+    }
     if (!(intuneCfg.displayName || "").trim()) out.push({ sev: "Medium", text: "The profile has no display name. Intune will accept it and nobody will ever find it again." });
     const unmapped = policy.collections.filter((c) => !OMA_TYPE[c.type]);
     if (unmapped.length) out.push({ sev: "Medium", text: `Collection${unmapped.length === 1 ? "" : "s"} ${unmapped.map((c) => c.type).join(", ")} ${unmapped.length === 1 ? "has" : "have"} no AppLocker CSP node and ${unmapped.length === 1 ? "is" : "are"} left out of the profile.` });
@@ -322,8 +365,58 @@ const AppLockerTool = (() => {
     return null;
   }
 
-  function analyzeScan(b, model) {
+  // What is ALREADY on the device that this policy will not touch?
+  //
+  // Deploying a policy does not clear what came before. Every AppLocker delivery
+  // path adds rather than replaces: the CSP holds one node per grouping and type
+  // with Add/Delete/Get/Replace access, so a profile carrying no DLL setting
+  // leaves an existing DLL node exactly where it was; Group Policy merges, and
+  // "doesn't overwrite or replace rules that are already present in a linked
+  // GPO"; local policy persists until cleared.
+  //
+  // So a collection the device is running and this policy omits keeps running,
+  // invisibly — and if it is NotConfigured with rules, it keeps BLOCKING while
+  // the policy on screen looks like it has nothing to say about that type.
+  // Nothing else in the tool could catch this: it needs the device's effective
+  // policy, which only the scan can supply.
+  function analyzeCarryOver(b, model) {
     const out = [];
+    const eff = b && b.effectivePolicy;
+    if (!eff || !eff.available || !eff.xml) return out;
+
+    let live;
+    try { live = parsePolicy(eff.xml, "effective"); }
+    catch { return out; }
+
+    for (const lc of live.collections) {
+      if (!lc.rules.length) continue;                       // nothing on the device to carry over
+      const mine = model.collections.find((c) => c.type === lc.type);
+      if (mine && mine.rules.length) continue;              // this policy has its own say on that type
+
+      // Two shapes, one consequence. ABSENT is unambiguous: nothing here touches
+      // that node. EMPTY is worse, because it LOOKS deliberate — and whether it
+      // clears anything depends on the delivery path. Via the CSP an empty
+      // collection replaces the node and does clear it; via Group Policy the
+      // policies merge and an empty collection adds nothing, so the device's
+      // rules survive untouched.
+      const empty = !!mine;
+      const enforcing = lc.mode === "Enabled" || (lc.mode === "NotConfigured" && lc.rules.length > 0);
+      out.push({
+        sev: enforcing ? "High" : "Medium", source: "scan", collection: lc.type, ruleType: "(carry-over)",
+        cond: `device: ${lc.rules.length} rule${lc.rules.length === 1 ? "" : "s"}, ${lc.mode}`,
+        reason: `The device is already running a '${lc.type}' collection with ${lc.rules.length} rule${lc.rules.length === 1 ? "" : "s"}, and the policy on screen ${empty ? `carries an EMPTY '${lc.type}' collection` : `does NOT contain '${lc.type}' at all`} — deploying this will not reliably remove it. ` +
+          (enforcing
+            ? `Those rules are ENFORCING today${lc.mode === "NotConfigured" ? " (NotConfigured with rules means enforced)" : ""} and will go on enforcing afterwards, while this policy appears to say nothing about ${lc.type}.`
+            : `Those rules are in ${lc.mode} today and will stay in ${lc.mode} afterwards.`) +
+          (empty ? " An empty collection replaces the node over the Intune CSP, but Group Policy merges rather than replaces, so over GPO the device's rules survive it." : ""),
+        rec: `Decide, rather than letting the delivery path decide. To KEEP it, put the '${lc.type}' rules into this policy so one artefact describes the whole device. To REMOVE it: unassign the Intune profile that owns it (Intune sends a Delete) or unlink the GPO carrying it, then run Clear-TunoAppLockerPolicy.ps1 — downloadable in step 5 — to sweep what unassignment leaves tattooed, and only then deploy this policy under a NEW grouping. Leaving it out here does nothing on its own, and cleanup without unassignment is a loop: the old policy returns at the next sync. The AppLocker CSP reboots the device on apply and on delete, so neither is silent.`,
+      });
+    }
+    return out;
+  }
+
+  function analyzeScan(b, model) {
+    const out = analyzeCarryOver(b, model);
     if (!b) return out;
 
     // 1. Writable directories that an allow rule still reaches.
@@ -526,6 +619,15 @@ const AppLockerTool = (() => {
         if (c.kind === "path") {
           const reasons = [], recs = []; let score = -1;
           const cond = c.path;
+          // The IT-TOOLS house folders are allowed BY CONVENTION — every policy
+          // this tool generates carries these rules, so flagging them Medium on
+          // every audit would be the tool arguing with its own defaults (the
+          // 10315 lesson, again). The fact still gets stated, at Info, with the
+          // condition that makes it safe: the ACL, which the device scan checks.
+          if (r.action === "Allow" && IT_TOOLS_RE.test(cond)) {
+            F("Info", Object.assign({}, base, { condType: "Path", cond, reason: "IT-TOOLS house folder, allowed by convention — IT-deployed applications and scripts land here, written by the Intune Management Extension as SYSTEM.", rec: "Safe exactly as long as the folder's ACL restricts writes to SYSTEM and Administrators. The device scan verifies that and raises a loud warning when it is not true; if a scan bundle is loaded and no such warning appears among the findings, the ACL was checked and held." }));
+            continue;
+          }
           if (r.action === "Allow") {
             for (const k of PATH_RISKS) {
               if (k.re.test(cond)) {
@@ -742,21 +844,38 @@ const AppLockerTool = (() => {
   function mkRule(nodeName, name, sid, action, conditions, description) {
     return { nodeName, id: newGuid(), name, description: description || `Added by ${BRANDING.name} ${APP_BUILD.label}`, sid, action, conditions, exceptions: [] };
   }
+  // The IT-TOOLS house rules: %ProgramData%\IT-TOOLS\Apps and \Scripts are where
+  // IT-deployed tooling lands (written by IME as SYSTEM), and the convention is
+  // that every Exe/Msi/Script policy allows them WITHOUT anyone having to
+  // remember to add the rule. AppLocker has no %PROGRAMDATA% variable, so the
+  // macro form is %OSDRIVE%\ProgramData. The rules are only as strong as the
+  // ACL — SYSTEM and Administrators write, nobody else — and the scan checks
+  // exactly that; the audit reports these paths at Info rather than flagging
+  // the tool's own convention as a finding (the 10315 lesson).
+  const IT_TOOLS_RULES = [
+    ["TUNO: IT-TOOLS house folder (Apps)", "S-1-1-0", { kind: "path", path: "%OSDRIVE%\\ProgramData\\IT-TOOLS\\Apps\\*" }],
+    ["TUNO: IT-TOOLS house folder (Scripts)", "S-1-1-0", { kind: "path", path: "%OSDRIVE%\\ProgramData\\IT-TOOLS\\Scripts\\*" }],
+  ];
+  const IT_TOOLS_RE = /\\ProgramData\\IT-TOOLS\\(Apps|Scripts)(\\|$)/i;
+
   const DEFAULT_RULES = {
     Exe: [
       ["(Default Rule) All files located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],
       ["(Default Rule) All files located in the Windows folder", "S-1-1-0", { kind: "path", path: "%WINDIR%\\*" }],
       ["(Default Rule) All files", "S-1-5-32-544", { kind: "path", path: "*" }],
+      ...IT_TOOLS_RULES,
     ],
     Msi: [
       ["(Default Rule) All digitally signed Windows Installer files", "S-1-1-0", { kind: "publisher", publisher: "*", product: "*", binary: "*", low: "*", high: "*" }],
       ["(Default Rule) All Windows Installer files in %systemdrive%\\Windows\\Installer", "S-1-1-0", { kind: "path", path: "%WINDIR%\\Installer\\*" }],
       ["(Default Rule) All Windows Installer files", "S-1-5-32-544", { kind: "path", path: "*.*" }],
+      ...IT_TOOLS_RULES,
     ],
     Script: [
       ["(Default Rule) All scripts located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],
       ["(Default Rule) All scripts located in the Windows folder", "S-1-1-0", { kind: "path", path: "%WINDIR%\\*" }],
       ["(Default Rule) All scripts", "S-1-5-32-544", { kind: "path", path: "*" }],
+      ...IT_TOOLS_RULES,
     ],
     Dll: [
       ["(Default Rule) All DLLs located in the Program Files folder", "S-1-1-0", { kind: "path", path: "%PROGRAMFILES%\\*" }],
@@ -1149,6 +1268,10 @@ const AppLockerTool = (() => {
       L.push(`| OS | ${m.os || "—"} (build ${m.osBuild || "—"}) |`);
       L.push(`| Join state | ${m.join || "—"} |`);
       L.push(`| Elevated | ${m.elevated === false ? "**no — partial scan**" : "yes"} |`);
+      L.push(`| AppLocker cmdlets | ${(m.appLockerSource === "native" ? "yes"
+        : m.appLockerSource === "compat" ? "via Windows PowerShell compatibility"
+        : m.appLockerSource === "compat-policy-only" ? "compatibility session — policy read only, publishers from certificates"
+        : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates")} |`);
       L.push(`| Application Identity service | ${m.appIdentityService || "—"} |`);
       L.push(`| User-writable directories | ${scan.writablePaths.length} |`);
       L.push(`| Executables inventoried | ${scan.artifacts.length} (${scan.artifacts.filter((a) => a && !a.signed).length} unsigned) |`);
@@ -1234,7 +1357,29 @@ const AppLockerTool = (() => {
   // functions their Copy and Download buttons hand over — never from a second
   // serialiser kept in step by hand, which is how a preview starts lying about
   // what it is about to write.
+  // What a download contains. The whole policy is the default and the right
+  // answer for a GPO import; a single collection is what Intune's MANUAL
+  // OMA-URI route asks for, one value per rule collection, and getting it out
+  // of here beats hand-cutting it from a file with five of them in.
+  //
+  // DLL is offered here even though the Intune PROFILE omits it: choosing it
+  // deliberately is a different act from having it shipped without being
+  // asked, and someone entering OMA-URIs by hand may well want it.
+  function renderDlParts() {
+    const sel = $("alDlPart");
+    if (!sel) return;
+    const keep = sel.value;
+    const cols = policy ? policy.collections.filter((c) => c.rules.length || c.mode !== "NotConfigured") : [];
+    sel.innerHTML = `<option value="all">Whole ${pane === "intune" ? "profile" : "policy"}</option>`
+      + cols.map((c) => `<option value="${esc(c.type)}">${esc(COLLECTION_LABEL[c.type] || c.type)} only (${c.rules.length} rule${c.rules.length === 1 ? "" : "s"})</option>`).join("");
+    // a collection that has gone away must not stay selected and silently
+    // download something else
+    sel.value = [...sel.options].some((o) => o.value === keep) ? keep : "all";
+    sel.style.display = cols.length > 1 ? "" : "none";
+  }
+
   function renderCodePane() {
+    renderDlParts();
     const sub = $("alXmlSub"), code = $("alXmlCode"), name = $("alXmlName");
     if (!sub || !code) return;
 
@@ -1249,7 +1394,30 @@ const AppLockerTool = (() => {
       return;
     }
 
+    // WHAT IS SHOWN IS WHAT DOWNLOADS. The part selector narrows both, or the
+    // panel would display the whole policy while the button handed over one
+    // collection — the same class of lie as a preview drifting from its file.
+    const part = ($("alDlPart") || {}).value || "all";
+    const one = part === "all" ? null : policy.collections.find((c) => c.type === part);
+
     if (pane === "intune") {
+      // The issues list, ALL severities. The deploy panel filters to High
+      // because it decides whether to block a write; here the question is "is
+      // this profile right", and a Medium warning nobody can see — the
+      // reusable-grouping one above all — is a warning that does not exist.
+      const issuesBox = $("alIntuneIssues");
+      if (issuesBox) {
+        const iss = intuneIssues();
+        issuesBox.innerHTML = iss.map((i) => `<div style="margin-top:4px">${i.sev === "High" ? "⛔" : "⚠️"} ${esc(i.text)}</div>`).join("");
+        issuesBox.style.display = iss.length ? "" : "none";
+      }
+      const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+      if (one) {
+        if (name) name.textContent = `AppLocker-${one.type}-OMA-URI.xml`;
+        sub.textContent = `the OMA-URI VALUE for ${esc(COLLECTION_LABEL[one.type] || one.type)} · grouping ${intuneGrouping() || "(none)"} · ${mode}`;
+        code.innerHTML = highlightXml(collectionLines(one, "", mode).join("\n"));
+        return;
+      }
       if (name) name.textContent = intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json";
       const n = policy.collections.filter((c) => OMA_TYPE[c.type]).length;
       sub.textContent = `${n} OMA-URI setting${n === 1 ? "" : "s"} · grouping ${intuneGrouping() || "(none)"} · ${intuneCfg.mode}`;
@@ -1257,6 +1425,12 @@ const AppLockerTool = (() => {
       return;
     }
 
+    if (one) {
+      if (name) name.textContent = `AppLockerPolicy-${one.type}.xml`;
+      sub.textContent = `${one.rules.length} rule${one.rules.length === 1 ? "" : "s"} · ${esc(COLLECTION_LABEL[one.type] || one.type)} only · ${esc(one.mode)}`;
+      code.innerHTML = highlightXml(['<AppLockerPolicy Version="1">', ...collectionLines(one, "  "), "</AppLockerPolicy>"].join("\n"));
+      return;
+    }
     if (name) name.textContent = "AppLockerPolicy.xml";
     const rules = policy.collections.reduce((n, c) => n + c.rules.length, 0);
     sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${policy.collections.length} collection${policy.collections.length === 1 ? "" : "s"}`;
@@ -1293,16 +1467,25 @@ const AppLockerTool = (() => {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
         ${fact("Device", m.name)}${fact("OS", m.os)}${fact("Joined", m.join)}
         ${fact("Scanned by", m.scannedBy)}${fact("Elevated", m.elevated === false ? "NO — partial scan" : "yes")}
+        ${fact("AppLocker cmdlets", (m.appLockerSource === "native" ? "yes"
+        : m.appLockerSource === "compat" ? "via Windows PowerShell compatibility"
+        : m.appLockerSource === "compat-policy-only" ? "compatibility session — policy read only, publishers from certificates"
+        : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates"))}
         ${fact("Application Identity", m.appIdentityService)}
         ${fact("Writable directories", scan.writablePaths.length)}
         ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : ""))}
         ${fact("Scan taken", scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "—")}
       </div>
+      ${(!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? `<div class="gu-fail" style="margin-bottom:12px">
+        <b>This bundle carries NO generated rule set, so you are editing the policy the device was already running.</b>
+        <span class="why">That is why the collections here are whatever Intune or Group Policy had put on the device \u2014 typically a sparse policy with a Dll collection and a placeholder rule \u2014 rather than the publisher-first set the scan builds from what it found.
+        The scan reports this: rule generation is wrapped so a failure cannot cost you the evidence, and when it fails it writes the reason into the warnings below and prints it in red at the time. It also does not run at all under <code>-SkipRuleGeneration</code>.
+        Re-run the scan, read that line, and upload the new bundle.</span></div>` : ""}
       ${sources.length > 1 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
         <span class="mini muted">Editing ${esc(SCAN_SOURCE_LABEL[scanSource] || scanSource)} —</span>
         ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${scanSource === v ? "primary" : ""}" data-src="${v}">${esc(l)}</button>`).join("")}
       </div>` : ""}
-      ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+      ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, (!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? 20 : 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       ${topPaths.length ? `<h4 class="mini" style="margin:12px 0 6px">User-writable directories <span class="muted">— showing ${topPaths.length} of ${scan.writablePaths.length}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
         ${topPaths.map((w) => {
@@ -1378,9 +1561,32 @@ const AppLockerTool = (() => {
       }).join("") + `</tbody></table></div>`;
 
     // ---- findings ----
+    //
+    // TWO RENDERINGS OF ONE LIST, switched by the CARD'S OWN WIDTH. Beside the
+    // XML panel the card is roughly half a screen, and a six-column table in
+    // half a screen wraps its Reason column into one word per line — five
+    // hundred pixels of row height saying almost nothing. So the card carries
+    // the full table AND a compact summary, and a container query shows
+    // whichever fits: the summary in the narrow column, the table when the
+    // card has room — stacked layout, wide windows, and above all the ⛶ Full
+    // screen popout, which is where the recommendations and fix buttons live.
+    // A container query rather than a resize listener because the card knows
+    // its own width and render() should not need to care; browsers without
+    // container queries keep the table, which is the status quo.
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
+    const compact = shown.length ? `<div class="al-find-compact">` +
+      shown.map((f) => {
+        const mark = f.source === "scan" ? ` <span class="tag new" title="From the device scan">🛰</span>` : "";
+        return `<div class="al-fc-row">
+          <div class="al-fc-head">${sevTag(f.sev)}${mark} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
+          <div class="al-fc-reason mini">${esc(f.reason)}</div>
+        </div>`;
+      }).join("") +
+      `<button class="btn al-fs al-fc-more" data-fs="alFindings" data-fslabel="Findings">⛶ Open full screen for the recommendations and one-click fixes</button>
+      </div>` : "";
     $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Findings")}Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      (shown.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
+      compact +
+      (shown.length ? `<div class="al-find-table" style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
         shown.map((f, i) => {
           const key = findingKey(f);
           const plan = planFix(f);
@@ -1445,8 +1651,12 @@ const AppLockerTool = (() => {
             <td>${esc(r.name)}${risky.has(r.id) ? ' <span class="tag new">⚠ flagged</span>' : ""}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div></td>
             <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
             <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
-        }).join("") + `</tbody></table></div>` : "").join("") +
-      `<div class="list-card" style="margin-top:14px;padding:16px">
+        }).join("") + `</tbody></table></div>` : "").join("");
+
+    // The add-rule form lives in its own host high in the column, not at the
+    // bottom of the rules list. Same markup, same ids, wired by the same
+    // wireDynamic() below — only its address changed.
+    $("alAddRule").innerHTML = `<div class="list-card" style="padding:16px">
         <h4 style="margin:0 0 8px">＋ Add a rule</h4>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select id="alNewCol" class="btn">${COLLECTIONS.map((t) => `<option>${t}</option>`).join("")}</select>
@@ -1471,6 +1681,7 @@ const AppLockerTool = (() => {
         </div>
         <p class="mini muted" style="margin:8px 0 0">Publisher-first is the house style: a path allow is only as strong as the ACL on the folder, which this browser cannot see.</p>
       </div>`;
+
 
     wireDynamic();
   }
@@ -1691,8 +1902,30 @@ const AppLockerTool = (() => {
     }));
     $("alXml").addEventListener("click", () => {
       if (!policy) return;
-      if (pane === "intune") download(intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json", intuneJson(intuneCfg.mode), "application/json");
-      else download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml");
+      const part = ($("alDlPart") || {}).value || "all";
+      const col = part === "all" ? null : policy.collections.find((c) => c.type === part);
+      if (part !== "all" && !col) return;
+
+      if (pane === "intune") {
+        if (!col) {
+          download(intuneProfileName(intuneCfg.mode).replace(/[^A-Za-z0-9\-_.()]/g, "_") + ".json", intuneJson(intuneCfg.mode), "application/json");
+          return;
+        }
+        // One collection from the Intune tab is the OMA-URI VALUE, not a
+        // fragment of JSON — that string is what the portal asks you to paste
+        // into a custom setting, so hand over exactly that.
+        const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+        download(`AppLocker-${col.type}-${intuneGrouping() || "Pilot"}-OMA-URI.xml`,
+          collectionLines(col, "", mode).join("\n"), "application/xml");
+        return;
+      }
+      if (!col) { download("AppLockerPolicy-TUNO.xml", exportXml(), "application/xml"); return; }
+      // A single collection still ships as a whole AppLockerPolicy document.
+      // A bare <RuleCollection> is not a policy and neither a GPO import nor
+      // Set-AppLockerPolicy will take it.
+      download(`AppLockerPolicy-TUNO-${col.type}.xml`,
+        ['<AppLockerPolicy Version="1">', ...collectionLines(col, "  "), "</AppLockerPolicy>"].join("\n"),
+        "application/xml");
     });
     // Clipboard access is refused outright in some contexts (no gesture, a
     // policy-locked browser). Say so on the button rather than appearing to
@@ -1709,6 +1942,9 @@ const AppLockerTool = (() => {
       if (!b) return;
       expand($(b.dataset.fs), b.dataset.fslabel || "Full screen");
     });
+    const dlSel = $("alDlPart");
+    if (dlSel) dlSel.addEventListener("change", renderCodePane);
+
     const alEx = $("alExpand");
     if (alEx) alEx.addEventListener("click", () => {
       expand(document.querySelector(".al-xml"), pane === "intune" ? "Intune profile" : "Policy XML");
@@ -1716,7 +1952,13 @@ const AppLockerTool = (() => {
 
     $("alCopyXml").addEventListener("click", (e) => {
       if (!policy) return;
-      copyToClipboard(e.currentTarget, pane === "intune" ? intuneJson(intuneCfg.mode) : exportXml());
+      const part = ($("alDlPart") || {}).value || "all";
+      const col = part === "all" ? null : policy.collections.find((c) => c.type === part);
+      const mode = intuneCfg.mode === "Enforce" ? "Enabled" : "AuditOnly";
+      copyToClipboard(e.currentTarget,
+        pane === "intune"
+          ? (col ? collectionLines(col, "", mode).join("\n") : intuneJson(intuneCfg.mode))
+          : (col ? ['<AppLockerPolicy Version="1">', ...collectionLines(col, "  "), "</AppLockerPolicy>"].join("\n") : exportXml()));
     });
     $("alMd").addEventListener("click", () => { if (policy) download("applocker-review.md", markdown(), "text/markdown"); });
 
@@ -1730,6 +1972,13 @@ const AppLockerTool = (() => {
     };
     bind("alIntuneName", "displayName");
     bind("alIntuneGrouping", "grouping");
+    const regroup = $("alIntuneRegroup");
+    if (regroup) regroup.addEventListener("click", () => {
+      intuneCfg.grouping = newGrouping();
+      const inp = $("alIntuneGrouping");
+      if (inp) inp.value = intuneCfg.grouping;
+      renderCodePane();
+    });
     bind("alIntuneMode", "mode");
     // The deploy panel reads the same three fields, so it has to be redrawn
     // when they change — otherwise it offers to create a profile under a name
@@ -1741,6 +1990,13 @@ const AppLockerTool = (() => {
     renderDeploy();
 
     // ---- the download panel ----
+    // The Remediation box lives in step 1 and needs no policy — render it now,
+    // and re-render when its panel is opened, which is the moment the sign-in
+    // state matters and may have changed since page load.
+    renderRemedy();
+    const remedyDetails = document.getElementById("alRemedyDetails");
+    if (remedyDetails) remedyDetails.addEventListener("toggle", () => { if (remedyDetails.open) renderRemedy(); });
+
     const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
     document.querySelectorAll(".al-dl-cmd").forEach((el) => { el.textContent = cmdFor(el.dataset.file); });
     document.querySelectorAll(".al-dl-copy").forEach((b) => b.addEventListener("click", (e) => {
@@ -1781,7 +2037,90 @@ const AppLockerTool = (() => {
     picked: null,         // { id, displayName, count }
     error: null,          // last GraphError, shown verbatim
     note: "",
+    // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
+    // naming scheme, editable; created / coll are this session's state per pair.
+    remedy: {
+      cleanup: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8", created: null, coll: null },
+      ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
+    },
   };
+
+  // The Remediations T01 can create — one definition each. deployRemedyPair()
+  // and renderRemedy() both read THIS table, so a third pair is one entry
+  // here rather than a second copy of the deploy machinery. The two differ in
+  // one thing that matters more than any field: the cleanup pair is scoped to
+  // the migration window and unassigned after, the IT-TOOLS pair is a STANDING
+  // assignment — its point is catching a folder that drifts writable later.
+  const REMEDY_PAIRS = {
+    cleanup: {
+      detect: "Detect-TunoAppLockerPolicy.ps1",
+      remediate: "Clear-TunoAppLockerPolicy.ps1",
+      button: "Create the cleanup Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.`,
+      description: `AppLocker migration cleanup, deployed from {SITE}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean. SCOPE THIS TO THE MIGRATION WINDOW and unassign it once the new policy is live — left assigned, the detection reads the new policy as state to remove.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.`,
+    },
+    ittools: {
+      detect: "Detect-TunoItToolsFolders.ps1",
+      remediate: "Initialize-TunoItToolsFolders.ps1",
+      button: "Create the IT-TOOLS Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoItToolsFolders.ps1</code> and <code>Initialize-TunoItToolsFolders.ps1</code> — the folders provisioning as a detect-and-fix pair. Detection reports a device where the house folders are missing, where anyone outside SYSTEM and Administrators can write, or where SYSTEM itself cannot write (the house scripts log to <code>IT-TOOLS\\LOGS</code> as SYSTEM); remediation creates the folders, resets the ACL, and proves the log path by writing to it. Created <b>unassigned</b> — but unlike the cleanup pair this one is a <b>standing assignment</b>: leave it scheduled, because a folder that drifts writable after provisioning is exactly what it exists to catch. Assign it <b>before (or with) the audit profile</b>, never after the enforced one.`,
+      description: `IT-TOOLS house-folder provisioning, deployed from {SITE}. Detection: a house folder is missing, writable by anyone outside SYSTEM/Administrators, or SYSTEM cannot write (logging). Remediation: creates %ProgramData%\\IT-TOOLS, \\Apps, \\Scripts and \\LOGS, disables inheritance, sets SYSTEM+Administrators full control and Users read-and-execute, verifies by ACL read-back AND by writing a log line, exit 1 when not clean. STANDING ASSIGNMENT: leave it scheduled — the standing AppLocker allows for these folders are only safe while this detection stays quiet.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the estate that gets the AppLocker policy, with a recurring schedule, and LEAVE it assigned — this pair is the guard on the ACL the standing allow rules depend on, before the policy lands and after.`,
+    },
+  };
+
+  // Fetch a script from this site and base64 it the way deviceHealthScripts
+  // wants. TextEncoder first: the scripts carry a BOM and non-ASCII box
+  // characters, and btoa on raw text throws on anything outside Latin-1.
+  async function fetchScriptB64(file) {
+    const r = await fetch(new URL("scripts/" + file, document.baseURI).href, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Could not fetch ${file} from this site (HTTP ${r.status}).`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return btoa(bin);
+  }
+
+  async function deployRemedyPair(key) {
+    const d = deployState;
+    const p = REMEDY_PAIRS[key];
+    const r = d.remedy[key];
+    if (!p || !r) return;
+    d.error = null;
+    d.busy = "remedy-" + key;
+    renderDeploy();
+    try {
+      const name = (r.name || "").trim();
+      if (!name) throw new Error("The Remediation needs a name.");
+      // Read before write — same rule as the profiles. TUNO never overwrites
+      // a script it did not create; a same-name hit stops the deploy.
+      const existing = await Graph.remediations();
+      const coll = existing.filter((s) => String(s.displayName || "").trim().toLowerCase() === name.toLowerCase());
+      r.coll = coll;
+      if (coll.length) { d.busy = ""; renderDeploy(); return; }
+      // The exact bytes this site serves, not a copy pasted into the code —
+      // one source, the same discipline as the download buttons.
+      const [detect, remediate] = await Promise.all([
+        fetchScriptB64(p.detect),
+        fetchScriptB64(p.remediate),
+      ]);
+      const made = await Graph.createRemediation({
+        displayName: name,
+        description: p.description.replace("{SITE}", `${BRANDING.name} ${APP_BUILD.label}`),
+        publisher: BRANDING.name,
+        runAsAccount: "system",
+        runAs32Bit: false,
+        enforceSignatureCheck: false,
+        detectionScriptContent: detect,
+        remediationScriptContent: remediate,
+      });
+      made._name = name;
+      r.created = made;
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
 
   const escq = (s) => esc(s);
 
@@ -1800,12 +2139,65 @@ const AppLockerTool = (() => {
     return "";
   }
 
+  // The Remediation deploy, in step 1's collapsed panel beside the downloads it
+  // automates. Deliberately NOT gated on a loaded policy: a brownfield cleanup
+  // happens BEFORE there is a policy worth uploading, and parking this in the
+  // deploy panel hid it from exactly the person who needed it first.
+  function renderRemedy() {
+    const box = $("alRemedyBox");
+    if (!box) return;
+    const d = deployState;
+    const noGraph = typeof Graph === "undefined";
+    const signedIn = !noGraph && Graph.signedIn();
+
+    if (!signedIn) {
+      box.innerHTML = `<p class="mini muted" style="margin:0">Sign in with an account in the tenant you want to change and these become buttons. TUNO asks for <code>DeviceManagementScripts.ReadWrite.All</code> at the moment you press one — Remediations have their own write scope, separate from the one the profile deploy in step 5 uses, and it must be consented on the app registration first. The downloads above stay the manual route.</p>`;
+      return;
+    }
+
+    const err = d.error && d.busy !== "audit" && d.busy !== "enforce" ? `<div class="al-dep-err">
+        <b>${escq(d.error.kind === "admin" ? "The tenant refused this" : d.error.kind === "consent" ? "Consent was not granted" : d.error.kind === "throttled" ? "The tenant is throttling" : "Graph refused this")}.</b>
+        <div style="margin-top:4px">${escq(d.error.message)}</div>
+        ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
+      </div>` : "";
+
+    box.innerHTML = err + Object.entries(REMEDY_PAIRS).map(([key, p], i) => {
+      const r = d.remedy[key];
+      return `<div${i ? ` style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"` : ""}>
+      <p class="mini muted" style="margin:0 0 6px">${p.blurb}</p>
+      <div class="al-dep-row">
+        <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name)}" spellcheck="false">
+        <button class="btn primary sm al-dep-remedy" data-pair="${key}" ${d.busy ? "disabled" : ""}>${d.busy === "remedy-" + key ? "Creating…" : "🚀 " + escq(p.button)}</button>
+      </div>
+      ${r.coll && r.coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
+        <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
+        <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}</div>` : ""}
+      </div>`;
+    }).join("");
+
+    box.querySelectorAll(".al-dep-remedy").forEach((b) => b.addEventListener("click", () => deployRemedyPair(b.dataset.pair)));
+    box.querySelectorAll(".al-dep-remedy-name").forEach((el) => el.addEventListener("input", (e) => {
+      const r = deployState.remedy[el.dataset.pair];
+      if (!r) return;
+      r.name = e.target.value;
+      // A new name invalidates the last collision verdict — it was about the
+      // old name, and a stop-box against a name nobody is using reads as a
+      // refusal that is not happening.
+      r.coll = null;
+    }));
+  }
+
   function renderDeploy() {
+    renderRemedy();
     const box = $("alDeploy");
     if (!box) return;
     const d = deployState;
     const noGraph = typeof Graph === "undefined";
     const signedIn = !noGraph && Graph.signedIn();
+    if (noGraph || !policy) { box.innerHTML = ""; return; }
+    // AFTER the early return: computing these is what mints the grouping, and
+    // a build with no Graph should not mint identities it can never deploy.
     const name = intuneProfileName("Audit");
     const grouping = intuneGrouping();
     const issues = intuneIssues().filter((i) => i.sev === "High");
@@ -1816,8 +2208,6 @@ const AppLockerTool = (() => {
         ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
         ${d.error.consentUrl ? `<div class="mini" style="margin-top:6px">An administrator of this tenant grants it once, here: <a href="${escq(d.error.consentUrl)}" target="_blank" rel="noopener">admin consent for TUNO</a>. Nothing is granted by opening the link — it shows what is being asked for first.</div>` : ""}
       </div>` : "";
-
-    if (noGraph || !policy) { box.innerHTML = ""; return; }
 
     if (!signedIn) {
       box.innerHTML = `<div class="al-dep">
@@ -1922,6 +2312,9 @@ const AppLockerTool = (() => {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepAudit", "click", () => deployProfile("Audit"));
     on("alDepEnforce", "click", () => deployProfile("Enforce"));
+    // The Remediation controls are wired by renderRemedy() itself — its box
+    // renders on a different cadence, and wiring them here as well would
+    // attach a second listener and double every click into two POSTs.
     on("alDepCancel", "click", () => { deployState.picked = null; renderDeploy(); });
     on("alDepGroupFind", "click", async () => {
       const q = ($("alDepGroupQ") || {}).value || "";

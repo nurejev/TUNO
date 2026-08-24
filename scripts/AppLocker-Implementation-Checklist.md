@@ -60,6 +60,13 @@ A rule allowing `%PROGRAMFILES%\*` is only as strong as the ACLs underneath it.
 - [ ] **No UNC path is allowed** unless you have verified both the share and the NTFS ACLs on it. A browser cannot check this and neither can the XML.
 - [ ] **No wildcard reaches a drive root** — `*`, `C:\*`, `%OSDRIVE%\*` for anyone other than administrators.
 
+### The IT-TOOLS house folders
+
+- [ ] **The house folders were provisioned BEFORE the policy** — `Initialize-TunoItToolsFolders.ps1`, as SYSTEM. ProgramData lets a standard user create missing subfolders and own them; a user who creates `IT-TOOLS\Apps` first owns a folder every policy allows. The script disables inheritance, sets admin-only writes, resets pre-created folders, and exits 1 if a non-admin can still write.
+- [ ] The standing allows for `%OSDRIVE%\ProgramData\IT-TOOLS\Apps` and `…\Scripts` are present in Exe, MSI and Script — every generated policy carries them so IT-deployed tooling always runs, without anyone remembering to add the rule.
+- [ ] **The ACL on both folders restricts writes to SYSTEM and Administrators.** This is the condition the standing allows depend on: a user-writable folder with a standing allow is a live bypass. The scan checks it — a clean scan with no IT-TOOLS warning means it held.
+- [ ] `IT-TOOLS\LOGS` exists for script logging (the cleanup writes there) and has **no** allow rule — logs are not executables.
+
 ### Do not break your own delivery mechanism
 
 - [ ] **`%WINDIR%\IMECache` is allowed and NOT excepted.** Intune stages Win32 apps there and runs the installer from it. Except it and app delivery dies estate-wide, silently, days later.
@@ -102,7 +109,13 @@ Check each of these is **allowed for a standard user**, not just for an admin:
 - [ ] You have a deployment method for that service — a configuration profile or a remediation script — not a one-off manual change.
 - [ ] The policy is **AuditOnly**. Every collection. No exceptions to this rule.
 - [ ] The **pilot group** is named, small, and contains people who will tell you when something breaks.
-- [ ] The **grouping value** (Intune OMA-URI) is decided. Two profiles sharing a grouping replace each other; two with different groupings are merged by the CSP. Use the **same** grouping for audit and enforce so the enforced one replaces rather than stacks.
+- [ ] The **grouping value** (Intune OMA-URI) is decided, and it is **unique to this profile** — a randomly generated GUID is Microsoft's stated best practice. Two profiles sharing a grouping write the same OMA-URIs, and unassigning one can delete the nodes the other still depends on: *"Delete/unenrollment is not properly supported unless Grouping values are unique."*
+- [ ] You are planning to go from audit to enforce by **editing that one profile**, not by assigning a second profile beside it. One profile, one grouping, changed in place.
+- [ ] You know that **deploying does not clear what came before.** Every path adds rather than replaces — the CSP keeps one node per grouping and type until something explicitly deletes it, Group Policy merges rules from every linked GPO, and local policy persists until cleared. A collection your new policy omits **keeps running**, and if it was `NotConfigured` with rules it keeps *blocking*.
+- [ ] You have listed what the target devices are **already** running (`Get-AppLockerPolicy -Effective -Xml`, or upload a scan bundle to T01 and read the carry-over findings) and decided, per collection, whether to absorb it into this policy or remove it deliberately.
+- [ ] If they carry an old policy, the migration is planned as **three steps in order**: unassign the old profile or GPO first (cleanup without unassignment is a loop — it all returns at the next sync), run `Clear-TunoAppLockerPolicy.ps1` to sweep the local policy and the SrpV2 registry tattoo, then deploy the new policy under a **new grouping**. The cleanup backs up before it removes, preserves the audit event logs, leaves AppIDSvc running, and exits 1 when the device is not actually clean.
+- [ ] If the cleanup goes out as an Intune Remediation (paired with `Detect-TunoAppLockerPolicy.ps1`), it is scoped to the migration window and **unassigned once the new policy is live** — left in place, the detection reads the new policy as state to remove.
+- [ ] You have a **maintenance window**. The AppLocker CSP's Policy nodes carry automatic reboot behaviour — on apply *and* on delete. Neither the rollout nor the rollback is quiet.
 - [ ] **You have tested the way back.** Remove the assignment on a pilot device and confirm the policy actually clears. Do this before the estate depends on it, not after.
 - [ ] A **local administrator account** you can still use exists and works on the pilot devices.
 - [ ] The **helpdesk knows** what an AppLocker block looks like to a user, and what to collect.
@@ -150,6 +163,9 @@ Check each of these is **allowed for a standard user**, not just for an admin:
 - **Publisher rules match the signing certificate's subject**, not the vendor's name as you'd write it.
 - **`%PROGRAMFILES%` matches both Program Files trees.** `%SYSTEM32%` matches System32 and SysWOW64.
 - **Removing an Intune assignment removes the policy** — but a device that cannot run its management agent cannot be told that. Test the removal path early.
+- **Omitting a collection does not remove it.** Deployment adds; it does not replace. What the device already runs keeps running unless you delete it at the source.
+- **Two profiles must never share a grouping.** Unassigning one can delete the CSP nodes the other depends on. Use a GUID per profile.
+- **Applying and removing an AppLocker CSP policy both reboot the device.**
 - **RDS and multi-session hosts** need their own thought: one writable profile directory per concurrent user.
 
 ---
