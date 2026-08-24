@@ -294,7 +294,7 @@ const ComplianceTool = (() => {
         <h4 style="margin:0 0 4px">Stale devices (${sl.length})</h4>
         <p class="mini muted" style="margin:0 0 10px">No check-in for more than ${rep.staleDays} days — oldest first. Whatever these report, they reported it then.</p>
         <div class="gu-tw"><table class="cg-table"><thead><tr><th>Device</th><th style="width:110px">OS</th><th>User</th><th style="width:120px">State</th><th style="width:170px">Last check-in</th></tr></thead>
-        <tbody>${sl.slice(0, 50).map((d) => `<tr><td><b>${esc(d.name)}</b></td><td class="mini">${esc(d.os)}</td><td class="mini">${esc(d.user)}</td><td class="mini">${esc(d.state)}</td><td class="mini">${esc(String(d.lastSync).replace("T", " ").replace(/:\d\d(\.\d+)?Z$/, "Z"))}</td></tr>`).join("")}</tbody></table></div>
+        <tbody>${sl.slice(0, 50).map((d) => `<tr><td><a href="#" data-cpdev="${esc(d.name)}" title="Open in the Device analyzer — why does this machine have what it has, and when did it last say so"><b>${esc(d.name)}</b></a></td><td class="mini">${esc(d.os)}</td><td class="mini">${esc(d.user)}</td><td class="mini">${esc(d.state)}</td><td class="mini">${esc(String(d.lastSync).replace("T", " ").replace(/:\d\d(\.\d+)?Z$/, "Z"))}</td></tr>`).join("")}</tbody></table></div>
         ${sl.length > 50 ? `<p class="mini muted" style="margin:8px 0 0">Showing the oldest 50 of ${sl.length} — the CSV export carries all of them.</p>` : ""}
       </div>`);
     }
@@ -315,6 +315,19 @@ const ComplianceTool = (() => {
     $("cpMd").addEventListener("click", () => exportAs("md"));
     $("cpCsv").addEventListener("click", () => exportAs("csv"));
     $("cpStale").addEventListener("click", () => exportAs("stale"));
+    // A stale device opens in the Device analyzer (build 10398) — through
+    // the tile's own handler, the matrix click-through's rule: crumb, tab
+    // and sidebar all follow because the tool opened itself.
+    $("cpBody").addEventListener("click", (e) => {
+      const d = e.target.closest("[data-cpdev]");
+      if (!d) return;
+      e.preventDefault();
+      const tile = $("toolDevice"), term = $("dvTerm"), go = $("dvRun");
+      if (!tile || !term || !go) return;
+      tile.click();
+      term.value = d.dataset.cpdev;
+      go.click();
+    });
   }
 
   return { init, run };

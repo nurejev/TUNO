@@ -159,7 +159,7 @@ const PROMOTE = {
       n: 62,
       title: "R22 — the compliance report (T13)",
       tools: ["📈 Compliance report"],
-      builds: [10383, 10395],
+      builds: [10383, 10395, 10398],
       risk: "medium",
       what: "New tool T13 (js/compliance.js), after Alper Atar's IntuneShade (MIT). Estate: managedDevices ($select minimal, paged) bucketed compliant/noncompliant/grace/unknown/other, stale threshold on screen (default 30 days, never-synced counts stale), compliant-AND-stale counted in both columns with the tension stated. Policies: deviceCompliancePolicies?$expand=assignments, then deviceStatusOverview + deviceSettingStateSummaries per policy via $batch; only settings failing somewhere shown, worst-first sort; status-gap tag when a rollup could not be read (unknown ≠ clean); unassigned = 'evaluates nobody' tag. Failed estate/policy read marks that half unknown, not zero. No new scope. Exports MD + CSV + stale CSV. Tile (Monitoring), screen, tab, sidebar, t:13. R22 card to Now with the HTML-export departure tagged 'next'.",
       why: "MEDIUM — reads only on existing scopes, but the two rollup endpoints' field names (successCount/failedCount, settingName, nonCompliantDeviceCount) are asserted against fabricated shapes, not a real tenant's, and beta moves. The stale arithmetic and the both-columns rule are headlessly proven; whether Graph's rollup matches the portal's numbers on a real tenant is not provable here. Graduates when a real tenant's report matches the portal's compliance blade for the same policies, give or take the rollup's refresh lag.",

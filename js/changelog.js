@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10398, date: "2026-08-24", title: "A stale device answers to a click",
+    items: [
+      { kind: "improved", tool: "📈 Compliance report", text: "A device in the stale table is now a link: clicking it opens the Device analyzer on that machine — the question a stale row raises is exactly the one that tool answers, why does this device have what it has and when did it last say so. The click goes through the tool's own front door, so the tab bar and the sidebar follow along." },
+    ],
+  },
+  {
     build: 10397, date: "2026-08-24", title: "Reading looks like reading — ENCA's progress card, everywhere",
     items: [
       { kind: "improved", tool: "TUNO", text: "Every tool's read now shows what ENCA shows: a centred card in the middle of the result area — spinner, the current step, and a progress bar that fills when the tool knows how far it is (a pooled per-policy read, a batched sweep) and sweeps when it only knows the step. One shared implementation behind all fourteen tools, because fourteen hand-rolled progress cards is how fourteen subtly different ones happen. Two rules ride it: results are never covered — a tool re-reading over an existing answer keeps its quiet text line instead of painting a spinner over what somebody is reading — and the restore keeps its line-only progress on purpose, because its plan table must stay visible while an apply walks it." },
