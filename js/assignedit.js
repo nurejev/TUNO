@@ -321,6 +321,10 @@ const AssignEditTool = (() => {
       AssignEdit.SURFACES.map((s) => item(s.id, s.icon, s.label)).join("") +
       (read.failed.length ? `<p class="mini muted" style="margin:8px 6px 0">${read.failed.map((f) => esc(f.label)).join(", ")} could not be read — not listed, not editable this run.</p>` : "");
     side.style.display = "";
+    // the split is single-column until the rail exists — without this the
+    // hidden rail left the LIST in the 230px rail column (build 10405)
+    const split = side.closest(".ae-split");
+    if (split) split.classList.add("has-rail");
   }
 
   function renderPolicies() {

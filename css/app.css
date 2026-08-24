@@ -1594,7 +1594,13 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .sug-menu button:hover,.sug-menu button.on{background:var(--soft)}
 
 /* ---- T11: the Toolkit split (build 10390) — surfaces left, list right ---- */
-.ae-split{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;align-items:start}
+/* ONE column until the surface rail exists (build 10405). The rail is
+   display:none before a read, and a hidden grid item generates no track
+   occupant — so the list wrapper became the FIRST item and landed in the
+   230px RAIL column: the progress card rendered 230px wide, hard left.
+   assignedit.js adds .has-rail in the same breath that shows the rail. */
+.ae-split{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.ae-split.has-rail{grid-template-columns:230px minmax(0,1fr)}
 .ae-surfs{position:sticky;top:calc(var(--sticky-nav,106px) + 14px);
   max-height:calc(100vh - var(--sticky-nav,106px) - 28px);overflow-y:auto}
 /* The rail was sticky from birth and never stuck (build 10403): .list-card
@@ -1610,7 +1616,7 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .ae-surfs button.active{background:var(--green);color:#fff}
 :root[data-theme="dark"] .ae-surfs button.active{color:var(--green-deep)}
 .ae-surfs button.active .muted{color:inherit;opacity:.8}
-@media (max-width:1240px){.ae-split{grid-template-columns:1fr}.ae-surfs{position:static;display:flex;flex-wrap:wrap;gap:6px}.ae-surfs button{width:auto}}
+@media (max-width:1240px){.ae-split,.ae-split.has-rail{grid-template-columns:1fr}.ae-surfs{position:static;display:flex;flex-wrap:wrap;gap:6px}.ae-surfs button{width:auto}.ae-selbar{left:24px;right:24px}}
 
 /* ---- fit pass (build 10393): everything must fit the card ----
    The rule/value columns are the ones that ran away: a filter rule or a
@@ -1631,7 +1637,12 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
    so leaving the tool hides it with the screen. */
 .ae-selbar{display:none;position:fixed;bottom:14px;z-index:55;align-items:center;gap:12px;flex-wrap:wrap;row-gap:8px;
   background:var(--green-deep);color:#fff;border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);
-  left:calc(max(264px, (100vw - 1260px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 240px)/2))}
+  left:calc(max(264px, (100vw - 1260px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 240px)/2));
+  /* A PILL, not a plank (build 10405, mockup round): the bar shrinks to its
+     controls and the auto margins centre it between the left/right bounds,
+     which keep doing their real job — clearing the sidebar in both states.
+     Full width left the ✕ floating mid-bar with dead green to its right. */
+  width:fit-content;max-width:calc(100% - 48px);margin-inline:auto}
 .ae-selbar.visible{display:flex}
 body.with-side.side-min .ae-selbar{left:calc(max(76px, (100vw - 1444px)/2) + 32px);right:max(24px, calc((100vw - 1500px - 56px)/2))}
 .ae-selbar b{color:var(--lemon);white-space:nowrap}

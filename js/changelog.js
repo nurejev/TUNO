@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10405, date: "2026-08-24", title: "The editor's screen stops fighting its own layout",
+    items: [
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "Before a read, the reading progress card rendered 230 pixels wide and hard against the left edge. The surface rail's grid column was the culprit: the rail is hidden until the policies are read, and a hidden grid item leaves its 230-pixel column to whoever comes next — which was the list, progress card and all. The split is single-column until the rail actually exists, so the card now sits centred where every other tool puts it." },
+      { kind: "fixed", tool: "✏️ Assignment editor", text: "The floating selection bar is a pill sized to its controls, centred over the content column — not a full-width plank with the close button adrift in the middle and dead green stretching to the right edge. Its left and right bounds keep doing their real job of clearing the sidebar in both states, and below the sidebar breakpoint the bar centres over the whole window." },
+    ],
+  },
+  {
     build: 10404, date: "2026-08-24", title: "The editor learns the Toolkit's other targets",
     items: [
       { kind: "new", tool: "✏️ Assignment editor", text: "The selection bar grows the Intune Toolkit's remaining targeting: a target switch — Group, All devices, All users — and an assignment-filter dropdown fed by the Assignment filters tool's own list. A tenant-wide plan says what it is in capitals: the whole tenant, every device or user it has now and every one it gains later. Adding an exclusion of a tenant-wide target is refused, because Graph has no such thing — an exclusion names a group, and pretending otherwise would plan an operation the tenant cannot hold. Filters ride on adds only, with their include or exclude mode; a removal takes the whole assignment, filter included." },
