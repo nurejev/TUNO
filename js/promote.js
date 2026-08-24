@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 63,
+      title: "The header stops repeating itself",
+      tools: ["All tools"],
+      builds: [10407],
+      risk: "low",
+      what: "#brandHost is removed from the header, from applyBranding() and from the one media-query rule that hid it on narrow screens. It rendered BRANDING.host \u2014 the production hostname \u2014 unconditionally, so on production it repeated what the product badge already said, and on this channel it displayed an address the site is not served from. BRANDING.host itself is untouched: isProdHost(), the footer stamp and the export credits all still use it.",
+      why: "LOW \u2014 one element removed from the shell. Worth a look on both channels rather than one, because the reason it goes is that it was WRONG on the beta site, and that is the site where the removal is hardest to notice.",
+      test: [
+        "Look at the header on this channel and on production. Neither may show a hostname; both must still show the product badge.",
+        "Check the footer stamp and an export credit still carry the address \u2014 removing the header label must not have taken the address out of the places that legitimately state it.",
+        "Confirm the beta ribbon still appears here. It, not the hostname, is what tells you which channel you are on, and it is now the only thing doing that job.",
+        "Narrow the window: nothing should reflow oddly where the label used to sit, and the rule that hid it at that width is gone with it.",
+      ],
+      files: ["index.html", "js/app.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 62,
       title: "R22 — the compliance report (T13)",
       tools: ["📈 Compliance report"],

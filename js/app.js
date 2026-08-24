@@ -212,7 +212,6 @@ const Fs = (() => {
       el.innerHTML = tail ? `${esc(org.slice(0, org.length - tail.length))}<span>${esc(tail)}</span>` : esc(org);
     });
     set("brandTag", (el) => { el.textContent = B.name; });
-    set("brandHost", (el) => { el.textContent = B.host || ""; el.style.display = B.host ? "" : "none"; });
     set("brandLoginTitle", (el) => { el.textContent = B.loginTitle || Brand.title; });
     set("brandLoginBlurb", (el) => { if (B.loginBlurb) el.textContent = B.loginBlurb; });
     set("brandFoot", (el) => { el.textContent = [B.copyright, B.name].filter(Boolean).join(" · "); });

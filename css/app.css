@@ -1267,7 +1267,6 @@ main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-
   /* the header wraps instead of pushing the page wide: host string hidden
      (decoration), tenant box on its own row, long names ellipsised */
   .hwrap{flex-wrap:wrap;row-gap:6px;padding:10px 14px}
-  #brandHost{display:none}
   .tenant{flex:1 1 100%;min-width:0;justify-content:flex-end}
   #tenantName,#tenantUser{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48vw}
   /* wide tables (permissions overview, per-policy summaries) scroll inside

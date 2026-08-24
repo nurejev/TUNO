@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10407, date: "2026-08-24", title: "The header stops repeating itself",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The header carried the production address next to the product name, which said the same thing twice on production \u2014 and something worse on the beta channel. The address shown was always the PRODUCTION one, whichever site you were actually looking at, so the beta site displayed a hostname it is not served from. Removed. The name is on the badge, the channel is on the ribbon, and the address is still on the footer stamp and in every export credit, where it belongs." },
+    ],
+  },
+  {
     build: 10406, date: "2026-08-24", title: "Sixth promotion — the console shell and three writers are production",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 8 and takes queue items 44, 58, 59 and 63 to 67 with it — the console shell with its sidebar, the Assignment editor at v0.5 with the Toolkit parity work and today's layout fixes, Assignment filters with the gated delete, restore inside the backup tool, the App Control events loop, tenant autocomplete, the Intune RBAC rename and the progress card. The second partial promotion: items 41 to 43 (what-if, health, settings search) and 60 to 62 (the assignment matrix, the setting conflict scan, the compliance report) stay on this channel until each has run against a real tenant — they are the whole of the next promotion." },
