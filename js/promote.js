@@ -123,7 +123,7 @@ const PROMOTE = {
       n: 63,
       title: "R21 — assignment filters, read and write (T14)",
       tools: ["🧩 Assignment filters"],
-      builds: [10384, 10393],
+      builds: [10384, 10393, 10394],
       risk: "high",
       what: "New tool T14 (js/filters.js), after Alper Atar's IntuneShade (MIT). READ: assignmentFilters list; per-filter usage via GroupUse.analyze over its own SOURCES (match-all + tenant-wide), grouped by filterId; used-by ABSENT until scanned, zeros are floors when a surface failed. WRITE (the third writer, T11's rules for one object): create → read-back; edit → fresh read + lastModifiedDateTime drift stop (refused, nothing written) → PATCH → read-back verified field-for-field; delete → typed name confirm → FRESH $expand=payloads association check at the moment of the act (any reference REFUSES; a failed check REFUSES) → DELETE → notfound read-back. Cached usage dropped after every write. Graph layer gains patch/del under the no-retry write rule — first PATCH/DELETE in the app. Platform fixed after creation. Tile (Assignments & scope), screen, tab, sidebar, t:14, MD export.",
       why: "HIGH — a write tool, and its worst mistake is the quiet one: a deleted in-use filter widens every assignment that carried it, invisibly, tenant-wide. The gate order (check THEN delete), the drift stop, and the refuse-on-unverifiable rule are headlessly proven against fakes; what no fake proves is whether $expand=payloads reports every real association shape on a live tenant, and that is exactly the fact the gate rests on. Graduates only after the delete gate has REFUSED a real in-use filter in a real tenant, and a create/edit/delete round-trip has been verified in the portal.",

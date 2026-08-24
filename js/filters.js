@@ -184,6 +184,12 @@ const FiltersTool = (() => {
 
   let filters = null, use = null, running = false;
   let editing = null;   // { id, stamp } while the form edits an existing filter
+  // Build 10394: the references chip FILTERS (only filters something uses),
+  // and a row's used-by count EXPANDS into the references themselves. Both
+  // exist only after a scan — before it, usage is absent, and a filter on
+  // an absent column would be a filter on nothing.
+  let usedOnly = false;
+  const openUse = new Set();
 
   function prog(msg) { const el = $("afProg"); if (el) el.innerHTML = msg ? esc(msg) : ""; }
   function download(name, text, type) {
@@ -229,29 +235,39 @@ const FiltersTool = (() => {
   function render() {
     const stat = (n, label) => `<span class="gu-stat ${n ? "" : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
     const scanned = !!use;
-    const rows = filters.map((f) => {
+    if (!scanned) usedOnly = false;   // a filter on an absent column filters nothing
+    const shown = filters.filter((f) => !usedOnly || (use.by.get(f.id) || []).length);
+    const rows = shown.map((f) => {
       const u = scanned ? (use.by.get(f.id) || []) : null;
+      const open = scanned && openUse.has(f.id) && u.length;
       return `<tr>
         <td><b>${esc(f.displayName)}</b>${f.description ? `<div class="mini muted">${esc(f.description)}</div>` : ""}</td>
         <td class="mini">${esc(Filters.platformLabel(f.platform))}</td>
         <td class="mini">${esc(f.assignmentFilterManagementType || "devices")}</td>
         ${scanned
-          ? `<td class="gu-num${u.length ? "" : " gu-zero"}" title="${esc(u.map((x) => x.policy).join(", "))}">${u.length}</td>`
+          ? (u.length
+            ? `<td class="gu-num"><a href="#" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter"><b>${u.length}</b> ${open ? "▾" : "▸"}</a></td>`
+            : `<td class="gu-num gu-zero">0</td>`)
           : `<td class="gu-num mini muted" title="Usage has not been scanned — absent, not zero">—</td>`}
         <td class="mini"><code style="overflow-wrap:anywhere">${esc(String(f.rule || "").slice(0, 160))}${String(f.rule || "").length > 160 ? "…" : ""}</code></td>
         <td class="af-acts">
           <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
           <button class="btn sm" data-afdel="${esc(f.id)}" title="Refused while any assignment references this filter">🗑 Delete</button>
-        </td></tr>`;
+        </td></tr>${open ? `<tr class="af-userow"><td colspan="6">
+          ${u.map((x) => `<span class="gu-stat"><b>${esc(x.policy)}</b> · ${esc(x.source)} · ${esc(x.how)}${x.mode ? ` · ${esc(x.mode)}` : ""}</span>`).join(" ")}
+        </td></tr>` : ""}`;
     }).join("");
 
     const usageNote = scanned
       ? (use.failed.length ? `<div class="gu-fail"><b>${use.failed.length} surfaces could not be read</b> (${use.failed.map((f) => esc(f.label)).join(", ")})<span class="why">A zero in the used-by column is a floor, not an answer — a reference may exist on the unread surfaces.</span></div>` : "")
       : `<p class="mini muted"><b>The used-by column is absent, not empty</b> — scan usage to fill it. The scan is one read per assignment surface (the Group Analyzer's own source table), matched here by filter id.</p>`;
 
+    const refCount = scanned ? [...use.by.values()].reduce((n, v) => n + v.length, 0) : 0;
     $("afBody").innerHTML = `<div class="gu-sticky">
-      <span class="gu-who">Assignment filters</span>
-      <div class="gu-sum">${stat(filters.length, "filters")}${scanned ? stat([...use.by.values()].reduce((n, v) => n + v.length, 0), "references") : `<span class="gu-stat zero"><b>—</b> references</span>`}</div>
+      <span class="gu-who">Assignment filters${usedOnly ? ` <span class="mini muted">— only filters something uses</span>` : ""}</span>
+      <div class="gu-sum">${stat(filters.length, "filters")}${scanned
+        ? `<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a>`
+        : `<span class="gu-stat zero" title="Scan usage to fill this — absent, not zero"><b>—</b> references</span>`}</div>
     </div>
     <div class="list-card">
       ${usageNote}
@@ -314,6 +330,7 @@ const FiltersTool = (() => {
   async function refreshList() {
     filters = (await Filters.list()).sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)));
     use = null;   // the scan described the tenant before the write — absent again, not stale
+    openUse.clear(); usedOnly = false;
     render();
   }
 
@@ -359,7 +376,16 @@ const FiltersTool = (() => {
       const ed = e.target.closest("[data-afedit]");
       if (ed) { const f = filters.find((x) => x.id === ed.dataset.afedit); if (f) openForm(f); return; }
       const dl = e.target.closest("[data-afdel]");
-      if (dl) { const f = filters.find((x) => x.id === dl.dataset.afdel); if (f) confirmDelete(f); }
+      if (dl) { const f = filters.find((x) => x.id === dl.dataset.afdel); if (f) confirmDelete(f); return; }
+      // the references chip filters; a row's count expands (build 10394)
+      const rc = e.target.closest("[data-afrefs]");
+      if (rc) { e.preventDefault(); usedOnly = !usedOnly; render(); return; }
+      const uc = e.target.closest("[data-afuse]");
+      if (uc) {
+        e.preventDefault();
+        openUse.has(uc.dataset.afuse) ? openUse.delete(uc.dataset.afuse) : openUse.add(uc.dataset.afuse);
+        render();
+      }
     });
   }
 

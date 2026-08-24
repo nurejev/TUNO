@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10394, date: "2026-08-24", title: "The references count answers back",
+    items: [
+      { kind: "improved", tool: "🧩 Assignment filters", text: "After a usage scan, the references chip is a filter: click it and the list narrows to only the filters something actually uses; click again and everything returns. And a row's used-by count expands in place into the references themselves — which policy, on which surface, include or exclude, and the filter mode — instead of hiding them in a hover title. Both exist only once usage has been scanned, because a filter on an absent column would be a filter on nothing; after any write the scan drops back to absent and both reset with it." },
+    ],
+  },
+  {
     build: 10393, date: "2026-08-24", title: "Everything fits the card",
     items: [
       { kind: "fixed", tool: "🧩 Assignment filters", text: "The filter table fits its card instead of scrolling sideways: the columns have real widths now, a rule wraps at any character rather than pushing the Edit and Delete buttons off the edge, and the actions stay pinned right. The same fit pass covers the conflict scan's value tables and the restore picker — a long value wraps inside its column, and nothing forces the page wide." },

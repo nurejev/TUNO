@@ -1592,6 +1592,16 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
 .cf-item .cg-table{table-layout:fixed;width:100%}
 .cf-item .cg-table td:last-child{overflow-wrap:anywhere}
 
+/* T14 (build 10394): the references chip is a filter, a count expands */
+a.gu-stat{text-decoration:none;cursor:pointer}
+a.gu-stat:hover{border-color:var(--green)}
+.gu-stat.af-on{background:var(--green);border-color:var(--green);color:#fff}
+.gu-stat.af-on b{color:inherit}
+:root[data-theme="dark"] .gu-stat.af-on{color:var(--green-deep)}
+td.gu-num a{color:inherit;text-decoration:none}
+td.gu-num a:hover b{color:var(--green);text-decoration:underline}
+.af-userow td{background:var(--soft)}
+
 /* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
    third of the screen: it goes, and the shell returns to the centred column.
    The tab bar and the home grid keep every tool reachable — the sidebar is a
