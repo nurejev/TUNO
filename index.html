@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10409"></script>
+<script src="js/popup-guard.js?v=10410"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10409">
+<link rel="stylesheet" href="css/app.css?v=10410">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10409"></script>
+<script src="js/selfhost-boot.js?v=10410"></script>
 </head>
 <body>
 
@@ -193,6 +193,15 @@
       <h2 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator <span class="tag new">BETA</span></h2>
       <p class="mini" style="margin:0">Scan a device, upload what the scan produced, edit the policy here, and export it as XML for a GPO or as a ready-to-import Intune custom profile. Everything is audited in the browser with the check set from Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>, and the Microsoft coverage table answers the question every lockdown discovers too late: can a standard user still run OneDrive, Teams, Edge and Office? <b>Nothing is uploaded</b> — the file is read in this tab and stays there. You can skip step 1 entirely and import a plain policy XML instead; the scan is what lets the tool see the ACLs a browser cannot.</p>
     </div>
+
+    <!-- ============ THE AUDIT LOOP ============
+         The page reads 1→5 top to bottom, but the work is a CIRCLE — collect,
+         find gaps, close them, update, collect again — and that was visible
+         only to someone who already knew it. This strip draws the circle and
+         lights each station from what is actually loaded or in the tenant
+         THIS SESSION. Rendered by renderLoopStrip() in js/applocker.js;
+         mockup round picked the live strip over a Help-only walkthrough. -->
+    <div class="list-card al-loop" id="alLoop" style="margin-top:14px;padding:12px 16px"></div>
 
     <!-- ============ STEP 1 — the scripts ============
          The scan cannot happen in a browser: reading a DACL, an Authenticode
@@ -1386,31 +1395,31 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10409"></script>
-<script src="js/selfhost.js?v=10409"></script>
-<script src="js/version.js?v=10409"></script>
-<script src="js/promote.js?v=10409"></script>
-<script src="js/authConfig.js?v=10409"></script>
-<script src="js/changelog.js?v=10409"></script>
-<script src="js/msappcatalog.js?v=10409"></script>
-<script src="js/graph.js?v=10409"></script>
-<script src="js/suggest.js?v=10409"></script>
-<script src="js/progress.js?v=10409"></script>
-<script src="js/groupuse.js?v=10409"></script>
-<script src="js/audit.js?v=10409"></script>
-<script src="js/backup.js?v=10409"></script>
-<script src="js/document.js?v=10409"></script>
-<script src="js/devicewhy.js?v=10409"></script>
-<script src="js/whatif.js?v=10409"></script>
-<script src="js/health.js?v=10409"></script>
-<script src="js/settingsearch.js?v=10409"></script>
-<script src="js/conflict.js?v=10409"></script>
-<script src="js/compliance.js?v=10409"></script>
-<script src="js/filters.js?v=10409"></script>
-<script src="js/restore.js?v=10409"></script>
-<script src="js/assignedit.js?v=10409"></script>
-<script src="js/roles.js?v=10409"></script>
-<script src="js/applocker.js?v=10409"></script>
-<script src="js/app.js?v=10409"></script>
+<script src="js/branding.js?v=10410"></script>
+<script src="js/selfhost.js?v=10410"></script>
+<script src="js/version.js?v=10410"></script>
+<script src="js/promote.js?v=10410"></script>
+<script src="js/authConfig.js?v=10410"></script>
+<script src="js/changelog.js?v=10410"></script>
+<script src="js/msappcatalog.js?v=10410"></script>
+<script src="js/graph.js?v=10410"></script>
+<script src="js/suggest.js?v=10410"></script>
+<script src="js/progress.js?v=10410"></script>
+<script src="js/groupuse.js?v=10410"></script>
+<script src="js/audit.js?v=10410"></script>
+<script src="js/backup.js?v=10410"></script>
+<script src="js/document.js?v=10410"></script>
+<script src="js/devicewhy.js?v=10410"></script>
+<script src="js/whatif.js?v=10410"></script>
+<script src="js/health.js?v=10410"></script>
+<script src="js/settingsearch.js?v=10410"></script>
+<script src="js/conflict.js?v=10410"></script>
+<script src="js/compliance.js?v=10410"></script>
+<script src="js/filters.js?v=10410"></script>
+<script src="js/restore.js?v=10410"></script>
+<script src="js/assignedit.js?v=10410"></script>
+<script src="js/roles.js?v=10410"></script>
+<script src="js/applocker.js?v=10410"></script>
+<script src="js/app.js?v=10410"></script>
 </body>
 </html>

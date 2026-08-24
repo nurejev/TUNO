@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 71,
+      title: "The audit loop strip",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10410],
+      risk: "low",
+      what: "T01 v0.13. A strip above step 1 draws the circle the 1→5 numbering hides: Scan → Build → Deploy audit → Collect → Gaps → Update profile → Enforce. Stations lit from session state only (scan/policy/created-or-found audit profile/events bundle); the Gaps station reads fleetGapStats() — the SAME pass as the evidence card's chips and the gap report, so numbers cannot disagree; Enforce reads enforceBlockedBecause(). You-are-here ring on the first unlit station; click scrolls (scroll-margin-top so the sticky header does not swallow the target, DETAILS targets opened first). The Update station never claims done — a portal edit is invisible to the tab, said on the strip. Collapses to a one-line summary via guarded localStorage. Colors are theme variables only; mockup round picked the live strip over a Help-only walkthrough.",
+      why: "LOW — reads session state, writes nothing, and every number it shows comes from a pass that already existed. The judgement that needs eyes: whether seven stations fit one row on a laptop width without wrapping into noise, and whether the you-are-here ring reads in the dark theme.",
+      test: [
+        "Fresh load: strip shows with the ring on Scan, every station muted, and clicking Enforce scrolls to the enforcement panel without the sticky header covering it.",
+        "Walk the real loop: load a scan, watch Scan+Build light; deploy (or preflight-find) the audit profile, watch Deploy light; upload an events bundle with open gaps, watch Gaps go amber with the same count as the card; close them, watch it go green.",
+        "THE ONE THAT MATTERS: cycle all three themes on the strip in both states (open gaps amber, zero-gap green) — every station must stay readable; no literal colors exist in the CSS to betray dark mode.",
+        "Collapse the strip, refresh: it stays collapsed (localStorage), and the one-line summary still names the open-gap count.",
+        "Narrow the window to laptop width: the stations may wrap but must not overlap or truncate the you-are-here ring.",
+      ],
+      files: ["js/applocker.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 70,
       title: "The fleet gap report, and fixes that close it",
       tools: ["🔐 AppLocker builder & validator"],

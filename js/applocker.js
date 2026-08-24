@@ -571,6 +571,19 @@ const AppLockerTool = (() => {
     return L.join("\n");
   }
 
+  // One classification pass over the whole bundle — the loop strip, the chips
+  // and the gap report all read THIS, so their numbers cannot disagree.
+  function fleetGapStats() {
+    if (!eventsEvidence) return null;
+    const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0 };
+    for (const row of rows) {
+      const c = fleetRowClass(row, draftVerdictForEvent(row.sample));
+      out[c === "bydesign" ? "bydesign" : c]++;
+    }
+    return out;
+  }
+
   // Rendered rows, keyed, so the fix buttons can find their row after the
   // innerHTML they live in has been rebuilt.
   let fleetRowByKey = new Map();
@@ -590,12 +603,9 @@ const AppLockerTool = (() => {
     fleetRowByKey = new Map();
 
     // Classify everything (the chips and the report cover ALL rows, not the 50
-    // shown) — the counts must agree with the report this card downloads.
-    let nGap = 0, nDesign = 0, nCovered = 0, nUndecided = 0;
-    for (const row of rows) {
-      const c = fleetRowClass(row, draftVerdictForEvent(row.sample));
-      if (c === "gap") nGap++; else if (c === "bydesign") nDesign++; else if (c === "covered") nCovered++; else nUndecided++;
-    }
+    // shown) — one pass shared with the loop strip, so the numbers agree.
+    const gs = fleetGapStats() || { gap: 0, bydesign: 0, covered: 0, undecided: 0 };
+    const nGap = gs.gap, nDesign = gs.bydesign, nCovered = gs.covered, nUndecided = gs.undecided;
 
     const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
 
@@ -2522,8 +2532,83 @@ const AppLockerTool = (() => {
     }));
   }
 
+  // ================================================================
+  // THE AUDIT LOOP STRIP — the circle the page's 1→5 numbering hides.
+  //
+  // Seven stations, lit from what is actually loaded or known to be in the
+  // tenant THIS SESSION — never from belief. The strip cannot see the tenant
+  // without a sign-in and cannot see a portal edit at all, and says so in its
+  // sublabels rather than guessing. "You are here" is the first station that
+  // is not done, which is also the answer to "what do I do next".
+  // ================================================================
+  const LOOP_COLLAPSE_KEY = "tuno-al-loop-collapsed";
+  const loopCollapsed = () => { try { return localStorage.getItem(LOOP_COLLAPSE_KEY) === "1"; } catch { return false; } };
+
+  function loopStations() {
+    const signedIn = typeof Graph !== "undefined" && Graph.signedIn();
+    const auditIn = !!(createdFor("audit") || (deployState.checked && deployState.checked.auditInTenant));
+    const gs = fleetGapStats();
+    const ruleCount = policy ? policy.collections.reduce((n, c) => n + c.rules.length, 0) : 0;
+    const enforceWhy = policy ? enforceBlockedBecause() : "not there yet";
+    const collectorMade = !!(deployState.remedy && deployState.remedy.events && deployState.remedy.events.created);
+    return [
+      { ico: "🖥", name: "Scan", done: !!scan, target: ".al-steps",
+        sub: scan ? esc((scan.machine || {}).name || "bundle loaded") + " ✓" : "reference machine" },
+      { ico: "🛠", name: "Build", done: !!policy && ruleCount > 0, target: policy ? "#alSummary" : "#alEmpty",
+        sub: policy ? ruleCount + " rules on the table" : "upload bundle or XML" },
+      { ico: "☁", name: "Deploy audit", done: auditIn, target: "#alDeploy",
+        sub: auditIn ? "in the tenant ✓" : signedIn ? "not created yet" : "sign in to check" },
+      { ico: "📡", name: "Collect", done: !!eventsEvidence, target: "#alRemedyDetails",
+        sub: eventsEvidence ? "bundle uploaded ✓" : collectorMade ? "Remediation created — retrieve bundles" : "deploy the collector pair" },
+      { ico: "🕳", name: "Gaps", done: !!gs && gs.gap === 0, warn: !!gs && gs.gap > 0, target: eventsEvidence ? "#alEvents" : "#alRemedyDetails",
+        sub: gs ? (gs.gap ? gs.gap + " open" : "0 open ✓") : "upload the events bundle" },
+      { ico: "↻", name: "Update profile", done: false, target: "#alDeploy",
+        sub: gs && gs.gap === 0 ? "edit the tenant profile in place" : "after the gaps close" },
+      { ico: "🔒", name: "Enforce", done: enforceWhy === "", target: "#alEnforce",
+        sub: enforceWhy === "" ? "gate open" : "gated" },
+    ];
+  }
+
+  function renderLoopStrip() {
+    const host = $("alLoop");
+    if (!host) return;
+    const st = loopStations();
+    const here = st.findIndex((s) => !s.done);
+    const collapsed = loopCollapsed();
+
+    const summary = st.map((s, i) => `${s.name} ${s.done ? "✓" : s.warn ? "⚠ " + s.sub : i === here ? "←" : "·"}`).join("  ");
+    host.innerHTML = `
+      <div class="al-loop-head">
+        <b>🔁 The audit loop</b>
+        ${collapsed ? `<span class="al-loop-mini">${esc(summary)}</span>` : `<span class="al-loop-mini">the page reads top to bottom — the work goes around</span>`}
+        <button class="btn sm al-loop-toggle" id="alLoopToggle" title="${collapsed ? "Expand the loop strip" : "Collapse to one line"}">${collapsed ? "▸" : "▾"}</button>
+      </div>
+      ${collapsed ? "" : `
+      <div class="al-loop-row" style="margin-top:8px">
+        ${st.map((s, i) => `${i ? `<span class="al-loop-arrow">→</span>` : ""}
+          <button class="al-loop-st ${s.done ? "done" : s.warn ? "warn" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
+            <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}</span>
+          </button>`).join("")}
+      </div>
+      <div class="al-loop-back">↰ <span>Collect → Gaps → Update repeats until a full window shows <b>0 gaps</b> — that evidence is what the Enforce gate reads. Updating the profile happens in the portal (edit in place, same grouping); this strip cannot see it and does not pretend to.</span></div>`}
+    `;
+
+    const t = $("alLoopToggle");
+    if (t) t.addEventListener("click", () => {
+      try { loopCollapsed() ? localStorage.removeItem(LOOP_COLLAPSE_KEY) : localStorage.setItem(LOOP_COLLAPSE_KEY, "1"); } catch { /* private mode */ }
+      renderLoopStrip();
+    });
+    host.querySelectorAll(".al-loop-st").forEach((b) => b.addEventListener("click", () => {
+      const el = document.querySelector(b.dataset.target);
+      if (!el) return;
+      if (el.tagName === "DETAILS") el.open = true;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+  }
+
   function renderDeploy() {
     renderRemedy();
+    renderLoopStrip();
     const box = $("alDeploy");
     if (!box) return;
     const d = deployState;
