@@ -9,10 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10407"></script>
+<script src="js/popup-guard.js?v=10408"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10407">
+<link rel="stylesheet" href="css/app.css?v=10408">
+<!-- BLOCKING, after the stylesheet: paints this browser's known self-host
+     branding (palette, logo, favicon) before first paint, so a branded
+     instance never flashes the default look. No-op without a stored brand. -->
+<script src="js/selfhost-boot.js?v=10408"></script>
 </head>
 <body>
 
@@ -1161,6 +1165,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>No new scope</b>, as promised — the estate rides <span class="rm-ref">R03</span>'s device read, the policies ride the config read. The <span class="rm-ref">R12</span> honesty rule arrived with it: the numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule and labelled so; a policy whose statuses could not be read is <b>listed with the gap stated</b>, never absent; and per-device drill-down for one machine is named as <span class="rm-ref">R03</span>'s job rather than half-done here. Exports Markdown, CSV, and a stale-devices CSV. <span class="tag">HTML export next</span></p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R24</span> ⚙ Self-host branding <span class="tag grant">live · beta 10408</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">ENCA's mechanism, ported whole: the ⚙ gear next to Sign out, on any non-production host — product and organisation names, logos, login text and light/dark identity colours, through the same override mechanism as the hosted per-audience looks. Chrome only; exports keep the neutral product credit. <b>Apply</b> keeps the look in this browser; <b>Download</b> produces <code>selfhost-branding.json</code>, <b>Import</b> reads one back into the form for review — and serving that file next to index.html gives every visitor the branding and softens the red BETA ribbon to a neutral SELF-HOSTED one, because a deliberately configured instance is not a test site. What the gear will never configure is the canonical host: that drives the production check and the export credit, and a settings dialog must not be able to make a copy claim to be production.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag grant">live · beta 10384 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
             <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, and both halves shipped together. The read half: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — read through <span class="rm-ref">R04</span>'s own source table, exactly as the card promised, so a surface added there is counted here. The usage scan is optional and the used-by column is <b>absent, not zero</b>, until it runs; a surface that could not be read makes every zero a floor, and the screen says so.</p>
             <p class="mini" style="margin:6px 0 0"><b>The writes carry <span class="rm-ref">R13</span>'s rules</b>, sized for one object: the write scope at the click, an edit preceded by a fresh read and <b>refused as drifted</b> if the filter changed since it was loaded, every write verified by read-back, delete confirmed by typing the name. And the rule the card was written for: <b>delete is refused while usage is non-zero</b> — checked against the tenant's own payload associations <i>at the moment of the act</i>, not against the session's cached scan, and “could not check” refuses too, because a filter deleted while in use silently widens every assignment that carried it. This is the first PATCH and the first DELETE in the application; both arrived in the Graph layer with the same no-retry rule writes have always had.</p>
@@ -1378,30 +1386,31 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10407"></script>
-<script src="js/version.js?v=10407"></script>
-<script src="js/promote.js?v=10407"></script>
-<script src="js/authConfig.js?v=10407"></script>
-<script src="js/changelog.js?v=10407"></script>
-<script src="js/msappcatalog.js?v=10407"></script>
-<script src="js/graph.js?v=10407"></script>
-<script src="js/suggest.js?v=10407"></script>
-<script src="js/progress.js?v=10407"></script>
-<script src="js/groupuse.js?v=10407"></script>
-<script src="js/audit.js?v=10407"></script>
-<script src="js/backup.js?v=10407"></script>
-<script src="js/document.js?v=10407"></script>
-<script src="js/devicewhy.js?v=10407"></script>
-<script src="js/whatif.js?v=10407"></script>
-<script src="js/health.js?v=10407"></script>
-<script src="js/settingsearch.js?v=10407"></script>
-<script src="js/conflict.js?v=10407"></script>
-<script src="js/compliance.js?v=10407"></script>
-<script src="js/filters.js?v=10407"></script>
-<script src="js/restore.js?v=10407"></script>
-<script src="js/assignedit.js?v=10407"></script>
-<script src="js/roles.js?v=10407"></script>
-<script src="js/applocker.js?v=10407"></script>
-<script src="js/app.js?v=10407"></script>
+<script src="js/branding.js?v=10408"></script>
+<script src="js/selfhost.js?v=10408"></script>
+<script src="js/version.js?v=10408"></script>
+<script src="js/promote.js?v=10408"></script>
+<script src="js/authConfig.js?v=10408"></script>
+<script src="js/changelog.js?v=10408"></script>
+<script src="js/msappcatalog.js?v=10408"></script>
+<script src="js/graph.js?v=10408"></script>
+<script src="js/suggest.js?v=10408"></script>
+<script src="js/progress.js?v=10408"></script>
+<script src="js/groupuse.js?v=10408"></script>
+<script src="js/audit.js?v=10408"></script>
+<script src="js/backup.js?v=10408"></script>
+<script src="js/document.js?v=10408"></script>
+<script src="js/devicewhy.js?v=10408"></script>
+<script src="js/whatif.js?v=10408"></script>
+<script src="js/health.js?v=10408"></script>
+<script src="js/settingsearch.js?v=10408"></script>
+<script src="js/conflict.js?v=10408"></script>
+<script src="js/compliance.js?v=10408"></script>
+<script src="js/filters.js?v=10408"></script>
+<script src="js/restore.js?v=10408"></script>
+<script src="js/assignedit.js?v=10408"></script>
+<script src="js/roles.js?v=10408"></script>
+<script src="js/applocker.js?v=10408"></script>
+<script src="js/app.js?v=10408"></script>
 </body>
 </html>

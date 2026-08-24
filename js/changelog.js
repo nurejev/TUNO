@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10408, date: "2026-08-24", title: "A self-hosted instance can wear its own name",
+    items: [
+      { kind: "new", tool: "TUNO", text: "Self-host branding, ported whole from the sister tool: a gear button beside Sign out, on any host that is not production. Product and organisation names, logos, login text and light and dark identity colours — chrome only, so every export keeps the neutral TUNO credit whoever's colours the screen wears. Apply keeps the look in this browser; Download produces a selfhost-branding.json that, served next to index.html, gives every visitor the branding and softens the red BETA ribbon to a neutral SELF-HOSTED one — a deliberately configured instance is not a test site, but it must still never be mistakable for the production deployment. Import reads a file back into the form for review before anything applies. The one thing the gear will never configure is the canonical host: that drives the production check and the export credit, and a settings dialog must not be able to make a copy claim to be production." },
+      { kind: "new", tool: "TUNO", text: "A branded instance paints its own look first. A small blocking script in the page head reads the brand this browser already knows and injects the palette, logo and favicon before anything renders, so a refresh no longer flashes the default look for a moment. The very first visit in a fresh browser still flashes once — that is the floor for a static site — and the authoritative branding pass takes over the moment the app scripts arrive." },
+    ],
+  },
+  {
     build: 10407, date: "2026-08-24", title: "The header stops repeating itself",
     items: [
       { kind: "fixed", tool: "All tools", text: "The header carried the production address next to the product name, which said the same thing twice on production \u2014 and something worse on the beta channel. The address shown was always the PRODUCTION one, whichever site you were actually looking at, so the beta site displayed a hostname it is not served from. Removed. The name is on the badge, the channel is on the ribbon, and the address is still on the footer stamp and in every export credit, where it belongs." },

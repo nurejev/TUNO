@@ -70,7 +70,28 @@ const PROMOTE = {
 
   items: [
     {
-      n: 63,
+      n: 69,
+      title: "Self-host branding — the ⚙ gear, ported from ENCA",
+      tools: ["TUNO"],
+      builds: [10408],
+      risk: "low",
+      what: "ENCA's self-host branding, ported verbatim (keys, event name and product words aside): js/selfhost.js puts a ⚙ gear beside Sign out on any NON-production host — product and organisation names, logos, login text, light/dark identity colours — through the same BRAND_OVERRIDES mechanism as the hosted per-audience looks. Chrome only; exports keep the neutral TUNO credit. 💾 Apply keeps the look in this browser (localStorage); ⭳ Download produces selfhost-branding.json, ⭱ Import reads one back for review; a deployment serving that file next to index.html brands every visitor and softens the BETA ribbon to a neutral SELF-HOSTED one. js/selfhost-boot.js is the before-first-paint half: blocking in head, it paints the cached brand so a branded instance never flashes Limon-IT. app.js gains ENCA's activeOverrideKey()/activeBrand() and the override-aware applyBranding() (data-brand attr, per-theme stylesheet injection, logoWide, hideOrgName), the ribbon carries id and titleTag as the seam, and sign-in gains the forUpn hook. The gear can never configure BRANDING.host: that drives the production check and the export credit, and a settings dialog must not let a copy claim to be production. The Dovilo and PVM customer brandings came across too — gitignored, offline only, never published from this repo.",
+      why: "LOW — additive and gated to non-production hosts; on tuno.limon-it.nl the file returns before doing anything. The judgement calls needing real eyes: the gear dialog at phone width, a wide wordmark in the header slot, and the first-visit flash the boot file exists to remove. Sanitising is ENCA's proven set (charset-checked colours, data:-URI-or-relative assets), asserted headlessly here too.",
+      test: [
+        "THE ONE THAT MATTERS: on the beta site, open ⚙, set a name and both palettes, 💾 Apply — the chrome rebrands without a reload. F5: the branded look paints FIRST (no Limon-IT flash — the boot file's whole job). ✖ Remove local branding: the default look returns, immediately and after another F5.",
+        "⭳ Download, hand-edit one colour in the JSON, ⭱ Import — the form shows the file's values for review, nothing applies until 💾. Import the Dovilo and PVM files the same way: both must render their look, wide wordmark and hidden org name included.",
+        "Serve a selfhost-branding.json next to index.html (local dev server): every fresh browser gets the branding, and the red BETA ribbon reads ⚙ SELF-HOSTED instead — while a host still named tuno.limon-it.nl must show NO gear at all.",
+        "Exports while branded: the Markdown credit must still say TUNO (tuno.limon-it.nl) — chrome only is the contract.",
+        "Both themes while branded: light and dark palettes each apply under their own theme, auto mode follows the OS, and the theme toggle still works.",
+        "Private window: the gear must not error; Apply says it cannot save.",
+      ],
+      files: ["js/selfhost.js", "js/selfhost-boot.js", "js/app.js", "index.html", ".gitignore", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
+      // Renumbered from 63 at build 10408: 63 belonged to T14 assignment
+      // filters and shipped as production build 8 — numbers are never
+      // reused. 68 was the next free number when this item was cut.
+      n: 68,
       title: "The header stops repeating itself",
       tools: ["All tools"],
       builds: [10407],

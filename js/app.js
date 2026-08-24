@@ -196,17 +196,85 @@ const Fs = (() => {
     console.info(`${BRANDING.name} ${APP_BUILD.full}`);
   })();
 
-  // ---------- branding ----------
+  // ---------- branding, including per-audience overrides ----------
+  // ENCA's mechanism, ported with the self-host gear (js/selfhost.js). The
+  // active look: BRANDING, unless a brand override is selected — via the
+  // ?brand= query, a stored choice from earlier in the session, or the
+  // signed-in account's UPN domain; the "selfhost" override (registered by
+  // js/selfhost.js from the gear or /selfhost-branding.json) is the fallback
+  // when nothing else is chosen.
+  const BRAND_STORE = "tuno-brand";
+  function activeOverrideKey() {
+    const q = new URLSearchParams(location.search).get("brand");
+    if (q != null) {
+      try { q && typeof BrandOverrides !== "undefined" && BrandOverrides.byKey(q) ? sessionStorage.setItem(BRAND_STORE, q) : sessionStorage.removeItem(BRAND_STORE); } catch { /* private mode */ }
+      return q;
+    }
+    try { const s = sessionStorage.getItem(BRAND_STORE); if (s) return s; } catch { /* private mode */ }
+    return (typeof BrandOverrides !== "undefined" && BrandOverrides.byKey("selfhost")) ? "selfhost" : null;
+  }
+  function activeBrand() {
+    if (typeof BRANDING === "undefined") return null;
+    const o = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
+    return o ? Object.assign({}, BRANDING, o.brand, { colors: BRANDING.colors }) : BRANDING;
+  }
+  // Colour overrides land as inline :root properties; remember what we set so
+  // switching back to the default look actually removes them.
   let appliedBrandColors = [];
   function applyBranding(B) {
     if (!B) return;
+    // Publish before painting: activeBrand() hands back a MERGED COPY rather
+    // than mutating the global BRANDING — anything reading the global directly
+    // would keep showing the deployment's own logo under an override.
     Brand.setActive(B);
     const set = (id, fn) => { const el = $(id); if (el) fn(el); };
     document.title = Brand.pageTitle;
     set("favicon", (el) => { if (B.favicon) el.href = B.favicon; });
     // The mark is the PRODUCT's (TUNO office logo), not the org's — alt follows.
-    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.name || B.org; }));
+    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => {
+      if (B.logo) el.src = B.logo;
+      el.alt = B.name || B.org;
+      // Wide wordmarks (the default marks are 1:1) keep their aspect: fix the
+      // height the layout expects and let the width follow.
+      if (B.logoWide) { el.style.height = id === "brandLogo" ? "34px" : "56px"; el.style.width = "auto"; }
+      else { el.style.height = ""; el.style.width = ""; }
+    }));
+    // Dark mode swaps the DEFAULT logo via a CSS content: rule; flag the root
+    // when an override is active so that rule stands down (see app.css).
+    const oBrand = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
+    const oKey = oBrand ? oBrand.key : "";
+    if (oKey) document.documentElement.setAttribute("data-brand", oKey);
+    else document.documentElement.removeAttribute("data-brand");
+    // Override palettes ship as a stylesheet, scoped per theme — explicit
+    // light/dark via data-theme, auto via prefers-color-scheme — so both
+    // modes get a palette designed for them (appended last, so it wins ties).
+    document.getElementById("brandOverrideCss")?.remove();
+    // The pre-paint boot stylesheet (js/selfhost-boot.js) hands over here:
+    // its palette matches what this function is about to apply, but its
+    // logo content:url rule would beat the src= this function sets, so it
+    // must not outlive the authoritative branding pass.
+    document.getElementById("selfhostBootCss")?.remove();
+    if (oBrand) {
+      const decl = (obj) => Object.entries(obj || {}).filter(([k, v]) => k.startsWith("--") && v)
+        .map(([k, v]) => `${k}:${v}`).join(";");
+      const both = decl(oBrand.brand.colors), L = decl(oBrand.brand.colorsLight), D = decl(oBrand.brand.colorsDark);
+      const sel = `:root[data-brand="${oKey}"]`;
+      const css = [
+        both ? `${sel}{${both}}` : "",
+        L ? `${sel}[data-theme="light"]{${L}}
+@media (prefers-color-scheme: light){ ${sel}:not([data-theme="dark"]){${L}} }` : "",
+        D ? `${sel}[data-theme="dark"]{${D}}
+@media (prefers-color-scheme: dark){ ${sel}:not([data-theme="light"]){${D}} }` : "",
+      ].filter(Boolean).join("\n");
+      const tag = document.createElement("style");
+      tag.id = "brandOverrideCss";
+      tag.textContent = css;
+      document.head.appendChild(tag);
+    }
     set("brandOrg", (el) => {
+      // A wordmark logo already carries the name — drawing it again as text
+      // next to it is redundant.
+      el.style.display = B.hideOrgName ? "none" : "";
       const org = B.org || "";
       const tail = B.orgSplit && org.endsWith(B.orgSplit) ? B.orgSplit : "";
       el.innerHTML = tail ? `${esc(org.slice(0, org.length - tail.length))}<span>${esc(tail)}</span>` : esc(org);
@@ -226,7 +294,15 @@ const Fs = (() => {
       if (k.startsWith("--") && v) { document.documentElement.style.setProperty(k, v); appliedBrandColors.push(k); }
     });
   }
-  applyBranding(BRANDING);
+  applyBranding(activeBrand());
+  // Self-host branding can change after first paint — the deployment file
+  // arrives async, and the ⚙ gear saves without a reload. Repainting resets
+  // document.title, so the ribbon's channel tag has to be put back on.
+  document.addEventListener("tuno:brand-updated", () => {
+    applyBranding(activeBrand());
+    const rb = $("betaRibbon");
+    if (rb && rb.dataset.titleTag && !document.title.startsWith("[")) document.title = rb.dataset.titleTag + " " + document.title;
+  });
 
   // ---------- beta / preview ribbon ----------
   // The production deployment lives on BRANDING.host; any other origin (the
@@ -237,6 +313,10 @@ const Fs = (() => {
       const here = location.hostname.toLowerCase();
       if (!prod || !here || here === prod) return;
       const r = document.createElement("div");
+      // The id and titleTag are the seam js/selfhost.js softens: a deployment
+      // file turns this into the neutral SELF-HOSTED ribbon.
+      r.id = "betaRibbon";
+      r.dataset.titleTag = "[BETA]";
       r.textContent = "⚠ BETA — not production";
       r.style.cssText = "position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;" +
         "background:#b04a3a;color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;padding:7px 22px;" +
@@ -361,6 +441,16 @@ const Fs = (() => {
     // Extended behaviour is said where the tenant identity lives instead of
     // being a hidden mode — ENCA's rule, ported with the badge.
     $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
+    // Audience branding by who signed in: an account whose UPN matches a
+    // BRAND_OVERRIDES entry gets that look even without ?brand=. The list
+    // ships empty — the machinery arrives with the self-host gear.
+    if (typeof BrandOverrides !== "undefined") {
+      const bo = BrandOverrides.forUpn(account && account.username);
+      if (bo && activeOverrideKey() !== bo.key) {
+        try { sessionStorage.setItem(BRAND_STORE, bo.key); } catch { /* private mode */ }
+        applyBranding(activeBrand());
+      }
+    }
     $("tenantUser").textContent = account ? account.username : "";
     const nm = account && (account.name || account.username) || "?";
     $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");

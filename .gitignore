@@ -1,3 +1,9 @@
 _to_delete/
 node_modules/
 js/authConfig.local.js
+
+# Customer brandings — offline only, never published from this repo. Each
+# holds a selfhost-branding.json (plus source artwork) that the customer
+# serves on their own self-hosted instance; copied from ENCA's local copies.
+/dovilo/
+/pvm/
