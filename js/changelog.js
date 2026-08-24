@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10388, date: "2026-08-24", title: "Inputs that name the tenant now ask the tenant",
+    items: [
+      { kind: "new", tool: "TUNO", text: "Every input that names a directory object now suggests from the tenant as you type: the Group Analyzer's group, the what-if's subject and groups — the subject following the User/Device switch — the compare box completing one line at a time, the Assignment editor's group, and the Device analyzer's device name. One shared implementation, because six copies of a dropdown is how six subtly different dropdowns happen. Picking fills what the tools already resolve: a group or device by its display name, a user by UPN, because two people can share a display name. Suggestions are server-side starts-with — what every directory object supports — so a serial number or GUID still works typed in full, as the placeholders always said." },
+      { kind: "new", tool: "TUNO", text: "The consent rule is unchanged: nothing is read on a keystroke unless the permission is already in hand this session. An input whose permission has not been granted shows a single row offering to enable suggestions, and the read happens on that click — never as a side effect of typing. A failed suggestion is silence, not an error card, and ignoring the whole feature costs nothing: typed names resolve exactly as before." },
+    ],
+  },
+  {
     build: 10387, date: "2026-08-24", title: "The sidebar folds to an icon rail",
     items: [
       { kind: "improved", tool: "TUNO", text: "The sidebar gained its collapse: the chevron at the top folds it to a 56-pixel icon rail and the content takes the room. Hover an icon and the tool's full name appears — every button carries its label natively, which is deliberate: a styled tooltip inside a scrolling column would clip at the edge, and a name you cannot read is worse than a plain one you can. Section headings become divider lines, so the grouping survives losing its words; the active highlight stays visible on the rail; clicking an icon opens the tool exactly as the full-width item does. The choice persists across refreshes the same way the theme does, and a browser that cannot remember simply opens expanded. Below 1240 pixels nothing changes — the sidebar already steps aside there in either state." },

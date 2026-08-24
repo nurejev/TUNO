@@ -773,6 +773,7 @@ const Fs = (() => {
   if (typeof ConflictTool !== "undefined") ConflictTool.init();
   if (typeof ComplianceTool !== "undefined") ComplianceTool.init();
   if (typeof FiltersTool !== "undefined") FiltersTool.init();
+  if (typeof Suggest !== "undefined") Suggest.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();

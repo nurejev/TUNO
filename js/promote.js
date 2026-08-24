@@ -68,6 +68,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 65,
+      title: "Tenant autocomplete on every directory-object input",
+      tools: ["TUNO"],
+      builds: [10388],
+      risk: "low",
+      what: "js/suggest.js — one shared typeahead, registry-attached to guTerm, wfSubject (kind follows the User/Device seg), wfGroup, wfGroups (textarea, completes the current line), aeGroup, dvTerm. Server-side startswith only (groups via Graph.searchGroups; users by displayName OR userPrincipalName, fills UPN; devices via the Entra /devices object). CONSENT UNCHANGED: no read on a keystroke unless the scope is already granted this session — otherwise one 'enable suggestions' row, read on that click. Menu is position:fixed on body (no overflow clipping), keyboard up/down/enter/escape with Enter captured so the tools' own Enter-to-run cannot fire mid-pick, stale responses dropped by sequence, failures are silence. GUID-shaped terms are not suggested — ids resolve typed. T01's pilot-group step keeps its own search (it needs the member count).",
+      why: "LOW — reads only, existing scopes, and ignoring the feature costs nothing. The judgement calls needing real eyes: the Enter-capture must not swallow Enter when no suggestion is highlighted, and the fixed-position menu must sit right on a zoomed/scrolled page.",
+      test: [
+        "THE ONE THAT MATTERS: in the Group Analyzer, type three letters of a real group — suggestions appear only if the scope is in hand; pick one with Enter; pressing Enter AGAIN (no menu) must run the analysis, not re-open the menu.",
+        "What-if: flip User↔Device and type the same prefix — the suggestion source follows the switch (UPNs vs device names); picking a user fills the UPN.",
+        "Compare box: two lines, cursor on line two — suggestions complete line two only, line one untouched.",
+        "Fresh session, no scopes yet: the single 'enable suggestions' row appears; clicking it prompts consent once and then suggests; ignoring it and typing a full name still resolves on run.",
+        "Paste a GUID: no menu. Type a serial in the device box: no menu (startswith is displayName only), and the run still finds it.",
+        "Scroll the page with a menu open: it closes rather than floating detached.",
+      ],
+      files: ["js/suggest.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 64,
       title: "R09 — restore, inside the backup tool",
       tools: ["📦 Backup configuration"],

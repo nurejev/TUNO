@@ -1545,6 +1545,15 @@ body.with-side.side-min .sn-toggle{text-align:center;padding:2px 0 6px}
 body.with-side.side-min main{margin-left:76px}
 body.with-side.side-min .toolnav-inner{padding-left:76px}
 
+/* ---- Suggest: tenant autocomplete (build 10388) ----
+   Fixed on body — the toolnav-menu's own approach — so no card, column or
+   sidebar overflow can clip it. Styling matches that menu deliberately. */
+.sug-menu{position:fixed;z-index:420;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;max-width:520px;max-height:320px;overflow:auto}
+.sug-menu button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
+  font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sug-menu button:hover,.sug-menu button.on{background:var(--soft)}
+
 /* Below the stylesheet's existing narrow breakpoint the sidebar would eat a
    third of the screen: it goes, and the shell returns to the centred column.
    The tab bar and the home grid keep every tool reachable — the sidebar is a
