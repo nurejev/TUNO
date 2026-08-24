@@ -67,6 +67,38 @@ const Fs = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   let signedIn = false;
 
+  // ---------- tenant discovery (ENCA's, ported verbatim) ----------
+  // Same list and same matching rules as ENCA's isBaselineTenant(): the
+  // signed-in account's UPN domain against the tenant list — exact match, or a
+  // subdomain of it, or the org display name carrying the first label. ENCA
+  // calls these BASELINE_TENANTS because the CA baseline is built there; in
+  // TUNO the same tenant unlocks the cfdev-only extras, so the name follows
+  // the meaning here. A request marked "cfdev detect" is a feature gated on
+  // this and nothing else.
+  //
+  // ONE DIFFERENCE FROM ENCA, stated rather than hidden: ENCA reads
+  // /organization at sign-in and fills tenantName with the org's display
+  // name; TUNO signs in with User.Read only and reads no org, so tenantName
+  // stays empty until a tool that has read the org fills it through
+  // TunoTenant.setOrgName. The UPN-domain half of the check is the one that
+  // answers today, and it is the reliable half anyway.
+  let tenantName = "", tenantDomain = "";
+  const CFDEV_TENANTS = ["cloudfellows.dev"];
+  function isCfdevTenant() {
+    const n = (tenantName || "").toLowerCase(), d = (tenantDomain || "").toLowerCase();
+    return CFDEV_TENANTS.some((t) => d === t || d.endsWith("." + t) || n.includes(t.split(".")[0]));
+  }
+  // Tools live in their own files and gate cfdev-only features through this
+  // seam rather than keeping a second copy of the list — the first time two
+  // lists exist, one of them is wrong. The headless tests drive it too.
+  window.TunoTenant = {
+    isCfdev: isCfdevTenant,
+    domain: () => tenantDomain,
+    setOrgName: (n) => { tenantName = String(n || ""); },
+    // for the headless tests only — the real values are set by enter()/sign out
+    _setForTest: (d, n) => { tenantDomain = String(d || ""); tenantName = String(n || ""); },
+  };
+
   // ---------- sticky stack: measured, not assumed (ENCA pattern) ----------
   function syncStickyTops() {
     const h = document.querySelector("header");
@@ -346,6 +378,10 @@ const Fs = (() => {
   function enter() {
     signedIn = true;
     $("tenantName").textContent = (account && (account.tenantId ? account.username.split("@")[1] : "")) || "";
+    tenantDomain = (account && account.username ? account.username.split("@")[1] : "") || "";
+    // Extended behaviour is said where the tenant identity lives instead of
+    // being a hidden mode — ENCA's rule, ported with the badge.
+    $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
     $("tenantUser").textContent = account ? account.username : "";
     const nm = account && (account.name || account.username) || "?";
     $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
@@ -375,6 +411,8 @@ const Fs = (() => {
   $("signOutBtn").addEventListener("click", () => {
     const acc = account;
     account = null; signedIn = false;
+    tenantDomain = ""; tenantName = "";
+    $("cfdevBadge").style.display = "none";
     $("tenantBox").classList.remove("on");
     $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";

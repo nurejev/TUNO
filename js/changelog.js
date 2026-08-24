@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10373, date: "2026-08-24", title: "TUNO knows its home tenant",
+    items: [
+      { kind: "new", tool: "TUNO", text: "Tenant discovery, ported from ENCA with the same list and the same matching rules. When the signed-in account belongs to the cloudfellows.dev tenant — the UPN domain matches exactly or as a subdomain — a badge appears beside the tenant identity in the header saying that the cfdev-only extras are available in this session, because extended behaviour should be said where the tenant identity lives rather than being a hidden mode. Nothing is gated on it yet: this build is the detection and the badge, and the seam tools will gate their cfdev-only features through, so the list exists in exactly one place. On any other tenant TUNO behaves exactly as documented and the badge does not exist. One stated difference from ENCA: ENCA also matches the organization display name it reads at sign-in; TUNO signs in with User.Read only and reads no organization, so until a tool that has read the org fills the name in, the UPN domain is the half of the check that answers — which is the reliable half anyway." },
+    ],
+  },
+  {
     build: 10372, date: "2026-08-21", title: "Remediations have their own write scope",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The Remediation deploy asked for the wrong permission and the tenant refused it — correctly. Build 10369 shipped it under the profile write scope on the claim that DeviceManagementConfiguration.ReadWrite.All covers Remediations; the first real click proved otherwise, with Graph naming the scope it actually wants, and the API reference confirms it: creating a deviceHealthScript accepts only DeviceManagementScripts.ReadWrite.All. TUNO now requests exactly that, for the collision check and the create alike, making it the second write scope TUNO holds — added to the registration script and the security documentation in the open, because a new write scope is a decision, not a side effect. If your registration predates this build, add DeviceManagementScripts.ReadWrite.All as a delegated permission and admin-consent it, or the click keeps failing exactly as it did." },

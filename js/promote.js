@@ -66,6 +66,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 54,
+      title: "TUNO knows its home tenant (cfdev detection)",
+      tools: ["TUNO"],
+      builds: [10373],
+      risk: "low",
+      what: "ENCA's tenant discovery ported with the same list and matching rules: CFDEV_TENANTS = ['cloudfellows.dev'], matched against the signed-in account's UPN domain (exact or subdomain) and — when a tool has filled it in — the org display name carrying the first label. enter() sets the domain and toggles a header badge beside the tenant identity ('cfdev — extra features', #cfdevBadge, hidden by default and on sign out); sign out clears both values. window.TunoTenant is the one seam tools gate cfdev-only features through (isCfdev, domain, setOrgName), so the list never gets a second copy; a _setForTest setter exists for the headless tests. NOTHING IS GATED YET — this item is detection, badge and seam only. Difference from ENCA, stated in the code: ENCA fills tenantName from /organization at sign-in; TUNO reads no org (User.Read only), so the name half of the check is dormant until a tool sets it.",
+      why: "LOW — additive, nothing existing changes behaviour, and on every tenant that is not cloudfellows.dev the entire feature is a hidden span and two empty strings. The one real risk is the opposite direction: a future cfdev-only feature leaking to customer tenants because the gate was mis-evaluated — which is why the detection is one function in one place and the badge makes its verdict visible on sight. Graduates when the badge has been seen on a real cloudfellows.dev sign-in and confirmed absent on a customer tenant.",
+      test: [
+        "THE ONE THAT MATTERS: sign in with an @cloudfellows.dev account. The badge must appear in the header beside the tenant identity, and window.TunoTenant.isCfdev() in the console must return true.",
+        "Sign in to any customer tenant: no badge, isCfdev() false. This is the leak direction and the more important half.",
+        "Sign out from a cfdev session: the badge must disappear immediately, and isCfdev() must return false before any new sign-in.",
+        "Sign in with a subdomain UPN (user@sub.cloudfellows.dev) if one exists: the badge must appear — the endsWith rule is ENCA's and this is its only test. If no such account exists, say so rather than nodding it through.",
+        "Check the badge title text against the code: it claims detection is UPN-domain based and that other tenants are unaffected — both must stay true as features start gating on the seam.",
+      ],
+      files: ["js/app.js", "index.html", "js/changelog.js", "js/version.js", "js/promote.js"],
+    },
+    {
       n: 53,
       title: "A refresh restores the session, never the screen",
       tools: ["TUNO"],
