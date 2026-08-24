@@ -750,5 +750,6 @@ const Fs = (() => {
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
+  if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
 })();

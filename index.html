@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10384"></script>
+<script src="js/popup-guard.js?v=10385"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10384">
+<link rel="stylesheet" href="css/app.css?v=10385">
 </head>
 <body>
 
@@ -134,7 +134,7 @@
     <div class="tools">
       <div class="tool" id="toolBackup">
         <div class="tool-ic">📦</div><h3>Backup configuration <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back.</p>
+        <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back. And now the other direction: <b>restore from an archive</b> — create only, an editable [Restored] prefix on everything, a collision stop checked fresh before each create, administrative-template child writes included in the dry run, everything arriving unassigned by design.</p>
       </div>
       <div class="tool" id="toolDocs">
         <div class="tool-ic">📄</div><h3>Configuration documenter <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -653,6 +653,20 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
 
     <div id="bkBody" style="margin-top:14px"></div>
+
+    <!-- ============ RESTORE (R09, build 10385) ============
+         The other direction of the same screen: the file you load here is
+         the file the half above wrote. Create only, prefixed, unassigned. -->
+    <div class="list-card wi-form" style="margin-top:14px">
+      <h3 style="margin:0 0 6px">📥 Restore from an archive <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+      <p class="mini muted" style="margin:0 0 10px">Load a backup — this tool's or the <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">original script</a>'s, the layout is shared — pick objects, dry-run, apply. <b>Create only</b>: nothing of yours is patched or deleted (the one exception: an administrative template <i>this restore</i> half-created and failed to finish is rolled back — its own mess, not yours). Every object arrives under an editable <b>[Restored] prefix</b> and <b>unassigned</b> — a group GUID from the source tenant either does not exist here or names a different group, so assignments do not travel. A name that already exists in the tenant <b>stops that object</b>: skipped as collided, checked fresh immediately before each create, never overwritten and never duplicated silently. The write permission is asked at the apply, never before.</p>
+      <label class="wi-f"><span>Archive (.zip)</span><input type="file" id="rsFile" accept=".zip"></label>
+      <div id="rsProg" class="mini muted" style="margin-top:10px"></div>
+      <div id="rsBody" style="margin-top:12px"></div>
+      <div class="tb-actions" style="margin-top:10px">
+        <button class="btn primary" id="rsApply" style="display:none">📥 Apply the restore</button>
+      </div>
+    </div>
   </section>
 
   <!-- ============ CONFIGURATION DOCUMENTER (T05) ============
@@ -1125,6 +1139,12 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, and both halves shipped together. The read half: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — read through <span class="rm-ref">R04</span>'s own source table, exactly as the card promised, so a surface added there is counted here. The usage scan is optional and the used-by column is <b>absent, not zero</b>, until it runs; a surface that could not be read makes every zero a floor, and the screen says so.</p>
             <p class="mini" style="margin:6px 0 0"><b>The writes carry <span class="rm-ref">R13</span>'s rules</b>, sized for one object: the write scope at the click, an edit preceded by a fresh read and <b>refused as drifted</b> if the filter changed since it was loaded, every write verified by read-back, delete confirmed by typing the name. And the rule the card was written for: <b>delete is refused while usage is non-zero</b> — checked against the tenant's own payload associations <i>at the moment of the act</i>, not against the session's cached scan, and “could not check” refuses too, because a filter deleted while in use silently widens every assignment that carried it. This is the first PATCH and the first DELETE in the application; both arrived in the Graph layer with the same no-retry rule writes have always had.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R09</span> 📥 Restore Intune configuration <span class="tag grant">live · beta 10385</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a>, living inside the 📦 backup tool — the file you load is the file the other half wrote, and the original script's archives load too, because the folder layout is shared. Pick a single policy, a selection, or everything; dry-run; apply. The dry run lists <b>every</b> operation, including the ADMX definition-value child writes the original's <code>-WhatIf</code> never shows, and every create is verified by read-back: “created” is the tenant's word.</p>
+            <p class="mini" style="margin:6px 0 0"><b>TenuVault's two rules shipped exactly</b> (Ugur Koc, MIT): <b>create only</b> — nothing of yours is patched or deleted, the single exception being an administrative template <i>this restore</i> half-created and failed to finish, which is rolled back as its own mess; and <b>every object gets a name prefix</b>, <code>[Restored]</code> by default, editable per row. The collision stop sits on top: a name that exists in the tenant skips that object, checked at dry run and <b>re-checked fresh immediately before each create</b>.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two departures from this card's first draft, both deliberate.</b> The card offered “overwrite, skip or rename” at a collision — <b>overwrite is not offered</b>: it is a patch wearing a restore's clothes, and create-only is the stronger rule; rename is the editable name column, skip is the default. And assignments are <b>not restored at all</b> rather than off-by-default: a source-tenant group GUID either does not exist in the target or, worse, names a different group — every object arrives <b>unassigned</b> and the result says so per row, which is also this card's promised TenuVault principle (nothing arrives already reaching people) applied the simplest way. Scripts saved without bodies cannot be selected and say why; secrets arrive as references to re-enter, as the backup's manifest always warned. Scopes at the apply click: the config write for four areas, the scripts write for platform scripts — both already declared.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
@@ -1164,12 +1184,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Two permission facts, both of which fail at the click rather than at sign-in.</b> Writing needs <code>DeviceManagementConfiguration.ReadWrite.All</code>, which TUNO's registration already declares, and — for app-protection policies — <code>DeviceManagementApps.ReadWrite.All</code>, which it does not. That would be the <b>second write scope in the whole application</b>, and adding one is a decision to take deliberately rather than a line in a script. Reading the Windows catalog needs <code>WindowsUpdates.Read.All</code>: the original asks for <code>ReadWrite</code>, and read is enough, so this asks for less. But the same endpoint also requires the signed-in <i>person</i> to hold <b>Intune Administrator</b> or <b>Windows Update Deployment Administrator</b> as an Entra directory role — an Intune RBAC role will not do it, consent will not fix it, and it surfaces as a 403 on the Windows half only. Better said on the screen before the run than discovered inside it.</p>
             <p class="mini" style="margin:6px 0 0"><b>And one thing that cannot be slipped in quietly: the page would have to talk to a host that is not Microsoft's.</b> TUNO's content-security-policy allows <code>connect-src</code> to <code>graph.microsoft.com</code> and <code>login.microsoftonline.com</code> and nothing else, which is a large part of why the security documentation can say what it says. endoflife.date would be the <b>first third-party origin this application has ever contacted</b>, and what comes back from it decides what gets written into a customer's tenant. Two ways out, and the choice belongs on the table rather than in a commit: widen the policy by exactly one host and say so in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>, or take the target version as something you enter, which keeps the origin list intact and moves the trust to the person pressing the button. The Windows half needs no new origin at all — that catalog is Graph.</p>
             <p class="mini" style="margin:6px 0 0"><b>The rest of the original's safety rules carry over unchanged</b>, because they are the right ones: dry run first and by default, downgrade protection on so a policy is never quietly loosened, and a <b>cadence</b> — a release is not enforced until it has been out long enough for devices to have actually got it, which is the difference between a compliance policy and an outage. TUNO adds the one its own rules require: <code>ReadWrite</code> asked on the click, never at sign-in.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R09</span> 📥 Restore Intune configuration</h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a>. Take an R08 archive and put a single policy, a selection, or the whole thing back into a tenant. <b>This is the second thing in TUNO that writes, and it gets T01's rules rather than the script's.</b> The original never checks whether the object already exists — it always creates, so a re-run silently produces a second copy of every policy, and its own notes say so. TUNO reads first: a policy whose name already exists <b>stops</b> the restore for that object and offers overwrite, skip or rename as a decision you make, not a prefix you hope you remembered. <code>DeviceManagementConfiguration.ReadWrite.All</code> is asked for on the click and never at sign-in. A dry run lists <b>every</b> operation before anything is sent, including the child writes the original's <code>-WhatIf</code> never shows — the ADMX definition values and the assignments. Assignments stay off unless asked for, and are checked against the target tenant first, because a group GUID from the source tenant either does not exist there or, worse, names a different group.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Two rules borrowed from <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a></b> (Ugur Koc, MIT), which solves the same problem in a terminal. <b>Create only.</b> It never patches and never deletes — the single exception is rolling back an administrative template it failed halfway through creating itself, which is cleaning up its own mess rather than touching yours. And <b>every restored object gets a name prefix</b>, <code>[Restored]</code> by default. Between them those two turn the original's silent-duplicate problem into a visible one: you still get a second copy, but it is labelled, and nothing you already had was altered to produce it. TUNO keeps its collision stop on top of that, because a labelled duplicate is better than an overwrite and worse than being asked.</p>
-            <p class="mini" style="margin:6px 0 0"><b>And one detail worth stealing outright:</b> TenuVault creates restored Conditional Access policies <i>disabled</i>. TUNO does not read Conditional Access — that is ENCA's — but the principle generalises to anything whose restoration could immediately change who gets access, and R09 will apply it wherever Intune has an equivalent.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R23</span> 🤖 AI policy analysis <span class="tag">bring your own key</span></h4>
@@ -1338,27 +1352,28 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10384"></script>
-<script src="js/version.js?v=10384"></script>
-<script src="js/promote.js?v=10384"></script>
-<script src="js/authConfig.js?v=10384"></script>
-<script src="js/changelog.js?v=10384"></script>
-<script src="js/msappcatalog.js?v=10384"></script>
-<script src="js/graph.js?v=10384"></script>
-<script src="js/groupuse.js?v=10384"></script>
-<script src="js/audit.js?v=10384"></script>
-<script src="js/backup.js?v=10384"></script>
-<script src="js/document.js?v=10384"></script>
-<script src="js/devicewhy.js?v=10384"></script>
-<script src="js/whatif.js?v=10384"></script>
-<script src="js/health.js?v=10384"></script>
-<script src="js/settingsearch.js?v=10384"></script>
-<script src="js/conflict.js?v=10384"></script>
-<script src="js/compliance.js?v=10384"></script>
-<script src="js/filters.js?v=10384"></script>
-<script src="js/assignedit.js?v=10384"></script>
-<script src="js/roles.js?v=10384"></script>
-<script src="js/applocker.js?v=10384"></script>
-<script src="js/app.js?v=10384"></script>
+<script src="js/branding.js?v=10385"></script>
+<script src="js/version.js?v=10385"></script>
+<script src="js/promote.js?v=10385"></script>
+<script src="js/authConfig.js?v=10385"></script>
+<script src="js/changelog.js?v=10385"></script>
+<script src="js/msappcatalog.js?v=10385"></script>
+<script src="js/graph.js?v=10385"></script>
+<script src="js/groupuse.js?v=10385"></script>
+<script src="js/audit.js?v=10385"></script>
+<script src="js/backup.js?v=10385"></script>
+<script src="js/document.js?v=10385"></script>
+<script src="js/devicewhy.js?v=10385"></script>
+<script src="js/whatif.js?v=10385"></script>
+<script src="js/health.js?v=10385"></script>
+<script src="js/settingsearch.js?v=10385"></script>
+<script src="js/conflict.js?v=10385"></script>
+<script src="js/compliance.js?v=10385"></script>
+<script src="js/filters.js?v=10385"></script>
+<script src="js/restore.js?v=10385"></script>
+<script src="js/assignedit.js?v=10385"></script>
+<script src="js/roles.js?v=10385"></script>
+<script src="js/applocker.js?v=10385"></script>
+<script src="js/app.js?v=10385"></script>
 </body>
 </html>

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10385, date: "2026-08-24", title: "Restore — the backup tool learns the other direction",
+    items: [
+      { kind: "new", tool: "📦 Backup configuration", text: "R09 ships inside the backup tool, because the file you load is the file the other half wrote — and the original PowerShell script's archives load too, since the folder layout is shared in both directions. Load a zip, pick a single policy, a selection or everything, dry-run, apply. The dry run lists every operation including the administrative-template definition-value child writes the original's WhatIf never shows, and every create is verified by reading the object back: created is the tenant's word, not the request's status code." },
+      { kind: "new", tool: "📦 Backup configuration", text: "TenuVault's two rules arrive exactly: create only — nothing of yours is patched or deleted, with the single exception that an administrative template this restore half-created and failed to finish is rolled back as its own mess — and every object gets an editable name prefix, Restored by default. The collision stop sits on top: a name that already exists in the tenant skips that object, checked at dry run and re-checked fresh immediately before each create. Two deliberate departures from the roadmap card, both said on it: overwrite is not offered at a collision, because overwrite is a patch wearing a restore's clothes; and assignments are not restored at all — a source-tenant group GUID either does not exist in the target or names a different group, so everything arrives unassigned and the result says so per row. Scripts without bodies cannot be selected; secrets arrive as references to re-enter, as the manifest always warned." },
+    ],
+  },
+  {
     build: 10384, date: "2026-08-24", title: "Assignment filters — visible at last, and deletable only when safe",
     items: [
       { kind: "new", tool: "🧩 Assignment filters", text: "R21 ships as T14, both halves. The read half shows what the portal does not: every filter with its platform and rule, and — as its own optional read — which assignments on which policies reference it, scanned through the Group Analyzer's own surface table so a surface added there is automatically counted here. Until the scan runs the used-by column is absent, not zero, and a surface that could not be read makes every zero a floor, which the screen says plainly." },

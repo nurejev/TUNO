@@ -68,6 +68,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 64,
+      title: "R09 — restore, inside the backup tool",
+      tools: ["📦 Backup configuration"],
+      builds: [10385],
+      risk: "high",
+      what: "T04 v0.2 (js/restore.js), after Ugur Koc's restore script + TenuVault's rules. Parses this tool's zips AND the original script's (shared folder layout; manifest optional). CREATE ONLY — no patch, no delete of yours; the one exception is TenuVault's kept exactly: an ADMX template the restore half-created is rolled back on a failed child write. Editable [Restored] prefix per row; collision stop at dry run AND re-checked fresh per create; overwrite deliberately not offered (departure, said on card); assignments NOT restored — everything arrives unassigned (departure from off-by-default, said on card). Bodies: settings-catalog settings inline on the create; compliance scheduledActionsForRule with source ids stripped; ADMX children bound to Microsoft's own definition/presentation ids; scripts to their own surface with body, non-restorable unselectable. Read-back verify per create. Scopes at apply: profiles + scriptsWrite (both declared).",
+      why: "HIGH — the fourth writer, and the one that creates many objects in one act. The create-body shapes (settings inline, scheduledActionsForRule, the ADMX odata binds) are asserted against fabricated archives; whether a real tenant accepts them, and whether the ADMX rollback fires cleanly, only a live restore proves. The collision stop and create-only sequencing are headlessly proven by operation order. Graduates after a real round trip: back up a test tenant, restore into it (collisions must SKIP everything), restore into a clean tenant (objects must arrive, prefixed, unassigned, settings intact in the portal).",
+      test: [
+        "THE ONE THAT MATTERS: back up a test tenant with T04, restore the same archive into the SAME tenant — every object must skip as collided (the names exist), zero creates.",
+        "Rename one object in the restore column and apply: exactly that object is created, prefixed name, unassigned, settings present in the portal (settings catalog: open it and count; ADMX: definition values enabled as archived).",
+        "Restore an archive from Ugur Koc's backup script (not TUNO's): it must parse, list, and restore the same way.",
+        "Break one ADMX definition value (edit the archive JSON to a bogus definition id): the create must fail, the half-created template must be ROLLED BACK, and the result row must say so — verify nothing remains in the portal.",
+        "A compliance policy must arrive with its scheduled actions (open it in the portal — the block action must be there).",
+        "A script archived without bodies (skip-content backup) must be unselectable with the reason shown.",
+        "Kill the network between dry run and apply: the per-create fresh check must fail loudly, not create blind.",
+      ],
+      files: ["js/restore.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 63,
       title: "R21 — assignment filters, read and write (T14)",
       tools: ["🧩 Assignment filters"],
