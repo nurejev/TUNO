@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10389, date: "2026-08-24", title: "Collapsing the sidebar no longer moves the page",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "The content column now centres itself in whatever space the sidebar leaves, in both states. Build 10380 anchored the column against the expanded sidebar, so folding the rail slid the whole page left and left the right side gaping — the collapse read as a relayout rather than a rail folding. Now expanded and collapsed land within a few dozen pixels of each other on any monitor: the same page, with a narrower rail. The column still can never slide under the rail, and below 1240 pixels nothing changes." },
+    ],
+  },
+  {
     build: 10388, date: "2026-08-24", title: "Inputs that name the tenant now ask the tenant",
     items: [
       { kind: "new", tool: "TUNO", text: "Every input that names a directory object now suggests from the tenant as you type: the Group Analyzer's group, the what-if's subject and groups — the subject following the User/Device switch — the compare box completing one line at a time, the Assignment editor's group, and the Device analyzer's device name. One shared implementation, because six copies of a dropdown is how six subtly different dropdowns happen. Picking fills what the tools already resolve: a group or device by its display name, a user by UPN, because two people can share a display name. Suggestions are server-side starts-with — what every directory object supports — so a serial number or GUID still works typed in full, as the placeholders always said." },

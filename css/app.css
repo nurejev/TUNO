@@ -1517,12 +1517,20 @@ body.wide .readme p{max-width:1100px}
 .sidenav button:hover{background:var(--soft)}
 .sidenav button.active{background:var(--green);color:#fff}
 :root[data-theme="dark"] .sidenav button.active{color:var(--green-deep)}
-body.with-side main{max-width:1500px;margin:0 auto 0 264px;padding:28px 32px 80px}
+/* CENTRED IN THE REMAINDER, both sidebar states (build 10389). 10380
+   left-anchored the column beside the sidebar; collapsing the rail then
+   slid the whole page 188px left and the right side gaped — the collapse
+   read as a relayout instead of a rail folding. Now the column centres in
+   whatever space the rail leaves, clamped so it can never slide under it:
+   left = max(rail + 24px, (100vw − 1500 + rail)/2). Expanded and collapsed
+   land within ~90px of each other on any monitor, which reads as the same
+   page with a narrower rail — visually the same, which is the point. */
+body.with-side main{max-width:1500px;margin:0 auto;margin-left:max(264px, calc((100vw - 1260px)/2));padding:28px 32px 80px}
 body.with-side .hwrap{max-width:none}
 /* the tab strip starts where the content starts, not under the sidebar —
    and the auto-margin centring trick must come off or the tabs float to the
    middle of the now-uncapped bar */
-body.with-side .toolnav-inner{max-width:none;padding:0 24px 0 264px}
+body.with-side .toolnav-inner{max-width:none;padding:0 24px;padding-left:max(264px, calc((100vw - 1260px)/2))}
 body.with-side .toolnav-inner > :first-child{margin-left:0}
 body.with-side .toolnav-inner > :last-child{margin-right:0}
 /* ---- collapsed rail (build 10387) ----
@@ -1542,8 +1550,8 @@ body.with-side.side-min .sidenav .sn-txt{display:none}
 body.with-side.side-min .sidenav button{text-align:center;padding:7px 0}
 body.with-side.side-min .sidenav .sn-ic{margin:0;width:100%}
 body.with-side.side-min .sn-toggle{text-align:center;padding:2px 0 6px}
-body.with-side.side-min main{margin-left:76px}
-body.with-side.side-min .toolnav-inner{padding-left:76px}
+body.with-side.side-min main{margin-left:max(76px, calc((100vw - 1444px)/2))}
+body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444px)/2))}
 
 /* ---- Suggest: tenant autocomplete (build 10388) ----
    Fixed on body — the toolnav-menu's own approach — so no card, column or
