@@ -9,10 +9,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10380"></script>
+<script src="js/popup-guard.js?v=10381"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10380">
+<link rel="stylesheet" href="css/app.css?v=10381">
 </head>
 <body>
 
@@ -107,7 +107,7 @@
     <div class="tools">
       <div class="tool" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. Export as Markdown, CSV or a standalone HTML report.</p>
+        <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. The sweep has two faces over the one read: a ranked table, and an <b>assignment matrix</b> — groups down the side, surfaces across the top, exclusions as their own red counts, with an opt-in check for groups that are empty. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
       <div class="tool" id="toolWhatIf">
         <div class="tool-ic">🔮</div><h3>Assignment what-if <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -1025,17 +1025,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Four surfaces — device configurations, settings catalog, compliance, administrative templates — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R19</span> 🧮 Assignment matrix <span class="tag grant">live · beta 10381</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> by <b>Alper Atar</b> (MIT), whose single best screen this is: every group down the side, every policy surface across the top, one grid instead of one portal blade per policy. <b>TUNO had already paid for the data</b> — <span class="rm-ref">R04</span>'s tenant sweep reads each surface once and matches every group against it — so this shipped as a second view over the sweep's one read: a Table/Matrix switch that re-renders what was read and asks the tenant nothing, and a group click that lands in single-group mode through the tile's own pipeline.</p>
+            <p class="mini" style="margin:6px 0 0"><b>A cell is a claim, and the grid does not overstate it.</b> Includes are the count; exclusions are their own red <b>−n</b>, counted per surface and never folded in, because “this policy does not reach you” drawn as coverage is the exact overstatement a matrix invites. A dangling reference wears the sweep's own deleted flag instead of counting as coverage, and the sweep's scope caveat travels with the view.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The empty-group check is opt-in and absent-not-empty</b> — one $top=1 membership probe per group, batched twenty a trip (<span class="rm-ref">R12</span>'s technique), behind a button that says what it costs. Until it runs, the grid says plainly that empty and populated look the same; after it, a group nothing can reach says <b>empty</b>, and a probe that failed says <b>reach?</b> — unknown, never passed off as either.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R19</span> 🧮 Assignment matrix</h4>
-            <p class="mini" style="margin:0">After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> by <b>Alper Atar</b> (MIT), whose single best screen this is: every group down the side, every policy surface across the top, one grid instead of one portal blade per policy. <b>TUNO has already paid for the data</b> — <span class="rm-ref">R04</span>'s tenant sweep reads each surface once and matches every group against it — so this is a view over a read that exists, not a new read: zero new Graph calls, zero new scopes, and a cell click lands in the group's own detail.</p>
-            <p class="mini" style="margin:6px 0 0"><b>A cell is a claim, and the grid must not overstate it.</b> A mark means an assignment exists — not that it reaches anyone. So exclusions render distinctly from includes rather than fattening the same count, a dangling reference wears the sweep's own flag instead of counting as coverage, and a group the sweep found empty says so in its row, because a dense-looking grid over empty groups is exactly the false comfort <span class="rm-ref">R12</span> exists to puncture. The sweep's scope caveat travels with the view: built from the assignment-derived scope, the matrix cannot show unused groups, and the screen says which scope produced it.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R20</span> ⚔️ Setting conflict scan</h4>
@@ -1258,24 +1259,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10380"></script>
-<script src="js/version.js?v=10380"></script>
-<script src="js/promote.js?v=10380"></script>
-<script src="js/authConfig.js?v=10380"></script>
-<script src="js/changelog.js?v=10380"></script>
-<script src="js/msappcatalog.js?v=10380"></script>
-<script src="js/graph.js?v=10380"></script>
-<script src="js/groupuse.js?v=10380"></script>
-<script src="js/audit.js?v=10380"></script>
-<script src="js/backup.js?v=10380"></script>
-<script src="js/document.js?v=10380"></script>
-<script src="js/devicewhy.js?v=10380"></script>
-<script src="js/whatif.js?v=10380"></script>
-<script src="js/health.js?v=10380"></script>
-<script src="js/settingsearch.js?v=10380"></script>
-<script src="js/assignedit.js?v=10380"></script>
-<script src="js/roles.js?v=10380"></script>
-<script src="js/applocker.js?v=10380"></script>
-<script src="js/app.js?v=10380"></script>
+<script src="js/branding.js?v=10381"></script>
+<script src="js/version.js?v=10381"></script>
+<script src="js/promote.js?v=10381"></script>
+<script src="js/authConfig.js?v=10381"></script>
+<script src="js/changelog.js?v=10381"></script>
+<script src="js/msappcatalog.js?v=10381"></script>
+<script src="js/graph.js?v=10381"></script>
+<script src="js/groupuse.js?v=10381"></script>
+<script src="js/audit.js?v=10381"></script>
+<script src="js/backup.js?v=10381"></script>
+<script src="js/document.js?v=10381"></script>
+<script src="js/devicewhy.js?v=10381"></script>
+<script src="js/whatif.js?v=10381"></script>
+<script src="js/health.js?v=10381"></script>
+<script src="js/settingsearch.js?v=10381"></script>
+<script src="js/assignedit.js?v=10381"></script>
+<script src="js/roles.js?v=10381"></script>
+<script src="js/applocker.js?v=10381"></script>
+<script src="js/app.js?v=10381"></script>
 </body>
 </html>

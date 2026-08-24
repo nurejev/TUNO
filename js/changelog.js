@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10381, date: "2026-08-24", title: "The assignment matrix — the sweep's second face",
+    items: [
+      { kind: "new", tool: "🔗 Group Analyzer", text: "R19 ships, the first of the IntuneShade cards. The tenant sweep now has two faces over its one read: the ranked table it always had, and the assignment matrix — every group down the side, every surface across the top, one grid instead of one portal blade per policy. Switching between them re-renders what was already read and asks the tenant nothing. A cell is a claim and the grid does not overstate it: includes are the count, exclusions are their own red minus-n per surface and are never folded in, because a policy that deliberately does not reach a group drawn as coverage is the exact overstatement a matrix invites. Dangling references keep their deleted flag instead of counting as coverage, and clicking a group opens it in single-group mode through the tile's own pipeline." },
+      { kind: "new", tool: "🔗 Group Analyzer", text: "The empty-group check is opt-in and absent-not-empty: a button that names its cost runs one single-member membership probe per group, batched twenty a trip — the same technique Assignment health uses — and until it runs the grid says plainly that empty and populated look the same. After it, a group nothing can reach says empty, and a probe that failed says reach-unknown rather than being passed off as either. The matrix draws from the sweep's own numbers, so the table view and the three exports are unchanged." },
+    ],
+  },
+  {
     build: 10380, date: "2026-08-24", title: "The console shell — a sidebar, and room to breathe",
     items: [
       { kind: "new", tool: "TUNO", text: "Signed in, TUNO now reads like the consoles it sits beside: a fixed sidebar on the left carries every tool, grouped exactly as on the home grid — Overview on top, then Endpoint security, Assignments and scope, Configuration, Monitoring, Access and roles, and the app's own pages — and the working screen sits beside it. The sidebar is built at sign-in by walking the home grid itself, so there is no second copy of the grouping to fall out of step, and the labels come from the tool list rather than being scraped from the tiles, which is the lesson the old tab strip taught. The tab bar stays, because the two do different jobs: the sidebar is where you can go, the tabs are what you have open — and the sidebar's highlight follows the active tab, so the two can never disagree about where you are." },

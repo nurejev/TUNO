@@ -1534,6 +1534,19 @@ body.with-side .toolnav-inner > :last-child{margin-right:0}
   body.with-side main{margin:0 auto;padding:28px 24px 80px}
   body.with-side .toolnav-inner{padding:0 24px}
 }
+
+/* ---- R19: the assignment matrix (build 10381) ----
+   A grid over the sweep's own numbers. The group column and the header row
+   are sticky so a 300-group tenant stays readable; the grid scrolls inside
+   its own card rather than pushing the page wide. */
+.gu-mx{max-height:72vh;overflow:auto}
+.gu-mx table{border-collapse:separate;border-spacing:0}
+.gu-mx thead th{position:sticky;top:0;background:var(--surface);z-index:2}
+.gu-mx .gu-mx-name{position:sticky;left:0;background:var(--surface);z-index:1;min-width:220px;max-width:360px}
+.gu-mx thead .gu-mx-name{z-index:3}
+.gu-mx .gu-mx-name a{color:inherit;text-decoration:none}
+.gu-mx .gu-mx-name a:hover b{color:var(--green);text-decoration:underline}
+.gu-mx-exc{color:var(--off);font-weight:700;font-size:11.5px;white-space:nowrap}
 /* Sized for the 1180px shell (build 10321), not the 1680px one it was drawn
    in. At 1680 the code panel could hold 400-520px and still leave the audit
    table room; at 1180 that same floor squeezed the table to under 700px and
