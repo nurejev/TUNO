@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10411, date: "2026-08-24", title: "The loop strip takes manual marks",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Some stations on the audit loop can never light themselves — the portal edit above all, because a browser tab cannot see what happened in another blade. Those stations now carry a small tick: mark the work done by hand and the loop moves on. Three rules keep the marks honest. Evidence beats the mark, in both directions — a station the session can verify ignores it, and the Gaps station with open gaps stays amber and offers no tick at all, because two open gaps do not close by declaration. A hand-marked station renders with a dashed border and says marked by you, so a claim never dresses up as evidence. And marks persist per browser, because the profile you edited in the portal yesterday is still edited after a refresh — un-tick to take the claim back." },
+    ],
+  },
+  {
     build: 10410, date: "2026-08-24", title: "The audit loop, drawn on the tool",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The page reads 1 to 5, top to bottom — but the work is a circle: scan, build, deploy the audit profile, collect the fleet's events, find the gaps, close them, update the profile, collect again, and only then enforce. That circle was visible only to someone who already knew it. A new strip above step 1 draws it: seven stations, each lit from what is actually loaded or known to be in the tenant this session — the scan bundle lights Scan with the device's name, rules on the table light Build, a created or found audit profile lights Deploy, an uploaded events bundle lights Collect, and the Gaps station carries the live count from the same classification pass as the evidence card, amber while gaps are open and green at zero. The first unlit station wears a ring: that is where you are, and clicking any station scrolls to its part of the page." },

@@ -2544,6 +2544,21 @@ const AppLockerTool = (() => {
   const LOOP_COLLAPSE_KEY = "tuno-al-loop-collapsed";
   const loopCollapsed = () => { try { return localStorage.getItem(LOOP_COLLAPSE_KEY) === "1"; } catch { return false; } };
 
+  // Manual marks — for the stations a browser tab CANNOT verify (the portal
+  // edit above all). Three rules keep them honest: EVIDENCE BEATS THE MARK in
+  // both directions (a station the session can see as done ignores it, and
+  // Gaps with open gaps stays amber however hard it is ticked); a manual done
+  // renders DASHED with "marked by you", so a claim never dresses as evidence;
+  // and marks persist per browser (guarded localStorage), because the portal
+  // edit you did yesterday is still done after a refresh.
+  const LOOP_MANUAL_KEY = "tuno-al-loop-manual";
+  const loopManual = () => { try { return JSON.parse(localStorage.getItem(LOOP_MANUAL_KEY) || "{}") || {}; } catch { return {}; } };
+  function loopToggleManual(key) {
+    const m = loopManual();
+    if (m[key]) delete m[key]; else m[key] = true;
+    try { Object.keys(m).length ? localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify(m)) : localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
+  }
+
   function loopStations() {
     const signedIn = typeof Graph !== "undefined" && Graph.signedIn();
     const auditIn = !!(createdFor("audit") || (deployState.checked && deployState.checked.auditInTenant));
@@ -2552,19 +2567,19 @@ const AppLockerTool = (() => {
     const enforceWhy = policy ? enforceBlockedBecause() : "not there yet";
     const collectorMade = !!(deployState.remedy && deployState.remedy.events && deployState.remedy.events.created);
     return [
-      { ico: "🖥", name: "Scan", done: !!scan, target: ".al-steps",
+      { key: "scan", ico: "🖥", name: "Scan", done: !!scan, target: ".al-steps",
         sub: scan ? esc((scan.machine || {}).name || "bundle loaded") + " ✓" : "reference machine" },
-      { ico: "🛠", name: "Build", done: !!policy && ruleCount > 0, target: policy ? "#alSummary" : "#alEmpty",
+      { key: "build", ico: "🛠", name: "Build", done: !!policy && ruleCount > 0, target: policy ? "#alSummary" : "#alEmpty",
         sub: policy ? ruleCount + " rules on the table" : "upload bundle or XML" },
-      { ico: "☁", name: "Deploy audit", done: auditIn, target: "#alDeploy",
+      { key: "deploy", ico: "☁", name: "Deploy audit", done: auditIn, target: "#alDeploy",
         sub: auditIn ? "in the tenant ✓" : signedIn ? "not created yet" : "sign in to check" },
-      { ico: "📡", name: "Collect", done: !!eventsEvidence, target: "#alRemedyDetails",
+      { key: "collect", ico: "📡", name: "Collect", done: !!eventsEvidence, target: "#alRemedyDetails",
         sub: eventsEvidence ? "bundle uploaded ✓" : collectorMade ? "Remediation created — retrieve bundles" : "deploy the collector pair" },
-      { ico: "🕳", name: "Gaps", done: !!gs && gs.gap === 0, warn: !!gs && gs.gap > 0, target: eventsEvidence ? "#alEvents" : "#alRemedyDetails",
+      { key: "gaps", ico: "🕳", name: "Gaps", done: !!gs && gs.gap === 0, warn: !!gs && gs.gap > 0, target: eventsEvidence ? "#alEvents" : "#alRemedyDetails",
         sub: gs ? (gs.gap ? gs.gap + " open" : "0 open ✓") : "upload the events bundle" },
-      { ico: "↻", name: "Update profile", done: false, target: "#alDeploy",
+      { key: "update", ico: "↻", name: "Update profile", done: false, target: "#alDeploy",
         sub: gs && gs.gap === 0 ? "edit the tenant profile in place" : "after the gaps close" },
-      { ico: "🔒", name: "Enforce", done: enforceWhy === "", target: "#alEnforce",
+      { key: "enforce", ico: "🔒", name: "Enforce", done: enforceWhy === "", target: "#alEnforce",
         sub: enforceWhy === "" ? "gate open" : "gated" },
     ];
   }
@@ -2573,10 +2588,17 @@ const AppLockerTool = (() => {
     const host = $("alLoop");
     if (!host) return;
     const st = loopStations();
-    const here = st.findIndex((s) => !s.done);
+    // Evidence beats the mark, both ways: a manual tick only lifts a station
+    // the session cannot verify, and never one that is visibly amber.
+    const manual = loopManual();
+    for (const s of st) {
+      s.manual = !s.done && !s.warn && !!manual[s.key];
+      s.eff = s.done || s.manual;
+    }
+    const here = st.findIndex((s) => !s.eff);
     const collapsed = loopCollapsed();
 
-    const summary = st.map((s, i) => `${s.name} ${s.done ? "✓" : s.warn ? "⚠ " + s.sub : i === here ? "←" : "·"}`).join("  ");
+    const summary = st.map((s, i) => `${s.name} ${s.done ? "✓" : s.manual ? "✓*" : s.warn ? "⚠ " + s.sub : i === here ? "←" : "·"}`).join("  ");
     host.innerHTML = `
       <div class="al-loop-head">
         <b>🔁 The audit loop</b>
@@ -2586,9 +2608,12 @@ const AppLockerTool = (() => {
       ${collapsed ? "" : `
       <div class="al-loop-row" style="margin-top:8px">
         ${st.map((s, i) => `${i ? `<span class="al-loop-arrow">→</span>` : ""}
-          <button class="al-loop-st ${s.done ? "done" : s.warn ? "warn" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
-            <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}</span>
-          </button>`).join("")}
+          <span class="al-loop-wrap">
+          <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
+            <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}${s.manual ? " · marked by you" : ""}</span>
+          </button>
+          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence."}">${s.manual ? "☑" : "☐"}</button>`}
+          </span>`).join("")}
       </div>
       <div class="al-loop-back">↰ <span>Collect → Gaps → Update repeats until a full window shows <b>0 gaps</b> — that evidence is what the Enforce gate reads. Updating the profile happens in the portal (edit in place, same grouping); this strip cannot see it and does not pretend to.</span></div>`}
     `;
@@ -2603,6 +2628,11 @@ const AppLockerTool = (() => {
       if (!el) return;
       if (el.tagName === "DETAILS") el.open = true;
       el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+    host.querySelectorAll(".al-loop-mark").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      loopToggleManual(b.dataset.key);
+      renderLoopStrip();
     }));
   }
 
