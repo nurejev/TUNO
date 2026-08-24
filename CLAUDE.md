@@ -29,19 +29,20 @@ Commits are authored as **Mihai Monte &lt;mihai@limon-it.nl&gt;** — set in thi
 repo's local git config. If a session finds the config empty, set exactly
 that; never invent an identity from the environment.
 
-## Push commands: one per block
+## Push commands: ONE block, stacked, cd first
 
-When handing Mihai the push commands, put each in ITS OWN code block,
-stacked — never two commands in one block. One block copies as one
-command; two in a block copy as two lines and paste as a mess.
+When handing Mihai the push commands, put everything in ONE bash code
+block, one command per line, starting with the cd — so a single
+copy-paste runs the whole thing:
 
-```
+```bash
+cd ~/REPO/TUNO
 git push tuno-beta beta:main
-```
-
-```
 git push origin beta:beta
 ```
+
+(Corrected from an earlier note that said one block per command — Mihai
+showed the format he wants and it is this one.)
 
 ## The other standing rules, in one breath
 
