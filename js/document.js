@@ -439,11 +439,18 @@ const Docs = (() => {
   function assignmentOf(a) {
     const t = (a && a.target) || {};
     const ty = lc(t["@odata.type"]);
-    if (ty.includes("exclusiongroupassignmenttarget")) return { kind: "Excluded", groupId: lc(t.groupId), name: lc(t.groupId) };
-    if (ty.includes("groupassignmenttarget")) return { kind: "Included", groupId: lc(t.groupId), name: lc(t.groupId) };
-    if (ty.includes("alldevicesassignmenttarget")) return { kind: "All devices", groupId: null, name: "All devices" };
-    if (ty.includes("alllicensedusersassignmenttarget")) return { kind: "All users", groupId: null, name: "All users" };
-    return { kind: "Other", groupId: null, name: (t["@odata.type"] || "unknown").split(".").pop() };
+    // The filter id rides along (build 10382, for T12): an assignment filter
+    // sits between an assignment and a device, a browser cannot evaluate it,
+    // and a conflict verdict that ignored it would say "can collide" about
+    // two policies a filter keeps apart. Additive — nothing that renders
+    // assignments changes.
+    const filterId = t.deviceAndAppManagementAssignmentFilterId || null;
+    const withF = (o) => (filterId ? Object.assign(o, { filterId, filterType: t.deviceAndAppManagementAssignmentFilterType || "" }) : o);
+    if (ty.includes("exclusiongroupassignmenttarget")) return withF({ kind: "Excluded", groupId: lc(t.groupId), name: lc(t.groupId) });
+    if (ty.includes("groupassignmenttarget")) return withF({ kind: "Included", groupId: lc(t.groupId), name: lc(t.groupId) });
+    if (ty.includes("alldevicesassignmenttarget")) return withF({ kind: "All devices", groupId: null, name: "All devices" });
+    if (ty.includes("alllicensedusersassignmenttarget")) return withF({ kind: "All users", groupId: null, name: "All users" });
+    return withF({ kind: "Other", groupId: null, name: (t["@odata.type"] || "unknown").split(".").pop() });
   }
 
   function summarize(res) {

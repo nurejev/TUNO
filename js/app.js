@@ -117,7 +117,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -436,6 +436,7 @@ const Fs = (() => {
     ["toolBackup", "📦 Backup configuration"],
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
+    ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolRoles", "🛡 Role assignments"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
@@ -571,6 +572,7 @@ const Fs = (() => {
   $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
+  $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Role assignments"); show("screen-roles"); });
@@ -738,6 +740,7 @@ const Fs = (() => {
   if (typeof WhatIfTool !== "undefined") WhatIfTool.init();
   if (typeof HealthTool !== "undefined") HealthTool.init();
   if (typeof SettingSearchTool !== "undefined") SettingSearchTool.init();
+  if (typeof ConflictTool !== "undefined") ConflictTool.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();

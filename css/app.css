@@ -1547,6 +1547,14 @@ body.with-side .toolnav-inner > :last-child{margin-right:0}
 .gu-mx .gu-mx-name a{color:inherit;text-decoration:none}
 .gu-mx .gu-mx-name a:hover b{color:var(--green);text-decoration:underline}
 .gu-mx-exc{color:var(--off);font-weight:700;font-size:11.5px;white-space:nowrap}
+
+/* ---- T12: setting conflict scan (build 10382) ----
+   Verdict is carried by a left accent, worst first: can = the row worth
+   reading, may = open question, cannot = context. Same three colours the
+   app already owns. */
+.cf-item.cf-can{border-left:3px solid var(--off)}
+.cf-item.cf-may{border-left:3px solid var(--warn,#c90)}
+.cf-item.cf-cannot{border-left:3px solid var(--border)}
 /* Sized for the 1180px shell (build 10321), not the 1680px one it was drawn
    in. At 1680 the code panel could hold 400-520px and still leave the audit
    table room; at 1180 that same floor squeezed the table to under 700px and
