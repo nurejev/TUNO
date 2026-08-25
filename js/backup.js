@@ -81,10 +81,123 @@ const Backup = (() => {
       nameField: "displayName",
       detail: (o) => ({ key: "__script", path: `/deviceManagement/${o.scriptSurface}/${o.id}` }),
     },
+    // ================= R15 (build 10426): THE WIDENING =================
+    // Everything below is EXPORT-ONLY: in the archive, hashed, verifiable,
+    // and readable by anything — but the restore tool still covers the five
+    // interop areas above, and each file below says so in the manifest.
+    // The five original folder names stay EXACTLY the PowerShell original's
+    // (that interop is load-bearing); these new folders are TUNO's own,
+    // because TenuVault is a Go binary with its own layout and pretending
+    // byte-interop with it would be a claim nothing verifies. What is
+    // TenuVault's here — and credited — is the COVERAGE, the checksum per
+    // file, and the manifest-written-last rule.
+    {
+      id: "Intents", label: "Security baselines (intents)", icon: "🛡", exportOnly: true,
+      hint: "Baseline profiles with their settings — one extra read per intent.",
+      list: "/deviceManagement/intents?$expand=assignments", nameField: "displayName", scopes: "config",
+      detail: (o) => ({ key: "settingsDelta", path: `/deviceManagement/intents/${o.id}/settings` }),
+    },
+    {
+      id: "AutopilotProfiles", label: "Autopilot deployment profiles", icon: "🛫", exportOnly: true,
+      hint: "The out-of-box experience per device group.",
+      list: "/deviceManagement/windowsAutopilotDeploymentProfiles?$expand=assignments", nameField: "displayName", scopes: "service",
+    },
+    {
+      id: "EnrollmentConfigurations", label: "Enrolment configurations", icon: "🚪", exportOnly: true,
+      hint: "Restrictions, ESP pages and device limits — the tenant defaults included.",
+      list: "/deviceManagement/deviceEnrollmentConfigurations?$expand=assignments", nameField: "displayName", scopes: "service",
+    },
+    {
+      id: "FeatureUpdateProfiles", label: "Feature update profiles", icon: "🔄", exportOnly: true,
+      hint: "Which Windows feature update the rings hold at.",
+      list: "/deviceManagement/windowsFeatureUpdateProfiles?$expand=assignments", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "QualityUpdateProfiles", label: "Quality update profiles", icon: "🩹", exportOnly: true,
+      hint: "Expedited quality updates.",
+      list: "/deviceManagement/windowsQualityUpdateProfiles?$expand=assignments", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "DriverUpdateProfiles", label: "Driver update profiles", icon: "🔌", exportOnly: true,
+      hint: "Driver approval policies.",
+      list: "/deviceManagement/windowsDriverUpdateProfiles?$expand=assignments", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "CustomAttributeScripts", label: "macOS custom attribute scripts", icon: "🧾", exportOnly: true,
+      hint: "One extra read per script for the body — the list returns null.",
+      list: "/deviceManagement/deviceCustomAttributeShellScripts?$expand=assignments", nameField: "displayName", scopes: "scripts",
+      detail: (o) => ({ key: "__script", path: `/deviceManagement/deviceCustomAttributeShellScripts/${o.id}` }),
+    },
+    {
+      id: "AssignmentFilters", label: "Assignment filters", icon: "🔍", exportOnly: true,
+      hint: "The rules assignments narrow by. No assignments of their own.",
+      list: "/deviceManagement/assignmentFilters", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "ScopeTags", label: "Scope tags", icon: "🏷", exportOnly: true,
+      hint: "RBAC scoping. The tag objects only — role assignments are T07's report.",
+      list: "/deviceManagement/roleScopeTags", nameField: "displayName", scopes: "rbac",
+    },
+    {
+      id: "DeviceCategories", label: "Device categories", icon: "📁", exportOnly: true,
+      hint: "The category list users pick from at enrolment.",
+      list: "/deviceManagement/deviceCategories", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "TermsAndConditions", label: "Terms and conditions", icon: "📜", exportOnly: true,
+      hint: "What users accept at enrolment.",
+      list: "/deviceManagement/termsAndConditions?$expand=assignments", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "NotificationTemplates", label: "Notification templates", icon: "✉️", exportOnly: true,
+      hint: "Compliance notification messages, localisations inline.",
+      list: "/deviceManagement/notificationMessageTemplates?$expand=localizedNotificationMessages", nameField: "displayName", scopes: "config",
+    },
+    {
+      id: "AppConfigurationDevice", label: "App configuration (managed devices)", icon: "🔧", exportOnly: true,
+      hint: "Settings pushed into apps on enrolled devices.",
+      list: "/deviceAppManagement/mobileAppConfigurations?$expand=assignments", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "AppConfigurationManagedApps", label: "App configuration (managed apps)", icon: "🔧", exportOnly: true,
+      hint: "Settings pushed into apps under MAM, enrolled or not.",
+      list: "/deviceAppManagement/targetedManagedAppConfigurations?$expand=assignments,apps", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "AppProtectionIos", label: "App protection — iOS", icon: "🛡", exportOnly: true,
+      hint: "MAM for iOS, with the app list the policy binds to.",
+      list: "/deviceAppManagement/iosManagedAppProtections?$expand=assignments,apps", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "AppProtectionAndroid", label: "App protection — Android", icon: "🛡", exportOnly: true,
+      hint: "MAM for Android, with the app list.",
+      list: "/deviceAppManagement/androidManagedAppProtections?$expand=assignments,apps", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "AppProtectionWindows", label: "App protection — Windows", icon: "🛡", exportOnly: true,
+      hint: "MAM for Windows.",
+      list: "/deviceAppManagement/windowsManagedAppProtections?$expand=assignments", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "WindowsInformationProtection", label: "Windows Information Protection", icon: "🔒", exportOnly: true,
+      hint: "WIP under MDM. Deprecated by Microsoft; still live in tenants that set it.",
+      list: "/deviceAppManagement/mdmWindowsInformationProtectionPolicies?$expand=assignments", nameField: "displayName", scopes: "apps",
+    },
+    {
+      id: "AppCategories", label: "App categories", icon: "🗂", exportOnly: true,
+      hint: "The Company Portal category list.",
+      list: "/deviceAppManagement/mobileAppCategories", nameField: "displayName", scopes: "apps",
+    },
   ];
   const areaById = (id) => AREAS.find((a) => a.id === id) || null;
   const allAreaIds = () => AREAS.map((a) => a.id);
   const SCOPES = () => Graph.SCOPES.config;
+  // R15: the widened areas span four more read scopes. The consent asked is
+  // the union of the areas CHOSEN — picking only the interop five still asks
+  // for exactly what it always did.
+  const scopesFor = (areaIds) => [...new Set((areaIds || allAreaIds())
+    .map((id) => areaById(id)).filter(Boolean)
+    .flatMap((a) => Graph.SCOPES[a.scopes || "config"] || Graph.SCOPES.config))];
 
   // The original's rule, matched exactly so filenames round-trip.
   function safeFileName(name, id) {
@@ -96,7 +209,7 @@ const Backup = (() => {
 
   const stamp = () => new Date().toISOString().replace(/\.\d+Z$/, "").replace(/[:T]/g, (c) => (c === "T" ? "_" : "-"));
 
-  const read = (path, onStatus) => Graph.readAll(path, { scopes: SCOPES(), beta: true, retry: true, onPage: onStatus });
+  const read = (path, onStatus, scopes) => Graph.readAll(path, { scopes: scopes || SCOPES(), beta: true, retry: true, onPage: onStatus });
 
   // ---- one area ---------------------------------------------------------
   async function runArea(area, opts) {
@@ -113,14 +226,14 @@ const Backup = (() => {
       const notes = [];
       for (const s of area.surfaces) {
         try {
-          const items = await read(s.path);
+          const items = await read(s.path, null, scopesFor([area.id]));
           items.forEach((it) => objects.push(Object.assign({}, it, { scriptSurface: s.surface })));
         } catch (e) { notes.push(`${s.surface}: ${Graph.GraphError && e instanceof Graph.GraphError ? e.message : String(e && e.message || e)}`); }
       }
       if (notes.length === area.surfaces.length) throw new Error(notes.join("; "));
       if (notes.length) o.onNote && o.onNote(area.id, notes.join("; "));
     } else {
-      objects = await read(area.list);
+      objects = await read(area.list, null, scopesFor([area.id]));
     }
 
     // ---- the N+1, bounded ----
@@ -129,7 +242,7 @@ const Backup = (() => {
       let done = 0;
       const results = await Graph.pool(objects, async (obj) => {
         const d = area.detail(obj);
-        const r = await Graph.readAll(d.path, { scopes: SCOPES(), beta: true, retry: true });
+        const r = await Graph.readAll(d.path, { scopes: scopesFor([area.id]), beta: true, retry: true });
         status(`${area.label} — ${++done}/${objects.length} details`);
         return { key: d.key, value: r };
       }, o.concurrency || 6);
@@ -169,7 +282,14 @@ const Backup = (() => {
         type: obj["@odata.type"] || "",
         surface: obj.scriptSurface || area.id,
         assignments: (obj.assignments || []).length,
-        restorable: o.skipScriptContent && area.id === "PlatformScripts" ? false : restorable,
+        // R15: the targets themselves, serialised through T11's cleaner —
+        // ONE implementation of "what an assignment is", not a second copy —
+        // so assignments.json is exactly what the /assign action accepts.
+        assignmentTargets: (obj.assignments || []).length && typeof AssignEdit !== "undefined"
+          ? AssignEdit.cleanAssignments(obj.assignments) : [],
+        restorable: area.exportOnly ? false
+          : (o.skipScriptContent && area.id === "PlatformScripts" ? false : restorable),
+        exportOnly: !!area.exportOnly,
         json: JSON.stringify(obj, null, 2),
       };
     });
@@ -180,7 +300,7 @@ const Backup = (() => {
   async function run(opts) {
     const o = opts || {};
     const ids = (o.areas && o.areas.length) ? o.areas : allAreaIds();
-    const out = { folder: `IntuneConfigBackup_${stamp()}`, areas: [], failed: [], notes: [], skipScriptContent: !!o.skipScriptContent };
+    const out = { folder: `IntuneConfigBackup_${stamp()}`, areas: [], failed: [], notes: [], skipScriptContent: !!o.skipScriptContent, tenantId: o.tenantId || null };
     for (const id of ids) {
       const area = areaById(id);
       if (!area) continue;
@@ -203,6 +323,94 @@ const Backup = (() => {
     }
     out.manifest = manifest(out, o);
     return out;
+  }
+
+  // ---- R15: checksums, tenant identity, the assignment export -----------
+
+  // SHA-256 of exactly the bytes written into the zip. WebCrypto where it
+  // exists; an environment without it produces an archive whose manifest
+  // says "unhashed" rather than one that silently cannot be verified later.
+  async function sha256Hex(text) {
+    if (typeof crypto === "undefined" || !crypto.subtle) return null;
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // The tenant's ID, not just its display name — the import gate needs an
+  // identity that cannot be two tenants with the same vanity domain.
+  async function tenantId() {
+    try {
+      const org = await Graph.readAll("/organization?$select=id", { scopes: Graph.SCOPES.directory, retry: true });
+      return (org[0] && org[0].id) || null;
+    } catch { return null; }
+  }
+
+  // assignments.json — every policy that carries assignments, with the
+  // targets serialised to exactly what /assign accepts. EXPORTABLE by being
+  // here; IMPORTABLE (same tenant, four surfaces) through the import panel.
+  function assignmentsExport(out) {
+    const policies = [];
+    for (const a of out.areas) for (const f of a.files) {
+      if (!(f.assignmentTargets || []).length) continue;
+      policies.push({ folder: a.area, id: f.id, name: f.name, assignments: f.assignmentTargets });
+    }
+    return { tenantId: out.tenantId || null, takenUtc: new Date().toISOString(), policies };
+  }
+
+  // groups.json — every group id the assignments name, resolved to a display
+  // name AT BACKUP TIME. For auditing: six months later "who was
+  // aaaa-…" has no answer in the directory if the group is gone.
+  async function groupsExport(assignExp) {
+    const ids = [...new Set(assignExp.policies.flatMap((p) => p.assignments
+      .map((x) => x.target && x.target.groupId).filter(Boolean)))];
+    if (!ids.length) return { groups: {}, missing: [], note: "no group-targeted assignments" };
+    const look = await Graph.resolveNames(ids, { types: ["group"] });
+    const groups = {}, missing = [];
+    for (const id of ids) {
+      const e = look.entry(id);
+      if (e) groups[id] = e.name; else missing.push(id);
+    }
+    return { groups, missing, lookupError: look.error || null };
+  }
+
+  // ---- R15: OFFLINE VERIFY — no tenant, no sign-in ----------------------
+  // input: { path: { text } } for every file in the archive (paths with the
+  // root folder stripped or not — both handled). Verdicts per file:
+  // ok / modified / missing; plus untracked (present, not in the manifest).
+  // NO MANIFEST IS ITS OWN VERDICT: the manifest is written last, so its
+  // absence means the backup never finished — TenuVault's rule, kept whole.
+  async function verifyArchive(entries) {
+    const norm = {};
+    for (const [p, v] of Object.entries(entries)) {
+      const parts = String(p).split("/").filter(Boolean);
+      // strip a single root folder if present
+      const key = parts.length > 1 && !/\.json$/i.test(parts[0]) ? parts.slice(1).join("/") : parts.join("/");
+      norm[key] = typeof v === "string" ? v : v.text;
+    }
+    if (!norm["manifest.json"]) {
+      return { verdict: "incomplete", reason: "No manifest.json. The manifest is written LAST — an archive without one is a backup that never finished, and it is not safe to restore from.", ok: [], modified: [], missing: [], untracked: Object.keys(norm) };
+    }
+    let man;
+    try { man = JSON.parse(norm["manifest.json"]); }
+    catch { return { verdict: "incomplete", reason: "manifest.json does not parse.", ok: [], modified: [], missing: [], untracked: [] }; }
+
+    const listed = (man.files || []).concat(man.extraFiles || []);
+    if (!listed.length || !listed.some((f) => f.sha256)) {
+      return { verdict: "unverifiable", manifest: man, reason: "This archive predates checksums (before build 10426) or was written by the PowerShell original — its content cannot be verified, only read.", ok: [], modified: [], missing: [], untracked: [] };
+    }
+    const ok = [], modified = [], missing = [], seen = new Set(["manifest.json"]);
+    for (const f of listed) {
+      seen.add(f.path);
+      const text = norm[f.path];
+      if (text === undefined) { missing.push(f.path); continue; }
+      if (!f.sha256) { ok.push(f.path); continue; }
+      const h = await sha256Hex(text);
+      if (h === null) return { verdict: "unverifiable", manifest: man, reason: "This browser exposes no WebCrypto — hashes cannot be recomputed here.", ok: [], modified: [], missing: [], untracked: [] };
+      (h === f.sha256 ? ok : modified).push(f.path);
+    }
+    const untracked = Object.keys(norm).filter((p) => !seen.has(p));
+    const verdict = modified.length || missing.length ? "tampered-or-damaged" : (untracked.length ? "ok-with-untracked" : "ok");
+    return { verdict, manifest: man, ok, modified, missing, untracked };
   }
 
   // ---- the manifest -----------------------------------------------------
@@ -229,10 +437,13 @@ const Backup = (() => {
       // --- everything below is TUNO's addition ---
       producer: `TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}`,
       tenant: o.tenant || null,
+      tenantId: out.tenantId || null,
+      checksum: "SHA-256",
       skipScriptContent: !!o.skipScriptContent,
       files: out.areas.flatMap((a) => a.files.map((f) => ({
         path: f.path, area: a.area, name: f.name, id: f.id,
         type: f.type, surface: f.surface, assignments: f.assignments, restorable: f.restorable,
+        exportOnly: !!f.exportOnly,
       }))),
       unreadableAreas: out.areas.filter((a) => a.unreadable).map((a) => ({ area: a.area, error: a.unreadable })),
       failedObjects: out.failed,
@@ -247,12 +458,26 @@ const Backup = (() => {
   }
 
   // ---- the zip ----------------------------------------------------------
-  async function zip(out) {
+  // THE MANIFEST GOES IN LAST — TenuVault's atomicity rule, kept exactly.
+  // Its presence is what marks the backup complete; verify treats an archive
+  // without one as a backup that never finished. Every file it lists carries
+  // a SHA-256 of the exact bytes written here.
+  async function zip(out, extras) {
     if (typeof JSZip === "undefined") throw new Error("The zip library did not load; the backup cannot be written.");
     const z = new JSZip();
     const root = z.folder(out.folder);
+    for (const a of out.areas) for (const f of a.files) {
+      root.file(f.path, f.json);
+      const m = out.manifest.files.find((x) => x.path === f.path);
+      if (m) m.sha256 = await sha256Hex(f.json);
+    }
+    out.manifest.extraFiles = [];
+    for (const [name, obj] of Object.entries(extras || {})) {
+      const text = JSON.stringify(obj, null, 2);
+      root.file(name, text);
+      out.manifest.extraFiles.push({ path: name, sha256: await sha256Hex(text) });
+    }
     root.file("manifest.json", JSON.stringify(out.manifest, null, 2));
-    for (const a of out.areas) for (const f of a.files) root.file(f.path, f.json);
     return z.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
   }
 
@@ -269,7 +494,133 @@ const Backup = (() => {
     };
   }
 
-  return { AREAS, areaById, allAreaIds, SCOPES, safeFileName, stamp, runArea, run, manifest, zip, summary };
+  return { AREAS, areaById, allAreaIds, SCOPES, scopesFor, safeFileName, stamp, runArea, run, manifest, zip, summary,
+    sha256Hex, tenantId, assignmentsExport, groupsExport, verifyArchive };
+})();
+
+
+// ======================================================================
+// R15 — ASSIGNMENT IMPORT. The half Mihai added to the card: the archive's
+// assignments.json is not just an audit record, it can be PUT BACK.
+//
+// THREE HARD RULES, each the reason the next one exists:
+//
+//   * SAME TENANT ONLY. Group ids are tenant-specific; in another tenant a
+//     GUID either resolves to nothing or — worse — to somebody else's
+//     group. The archive carries the tenant's ID and the import REFUSES a
+//     mismatch outright. An archive from before tenant identity (pre-10426)
+//     gates on typing the current tenant's domain instead.
+//   * ALL OR NOTHING PER POLICY. If any group an archived list names has
+//     been deleted since the backup, that POLICY is refused — writing the
+//     list minus the dead id would change its meaning, and dropping a dead
+//     EXCLUSION silently widens the assignment. The T11 sentence, applied
+//     to time instead of to a filter.
+//   * T11'S WRITE DISCIPLINE WHOLE: four surfaces under the held write
+//     scope, /assign replaces the list so the archived targets go over the
+//     wire exactly as cleaned at backup time, every write preceded by a
+//     fresh read (changed since the dry run = DRIFTED, skipped), followed
+//     by a read-back, never retried, sequential.
+//
+// Everything else in assignments.json — the widened areas, the scripts —
+// is EXPORT-ONLY and listed as such with its reason, not silently dropped.
+// ======================================================================
+const AssignImport = (() => {
+  "use strict";
+
+  // folder in the archive → T11 surface. Only these four can be written.
+  const IMPORTABLE = {
+    DeviceConfigurations: "deviceConfig",
+    SettingsCatalog: "settingsCatalog",
+    CompliancePolicies: "compliance",
+    AdmxPolicies: "admx",
+  };
+  const surfaceFor = (folder) => IMPORTABLE[folder] || null;
+
+  // ---- the plan: one op per archived policy, with its verdict ----
+  async function plan(assignExp, onStatus) {
+    const ops = [];
+    const allIds = [...new Set(assignExp.policies.flatMap((p) => p.assignments
+      .map((x) => x.target && x.target.groupId).filter(Boolean)))];
+    onStatus && onStatus(`Checking ${allIds.length} groups still exist…`);
+    const look = allIds.length ? await Graph.resolveNames(allIds, { types: ["group"] }) : Object.assign((id) => id, { entry: () => null, error: null });
+    if (look.error) throw new Error("The group lookup failed (" + look.error + ") — without it a deleted group cannot be told from a live one, and importing blind would widen assignments.");
+
+    let done = 0;
+    for (const p of assignExp.policies) {
+      done++;
+      const sfId = surfaceFor(p.folder);
+      if (!sfId) {
+        ops.push({ policy: p, verdict: "export-only", reason: p.folder === "PlatformScripts"
+          ? "scripts take a different assign body — export-only for now"
+          : "no write scope is held for this surface — export-only" });
+        continue;
+      }
+      const dead = [...new Set(p.assignments.map((x) => x.target && x.target.groupId)
+        .filter((id) => id && !look.entry(id)))];
+      if (dead.length) {
+        ops.push({ policy: p, verdict: "refused", reason: `${dead.length} group${dead.length === 1 ? "" : "s"} in the archived list no longer exist${dead.length === 1 ? "s" : ""} (${dead.join(", ")}) — writing the list without ${dead.length === 1 ? "it" : "them"} would change its meaning, and a dropped exclusion widens` });
+        continue;
+      }
+      const sf = AssignEdit.surfaceById(sfId);
+      onStatus && onStatus(`${p.name} — reading current assignments (${done}/${assignExp.policies.length})…`);
+      let current = null;
+      try { current = await Graph.readAll(sf.read1(p.id), { scopes: AssignEdit.READ(), beta: true, retry: true }); }
+      catch (e) {
+        ops.push({ policy: p, verdict: "missing", reason: "the policy no longer exists in the tenant (or cannot be read) — an import targets the SAME object by id, never a namesake" });
+        continue;
+      }
+      const currentSig = AssignEdit.sig(current);
+      const wantSig = AssignEdit.sig(p.assignments);
+      const groupNames = p.assignments.map((x) => x.target && x.target.groupId).filter(Boolean).map((id) => look(id));
+      if (currentSig === wantSig) {
+        ops.push({ policy: p, verdict: "noop", reason: "the tenant already says exactly this", groupNames });
+      } else {
+        ops.push({ policy: p, verdict: "replace", surface: sfId, currentSig, current: AssignEdit.cleanAssignments(current),
+          want: p.assignments, groupNames,
+          reason: `${current.length} assignment${current.length === 1 ? "" : "s"} now → ${p.assignments.length} from the archive` });
+      }
+    }
+    return {
+      ops,
+      replace: ops.filter((o) => o.verdict === "replace"),
+      noop: ops.filter((o) => o.verdict === "noop"),
+      refused: ops.filter((o) => o.verdict === "refused"),
+      missing: ops.filter((o) => o.verdict === "missing"),
+      exportOnly: ops.filter((o) => o.verdict === "export-only"),
+    };
+  }
+
+  // ---- apply: T11's loop, fed from the archive ----
+  async function apply(planned, onStatus) {
+    const results = [];
+    for (const op of planned.replace) {
+      const sf = AssignEdit.surfaceById(op.surface);
+      const label = op.policy.name;
+      try {
+        onStatus && onStatus(`${label} — checking the tenant has not moved…`);
+        const now = await Graph.readAll(sf.read1(op.policy.id), { scopes: AssignEdit.READ(), beta: true, retry: true });
+        if (AssignEdit.sig(now) !== op.currentSig) {
+          results.push({ op, drifted: true, error: "the assignments changed since the dry run — not overwriting somebody else's edit" });
+          continue;
+        }
+        onStatus && onStatus(`${label} — writing…`);
+        await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: op.want }, { scopes: AssignEdit.WRITE() });
+        onStatus && onStatus(`${label} — verifying…`);
+        let verified = false, verifyError = "";
+        try {
+          const back = await Graph.readAll(sf.read1(op.policy.id), { scopes: AssignEdit.READ(), beta: true, retry: true });
+          verified = AssignEdit.sig(back) === AssignEdit.sig(op.want);
+          if (!verified) verifyError = "the read-back does not match the archive — check the policy in the portal";
+        } catch (e) { verifyError = "written but the verify read failed: " + String((e && e.message) || e); }
+        results.push({ op, ok: true, verified, verifyError });
+      } catch (e) {
+        results.push({ op, error: String((e && e.message) || e).slice(0, 300) });
+      }
+    }
+    return results;
+  }
+
+  return { IMPORTABLE, surfaceFor, plan, apply };
 })();
 
 
@@ -318,11 +669,14 @@ const BackupTool = (() => {
     running = true; $("bkRun").disabled = true; $("bkDownload").style.display = "none"; $("bkBody").innerHTML = "";
     try {
       prog("Checking permissions…");
-      await Graph.ensureScopes(Backup.SCOPES());
+      await Graph.ensureScopes([...new Set([...Backup.scopesFor(areas), ...Graph.SCOPES.directory])]);
+      prog("Identifying the tenant…");
+      const tid = await Backup.tenantId();
       out = await Backup.run({
         areas,
         skipScriptContent: $("bkSkipScripts").checked,
         tenant: tenantHint(),
+        tenantId: tid,
         onStatus: prog,
       });
       prog("");
@@ -341,8 +695,11 @@ const BackupTool = (() => {
 
   async function download() {
     try {
-      prog("Writing the zip…");
-      const blob = await Backup.zip(out);
+      prog("Resolving group names for groups.json…");
+      const assignExp = Backup.assignmentsExport(out);
+      const groups = await Backup.groupsExport(assignExp);
+      prog("Hashing and writing the zip — the manifest goes in last…");
+      const blob = await Backup.zip(out, { "assignments.json": assignExp, "groups.json": groups });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${out.folder}.zip`;
@@ -395,11 +752,145 @@ const BackupTool = (() => {
       <p class="mini muted" style="margin:10px 0 0">The folder layout and file names match <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/backup-intune-configuration.ps1" target="_blank" rel="noopener">the PowerShell original</a> exactly, so an archive written here can be restored by that script and one written by it can be read back by TUNO.</p></div>`;
   }
 
+  // ---------------- R15: verify (offline) & import assignments ----------
+  let vfEntries = null, vfAssign = null, vfPlan = null;
+
+  async function vfLoad(file) {
+    vfEntries = null; vfAssign = null; vfPlan = null;
+    $("vfBody").innerHTML = ""; $("vfImportWrap").style.display = "none";
+    try {
+      const z = await JSZip.loadAsync(file);
+      const entries = {}, jobs = [];
+      z.forEach((path, f) => { if (!f.dir) jobs.push(f.async("string").then((t) => { entries[path] = { text: t }; })); });
+      await Promise.all(jobs);
+      vfEntries = entries;
+      const v = await Backup.verifyArchive(entries);
+      renderVerify(v);
+    } catch (e) {
+      $("vfBody").innerHTML = `<div class="gu-fail"><b>Not a readable archive:</b> ${esc((e && e.message) || e)}</div>`;
+    }
+  }
+
+  function renderVerify(v) {
+    const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    const V = {
+      "ok": ["ok", "every listed file matches its hash"],
+      "ok-with-untracked": ["", "listed files match; extra files present"],
+      "tampered-or-damaged": ["bad", "the archive does not match its manifest"],
+      "unverifiable": ["", "no hashes to check against"],
+      "incomplete": ["bad", "no manifest — the backup never finished"],
+    }[v.verdict] || ["", ""];
+    $("vfBody").innerHTML = `<div class="au-cards">
+      ${card("Verdict", esc(v.verdict), esc(V[1]), V[0])}
+      ${card("Match", v.ok.length, "files with a good hash", v.ok.length ? "ok" : "")}
+      ${card("Modified", v.modified.length, "content differs from the manifest", v.modified.length ? "bad" : "ok")}
+      ${card("Missing", v.missing.length, "listed but not in the zip", v.missing.length ? "bad" : "ok")}
+      ${card("Untracked", v.untracked.length, "in the zip but not listed", "")}
+    </div>
+    ${v.reason ? `<p class="mini muted" style="margin:8px 0 0">${esc(v.reason)}</p>` : ""}
+    ${v.modified.length ? `<div class="gu-fail" style="margin-top:8px"><b>Modified:</b> ${v.modified.map(esc).join(", ")}</div>` : ""}
+    ${v.missing.length ? `<div class="gu-fail" style="margin-top:8px"><b>Missing:</b> ${v.missing.map(esc).join(", ")}</div>` : ""}
+    ${v.untracked.length ? `<p class="mini muted" style="margin:8px 0 0">Untracked: ${v.untracked.map(esc).join(", ")}</p>` : ""}
+    <p class="mini muted" style="margin:8px 0 0">Verified entirely in this tab — no sign-in, no tenant. The manifest is written last, so an archive without one is a backup that never finished.</p>`;
+
+    // the import half appears only when assignments.json is present and the
+    // archive is not failing verification
+    const aPath = Object.keys(vfEntries).find((p) => /(^|\/)assignments\.json$/.test(p));
+    if (aPath && v.verdict !== "incomplete" && v.verdict !== "tampered-or-damaged") {
+      try { vfAssign = JSON.parse(vfEntries[aPath].text); } catch { vfAssign = null; }
+      if (vfAssign && (vfAssign.policies || []).length) {
+        $("vfImportWrap").style.display = "";
+        $("vfImportInfo").innerHTML = `<b>${vfAssign.policies.length}</b> polic${vfAssign.policies.length === 1 ? "y" : "ies"} carry assignments in this archive${vfAssign.tenantId ? `, taken from tenant <code>${esc(vfAssign.tenantId)}</code>` : ", from an archive that predates tenant identity"}.`;
+        $("vfImportPlanOut").innerHTML = ""; $("vfImportApply").style.display = "none";
+      }
+    } else if (v.verdict === "tampered-or-damaged") {
+      $("vfImportWrap").style.display = "none";
+      $("vfBody").innerHTML += `<div class="gu-fail" style="margin-top:8px"><b>Import is refused for a tampered or damaged archive.</b><span class="why">An assignment list whose file failed its hash is not evidence of anything.</span></div>`;
+    }
+  }
+
+  async function vfDryRun() {
+    if (running || !vfAssign) return;
+    running = true; $("vfImportDry").disabled = true;
+    try {
+      await Graph.ensureScopes([...new Set([...AssignEdit.READ(), ...Graph.SCOPES.directory])]);
+      // THE TENANT GATE. Same tenant or nothing — group ids are meaningless
+      // anywhere else, and dangerous where they happen to resolve.
+      prog2("Identifying this tenant…");
+      const here = await Backup.tenantId();
+      if (vfAssign.tenantId && here && vfAssign.tenantId !== here) {
+        throw new Error(`This archive was taken from tenant ${vfAssign.tenantId} and you are signed in to ${here}. Group ids do not translate between tenants — the import is refused, with no override. Cross-tenant copying is R17's problem, deliberately unbuilt.`);
+      }
+      if (!vfAssign.tenantId) {
+        const typed = ($("vfTenantConfirm") && $("vfTenantConfirm").value || "").trim().toLowerCase();
+        const domain = (($("tenantName") && $("tenantName").textContent) || "").trim().toLowerCase();
+        if (!domain || typed !== domain) {
+          $("vfImportPlanOut").innerHTML = `<div class="gu-fail"><b>This archive predates tenant identity (before build 10426).</b><span class="why">Type this tenant's domain (“${esc(domain || "unknown")}”) in the box above to confirm you know where the archive came from, then dry-run again.</span></div>`;
+          $("vfTenantWrap").style.display = "";
+          return;
+        }
+      }
+      vfPlan = await AssignImport.plan(vfAssign, prog2);
+      prog2("");
+      const row = (o, note) => `<tr><td><b>${esc(o.policy.name)}</b> <span class="mini muted">${esc(o.policy.folder)}</span></td><td class="mini">${esc(note || o.reason)}</td></tr>`;
+      $("vfImportPlanOut").innerHTML = `
+        <p class="mini" style="margin:8px 0 0"><b>${vfPlan.replace.length} to replace</b> · ${vfPlan.noop.length} already exact · ${vfPlan.refused.length} refused · ${vfPlan.missing.length} missing · ${vfPlan.exportOnly.length} export-only.</p>
+        <div class="gu-tw" style="margin-top:8px"><table class="cg-table"><tbody>
+          ${vfPlan.replace.map((o) => row(o, `REPLACE — ${o.reason} · groups: ${o.groupNames.join(", ") || "tenant-wide only"}`)).join("")}
+          ${vfPlan.refused.map((o) => row(o)).join("")}
+          ${vfPlan.missing.map((o) => row(o)).join("")}
+          ${vfPlan.noop.map((o) => row(o)).join("")}
+          ${vfPlan.exportOnly.map((o) => row(o)).join("")}
+        </tbody></table></div>
+        <p class="mini muted" style="margin:8px 0 0">The assign call replaces each policy's whole list with the archived one, exactly as cleaned at backup time. Each policy is re-read at apply; one that changed since this dry run is skipped as drifted.</p>`;
+      if (vfPlan.replace.length) {
+        $("vfImportApply").style.display = "";
+        $("vfImportApply").disabled = true;
+        $("vfConfirm").value = "";
+        $("vfConfirmWrap").style.display = "";
+        $("vfGate").textContent = `Type REPLACE to allow writing ${vfPlan.replace.length} assignment list${vfPlan.replace.length === 1 ? "" : "s"}.`;
+      }
+    } catch (e) {
+      prog2("");
+      $("vfImportPlanOut").innerHTML = `<div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div>`;
+    } finally { running = false; $("vfImportDry").disabled = false; }
+  }
+
+  async function vfApply() {
+    if (running || !vfPlan || $("vfConfirm").value.trim() !== "REPLACE") return;
+    running = true; $("vfImportApply").disabled = true;
+    try {
+      await Graph.ensureScopes(AssignEdit.WRITE());
+      const results = await AssignImport.apply(vfPlan, prog2);
+      prog2("");
+      const good = results.filter((r) => r.ok && r.verified).length;
+      $("vfImportPlanOut").innerHTML = `
+        <p class="mini"><b>${good} written and verified</b> · ${results.length - good} not clean. “Verified” is the tenant's read-back matching the archive, never the write's status code.</p>
+        <div class="gu-tw"><table class="cg-table"><tbody>${results.map((r) => `<tr>
+          <td><b>${esc(r.op.policy.name)}</b></td>
+          <td>${r.ok && r.verified ? '<span class="gu-how inc">written · verified</span>' : r.drifted ? '<span class="gu-how exc">drifted — not written</span>' : r.error ? '<span class="gu-how exc">FAILED</span>' : '<span class="gu-how exc">written · NOT verified</span>'}</td>
+          <td class="mini">${esc(r.error || r.verifyError || "")}</td></tr>`).join("")}</tbody></table></div>`;
+      $("vfImportApply").style.display = "none"; $("vfConfirmWrap").style.display = "none";
+      vfPlan = null;
+    } catch (e) {
+      prog2("");
+      $("vfImportPlanOut").innerHTML = `<div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div>`;
+    } finally { running = false; }
+  }
+
+  const prog2 = (m) => TunoProgress.show(null, "vfProg", m);
+
   function init() {
     if (!$("bkRun")) return;
     renderAreas();
     $("bkRun").addEventListener("click", run);
     $("bkDownload").addEventListener("click", download);
+    if ($("vfFile")) {
+      $("vfFile").addEventListener("change", (e) => { if (e.target.files[0]) vfLoad(e.target.files[0]); });
+      $("vfImportDry").addEventListener("click", vfDryRun);
+      $("vfImportApply").addEventListener("click", vfApply);
+      $("vfConfirm").addEventListener("input", () => { $("vfImportApply").disabled = $("vfConfirm").value.trim() !== "REPLACE"; });
+    }
     $("bkReset").addEventListener("click", () => {
       out = null; $("bkBody").innerHTML = ""; prog(""); $("bkDownload").style.display = "none";
       document.querySelectorAll("#bkAreas input[type=checkbox]").forEach((c) => { c.checked = true; c.closest(".gu-area").classList.add("on"); });

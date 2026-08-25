@@ -70,6 +70,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 83,
+      title: "R15 — the backup widens, hashes itself, and assignments import",
+      tools: ["📦 Backup configuration"],
+      builds: [10425, 10426],
+      risk: "high",
+      what: "T04 v0.3, after TenuVault TUI (MIT). Nineteen export-only areas join the interop five (own read scopes, consent = union of chosen); SHA-256 per file with the manifest written into the zip LAST; an offline verify naming modified/missing/untracked, calling a manifest-less archive incomplete and a pre-checksum one unverifiable; assignments.json (T11-cleaned targets) + groups.json (names at backup time) in every archive; and the IMPORT — Mihai's amendment to the card — same tenant only by archive tenant-id (refused on mismatch, typed-domain gate for identity-less archives), all-or-nothing per policy on deleted groups, T11's write loop with drift skip and read-back verify, refused entirely for tampered archives. 10425 carried the screen half; 10426 the engine — they promote together or not at all.",
+      why: "HIGH — the import is a write path fed from a FILE, which is a new kind of input: everything else that writes reads its plan from the tenant. The three gates (tenant id, dead-group refusal, drift) are asserted headlessly and mutation-checked, but none has touched a real tenant, and the widened areas' $expand=assignments behaviour on beta is exactly the kind of thing that differs per tenant licence.",
+      test: [
+        "Take a backup with all areas on a real tenant. Every area with content must land files; an area the tenant lacks must read as its documented failure mode, not sink the run. Open the zip: manifest.json must be the LAST entry written (check its position), and every listed file must carry a sha256.",
+        "Verify the archive unmodified (verdict ok), then edit one byte inside a policy file and re-verify: that file must be named MODIFIED. Delete a file: MISSING. Add a stray file: UNTRACKED. Strip the manifest: 'never finished'. Feed a v0.2 archive: 'unverifiable'.",
+        "THE ONE THAT MATTERS: change a policy's assignments in the portal, then import the archive's assignments.json. The dry run must show REPLACE with the group NAMES; apply must write it back and report verified-by-read-back; the portal must agree.",
+        "Delete one group named in an archived policy's list, re-run the dry run: that policy must be REFUSED with the deleted id named — never written minus the dead group.",
+        "Sign into a DIFFERENT tenant and load the archive: the import must refuse on the tenant id, with no override offered. Then load an old (pre-10426) archive in the right tenant and confirm the typed-domain gate.",
+        "Between dry run and apply, change one policy's assignments in the portal: apply must skip it as DRIFTED and write nothing to it.",
+        "Confirm the five-only selection still prompts for exactly DeviceManagementConfiguration.Read.All — the widened scopes must not ride along uninvited.",
+        "PROMOTE 10425 AND 10426 TOGETHER. 10425 alone shows a dead verify panel and a failing t04 suite — the queue records them as one item for exactly this reason.",
+      ],
+      files: ["js/backup.js", "index.html", "_to_delete/t04-backup-tests.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 82,
       title: "Surface pickers fit and can be cleared; the roadmap gains ENCA's beta era",
       tools: ["All tools"],
