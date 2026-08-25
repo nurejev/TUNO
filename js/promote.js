@@ -73,7 +73,7 @@ const PROMOTE = {
       n: 71,
       title: "The audit loop strip",
       tools: ["🔐 AppLocker builder & validator"],
-      builds: [10410, 10411],
+      builds: [10410, 10411, 10412],
       risk: "low",
       what: "T01 v0.13. A strip above step 1 draws the circle the 1→5 numbering hides: Scan → Build → Deploy audit → Collect → Gaps → Update profile → Enforce. Stations lit from session state only (scan/policy/created-or-found audit profile/events bundle); the Gaps station reads fleetGapStats() — the SAME pass as the evidence card's chips and the gap report, so numbers cannot disagree; Enforce reads enforceBlockedBecause(). You-are-here ring on the first unlit station; click scrolls (scroll-margin-top so the sticky header does not swallow the target, DETAILS targets opened first). The Update station never claims done — a portal edit is invisible to the tab, said on the strip. Collapses to a one-line summary via guarded localStorage. Colors are theme variables only; mockup round picked the live strip over a Help-only walkthrough. 10411 adds MANUAL MARKS for the stations the tab cannot verify: a small tick per unverifiable station, persisted per browser. Evidence beats the mark both ways — auto-done stations ignore it, and an amber Gaps station offers no tick at all — and a hand-marked station renders DASHED with marked-by-you, so a claim never dresses as evidence.",
       why: "LOW — reads session state, writes nothing, and every number it shows comes from a pass that already existed. The judgement that needs eyes: whether seven stations fit one row on a laptop width without wrapping into noise, and whether the you-are-here ring reads in the dark theme.",

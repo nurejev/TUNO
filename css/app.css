@@ -2007,7 +2007,7 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
    hand-marked station is DASHED — a claim, never dressed as evidence. */
 .al-loop-wrap{position:relative;display:inline-flex}
 .al-loop-st.manual{border-style:dashed}
-.al-loop-mark{position:absolute;top:-6px;right:-4px;border:none;background:none;cursor:pointer;
+.al-loop-mark{position:absolute;top:-1px;right:3px;border:none;background:none;cursor:pointer;
   font-size:13px;line-height:1;padding:2px;color:var(--faint)}
 .al-loop-mark:hover{color:var(--muted)}
 .al-loop-mark.on{color:var(--on)}

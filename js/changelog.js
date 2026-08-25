@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10412, date: "2026-08-24", title: "The tick finds its corner",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The manual-mark tick on the loop strip hung past the station's right edge; it now sits tucked inside the corner where a corner control belongs." },
+    ],
+  },
+  {
     build: 10411, date: "2026-08-24", title: "The loop strip takes manual marks",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Some stations on the audit loop can never light themselves — the portal edit above all, because a browser tab cannot see what happened in another blade. Those stations now carry a small tick: mark the work done by hand and the loop moves on. Three rules keep the marks honest. Evidence beats the mark, in both directions — a station the session can verify ignores it, and the Gaps station with open gaps stays amber and offers no tick at all, because two open gaps do not close by declaration. A hand-marked station renders with a dashed border and says marked by you, so a claim never dresses up as evidence. And marks persist per browser, because the profile you edited in the portal yesterday is still edited after a refresh — un-tick to take the claim back." },
