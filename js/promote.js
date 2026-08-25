@@ -70,6 +70,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 86,
+      title: "Demo mode \u2014 a whole fake tenant, answered at the Graph layer",
+      tools: ["All tools"],
+      builds: [10430],
+      risk: "medium",
+      what: "?demo=1 (and a link on the sign-in card) runs all seventeen tools against a fixture tenant. js/demo.js carries the tenant and a router; Graph.call() checks one flag BEFORE the token and before fetch, so no tool file changed and no tool can tell. Writes answer as though they happened. hasScopes/ensureScopes short-circuit so a demo never opens a Microsoft sign-in for a tenant it will not touch. The fixture is deliberately faulty \u2014 dangling assignment, unassigned firewall both old and new way, a real settings collision, an uncovered platform under secureByDefault=false, an empty approver group, LAPS gaps, a nine-day-stale device \u2014 and one surface refuses 403 on purpose so every full sweep has to report itself PARTIAL.",
+      why: "MEDIUM, and the reason is the interception, not the fixture. It sits in the one function every read and every write in the app passes through, which is the highest-traffic code in TUNO. The flag defaults off and is set only from ?demo=1, and the headless suite asserts fetch is never reached in demo mode \u2014 but the thing to satisfy yourself about before this goes to production is the converse: that a NORMAL signed-in session is byte-for-byte unaffected.",
+      test: [
+        "THE ONE THAT MATTERS: sign in to a real tenant WITHOUT ?demo=1 and run three or four tools. Numbers must match what the portal says. The risk in this item is not that the demo is wrong, it is that the demo hook changed the real path.",
+        "Then confirm the demo cannot be entered by accident: no link but the sign-in card and the query string reaches it, and removing ?demo=1 and reloading returns you to a real sign-in with no demo state left behind.",
+        "Open ?demo=1 and walk every tool. Each must REPORT SOMETHING \u2014 an empty result table anywhere means that tool's planted fault stopped being found and the fixture needs a look, not the tool.",
+        "Check the banner is present on every screen, on both themes, and at a narrow window where it wraps to two lines \u2014 the sidebar offset is measured off its height, so a wrap is where it would slide underneath.",
+        "In demo mode, press something that WRITES (deploy an AppLocker profile in T01, edit an assignment in T11). It must say it succeeded and the tenant must be untouched, and the screen must make the simulation obvious rather than implying a real write.",
+        "Confirm no consent prompt or Microsoft sign-in window ever appears in demo mode, on any tool, including the ones that would normally ask for a new scope.",
+        "Watch the network tab through a full sweep in demo mode. It must stay empty of graph.microsoft.com traffic.",
+      ],
+      files: ["js/demo.js", "js/graph.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 85,
       title: "Windows LAPS audit — T18, and the registration's first new scope in 99 builds",
       tools: ["🔑 Windows LAPS audit"],

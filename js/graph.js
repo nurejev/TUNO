@@ -63,7 +63,25 @@ const Graph = (() => {
 
   const app = () => (provider && provider.getApp && provider.getApp()) || null;
   const account = () => (provider && provider.getAccount && provider.getAccount()) || null;
-  const signedIn = () => !!(app() && account());
+  const signedIn = () => demo || !!(app() && account());
+
+  // ---------- demo mode ----------
+  //
+  // THE WHOLE OF DEMO MODE IS THESE FEW LINES. Every read and every write in
+  // every tool passes through call() below, so standing here once is enough:
+  // no tool knows demo mode exists, no tool has a branch for it, and a tool
+  // written next year gets it for nothing. ENCA needed roughly eighty
+  // branches for the same feature because it had no single place to stand —
+  // that difference is architectural, not effort.
+  //
+  // The flag is one-way ON PURPOSE. A session that has looked at fake data
+  // must not be able to slide back into a real tenant with a stale screen
+  // still up; leaving the demo is a page load, which is also what makes the
+  // "am I looking at real data?" question answerable by looking at the URL.
+  let demo = false;
+  const useDemo = () => { demo = true; };
+  const isDemo = () => demo;
+  const DEMO_LATENCY = () => (typeof TUNO_DEMO_GRAPH !== "undefined" ? TUNO_DEMO_GRAPH.LATENCY_MS : 0);
 
   // The scopes each capability needs, named where they are used so a reader
   // can see what a button costs before pressing it.
@@ -146,7 +164,11 @@ const Graph = (() => {
       (p.scp || "").split(" ").filter(Boolean).forEach((s) => granted.add(scopeName(s)));
     } catch { /* opaque or malformed token — leave the cache alone */ }
   }
-  const hasScopes = (scopes) => (scopes || []).every((s) => granted.has(scopeName(s)));
+  // In demo mode every scope reads as granted. Not a shortcut: a demo that
+  // asked for consent would open a real Microsoft sign-in for a tenant it is
+  // not going to touch, which is worse than confusing — it is a login prompt
+  // the person did not ask for and cannot usefully answer.
+  const hasScopes = (scopes) => demo || (scopes || []).every((s) => granted.has(scopeName(s)));
 
   // DOES THIS ERROR MEAN "ASK THE USER"?
   //
@@ -238,6 +260,7 @@ const Graph = (() => {
   // configuration scope — the incremental principle is per RUN rather than
   // per request, which is the granularity a person can actually consent to.
   async function ensureScopes(scopes) {
+    if (demo) return true;
     const want = [...new Set(scopes || [])];
     if (!want.length || hasScopes(want)) return true;
     if (!signedIn()) throw new GraphError("auth", "Not signed in.");
@@ -281,6 +304,27 @@ const Graph = (() => {
   // `retry` is opt-in and only reads ever pass it — see rule 3 in the header.
   async function call(method, path, { body, scopes, headers, retry } = {}) {
     const url = safeGraphUrl(path);
+
+    // THE INTERCEPTION. Before the token, before the fetch — so a demo
+    // session cannot acquire a credential it has no use for, and cannot
+    // reach the network even if a route below is missing. The router hands
+    // back a fault descriptor rather than throwing, and it is turned into a
+    // real GraphError here, so every tool's error handling stays on exactly
+    // the path it already knows.
+    if (demo) {
+      await sleep(DEMO_LATENCY());
+      const r = TUNO_DEMO_GRAPH.answer(method, url, body);
+      if (r && r.__demoFault) {
+        const f = r.__demoFault;
+        let kind = "graph";
+        if (f.status === 401) kind = "auth";
+        else if (f.status === 404) kind = "notfound";
+        else if (f.status === 403) kind = /Authorization_RequestDenied|insufficient privileges/i.test(f.message) ? "admin" : "graph";
+        throw new GraphError(kind, f.message, { status: f.status, code: f.code, requestId: "demo" });
+      }
+      return r;
+    }
+
     const send = async () => {
       const at = await token(scopes || SCOPES.profiles);
       return fetch(url, {
@@ -615,6 +659,15 @@ const Graph = (() => {
     odata, isGuid, chunk, setThrottleHandler, safeGraphUrl,
     // consent (build 10322)
     ensureScopes, hasScopes, needsInteraction, isPopupBlocked,
-    grantedScopes: () => [...granted],
+    // The permissions screen reads this to paint its chips. In demo mode it
+    // answers with every scope the app can ask for, marked as granted — and
+    // the screen says "simulated" beside them, because a permissions page
+    // that quietly showed a real-looking grant would be the one screen in the
+    // app where the demo told a lie worth believing.
+    grantedScopes: () => (demo
+      ? [...new Set(Object.values(SCOPES).flat().map(scopeName))]
+      : [...granted]),
+    // demo (build 10426)
+    useDemo, isDemo,
   };
 })();

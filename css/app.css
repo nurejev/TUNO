@@ -2129,3 +2129,27 @@ button.au-card-btn{text-align:left;cursor:pointer;font:inherit;color:inherit}
 button.au-card-btn:hover{background:var(--hover)}
 button.au-card-btn.active{border-color:var(--on);box-shadow:0 0 0 1px var(--on) inset}
 button.au-card-btn:disabled{cursor:default;opacity:.6}
+
+/* ---------- demo mode (build 10430) ----------
+   Warn colours, not the brand's: the bar has to read as an interruption
+   every time the eye passes it, and the lemon is what the app uses when it
+   is pleased with itself. It is not dismissible and has no close control —
+   see the note on the markup. */
+.demo-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:9px 18px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd);
+  color:var(--warn-fg);font-size:13px;line-height:1.45}
+.demo-bar strong{letter-spacing:.06em;font-size:11.5px;padding:2px 8px;border-radius:4px;
+  background:var(--warn-fg);color:var(--warn-bg);white-space:nowrap}
+.demo-bar span{flex:1 1 260px;min-width:0}
+.demo-bar a{color:var(--warn-fg);font-weight:600;white-space:nowrap}
+/* The bar sticks ABOVE the header rather than scrolling away, because a
+   warning you can leave behind by scrolling is one you will forget by the
+   second screen. The header then sticks below it, and the sidebar — which is
+   position:fixed and knows nothing about either — has to be told.
+
+   --demo-bar-h is MEASURED in js/app.js rather than assumed: the bar wraps to
+   two lines on a narrow window, and a hardcoded height would slide the rail
+   under it at exactly the width where the rail matters most. */
+.demo-bar{position:sticky;top:0;z-index:60}
+body.demo-mode header{top:var(--demo-bar-h,40px)}
+body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}

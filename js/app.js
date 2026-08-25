@@ -626,6 +626,48 @@ const Fs = (() => {
       loginErr("Sign-in failed: " + (e && e.message ? e.message : e));
     }
   }
+  // ---------- demo mode ----------
+  //
+  // ENCA's entry, ported: ?demo=1, a link on the sign-in card, and a fake
+  // identity in the tenant box. What is NOT ported is the eighty branches
+  // behind it — Graph.useDemo() puts the whole tenant behind the read layer,
+  // so from here down demo mode is just a sign-in that skips Microsoft.
+  //
+  // The banner is not decoration and must not be made dismissible. Every
+  // number on every screen after this point is invented, and the one thing a
+  // demo owes the person looking at it is that they never forget that.
+  function loadDemo() {
+    Graph.useDemo();
+    signedIn = true;
+    account = null;
+    tenantDomain = "";
+    tenantName = "Contoso B.V. (demo)";
+    $("tenantName").textContent = tenantName;
+    $("tenantUser").textContent = "demo@contoso.onmicrosoft.com";
+    $("avatar").textContent = "DM";
+    $("cfdevBadge").style.display = "none";
+    $("tenantBox").style.display = "flex";
+    $("homeBtn").style.display = "";
+    document.body.classList.add("demo-mode");
+    const bar = $("demoBar");
+    if (bar) {
+      bar.style.display = "";
+      // The bar wraps to two lines on a narrow window and the fixed sidebar
+      // has to start below whatever height it actually is, so it is measured
+      // rather than assumed — and re-measured on resize, because the wrap
+      // point is exactly where somebody will be looking.
+      const measure = () => document.documentElement.style.setProperty("--demo-bar-h", `${bar.offsetHeight}px`);
+      measure();
+      if (typeof ResizeObserver === "function") new ResizeObserver(measure).observe(bar);
+      else window.addEventListener("resize", measure);
+    }
+    buildToolNav();
+    renderSideNav();
+    $("sideNav").style.display = "";
+    document.body.classList.add("with-side");
+    show("screen-home");
+  }
+
   function enter() {
     signedIn = true;
     $("tenantName").textContent = (account && (account.tenantId ? account.username.split("@")[1] : "")) || "";
@@ -695,7 +737,18 @@ const Fs = (() => {
     if (msalApp) { try { msalApp.setActiveAccount(null); } catch { /* older msal-browser */ } }
     if (msalApp && acc) msalApp.logoutPopup({ account: acc }).catch(() => {});
   });
+  const demoLink = $("demoLink");
+  if (demoLink) demoLink.addEventListener("click", (e) => { e.preventDefault(); loadDemo(); });
+
   authInit().then((cameBack) => {
+    // ?demo=1 is checked AFTER auth init and BEFORE the redirect short-circuit,
+    // so a demo cannot be entered on top of a half-finished real sign-in.
+    // It is deliberately not remembered anywhere: the URL is the only thing
+    // that puts the app in demo mode, which makes "is this real?" a question
+    // the address bar answers.
+    try {
+      if (new URLSearchParams(location.search).get("demo") === "1") { loadDemo(); return; }
+    } catch { /* no URLSearchParams — fall through to the normal sign-in */ }
     // Only a COMPLETED interactive sign-in (the redirect flow landing back
     // here) enters directly — it is a sign-in finishing, not a refresh.
     // Everything else stays on the sign-in screen and signs in for real.
