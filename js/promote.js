@@ -70,6 +70,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 85,
+      title: "Windows LAPS audit — T18, and the registration's first new scope in 99 builds",
+      tools: ["🔑 Windows LAPS audit"],
+      builds: [10429],
+      risk: "high",
+      what: "New tool (R29), Endpoint security: directory/deviceLocalCredentials metadata cross-referenced against Intune Windows devices on the Entra device id. Five buckets (healthy/stale/notEscrowed/ageUnknown/unmatchable), orphaned escrow records listed, role-gate 403 explained as who-you-are. NEW SCOPE DeviceLocalCredential.ReadBasic.All — added to the registration script and SECURITY.md in this build; TENANTS NEED FRESH ADMIN CONSENT before the first run. Reads only, metadata only. Exports MD + CSV.",
+      why: "HIGH — not because anything writes, but because this is the first registration change since 10330 and the tool is dead until consent lands: promoted before the production tenant re-consents, it would 403 for every customer with a red error card on a production site. It graduates when the scope is consented on the beta tenant, a real fleet renders correctly, AND the consent path for customer tenants is written down.",
+      test: [
+        "Re-run ./New-TunoAppRegistration.ps1 (it resolves and updates the permission list in place), then admin-consent the beta tenant; confirm the first run asks for the scope at the click, not at sign-in.",
+        "On a tenant WITH LAPS policy: compare the healthy/stale split against the portal's LAPS blade for three devices, including one freshly rotated (age near zero) and one past the threshold.",
+        "On a device never onboarded to LAPS: confirm it reads not-escrowed, and that a device with no azureADDeviceId (cloud-attach edge cases) reads UNMATCHABLE, not not-escrowed.",
+        "Sign in as an account WITHOUT a supported directory role (scope consented) and confirm the refusal names the role gate rather than printing a bare 403.",
+        "Retire a test device without deleting its Entra object and confirm its escrow record appears under 'escrowed, not enrolled'.",
+        "Confirm no request anywhere in the tool touches /deviceLocalCredentials/{id} with $select=credentials or any password-bearing shape — the CSV and MD must carry names and times only.",
+      ],
+      files: ["js/laps.js", "js/graph.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html", "New-TunoAppRegistration.ps1", "SECURITY.md"],
+    },
+    {
       n: 84,
       title: "Compliance report — the coverage section (R28)",
       tools: ["📋 Compliance report"],

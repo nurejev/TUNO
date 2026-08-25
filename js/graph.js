@@ -96,6 +96,15 @@ const Graph = (() => {
     groups: ["Group.Read.All"],
     groupMembers: ["GroupMember.Read.All"],
     directory: ["User.Read.All", "Group.Read.All"],
+    // Windows LAPS escrow METADATA — device name and backup time, never the
+    // password. Added at build 10429 with T18 (R29), the R18 rule: a new
+    // scope goes on in the open, with the tool that needs it. ReadBasic is
+    // deliberate — DeviceLocalCredential.Read.All returns password values
+    // and belongs to R10's helpdesk viewer if that ever ships, not to an
+    // audit. Graph also gates this endpoint on the CALLER'S directory role
+    // (Intune Administrator among them), so consent alone does not open it —
+    // T18's screen says so rather than printing a bare 403.
+    laps: ["DeviceLocalCredential.ReadBasic.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,

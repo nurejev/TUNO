@@ -186,7 +186,16 @@ param(
     "GroupMember.Read.All",
     "User.Read.All",
     # R03 device analyzer — build 10330
-    "Device.Read.All"
+    "Device.Read.All",
+    # T18 Windows LAPS audit — build 10429. ReadBasic DELIBERATELY: escrow
+    # metadata only (device name, backup time); Graph cannot return a
+    # password value through it. The full Read.All, which can, would belong
+    # to R10's helpdesk viewer and is not taken here — auditing that escrow
+    # works and reading a password are different acts, and the smaller one
+    # must not carry the larger one's scope. Note Graph ALSO gates the
+    # endpoint on the caller's directory role (Intune Administrator among
+    # them): consent alone does not open it, and T18's screen says so.
+    "DeviceLocalCredential.ReadBasic.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent

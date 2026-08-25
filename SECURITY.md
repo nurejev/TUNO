@@ -31,7 +31,8 @@ If you would rather TUNO could not write at all, omit the write scopes when you 
   User.Read, SecurityEvents.Read.All, Group.Read.All, GroupMember.Read.All, User.Read.All, `
   DeviceManagementConfiguration.Read.All, DeviceManagementApps.Read.All, `
   DeviceManagementScripts.Read.All, DeviceManagementManagedDevices.Read.All, `
-  DeviceManagementServiceConfig.Read.All, DeviceManagementRBAC.Read.All, Device.Read.All
+  DeviceManagementServiceConfig.Read.All, DeviceManagementRBAC.Read.All, Device.Read.All, `
+  DeviceLocalCredential.ReadBasic.All
 ```
 
 Every other feature keeps working; step 5 falls back to the three manual routes it documents.
@@ -51,6 +52,7 @@ Eight delegated **read-only** scopes cover the Intune tools, added together at b
 | `GroupMember.Read.All` | Group membership, for parent-group assignment inheritance |
 | `User.Read.All` | Turning member and actor GUIDs into names, and the primary user's group memberships |
 | `Device.Read.All` | The Entra device object — which groups a machine is in, which the Intune record does not say |
+| `DeviceLocalCredential.ReadBasic.All` | Windows LAPS escrow **metadata** — device name and backup time, for the LAPS audit (build 10429). Graph cannot return a password value through this scope; the `Read.All` variant, which can, is deliberately not taken. Graph additionally gates the endpoint on the signed-in user's directory role (Intune Administrator among the allowed), so consent alone does not open it |
 
 `DeviceManagementConfiguration.Read.All` is listed even though the `ReadWrite` variant above would functionally cover it. Entra consents scopes by name — a token requested for `Read.All` is refused unless `Read.All` itself is consented. The alternative, pointing the read-only tools at the write scope, would mean a tool that only reports could, on any future bug, write.
 

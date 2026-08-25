@@ -22,7 +22,7 @@ Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell.
 #>
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10428
+$script:TunoBuild = 10429
 
 $ErrorActionPreference = 'SilentlyContinue'
 $found = @()
