@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 84,
+      title: "Compliance report — the coverage section (R28)",
+      tools: ["📋 Compliance report"],
+      builds: [10428],
+      risk: "medium",
+      what: "T13 v0.3: platform coverage over the report's existing reads — platforms with devices and no compliance policy reaching anybody (by-construction reach, the T12/T16 rule), three-answer verdicts (gap / covered with a filtered=may caveat / no devices as context), the tenant's secureByDefault lean read from deviceManagement/settings and stated next to the table, unknown-not-uncovered when either half fails. Coverage CSV export. Zero new Graph traffic beyond the one settings read; no new scope.",
+      why: "MEDIUM — a new claim on an existing tool, and the claim is about a SECURITY hole. The two things only a real tenant can prove: the secureByDefault read answers on the config scope (the docs are thin on which scope gates deviceManagement/settings), and the platform mapping agrees with what the portal shows for a tenant with Android's three policy flavours.",
+      test: [
+        "Run on a tenant whose devices span at least two platforms and compare the coverage table against the portal: every platform under Devices → By platform must appear with the right device count, and a platform with only exclusion-assigned policies must read NOT COVERED.",
+        "Check the lean banner against Devices → Compliance → Compliance settings: Compliant there must produce the red banner, Not compliant the calm line. If the settings read 403s on the config scope, the fallback line with the portal path must show — note which scope it actually wanted here.",
+        "A tenant with an unassigned policy for a platform that has no devices: the platform must read 'no devices', never GAP.",
+        "Confirm the coverage CSV rows match the on-screen table, and that the Markdown export carries the section with the same lean sentence.",
+        "Dark theme: the red lean banner, NOT COVERED badges and the filtered caveat readable.",
+      ],
+      files: ["js/compliance.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 83,
       title: "R15 — the backup widens, hashes itself, and assignments import",
       tools: ["📦 Backup configuration"],

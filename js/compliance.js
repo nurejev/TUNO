@@ -42,6 +42,46 @@ const Compliance = (() => {
     return "other";
   }
 
+  // ---- platform identity, for the coverage section (R28) ----
+  // A compliance policy's OData type names its platform 1:1 — the original
+  // script's mapping, kept. Device operating systems normalise to T05's one
+  // vocabulary, so "Windows" and "windows10" cannot read as two platforms.
+  function platformOfPolicyType(type) {
+    const t = lc(type);
+    if (/^windows/.test(t)) return "Windows";
+    if (/^macos/.test(t)) return "macOS";
+    if (/^ios/.test(t)) return "iOS/iPadOS";
+    if (/^(android|aosp)/.test(t)) return "Android";
+    if (/^linux/.test(t)) return "Linux";
+    return String(type || "").replace(/CompliancePolicy$/i, "") || "(unknown)";
+  }
+  function platformOfDeviceOs(os) {
+    const s = lc(os);
+    if (/^windows/.test(s)) return "Windows";
+    if (/^macos/.test(s)) return "macOS";
+    if (/^(ios|ipados)/.test(s)) return "iOS/iPadOS";
+    if (/^android/.test(s)) return "Android";
+    if (/^linux/.test(s)) return "Linux";
+    return String(os || "(unknown)");
+  }
+
+  // The R26 reach-by-construction rule, sized for coverage: a policy whose
+  // only assignments are exclusions, or none, covers nothing — and a filter
+  // caps the claim at "may", noted rather than evaluated.
+  function reachOf(assignments) {
+    const a = assignments || [];
+    let includes = 0, excludes = 0, tenantWide = false, filtered = false;
+    for (const x of a) {
+      const t = (x.target && x.target["@odata.type"]) || "";
+      if (/exclusionGroupAssignmentTarget/.test(t)) excludes++;
+      else if (/groupAssignmentTarget/.test(t)) includes++;
+      else if (/allDevicesAssignmentTarget|allLicensedUsersAssignmentTarget/.test(t)) tenantWide = true;
+      if (x.target && x.target.deviceAndAppManagementAssignmentFilterId) filtered = true;
+    }
+    return { covers: includes > 0 || tenantWide, includes, excludes, tenantWide, filtered,
+      kind: (includes || tenantWide) ? "reaches" : excludes ? "excludedOnly" : "unassigned" };
+  }
+
   // ---- the estate ----
   async function readDevices(onStatus) {
     onStatus && onStatus("Reading the device estate…");
@@ -55,9 +95,14 @@ const Compliance = (() => {
     const cutoff = Date.now() - staleDays * 86400000;
     const t = { total: devices.length, compliant: 0, noncompliant: 0, grace: 0, unknown: 0, other: 0, stale: 0, staleCompliant: 0 };
     const staleList = [];
+    const byPlatform = {};
     for (const d of devices) {
       const b = bucketOf(d.complianceState);
       t[b]++;
+      const plat = platformOfDeviceOs(d.operatingSystem);
+      if (!byPlatform[plat]) byPlatform[plat] = { devices: 0, noncompliant: 0 };
+      byPlatform[plat].devices++;
+      if (b === "noncompliant") byPlatform[plat].noncompliant++;
       const sync = Date.parse(d.lastSyncDateTime || "");
       const stale = !Number.isFinite(sync) || sync < cutoff;
       if (stale) {
@@ -71,7 +116,7 @@ const Compliance = (() => {
       }
     }
     staleList.sort((a, b) => String(a.lastSync).localeCompare(String(b.lastSync)));
-    return { totals: t, staleList, staleDays };
+    return { totals: t, staleList, staleDays, byPlatform };
   }
 
   // ---- the policies ----
@@ -96,10 +141,13 @@ const Compliance = (() => {
       const o = out[`o|${p.id}`], s = out[`s|${p.id}`];
       const ov = (o && !o.error && o.body) || null;
       const settings = (s && !s.error && s.body && s.body.value) || null;
+      const type = String(p["@odata.type"] || "").replace(/^#?microsoft\.graph\./, "");
       return {
         id: p.id,
         name: p.displayName || p.id,
-        type: String(p["@odata.type"] || "").replace(/^#?microsoft\.graph\./, ""),
+        type,
+        platform: platformOfPolicyType(type),
+        reach: reachOf(p.assignments),
         assigned: !!(p.assignments || []).length,
         assignments: (p.assignments || []).length,
         overview: ov ? {
@@ -127,14 +175,54 @@ const Compliance = (() => {
     });
   }
 
+  // The coverage matrix (R28, after Ugur Koc's Get Compliance Policy
+  // Coverage, MIT): platforms with enrolled devices and no compliance policy
+  // that reaches anybody. Computed entirely from the two reads above — the
+  // R19 rule, a second question over one read.
+  function coverage(devicesHalf, policies) {
+    if (!devicesHalf || !policies) return null;
+    const rows = [];
+    const platforms = new Set([...Object.keys(devicesHalf.byPlatform || {}), ...policies.map((p) => p.platform)]);
+    for (const plat of [...platforms].sort()) {
+      const dev = (devicesHalf.byPlatform || {})[plat] || { devices: 0, noncompliant: 0 };
+      const covering = policies.filter((p) => p.platform === plat && p.reach.covers);
+      const inert = policies.filter((p) => p.platform === plat && !p.reach.covers);
+      rows.push({
+        platform: plat,
+        devices: dev.devices, noncompliant: dev.noncompliant,
+        covering: covering.map((p) => p.name),
+        filtered: covering.some((p) => p.reach.filtered),
+        inert: inert.map((p) => ({ name: p.name, why: p.reach.kind === "excludedOnly" ? "exclusions only — reaches nobody" : "not assigned" })),
+        // A platform with no devices is context, not a gap; a platform with
+        // devices and nothing covering it is THE finding.
+        verdict: dev.devices === 0 ? "noDevices" : covering.length ? "covered" : "gap",
+      });
+    }
+    return rows;
+  }
+
   async function report(opts) {
     const o = opts || {};
     const staleDays = Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULT_STALE_DAYS;
-    const out = { staleDays, deviceError: null, policyError: null, devices: null, policies: null };
+    const out = { staleDays, deviceError: null, policyError: null, devices: null, policies: null,
+      coverage: null, secureByDefault: null, settingError: null };
     try { out.devices = estateTotals(await readDevices(o.onStatus), staleDays); }
     catch (e) { out.deviceError = String((e && e.message) || e).slice(0, 240); }
     try { out.policies = await readPolicies(o.onStatus); }
     catch (e) { out.policyError = String((e && e.message) || e).slice(0, 240); }
+    out.coverage = coverage(out.devices, out.policies);
+    // The setting that decides whether an uncovered platform is a nuisance or
+    // a hole: "Mark devices with no compliance policy assigned as". Graph's
+    // secureByDefault=true means NOT compliant (fails closed); false means
+    // Compliant — uncovered devices pass Conditional Access silently. The
+    // original leaves this as a footnote; TUNO reads it. Non-fatal: unread is
+    // said, with the portal path, never guessed.
+    try {
+      o.onStatus && o.onStatus("Reading the compliance default…");
+      const s = await Graph.readOne("/deviceManagement/settings", { scopes: S().config, beta: true });
+      out.secureByDefault = s && typeof s.secureByDefault === "boolean" ? s.secureByDefault : null;
+      if (out.secureByDefault === null) out.settingError = "the setting was not in the answer";
+    } catch (e) { out.settingError = String((e && e.message) || e).slice(0, 200); }
     return out;
   }
 
@@ -156,6 +244,21 @@ const Compliance = (() => {
       if (t.staleCompliant) L.push(`> **${t.staleCompliant} devices count as compliant AND are stale.** Their verdict is as old as their last check-in — it describes the device that last synced, not the one in use today.`, "");
     } else {
       L.push(`## The estate`, "", `> **Could not be read** — ${mdCell(rep.deviceError)}. Every estate number on this page is unknown, not zero.`, "");
+    }
+    if (rep.coverage) {
+      L.push(`## Coverage — the platforms nothing evaluates`, "");
+      if (rep.secureByDefault === false) L.push(`> **Devices with no compliance policy are marked COMPLIANT in this tenant.** An uncovered platform below passes every Conditional Access check that requires a compliant device — silently.`, "");
+      else if (rep.secureByDefault === true) L.push(`> Devices with no compliance policy are marked NOT compliant in this tenant (fails closed). An uncovered platform below is still unevaluated — but it does not silently pass.`, "");
+      else L.push(`> The "Mark devices with no compliance policy assigned as" setting could not be read${rep.settingError ? ` — ${mdCell(rep.settingError)}` : ""}. Check it under Devices → Compliance → Compliance settings: if it says Compliant, an uncovered platform silently passes Conditional Access.`, "");
+      L.push(`| Platform | Devices | Non-compliant | Covering policies | Verdict |`, `|---|---|---|---|---|`);
+      for (const c of rep.coverage) {
+        const verdict = c.verdict === "gap" ? "**NOT COVERED**" : c.verdict === "covered" ? `covered${c.filtered ? " (filtered — may, not is)" : ""}` : "no devices";
+        L.push(`| ${mdCell(c.platform)} | ${c.devices} | ${c.noncompliant} | ${c.covering.length ? mdCell(c.covering.join("; ")) : "—"} | ${verdict} |`);
+      }
+      L.push("");
+      const inert = rep.coverage.flatMap((c) => c.inert.map((i) => `${i.name} (${c.platform} — ${i.why})`));
+      if (inert.length) L.push(`Policies that cover nothing by construction: ${inert.map(mdCell).join("; ")}.`, "");
+      L.push(`Covered means at least one policy for the platform that is assigned and reaches somebody by construction — group scoping within a platform is not evaluated, and a filter caps the claim at "may".`, "");
     }
     if (rep.policies) {
       L.push(`## Policies (${rep.policies.length})`, "");
@@ -194,6 +297,17 @@ const Compliance = (() => {
     }
     return L.join("\n");
   }
+  function coverageCsv(rep) {
+    const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const L = ["platform,devices,noncompliant,coveringPolicies,inertPolicies,verdict,filteredCaveat"];
+    for (const c of rep.coverage || []) {
+      L.push([q(c.platform), c.devices, c.noncompliant, q(c.covering.join("; ")),
+        q(c.inert.map((i) => `${i.name} (${i.why})`).join("; ")),
+        c.verdict === "gap" ? "NOT COVERED" : c.verdict === "covered" ? "covered" : "no devices",
+        String(!!c.filtered)].join(","));
+    }
+    return L.join("\n");
+  }
   function staleCsv(rep) {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const L = ["device,os,user,complianceState,lastSync"];
@@ -203,7 +317,8 @@ const Compliance = (() => {
     return L.join("\n");
   }
 
-  return { DEFAULT_STALE_DAYS, bucketOf, estateTotals, report, markdown, csv, staleCsv, meta };
+  return { DEFAULT_STALE_DAYS, bucketOf, estateTotals, report, markdown, csv, staleCsv, meta,
+    platformOfPolicyType, platformOfDeviceOs, reachOf, coverage, coverageCsv };
 })();
 
 
@@ -227,7 +342,7 @@ const ComplianceTool = (() => {
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  function showExports(on) { ["cpMd", "cpCsv", "cpStale"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
+  function showExports(on) { ["cpMd", "cpCsv", "cpStale", "cpCov"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
 
   async function run() {
     if (running) return;
@@ -267,6 +382,38 @@ const ComplianceTool = (() => {
       }
     } else {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>The device estate could not be read.</b><span class="why">${esc(rep.deviceError || "")} — every estate number is unknown, not zero.</span></div></div>`);
+    }
+
+    // Coverage — R28. The gap the rest of the report cannot show, because
+    // every other number comes from policies that exist. Rendered before the
+    // policy list: an uncovered platform outranks a failing setting.
+    if (rep.coverage) {
+      const lean = rep.secureByDefault === false
+        ? `<div class="gu-fail"><b>Devices with no compliance policy are marked COMPLIANT in this tenant.</b><span class="why">An uncovered platform below passes every Conditional Access check that requires a compliant device — silently. The setting lives under Devices → Compliance → Compliance settings.</span></div>`
+        : rep.secureByDefault === true
+          ? `<p class="mini muted" style="margin:0 0 10px">Devices with no compliance policy are marked <b>Not compliant</b> in this tenant (fails closed) — an uncovered platform is still unevaluated, but it does not silently pass.</p>`
+          : `<p class="mini muted" style="margin:0 0 10px">The "Mark devices with no compliance policy assigned as" setting <b>could not be read</b>${rep.settingError ? ` — ${esc(rep.settingError)}` : ""}. Check it under Devices → Compliance → Compliance settings: if it says Compliant, an uncovered platform silently passes Conditional Access.</p>`;
+      const covRows = rep.coverage.map((c) => {
+        const verdict = c.verdict === "gap" ? `<span class="au-op delete">NOT COVERED</span>`
+          : c.verdict === "covered" ? `<span class="au-op create">covered</span>${c.filtered ? ` <span class="gu-how priv" title="A covering policy carries an assignment filter — reach is may, not is">filtered</span>` : ""}`
+          : `<span class="gu-how exc">no devices</span>`;
+        return `<tr>
+          <td><b>${esc(c.platform)}</b></td>
+          <td>${c.devices}${c.noncompliant ? ` <span class="mini muted">(${c.noncompliant} non-compliant)</span>` : ""}</td>
+          <td>${verdict}</td>
+          <td class="mini">${c.covering.length ? esc(c.covering.join(", ")) : "—"}${c.inert.length ? `<span class="muted"> · inert: ${esc(c.inert.map((i) => `${i.name} (${i.why})`).join(", "))}</span>` : ""}</td>
+        </tr>`;
+      }).join("");
+      parts.push(`<div class="list-card">
+        <h4 style="margin:0 0 4px">Coverage — the platforms nothing evaluates</h4>
+        ${lean}
+        <div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:130px">Platform</th><th style="width:170px">Devices</th><th style="width:170px">Verdict</th><th>Policies</th></tr></thead><tbody>${covRows}</tbody></table></div>
+        <p class="mini muted" style="margin:8px 0 0">Covered means at least one policy for the platform that is assigned <b>and reaches somebody by construction</b> — exclusions-only and unassigned cover nothing. Group scoping <i>within</i> a platform is not evaluated, and a filter caps the claim at <i>may</i>. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT), on the reads this report already does.</p>
+      </div>`);
+    } else if (rep.devices && !rep.policies) {
+      parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the policy half could not be read, so every platform is unknown, not uncovered.</p></div>`);
+    } else if (!rep.devices && rep.policies) {
+      parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the device estate could not be read, so there is no denominator and no platform list.</p></div>`);
     }
 
     if (rep.policies) {
@@ -325,6 +472,7 @@ const ComplianceTool = (() => {
     const m = Compliance.meta();
     if (fmt === "md") return download("Intune-compliance-report.md", Compliance.markdown(rep, m), "text/markdown");
     if (fmt === "stale") return download("Intune-stale-devices.csv", Compliance.staleCsv(rep), "text/csv");
+    if (fmt === "cov") return download("Intune-compliance-coverage.csv", Compliance.coverageCsv(rep), "text/csv");
     return download("Intune-compliance-report.csv", Compliance.csv(rep), "text/csv");
   }
 
@@ -334,6 +482,7 @@ const ComplianceTool = (() => {
     $("cpMd").addEventListener("click", () => exportAs("md"));
     $("cpCsv").addEventListener("click", () => exportAs("csv"));
     $("cpStale").addEventListener("click", () => exportAs("stale"));
+    if ($("cpCov")) $("cpCov").addEventListener("click", () => exportAs("cov"));
     // A stale device opens in the Device analyzer (build 10398) — through
     // the tile's own handler, the matrix click-through's rule: crumb, tab
     // and sidebar all follow because the tool opened itself.

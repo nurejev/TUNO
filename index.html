@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10427"></script>
+<script src="js/popup-guard.js?v=10428"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10427">
+<link rel="stylesheet" href="css/app.css?v=10428">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10427"></script>
+<script src="js/selfhost-boot.js?v=10428"></script>
 </head>
 <body>
 
@@ -164,7 +164,7 @@
     <div class="tools">
       <div class="tool" id="toolCompliance">
         <div class="tool-ic">📈</div><h3>Compliance report <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
+        <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. And <b>coverage — the platforms nothing evaluates</b>: enrolled devices with no compliance policy that reaches anybody, with the tenant's compliant-by-default lean read and stated, because that setting decides whether an uncovered platform silently passes Conditional Access. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
       </div>
       <div class="tool" id="toolAudit">
         <div class="tool-ic">🕓</div><h3>Change audit <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -1051,6 +1051,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <h2 style="margin:0 0 6px">📈 Compliance report <span class="tag new">BETA</span></h2>
       <p class="mini" style="margin:0">The estate, the policies, and what is failing — in one read instead of a morning of portal blades. After <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a> (Alper Atar, MIT). The numbers are Graph's <b>cheap per-policy rollup</b>, refreshed on Intune's schedule rather than live, and the report says so; the per-device answer for one machine — intended versus actual, with the check-in first — is the 🖥 Device analyzer's job and this page points there rather than half-doing it. <b>Reads only</b>, on permissions earlier tools already brought in.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>Stale is its own column.</b> A compliance verdict is whatever the device reported at its last check-in; a machine silent for six weeks “is compliant” the way a photograph is the weather. Compliant-but-stale devices are counted in both columns, deliberately — resolving that tension quietly in either direction would be a lie in that direction.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>And the gap the rest of the report cannot show: coverage.</b> A platform with enrolled devices and no compliance policy that reaches anybody is not failing anything — there is nothing to fail — and if the tenant marks unassigned devices as Compliant, those machines pass Conditional Access silently. The coverage section finds those platforms from the reads this report already does, and reads the tenant's compliant-by-default setting so the lean is stated, not footnoted. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT).</p>
     </div>
     <div class="list-card wi-form">
       <div class="wi-grid">
@@ -1062,6 +1063,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <button class="btn" id="cpMd" style="display:none">⭳ Export MD</button>
         <button class="btn" id="cpCsv" style="display:none">⭳ Export CSV</button>
         <button class="btn" id="cpStale" style="display:none">⭳ Stale devices CSV</button>
+        <button class="btn" id="cpCov" style="display:none">⭳ Coverage CSV</button>
       </div>
       <div id="cpProg" class="mini muted" style="margin-top:10px"></div>
     </div>
@@ -1211,6 +1213,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R28</span> 📋 Compliance coverage — the platforms nothing evaluates <span class="tag grant">live · beta 10428</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT). The gap the compliance report itself cannot show, because every number it has comes from policies that exist: <b>a platform with enrolled devices and no assigned compliance policy</b>. Those devices are not failing anything — there is nothing to fail — and depending on one tenant setting they report compliant by default and sail through every Conditional Access check that requires a compliant device. The device count per platform is the priority order, and unassigned compliance policies are listed beside the gaps they would close.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Not a new tile — a section in the 📋 Compliance report, and that is the point.</b> The script's two reads are exactly the two T13 already does: compliance policies with assignments, devices with their operating system. The R19 rule applies — a second question over one read asks the tenant nothing new — so this ships inside T13 with zero new Graph traffic and no new scope. Platform identity is the script's own mapping, kept: a compliance policy's OData type names its platform 1:1, and device operating systems normalise to T05's one vocabulary rather than three spellings of Windows. "Covered" is narrowed the R26 way: a policy whose only assignments are exclusions, or none, covers nothing by construction — group scoping <i>within</i> a platform stays unevaluated, said on screen.</p>
+            <p class="mini" style="margin:6px 0 0"><b>And the sentence the original leaves as a footnote becomes a read.</b> Its notes say "check the tenant's <i>Mark devices with no compliance policy assigned as</i> setting" — because that setting decides whether an uncovered platform is a nuisance or a hole: compliant-by-default means uncovered devices <b>pass</b> Conditional Access silently. TUNO reads the setting (<code>deviceManagement/settings</code>, on the config read it already holds) and states which way the tenant leans next to every gap; a setting that could not be read is said, with the portal path, rather than guessed.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped as carded, one refinement found in the building: a platform is three answers, not two.</b> Devices and no covering policy is the gap; devices and a covering policy is covered — with a filter capping the claim at <i>may</i>, worn on the verdict; and a platform whose policies exist but whose devices do not is <b>context, not a gap</b>, listed so an unassigned macOS policy in a Windows-only tenant does not read as a hole. When either half of the read fails, coverage says <b>unknown, not uncovered</b> — a gap table computed from half a read would be the confident overstatement the section exists to prevent.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R15</span> 📦 Backup, widened and checkable <span class="tag grant">live · beta 10426</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a> (MIT), which backs up <b>twenty-seven</b> policy types where <span class="rm-ref">R08</span> covers five. The missing twenty-two are not obscure: security-baseline intents, Autopilot profiles, enrolment configurations, feature, quality and driver update profiles, macOS custom-attribute scripts, assignment filters, scope tags, device categories, terms and conditions, notification templates, app configuration for devices and for managed apps, app protection for iOS, Android and Windows, Windows Information Protection, and app categories. Most of them TUNO already <i>reads</i> somewhere — <span class="rm-ref">R06</span> documents thirteen surfaces — so the gap is the archive, not the plumbing.</p>
             <p class="mini" style="margin:6px 0 0"><b>And an archive you can check.</b> TenuVault writes a SHA-256 per policy file and a <code>verify</code> that reports modified, missing and untracked files — entirely offline, no tenant. An archive nobody can verify is a file you hope is a backup. <b>Its atomicity trick is worth copying exactly</b>: <code>metadata.json</code> is written LAST, so its presence is what marks a backup complete, and a folder without one is hidden rather than offered. TUNO builds its zip in memory and hands it to the browser in one act, so a half-written archive is less likely — but "less likely" is not "cannot", and a manifest that only exists when the run finished is a better guarantee than a promise.</p>
@@ -1285,12 +1294,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R28</span> 📋 Compliance coverage — the platforms nothing evaluates</h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT). The gap the compliance report itself cannot show, because every number it has comes from policies that exist: <b>a platform with enrolled devices and no assigned compliance policy</b>. Those devices are not failing anything — there is nothing to fail — and depending on one tenant setting they report compliant by default and sail through every Conditional Access check that requires a compliant device. The device count per platform is the priority order, and unassigned compliance policies are listed beside the gaps they would close.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Not a new tile — a section in the 📋 Compliance report, and that is the point.</b> The script's two reads are exactly the two T13 already does: compliance policies with assignments, devices with their operating system. The R19 rule applies — a second question over one read asks the tenant nothing new — so this ships inside T13 with zero new Graph traffic and no new scope. Platform identity is the script's own mapping, kept: a compliance policy's OData type names its platform 1:1, and device operating systems normalise to T05's one vocabulary rather than three spellings of Windows. "Covered" is narrowed the R26 way: a policy whose only assignments are exclusions, or none, covers nothing by construction — group scoping <i>within</i> a platform stays unevaluated, said on screen.</p>
-            <p class="mini" style="margin:6px 0 0"><b>And the sentence the original leaves as a footnote becomes a read.</b> Its notes say "check the tenant's <i>Mark devices with no compliance policy assigned as</i> setting" — because that setting decides whether an uncovered platform is a nuisance or a hole: compliant-by-default means uncovered devices <b>pass</b> Conditional Access silently. TUNO reads the setting (<code>deviceManagement/settings</code>, on the config read it already holds) and states which way the tenant leans next to every gap; a setting that could not be read is said, with the portal path, rather than guessed.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R29</span> 🔑 Windows LAPS audit</h4>
@@ -1551,34 +1554,34 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10427"></script>
-<script src="js/selfhost.js?v=10427"></script>
-<script src="js/version.js?v=10427"></script>
-<script src="js/promote.js?v=10427"></script>
-<script src="js/authConfig.js?v=10427"></script>
-<script src="js/changelog.js?v=10427"></script>
-<script src="js/msappcatalog.js?v=10427"></script>
-<script src="js/graph.js?v=10427"></script>
-<script src="js/suggest.js?v=10427"></script>
-<script src="js/progress.js?v=10427"></script>
-<script src="js/groupuse.js?v=10427"></script>
-<script src="js/audit.js?v=10427"></script>
-<script src="js/backup.js?v=10427"></script>
-<script src="js/document.js?v=10427"></script>
-<script src="js/devicewhy.js?v=10427"></script>
-<script src="js/whatif.js?v=10427"></script>
-<script src="js/health.js?v=10427"></script>
-<script src="js/settingsearch.js?v=10427"></script>
-<script src="js/conflict.js?v=10427"></script>
-<script src="js/compliance.js?v=10427"></script>
-<script src="js/filters.js?v=10427"></script>
-<script src="js/restore.js?v=10427"></script>
-<script src="js/assignedit.js?v=10427"></script>
-<script src="js/roles.js?v=10427"></script>
-<script src="js/defender.js?v=10427"></script>
-<script src="js/endpointsec.js?v=10427"></script>
-<script src="js/maa.js?v=10427"></script>
-<script src="js/applocker.js?v=10427"></script>
-<script src="js/app.js?v=10427"></script>
+<script src="js/branding.js?v=10428"></script>
+<script src="js/selfhost.js?v=10428"></script>
+<script src="js/version.js?v=10428"></script>
+<script src="js/promote.js?v=10428"></script>
+<script src="js/authConfig.js?v=10428"></script>
+<script src="js/changelog.js?v=10428"></script>
+<script src="js/msappcatalog.js?v=10428"></script>
+<script src="js/graph.js?v=10428"></script>
+<script src="js/suggest.js?v=10428"></script>
+<script src="js/progress.js?v=10428"></script>
+<script src="js/groupuse.js?v=10428"></script>
+<script src="js/audit.js?v=10428"></script>
+<script src="js/backup.js?v=10428"></script>
+<script src="js/document.js?v=10428"></script>
+<script src="js/devicewhy.js?v=10428"></script>
+<script src="js/whatif.js?v=10428"></script>
+<script src="js/health.js?v=10428"></script>
+<script src="js/settingsearch.js?v=10428"></script>
+<script src="js/conflict.js?v=10428"></script>
+<script src="js/compliance.js?v=10428"></script>
+<script src="js/filters.js?v=10428"></script>
+<script src="js/restore.js?v=10428"></script>
+<script src="js/assignedit.js?v=10428"></script>
+<script src="js/roles.js?v=10428"></script>
+<script src="js/defender.js?v=10428"></script>
+<script src="js/endpointsec.js?v=10428"></script>
+<script src="js/maa.js?v=10428"></script>
+<script src="js/applocker.js?v=10428"></script>
+<script src="js/app.js?v=10428"></script>
 </body>
 </html>
