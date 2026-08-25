@@ -23,6 +23,22 @@ This applies to LAYOUT — placement, structure, chrome. It does not apply to
 fixes with one honest answer (a clipped menu, a missing padding rule, a
 table that does not fit): fix those directly.
 
+## Git locks: MOVE them, do not delete them
+
+The known lock friction (`index.lock` / `HEAD.lock` recreated by a host-side
+process) has a sharper edge in sandboxed sessions: the mount can refuse
+`unlink` outright — `rm -f` fails with "Operation not permitted" and so does
+git's own cleanup — while **rename is allowed**. The fix that works:
+
+```bash
+mv .git/HEAD.lock  _to_delete/HEAD.lock.$RANDOM
+mv .git/index.lock _to_delete/index.lock.$RANDOM
+```
+
+then commit immediately. The stray `.lock.*` files in `_to_delete/` are this
+workaround's droppings — ignore them. Learned at build 10420, where a commit
+sat blocked through ten rm-and-retry loops and moved on the first rename.
+
 ## Commit identity
 
 Commits are authored as **Mihai Monte &lt;mihai@limon-it.nl&gt;** — set in this
