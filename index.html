@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10420"></script>
+<script src="js/popup-guard.js?v=10421"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10420">
+<link rel="stylesheet" href="css/app.css?v=10421">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10420"></script>
+<script src="js/selfhost-boot.js?v=10421"></script>
 </head>
 <body>
 
@@ -108,6 +108,10 @@
       <div class="tool" id="toolDefender">
         <div class="tool-ic">🦠</div><h3>Defender status <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>The machines where Defender is silently off or outdated, before they become incident tickets: every Windows device's protection state — real-time protection, tamper protection, malware protection, signature currency, overdue scans, pending reboots — read in batches of twenty rather than one device at a time, with the tenant's own rollup beside it. A device that never reported protection state is its own bucket, never healthy by omission; a flag the device did not report reads <b>not reported</b>, never <b>off</b> — they are different answers. Reads only, no new permission. Export as Markdown or CSV.</p>
+      </div>
+      <div class="tool" id="toolEndpointSec">
+        <div class="tool-ic">🧱</div><h3>Firewall &amp; ASR coverage <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Whether the Windows fleet actually has firewall and attack-surface-reduction enforcement, or just policy objects: every endpoint security policy — settings catalog and the legacy intents older tenants still carry — grouped into the portal's own disciplines, each with a verdict: covered, policies exist but none reaches anybody, or no policy at all. "Covered" is checked by construction — a policy with no include and no tenant-wide target, or whose every assignment is an exclusion, reaches nobody and does not count. The Windows device count is the denominator: a gap on firewall or ASR is that many machines on local defaults. Reads only, no new permission. Export as Markdown or CSV.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
@@ -1214,17 +1218,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>A device that never reported protection state is its own bucket, never healthy by omission.</b> The original lists these separately and that instinct is kept and sharpened: no state is a finding, not an absence — a machine Defender has never reported on is exactly the machine this report exists to find. And the tenant rollup and the per-device sums <i>can disagree</i>, because Graph refreshes the overview on its own schedule; both are shown, labelled as what they are, and never quietly reconciled.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped as carded, with one distinction the card only implied.</b> The original counts a protection flag the device did not report the same as one that is off; here <i>not reported</i> is its own answer, per flag, on the row and in both exports — accusing a machine of running without tamper protection when it simply did not say is the kind of overstatement audits repeat. A state that could not be <i>read</i> lands in the no-state bucket with its error stated, because unknown is not clean.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R26</span> 🧱 Firewall &amp; ASR coverage <span class="tag grant">live · beta 10421</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-firewall-and-asr-status.ps1" target="_blank" rel="noopener">Get Firewall and ASR Status</a> (MIT). Whether the Windows fleet actually has firewall and attack-surface-reduction enforcement, <b>or just policy objects</b>: every endpoint security policy — settings catalog policies whose <code>templateReference.templateFamily</code> starts with <code>endpointSecurity</code>, plus the legacy security intents older tenants still carry — grouped into the portal's own disciplines (firewall, attack surface reduction, antivirus, disk encryption, EDR, account protection), each with a three-way verdict: <b>covered</b>, <b>policies exist but none is assigned</b>, or <b>no policy at all</b>. The template-family filter runs client-side because the server-side filter is unreliable on this surface — the script's own note, kept. The Windows device count is the denominator on purpose: a gap on firewall or ASR is not an empty table row, it is that many devices running on local defaults.</p>
+            <p class="mini" style="margin:6px 0 0"><b>"Covered" is a claim, and this card narrows the original's.</b> At least one assigned policy per discipline is what the script means by coverage, and per-device applicability is not evaluated — its own note, which belongs on the screen rather than in a comment. One step past it, for free: assignments arrive <code>$expand</code>-ed, so "assigned" is checked by construction the R20 way — a policy with no include and no tenant-wide target, or whose every assignment is an exclusion, reaches nobody and does not count as coverage. Whether an included group is <i>empty</i> is R12's finding, and the page points there rather than half-repeating it. <b>Reads only, no new scope</b>: the policy read rides the config scope, the device count rides T06's.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped with one departure from the original that the card did not promise: legacy intents are classified, not dumped.</b> The script lists <code>deviceManagement/intents</code> under a "Legacy Intent" pseudo-discipline, so a tenant enforcing firewall through an intent reads as a firewall <i>gap</i> — an overstatement in the dangerous direction. Here the intent's template is resolved (one read of <code>deviceManagement/templates</code>) and the intent counts toward its discipline; one that cannot be classified counts toward nothing and says so. The legacy surface only answers assigned-or-not — no assignment detail — and the row carries that caveat rather than pretending the reach was checked.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R26</span> 🧱 Firewall &amp; ASR coverage</h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-firewall-and-asr-status.ps1" target="_blank" rel="noopener">Get Firewall and ASR Status</a> (MIT). Whether the Windows fleet actually has firewall and attack-surface-reduction enforcement, <b>or just policy objects</b>: every endpoint security policy — settings catalog policies whose <code>templateReference.templateFamily</code> starts with <code>endpointSecurity</code>, plus the legacy security intents older tenants still carry — grouped into the portal's own disciplines (firewall, attack surface reduction, antivirus, disk encryption, EDR, account protection), each with a three-way verdict: <b>covered</b>, <b>policies exist but none is assigned</b>, or <b>no policy at all</b>. The template-family filter runs client-side because the server-side filter is unreliable on this surface — the script's own note, kept. The Windows device count is the denominator on purpose: a gap on firewall or ASR is not an empty table row, it is that many devices running on local defaults.</p>
-            <p class="mini" style="margin:6px 0 0"><b>"Covered" is a claim, and this card narrows the original's.</b> At least one assigned policy per discipline is what the script means by coverage, and per-device applicability is not evaluated — its own note, which belongs on the screen rather than in a comment. One step past it, for free: assignments arrive <code>$expand</code>-ed, so "assigned" is checked by construction the R20 way — a policy with no include and no tenant-wide target, or whose every assignment is an exclusion, reaches nobody and does not count as coverage. Whether an included group is <i>empty</i> is R12's finding, and the page points there rather than half-repeating it. <b>Reads only, no new scope</b>: the policy read rides the config scope, the device count rides T06's.</p>
           </div>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R27</span> 🤝 Multi-admin approval</h4>
@@ -1296,6 +1301,24 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div id="dfProg" class="mini muted" style="margin-top:10px"></div>
     </div>
     <div id="dfBody" style="margin-top:14px"></div>
+  </section>
+
+  <!-- ============ FIREWALL & ASR COVERAGE (T16) ============ -->
+  <section id="screen-endpointsec" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🧱 Firewall &amp; ASR coverage <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Whether the tenant's Windows fleet actually has firewall, attack-surface-reduction, antivirus, disk-encryption, EDR and account-protection enforcement — <b>or just policy objects</b>. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-firewall-and-asr-status.ps1" target="_blank" rel="noopener">Get Firewall and ASR Status</a> (MIT). Every endpoint security policy — settings catalog policies with an <code>endpointSecurity</code> template family (filtered client-side, because the server-side filter is unreliable on this surface — his note, kept), plus the legacy security intents — with a verdict per discipline. <b>Reads only, no new permission.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>"Covered" is a claim, narrowed here.</b> Coverage means at least one policy that is assigned <i>and reaches somebody by construction</i>: no include and no tenant-wide target is nobody, exclusions only is nobody, and an assignment filter caps reach at <i>may</i>. Per-device applicability is not evaluated, and whether an included group is empty is the 🩺 Assignment health tool's finding — pointed at, not half-repeated. Legacy intents are classified through their template so a tenant enforcing firewall the old way does not read as a firewall gap; one that cannot be classified counts toward nothing, said plainly.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="fwRun">🧱 Read the coverage</button>
+        <button class="btn" id="fwMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="fwCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="fwProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="fwBody" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ HELP ============ -->
@@ -1450,32 +1473,33 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10420"></script>
-<script src="js/selfhost.js?v=10420"></script>
-<script src="js/version.js?v=10420"></script>
-<script src="js/promote.js?v=10420"></script>
-<script src="js/authConfig.js?v=10420"></script>
-<script src="js/changelog.js?v=10420"></script>
-<script src="js/msappcatalog.js?v=10420"></script>
-<script src="js/graph.js?v=10420"></script>
-<script src="js/suggest.js?v=10420"></script>
-<script src="js/progress.js?v=10420"></script>
-<script src="js/groupuse.js?v=10420"></script>
-<script src="js/audit.js?v=10420"></script>
-<script src="js/backup.js?v=10420"></script>
-<script src="js/document.js?v=10420"></script>
-<script src="js/devicewhy.js?v=10420"></script>
-<script src="js/whatif.js?v=10420"></script>
-<script src="js/health.js?v=10420"></script>
-<script src="js/settingsearch.js?v=10420"></script>
-<script src="js/conflict.js?v=10420"></script>
-<script src="js/compliance.js?v=10420"></script>
-<script src="js/filters.js?v=10420"></script>
-<script src="js/restore.js?v=10420"></script>
-<script src="js/assignedit.js?v=10420"></script>
-<script src="js/roles.js?v=10420"></script>
-<script src="js/defender.js?v=10420"></script>
-<script src="js/applocker.js?v=10420"></script>
-<script src="js/app.js?v=10420"></script>
+<script src="js/branding.js?v=10421"></script>
+<script src="js/selfhost.js?v=10421"></script>
+<script src="js/version.js?v=10421"></script>
+<script src="js/promote.js?v=10421"></script>
+<script src="js/authConfig.js?v=10421"></script>
+<script src="js/changelog.js?v=10421"></script>
+<script src="js/msappcatalog.js?v=10421"></script>
+<script src="js/graph.js?v=10421"></script>
+<script src="js/suggest.js?v=10421"></script>
+<script src="js/progress.js?v=10421"></script>
+<script src="js/groupuse.js?v=10421"></script>
+<script src="js/audit.js?v=10421"></script>
+<script src="js/backup.js?v=10421"></script>
+<script src="js/document.js?v=10421"></script>
+<script src="js/devicewhy.js?v=10421"></script>
+<script src="js/whatif.js?v=10421"></script>
+<script src="js/health.js?v=10421"></script>
+<script src="js/settingsearch.js?v=10421"></script>
+<script src="js/conflict.js?v=10421"></script>
+<script src="js/compliance.js?v=10421"></script>
+<script src="js/filters.js?v=10421"></script>
+<script src="js/restore.js?v=10421"></script>
+<script src="js/assignedit.js?v=10421"></script>
+<script src="js/roles.js?v=10421"></script>
+<script src="js/defender.js?v=10421"></script>
+<script src="js/endpointsec.js?v=10421"></script>
+<script src="js/applocker.js?v=10421"></script>
+<script src="js/app.js?v=10421"></script>
 </body>
 </html>

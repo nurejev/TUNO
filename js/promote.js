@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 79,
+      title: "Firewall & ASR coverage — T16, the second security read",
+      tools: ["🧱 Firewall & ASR coverage"],
+      builds: [10421],
+      risk: "medium",
+      what: "New tool (R26), Endpoint security section: endpoint security policies (settings catalog, client-side templateFamily filter) plus legacy intents classified through deviceManagement/templates, verdict per discipline with reach checked by construction (T12's rule); Windows device count as denominator; group names resolved via getByIds. Discipline cards filter, rows fold. Reads only, no new scope. Exports MD + CSV.",
+      why: "MEDIUM — a new read surface. What has to be true to graduate: the client-side family filter finds every endpoint security policy a real tenant has (checked against the portal's Endpoint security blade), the intent classification lands each legacy intent under the right discipline, and the by-construction reach rule does not miscount a genuinely assigned policy.",
+      test: [
+        "Compare the per-discipline policy lists against the portal's Endpoint security blade on a real tenant — every policy the portal shows under Firewall/ASR/Antivirus must appear, and anything extra must be explainable.",
+        "A tenant with legacy intents: confirm each classified intent lands under the discipline its portal page shows, and that an unclassifiable one reads 'counts toward nothing' rather than inventing a discipline.",
+        "Make a firewall policy whose only assignment is an exclusion and confirm the discipline flips to GAP with 'reaches nobody' on the row; assign it to a real group and confirm it flips back.",
+        "A tenant with zero endpoint security policies: all six cards must read GAP — no policy, and the device-count warning must name the fleet size.",
+        "Dark theme: verdict cards (ok/bad), legacy-intent and filtered badges readable.",
+      ],
+      files: ["js/endpointsec.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 78,
       title: "Defender status — T15, the first of the three security reads",
       tools: ["🦠 Defender status"],

@@ -650,6 +650,7 @@ const Fs = (() => {
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
     ["toolDefender", "🦠 Defender status"],
+    ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
@@ -834,6 +835,7 @@ const Fs = (() => {
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
+  $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
@@ -1016,6 +1018,7 @@ const Fs = (() => {
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
+  if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
