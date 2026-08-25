@@ -2011,3 +2011,57 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
   font-size:13px;line-height:1;padding:2px;color:var(--faint)}
 .al-loop-mark:hover{color:var(--muted)}
 .al-loop-mark.on{color:var(--on)}
+
+/* ============ T03 Change audit — the 10413 redesign (Option A) ============
+   Stat cards, range popover, filter dialog, and a timeline whose cards
+   expand in place. Dot colours come from the house tokens so the dark
+   theme keeps working without a second set of rules. */
+.au-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative}
+.au-badge{display:inline-block;background:var(--ok-bg);color:var(--on);border-radius:9px;padding:0 7px;font-size:11px;font-weight:700;vertical-align:1px}
+.au-pop{position:absolute;z-index:60;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);display:flex;gap:0;overflow:hidden}
+.au-pop-side{display:flex;flex-direction:column;padding:8px;border-right:1px solid var(--line);min-width:150px}
+.au-pop-item{border:0;background:none;text-align:left;padding:7px 12px;border-radius:8px;font-size:13px;color:var(--ink);cursor:pointer}
+.au-pop-item:hover{background:var(--hover)}
+.au-pop-item.active{background:var(--ok-bg);color:var(--on);font-weight:600}
+.au-pop-main{padding:12px 14px;display:flex;flex-direction:column;gap:8px;max-width:260px}
+.au-pop-main input[type="date"]{margin-left:6px}
+.au-dlg-back{position:fixed;inset:0;background:rgba(18,51,31,.35);z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 16px}
+.au-dlg{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:18px 22px;width:min(680px,100%);max-height:80vh;overflow:auto}
+.au-dlg-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.au-dlg-h .btn{margin-left:auto}
+.au-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}
+.au-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
+.au-card-l{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.au-card-n{font-size:22px;font-weight:700;margin:2px 0;overflow-wrap:anywhere}
+.au-card-n.au-card-t{font-size:16px}
+.au-card-n.ok{color:var(--on)}.au-card-n.bad{color:var(--off)}
+.au-card-s{font-size:11.5px;color:var(--muted)}
+.au-tl{position:relative;margin-top:12px;padding-left:34px}
+.au-tl::before{content:"";position:absolute;left:11px;top:10px;bottom:10px;width:2px;background:var(--border)}
+.au-ev{position:relative;margin-bottom:10px}
+.au-dot{position:absolute;left:-34px;top:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;background:var(--muted)}
+.au-dot.create{background:var(--on)}.au-dot.delete{background:var(--off)}
+.au-dot.update{background:var(--report)}.au-dot.assign,.au-dot.action{background:var(--accent2)}
+.au-ev-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:0 10px 10px 0;padding:10px 14px;cursor:pointer}
+.au-ev.create .au-ev-card{border-left-color:var(--on)}
+.au-ev.delete .au-ev-card{border-left-color:var(--off)}
+.au-ev.update .au-ev-card{border-left-color:var(--report)}
+.au-ev.assign .au-ev-card,.au-ev.action .au-ev-card{border-left-color:var(--accent2)}
+.au-ev-card:hover{background:var(--hover)}
+.au-ev.open .au-ev-card{background:var(--surface)}
+.au-ev-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.au-when{margin-left:auto;white-space:nowrap}
+.au-op{display:inline-block;padding:1px 9px;border-radius:11px;font-size:11px;font-weight:700}
+.au-op.create{background:var(--ok-bg);color:var(--on)}
+.au-op.delete{background:#fdeceb;color:var(--off)}
+.au-op.update{background:var(--warn-bg);color:var(--report)}
+.au-op.assign,.au-op.action{background:var(--soft);color:var(--accent2)}
+.au-op.other{background:var(--line);color:var(--muted)}
+.au-ev-m .au-chev{color:var(--muted)}
+.au-detail{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;cursor:default}
+.au-detail-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 14px}
+.au-detail-grid code{overflow-wrap:anywhere}
+ul.au-diff{margin:2px 0 0;padding-left:18px}
+ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
+:root[data-theme="dark"] .au-dot{color:var(--green-deep)}
+:root[data-theme="dark"] .au-op.delete{background:rgba(176,74,58,.2)}

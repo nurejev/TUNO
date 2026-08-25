@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10413, date: "2026-08-25", title: "The change audit reads like a timeline",
+    items: [
+      { kind: "improved", tool: "🕓 Change audit", text: "The screen is rebuilt; what is read is untouched. Four cards answer the first questions before any scrolling — how many changes, who made most of them, which area moved most, and the failure rate — computed from the rows currently shown, so narrowing a filter moves the cards with it. Below them the events run down a timeline, each with a coloured dot and a badge for what kind of operation it was: created, deleted, updated, assigned, or an action. The layout went through a two-option mockup round first and this is the option picked." },
+      { kind: "improved", tool: "🕓 Change audit", text: "Click an event and the detail unfolds in place: the actor with their IP and kind, the result and severity, the correlation id for a support case, the resource ids, and the full field-level diff of what moved. Several events can be open at once, and the open ones stay open when a filter redraws the list, because the tool remembers which events you opened rather than which rows were expanded." },
+      { kind: "improved", tool: "🕓 Change audit", text: "The window control became a proper range picker: the presets from before, plus a custom day range for 'what happened while I was away'. A range reaching past the thirty-day retention is clamped to the floor and says so on the result — a range that quietly shrank would read as a quiet tenant, which is this tool's cardinal sin. And a picked day means the whole day: the range runs to the end of the chosen date, because 'up to Tuesday' that silently excludes Tuesday is how date pickers lie." },
+      { kind: "improved", tool: "🕓 Change audit", text: "The filters moved into a dialog and grew two controls: an operation-type filter and an actor dropdown. Category, operation and actor lists are all built from what the tenant actually emitted in the window — the rule this tool has had from the start — and the wildcard search boxes survive unchanged for the cases a dropdown cannot say. The filter button shows how many filters are active, so a narrowed list cannot silently pass for the whole answer. Everything remains in this tab: the dialog and the picker are part of the page, filters run over rows already read, and nothing is stored anywhere." },
+    ],
+  },
+  {
     build: 10412, date: "2026-08-24", title: "The tick finds its corner",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The manual-mark tick on the loop strip hung past the station's right edge; it now sits tucked inside the corner where a corner control belongs." },

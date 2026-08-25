@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10412"></script>
+<script src="js/popup-guard.js?v=10413"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10412">
+<link rel="stylesheet" href="css/app.css?v=10413">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10412"></script>
+<script src="js/selfhost-boot.js?v=10413"></script>
 </head>
 <body>
 
@@ -579,54 +579,69 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <button data-auview="all">All events</button>
       </div>
 
-      <div class="wi-grid">
-        <label class="wi-f"><span>Window</span>
-          <select id="auWindow">
-            <option value="1h">Last hour</option>
-            <option value="4h">Last 4 hours</option>
-            <option value="24h" selected>Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days — the whole retained log</option>
-          </select></label>
-      </div>
-
-      <div id="auPolicyFilters" class="wi-grid" style="margin-top:10px">
-        <label class="wi-f"><span>Minimum severity</span>
-          <select id="auSev">
-            <option value="">Everything</option>
-            <option value="medium">Medium and above</option>
-            <option value="high">High only</option>
-          </select></label>
-        <label class="wi-f"><span>&nbsp;</span>
-          <label class="chk" style="display:inline-flex;gap:6px;align-items:center;height:38px">
-            <input type="checkbox" id="auOnlyChanges"> Edits and deletions only</label></label>
-      </div>
-
-      <div id="auAllFilters" class="wi-grid" style="margin-top:10px;display:none">
-        <label class="wi-f"><span>Category</span>
-          <select id="auCat"><option value="All">All categories</option></select></label>
-        <label class="wi-f"><span>Result</span>
-          <select id="auResult">
-            <option value="all">Success and failure</option>
-            <option value="failure">Failures only</option>
-            <option value="success">Successes only</option>
-          </select></label>
-        <label class="wi-f"><span>Actor <span class="mini muted">wildcards allowed</span></span>
-          <input id="auActor" placeholder="e.g. admin* or a service principal name" autocomplete="off" spellcheck="false"></label>
-        <label class="wi-f"><span>Activity <span class="mini muted">wildcards allowed</span></span>
-          <input id="auActivity" placeholder="e.g. *Delete*" autocomplete="off" spellcheck="false"></label>
-      </div>
-
-      <p class="mini muted" style="margin:8px 0 0">The <b>category list is built from what your tenant actually emitted</b> in this window, not from a fixed list — the script this borrows from ships one containing values Graph never returns, so picking one gave you nothing and looked like a quiet tenant. Filters apply to what has already been read, so changing one costs nothing.</p>
-
-      <div class="tb-actions" style="margin-top:14px">
+      <!-- The toolbar (10413): a range button with a preset/custom popover,
+           and a filter button opening a dialog. Both are DOM in this page —
+           nothing leaves the tab. -->
+      <div class="au-toolbar">
+        <button class="btn" id="auRangeBtn" type="button">📅 Last 24 hours <span class="mini">▾</span></button>
+        <button class="btn" id="auFilterBtn" type="button">⚙ Filter</button>
         <button class="btn primary" id="auRun">🕓 Read the audit log</button>
         <button class="btn" id="auReset">Reset</button>
-        <button class="btn" id="auMd" style="display:none">⭳ Export MD</button>
-        <button class="btn" id="auHtml" style="display:none" title="Standalone HTML report — opens anywhere, no access to the tenant needed">⭳ Export HTML</button>
-        <button class="btn" id="auCsv" style="display:none">⭳ Export CSV</button>
+        <button class="btn" id="auMd" style="display:none">⭳ MD</button>
+        <button class="btn" id="auHtml" style="display:none" title="Standalone HTML report — opens anywhere, no access to the tenant needed">⭳ HTML</button>
+        <button class="btn" id="auCsv" style="display:none">⭳ CSV</button>
       </div>
+      <div id="auRangePop" class="au-pop" style="display:none"></div>
+
+      <p class="mini muted" style="margin:10px 0 0">Pick the window, read once, then filter what was read — changing a filter costs nothing and asks the tenant nothing. The <b>category, operation and actor lists are built from what your tenant actually emitted</b> in the window, never from a fixed list: the script this borrows from ships one containing values Graph never returns, so picking one gave you nothing and looked like a quiet tenant.</p>
       <div id="auProg" class="mini muted" style="margin-top:10px"></div>
+
+      <!-- The filter dialog. Same controls the old inline bar had — same ids,
+           same wildcard semantics — plus operation type and an actor list. -->
+      <div id="auFilterDlg" class="au-dlg-back" style="display:none">
+        <div class="au-dlg">
+          <div class="au-dlg-h"><b>Filters</b>
+            <span class="mini muted">applied to what was read — the tenant is not asked again</span>
+            <button class="btn sm" id="auFilterClose" type="button">✕</button></div>
+          <div id="auPolicyFilters" class="wi-grid">
+            <label class="wi-f"><span>Minimum severity</span>
+              <select id="auSev">
+                <option value="">Everything</option>
+                <option value="medium">Medium and above</option>
+                <option value="high">High only</option>
+              </select></label>
+            <label class="wi-f"><span>&nbsp;</span>
+              <label class="chk" style="display:inline-flex;gap:6px;align-items:center;height:38px">
+                <input type="checkbox" id="auOnlyChanges"> Edits and deletions only</label></label>
+          </div>
+          <div id="auAllFilters" style="display:none">
+            <div class="wi-grid">
+              <label class="wi-f"><span>Category</span>
+                <select id="auCat"><option value="All">All categories</option></select></label>
+              <label class="wi-f"><span>Operation type</span>
+                <select id="auOp"><option value="all">All operations</option></select></label>
+              <label class="wi-f"><span>Actor</span>
+                <select id="auActorSel"><option value="all">All actors</option></select></label>
+              <label class="wi-f"><span>Result</span>
+                <select id="auResult">
+                  <option value="all">Success and failure</option>
+                  <option value="failure">Failures only</option>
+                  <option value="success">Successes only</option>
+                </select></label>
+            </div>
+            <div class="wi-grid" style="margin-top:8px">
+              <label class="wi-f"><span>Actor search <span class="mini muted">wildcards — overrides the list when set</span></span>
+                <input id="auActor" placeholder="e.g. admin* or a service principal name" autocomplete="off" spellcheck="false"></label>
+              <label class="wi-f"><span>Activity search <span class="mini muted">wildcards allowed</span></span>
+                <input id="auActivity" placeholder="e.g. *Delete*" autocomplete="off" spellcheck="false"></label>
+            </div>
+          </div>
+          <div class="tb-actions" style="margin-top:14px">
+            <button class="btn" id="auFilterClear" type="button">✕ Clear all</button>
+            <button class="btn primary" id="auFilterApply" type="button">Apply filters</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="auBody" style="margin-top:14px"></div>
@@ -1395,31 +1410,31 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10412"></script>
-<script src="js/selfhost.js?v=10412"></script>
-<script src="js/version.js?v=10412"></script>
-<script src="js/promote.js?v=10412"></script>
-<script src="js/authConfig.js?v=10412"></script>
-<script src="js/changelog.js?v=10412"></script>
-<script src="js/msappcatalog.js?v=10412"></script>
-<script src="js/graph.js?v=10412"></script>
-<script src="js/suggest.js?v=10412"></script>
-<script src="js/progress.js?v=10412"></script>
-<script src="js/groupuse.js?v=10412"></script>
-<script src="js/audit.js?v=10412"></script>
-<script src="js/backup.js?v=10412"></script>
-<script src="js/document.js?v=10412"></script>
-<script src="js/devicewhy.js?v=10412"></script>
-<script src="js/whatif.js?v=10412"></script>
-<script src="js/health.js?v=10412"></script>
-<script src="js/settingsearch.js?v=10412"></script>
-<script src="js/conflict.js?v=10412"></script>
-<script src="js/compliance.js?v=10412"></script>
-<script src="js/filters.js?v=10412"></script>
-<script src="js/restore.js?v=10412"></script>
-<script src="js/assignedit.js?v=10412"></script>
-<script src="js/roles.js?v=10412"></script>
-<script src="js/applocker.js?v=10412"></script>
-<script src="js/app.js?v=10412"></script>
+<script src="js/branding.js?v=10413"></script>
+<script src="js/selfhost.js?v=10413"></script>
+<script src="js/version.js?v=10413"></script>
+<script src="js/promote.js?v=10413"></script>
+<script src="js/authConfig.js?v=10413"></script>
+<script src="js/changelog.js?v=10413"></script>
+<script src="js/msappcatalog.js?v=10413"></script>
+<script src="js/graph.js?v=10413"></script>
+<script src="js/suggest.js?v=10413"></script>
+<script src="js/progress.js?v=10413"></script>
+<script src="js/groupuse.js?v=10413"></script>
+<script src="js/audit.js?v=10413"></script>
+<script src="js/backup.js?v=10413"></script>
+<script src="js/document.js?v=10413"></script>
+<script src="js/devicewhy.js?v=10413"></script>
+<script src="js/whatif.js?v=10413"></script>
+<script src="js/health.js?v=10413"></script>
+<script src="js/settingsearch.js?v=10413"></script>
+<script src="js/conflict.js?v=10413"></script>
+<script src="js/compliance.js?v=10413"></script>
+<script src="js/filters.js?v=10413"></script>
+<script src="js/restore.js?v=10413"></script>
+<script src="js/assignedit.js?v=10413"></script>
+<script src="js/roles.js?v=10413"></script>
+<script src="js/applocker.js?v=10413"></script>
+<script src="js/app.js?v=10413"></script>
 </body>
 </html>

@@ -70,6 +70,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 72,
+      title: "The change audit reads like a timeline",
+      tools: ["🕓 Change audit"],
+      builds: [10413],
+      risk: "medium",
+      what: "T03's screen rebuilt (Option A of a mockup round): four stat cards (total, most active admin, most active area, failure rate) computed from the rows shown; a timeline with an operation dot and badge per event (create/delete/update/assign/action, classified from activityOperationType with the activity text as fallback); click-to-expand detail in place — actor+IP, result+severity, correlation id, resource ids, full diff — with the open set keyed on event ids so filters keep cards open; a range picker with presets plus a custom day range (from clamped to the 30-day floor AND the clamp reported on the result; a picked day runs to 23:59:59Z); filters in a dialog with two new controls (operation type, actor dropdown) built from the tenant's own data, wildcard boxes kept. Engine: customRange(), operationOf(), actors(), summarize gains topActor/topArea/failureRate, allRows gains the operation predicate. Reads unchanged; exports unchanged.",
+      why: "MEDIUM — presentation plus a small engine surface. Three places deserve a real look: the custom range boundary maths (whole-day semantics and the retention clamp) decide which events EXIST in the answer; the operation classifier decides the badge people scan for; and the expand state across re-renders is exactly the kind of thing that works in a stub and dies on a real 2000-event window.",
+      test: [
+        "THE ONE THAT MATTERS: pick a custom range ending yesterday and confirm events from yesterday EVENING are in the answer — the whole-day rule. Then pick a range starting 40 days back and confirm the clamp note appears on the result, naming the floor date.",
+        "Read a busy window (hundreds of events). Open three cards, change a filter that keeps them visible, and confirm all three stay open. Change a filter that hides one and confirm the other two survive. Scrolling and expanding must stay smooth at that size.",
+        "Check the badges against the portal for a handful of events: a profile creation must read Created, a deletion Deleted, an assignment change Assigned. If Graph's operation words in this tenant disagree with the classifier, the fallback text matching is what is actually being tested.",
+        "Confirm the stat cards move when filters move: filter to one actor and the most-active-admin card must name them with the filtered count, not the window's.",
+        "Open the filter dialog on both views: policy view shows severity/changes-only, all-events shows the six controls; the badge on the Filter button matches the number of active filters; Clear all zeroes it; Escape and a backdrop click both close it.",
+        "Exports after filtering: the MD/CSV/HTML must carry the filtered rows and the filter text in the header, exactly as before the redesign — the exports did not change and must not have.",
+        "Dark theme: dots, badges and the dialog must be readable; the dot glyphs switch to the dark ink; nothing renders as a white slab.",
+      ],
+      files: ["js/audit.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 71,
       title: "The audit loop strip",
       tools: ["🔐 AppLocker builder & validator"],
