@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 81,
+      title: "Home grid centres in the content column",
+      tools: ["All tools"],
+      builds: [10423],
+      risk: "low",
+      what: "CSS only, scoped to body.with-side #screen-home: the 1180-capped home grid, its section headings, the title and the Show-more button centre as one unit in the 1500 content column instead of hugging its left edge with a dead band on the right. Option A of a mockup round (B was uncapping the grid to four columns). Roadmap/help untouched; no-sidebar layout untouched.",
+      why: "LOW — presentation only, one screen. The judgement to confirm on a real monitor: the centred block must read as a narrower page, not as content floating between two gaps, and the collapsed-rail state must keep the same visual centre the expanded state has.",
+      test: [
+        "On a wide monitor (1700px+ viewport), home with sidebar expanded: the gap left of the grid (from the sidebar) and the gap right of it should read equal, and title/headings/tiles/Show-more must share a left edge.",
+        "Collapse the rail: the block should stay visually centred (the 10389 clamp already keeps main steady) — no 100px jump.",
+        "Narrow the window below ~1300px: the centring must degrade to exactly the old layout — no negative margins, Show-more flush with the grid.",
+        "Open the roadmap and help screens: unchanged — the roadmap title must still sit flush over its timeline.",
+      ],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 80,
       title: "Multi-admin approval — T17, the last of the three security reads",
       tools: ["🤝 Multi-admin approval"],

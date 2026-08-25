@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10423, date: "2026-08-25", title: "The home centres in its own column",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The home screen sat left of centre with a dead band down its right edge. The cause was a leftover from the console shell: the content column widened to 1500 pixels when the sidebar arrived and every tool screen's cards widened with it, but the home grid kept its 1180-pixel cap and stayed pinned to the left — and the home is the one screen that is nothing but that capped block, so all the leftover width piled up on one side. Option A of a two-option mockup round: the grid, its section headings and the title now centre as one unit in the space the sidebar leaves, keeping today's tile size and reading width, with every left edge still aligned — including the Show-more button under a collapsed section. Scoped to the home: the roadmap and help pages, whose own widths already line up, are untouched, and without the sidebar nothing changes at all." },
+    ],
+  },
+  {
     build: 10422, date: "2026-08-25", title: "Multi-admin approval — R27 ships, and the security three are done",
     items: [
       { kind: "new", tool: "🤝 Multi-admin approval", text: "T17, the last of 10419's three security cards, beside Intune RBAC in Access and roles. Every approval policy and what its type gates, the requests of a chosen window — pending, approved, rejected, with average, median, fastest and slowest time to approval — and coverage computed the way MAA actually works: a gate applies to its operation type tenant-wide, a category with no policy has no gate at all, and device actions are listed as action gates rather than inventories. Two findings the original cannot make: a policy whose approver groups hold nobody is flagged as a gate nobody can open, checked transitively; and approved requests without parseable timestamps sit outside the approval-time numbers with their count stated. The admins table carries the Intune-RBAC-only sentence verbatim, on screen and in every export, because Global Administrator is not in that list and a report that hides the fact overstates its own coverage. A tenant that never configured MAA reads as exactly that — an answer, not an error. Fewer permissions than the original asks for, all already consented. Reads only. Exports Markdown, requests CSV and admins CSV. After Ugur Koc's MAA Compliance Dashboard Report (MIT)." },

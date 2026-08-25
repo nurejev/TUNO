@@ -1527,6 +1527,24 @@ body.wide .readme p{max-width:1100px}
    readable, it is less. */
 body.with-side .readme{max-width:none}
 body.with-side .readme p{max-width:1100px}
+/* THE HOME CENTRES ITS OWN COLUMN (build 10423, option A of a two-option
+   mockup round). The 10399 shell widened main to 1500 and every tool
+   screen's cards widened with it (the .readme cap lifted just above) — but
+   the home grid kept its 1180 cap and stayed left-anchored, so the leftover
+   ~320px piled up as a dead band on the home's right edge: the home is the
+   one screen that is nothing BUT the capped block. The grid, its section
+   headings and the title centre as ONE unit — the headings take the grid's
+   own cap so every left edge stays aligned, which is what makes this read
+   as a narrower page rather than scattered pieces. Scoped to #screen-home
+   because .home-title also opens the roadmap, whose 820px timeline is
+   left-anchored: centring the title there would tear the two apart. The
+   "Show N more" button is inline and cannot take auto margins, so it gets
+   the same offset the centring produces, clamped at zero for screens
+   narrower than the cap. */
+body.with-side #screen-home .home-title,
+body.with-side #screen-home .tool-sec,
+body.with-side #screen-home .tools{max-width:1180px;margin-left:auto;margin-right:auto}
+body.with-side #screen-home .home-more{margin-left:max(0px, calc((100% - 1180px)/2))}
 
 /* ---- side navigation shell (build 10380) ----
    The console layout the category leaders use: a fixed sidebar with every
