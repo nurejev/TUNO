@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10419, date: "2026-08-25", title: "Three more of Ugur Koc's questions join the roadmap",
+    items: [
+      { kind: "new", tool: "🗺 Roadmap", text: "Three cards in Next, all after IntuneAutomation scripts and all needing no new permission — every scope they ride is already consented. R25, the Defender status report: the machines where Defender is silently off or outdated — real-time protection, tamper protection, signature currency, overdue scans, pending reboots — read per Windows device and batched twenty a trip where the original walks the fleet one device at a time with a sleep; a device that never reported protection state is its own finding, never healthy by omission. R26, Firewall and ASR coverage: whether the fleet has firewall and attack-surface-reduction enforcement or just policy objects — every endpoint security policy grouped by discipline with a three-way verdict, and 'assigned' checked by construction so a policy that reaches nobody does not count as coverage. R27, Multi-admin approval: every approval policy, the requests of a chosen window with how long approval takes, and coverage per category computed the way MAA actually gates — per operation type, tenant-wide. Its admins list carries the Intune-RBAC-only sentence from the role assignments tool, because the original counts 'admins without MAA' from a list that does not contain Global Administrator. R25 and R26 will land in Endpoint security; R27 beside Intune RBAC in Access and roles. The credits entry for IntuneAutomation grows from five roadmap items to eight." },
+    ],
+  },
+  {
     build: 10418, date: "2026-08-25", title: "Conflicts fold — and open to the comparison",
     items: [
       { kind: "improved", tool: "⚡ Setting conflict scan", text: "The last of the four 10413 conversions. Stat cards for the verdicts — can collide, may collide, cannot, the number of settings more than one policy configures, and surfaces unread when there are any. Each conflict is now a folded row: closed, it says the setting, the verdict and how many policies are involved; click it and the comparison the finding exists for unfolds — every policy side by side with its value and its reach, filtered and tenant-wide tags included. Open folds survive a re-render. Every caveat is unchanged: a verdict is about group targeting, may is may, redacted values are never compared, and unread surfaces are unknown rather than clean." },
