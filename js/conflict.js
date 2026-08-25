@@ -185,6 +185,9 @@ const ConflictTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let scan = null, collectRes = null, running = false;
+  // Open conflict folds, keyed on section|setting — stable across renders,
+  // reset on a new scan.
+  const open = new Set();
 
   function prog(msg) { TunoProgress.show("cfBody", "cfProg", msg); }   // ENCA-style centred card (10397)
   function download(name, text, type) {
@@ -197,7 +200,7 @@ const ConflictTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; $("cfRun").disabled = true; showExports(false); $("cfBody").innerHTML = "";
+    running = true; $("cfRun").disabled = true; showExports(false); $("cfBody").innerHTML = ""; open.clear();
     try {
       await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Graph.SCOPES.groups])]);
       collectRes = await Docs.collect({ sections: Conflict.SECTIONS, onStatus: prog });
@@ -212,40 +215,59 @@ const ConflictTool = (() => {
     } finally { running = false; $("cfRun").disabled = false; }
   }
 
+  // The 10413 layout (build 10418, last of the four). Stat cards over the
+  // strip, and each conflict is a FOLDED row: closed, it says the setting,
+  // the verdict and how many policies; open, it shows the comparison the
+  // finding exists for — every policy's value and reach, side by side in a
+  // grid. Open set keyed on conflict keys, the T03 rule.
   function render() {
-    const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
-    const head = `<div class="gu-sticky">
-      <span class="gu-who">Setting conflicts</span>
-      <div class="gu-sum">
-        ${stat(scan.totals.can, "can collide")}
-        ${stat(scan.totals.may, "may collide")}
-        ${stat(scan.totals.cannot, "cannot collide")}
-        ${stat(scan.comparedSettings, "settings set by >1 policy")}
-        ${collectRes.failed.length ? `<span class="gu-stat" style="border-color:var(--off)"><b>${collectRes.failed.length}</b> surfaces unread</span>` : ""}
-      </div></div>`;
+    const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    const cards = `<div class="au-cards">
+      ${card("Can collide", scan.totals.can, "overlapping reach, different values", scan.totals.can ? "bad" : "ok")}
+      ${card("May collide", scan.totals.may, "a filter or shared membership decides", scan.totals.may ? "" : "ok")}
+      ${card("Cannot collide", scan.totals.cannot, "no overlapping reach as assigned")}
+      ${card("Settings set by &gt;1 policy", scan.comparedSettings, "what was actually compared")}
+      ${collectRes.failed.length ? card("Surfaces unread", collectRes.failed.length, "conflicts there are unknown, not absent", "bad") : ""}
+    </div>`;
 
     const notes = [];
     notes.push(`<p class="mini muted"><b>A verdict is about group targeting, and "may" is may.</b> Can collide means overlapping reach as assigned — which value wins on a device is Intune's own conflict resolution. Different groups are never "cannot": different groups can share members, and a browser cannot see membership. An assignment filter caps any verdict at may. A collision that spans two surfaces — a settings-catalog policy and a legacy device configuration driving the same CSP — is <b>not detected</b>, and within device configurations only policies of the same type are compared, because matching across types by display name is the mistake this tool exists to avoid.</p>`);
     if (scan.redactedSkipped) notes.push(`<p class="mini muted"><b>${scan.redactedSkipped} redacted values were not compared.</b> Secrets pass the documenter's redaction gate before this tool sees them; two values both reading “redacted” are not known to be equal, and a conflict row printing them would be a disclosure.</p>`);
     if (collectRes.failed.length) notes.push(`<div class="gu-fail"><b>${collectRes.failed.map((f) => esc(f.label)).join(", ")} could not be read.</b><span class="why">Conflicts there are unknown, not absent.</span></div>`);
 
-    const card = (c) => `<div class="list-card cf-item cf-${c.verdict}">
-      <h4 style="margin:0 0 4px">${esc(c.icon)} ${esc(c.label)}
-        <span class="gu-how ${c.verdict === "can" ? "exc" : (c.verdict === "may" ? "priv" : "inc")}">${esc(Conflict.V_LABEL[c.verdict])}</span>
-        <span class="mini muted">${esc(c.sectionLabel)}</span></h4>
-      <p class="mini muted" style="margin:0 0 8px">${esc(c.reason)}</p>
-      <div class="gu-tw"><table class="cg-table"><thead><tr><th>Policy</th><th style="width:140px">Platform</th><th>Value</th></tr></thead>
-        <tbody>${c.policies.map((p) => `<tr>
-          <td><b>${esc(p.name)}</b>${p.none ? ' <span class="gu-how exc" title="No include and no tenant-wide target">reaches nobody</span>' : ""}${p.filtered ? ' <span class="gu-how priv">filtered</span>' : ""}${p.tenantWide ? ' <span class="gu-how priv">tenant-wide</span>' : ""}</td>
-          <td class="mini">${esc(p.platform)}</td>
-          <td class="mini">${esc(p.value)}</td></tr>`).join("")}</tbody></table></div>
-    </div>`;
+    const fold = (c) => {
+      const key = `${c.sectionLabel}|${c.label}`;
+      const isOpen = open.has(key);
+      const cls = c.verdict === "can" ? "bad" : c.verdict === "may" ? "warn" : "ok";
+      const head = `<div class="au-ev-h">
+          <b>${esc(c.icon)} ${esc(c.label)}</b>
+          <span class="au-op ${c.verdict === "can" ? "delete" : c.verdict === "may" ? "update" : "create"}">${esc(Conflict.V_LABEL[c.verdict])}</span>
+          <span class="au-when mini muted">${esc(c.sectionLabel)}</span></div>
+        <div class="mini muted au-ev-m">${c.policies.length} polic${c.policies.length === 1 ? "y" : "ies"} · ${esc(c.reason)} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
+      const detail = !isOpen ? "" : `<div class="au-detail"><div class="au-2col">
+        ${c.policies.map((p) => `<div>
+          <b>${esc(p.name)}</b>${p.none ? ' <span class="gu-how exc" title="No include and no tenant-wide target">reaches nobody</span>' : ""}${p.filtered ? ' <span class="gu-how priv">filtered</span>' : ""}${p.tenantWide ? ' <span class="gu-how priv">tenant-wide</span>' : ""}
+          <div class="mini muted">${esc(p.platform)}</div>
+          <div class="mini" style="margin-top:4px">value: <code>${esc(p.value)}</code></div>
+        </div>`).join("")}
+      </div></div>`;
+      return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-cffold="${esc(key)}"><div class="au-ev-card">${head}${detail}</div></div>`;
+    };
 
     const body = scan.conflicts.length
-      ? scan.conflicts.map(card).join("")
-      : `<div class="list-card"><p class="mini"><b>No setting is configured to different values by overlapping policies</b> — across ${scan.comparedSettings} settings that more than one policy configures${collectRes.failed.length ? ", on the surfaces that could be read" : ""}.</p></div>`;
+      ? scan.conflicts.map(fold).join("")
+      : `<p class="mini" style="margin-top:10px"><b>No setting is configured to different values by overlapping policies</b> — across ${scan.comparedSettings} settings that more than one policy configures${collectRes.failed.length ? ", on the surfaces that could be read" : ""}.</p>`;
 
-    $("cfBody").innerHTML = head + `<div class="list-card">${notes.join("")}</div>` + body;
+    $("cfBody").innerHTML = cards + `<div class="list-card">${notes.join("")}
+      ${scan.conflicts.length ? `<p class="mini muted" style="margin:8px 0 0">Click a conflict for the side-by-side comparison — every policy's value and reach.</p>` : ""}
+      <div style="margin-top:10px">${body}</div></div>`;
+
+    $("cfBody").querySelectorAll("[data-cffold]").forEach((el) => el.addEventListener("click", (e) => {
+      if (e.target.closest("a,code")) return;
+      const k = el.dataset.cffold;
+      open.has(k) ? open.delete(k) : open.add(k);
+      render();
+    }));
   }
 
   function exportAs(fmt) {

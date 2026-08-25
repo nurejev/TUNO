@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10418, date: "2026-08-25", title: "Conflicts fold — and open to the comparison",
+    items: [
+      { kind: "improved", tool: "⚡ Setting conflict scan", text: "The last of the four 10413 conversions. Stat cards for the verdicts — can collide, may collide, cannot, the number of settings more than one policy configures, and surfaces unread when there are any. Each conflict is now a folded row: closed, it says the setting, the verdict and how many policies are involved; click it and the comparison the finding exists for unfolds — every policy side by side with its value and its reach, filtered and tenant-wide tags included. Open folds survive a re-render. Every caveat is unchanged: a verdict is about group targeting, may is may, redacted values are never compared, and unread surfaces are unknown rather than clean." },
+      { kind: "fixed", tool: "⚡ Setting conflict scan", text: "The tool's suite carried the same rot the compliance report's did — four assertions pinned to its birth build, 10382, failing on every build since. De-pinned to derive from live values, and the suite gained the layout checks: cards, folds closed at first, the side-by-side unfold, and folding back." },
+    ],
+  },
+  {
     build: 10417, date: "2026-08-25", title: "Roles become cards you open",
     items: [
       { kind: "improved", tool: "🛡 Role assignments", text: "Third of the four 10413 conversions. Stat cards up top — roles with the built-in and custom split, assignments, members, empty roles, observations, and could-not-be-read when it applies — and each role is now a folded card. Click it and the assignments unfold in place, each with its scope, its tags and its member table; one long page per role was the layout this retires. Open folds survive a re-render because the tool remembers role ids, not rows." },

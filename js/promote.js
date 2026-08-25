@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 77,
+      title: "Conflict scan — verdict cards and side-by-side folds",
+      tools: ["⚡ Setting conflict scan"],
+      builds: [10418],
+      risk: "low",
+      what: "T12 takes the 10413 layout (last of four): verdict stat cards; each conflict a folded row opening in place to the side-by-side policy grid (value + reach tags per policy); open set keyed on section|setting. Engine, verdicts, redaction rule and unread-surface honesty unchanged. Rider: the suite de-pinned from its birth build 10382 (compliance-tests' disease, same cure) and gained the layout checks.",
+      why: "LOW — presentation only, and the smallest of the four conversions. The side-by-side grid at two columns is the thing to eyeball on a conflict with FIVE policies: the grid wraps, and whether five cells read as a comparison or a heap is a judgement for a real screen.",
+      test: [
+        "Run on a tenant with at least one real can-collide and confirm the fold opens to every involved policy with the right values — checked against the policies themselves, not against the closed row.",
+        "Find (or fabricate) a conflict involving 4+ policies and judge the wrapped grid: comparison or heap? If heap, the detail should switch to a table at n>3 — say so here.",
+        "Confirm the verdict cards agree with the old strip's numbers on the same tenant, and that the unread-surfaces card only appears when something failed.",
+        "Dark theme: verdict badges and the two-column grid readable.",
+      ],
+      files: ["js/conflict.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 76,
       title: "Role assignments — folded roles, and empty ones shown dimmed",
       tools: ["🛡 Role assignments"],
