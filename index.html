@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10421"></script>
+<script src="js/popup-guard.js?v=10422"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10421">
+<link rel="stylesheet" href="css/app.css?v=10422">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10421"></script>
+<script src="js/selfhost-boot.js?v=10422"></script>
 </head>
 <body>
 
@@ -176,6 +176,10 @@
       <div class="tool" id="toolRoles">
         <div class="tool-ic">🛡</div><h3>Intune RBAC <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Every Intune role definition, built-in and custom, with each assignment under it, the users and groups in it <b>resolved to names</b>, the scope tags it is limited to and what it is scoped over — in one page rather than one blade per role. Roles with nobody in them are one toggle away, because an empty role is a fact worth seeing and it is one membership change from being live. Concentrations worth a second look are flagged as <b>observations, never a score</b>. And the line nothing else says: this is Intune RBAC only, so the Entra directory roles that also grant full Intune access are not in it. Export as Markdown, CSV or a standalone HTML report.</p>
+      </div>
+      <div class="tool" id="toolMaa">
+        <div class="tool-ic">🤝</div><h3>Multi-admin approval <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Whether multi-admin approval is protecting anything: every approval policy and what its type gates, the requests of a chosen window — pending, approved, rejected, and how long approval actually takes — and coverage computed the way MAA works: a gate applies to its operation type <b>tenant-wide</b>, and a category with no policy has no gate at all. A policy whose approver groups hold nobody is flagged as <b>a gate nobody can open</b>. The admins-without-approval-rights list carries the Intune-RBAC-only warning, because the Entra directory admins who can change the most are not in it. Reads only, no new permission. Export as Markdown or CSV.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -1224,18 +1228,19 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>"Covered" is a claim, and this card narrows the original's.</b> At least one assigned policy per discipline is what the script means by coverage, and per-device applicability is not evaluated — its own note, which belongs on the screen rather than in a comment. One step past it, for free: assignments arrive <code>$expand</code>-ed, so "assigned" is checked by construction the R20 way — a policy with no include and no tenant-wide target, or whose every assignment is an exclusion, reaches nobody and does not count as coverage. Whether an included group is <i>empty</i> is R12's finding, and the page points there rather than half-repeating it. <b>Reads only, no new scope</b>: the policy read rides the config scope, the device count rides T06's.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped with one departure from the original that the card did not promise: legacy intents are classified, not dumped.</b> The script lists <code>deviceManagement/intents</code> under a "Legacy Intent" pseudo-discipline, so a tenant enforcing firewall through an intent reads as a firewall <i>gap</i> — an overstatement in the dangerous direction. Here the intent's template is resolved (one read of <code>deviceManagement/templates</code>) and the intent counts toward its discipline; one that cannot be classified counts toward nothing and says so. The legacy surface only answers assigned-or-not — no assignment detail — and the row carries that caveat rather than pretending the reach was checked.</p>
           </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R27</span> 🤝 Multi-admin approval <span class="tag grant">live · beta 10422</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/compliance/get-maa-compliance-report.ps1" target="_blank" rel="noopener">MAA Compliance Dashboard Report</a> (MIT). Multi-admin approval is the Intune control where changing an app, a script, a settings catalog policy or a role — or running a device action — needs a second administrator to say yes, and nothing in the portal shows whether it is protecting anything. One page: every approval policy (<code>operationApprovalPolicies</code>) with what its type gates; the requests of a chosen window (<code>operationApprovalRequests</code>) — pending, approved, rejected, cancelled, and how long approval actually takes; and coverage per resource category computed <b>the way MAA actually works</b>: an approval policy gates an operation <i>type</i> tenant-wide, so one policy of type app protects every app, and a category with no policy has no gate at all — which is the finding.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The admins half carries R07's sentence, because the original needs it and does not say it.</b> Its "admins without MAA approval rights" list is counted from <code>deviceManagement/roleAssignments</code> — Intune RBAC only — so Global Administrator and Intune Administrator, the accounts that can change the most, are not in it. Said on screen and in every export, verbatim from R07. Approvers are resolved from the approval policies' approver groups transitively, and names arrive through <code>directoryObjects/getByIds</code> — R07's one-call technique, not the original's two probes per member.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Fewer scopes than the original asks for.</b> The script connects with six, <code>Directory.Read.All</code> among them; everything here rides scopes the registration already holds — the MAA surface and role assignments under the RBAC read, the app, script and configuration inventories under reads earlier tools brought in, group members under the group read. And <b>"no MAA policies" is distinguished from "could not read"</b>: a tenant that has never configured multi-admin approval gets a page that says so plainly, with the uncovered categories reading as the finding they are rather than an error. Reads only.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped with two findings the card did not promise.</b> A policy whose approver groups hold no members is flagged as <b>a gate nobody can open</b> — every operation it gates will sit pending until someone is added, and the emptiness is checked transitively, not read off the group list. And approved requests whose timestamps cannot be parsed are counted <b>outside</b> the approval-time numbers with their count stated, because an average quietly missing its slowest members reads better than the truth.</p>
+          </div>
         </div>
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R27</span> 🤝 Multi-admin approval</h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/compliance/get-maa-compliance-report.ps1" target="_blank" rel="noopener">MAA Compliance Dashboard Report</a> (MIT). Multi-admin approval is the Intune control where changing an app, a script, a settings catalog policy or a role — or running a device action — needs a second administrator to say yes, and nothing in the portal shows whether it is protecting anything. One page: every approval policy (<code>operationApprovalPolicies</code>) with what its type gates; the requests of a chosen window (<code>operationApprovalRequests</code>) — pending, approved, rejected, cancelled, and how long approval actually takes; and coverage per resource category computed <b>the way MAA actually works</b>: an approval policy gates an operation <i>type</i> tenant-wide, so one policy of type app protects every app, and a category with no policy has no gate at all — which is the finding.</p>
-            <p class="mini" style="margin:6px 0 0"><b>The admins half carries R07's sentence, because the original needs it and does not say it.</b> Its "admins without MAA approval rights" list is counted from <code>deviceManagement/roleAssignments</code> — Intune RBAC only — so Global Administrator and Intune Administrator, the accounts that can change the most, are not in it. Said on screen and in every export, verbatim from R07. Approvers are resolved from the approval policies' approver groups transitively, and names arrive through <code>directoryObjects/getByIds</code> — R07's one-call technique, not the original's two probes per member.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Fewer scopes than the original asks for.</b> The script connects with six, <code>Directory.Read.All</code> among them; everything here rides scopes the registration already holds — the MAA surface and role assignments under the RBAC read, the app, script and configuration inventories under reads earlier tools brought in, group members under the group read. And <b>"no MAA policies" is distinguished from "could not read"</b>: a tenant that has never configured multi-admin approval gets a page that says so plainly, with the uncovered categories reading as the finding they are rather than an error. Reads only.</p>
           </div>
         </div>
         <div class="rm-era later">
@@ -1319,6 +1324,29 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div id="fwProg" class="mini muted" style="margin-top:10px"></div>
     </div>
     <div id="fwBody" style="margin-top:14px"></div>
+  </section>
+
+  <!-- ============ MULTI-ADMIN APPROVAL (T17) ============ -->
+  <section id="screen-maa" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🤝 Multi-admin approval <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Multi-admin approval is the Intune control where changing an app, a script, a settings catalog policy or a role — or running a device action — needs a second administrator to say yes, and nothing in the portal shows whether it is protecting anything. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/compliance/get-maa-compliance-report.ps1" target="_blank" rel="noopener">MAA Compliance Dashboard Report</a> (MIT). Coverage is computed <b>the way MAA actually works</b>: a gate applies to its operation type tenant-wide, so one approval policy of type app protects every app — and a category with no policy has no gate at all, which is the finding. <b>Reads only, no new permission</b> — and fewer scopes than the original asks for.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Two sentences the numbers need.</b> The admins list is <b>Intune RBAC only</b> — Global Administrator and Intune Administrator are Entra directory roles and do not appear in it, so the accounts with the most access are not in the admins-without-MAA count; the warning is on the table and in every export, verbatim from the 🛡 Intune RBAC tool. And <b>"no MAA policies" is an answer, not an error</b> — a tenant that has never configured multi-admin approval reads as exactly that, with the uncovered categories as the finding. A policy whose approver groups hold nobody is flagged as <b>a gate nobody can open</b>: every operation it gates will sit pending until someone is added.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="wi-grid">
+        <label class="wi-f"><span>Request window <span class="mini muted">days back</span></span>
+          <input id="maDays" type="number" min="1" value="30" style="width:120px"></label>
+      </div>
+      <div class="tb-actions" style="margin-top:12px">
+        <button class="btn primary" id="maRun">🤝 Read the gates</button>
+        <button class="btn" id="maMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="maReqCsv" style="display:none">⭳ Requests CSV</button>
+        <button class="btn" id="maAdmCsv" style="display:none">⭳ Admins CSV</button>
+      </div>
+      <div id="maProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="maBody" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ HELP ============ -->
@@ -1473,33 +1501,34 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10421"></script>
-<script src="js/selfhost.js?v=10421"></script>
-<script src="js/version.js?v=10421"></script>
-<script src="js/promote.js?v=10421"></script>
-<script src="js/authConfig.js?v=10421"></script>
-<script src="js/changelog.js?v=10421"></script>
-<script src="js/msappcatalog.js?v=10421"></script>
-<script src="js/graph.js?v=10421"></script>
-<script src="js/suggest.js?v=10421"></script>
-<script src="js/progress.js?v=10421"></script>
-<script src="js/groupuse.js?v=10421"></script>
-<script src="js/audit.js?v=10421"></script>
-<script src="js/backup.js?v=10421"></script>
-<script src="js/document.js?v=10421"></script>
-<script src="js/devicewhy.js?v=10421"></script>
-<script src="js/whatif.js?v=10421"></script>
-<script src="js/health.js?v=10421"></script>
-<script src="js/settingsearch.js?v=10421"></script>
-<script src="js/conflict.js?v=10421"></script>
-<script src="js/compliance.js?v=10421"></script>
-<script src="js/filters.js?v=10421"></script>
-<script src="js/restore.js?v=10421"></script>
-<script src="js/assignedit.js?v=10421"></script>
-<script src="js/roles.js?v=10421"></script>
-<script src="js/defender.js?v=10421"></script>
-<script src="js/endpointsec.js?v=10421"></script>
-<script src="js/applocker.js?v=10421"></script>
-<script src="js/app.js?v=10421"></script>
+<script src="js/branding.js?v=10422"></script>
+<script src="js/selfhost.js?v=10422"></script>
+<script src="js/version.js?v=10422"></script>
+<script src="js/promote.js?v=10422"></script>
+<script src="js/authConfig.js?v=10422"></script>
+<script src="js/changelog.js?v=10422"></script>
+<script src="js/msappcatalog.js?v=10422"></script>
+<script src="js/graph.js?v=10422"></script>
+<script src="js/suggest.js?v=10422"></script>
+<script src="js/progress.js?v=10422"></script>
+<script src="js/groupuse.js?v=10422"></script>
+<script src="js/audit.js?v=10422"></script>
+<script src="js/backup.js?v=10422"></script>
+<script src="js/document.js?v=10422"></script>
+<script src="js/devicewhy.js?v=10422"></script>
+<script src="js/whatif.js?v=10422"></script>
+<script src="js/health.js?v=10422"></script>
+<script src="js/settingsearch.js?v=10422"></script>
+<script src="js/conflict.js?v=10422"></script>
+<script src="js/compliance.js?v=10422"></script>
+<script src="js/filters.js?v=10422"></script>
+<script src="js/restore.js?v=10422"></script>
+<script src="js/assignedit.js?v=10422"></script>
+<script src="js/roles.js?v=10422"></script>
+<script src="js/defender.js?v=10422"></script>
+<script src="js/endpointsec.js?v=10422"></script>
+<script src="js/maa.js?v=10422"></script>
+<script src="js/applocker.js?v=10422"></script>
+<script src="js/app.js?v=10422"></script>
 </body>
 </html>

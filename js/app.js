@@ -664,6 +664,7 @@ const Fs = (() => {
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolRoles", "🛡 Intune RBAC"],
+    ["toolMaa", "🤝 Multi-admin approval"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -847,6 +848,7 @@ const Fs = (() => {
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
+  $("toolMaa").addEventListener("click", () => { crumb("🤝 Multi-admin approval"); show("screen-maa"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
@@ -1019,6 +1021,7 @@ const Fs = (() => {
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
+  if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();

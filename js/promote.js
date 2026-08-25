@@ -70,6 +70,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 80,
+      title: "Multi-admin approval — T17, the last of the three security reads",
+      tools: ["🤝 Multi-admin approval"],
+      builds: [10422],
+      risk: "medium",
+      what: "New tool (R27), Access & roles section: operationApprovalPolicies + operationApprovalRequests (beta, RBAC read), coverage per operation type computed tenant-wide, gated inventories as context, approver groups transitive with the gate-nobody-can-open finding, Intune RBAC admins with approver flag and the RBAC-only sentence. Request window client-side (default 30 days). Reads only, no new scope. Exports MD + two CSVs.",
+      why: "MEDIUM — a new read surface with one real unknown: the MAA endpoints' payload shape on a live tenant (status as string vs number, approvalDateTime presence) is tolerated in code but has only been seen in the docs. What has to be true to graduate: a tenant WITH MAA policies renders its gates and approvers correctly, and a tenant WITHOUT reads as the no-gates answer rather than an error.",
+      test: [
+        "Run on a tenant with at least one MAA policy and compare the gate table against Tenant administration → Multi Admin Approval — every policy there must appear, with the right type, and its approver count must match the group's transitive membership.",
+        "Run on a tenant with NO MAA configured and confirm the page reads 'never configured' with every category no-gate — an answer, not an error card.",
+        "Create (or find) an approval request and confirm it appears in the window with the right status; approve it and confirm the approval-time numbers move and the request leaves pending.",
+        "Point an approver group at an empty group and confirm the policy flags 'a gate nobody can open'.",
+        "Check the admins table against the 🛡 Intune RBAC tool on the same tenant — same people, and the RBAC-only warning present on screen and in both CSV/MD exports.",
+        "Dark theme: gate badges, the no-gates warning and the approver flags readable.",
+      ],
+      files: ["js/maa.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 79,
       title: "Firewall & ASR coverage — T16, the second security read",
       tools: ["🧱 Firewall & ASR coverage"],
