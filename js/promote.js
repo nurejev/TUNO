@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 76,
+      title: "Role assignments — folded roles, and empty ones shown dimmed",
+      tools: ["🛡 Role assignments"],
+      builds: [10417],
+      risk: "low",
+      what: "T07 takes the 10413 layout (third of four): stat cards over the strip; each role a folded card unfolding in place to assignments, scope tags and member tables; open set keyed on role ids, surviving re-renders and the toggle. ONE BEHAVIOUR CHANGE: the empty-role toggle inverted — empty roles are shown by default, folded and dimmed, and the checkbox now HIDES them. Engine, reads, exports, observations and the RBAC-only warning unchanged. Rider: two stale registration-count pins in the t07 suite de-pinned to T07's own claims.",
+      why: "LOW for the layout; the toggle inversion is the one judgement call — it changes what a first-time reader sees. If a real tenant's default view reads as clutter (fourteen dimmed built-ins above two live roles), the default should flip back and the item says so here rather than assuming.",
+      test: [
+        "Run on a real tenant and READ the default view: do the dimmed empty roles read as honest context or as noise above the roles that matter? This is the judgement the inversion made — judge it, and flip it back if it reads wrong.",
+        "Open a role with members, tick hide-empty, and confirm the open fold survives; untick and confirm the dimmed ones return still folded.",
+        "Confirm the stat cards agree with the old strip's numbers on the same tenant (roles, assignments, members, empty).",
+        "Dark theme: dimmed folds must still be legible, not invisible.",
+      ],
+      files: ["js/roles.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 75,
       title: "Assignment health — cards that filter, folds that remember",
       tools: ["🩺 Assignment health"],

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10417, date: "2026-08-25", title: "Roles become cards you open",
+    items: [
+      { kind: "improved", tool: "🛡 Role assignments", text: "Third of the four 10413 conversions. Stat cards up top — roles with the built-in and custom split, assignments, members, empty roles, observations, and could-not-be-read when it applies — and each role is now a folded card. Click it and the assignments unfold in place, each with its scope, its tags and its member table; one long page per role was the layout this retires. Open folds survive a re-render because the tool remembers role ids, not rows." },
+      { kind: "improved", tool: "🛡 Role assignments", text: "The empty-role toggle inverted, deliberately. Empty roles used to hide behind a show-them checkbox; now they are in the list by default, folded and dimmed — a role with nobody in it is one membership change from being a live grant, and a dimmed fold costs almost nothing to scroll past. The checkbox now hides them, for tenants where fourteen idle built-in roles are noise. Observations keep their no-score rule, and the Intune-RBAC-only warning keeps its place at the top." },
+    ],
+  },
+  {
     build: 10416, date: "2026-08-25", title: "The health findings become one list you can open",
     items: [
       { kind: "improved", tool: "🩺 Assignment health", text: "The second of the four 10413 conversions. Six stat cards, one per finding kind — empty groups, dangling, unassigned, excluded-only, include-and-exclude, failing — and they are buttons: click a kind and the list narrows to it, click again and everything returns. When deployment status was not checked, its card says so instead of showing a zero that reads as health." },
