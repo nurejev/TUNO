@@ -216,6 +216,9 @@ const ComplianceTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let rep = null, running = false;
+  // Which policy rows are unfolded — keyed on POLICY IDS, the T03 rule, so a
+  // re-render keeps them open.
+  const open = new Set();
 
   function prog(msg) { TunoProgress.show("cpBody", "cpProg", msg); }   // ENCA-style centred card (10397)
   function download(name, text, type) {
@@ -228,7 +231,7 @@ const ComplianceTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = "";
+    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear();
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.devices, ...Graph.SCOPES.config])]);
       rep = await Compliance.report({ staleDays: $("cpStaleDays").value, onStatus: prog });
@@ -241,23 +244,26 @@ const ComplianceTool = (() => {
     } finally { running = false; $("cpRun").disabled = false; }
   }
 
+  // The 10413 layout (build 10415, from the mockup round): stat cards for
+  // the estate, then the policies as FOLDED rows that unfold in place to the
+  // failing settings and the full rollup. The open set is keyed on policy
+  // ids, so a re-render keeps your cards open — the T03 rule.
   function render() {
-    const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
     const parts = [];
 
     if (rep.devices) {
       const t = rep.devices.totals;
-      parts.push(`<div class="gu-sticky">
-        <span class="gu-who">Compliance <span class="mini muted">${t.total} devices · stale after ${rep.staleDays} days without a check-in</span></span>
-        <div class="gu-sum">
-          ${stat(t.compliant, "compliant")}
-          ${stat(t.noncompliant, "non-compliant")}
-          ${stat(t.grace, "in grace")}
-          ${stat(t.unknown + t.other, "unknown/other")}
-          ${stat(t.stale, "stale")}
-        </div></div>`);
+      const pct = (n) => (t.total ? Math.round((n / t.total) * 100) : 0);
+      const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+      parts.push(`<div class="au-cards">
+        ${card("Compliant", t.compliant, `of ${t.total} · ${pct(t.compliant)}%`, "ok")}
+        ${card("Non-compliant", t.noncompliant, `${pct(t.noncompliant)}%`, t.noncompliant ? "bad" : "")}
+        ${card("In grace", t.grace, `${pct(t.grace)}%`)}
+        ${card(`Stale &gt;${rep.staleDays}d`, t.stale, t.staleCompliant ? `<b>${t.staleCompliant} also count compliant</b>` : "every verdict fresh enough to mean something", t.stale ? "bad" : "")}
+        ${card("Unknown / other", t.unknown + t.other, t.other ? `${t.other} configManager or similar` : "not clean — not counted as anything")}
+      </div>`);
       if (t.staleCompliant) {
-        parts.push(`<div class="list-card"><div class="gu-fail"><b>${t.staleCompliant} devices count as compliant AND are stale.</b><span class="why">A compliance verdict is as old as the check-in that produced it. These machines are in both columns above, deliberately — resolving the tension quietly in either direction would be a lie in that direction.</span></div></div>`);
+        parts.push(`<div class="list-card"><div class="gu-fail"><b>${t.staleCompliant} devices count as compliant AND are stale.</b><span class="why">A compliance verdict is as old as the check-in that produced it. These machines are in both cards above, deliberately — resolving the tension quietly in either direction would be a lie in that direction.</span></div></div>`);
       }
     } else {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>The device estate could not be read.</b><span class="why">${esc(rep.deviceError || "")} — every estate number is unknown, not zero.</span></div></div>`);
@@ -267,22 +273,35 @@ const ComplianceTool = (() => {
       const rows = rep.policies.map((p) => {
         const o = p.overview;
         const gap = p.overviewError || p.settingsError;
-        return `<tr>
-          <td><b>${esc(p.name)}</b>${p.assigned ? "" : ' <span class="gu-how exc" title="No assignments — this policy evaluates nobody">unassigned</span>'}${gap ? ' <span class="gu-how priv" title="Statuses could not be read — unknown, not clean">status gap</span>' : ""}</td>
-          <td class="mini">${esc(p.type.replace(/CompliancePolicy$/, ""))}</td>
-          ${o ? `<td class="gu-num">${o.compliant}</td><td class="gu-num${o.noncompliant ? "" : " gu-zero"}">${o.noncompliant}</td><td class="gu-num${o.error ? "" : " gu-zero"}">${o.error}</td><td class="gu-num${o.conflict ? "" : " gu-zero"}">${o.conflict}</td><td class="gu-num${o.pending ? "" : " gu-zero"}">${o.pending}</td>`
-            : `<td class="gu-num" colspan="5"><span class="mini muted">unknown — ${esc(p.overviewError || "status not returned")}</span></td>`}
-        </tr>${(p.failingSettings && p.failingSettings.length) ? `<tr><td colspan="7" class="cp-failrow">
-          ${p.failingSettings.slice(0, 8).map((s) => `<span class="gu-stat" style="border-color:var(--off)">${esc(s.name)} <b>${s.noncompliant + s.error}</b></span>`).join(" ")}
-          ${p.failingSettings.length > 8 ? `<span class="mini muted">+${p.failingSettings.length - 8} more in the export</span>` : ""}
-        </td></tr>` : ""}`;
+        const failN = (p.failingSettings || []).length;
+        const bad = o ? o.noncompliant + o.error + o.conflict : 0;
+        const cls = gap ? "warn" : bad ? "bad" : o ? "ok" : "warn";
+        const isOpen = open.has(p.id);
+        const head = `<div class="au-ev-h">
+            <b>${esc(p.name)}</b>
+            ${bad ? `<span class="au-op delete">${bad} failing</span>` : o ? `<span class="au-op create">clean</span>` : ""}
+            ${p.assigned ? "" : `<span class="gu-how exc" title="No assignments — this policy evaluates nobody">unassigned</span>`}
+            ${gap ? `<span class="gu-how priv" title="Statuses could not be read — unknown, not clean">status gap</span>` : ""}
+            <span class="au-when mini muted">${esc(p.type.replace(/CompliancePolicy$/, ""))}</span>
+          </div>
+          <div class="mini muted au-ev-m">${o ? `${o.compliant} compliant · ${o.noncompliant} non-compliant · ${o.pending} pending` : "rollup unknown"}${failN ? ` · ${failN} setting${failN === 1 ? "" : "s"} failing` : ""} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
+        const detail = !isOpen ? "" : `<div class="au-detail">
+          <div class="au-detail-grid mini">
+            <span class="muted">Rollup</span><span>${o ? `${o.compliant} compliant · ${o.noncompliant} non-compliant · ${o.error} error · ${o.conflict} conflict · ${o.pending} pending · ${o.notApplicable} n/a` : `unknown — ${esc(p.overviewError || "status not returned")}`}</span>
+            <span class="muted">Assignments</span><span>${p.assignments || 0}${p.assigned ? "" : " — evaluates nobody"}</span>
+            ${p.settingsError ? `<span class="muted">Settings</span><span>could not be read — ${esc(p.settingsError)}</span>` : ""}
+          </div>
+          ${failN ? `<div class="mini muted" style="margin-top:6px">Failing settings — worst first</div>
+            <ul class="mini au-diff">${p.failingSettings.map((s) => `<li>${esc(s.name)} — <b>${s.noncompliant}</b> non-compliant${s.error ? `, ${s.error} error` : ""}${s.conflict ? `, ${s.conflict} conflict` : ""} · ${s.compliant} fine</li>`).join("")}</ul>`
+            : o ? `<p class="mini muted" style="margin:6px 0 0">No setting is failing anywhere this policy reaches.</p>` : ""}
+          <p class="mini muted" style="margin:6px 0 0">Per-device drill-down for one machine is the 🖥 Device analyzer's job.</p>
+        </div>`;
+        return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-cppol="${esc(p.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
       }).join("");
       parts.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Policies (${rep.policies.length})</h4>
-        <p class="mini muted" style="margin:0 0 10px">Worst first. The numbers are Graph's cheap per-policy rollup — refreshed on Intune's schedule, not live — and the settings shown under a policy are the ones failing somewhere. Per-device drill-down for one machine is the 🖥 Device analyzer's job. A policy whose statuses could not be read is listed with the gap stated: <b>unknown is not clean</b>.</p>
-        <div class="gu-tw"><table class="cg-table"><thead><tr>
-          <th>Policy</th><th style="width:150px">Type</th><th class="gu-num">Compliant</th><th class="gu-num">Non-compl.</th><th class="gu-num">Error</th><th class="gu-num">Conflict</th><th class="gu-num">Pending</th>
-        </tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="mini muted" style="margin:0 0 10px">Worst first — click a policy for its full rollup and the settings failing under it. The numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule rather than live. A policy whose statuses could not be read is listed with the gap stated: <b>unknown is not clean</b>.</p>
+        ${rows}
       </div>`);
     } else if (rep.policyError) {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>Compliance policies could not be read.</b><span class="why">${esc(rep.policyError)}</span></div></div>`);
@@ -320,13 +339,21 @@ const ComplianceTool = (() => {
     // and sidebar all follow because the tool opened itself.
     $("cpBody").addEventListener("click", (e) => {
       const d = e.target.closest("[data-cpdev]");
-      if (!d) return;
-      e.preventDefault();
-      const tile = $("toolDevice"), term = $("dvTerm"), go = $("dvRun");
-      if (!tile || !term || !go) return;
-      tile.click();
-      term.value = d.dataset.cpdev;
-      go.click();
+      if (d) {
+        e.preventDefault();
+        const tile = $("toolDevice"), term = $("dvTerm"), go = $("dvRun");
+        if (!tile || !term || !go) return;
+        tile.click();
+        term.value = d.dataset.cpdev;
+        go.click();
+        return;
+      }
+      // Fold/unfold a policy card. Links and code stay clickable-for-copy.
+      const f = e.target.closest("[data-cppol]");
+      if (!f || e.target.closest("a,code")) return;
+      const id = f.dataset.cppol;
+      open.has(id) ? open.delete(id) : open.add(id);
+      render();
     });
   }
 

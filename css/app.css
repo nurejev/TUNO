@@ -2079,3 +2079,16 @@ ul.au-diff{margin:2px 0 0;padding-left:18px}
 ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
 :root[data-theme="dark"] .au-dot{color:var(--green-deep)}
 :root[data-theme="dark"] .au-op.delete{background:rgba(176,74,58,.2)}
+
+/* Folded result rows — the 10413 unfold pattern outside a timeline, shared
+   by T13/T09/T07/T12. Reuses the audit's card anatomy; the accent names a
+   VERDICT here (ok/warn/bad/muted) rather than an operation. */
+.au-fold{margin-bottom:10px}
+.au-fold>.au-ev-card{border-radius:10px}
+.au-fold.ok>.au-ev-card{border-left-color:var(--on)}
+.au-fold.warn>.au-ev-card{border-left-color:var(--report)}
+.au-fold.bad>.au-ev-card{border-left-color:var(--off)}
+.au-fold.dim>.au-ev-card{opacity:.65}
+.au-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.au-2col>div{background:var(--soft2);border-radius:8px;padding:8px 10px}
+@media (max-width:760px){.au-2col{grid-template-columns:1fr}}

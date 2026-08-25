@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 74,
+      title: "Compliance report — stat cards and folded policies",
+      tools: ["📋 Compliance report"],
+      builds: [10415],
+      risk: "low",
+      what: "T13 takes the 10413 layout (first of four from the mockup round): five estate stat cards with percentages, the stale card carrying its also-count-compliant tension on its face; the policy table becomes folded rows unfolding in place to the full rollup and the failing settings worst-first, open set keyed on policy ids. Reads, exports and every honesty rule unchanged. The tool's suite was de-pinned from build 10383 (four rotted assertions now derive from live values) and gained the layout checks.",
+      why: "LOW — presentation only; the engine, reads and exports are untouched and the suite asserts the same honesty sentences against the new DOM. The one thing worth a real look is the fold toggle sharing a click surface with the stale-device links into T06 — a fold that swallows the link click breaks the drill-down that shipped in 10398.",
+      test: [
+        "Run on a real tenant. The five cards must sum sensibly against the portal's compliance blade, and the stale card must name the compliant-and-stale count when there is one.",
+        "THE ONE THAT MATTERS: open two policy folds, change the stale threshold and re-run — the folds close (new report, new open set, correct); open one fold and click a stale device's name — it must land in the Device analyzer with the fold NOT toggling on the way through.",
+        "Find a policy with a status gap (or fake one by RBAC) and confirm the fold opens to the gap text, not to invented zeros.",
+        "Dark theme: cards, badges, folds readable; no white slab.",
+      ],
+      files: ["js/compliance.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 73,
       title: "The home screen: clamped cards, collapsing sections, and T09's overlap",
       tools: ["All tools", "\ud83e\ude7a Assignment health"],

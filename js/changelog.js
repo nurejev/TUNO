@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10415, date: "2026-08-25", title: "The compliance report gets the timeline treatment",
+    items: [
+      { kind: "improved", tool: "📋 Compliance report", text: "The first of four tools taking the change audit's 10413 layout, from the mockup round. The estate strip becomes five stat cards with percentages — compliant, non-compliant, in grace, stale, unknown — and the stale card carries its own tension on its face: the devices that count as compliant AND are stale are named right there, because that number is the reason the column exists." },
+      { kind: "improved", tool: "📋 Compliance report", text: "The policy table becomes folded rows. Closed, a row says the policy's name, whether it is failing and how badly, and whether it is unassigned or has a status gap. Click it and the full rollup unfolds in place — compliant, non-compliant, error, conflict, pending, not-applicable — with the failing settings worst-first underneath. Open rows stay open when the list redraws, because the tool remembers which policies you opened rather than which rows were expanded. Everything read is unchanged, and unknown is still not clean." },
+      { kind: "fixed", tool: "📋 Compliance report", text: "The tool's own test suite had rotted the way t01-smoke once did: four assertions pinned to build 10383 — the build number itself, the cache-busting, the changelog head, the queue item — failing on every build since. They now derive from the live values and assert the property, and the suite gained the layout checks: five cards, folds closed at first, unfold in place, and the stale-card tension." },
+    ],
+  },
+  {
     build: 10414, date: "2026-08-24", title: "The home screen stops being a wall",
     items: [
       { kind: "improved", tool: "All tools", text: "The tool cards were enormous, and the cause was not the card. Its styling is ENCA's rule byte for byte \u2014 what differed was the writing. ENCA's descriptions run seventeen to sixty words; ours ran a hundred and eleven to a hundred and seventy-five, and because a row of cards takes the height of the tallest one, a single long description inflated everything beside it. The card now shows the first four lines. The full text stays where it was, so Help and the exports still have all of it, and the next long description written will be clipped the same way rather than reopening the question." },
