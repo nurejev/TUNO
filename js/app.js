@@ -649,6 +649,7 @@ const Fs = (() => {
   // whether the tool was opened from the grid or a tab.
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
+    ["toolDefender", "🦠 Defender status"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
@@ -832,6 +833,7 @@ const Fs = (() => {
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
+  $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
@@ -1013,6 +1015,7 @@ const Fs = (() => {
   if (typeof Suggest !== "undefined") Suggest.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
+  if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();

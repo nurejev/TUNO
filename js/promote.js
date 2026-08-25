@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 78,
+      title: "Defender status — T15, the first of the three security reads",
+      tools: ["🦠 Defender status"],
+      builds: [10420],
+      risk: "medium",
+      what: "New tool (R25), Endpoint security section: per-device windowsProtectionState for every Windows device plus the deviceProtectionOverview rollup, batched twenty a trip. Buckets: healthy / with findings / no state — never-reported and unreadable devices are their own bucket, not healthy; per-flag 'not reported' is distinct from 'off'. Cards filter, rows fold, click-through to the Device analyzer. Reads only, no new scope. Exports MD + CSV.",
+      why: "MEDIUM — a new read surface, nothing broken in production without it. What has to be true to graduate: the beta endpoints answer on a real tenant, the batch pacing holds on a fleet in the hundreds, and the no-state bucket agrees with what the portal's own Antivirus report says about unreported machines.",
+      test: [
+        "Run on a real tenant with Windows devices and compare the with-findings list against the portal's Antivirus agent status report — the same machines should surface, and any difference should be explainable by the rollup-refresh caveat the page states.",
+        "Find a device with tamper protection genuinely off and confirm it reads OFF, not 'not reported'; find one that has never onboarded Defender and confirm it lands in no-state with 'never reported', not as healthy.",
+        "A tenant with several hundred Windows devices: the batch read must show progress and finish without a 429 spiral — if it throttles, the throttle banner should show and the run should still complete.",
+        "Click a device open, filter to its bucket via the card, confirm the fold survives; click through to the Device analyzer and confirm it lands searched.",
+        "Dark theme: bucket cards, badges and the tri-state values readable.",
+      ],
+      files: ["js/defender.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 77,
       title: "Conflict scan — verdict cards and side-by-side folds",
       tools: ["⚡ Setting conflict scan"],
