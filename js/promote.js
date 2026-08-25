@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 75,
+      title: "Assignment health — cards that filter, folds that remember",
+      tools: ["🩺 Assignment health"],
+      builds: [10416],
+      risk: "low",
+      what: "T09 takes the 10413 layout (second of four): six stat cards, one per finding kind, doubling as kind filters (click to narrow, click again to clear; the failing card says NOT CHECKED rather than zero when status was off); the five tables become one flat list of folded findings with the badge naming the kind, unfolding in place to the evidence, open set keyed on stable finding keys so it survives re-renders and the filter. Engine, reads, exports and every unknown-not-clean rule unchanged.",
+      why: "LOW — presentation only. The two things worth a real look: the card-as-filter interaction (a disabled failing card must not eat clicks; the active state must be visible in dark theme), and the flat list on a tenant with hundreds of findings, where the old per-kind tables at least chunked the scroll.",
+      test: [
+        "Run against a tenant with findings of at least three kinds. Click a card, confirm the list narrows and the card shows its active ring; click again, confirm everything returns. Open a fold, filter to its kind, and confirm it is STILL open.",
+        "Run with deployment status OFF and confirm the failing card reads 'not checked this run' and is disabled — not zero, not clickable.",
+        "A tenant with hundreds of findings: scrolling and folding must stay smooth, and the kind badges must be enough to scan by. If they are not, the per-kind chunking should come back as an option — say so rather than living with it.",
+        "Dark theme: active card ring, badges, folds all readable.",
+      ],
+      files: ["js/health.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 74,
       title: "Compliance report — stat cards and folded policies",
       tools: ["📋 Compliance report"],

@@ -313,6 +313,10 @@ const HealthTool = (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   let result = null, running = false;
+  // 10413 state: open folds keyed on stable finding keys; the active kind
+  // filter (null = everything). Both reset on a new run.
+  const open = new Set();
+  let kindFilter = null;
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -328,23 +332,71 @@ const HealthTool = (() => {
   }
   const pickedSources = () => [...document.querySelectorAll("[data-hlsrc]:checked")].map((b) => b.dataset.hlsrc);
 
+  // The 10413 layout (build 10416). Every finding kind flattened into ONE
+  // list of folded rows — the badge says the kind, the fold carries the
+  // evidence. Keys are stable per finding, so the open set survives both a
+  // re-render and a filter change. The stat cards double as FILTERS: click
+  // a kind to see only it, click again for everything.
+  const KINDS = [
+    { id: "empty", label: "Empty groups", icon: "👥", cls: "bad", hint: "The group exists and holds nobody — transitively. The policy has never applied through it." },
+    { id: "dangling", label: "Dangling", icon: "👻", cls: "bad", hint: "The assignment names a group the directory no longer has. It targets nobody, silently." },
+    { id: "unassigned", label: "Unassigned", icon: "📴", cls: "warn", hint: "No assignment at all. Enrolment restrictions are exempt — their defaults are unassigned by design." },
+    { id: "excludedOnly", label: "Excluded-only", icon: "🚫", cls: "warn", hint: "Every assignment is an exclusion. There is no include to carve from, so the policy reaches nobody." },
+    { id: "contradiction", label: "Include+exclude", icon: "⚔️", cls: "warn", hint: "The exclusion wins; the include reads as reach and delivers none." },
+    { id: "failing", label: "Failing", icon: "💥", cls: "bad", hint: "Counts from the per-policy status Graph keeps for these surfaces." },
+  ];
+  function findings(res) {
+    const g = res.groups, s = res.structural, out = [];
+    g.empty.forEach((r) => out.push({ kind: "empty", key: `e|${r.id}|${r.groupId}`, name: r.name, sub: `${r.sourceLabel}${r.sub ? " · " + r.sub : ""}`,
+      line: `assigned (${r.how}) to “${r.group}” — 0 transitive members`,
+      detail: `The assignment reaches “${esc(r.group)}” (<code>${esc(r.groupId)}</code>) and that group holds nobody, checked transitively at read time. Distinct from deleted: the group exists. Whether it is a mistake or a landing zone prepared for next quarter is yours to judge — the tool reports the fact.` }));
+    g.dangling.forEach((r) => out.push({ kind: "dangling", key: `d|${r.id}|${r.groupId}`, name: r.name, sub: r.sourceLabel,
+      line: `assignment names a deleted group`,
+      detail: `The target <code>${esc(r.groupId)}</code> no longer resolves in the directory. The assignment still exists and will keep targeting nobody until it is removed — nothing in the portal will say so.` }));
+    s.unassigned.forEach((r) => out.push({ kind: "unassigned", key: `u|${r.id}`, name: r.name, sub: `${r.sourceLabel}${r.sub ? " · " + r.sub : ""}`,
+      line: `no assignments at all`,
+      detail: `Configuration that has never applied and never will until somebody assigns it. Enrolment restrictions are exempt from this finding — their built-in defaults are unassigned by design.` }));
+    s.excludedOnly.forEach((p) => out.push({ kind: "excludedOnly", key: `x|${p.id}`, name: p.name, sub: p.sourceLabel,
+      line: `${p.excluded} exclusion${p.excluded === 1 ? "" : "s"}, nothing included`,
+      detail: `Every assignment on this policy is an exclusion — there is no include for them to carve from, so the policy reaches nobody. Almost never what the author meant.` }));
+    s.contradictions.forEach((p) => out.push({ kind: "contradiction", key: `c|${p.id}`, name: p.name, sub: p.sourceLabel,
+      line: `same group included and excluded`,
+      detail: `Group${p.groups.length === 1 ? "" : "s"} ${p.groups.map((x) => `<code>${esc(x)}</code>`).join(", ")} appear${p.groups.length === 1 ? "s" : ""} as include AND exclusion on this policy. The exclusion wins — the include is dead weight that reads as reach.` }));
+    if (res.status) res.status.failing.forEach((t) => out.push({ kind: "failing", key: `f|${t.id}`, name: t.name, sub: t.sf.label,
+      line: `${t.counts.failed} failed${t.counts.conflict ? `, ${t.counts.conflict} conflict` : ""}`,
+      detail: `Failed <b>${t.counts.failed}</b> · conflict ${t.counts.conflict} · pending ${t.counts.pending} · OK ${t.counts.ok} — Graph's cheap per-policy status, refreshed on Intune's schedule. Per-device drill-down is the 🖥 Device analyzer's job.` }));
+    return out;
+  }
+
   function render(res) {
-    const g = res.groups, s = res.structural;
-    const stat = (n, label, warn) => `<span class="gu-stat ${n ? (warn ? "" : "") : "zero"}"${n && warn ? ' style="border-color:var(--off)"' : ""}><b>${n}</b> ${label}</span>`;
-    const strip = `<div class="gu-sum">
-      ${stat(g.empty.length, "into empty groups", true)}
-      ${stat(g.dangling.length, "dangling", true)}
-      ${stat(s.unassigned.length, "unassigned", true)}
-      ${stat(s.excludedOnly.length, "excluded-only", true)}
-      ${stat(s.contradictions.length, "include+exclude", true)}
-      ${res.status ? stat(res.status.failing.length, `failing (of ${res.status.checked} checked)`, true) : ""}
-      <span class="mini muted">${res.policies} policies · ${res.ran.length} surfaces read${res.failed.length ? ` · ${res.failed.length} FAILED` : ""}</span>
-    </div>`;
-    const table = (title, hint, head, rows) => rows.length ? `
-      <h3 style="margin:16px 0 2px">${title} <span class="mini muted">${rows.length}</span></h3>
-      <p class="mini muted" style="margin:0 0 6px">${hint}</p>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
-      <tbody>${rows.join("")}</tbody></table></div>` : "";
+    const g = res.groups;
+    const all = findings(res);
+    const byKind = (id) => all.filter((f) => f.kind === id).length;
+    const kindOf = (id) => KINDS.find((k) => k.id === id);
+    const card = (k) => {
+      const n = k.id === "failing" && !res.status ? null : byKind(k.id);
+      const sub = k.id === "failing"
+        ? (res.status ? `of ${res.status.checked} checked` : "not checked this run")
+        : k.id === "empty" && g.unknown.length ? `${g.unknown.length} unpeekable — unknown` : (n ? "click to filter" : "none found");
+      return `<button class="au-card au-card-btn ${kindFilter === k.id ? "active" : ""}" data-hlkind="${k.id}" ${n === null ? "disabled" : ""} type="button">
+        <div class="au-card-l">${k.icon} ${esc(k.label)}</div>
+        <div class="au-card-n ${n ? (k.cls === "bad" ? "bad" : "") : "ok"}">${n === null ? "—" : n}</div>
+        <div class="au-card-s">${esc(sub)}</div></button>`;
+    };
+
+    const shown = kindFilter ? all.filter((f) => f.kind === kindFilter) : all;
+    const folds = shown.map((f) => {
+      const k = kindOf(f.kind);
+      const isOpen = open.has(f.key);
+      return `<div class="au-fold ${k.cls} ${isOpen ? "open" : ""}" data-hlfold="${esc(f.key)}"><div class="au-ev-card">
+        <div class="au-ev-h"><b>${esc(f.name)}</b>
+          <span class="au-op ${k.cls === "bad" ? "delete" : "update"}">${k.icon} ${esc(k.label)}</span>
+          <span class="au-when mini muted">${esc(f.sub)}</span></div>
+        <div class="mini muted au-ev-m">${esc(f.line)} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>
+        ${isOpen ? `<div class="au-detail"><p class="mini" style="margin:0">${f.detail}</p><p class="mini muted" style="margin:6px 0 0">${esc(k.hint)}</p></div>` : ""}
+      </div></div>`;
+    }).join("");
+
     const notes = [];
     if (res.status) {
       notes.push(`<p class="mini muted" style="margin:8px 0 0">${esc(Health.STATUS_NOT_COVERED)}</p>`);
@@ -352,35 +404,29 @@ const HealthTool = (() => {
     }
     if (g.unknown.length) notes.push(`<p class="mini muted" style="margin:4px 0 0"><b>${g.unknown.length}</b> group${g.unknown.length === 1 ? "" : "s"} could not be peeked into — membership unknown, not empty and not full.</p>`);
     const failed = res.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — not empty, UNKNOWN:</b> ${res.failed.map((f) => esc(f.label)).join(", ")}.</div>` : "";
-    const clean = !g.empty.length && !g.dangling.length && !s.unassigned.length && !s.excludedOnly.length && !s.contradictions.length && (!res.status || !res.status.failing.length);
+    const clean = !all.length;
 
-    $("hlBody").innerHTML = `<div class="list-card">${strip}
-      ${clean ? `<p class="mini" style="margin-top:12px"><b>Nothing found.</b> Every assignment read reaches at least one member, every policy read is assigned, and ${res.status ? "no checked deployment reports failures" : "deployment status was not checked"}.${res.failed.length ? " <b>But " + res.failed.length + " surface(s) could not be read — this is not a clean bill for them.</b>" : ""}</p>` : ""}
-      ${table("👥 Assignments into empty groups", "The group exists and holds nobody — transitively. The policy has never applied through it.",
-        ["Policy", "Surface", "Kind", "Group", "Assignment"],
-        g.empty.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.sourceLabel)}</td><td>${esc(r.sub)}</td><td>${esc(r.group)}</td><td>${esc(r.how)}</td></tr>`))}
-      ${table("👻 Dangling references", "The assignment names a group the directory no longer has. It targets nobody, silently.",
-        ["Policy", "Surface", "Group id"],
-        g.dangling.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.sourceLabel)}</td><td><code>${esc(r.groupId)}</code></td></tr>`))}
-      ${table("📴 Unassigned policies", "No assignment at all — configuration that has never applied. Enrolment restrictions are exempt: their defaults are unassigned by design.",
-        ["Policy", "Surface", "Kind"],
-        s.unassigned.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.sourceLabel)}</td><td>${esc(r.sub || "")}</td></tr>`))}
-      ${table("🚫 Excluded-only policies", "Every assignment is an exclusion. There is no include to carve from, so the policy reaches nobody.",
-        ["Policy", "Surface", "Exclusions"],
-        s.excludedOnly.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.sourceLabel)}</td><td>${p.excluded}</td></tr>`))}
-      ${table("⚔️ Include and exclude the same group", "The exclusion wins; the include reads as reach and delivers none.",
-        ["Policy", "Surface", "Group id(s)"],
-        s.contradictions.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.sourceLabel)}</td><td><code>${p.groups.map(esc).join(", ")}</code></td></tr>`))}
-      ${res.status ? table("💥 Deployments reporting failures", "Counts from the per-policy status Graph keeps for these surfaces.",
-        ["Policy", "Surface", "Failed", "Conflict", "Pending", "OK"],
-        res.status.failing.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(t.sf.label)}</td><td><b>${t.counts.failed}</b></td><td>${t.counts.conflict}</td><td>${t.counts.pending}</td><td>${t.counts.ok}</td></tr>`)) : ""}
+    $("hlBody").innerHTML = `<div class="au-cards">${KINDS.map(card).join("")}</div><div class="list-card">
+      <p class="mini muted" style="margin:0">${res.policies} policies · ${res.ran.length} surfaces read${res.failed.length ? ` · <b>${res.failed.length} FAILED</b>` : ""}${kindFilter ? ` · showing only <b>${esc(kindOf(kindFilter).label)}</b> — click the card again for everything` : all.length ? " · click a card to filter to one kind" : ""}</p>
+      ${clean ? `<p class="mini" style="margin-top:12px"><b>Nothing found.</b> Every assignment read reaches at least one member, every policy read is assigned, and ${res.status ? "no checked deployment reports failures" : "deployment status was not checked"}.${res.failed.length ? " <b>But " + res.failed.length + " surface(s) could not be read — this is not a clean bill for them.</b>" : ""}</p>` : `<div style="margin-top:10px">${folds || `<p class="mini" style="margin-top:8px">Nothing of this kind.</p>`}</div>`}
       ${notes.join("")}${failed}</div>`;
     ["hlMd", "hlCsv"].forEach((b) => { $(b).style.display = ""; });
+
+    $("hlBody").querySelectorAll("[data-hlkind]").forEach((b) => b.addEventListener("click", () => {
+      kindFilter = kindFilter === b.dataset.hlkind ? null : b.dataset.hlkind;
+      render(result);
+    }));
+    $("hlBody").querySelectorAll("[data-hlfold]").forEach((el) => el.addEventListener("click", (e) => {
+      if (e.target.closest("a,code")) return;
+      const k = el.dataset.hlfold;
+      open.has(k) ? open.delete(k) : open.add(k);
+      render(result);
+    }));
   }
 
   async function run() {
     if (running) return;
-    running = true; result = null;
+    running = true; result = null; open.clear(); kindFilter = null;
     ["hlMd", "hlCsv"].forEach((b) => { $(b).style.display = "none"; });
     $("hlBody").innerHTML = "";
     try {

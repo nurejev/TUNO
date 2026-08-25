@@ -2092,3 +2092,10 @@ ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
 .au-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
 .au-2col>div{background:var(--soft2);border-radius:8px;padding:8px 10px}
 @media (max-width:760px){.au-2col{grid-template-columns:1fr}}
+/* Stat cards that are also buttons (T09's kind filter). Same anatomy as
+   .au-card; the button chrome is stripped and the active state says which
+   kind the list is narrowed to. */
+button.au-card-btn{text-align:left;cursor:pointer;font:inherit;color:inherit}
+button.au-card-btn:hover{background:var(--hover)}
+button.au-card-btn.active{border-color:var(--on);box-shadow:0 0 0 1px var(--on) inset}
+button.au-card-btn:disabled{cursor:default;opacity:.6}

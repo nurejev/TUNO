@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10416, date: "2026-08-25", title: "The health findings become one list you can open",
+    items: [
+      { kind: "improved", tool: "🩺 Assignment health", text: "The second of the four 10413 conversions. Six stat cards, one per finding kind — empty groups, dangling, unassigned, excluded-only, include-and-exclude, failing — and they are buttons: click a kind and the list narrows to it, click again and everything returns. When deployment status was not checked, its card says so instead of showing a zero that reads as health." },
+      { kind: "improved", tool: "🩺 Assignment health", text: "The five stacked tables become one flat list of folded findings, the badge saying the kind. A finding unfolds in place to its evidence — which group, which id, and what the finding means alongside what it does not: an empty group is distinct from a deleted one, and whether an empty landing zone is a mistake is still yours to judge. Open folds survive both a re-render and the kind filter, because the tool remembers finding keys rather than rows. Every unknown-not-clean rule is unchanged." },
+    ],
+  },
+  {
     build: 10415, date: "2026-08-25", title: "The compliance report gets the timeline treatment",
     items: [
       { kind: "improved", tool: "📋 Compliance report", text: "The first of four tools taking the change audit's 10413 layout, from the mockup round. The estate strip becomes five stat cards with percentages — compliant, non-compliant, in grace, stale, unknown — and the stale card carries its own tension on its face: the devices that count as compliant AND are stale are named right there, because that number is the reason the column exists." },
