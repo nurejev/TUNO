@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10426"></script>
+<script src="js/popup-guard.js?v=10427"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10426">
+<link rel="stylesheet" href="css/app.css?v=10427">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10426"></script>
+<script src="js/selfhost-boot.js?v=10427"></script>
 </head>
 <body>
 
@@ -1286,6 +1286,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
             <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
           </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R28</span> 📋 Compliance coverage — the platforms nothing evaluates</h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT). The gap the compliance report itself cannot show, because every number it has comes from policies that exist: <b>a platform with enrolled devices and no assigned compliance policy</b>. Those devices are not failing anything — there is nothing to fail — and depending on one tenant setting they report compliant by default and sail through every Conditional Access check that requires a compliant device. The device count per platform is the priority order, and unassigned compliance policies are listed beside the gaps they would close.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Not a new tile — a section in the 📋 Compliance report, and that is the point.</b> The script's two reads are exactly the two T13 already does: compliance policies with assignments, devices with their operating system. The R19 rule applies — a second question over one read asks the tenant nothing new — so this ships inside T13 with zero new Graph traffic and no new scope. Platform identity is the script's own mapping, kept: a compliance policy's OData type names its platform 1:1, and device operating systems normalise to T05's one vocabulary rather than three spellings of Windows. "Covered" is narrowed the R26 way: a policy whose only assignments are exclusions, or none, covers nothing by construction — group scoping <i>within</i> a platform stays unevaluated, said on screen.</p>
+            <p class="mini" style="margin:6px 0 0"><b>And the sentence the original leaves as a footnote becomes a read.</b> Its notes say "check the tenant's <i>Mark devices with no compliance policy assigned as</i> setting" — because that setting decides whether an uncovered platform is a nuisance or a hole: compliant-by-default means uncovered devices <b>pass</b> Conditional Access silently. TUNO reads the setting (<code>deviceManagement/settings</code>, on the config read it already holds) and states which way the tenant leans next to every gap; a setting that could not be read is said, with the portal path, rather than guessed.</p>
+          </div>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R29</span> 🔑 Windows LAPS audit</h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-windows-laps-audit.ps1" target="_blank" rel="noopener">Get Windows LAPS Audit</a> (MIT). Windows LAPS escrows each machine's local administrator password into Entra; this reads the escrow <i>metadata</i> — which devices have a backed-up password and how old it is — and cross-references every Intune Windows device: <b>not escrowed</b> and <b>stale beyond the rotation threshold</b> are the two shapes of the same finding, a LAPS policy that is not applying, found before the day somebody needs the password that is not there.</p>
+            <p class="mini" style="margin:6px 0 0"><b>This is the first new permission since the Device analyzer, and it goes on in the open — the R18 rule.</b> <code>DeviceLocalCredential.ReadBasic.All</code>, and <i>ReadBasic</i> deliberately: Graph cannot return a password value through it, only device name and backup time. The full <code>Read.All</code>, which does return passwords, is what <span class="rm-ref">R10</span>'s helpdesk viewer would need and is deliberately not asked for here — auditing that escrow works and reading a password are different acts, and the smaller one should not carry the larger one's scope. The registration script and SECURITY.md take the scope in the same build; every customer tenant pays one more admin-consent round trip, said here rather than discovered. And a second gate the consent cannot open: Graph answers this endpoint only for accounts holding specific directory roles — Intune Administrator among them — so a signed-in reader without one gets a refusal, and the screen says why before the run rather than printing a bare 403.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two honesty rules past the original.</b> A device whose enrolment record carries no Entra device id cannot be matched to the escrow store — the original counts it <i>not escrowed</i>, which accuses a machine it never looked up; here it is <b>unmatchable, unknown</b>, its own bucket. And escrow records matching no enrolled Windows device — retired machines whose passwords are still held — are listed as their own answer rather than silently ignored, because credential metadata that outlives the machine is worth a look. Reads only; passwords are never retrieved, and there is no switch that would.</p>
+          </div>
         </div>
         <div class="rm-era later">
           <h3>Later</h3>
@@ -1491,7 +1503,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <ul class="mini credits">
           <li><b><a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a></b> — by <b>Spencer Alessi</b>. The static check set behind <b>🔐 AppLocker builder &amp; validator</b>: which rules are weak, misconfigured or risky, and why. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/microsoft/AaronLocker" target="_blank" rel="noopener">AaronLocker</a></b> — by <b>Aaron Margosis</b> (Microsoft). The approach behind <code>Invoke-TunoAppLockerScan.ps1</code>: find every directory a non-administrator can write to, inventory what is in them, and build publisher-first rules with those directories carved back out. TUNO's scan reads each DACL natively rather than shelling out to <code>AccessChk.exe</code>, honours Deny entries, and runs on PowerShell 5.1 and 7. Licensed <b>MIT</b>.</li>
-          <li><b><a href="https://github.com/ugurkocde/IntuneAutomation" target="_blank" rel="noopener">IntuneAutomation</a></b> — by <b>Ugur Koc</b> (Microsoft MVP). The Graph work behind eight roadmap items, each linked from its own card: <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a> (<span class="rm-ref">R04</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a> (<span class="rm-ref">R05</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (<span class="rm-ref">R07</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/backup-intune-configuration.ps1" target="_blank" rel="noopener">Backup</a> / <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a> (<span class="rm-ref">R08</span>, <span class="rm-ref">R09</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-defender-status-report.ps1" target="_blank" rel="noopener">Get Defender Status Report</a> (<span class="rm-ref">R25</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-firewall-and-asr-status.ps1" target="_blank" rel="noopener">Get Firewall and ASR Status</a> (<span class="rm-ref">R26</span>), and the <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/compliance/get-maa-compliance-report.ps1" target="_blank" rel="noopener">MAA Compliance Dashboard Report</a> (<span class="rm-ref">R27</span>). Which endpoints answer which question, which of them only exist on beta, and which expands are needed to make an assignment readable — that map is his. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/ugurkocde/IntuneAutomation" target="_blank" rel="noopener">IntuneAutomation</a></b> — by <b>Ugur Koc</b> (Microsoft MVP). The Graph work behind ten roadmap items, each linked from its own card:<a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/get-group-assignments.ps1" target="_blank" rel="noopener">Get Group Assignments</a> (<span class="rm-ref">R04</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/check-policy-changes.ps1" target="_blank" rel="noopener">Policy Changes Monitor</a> and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/monitoring/get-intune-audit-logs.ps1" target="_blank" rel="noopener">Get Intune Audit Logs</a> (<span class="rm-ref">R05</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (<span class="rm-ref">R07</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/backup-intune-configuration.ps1" target="_blank" rel="noopener">Backup</a> / <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a> (<span class="rm-ref">R08</span>, <span class="rm-ref">R09</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-defender-status-report.ps1" target="_blank" rel="noopener">Get Defender Status Report</a> (<span class="rm-ref">R25</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-firewall-and-asr-status.ps1" target="_blank" rel="noopener">Get Firewall and ASR Status</a> (<span class="rm-ref">R26</span>), the <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/compliance/get-maa-compliance-report.ps1" target="_blank" rel="noopener">MAA Compliance Dashboard Report</a> (<span class="rm-ref">R27</span>), <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (<span class="rm-ref">R28</span>), and <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-windows-laps-audit.ps1" target="_blank" rel="noopener">Get Windows LAPS Audit</a> (<span class="rm-ref">R29</span>). Which endpoints answer which question, which of them only exist on beta, and which expands are needed to make an assignment readable — that map is his. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/ugurkocde/IntuneDocumentation" target="_blank" rel="noopener">IntuneDocumentation</a></b> — by <b>Ugur Koc</b>. The coverage plan behind <span class="rm-ref">R06</span>: which surfaces belong in a tenant document, in what order, and what has to be redacted before it leaves the tenant. Licensed <b>Elastic License 2.0</b> — which permits self-hosting but not offering the work as a hosted service, so TUNO's version is a reimplementation, not a fork.</li>
           <li><b><a href="https://github.com/daniel-fraubaum/laps-self-service-portal" target="_blank" rel="noopener">LAPS Self-Service Portal</a></b> — by <b>Daniel Fraubaum</b> (base-IT). The reason <span class="rm-ref">R10</span> is scoped the way it is. His architecture keeps the privileged token on a server precisely because the browser cannot be trusted to enforce “only your own device” — and documenting that clearly is what made it obvious which half of the problem a static site can honestly take on. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/Stuk/jszip" target="_blank" rel="noopener">JSZip</a></b> — by <b>Stuart Knightley</b>. Writes the archive in <span class="rm-ref">R08</span> without a server to zip it. Bundled in <code>vendor/</code> rather than loaded from a CDN, so the page's content-security policy can keep refusing every origin but Microsoft's. Licensed <b>MIT</b>.</li>
@@ -1539,34 +1551,34 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10426"></script>
-<script src="js/selfhost.js?v=10426"></script>
-<script src="js/version.js?v=10426"></script>
-<script src="js/promote.js?v=10426"></script>
-<script src="js/authConfig.js?v=10426"></script>
-<script src="js/changelog.js?v=10426"></script>
-<script src="js/msappcatalog.js?v=10426"></script>
-<script src="js/graph.js?v=10426"></script>
-<script src="js/suggest.js?v=10426"></script>
-<script src="js/progress.js?v=10426"></script>
-<script src="js/groupuse.js?v=10426"></script>
-<script src="js/audit.js?v=10426"></script>
-<script src="js/backup.js?v=10426"></script>
-<script src="js/document.js?v=10426"></script>
-<script src="js/devicewhy.js?v=10426"></script>
-<script src="js/whatif.js?v=10426"></script>
-<script src="js/health.js?v=10426"></script>
-<script src="js/settingsearch.js?v=10426"></script>
-<script src="js/conflict.js?v=10426"></script>
-<script src="js/compliance.js?v=10426"></script>
-<script src="js/filters.js?v=10426"></script>
-<script src="js/restore.js?v=10426"></script>
-<script src="js/assignedit.js?v=10426"></script>
-<script src="js/roles.js?v=10426"></script>
-<script src="js/defender.js?v=10426"></script>
-<script src="js/endpointsec.js?v=10426"></script>
-<script src="js/maa.js?v=10426"></script>
-<script src="js/applocker.js?v=10426"></script>
-<script src="js/app.js?v=10426"></script>
+<script src="js/branding.js?v=10427"></script>
+<script src="js/selfhost.js?v=10427"></script>
+<script src="js/version.js?v=10427"></script>
+<script src="js/promote.js?v=10427"></script>
+<script src="js/authConfig.js?v=10427"></script>
+<script src="js/changelog.js?v=10427"></script>
+<script src="js/msappcatalog.js?v=10427"></script>
+<script src="js/graph.js?v=10427"></script>
+<script src="js/suggest.js?v=10427"></script>
+<script src="js/progress.js?v=10427"></script>
+<script src="js/groupuse.js?v=10427"></script>
+<script src="js/audit.js?v=10427"></script>
+<script src="js/backup.js?v=10427"></script>
+<script src="js/document.js?v=10427"></script>
+<script src="js/devicewhy.js?v=10427"></script>
+<script src="js/whatif.js?v=10427"></script>
+<script src="js/health.js?v=10427"></script>
+<script src="js/settingsearch.js?v=10427"></script>
+<script src="js/conflict.js?v=10427"></script>
+<script src="js/compliance.js?v=10427"></script>
+<script src="js/filters.js?v=10427"></script>
+<script src="js/restore.js?v=10427"></script>
+<script src="js/assignedit.js?v=10427"></script>
+<script src="js/roles.js?v=10427"></script>
+<script src="js/defender.js?v=10427"></script>
+<script src="js/endpointsec.js?v=10427"></script>
+<script src="js/maa.js?v=10427"></script>
+<script src="js/applocker.js?v=10427"></script>
+<script src="js/app.js?v=10427"></script>
 </body>
 </html>

@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10427, date: "2026-08-25", title: "Two more cards: the coverage gap and the LAPS audit",
+    items: [
+      { kind: "new", tool: "🗺 Roadmap", text: "R28, Compliance coverage: the platforms nothing evaluates — enrolled devices with no assigned compliance policy, which depending on one tenant setting report compliant by default and sail through Conditional Access. Deliberately not a new tile: the script's two reads are exactly the two the Compliance report already does, so it ships as a section inside that tool with zero new Graph traffic — and the original's check-this-setting footnote becomes a read, so the tenant's compliant-by-default lean is stated next to every gap. R29, Windows LAPS audit: which Windows devices have an escrowed local admin password and how old it is — not-escrowed and stale are the two shapes of a LAPS policy not applying. It needs the first new permission since the Device analyzer, DeviceLocalCredential.ReadBasic.All, taken in the open: ReadBasic deliberately, because Graph cannot return a password value through it, and the full Read.All stays with R10's helpdesk viewer where it belongs. Both after IntuneAutomation scripts; the credits entry grows from eight roadmap items to ten." },
+    ],
+  },
+  {
     build: 10426, date: "2026-08-25", title: "The backup widens, proves itself, and assignments come back",
     items: [
       { kind: "new", tool: "📦 Backup configuration", text: "R15 ships, inside the backup tool where it belongs. Nineteen new areas join the original five — security baselines, Autopilot, enrolment configurations, the three update-profile kinds, macOS custom-attribute scripts, assignment filters, scope tags, device categories, terms and conditions, notification templates, both kinds of app configuration, app protection for all three platforms, Windows Information Protection and app categories. The five interop folders keep the PowerShell original's names exactly; the new ones are TUNO's own, because claiming byte-interop with a Go binary's layout would be a claim nothing verifies. Consent is the union of what you tick — the five alone still ask exactly what they always did." },
