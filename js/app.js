@@ -327,6 +327,139 @@ const Fs = (() => {
   })();
   const isProduction = () => { try { return location.hostname.toLowerCase() === (BRANDING.host || "").toLowerCase(); } catch { return true; } };
 
+  // ---------- home sections: collapse, with what changed on top ----------
+  // Ported verbatim from ENCA (js/app.js), storage key aside. The whole design
+  // is theirs and the comments below are theirs; they record decisions that
+  // were made by getting them wrong first, which is exactly the kind of thing
+  // a reimplementation loses.
+  //
+  // The part worth reading twice: a NEW, BETA or UPDATED tile claims a visible
+  // slot FIRST but does not enlarge the section, and flagged tiles are ranked
+  // by RECENCY read from the changelog rather than by DOM order - so a tool
+  // changed in this build outranks a BETA tag that has sat there for weeks.
+  // Anything flagged that still does not fit is COUNTED ON THE BUTTON rather
+  // than silently buried.
+  const HOME_VISIBLE = 4;
+  const HOME_KEY = "tuno-home-expanded";
+  // The expanded/collapsed choice is remembered, but only WITHIN A BUILD. A
+  // release that adds or changes tools has changed what the section contains,
+  // so "show me all eleven" — decided against a different eleven, possibly
+  // months ago — is no longer an answer to the question being asked. Left to
+  // persist, it also silently defeats the point of putting what changed at the
+  // top of a collapsed section: an expanded section has no top.
+  //
+  // The old format was a bare array. It is read once and discarded rather than
+  // migrated: it carries no build, so there is no honest way to decide whether
+  // it still applies, and one collapsed visit costs a click.
+  const homeExpanded = (() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(HOME_KEY) || "null");
+      if (raw && !Array.isArray(raw) && raw.build === APP_BUILD.build) return new Set(raw.keys || []);
+    } catch { /* unreadable or private mode */ }
+    return new Set();
+  })();
+  const homeSave = () => {
+    try { localStorage.setItem(HOME_KEY, JSON.stringify({ build: APP_BUILD.build, keys: [...homeExpanded] })); }
+    catch { /* private mode */ }
+  };
+
+  function initHomeSections() {
+    const grids = [...document.querySelectorAll("#screen-home .tools")];
+    grids.forEach((grid, gi) => {
+      const tiles = [...grid.children].filter((el) => el.classList.contains("tool"));
+      if (tiles.length <= HOME_VISIBLE) return;               // nothing worth hiding
+      // A section is keyed by the heading above it, not its index, so adding a
+      // section later does not silently re-collapse a different one.
+      const head = grid.previousElementSibling;
+      const key = (head && head.querySelector("h3") ? head.querySelector("h3").textContent : `sec${gi}`).trim();
+      const btn = document.createElement("button");
+      btn.className = "btn home-more";
+      // A tool that just shipped or just changed should not be behind the fold.
+      // NEW, BETA and UPDATED tiles therefore claim the visible slots FIRST —
+      // but they do not enlarge the section, because when a release touches six
+      // tools that stopped the section collapsing at all. Order never changes;
+      // only which tiles are shown.
+      const flagged = (t) => !!t.querySelector(".tag.new, .tag.upd");
+      // When more tiles are flagged than there are slots, DOM order decided who
+      // got one — so a tool changed in the current build lost its place to a
+      // BETA tag that had been sitting there for weeks, which is precisely
+      // backwards. Rank the flagged by RECENCY instead, read from the changelog:
+      // the build number of the newest entry naming that tool. The changelog
+      // records tools by their display name, which is the tile's heading, so the
+      // two are matched on that. A tool the changelog has never named sorts last
+      // among the flagged rather than first — no date is not a recent date.
+      const toolName = (t) => {
+        const h = t.querySelector("h3");
+        if (!h) return "";
+        return [...h.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
+      };
+      const lastBuild = (() => {
+        const cache = new Map();
+        return (t) => {
+          const name = toolName(t);
+          if (!name) return -1;
+          if (cache.has(name)) return cache.get(name);
+          let best = -1;
+          try {
+            for (const entry of (typeof CHANGELOG !== "undefined" ? CHANGELOG : [])) {
+              if ((entry.items || []).some((i) => String(i.tool || "").toLowerCase() === name.toLowerCase())) {
+                best = Math.max(best, +entry.build || -1);
+              }
+            }
+          } catch { /* changelog optional */ }
+          cache.set(name, best);
+          return best;
+        };
+      })();
+      // most recently changed first; ties keep their authored order
+      const byRecency = tiles.filter(flagged)
+        .map((t, i) => ({ t, i, b: lastBuild(t) }))
+        .sort((a, b) => b.b - a.b || a.i - b.i)
+        .map((x) => x.t);
+      const paint = () => {
+        const open = homeExpanded.has(key);
+        // The visible budget is HOME_VISIBLE in total. Flagged tiles claim those
+        // slots FIRST — a release must be reachable without expanding — but they
+        // no longer sit on top of the budget. With six flagged tiles in a section
+        // that meant nothing collapsed at all, which is the opposite of the point.
+        // Anything flagged that still does not fit is counted on the button, so it
+        // is announced rather than silently buried.
+        const keep = new Set();
+        for (const t of byRecency) { if (keep.size >= HOME_VISIBLE) break; keep.add(t); }
+        for (const t of tiles) { if (keep.size >= HOME_VISIBLE) break; keep.add(t); }
+        const hidden = [];
+        tiles.forEach((t) => {
+          const show = open || keep.has(t);
+          t.style.display = show ? "" : "none";
+          // COLLAPSED: what changed goes first. A flagged tile claimed a visible
+          // slot before this but kept its page position, so a flagged tile
+          // sitting ninth was on screen and still read as an afterthought.
+          // Order is a CSS property here, not a DOM move — nothing is
+          // reparented, so expanding restores the authored order exactly, and
+          // the grid's grouping (which is meaningful) survives untouched.
+          // Newest first among the flagged, so the tile you are looking for is
+          // the leftmost one rather than somewhere among the badges.
+          const rank = byRecency.indexOf(t);
+          t.style.order = open ? "" : (rank >= 0 ? String(rank - byRecency.length) : "");
+          if (!show) hidden.push(t);
+        });
+        const buried = hidden.filter(flagged).length;
+        btn.style.display = hidden.length || open ? "" : "none";
+        btn.textContent = open
+          ? "▲ Show fewer"
+          : `▼ Show ${hidden.length} more${buried ? ` · ${buried} new, beta or updated` : ""}`;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      btn.addEventListener("click", () => {
+        homeExpanded.has(key) ? homeExpanded.delete(key) : homeExpanded.add(key);
+        homeSave(); paint();
+      });
+      grid.insertAdjacentElement("afterend", btn);            // outside the grid, not a grid cell
+      paint();
+    });
+  }
+  initHomeSections();
+
   // ---------- theme ----------
   const THEME_KEY = "tuno-theme";
   const THEMES = [

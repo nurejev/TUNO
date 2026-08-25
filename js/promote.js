@@ -70,6 +70,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 73,
+      title: "The home screen: clamped cards, collapsing sections, and T09's overlap",
+      tools: ["All tools", "\ud83e\ude7a Assignment health"],
+      builds: [10414],
+      risk: "low",
+      what: "Three things. (1) .tool p clamps to four lines (-webkit-line-clamp). The tile rule itself is unchanged and still matches ENCA byte for byte; the descriptions are 111-175 words against ENCA's 17-63, and a grid row takes its tallest card's height. Text stays in the markup for Help and the exports. (2) ENCA's initHomeSections ported verbatim, storage key aside: HOME_VISIBLE 4, NEW/BETA/UPDATED tiles claim the visible slots first, ranked by recency read from CHANGELOG, order set as a CSS property so nothing is reparented, choice remembered per build. (3) .gu-a-h padding-right 22px to 34px \u2014 a 16px checkbox at right:12px occupies 28px of the edge, so labels ran under it.",
+      why: "LOW \u2014 presentation, plus a port of a design ENCA has already proven. The clamp is the one to look at rather than reason about: four lines is a judgement about how much of a description earns a place on the tile, and it can only be judged by reading the home screen.",
+      test: [
+        "Read the home screen. Every card in a row should be the same height and none should be a wall of text. If four lines still reads as too much or too little, that number is the thing to change.",
+        "THE ONE THAT MATTERS: check that no NEW, BETA or UPDATED tool is hidden behind a Show-more button. If more are flagged than fit, the button must SAY how many are still hidden rather than leaving them silent.",
+        "Expand a section and confirm the cards return to their authored order, not the collapsed order \u2014 the ordering is a CSS property and nothing is moved in the DOM, which is what makes that true.",
+        "Expand a section, reload, and confirm it is still expanded. Then bump the build and confirm it is collapsed again: a choice made against a different set of tools is not an answer about this one.",
+        "In Assignment health, read every surface name in the Where-to-look grid. None may run under its tick box \u2014 the long ones are Configuration profiles, App configuration policies and Enrolment restrictions.",
+        "Check the full description still appears wherever it is meant to. The clamp hides text on the tile; it must not have removed it from Help or from an export.",
+      ],
+      files: ["css/app.css", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 72,
       title: "The change audit reads like a timeline",
       tools: ["🕓 Change audit"],

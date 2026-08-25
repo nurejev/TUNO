@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10414, date: "2026-08-24", title: "The home screen stops being a wall",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The tool cards were enormous, and the cause was not the card. Its styling is ENCA's rule byte for byte \u2014 what differed was the writing. ENCA's descriptions run seventeen to sixty words; ours ran a hundred and eleven to a hundred and seventy-five, and because a row of cards takes the height of the tallest one, a single long description inflated everything beside it. The card now shows the first four lines. The full text stays where it was, so Help and the exports still have all of it, and the next long description written will be clipped the same way rather than reopening the question." },
+      { kind: "new", tool: "All tools", text: "Sections with more than four tools collapse, with a button that says how many are hidden \u2014 ENCA's, ported. The rule worth knowing: a tool that has just shipped or just changed is never behind the fold. NEW, BETA and UPDATED cards take the visible places first, ranked by which was changed most recently rather than by where they happen to sit on the page, so a tool touched in this build outranks a BETA tag that has been there for weeks. When more are flagged than there is room for, the button counts the ones still hidden instead of burying them quietly. Expanding restores the original order exactly." },
+      { kind: "fixed", tool: "\ud83e\ude7a Assignment health", text: "The surface names ran underneath their own tick boxes. The box is sixteen pixels wide and sits twelve from the edge, so it occupies twenty-eight pixels of it \u2014 and the label was reserving twenty-two. Six pixels of overlap, on every name long enough to reach the end. The same six pixels are in the tool this was inherited from; it has simply never had a label long enough to show them." },
+    ],
+  },
+  {
     build: 10413, date: "2026-08-25", title: "The change audit reads like a timeline",
     items: [
       { kind: "improved", tool: "🕓 Change audit", text: "The screen is rebuilt; what is read is untouched. Four cards answer the first questions before any scrolling — how many changes, who made most of them, which area moved most, and the failure rate — computed from the rows currently shown, so narrowing a filter moves the cards with it. Below them the events run down a timeline, each with a coloured dot and a badge for what kind of operation it was: created, deleted, updated, assigned, or an action. The layout went through a two-option mockup round first and this is the option picked." },

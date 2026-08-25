@@ -853,7 +853,16 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 .tool:hover{border-color:var(--accent2);transform:translateY(-2px)}
 .tool-ic{font-size:30px;margin-bottom:12px}
 .tool h3{font-size:17px;letter-spacing:-.01em;margin-bottom:8px;color:var(--green)}
-.tool p{font-size:13px;color:var(--muted);line-height:1.5}
+/* CLAMPED. The tile CSS is otherwise ENCA's byte for byte; what differed was
+   the prose. ENCA's blurbs run 17-63 words, ours 111-175, and a grid row takes
+   the height of its tallest card - so one long description inflated the whole
+   row and the home screen became a wall.
+   The text stays in the markup, where Help and the exports still read it; the
+   TILE shows four lines. Clamping rather than rewriting is the durable half of
+   the choice: the next long blurb someone writes clamps too, instead of
+   reopening this. */
+.tool p{font-size:13px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .readme{margin-top:26px;padding:26px;max-width:1180px}
 .readme h3{font-size:16px;margin-bottom:10px;color:var(--green)}
 .readme h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent2);margin:18px 0 6px}
@@ -1115,7 +1124,12 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .gu-area:hover{border-color:var(--accent2)}
 .gu-area.on{border-color:var(--accent2);background:var(--ok-bg)}
 .gu-area input{position:absolute;top:12px;right:12px;margin:0}
-.gu-a-h{font-weight:600;font-size:13.5px;padding-right:22px}
+/* The box is 16px wide and sits 12px from the right edge, so it occupies
+   12-28px of that edge. Reserving 22px let the label run six pixels UNDER it,
+   which is what "Configuration profiles" and "Enrolment restrictions" were
+   doing. 34px is the box, its offset, and a gap. Inherited from ENCA, which
+   has the same 22px and has simply not had a label long enough to show it. */
+.gu-a-h{font-weight:600;font-size:13.5px;padding-right:34px}
 /* Compact. Four numbers do not need the height of a button, and the label
    should not outweigh the figure it labels. */
 .gu-sum{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
