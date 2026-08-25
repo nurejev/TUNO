@@ -1130,6 +1130,15 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    doing. 34px is the box, its offset, and a gap. Inherited from ENCA, which
    has the same 22px and has simply not had a label long enough to show it. */
 .gu-a-h{font-weight:600;font-size:13.5px;padding-right:34px}
+/* The endpoint WRAPS rather than being cut off at the card edge. An ellipsis
+   would be worse than useless here: these paths share the /deviceManagement/
+   prefix and differ only in the tail, so clipping the end removes the only
+   part that identifies which one you are looking at. */
+.gu-area code{white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.45}
+.gu-area > .mini{min-width:0}
+/* the toggle sits with the section heading, not among the cards */
+.gu-areas-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.gu-areas-all{flex-shrink:0;white-space:nowrap}
 /* Compact. Four numbers do not need the height of a button, and the label
    should not outweigh the figure it labels. */
 .gu-sum{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
@@ -1381,6 +1390,9 @@ main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-
 .rm-era::before{content:"";position:absolute;left:-27px;top:3px;width:12px;height:12px;border-radius:50%;
   background:var(--green);border:3px solid var(--surface);box-shadow:0 0 0 2px var(--green)}
 .rm-era.future::before{background:var(--surface);box-shadow:0 0 0 2px var(--green)}
+/* ENCA's marker for the beta era: lemon, which in this palette is the signal
+   colour — "here, and not in production yet" is the roadmap's one live state. */
+.rm-era.beta::before{background:var(--lemon);box-shadow:0 0 0 2px var(--green)}
 .rm-era.far::before{box-shadow:0 0 0 2px var(--border)}
 .rm-era h3{margin:0 0 8px;font-size:15px}
 /* Roadmap reference. Monospaced and quiet: it is a handle for pointing at an

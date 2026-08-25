@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 82,
+      title: "Surface pickers fit and can be cleared; the roadmap gains ENCA's beta era",
+      tools: ["All tools"],
+      builds: [10425],
+      risk: "low",
+      what: "Three things. (1) .gu-area code wraps (white-space:normal; overflow-wrap:anywhere) instead of being clipped at the card edge \u2014 deliberately NOT ellipsised, because these endpoints share the /deviceManagement/ prefix and differ only in the tail. (2) initAreaPickers() in js/app.js wraps every .gu-areas heading in a row and adds one toggle button, driven by dispatching a real change event per checkbox so each tool's own listener updates its own state; the shell never needs to know what that state is. MutationObserver is feature-guarded \u2014 an optional API must not throw partway through start-up. (3) The roadmap gains ENCA's fourth era, 'In beta today', with its lemon marker; the ten cards whose badge named no production build moved into it. Card count unchanged at 27.",
+      why: "LOW \u2014 presentation plus one shared control. The roadmap half is the part to check rather than reason about: it is a claim about what is in production, and a card in the wrong era says something false about the tenant-facing site.",
+      test: [
+        "Read every surface picker in the six tools that have one. No endpoint may be cut off at the card edge, and no name may run under its tick box.",
+        "Press the toggle in each of the six. It must clear everything, then tick everything, and the tool must ACT on it \u2014 run the tool after clearing all but one and confirm it reads only that one. A button that looks right but leaves the tool's own selection untouched is the failure worth looking for.",
+        "THE ONE THAT MATTERS: read the roadmap against the promotion queue. Every card under Now must name a production build; every card under In beta today must not. If those two ever disagree, the roadmap is telling a customer something the queue knows is untrue.",
+        "Check the beta era's lemon marker renders in both themes, and that the era only appears on this channel's roadmap in the sense that matters \u2014 production's copy will show the same eras, which is correct, because a production reader should be able to see what is coming.",
+        "Confirm the card total is still 27 after the move, and that no card lost its reference number.",
+      ],
+      files: ["css/app.css", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 81,
       title: "Home grid centres in the content column",
       tools: ["All tools"],

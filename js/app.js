@@ -327,6 +327,65 @@ const Fs = (() => {
   })();
   const isProduction = () => { try { return location.hostname.toLowerCase() === (BRANDING.host || "").toLowerCase(); } catch { return true; } };
 
+  // ---------- "select all" for every surface picker ----------
+  // Six tools render a .gu-areas grid of tick boxes and none of them offered a
+  // way to clear the lot. Rather than six copies of the same button, the shell
+  // adds one to each grid's heading row and drives it by dispatching a real
+  // change event on every box — which is precisely what clicking them one at a
+  // time does, so each tool's own listener updates its own state and nothing
+  // here needs to know what that state is.
+  //
+  // Label follows ENCA's idiom for a toggle-all: it states what pressing it
+  // will DO, not what is currently true.
+  function initAreaPickers() {
+    document.querySelectorAll(".gu-areas").forEach((box) => {
+      const label = box.previousElementSibling;
+      if (!label || box.dataset.allWired) return;
+      box.dataset.allWired = "1";
+
+      const row = document.createElement("div");
+      row.className = "gu-areas-head";
+      label.parentNode.insertBefore(row, label);
+      row.appendChild(label);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn sm gu-areas-all";
+      row.appendChild(btn);
+
+      const boxes = () => [...box.querySelectorAll('input[type="checkbox"]')];
+      const paint = () => {
+        const all = boxes();
+        if (!all.length) { btn.style.display = "none"; return; }
+        btn.style.display = "";
+        const on = all.filter((c) => c.checked).length;
+        btn.textContent = on === all.length ? "\u2610 Deselect all" : `\u2611 Select all${on ? ` (${on}/${all.length})` : ""}`;
+      };
+      btn.addEventListener("click", () => {
+        const all = boxes();
+        const want = all.some((c) => !c.checked);      // any off -> turn everything on
+        all.forEach((c) => {
+          if (c.checked === want) return;              // no event for a box already right
+          c.checked = want;
+          c.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        paint();
+      });
+      // The tools re-render their own grids, so watch rather than assume.
+      // GUARDED: MutationObserver is an enhancement here — it keeps the count
+      // honest when a tool rebuilds its grid. Where it is missing, the button
+      // still works and still repaints on change; what it loses is the repaint
+      // after a re-render. An optional API must not be able to throw partway
+      // through the shell's start-up and take everything below it with it.
+      box.addEventListener("change", paint);
+      if (typeof MutationObserver === "function") {
+        new MutationObserver(paint).observe(box, { childList: true, subtree: true });
+      }
+      paint();
+    });
+  }
+  initAreaPickers();
+
   // ---------- home sections: collapse, with what changed on top ----------
   // Ported verbatim from ENCA (js/app.js), storage key aside. The whole design
   // is theirs and the comments below are theirs; they record decisions that

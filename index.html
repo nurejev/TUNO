@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10423"></script>
+<script src="js/popup-guard.js?v=10425"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10423">
+<link rel="stylesheet" href="css/app.css?v=10425">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10423"></script>
+<script src="js/selfhost-boot.js?v=10425"></script>
 </head>
 <body>
 
@@ -706,6 +706,38 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <button class="btn primary" id="rsApply" style="display:none">📥 Apply the restore</button>
       </div>
     </div>
+
+    <!-- ============ R15: VERIFY & IMPORT ASSIGNMENTS (build 10424) ============
+         Verify runs entirely in this tab — no sign-in. Import writes, under
+         T11's discipline, same tenant only. -->
+    <div class="list-card wi-form" style="margin-top:14px">
+      <h3 style="margin:0 0 6px">🔎 Verify an archive <span class="mini muted">— offline, no sign-in</span></h3>
+      <p class="mini muted" style="margin:0 0 10px">Every file in a TUNO archive (build 10424 on) carries a SHA-256 in the manifest, and the manifest is written <b>last</b> — its presence is what marks a backup complete. Load an archive and this recomputes every hash in the tab: <b>modified</b>, <b>missing</b> and <b>untracked</b> files are named, an archive without a manifest is called what it is — a backup that never finished — and an older archive is called <b>unverifiable</b> rather than quietly passed. After <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault</a>'s verify (MIT).</p>
+      <label class="wi-f"><span>Archive (.zip)</span><input type="file" id="vfFile" accept=".zip"></label>
+      <div id="vfProg" class="mini muted" style="margin-top:10px"></div>
+      <div id="vfBody" style="margin-top:12px"></div>
+
+      <div id="vfImportWrap" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <h3 style="margin:0 0 6px">⇄ Import assignments <span class="tag block">writes to the tenant</span></h3>
+        <p class="mini" id="vfImportInfo" style="margin:0 0 6px"></p>
+        <p class="mini muted" style="margin:0 0 10px"><b>Same tenant only, four surfaces, all-or-nothing per policy.</b> The archive's <code>assignments.json</code> is written back through the assignment editor's own machinery: the import targets the <b>same policy ids</b> (never a namesake), refuses outright when the archive came from another tenant — group ids do not translate, and one that happens to resolve is worse than one that fails — and refuses any policy whose archived list names a group that has since been deleted, because writing the list without it would change its meaning and a dropped exclusion widens. Device configurations, settings catalog, compliance and administrative templates import; everything else in the file is export-only and says why. Dry run first; each policy re-read at apply and skipped as <b>drifted</b> if it changed; every write verified by read-back.</p>
+        <div id="vfTenantWrap" style="display:none;margin:0 0 8px">
+          <label class="wi-f"><span>This archive predates tenant identity — type this tenant's domain to continue</span>
+            <input id="vfTenantConfirm" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="tb-actions">
+          <button class="btn primary" id="vfImportDry">🔍 Dry run the import</button>
+        </div>
+        <div id="vfImportPlanOut" style="margin-top:8px"></div>
+        <div id="vfConfirmWrap" style="display:none;margin-top:8px">
+          <label class="wi-f"><span id="vfGate">Type REPLACE to allow the writes</span>
+            <input id="vfConfirm" autocomplete="off" spellcheck="false" placeholder="REPLACE"></label>
+        </div>
+        <div class="tb-actions" style="margin-top:8px">
+          <button class="btn primary" id="vfImportApply" style="display:none" disabled>⇄ Import — write to the tenant</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ CONFIGURATION DOCUMENTER (T05) ============
@@ -1158,6 +1190,27 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>And the sentence neither the script nor the portal says</b>, which is on the screen and in all three exports: <i>this is Intune RBAC only</i>. Global Administrator and Intune Administrator are Entra directory roles, they grant full access to Intune, and they do not appear in <code>deviceManagement/roleAssignments</code> at all. An access review that takes this for the whole list is missing the accounts with the most access.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R13</span> ✏️ Assignment editor <span class="tag grant">live · beta 10360 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">After <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> by <b>Maxime Guillemin</b> (MIT) — a WPF application that does the thing every admin wants and the portal makes slow: <b>add and remove assignments in bulk</b>, across settings catalog, device configuration, compliance, administrative templates, endpoint security intents, Autopilot, app configuration, every application type and every script type. With filters and install intent. Plus backup and restore of <i>the assignments themselves</i>, which is a smaller and more useful thing than <span class="rm-ref">R08</span>'s full configuration archive: you can put assignments back without touching the policies.</p>
+            <p class="mini" style="margin:6px 0 0"><b>This would be the second thing in TUNO that writes, and the first that writes at scale.</b> T01 creates one profile after a read that refuses to overwrite. This changes what lands on real devices, in bulk, and the mistake it enables is not a duplicate policy but a policy reaching the wrong population — which is invisible until somebody's laptop behaves differently. It gets T01's rules and more: <code>ReadWrite</code> asked on the click and never at sign-in, a dry run listing every operation with the group NAME and its member count before anything is sent, removals confirmed separately from additions, and the assignment state captured to a file first so there is always a way back.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Four surfaces — device configurations, settings catalog, compliance, administrative templates — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag grant">live · beta 10384 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, and both halves shipped together. The read half: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — read through <span class="rm-ref">R04</span>'s own source table, exactly as the card promised, so a surface added there is counted here. The usage scan is optional and the used-by column is <b>absent, not zero</b>, until it runs; a surface that could not be read makes every zero a floor, and the screen says so.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The writes carry <span class="rm-ref">R13</span>'s rules</b>, sized for one object: the write scope at the click, an edit preceded by a fresh read and <b>refused as drifted</b> if the filter changed since it was loaded, every write verified by read-back, delete confirmed by typing the name. And the rule the card was written for: <b>delete is refused while usage is non-zero</b> — checked against the tenant's own payload associations <i>at the moment of the act</i>, not against the session's cached scan, and “could not check” refuses too, because a filter deleted while in use silently widens every assignment that carried it. This is the first PATCH and the first DELETE in the application; both arrived in the Graph layer with the same no-retry rule writes have always had.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R09</span> 📥 Restore Intune configuration <span class="tag grant">live · beta 10385 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a>, living inside the 📦 backup tool — the file you load is the file the other half wrote, and the original script's archives load too, because the folder layout is shared. Pick a single policy, a selection, or everything; dry-run; apply. The dry run lists <b>every</b> operation, including the ADMX definition-value child writes the original's <code>-WhatIf</code> never shows, and every create is verified by read-back: “created” is the tenant's word.</p>
+            <p class="mini" style="margin:6px 0 0"><b>TenuVault's two rules shipped exactly</b> (Ugur Koc, MIT): <b>create only</b> — nothing of yours is patched or deleted, the single exception being an administrative template <i>this restore</i> half-created and failed to finish, which is rolled back as its own mess; and <b>every object gets a name prefix</b>, <code>[Restored]</code> by default, editable per row. The collision stop sits on top: a name that exists in the tenant skips that object, checked at dry run and <b>re-checked fresh immediately before each create</b>.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two departures from this card's first draft, both deliberate.</b> The card offered “overwrite, skip or rename” at a collision — <b>overwrite is not offered</b>: it is a patch wearing a restore's clothes, and create-only is the stronger rule; rename is the editable name column, skip is the default. And assignments are <b>not restored at all</b> rather than off-by-default: a source-tenant group GUID either does not exist in the target or, worse, names a different group — every object arrives <b>unassigned</b> and the result says so per row, which is also this card's promised TenuVault principle (nothing arrives already reaching people) applied the simplest way. Scripts saved without bodies cannot be selected and say why; secrets arrive as references to re-enter, as the backup's manifest always warned. Scopes at the apply click: the config write for four areas, the scripts write for platform scripts — both already declared.</p>
+          </div>
+        </div>
+        <div class="rm-era beta">
+          <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R11</span> 🔮 Assignment what-if <span class="tag grant">live · beta 10357</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> (MIT). <b>Before</b> you add somebody to a group, what will they receive — and if you take them out, what will they lose? Pick a user or a device, name a group, and get the delta against what they have today: policies gained, policies lost, applications that will install, applications that will be <i>uninstalled</i>. Then the comparison the portal cannot do at all: put two or more groups side by side and see what each receives that the other does not.</p>
             <p class="mini" style="margin:6px 0 0"><b>This is the one capability of his suite that TUNO has nothing like.</b> The reading half is already here — <span class="rm-ref">R04</span> answers “what does this group receive”, <span class="rm-ref">R03</span> answers “why did this device get that”, and both already show exclusions, inheritance and filters. What neither answers is <i>what would happen if</i>, and that is the question asked at the moment a change is still cheap to reverse. It also brings the third subject: TUNO can start from a group or a device, not yet from a <b>person</b>.</p>
@@ -1175,13 +1228,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">The last piece of <a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a> worth having: search across <b>setting definitions</b> rather than policy names. “Which policies configure BitLocker, and to what value?” — answered against the settings-catalog definition catalog, roughly seventeen thousand definitions, with the abbreviations and near-misses an admin actually types. <span class="rm-ref">R06</span> searches the settings of the policies it has already read, which finds a setting only if you already know which policy holds it; this searches the other way round.</p>
             <p class="mini" style="margin:6px 0 0">A separate card because it needs a separate thing: the definition catalog itself, which is large, changes as Microsoft ships settings, and has to be fetched and cached rather than derived from the tenant. That is a different problem from reading assignments and it should not be smuggled into a tool that does not have it.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped, with one departure from this card's own caution.</b> The card said the catalog "has to be fetched and cached rather than derived from the tenant" — it is fetched per session and held in memory, not persisted: seventeen thousand definitions store fine in a tab and go stale on disk. Tenant usage is a second, separate read, and until it runs the "set by" column is <b>absent, not empty</b>. Values pass the documenter's redaction gate — the same implementation, because a second copy would be a second place for a pre-shared key to escape.</p>
-          </div>
-          <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R13</span> ✏️ Assignment editor <span class="tag grant">live · beta 10360 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
-            <p class="mini" style="margin:0">After <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> by <b>Maxime Guillemin</b> (MIT) — a WPF application that does the thing every admin wants and the portal makes slow: <b>add and remove assignments in bulk</b>, across settings catalog, device configuration, compliance, administrative templates, endpoint security intents, Autopilot, app configuration, every application type and every script type. With filters and install intent. Plus backup and restore of <i>the assignments themselves</i>, which is a smaller and more useful thing than <span class="rm-ref">R08</span>'s full configuration archive: you can put assignments back without touching the policies.</p>
-            <p class="mini" style="margin:6px 0 0"><b>This would be the second thing in TUNO that writes, and the first that writes at scale.</b> T01 creates one profile after a read that refuses to overwrite. This changes what lands on real devices, in bulk, and the mistake it enables is not a duplicate policy but a policy reaching the wrong population — which is invisible until somebody's laptop behaves differently. It gets T01's rules and more: <code>ReadWrite</code> asked on the click and never at sign-in, a dry run listing every operation with the group NAME and its member count before anything is sent, removals confirmed separately from additions, and the assignment state captured to a file first so there is always a way back.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Four surfaces — device configurations, settings catalog, compliance, administrative templates — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R19</span> 🧮 Assignment matrix <span class="tag grant">live · beta 10381</span> <span class="tag new">BETA</span></h4>
@@ -1205,17 +1251,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">ENCA's mechanism, ported whole: the ⚙ gear next to Sign out, on any non-production host — product and organisation names, logos, login text and light/dark identity colours, through the same override mechanism as the hosted per-audience looks. Chrome only; exports keep the neutral product credit. <b>Apply</b> keeps the look in this browser; <b>Download</b> produces <code>selfhost-branding.json</code>, <b>Import</b> reads one back into the form for review — and serving that file next to index.html gives every visitor the branding and softens the red BETA ribbon to a neutral SELF-HOSTED one, because a deliberately configured instance is not a test site. What the gear will never configure is the canonical host: that drives the production check and the export credit, and a settings dialog must not be able to make a copy claim to be production.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag grant">live · beta 10384 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
-            <p class="mini" style="margin:0">Also after <a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a>, and both halves shipped together. The read half: every filter with its platform and rule, and <b>per-filter usage</b> — which assignments on which policies reference it — read through <span class="rm-ref">R04</span>'s own source table, exactly as the card promised, so a surface added there is counted here. The usage scan is optional and the used-by column is <b>absent, not zero</b>, until it runs; a surface that could not be read makes every zero a floor, and the screen says so.</p>
-            <p class="mini" style="margin:6px 0 0"><b>The writes carry <span class="rm-ref">R13</span>'s rules</b>, sized for one object: the write scope at the click, an edit preceded by a fresh read and <b>refused as drifted</b> if the filter changed since it was loaded, every write verified by read-back, delete confirmed by typing the name. And the rule the card was written for: <b>delete is refused while usage is non-zero</b> — checked against the tenant's own payload associations <i>at the moment of the act</i>, not against the session's cached scan, and “could not check” refuses too, because a filter deleted while in use silently widens every assignment that carried it. This is the first PATCH and the first DELETE in the application; both arrived in the Graph layer with the same no-retry rule writes have always had.</p>
-          </div>
-          <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R09</span> 📥 Restore Intune configuration <span class="tag grant">live · beta 10385 · production 8</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
-            <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/configuration/restore-intune-configuration.ps1" target="_blank" rel="noopener">Restore Intune Configuration</a>, living inside the 📦 backup tool — the file you load is the file the other half wrote, and the original script's archives load too, because the folder layout is shared. Pick a single policy, a selection, or everything; dry-run; apply. The dry run lists <b>every</b> operation, including the ADMX definition-value child writes the original's <code>-WhatIf</code> never shows, and every create is verified by read-back: “created” is the tenant's word.</p>
-            <p class="mini" style="margin:6px 0 0"><b>TenuVault's two rules shipped exactly</b> (Ugur Koc, MIT): <b>create only</b> — nothing of yours is patched or deleted, the single exception being an administrative template <i>this restore</i> half-created and failed to finish, which is rolled back as its own mess; and <b>every object gets a name prefix</b>, <code>[Restored]</code> by default, editable per row. The collision stop sits on top: a name that exists in the tenant skips that object, checked at dry run and <b>re-checked fresh immediately before each create</b>.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Two departures from this card's first draft, both deliberate.</b> The card offered “overwrite, skip or rename” at a collision — <b>overwrite is not offered</b>: it is a patch wearing a restore's clothes, and create-only is the stronger rule; rename is the editable name column, skip is the default. And assignments are <b>not restored at all</b> rather than off-by-default: a source-tenant group GUID either does not exist in the target or, worse, names a different group — every object arrives <b>unassigned</b> and the result says so per row, which is also this card's promised TenuVault principle (nothing arrives already reaching people) applied the simplest way. Scripts saved without bodies cannot be selected and say why; secrets arrive as references to re-enter, as the backup's manifest always warned. Scopes at the apply click: the config write for four areas, the scripts write for platform scripts — both already declared.</p>
-          </div>
-          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R25</span> 🦠 Defender status report <span class="tag grant">live · beta 10420</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-defender-status-report.ps1" target="_blank" rel="noopener">Get Defender Status Report</a> (MIT), whose question is the one that becomes an incident ticket later: <b>on which machines is Defender silently off or outdated?</b> The tenant's own protection rollup (<code>deviceProtectionOverview</code>) for immediate context, then every Windows device's <code>windowsProtectionState</code> — real-time protection, tamper protection, malware protection, signature currency, overdue quick and full scans, a pending reboot, a device state that is not clean — with each device carrying its <i>list</i> of findings rather than one traffic light, because "tamper protection off" and "signatures three weeks old" are different conversations. <b>Reads only, and no new scope</b>: both endpoints sit under the device read T06 already brought in. Both are beta surfaces — that is where Graph keeps protection state, and the card says so rather than leaving it to be found.</p>
             <p class="mini" style="margin:6px 0 0"><b>The per-device read is the whole cost, and the original pays it one device at a time</b> — protection state fetched in series with a sleep between requests, which on a large tenant is minutes of a terminal doing nothing. Folded into <code>$batch</code>, twenty a trip, with progress on screen — the same technique R12 and R19 already use for exactly this shape of read.</p>
@@ -1236,6 +1271,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Shipped with two findings the card did not promise.</b> A policy whose approver groups hold no members is flagged as <b>a gate nobody can open</b> — every operation it gates will sit pending until someone is added, and the emptiness is checked transitively, not read off the group list. And approved requests whose timestamps cannot be parsed are counted <b>outside</b> the approval-time numbers with their count stated, because an average quietly missing its slowest members reads better than the truth.</p>
           </div>
         </div>
+
         <div class="rm-era next">
           <h3>Next</h3>
           <div class="list-card rm-card">
@@ -1501,34 +1537,34 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10423"></script>
-<script src="js/selfhost.js?v=10423"></script>
-<script src="js/version.js?v=10423"></script>
-<script src="js/promote.js?v=10423"></script>
-<script src="js/authConfig.js?v=10423"></script>
-<script src="js/changelog.js?v=10423"></script>
-<script src="js/msappcatalog.js?v=10423"></script>
-<script src="js/graph.js?v=10423"></script>
-<script src="js/suggest.js?v=10423"></script>
-<script src="js/progress.js?v=10423"></script>
-<script src="js/groupuse.js?v=10423"></script>
-<script src="js/audit.js?v=10423"></script>
-<script src="js/backup.js?v=10423"></script>
-<script src="js/document.js?v=10423"></script>
-<script src="js/devicewhy.js?v=10423"></script>
-<script src="js/whatif.js?v=10423"></script>
-<script src="js/health.js?v=10423"></script>
-<script src="js/settingsearch.js?v=10423"></script>
-<script src="js/conflict.js?v=10423"></script>
-<script src="js/compliance.js?v=10423"></script>
-<script src="js/filters.js?v=10423"></script>
-<script src="js/restore.js?v=10423"></script>
-<script src="js/assignedit.js?v=10423"></script>
-<script src="js/roles.js?v=10423"></script>
-<script src="js/defender.js?v=10423"></script>
-<script src="js/endpointsec.js?v=10423"></script>
-<script src="js/maa.js?v=10423"></script>
-<script src="js/applocker.js?v=10423"></script>
-<script src="js/app.js?v=10423"></script>
+<script src="js/branding.js?v=10425"></script>
+<script src="js/selfhost.js?v=10425"></script>
+<script src="js/version.js?v=10425"></script>
+<script src="js/promote.js?v=10425"></script>
+<script src="js/authConfig.js?v=10425"></script>
+<script src="js/changelog.js?v=10425"></script>
+<script src="js/msappcatalog.js?v=10425"></script>
+<script src="js/graph.js?v=10425"></script>
+<script src="js/suggest.js?v=10425"></script>
+<script src="js/progress.js?v=10425"></script>
+<script src="js/groupuse.js?v=10425"></script>
+<script src="js/audit.js?v=10425"></script>
+<script src="js/backup.js?v=10425"></script>
+<script src="js/document.js?v=10425"></script>
+<script src="js/devicewhy.js?v=10425"></script>
+<script src="js/whatif.js?v=10425"></script>
+<script src="js/health.js?v=10425"></script>
+<script src="js/settingsearch.js?v=10425"></script>
+<script src="js/conflict.js?v=10425"></script>
+<script src="js/compliance.js?v=10425"></script>
+<script src="js/filters.js?v=10425"></script>
+<script src="js/restore.js?v=10425"></script>
+<script src="js/assignedit.js?v=10425"></script>
+<script src="js/roles.js?v=10425"></script>
+<script src="js/defender.js?v=10425"></script>
+<script src="js/endpointsec.js?v=10425"></script>
+<script src="js/maa.js?v=10425"></script>
+<script src="js/applocker.js?v=10425"></script>
+<script src="js/app.js?v=10425"></script>
 </body>
 </html>

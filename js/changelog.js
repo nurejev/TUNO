@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10425, date: "2026-08-25", title: "The surface pickers fit, and the roadmap tells beta from production",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The Graph endpoint under each surface name was being cut off at the edge of its card. It wraps now instead. Shortening it with an ellipsis would have been worse than leaving it cut: these paths all begin with the same prefix and differ only at the end, so trimming the end removes the only part that says which one you are looking at." },
+      { kind: "new", tool: "All tools", text: "Every surface picker gained a select-all, which also clears them. Six tools ask you to choose what to read and none of them offered a way to change your mind about all of it at once. One button serves all six \u2014 it is added by the shell rather than copied into each tool, and it works by ticking the boxes the way a person would, so each tool keeps deciding what its own selection means." },
+      { kind: "improved", tool: "All tools", text: "The roadmap now separates what is in production from what is only on this channel, the way ENCA's does \u2014 a fourth era reading \u201cIn beta today\u201d. Ten items had been sitting under \u201cNow\u201d while living only here, which is precisely the distinction the promotion queue exists to make, and the cards already carried the build numbers to tell them apart. Nothing was rewritten: the same twenty-seven cards, sorted by what their own badges already said." },
+    ],
+  },
+  {
     build: 10423, date: "2026-08-25", title: "The home centres in its own column",
     items: [
       { kind: "fixed", tool: "All tools", text: "The home screen sat left of centre with a dead band down its right edge. The cause was a leftover from the console shell: the content column widened to 1500 pixels when the sidebar arrived and every tool screen's cards widened with it, but the home grid kept its 1180-pixel cap and stayed pinned to the left — and the home is the one screen that is nothing but that capped block, so all the leftover width piled up on one side. Option A of a two-option mockup round: the grid, its section headings and the title now centre as one unit in the space the sidebar leaves, keeping today's tile size and reading width, with every left edge still aligned — including the Show-more button under a collapsed section. Scoped to the home: the roadmap and help pages, whose own widths already line up, are untouched, and without the sidebar nothing changes at all." },
