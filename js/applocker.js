@@ -617,9 +617,37 @@ const AppLockerTool = (() => {
     return out;
   }
 
-  // Rendered rows, keyed, so the fix buttons can find their row after the
-  // innerHTML they live in has been rebuilt.
-  let fleetRowByKey = new Map();
+  // The fleet's GAPS as FINDINGS — same table, same fix framework as every
+  // other verdict. The two tables used to say the same kind of thing about
+  // the same files in two places; an admin does not care whether the audit or
+  // the fleet proved a file needs a decision, only that it does. Only gaps
+  // become findings: covered is nothing to do, by-design is the policy
+  // working, set-aside DLL is a decision already made — those stay as counts
+  // on the evidence card and sections in the gap report.
+  function analyzeFleetEvents() {
+    const out = [];
+    if (!eventsEvidence || !policy) return out;
+    const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    for (const row of rows) {
+      const dv = draftVerdictForEvent(row.sample);
+      if (fleetRowClass(row, dv) !== "gap") continue;
+      const plan = fleetFixPlan(row);
+      out.push({
+        sev: "High", source: "fleet",
+        collection: eventCollectionType(row.sample),
+        rule: row.binary || (row.path ? String(row.path).split("\\").pop() : "(fleet event)"),
+        principal: row.publisher || "unsigned",
+        cond: row.path || "",
+        reason: `${row.count}× ${String(row.verdict).toLowerCase()} across the fleet window${row.users.size ? ` (${row.users.size} user${row.users.size === 1 ? "" : "s"})` : ""} — and the draft would still block it, from machine space.`,
+        rec: plan ? (plan.kind === "publisher" ? "Signed — allow it by publisher, the rule that survives updates."
+          : plan.kind === "hash" ? "Unsigned — allow by the event's hash. Hash rules go stale on the file's next update."
+          : "Allow this exact path as a stopgap, then replace it with a publisher or hash rule.")
+          : "The event carries no publisher, hash or path — no rule can be built from it. Decide by hand.",
+        fix: plan ? { kind: "fleetAllow", row } : null,
+      });
+    }
+    return out;
+  }
 
   // ---- pulling the deployed policy FROM THE TENANT ----
   //
@@ -632,11 +660,6 @@ const AppLockerTool = (() => {
   // profile in place — and the deploy panel's collision stop will refuse to
   // create a duplicate beside it, which is exactly right.
   let evTenant = { busy: false, list: null, error: "" };
-  // Which classification the evidence table is filtered to — the chips are
-  // buttons (T09's cards-as-filters pattern). "all" shows everything; clicking
-  // the active chip again returns to all. The gap REPORT ignores this on
-  // purpose: a document for the change ticket covers everything, always.
-  let fleetFilter = "all";
 
   const APPLOCKER_OMA_RE = /\/applocker\/applicationlaunchrestrictions\/([^/]+)\//i;
   const appLockerProfilesOf = (profiles) => profiles.filter((p) => (p.omaSettings || []).some((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || ""))));
@@ -689,25 +712,7 @@ const AppLockerTool = (() => {
     const s = ev.summary || {};
     const ci = eventsEvidence.codeIntegrity || {};
     const m = eventsEvidence.machine || {};
-    const rows = aggregateFleetEvents(ev.entries || []);
-    fleetRowByKey = new Map();
-
-    // Classify everything ONCE (chips, report and table share the pass, so the
-    // numbers agree), then filter the table to the active chip. The 50-row cap
-    // applies AFTER the filter — four gaps among two hundred rows must show
-    // all four when the gaps chip is active.
-    const rowsC = rows.map((row) => { const dv = draftVerdictForEvent(row.sample); return { row, dv, c: fleetRowClass(row, dv) }; });
-    const nGap = rowsC.filter((x) => x.c === "gap").length,
-      nDesign = rowsC.filter((x) => x.c === "bydesign").length,
-      nCovered = rowsC.filter((x) => x.c === "covered").length,
-      nUndecided = rowsC.filter((x) => x.c === "undecided").length,
-      nDll = rowsC.filter((x) => x.c === "dll").length;
-    // "all" excludes the set-aside DLL rows — that is what set aside MEANS;
-    // their own chip brings them back when someone wants to look.
-    const filtered = fleetFilter === "all" ? rowsC.filter((x) => x.c !== "dll") : rowsC.filter((x) => x.c === fleetFilter);
-    const shownC = filtered.slice(0, 50);
-
-    const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
+    const gs = fleetGapStats() || { rows: 0, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0 };
 
     // No policy yet: the card leads with how to GET one, because that is the
     // question the person actually has at this moment — and the best answer
@@ -727,42 +732,29 @@ const AppLockerTool = (() => {
         ${evTenant.list && evTenant.list.length ? `<ul class="mini al-list" style="margin-top:8px">${evTenant.list.map((p, i) => `<li><button class="btn sm al-ev-adopt" data-i="${i}">${esc(p.displayName || "(unnamed profile)")}</button>${p.lastModifiedDateTime ? ` <span class="muted">last changed ${esc(String(p.lastModifiedDateTime).slice(0, 10))}</span>` : ""}</li>`).join("")}</ul>` : ""}
       </div>`;
 
+    const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
+
+    // ONE SUMMARY, NO SECOND TABLE. The gaps live in the Findings table with
+    // everything else that needs a decision — two tables saying the same kind
+    // of thing about the same files was the overview being long, said the
+    // person reading it. Covered / by-design / set-aside stay as counts here
+    // and as sections in the gap report.
     host.innerHTML = `
       <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span>
         <button class="btn sm" id="alEvClear" style="float:right;margin-left:6px" title="Take this events evidence off the table. The policy stays.">✕ Clear</button>
-        ${rows.length ? `<button class="btn sm" id="alEvGapDl" style="float:right" title="Download the gap report as Markdown — the same judgement as this card, for the change ticket">⭳ Gap report</button>` : ""}</h3>
+        ${gs.rows ? `<button class="btn sm" id="alEvGapDl" style="float:right" title="Download the gap report as Markdown — summary, every section in detail, a suggested fix per gap">⭳ Gap report</button>` : ""}</h3>
       ${chooser}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px">
         ${fact("Device", m.name)}${fact("Window", (ev.daysBack || m.daysBack || "?") + " days")}
         ${fact("Blocked", s.blocked)}${fact("Audited (would block)", s.audited)}${fact("Allowed", s.allowed)}
         ${fact("WDAC 3076 audit", ci.audit3076)}${fact("WDAC 3077 block", ci.block3077)}
       </div>
-      ${rows.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" role="group" aria-label="Filter the evidence table">
-        ${[["gap", nGap + " gap" + (nGap === 1 ? "" : "s") + " to close"], ["bydesign", nDesign + " blocked by design"], ["covered", nCovered + " covered by the draft"], ["undecided", nUndecided + " undecided"]].concat(nDll ? [["dll", nDll + " DLL — set aside"]] : [])
-          .map(([f, label]) => `<button class="btn sm al-ev-chip ${fleetFilter === f ? "primary" : ""}" data-f="${f}" title="${fleetFilter === f ? "Click again to show everything" : "Show only these rows"}">${label}</button>`).join("")}
-        ${fleetFilter !== "all" ? `<button class="btn sm al-ev-chip" data-f="all" title="Drop the filter">show all</button>` : ""}
-      </div>` : ""}
-      ${(eventsEvidence.warnings || []).length ? `<div class="al-dep-err mini" style="margin-bottom:10px"><b>The collector could not see everything:</b><ul class="al-list" style="margin:4px 0 0">${eventsEvidence.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
-      ${!rows.length ? `<p class="mini muted" style="margin:0">No blocked or audited events in the window — either the estate is quiet or the policy was not reaching these devices. The allowed count above says which.</p>` : `
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:32%">File</th><th style="width:110px">Fleet events</th><th style="width:22%">Under the current draft</th><th>Recommendation</th></tr></thead><tbody>
-        ${shownC.map(({ row, dv, c }, i) => {
-          const key = "r" + i;
-          fleetRowByKey.set(key, row);
-          const plan = (c === "gap" || c === "bydesign") && policy ? fleetFixPlan(row) : null;
-          // Gaps get the fix as the offered action; by-design rows get the SAME
-          // mechanics behind a deliberately cooler label — closing one is a
-          // business decision, and the button should read like one.
-          const fixBtn = plan ? `<div style="margin-top:6px"><button class="btn sm ${c === "gap" ? "primary" : ""} al-ev-fix" data-key="${key}" title="${esc(c === "gap" ? "Add the rule to the draft — undo is one click" : "This block is the policy working. Only allow it as a deliberate business decision.")}">🔧 ${esc(c === "gap" ? plan.label : "Allow anyway — " + plan.label.toLowerCase())}</button></div>` : "";
-          return `<tr>
-            <td style="overflow-wrap:anywhere"><code>${esc(row.path || row.binary || "(no path)")}</code>${row.publisher ? `<div class="mini muted">${esc(row.publisher)}${row.product && row.product !== "*" ? " · " + esc(row.product) : ""}</div>` : `<div class="mini muted">unsigned</div>`}</td>
-            <td style="white-space:nowrap"><b>${row.count}</b>× ${row.verdict === "Blocked" ? "⛔ blocked" : "📝 audited"}${row.users.size ? `<div class="mini muted">${row.users.size} user${row.users.size === 1 ? "" : "s"}</div>` : ""}</td>
-            <td class="mini">${c === "gap" ? "🕳 " : ""}${c === "dll" ? "set aside — the draft omits the DLL collection on purpose" : esc(dv.text)}</td>
-            <td class="mini">${c === "dll" ? "Nothing to do. AppLocker evaluates every DLL load; generated policies leave DLL out because absence is the only state that restricts nothing. These events are the record of that decision, not a gap." : esc(fleetEventRecommendation(row, dv))}${fixBtn}</td>
-          </tr>`;
-        }).join("")}
-      </tbody></table></div>
-      ${filtered.length > shownC.length ? `<p class="mini muted" style="margin:6px 0 0">Showing the ${shownC.length} most frequent of ${filtered.length}${fleetFilter === "all" ? " distinct files" : " in this filter"} — the gap report covers all of them.</p>` : ""}
-      ${fleetFilter !== "all" && !filtered.length ? `<p class="mini muted" style="margin:6px 0 0">Nothing in this filter.</p>` : ""}`}
+      ${gs.rows ? `<div class="mini" style="margin-bottom:6px">
+        ${policy ? `<b>${gs.gap}</b> gap${gs.gap === 1 ? "" : "s"} to close — ${gs.gap ? `they are in the <a href="#" id="alEvToFindings">Findings table</a> below, 📡-marked, each with a one-click fix` : "nothing the draft would still block from machine space"}.` : `<b>${gs.rows}</b> distinct denied files — load a policy and they are judged.`}
+        ${gs.bydesign ? ` · ${gs.bydesign} blocked by design` : ""}${gs.covered ? ` · ${gs.covered} covered by the draft` : ""}${gs.undecided ? ` · ${gs.undecided} undecided` : ""}${gs.dll ? ` · ${gs.dll} DLL set aside` : ""}
+        <span class="muted">— the gap report carries every group in full.</span>
+      </div>` : `<p class="mini muted" style="margin:0">No blocked or audited events in the window — either the estate is quiet or the policy was not reaching these devices. The allowed count above says which.</p>`}
+      ${(eventsEvidence.warnings || []).length ? `<div class="al-dep-err mini" style="margin-bottom:4px"><b>The collector could not see everything:</b><ul class="al-list" style="margin:4px 0 0">${eventsEvidence.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     `;
 
     // Own wiring, renderRemedy's pattern: this card rebuilds its innerHTML on
@@ -771,20 +763,16 @@ const AppLockerTool = (() => {
     if (dl) dl.addEventListener("click", () => {
       download(`AppControl-GapReport-${String(m.name || "device").replace(/[^A-Za-z0-9-]/g, "_")}.md`, fleetGapReport(), "text/markdown");
     });
-    host.querySelectorAll(".al-ev-fix").forEach((b) => b.addEventListener("click", () => {
-      const row = fleetRowByKey.get(b.dataset.key);
-      if (!row) return;
-      mutate(`allowed ${row.binary || row.path || "a fleet-denied file"} from the fleet evidence`, () => addFixForFleetRow(row));
-    }));
-    host.querySelectorAll(".al-ev-chip").forEach((b) => b.addEventListener("click", () => {
-      const f = b.dataset.f;
-      fleetFilter = (f === "all" || fleetFilter === f) ? "all" : f;
-      renderEventsCard();
-    }));
+    const jump = host.querySelector("#alEvToFindings");
+    if (jump) jump.addEventListener("click", (e) => {
+      e.preventDefault();
+      const el = document.getElementById("alFindings");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     const clr = host.querySelector("#alEvClear");
     if (clr) clr.addEventListener("click", () => {
-      eventsEvidence = null; fleetFilter = "all"; evTenant = { busy: false, list: null, error: "" };
-      render();
+      eventsEvidence = null; evTenant = { busy: false, list: null, error: "" };
+      if (policy) loadFresh(); else render();
     });
     const tb = host.querySelector("#alEvTenant");
     if (tb) tb.addEventListener("click", loadTenantProfiles);
@@ -1457,6 +1445,21 @@ const AppLockerTool = (() => {
     const fx = f.fix;
     if (!policy || !fx) return null;
 
+    // A fleet gap closes with the rule its own evidence suggests — publisher
+    // when signed, hash when the event carries one, exact path last. Applied
+    // through the same mutate/undo as every other fix.
+    if (fx.kind === "fleetAllow") {
+      const plan = fleetFixPlan(fx.row);
+      if (!plan) return null;
+      const base = fx.row.binary || (fx.row.path ? String(fx.row.path).split("\\").pop() : "file");
+      return {
+        mode: "auto", label: plan.label,
+        title: "Add the allow rule the fleet evidence suggests — undo is one click",
+        undoLabel: `allowed ${base} from the fleet evidence`,
+        apply: () => addFixForFleetRow(fx.row),
+      };
+    }
+
     if (fx.kind === "addCollection") {
       return {
         mode: "auto", label: "Add collection",
@@ -1707,7 +1710,7 @@ const AppLockerTool = (() => {
       L.push(`| Severity | Source | Collection | Rule | Condition | Reason | Recommendation |`);
       L.push(`|---|---|---|---|---|---|---|`);
       const cell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-      for (const f of findings) L.push(`| ${f.sev} | ${f.source === "scan" ? "device scan" : "policy XML"} | ${cell(f.collection)} | ${cell(f.rule || f.ruleType)} | ${cell(f.cond || "")} | ${cell(f.reason)} | ${cell(f.rec)} |`);
+      for (const f of findings) L.push(`| ${f.sev} | ${f.source === "scan" ? "device scan" : f.source === "fleet" ? "fleet events" : "policy XML"} | ${cell(f.collection)} | ${cell(f.rule || f.ruleType)} | ${cell(f.cond || "")} | ${cell(f.reason)} | ${cell(f.rec)} |`);
     }
     L.push("");
 
@@ -1778,7 +1781,7 @@ const AppLockerTool = (() => {
     // in one table on purpose: an admin does not care which half of the tool proved
     // that %PROGRAMFILES%\Vendor is a hole, only that it is one. `source` marks the
     // scan-derived rows so the table can say where each verdict came from.
-    findings = analyze(policy).concat(analyzeScan(scan, policy));
+    findings = analyze(policy).concat(analyzeScan(scan, policy)).concat(analyzeFleetEvents());
     findings.sort((a, b) => SEV_SCORE[b.sev] - SEV_SCORE[a.sev] || String(a.collection).localeCompare(String(b.collection)));
     coverage = MS_APP_CATALOG.map((app) => ({ app, result: evaluateApp(policy, app) }));
     render();
@@ -2031,7 +2034,7 @@ const AppLockerTool = (() => {
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
     const compact = shown.length ? `<div class="al-find-compact">` +
       shown.map((f) => {
-        const mark = f.source === "scan" ? ` <span class="tag new" title="From the device scan">🛰</span>` : "";
+        const mark = f.source === "scan" ? ` <span class="tag new" title="From the device scan">🛰</span>` : f.source === "fleet" ? ` <span class="tag new" title="From the fleet events evidence">📡</span>` : "";
         return `<div class="al-fc-row">
           <div class="al-fc-head">${sevTag(f.sev)}${mark} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
           <div class="al-fc-reason mini">${esc(f.reason)}</div>
@@ -2048,7 +2051,7 @@ const AppLockerTool = (() => {
           const btn = plan
             ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
             : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
-          const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : "";
+          const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : f.source === "fleet" ? ` <span class="tag new" title="This came from the fleet events evidence — a device actually tried to run it.">📡</span>` : "";
           // The fix button lives UNDER the recommendation it carries out, not
           // in a column of its own at the far right. As its own column it was
           // the first thing pushed off the edge on any narrow window, so the
@@ -2366,7 +2369,7 @@ const AppLockerTool = (() => {
     $("alReset").addEventListener("click", () => {
       if (!window.confirm("Start over? The loaded policy, scan and events evidence leave the table, and the loop's manual marks are cleared. Nothing in the tenant is touched.")) return;
       policy = null; scan = null; scanSource = ""; importedXmlName = "";
-      eventsEvidence = null; fleetFilter = "all";
+      eventsEvidence = null;
       evTenant = { busy: false, list: null, error: "" };
       try { localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
       resetFixState();

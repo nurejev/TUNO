@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10441, date: "2026-08-26", title: "One table — the fleet gaps become findings",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The findings table and the fleet evidence were two tables saying the same kind of thing about the same files — a file needs a decision — and together they made the overview long. Now there is one. Every fleet gap is a finding: a 📡-marked row beside the audit's and the scan's, carrying the event count and the still-blocked reason, closed through the same one-click fix framework as everything else — publisher when signed, hash when the event carries one, exact path last, undo one click away. The evidence card shrank to what only it can say: the device facts, one counts line (gaps, blocked by design, covered, undecided, DLL set aside) that links into the findings, the gap report download, and the pull-from-tenant chooser. Covered and by-design files need no rows on a working screen — they are reassurance, and reassurance lives in the counts and the report. The filter chips retired with the second table they filtered." },
+    ],
+  },
+  {
     build: 10440, date: "2026-08-26", title: "The profile version counts its iterations",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The version token at the end of the profile name now moves with the loop. Pull the deployed profile from the tenant and the name on the table is already the next iteration — V4.0 in the tenant becomes V4.0.1 to edit, V4.0.1 becomes V4.0.2 — so the portal's history reads as a sequence instead of one name overwritten in place. A +v button beside the name field increments by hand, typing in the field overrides everything, and a name without a version token is left alone: inventing a version is worse than not having one. The pull also learned to sync the form fields it changes — the screen was still showing the old name and grouping after adopting a profile, which this build's own test caught." },
