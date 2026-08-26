@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 89,
+      title: "The tool menu carries each tool's T number",
+      tools: ["All tools"],
+      builds: [10433],
+      risk: "low",
+      what: "renderSideNav() reads TOOL_VERSIONS[id].t and renders it zero-padded in its own right-aligned span; the full label plus number rides the title attribute for the collapsed rail. .sidenav button becomes flex and the ellipsis moves from the button onto .sn-txt, so the NAME truncates and the number holds the right edge. The collapsed rail hides .sn-t with .sn-txt. A tool with no number renders without one rather than 'Tundefined' \u2014 Help, What's new and Roadmap are deliberately unnumbered.",
+      why: "LOW \u2014 presentation, one rail. The thing worth checking rather than reasoning about is that the numbers shown MATCH the tile headings, because a menu that confidently states the wrong T number is worse than a menu that states none.",
+      test: [
+        "THE ONE THAT MATTERS: read every number in the sidebar against the T number in that tool's tile heading on the overview. They must agree, all seventeen.",
+        "Confirm Help, What's new and Roadmap show NO number rather than a blank one or 'Tundefined'.",
+        "Narrow the window (or use a long tool name) until a name truncates. The number must survive and the NAME must be what shortens \u2014 the opposite is the bug this layout exists to avoid.",
+        "Collapse the rail. Numbers and names both disappear, icons remain, and hovering an icon shows the native tooltip with the name AND the number.",
+        "Both themes: the number is muted and must stay legible on the darker one without competing with the name.",
+      ],
+      files: ["js/app.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 88,
       title: "Group type-ahead matches any word in the name, not just the prefix",
       tools: ["T01", "T08", "T11"],

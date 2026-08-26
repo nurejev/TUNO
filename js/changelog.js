@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10433, date: "2026-08-25", title: "The tool menu says which T number each tool is",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The sidebar now shows each tool's permanent number beside its name \u2014 Group analyzer T02, Change audit T03, and so on. These numbers are how the tools get referred to out loud and in the promotion queue, and until now the only place to find one was the tile heading on the overview." },
+      { kind: "improved", tool: "All tools", text: "The number is read from the tool register rather than typed into the menu, so the menu and the tile cannot drift apart \u2014 a wrong T number would be worse than none. Help, What's new and the roadmap stay unnumbered on purpose: the app describing itself is not a tool." },
+      { kind: "fixed", tool: "All tools", text: "The number holds the right edge of the row and the NAME shortens when the rail is too narrow. Appended to the label it would have been the first thing cut off, on exactly the longer names it is most useful for. The collapsed rail drops it along with the name." },
+    ],
+  },
+  {
     build: 10432, date: "2026-08-25", title: "The group box suggests groups again \u2014 by any word in the name, not just the first",
     items: [
       { kind: "fixed", tool: "T01 \u00b7 T08 \u00b7 T11", text: "Typing in a group box suggested nothing unless you happened to type the START of the group's name. It asked Graph for names BEGINNING with what you typed, so \u201cpilot\u201d found a group called \u201cPilot ring\u201d and did not find \u201cINT-DEV-Pilot\u201d \u2014 which is how tenants actually name groups: site, then function, then purpose. The word you remember is almost never the first one. It now matches a word anywhere in the name, so the box finds the group you were thinking of." },

@@ -903,11 +903,28 @@ const Fs = (() => {
     // every button as its title, so the collapsed rail's hover names cost
     // nothing and clip nowhere — a CSS tooltip inside an overflow:auto
     // sidebar would be cut off at the edge, which is why it is native.
+    // The T number comes from TOOL_VERSIONS rather than being typed into the
+    // label, because it is the tool's PERMANENT number and the one place it
+    // is already recorded. Typing it here would let the menu and the tile
+    // disagree, and a wrong T number is worse than none — the numbers are how
+    // these tools get referred to out loud.
+    const tNum = (id) => {
+      const t = (typeof TOOL_VERSIONS !== "undefined" && TOOL_VERSIONS[id] || {}).t;
+      return Number.isFinite(t) ? `T${String(t).padStart(2, "0")}` : "";
+    };
     const item = (id) => {
       const label = labelFor(id);
       const sp = label.indexOf(" ");
       const [ic, txt] = sp > 0 ? [label.slice(0, sp), label.slice(sp + 1)] : ["·", label];
-      return `<button data-nav="${id}" id="side-${id}" title="${esc(label)}"><span class="sn-ic">${esc(ic)}</span><span class="sn-txt">${esc(txt)}</span></button>`;
+      const n = tNum(id);
+      // The number rides in its OWN span, pushed to the right, rather than
+      // being appended to the name. The rail is 240px and the names ellipsise;
+      // appended, the number would be the first thing cut off on exactly the
+      // longer names people need it for.
+      return `<button data-nav="${id}" id="side-${id}" title="${esc(n ? `${label} (${n})` : label)}">`
+        + `<span class="sn-ic">${esc(ic)}</span><span class="sn-txt">${esc(txt)}</span>`
+        + (n ? `<span class="sn-t">${n}</span>` : "")
+        + `</button>`;
     };
     $("sideNav").innerHTML =
       `<button class="sn-toggle" id="sideToggle" data-navtoggle>«</button>` +
