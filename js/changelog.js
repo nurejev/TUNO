@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10436, date: "2026-08-26", title: "Filter the evidence, clear the table",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The counts above the fleet evidence became filters: click 4 gaps to close and the table shows exactly those four rows — the fifty-row cap applies after the filter, so a handful of gaps among two hundred files never hides. The active chip reads as pressed, clicking it again shows everything, and the downloadable gap report deliberately ignores the filter, because a document for the change ticket covers everything or it is not evidence." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Two ways to take things off the table. Clear, on the evidence card, drops just the events bundle and keeps the policy — for loading the next device's results against the same draft. Start over, next to the upload button, empties everything: policy, scan, evidence, the loop's manual marks — behind a confirmation whose one promise is that nothing in the tenant is touched. And the upload button now says what it actually takes: scan bundle, policy XML, or the collector's events results." },
+    ],
+  },
+  {
     build: 10435, date: "2026-08-26", title: "Events first — and the policy comes from the tenant",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Uploading the events bundle before a policy used to earn you an alert telling you to go find the scan or the XML — confusing, and wrong about where the policy actually is mid-loop: in the tenant, not on your disk. The fleet evidence card now stands on its own. It renders the moment the bundle lands, ahead of any policy, and leads with the real question — what to judge the evidence against — instead of hiding until a file is found." },
