@@ -1119,9 +1119,16 @@ const GroupUseTool = (() => {
       ${result.partial.map((p) => `<div class="gu-fail gu-skip"><b>${esc(p.label)}</b> — ${esc(p.notes.join("; "))}</div>`).join("")}
     </div>` : "";
 
+    // Only rendered when a sweep is actually parked, so it never offers a
+    // way back to something that is not there.
+    const back = parkedSweep ? `<div class="gu-back">
+      <button class="btn sm" id="guBack">← Back to the sweep</button>
+      <span class="mini muted">The finished sweep is still loaded — same groups, same filters, no second scan.</span>
+    </div>` : "";
+
     const body = result.rows.length
-      ? `<div class="list-card">${notes.join("")}${sources}</div>`
-      : `<div class="list-card">${notes.join("")}<p class="mini"><b>Nothing in Intune is assigned to this group</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.${!tenantWide() ? " Tenant-wide assignments were not included — its members may still be receiving policy through All Users or All Devices." : ""}</p></div>`;
+      ? `<div class="list-card">${back}${notes.join("")}${sources}</div>`
+      : `<div class="list-card">${back}${notes.join("")}<p class="mini"><b>Nothing in Intune is assigned to this group</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.${!tenantWide() ? " Tenant-wide assignments were not included — its members may still be receiving policy through All Users or All Devices." : ""}</p></div>`;
 
     $("guBody").innerHTML = head + body + partial + failed;
   }
@@ -1172,7 +1179,7 @@ const GroupUseTool = (() => {
         <th>Group</th><th class="gu-num">Total</th><th class="gu-num">Direct</th><th class="gu-num">Inherited</th><th class="gu-num">Excluded</th>
         ${cols.map((c) => `<th class="gu-num" title="${esc(c.label)}">${esc(c.icon)}</th>`).join("")}</tr></thead>
         <tbody>${r.groups.map((g) => `<tr>
-          <td><b${g.missing ? ' style="color:var(--off)"' : ""}>${esc(g.name)}</b>${g.dynamic ? ' <span class="gu-how priv">dynamic</span>' : ""}${g.missing ? ' <span class="gu-how exc">deleted</span>' : ""}</td>
+          <td><a href="#" class="gu-gopen" data-guopen="${esc(g.id)}" title="Open this group's references — filtered from the sweep already in memory, no second read"><b${g.missing ? ' style="color:var(--off)"' : ""}>${esc(g.name)}</b></a>${g.dynamic ? ' <span class="gu-how priv">dynamic</span>' : ""}${g.missing ? ' <span class="gu-how exc">deleted</span>' : ""}</td>
           <td class="gu-num${g.total ? "" : " gu-zero"}"><b>${g.total}</b></td>
           <td class="gu-num${g.direct ? "" : " gu-zero"}">${g.direct}</td>
           <td class="gu-num${g.inherited ? "" : " gu-zero"}">${g.inherited}</td>
@@ -1263,6 +1270,97 @@ const GroupUseTool = (() => {
     finally { peeking = false; }
   }
 
+  // ---------------------------------------------------- per-group popup ----
+  //
+  // Ported from ENCA. The important part is what it does NOT do: it does not
+  // re-run the analysis. The sweep already holds every (group, object) hit,
+  // so opening a group is a filter over memory and is instant on a tenant of
+  // any size. Re-scanning to show data you already have is the thing this
+  // replaces.
+  //
+  // What a sweep genuinely cannot know is inheritance — it matches each group
+  // against itself only, so a policy reaching this group THROUGH A PARENT is
+  // not in these rows. That is stated in the popup rather than left for the
+  // reader to assume, and Deep analyze is the opt-in that goes and gets it.
+  let modalGroup = null;
+
+  function openGroupModal(id) {
+    if (!sweepRes) return;
+    const g = sweepRes.groups.find((x) => String(x.id).toLowerCase() === String(id).toLowerCase());
+    if (!g) return;
+    modalGroup = g;
+
+    const rows = sweepRes.rows.filter((r) => String(r.pid).toLowerCase() === String(g.id).toLowerCase());
+    const t = GroupUse.totals(rows);
+
+    $("guModalTitle").innerHTML = `👥 ${esc(g.name)}`
+      + (g.dynamic ? ' <span class="gu-how priv">dynamic</span>' : "")
+      + (g.roleAssignable ? ' <span class="gu-how priv">role-assignable</span>' : "")
+      + (g.missing ? ' <span class="gu-how exc">not in the directory</span>' : "");
+    $("guModalSub").innerHTML = `${rows.length} reference${rows.length === 1 ? "" : "s"} · <code>${esc(g.id)}</code>`
+      + ` &nbsp;·&nbsp; ${t.assigned} included · ${t.excluded} excluded${t.filtered ? ` · ${t.filtered} filtered` : ""}`;
+
+    // A group the directory no longer has is the finding, not a footnote:
+    // whatever names it is assigned to nobody and the portal shows a blank row.
+    const dangle = g.missing
+      ? `<div class="gu-fail" style="margin:0 0 12px"><b>Dangling reference.</b><span class="why">${rows.length} assignment${rows.length === 1 ? "" : "s"} still name this id, but the directory no longer has the group — so ${rows.length === 1 ? "it targets" : "they target"} nobody, and nothing in the portal will tell you. Remove the reference, or recreate the group.</span></div>`
+      : "";
+
+    const blocks = GroupUse.grouped(rows).map((grp) => `
+      <div class="gu-src">
+        <h5>${esc(grp.source.icon)} ${esc(grp.source.label)} <span class="mini muted">${grp.rows.length}</span>
+          ${grp.source.doc ? `<a href="${esc(grp.source.doc)}" target="_blank" rel="noopener">docs ↗</a>` : ""}</h5>
+        <div class="gu-tw"><table class="cg-table"><thead><tr>
+          <th>Name</th><th style="width:170px">Kind</th><th style="width:120px">Assignment</th>
+          <th style="width:220px">Detail</th></tr></thead>
+          <tbody>${grp.rows.map((r) => `<tr>
+            <td><b>${esc(r.name)}</b></td>
+            <td class="mini">${esc(r.sub || "")}</td>
+            <td><span class="gu-how ${r.how === "excluded" ? "exc" : (r.pid === GroupUse.TENANT_WIDE ? "priv" : "inc")}">${esc(GroupUse.HOW_LABEL[r.how] || r.how)}</span></td>
+            <td class="mini">${esc(r.detail || "")}</td>
+          </tr>`).join("")}</tbody></table></div>
+      </div>`).join("");
+
+    const empty = `<p class="mini muted" style="margin:0">Nothing that was read assigns to this group. That is not the same as unused — check <b>could not be read</b> on the sweep before treating it as safe to delete.</p>`;
+
+    $("guModalBody").innerHTML = dangle + (blocks || empty)
+      + `<p class="mini muted" style="margin:14px 0 0">A sweep matches every group against itself only.${sweepRes.inheritance
+          ? " Nesting WAS walked for this sweep, so inherited hits are counted in the totals — but they are attributed to the group that carries the assignment, so use <b>Deep analyze</b> to see them listed against this one."
+          : " If this group is nested inside another, anything reaching it <b>through the parent</b> is not listed here — use <b>Deep analyze</b> for that."}</p>`;
+
+    $("guModal").classList.add("open");
+  }
+
+  const closeGroupModal = () => { $("guModal").classList.remove("open"); modalGroup = null; };
+
+  // ------------------------------------------------------- deep analyze ----
+  //
+  // Re-reads ONE group with its parents expanded. The finished sweep is
+  // parked on the way out rather than discarded, because the alternative is
+  // charging somebody a second full scan for having been curious about one
+  // group — which is what makes people not click.
+  let parkedSweep = null;
+
+  function deepAnalyze(id) {
+    closeGroupModal();
+    parkedSweep = { res: sweepRes, opts: lastSweepOpts, view: sweepView };
+    setMode("one");
+    if ($("guTerm")) $("guTerm").value = id;
+    run();
+  }
+
+  function backToSweep() {
+    if (!parkedSweep) return;
+    sweepRes = parkedSweep.res;
+    lastSweepOpts = parkedSweep.opts;
+    sweepView = parkedSweep.view;
+    parkedSweep = null;
+    setMode("all");
+    group = scope = result = null;
+    renderSweep(lastSweepOpts || sweepOpts());
+    showExports(true);
+  }
+
   // A matrix click lands in single-group mode with the full answer — the
   // tile's own pipeline, not a shortcut copy of it.
   function openFromMatrix(id) {
@@ -1274,6 +1372,11 @@ const GroupUseTool = (() => {
   function reset() {
     group = scope = result = null; members = null; sweepRes = null;
     sweepView = "table"; lastSweepOpts = null;
+    // The parked sweep goes with it. Leaving it behind would put a "back to
+    // the sweep" button on the next run that returns to a tenant's worth of
+    // stale answers, which is worse than no button.
+    parkedSweep = null; modalGroup = null;
+    if ($("guModal")) $("guModal").classList.remove("open");
     if ($("guTerm")) $("guTerm").value = "";
     $("guBody").innerHTML = "";
     prog("");
@@ -1304,6 +1407,18 @@ const GroupUseTool = (() => {
   function init() {
     if (!$("guAreas")) return;
     renderAreas();
+    // The popup's own controls. The backdrop closes it and Escape closes it,
+    // because a modal you can only leave by finding its button is a modal
+    // people stop opening.
+    if ($("guModal")) {
+      $("guModalClose").addEventListener("click", closeGroupModal);
+      $("guModalDeep").addEventListener("click", () => { if (modalGroup) deepAnalyze(modalGroup.id); });
+      $("guModal").addEventListener("click", (e) => { if (e.target.id === "guModal") closeGroupModal(); });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && $("guModal").classList.contains("open")) closeGroupModal();
+      });
+    }
+
     $("guModeSeg").addEventListener("click", (e) => {
       const b = e.target.closest("[data-gumode]");
       if (b) setMode(b.dataset.gumode);
@@ -1320,6 +1435,9 @@ const GroupUseTool = (() => {
     $("guBody").addEventListener("click", (e) => {
       const v = e.target.closest("[data-guview]");
       if (v) { sweepView = v.dataset.guview === "matrix" ? "matrix" : "table"; renderSweep(lastSweepOpts || sweepOpts()); return; }
+      const op = e.target.closest("[data-guopen]");
+      if (op) { e.preventDefault(); openGroupModal(op.dataset.guopen); return; }
+      if (e.target.closest("#guBack")) { e.preventDefault(); backToSweep(); return; }
       const g = e.target.closest("[data-guopen]");
       if (g) { e.preventDefault(); openFromMatrix(g.dataset.guopen); return; }
       if (e.target.closest("#guPeek")) peekReach();

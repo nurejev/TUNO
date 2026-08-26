@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10434, date: "2026-08-25", title: "Click a group in the sweep and see everything it is connected to",
+    items: [
+      { kind: "new", tool: "T02", text: "A group in the sweep is now a link. Clicking it opens that group on its own \u2014 every assignment naming it, grouped by surface, with how it is targeted and any filter capping the reach. Until now the sweep gave you counts and no way to ask what they were counting." },
+      { kind: "improved", tool: "T02", text: "It costs NO reads. The sweep already holds every assignment it found, so opening a group filters what is in memory rather than scanning again \u2014 instant on a tenant of any size. Re-running an analysis to show data already on the page is the thing this replaces, and the headless suite counts the calls rather than taking the claim on trust." },
+      { kind: "new", tool: "T02", text: "\u2af7 Deep analyze, which was missing entirely. A sweep matches every group against itself, so a policy that reaches a group THROUGH A PARENT is not in its row \u2014 the popup says so instead of answering short and looking complete. Deep analyze is the opt-in that goes back and reads that one group with its parents expanded." },
+      { kind: "new", tool: "T02", text: "Deep analyze no longer costs you the sweep. The finished sweep is parked and \u201c\u2190 Back to the sweep\u201d puts it straight back \u2014 same groups, same filters, no second scan. Charging a full re-scan for having been curious about one group is what stops people clicking." },
+      { kind: "improved", tool: "T02", text: "A group the directory no longer has opens like any other, and says what it is: the assignments still naming it, and the fact that they reach nobody. It was already counted as dangling; now you can see which assignments to go and remove." },
+    ],
+  },
+  {
     build: 10433, date: "2026-08-25", title: "The tool menu says which T number each tool is",
     items: [
       { kind: "improved", tool: "All tools", text: "The sidebar now shows each tool's permanent number beside its name \u2014 Group analyzer T02, Change audit T03, and so on. These numbers are how the tools get referred to out loud and in the promotion queue, and until now the only place to find one was the tile heading on the overview." },

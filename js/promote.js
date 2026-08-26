@@ -70,6 +70,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 90,
+      title: "T02: sweep rows open a per-group popup, plus Deep analyze and a way back",
+      tools: ["T02"],
+      builds: [10434],
+      risk: "medium",
+      what: "Ported from ENCA, whose CSS for it (.gu-m-head/.gu-m-body/.gu-m-foot and .gu-back) was ALREADY in TUNO's stylesheet \u2014 the styles landed in an earlier port and the feature never did. Group names in the sweep table become .gu-gopen controls; openGroupModal() filters sweepRes.rows by pid and renders them through the existing GroupUse.grouped(), so it costs zero reads. deepAnalyze() parks {res, opts, view}, switches to single-group mode and re-runs with buildScope() so parents are expanded; backToSweep() restores without re-reading. reset() clears the park and closes the popup. Escape and the backdrop close it.",
+      why: "MEDIUM. It adds state that outlives a render \u2014 a parked sweep and an open popup \u2014 and the failure mode is showing somebody a STALE answer that looks live: a back button returning to a previous tenant's sweep, or a popup listing a group that a newer sweep no longer contains. reset() clears both, and that is the thing to try to break rather than to read.",
+      test: [
+        "THE ONE THAT MATTERS: sweep, open a group, Deep analyze, then Back to the sweep, then Reset, then sweep a DIFFERENT scope. No Back button may survive the reset, and no popup may open onto a group from the previous sweep.",
+        "Open a group with many references and confirm it appears INSTANTLY \u2014 no progress line, no spinner. If it visibly works, it is re-reading and the point has been lost.",
+        "Open the dangling group (one the directory no longer has). It must list the assignments still naming it and say plainly that they reach nobody.",
+        "Run a sweep WITHOUT nesting walked, open a nested group, and read the note at the foot of the popup. Then Deep analyze it: rows that arrive through a parent must appear, each naming the parent. That difference is the entire justification for the button.",
+        "Run a sweep WITH nesting walked and confirm the note changes rather than repeating the same sentence \u2014 the two cases are genuinely different and saying the same thing in both would be wrong in one.",
+        "Close by Escape, by the backdrop and by the Close button. Then open a group, Deep analyze, and use the browser Back button \u2014 confirm nothing is left half-open.",
+        "On a large tenant, check the popup body scrolls inside the modal rather than the page scrolling behind it.",
+      ],
+      files: ["js/groupuse.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 89,
       title: "The tool menu carries each tool's T number",
       tools: ["All tools"],

@@ -1236,6 +1236,13 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .gu-m-foot .spacer{margin-left:auto}
 .gu-fail .why{display:block;color:var(--muted);margin-top:2px;font-size:12px}
 
+/* The group name in a sweep is a control, and has to look like one before it
+   is hovered — the whole feature is invisible if the row reads as plain text.
+   Underline on hover only, so a long table does not become a wall of rules. */
+.gu-gopen{color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)}
+.gu-gopen:hover{color:var(--accent2);border-bottom-style:solid}
+.gu-gopen b{cursor:pointer}
+
 /* "back to the sweep" — only rendered when a finished sweep is parked */
 .gu-back{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
 
