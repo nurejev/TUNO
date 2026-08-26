@@ -646,11 +646,39 @@ const AppLockerTool = (() => {
     const out = [];
     if (!eventsEvidence || !policy) return out;
     const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    // Gaps per collection first: a handful get a row and a fix each, a FLOOD
+    // collapses into ONE finding with an expandable list. The flood is real —
+    // one rule in a collection makes AppLocker enforce the whole collection,
+    // so five DLL hash allows wake every other DLL load as a would-block —
+    // but two hundred rows of it is a scroll, not a finding. Reported from
+    // real use, verbatim: "now I have a whole list to scroll".
+    const FLOOD = 8;
+    const gapsByCol = new Map();
     for (const row of rows) {
       const dv = draftVerdictForEvent(row.sample);
       if (fleetRowClass(row, dv) !== "gap") continue;
-      const plan = fleetFixPlan(row);
-      out.push({
+      const t = eventCollectionType(row.sample);
+      if (!gapsByCol.has(t)) gapsByCol.set(t, []);
+      gapsByCol.get(t).push(row);
+    }
+    for (const [colType, colRows] of gapsByCol) {
+      if (colRows.length > FLOOD) {
+        const events = colRows.reduce((n, r2) => n + r2.count, 0);
+        out.push({
+          sev: "High", source: "fleet", collection: colType, ruleType: "(fleet)",
+          rule: `${colRows.length} fleet-denied files`,
+          cond: "",
+          reason: `${colRows.length} distinct files (${events} events) would still be blocked from machine space under this draft. The ${colType} collection carries rules, so AppLocker enforces the WHOLE collection — everything not allowed is a block.`,
+          rec: colType === "Dll"
+            ? "Allowing DLLs one hash at a time is not a policy. Decide whether Dll should be governed at all: if not, remove the Dll rules and these return to set-aside; if yes, plan publisher-level allows for the platform. The list is expandable below."
+            : "Work the list below by publisher where files are signed — one publisher rule closes many of these at once. The list is expandable below.",
+          fleetGroup: colRows,
+        });
+        continue;
+      }
+      for (const row of colRows) {
+        const plan = fleetFixPlan(row);
+        out.push({
         sev: "High", source: "fleet",
         collection: eventCollectionType(row.sample),
         rule: row.binary || (row.path ? String(row.path).split("\\").pop() : "(fleet event)"),
@@ -661,8 +689,9 @@ const AppLockerTool = (() => {
           : plan.kind === "hash" ? "Unsigned — allow by the event's hash. Hash rules go stale on the file's next update."
           : "Allow this exact path as a stopgap, then replace it with a publisher or hash rule.")
           : "The event carries no publisher, hash or path — no rule can be built from it. Decide by hand.",
-        fix: plan ? { kind: "fleetAllow", row } : null,
-      });
+          fix: plan ? { kind: "fleetAllow", row } : null,
+        });
+      }
     }
     return out;
   }
@@ -2197,7 +2226,16 @@ const AppLockerTool = (() => {
               ${agg.length > 40 ? `<p class="mini muted" style="margin:4px 0 0">Showing the 40 most frequent of ${agg.length} — the Export MD report carries all of them.</p>` : ""}</details>`;
           }
         }
-        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
+        // A flood finding carries its files as an expandable list — the same
+        // shape as the audited list, one row instead of two hundred.
+        let groupList = "";
+        if (f.fleetGroup) {
+          const li = f.fleetGroup.slice(0, 60).map((r2) => `<li><code style="overflow-wrap:anywhere">${esc(r2.path || r2.binary || "(no path)")}</code> — <b>${r2.count}</b>× ${r2.verdict === "Blocked" ? "⛔" : "📝"}${r2.publisher ? ` <span class="muted">· ${esc(r2.publisher)}</span>` : ""}</li>`).join("");
+          groupList = `<details class="al-evlist" style="margin-top:6px"><summary class="mini">▸ The ${f.fleetGroup.length} files</summary>
+            <ul class="mini al-list" style="margin:6px 0 0">${li}</ul>
+            ${f.fleetGroup.length > 60 ? `<p class="mini muted" style="margin:4px 0 0">Showing 60 of ${f.fleetGroup.length} — the gap report carries all of them.</p>` : ""}</details>`;
+        }
+        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td style="overflow-wrap:anywhere">${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${groupList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
         return row + (editor ? `<tr class="al-fixhost"><td colspan="6" style="padding:0">${editor}</td></tr>` : "");
       }).join("") +
       `</tbody></table></div>` : "";

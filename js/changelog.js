@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10452, date: "2026-08-26", title: "A flood of gaps becomes one finding",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Adding five DLL hash allows put rules into the Dll collection — and one rule in a collection makes AppLocker enforce the whole collection, so every other DLL the fleet had loaded woke up as a would-block and the findings table became a scroll of two hundred rows. The flood was true, but a finding you cannot read is not a finding. More than eight gaps in one collection now collapse into a single High row: the count, the reason they all woke, and every file behind an expand-and-collapse — with a recommendation that says the honest thing: allowing DLLs one hash at a time is not a policy; decide whether the collection should be governed at all, or remove its rules and the events go back to set-aside. A handful of gaps keep their individual rows and their fix cards. Long unbroken file names also stopped crushing the neighbouring columns." },
+    ],
+  },
+  {
     build: 10451, date: "2026-08-26", title: "Three cards, one per layout",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The merged card put three different table layouts under one roof — the findings table, the coverage table, the rule tables — and three layouts in one card read as a broken card. The split now follows the layouts: Findings lead as their own card, Microsoft app coverage has its own, and Rules carry their nested findings in a third. Everything the merges won stays won: one fix flow, findings under the rules they are about, and a sticky header on each card — with the Applied notice landing in whichever header is pinned above the fix you just clicked. The empty leftover cards from the merge are gone." },
