@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10446, date: "2026-08-26", title: "The Defender report learns to find one machine",
+    items: [
+      { kind: "improved", tool: "🦠 Defender status", text: "A search box joins the toolbar: type a device name, a user, or an id, and the fleet list filters live under it while ranked suggestions unfold from what was just read — no call to the tenant per keystroke, because the fleet is already in memory. Picking a suggestion narrows the list to that machine and opens its fold in one act, since the point of finding a device is reading its protection state. Arrow keys and Enter work; Escape and clearing restore the whole fleet." },
+      { kind: "improved", tool: "🦠 Defender status", text: "The box appears only after a fleet has been read — its suggestions come from the fleet, and an autocomplete with nothing behind it is a promise nothing keeps. An empty query suggests nothing, deliberately: an autocomplete that lists ten thousand machines unprompted is a dump, not a search. The search combines with the bucket cards, and the devices header says when a search is narrowing what you see." },
+    ],
+  },
+  {
     build: 10445, date: "2026-08-26", title: "The sticky header actually sticks",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The merged card's sticky header shipped in 10443 and quietly never stuck: the card clips its corners with overflow hidden, and a sticky element inside a clipped ancestor never engages — no error, just nothing. The card now lets its overflow show; the padding keeps content off the rounded corners and the tables inside carry their own scrollers, so nothing else changes." },

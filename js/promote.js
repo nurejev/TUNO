@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 94,
+      title: "Defender status — a device search that autocompletes from the fleet",
+      tools: ["🦠 Defender status"],
+      builds: [10446],
+      risk: "low",
+      what: "T15 v0.2: Defender.searchDevices (pure, ranked: name-starts > name-contains > user/id, empty query = nothing) plus a search box in the STATIC toolbar (typing survives re-renders), hidden until a fleet is read, suggestions from the fleet in memory (no per-keystroke Graph calls), keyboard navigation, pick = filter-to-device + open its fold, clear = whole fleet back. Free text is itself a live filter combinable with the bucket cards.",
+      why: "LOW — read-only convenience over data already read. The two judgements to confirm on a real fleet: suggestion latency at ~10k devices (it is a linear scan per keystroke — fine in theory, check in practice), and whether mousedown-vs-blur ordering holds across browsers so a click on a suggestion never loses to the input's blur.",
+      test: [
+        "Read a real fleet, type three characters of a known device: suggestions appear ranked, the list filters under the box, and picking one opens that device's fold. Clear the box: the whole fleet returns.",
+        "Type a USER's UPN fragment and confirm their machine surfaces even though the name does not match.",
+        "Keyboard only: ArrowDown to a suggestion, Enter — same result as a click. Escape closes the list without touching the filter.",
+        "On a fleet of thousands: typing must stay smooth. If it stutters, the scan needs the T10 lower-cased-haystack treatment — say so here rather than living with it.",
+        "Confirm the box is HIDDEN before any read, and hidden again when a read fails — an autocomplete over nothing must not render.",
+      ],
+      files: ["js/defender.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 93,
       title: "The queue takes ticks and exports a promotion order",
       tools: ["All tools"],

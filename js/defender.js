@@ -208,7 +208,28 @@ const Defender = (() => {
     return L.join("\n");
   }
 
-  return { findingsOf, rowOf, report, markdown, csv, meta, triState };
+  // ---- device search (build 10446) ------------------------------------
+  // Pure and over THE FLEET ALREADY READ — the autocomplete's honesty is
+  // that it can only suggest machines the report actually holds, so a
+  // suggestion is a promise the row exists. Ranked: name-starts beats
+  // name-contains beats user/id match. An empty query is no suggestions.
+  function searchDevices(rep, query, cap) {
+    const q = lc(String(query || "").trim());
+    if (!q || !rep || !Array.isArray(rep.devices)) return [];
+    const scored = [];
+    for (const r of rep.devices) {
+      const name = lc(r.name), user = lc(r.user), id = lc(r.id);
+      let score = 0;
+      if (name.startsWith(q)) score = 3;
+      else if (name.includes(q)) score = 2;
+      else if (user.includes(q) || id === q) score = 1;
+      if (score) scored.push({ r, score });
+    }
+    scored.sort((a, b) => b.score - a.score || a.r.name.localeCompare(b.r.name));
+    return scored.slice(0, cap || 10).map((x) => x.r);
+  }
+
+  return { findingsOf, rowOf, report, markdown, csv, meta, triState, searchDevices };
 })();
 
 
@@ -221,6 +242,9 @@ const DefenderTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let rep = null, running = false, bucketFilter = null;
+  // The live search term — a FILTER over the read fleet, with the dropdown
+  // as a convenience on top of it. Cleared on every new read.
+  let searchTerm = "";
   // Open folds keyed on DEVICE IDS — the T03 rule, so a re-render (or the
   // bucket filter) keeps them open.
   const open = new Set();
@@ -237,12 +261,14 @@ const DefenderTool = (() => {
   async function run() {
     if (running) return;
     running = true; $("dfRun").disabled = true; showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null;
+    searchTerm = ""; if ($("dfSearch")) { $("dfSearch").value = ""; } if ($("dfSearchWrap")) $("dfSearchWrap").style.display = "none"; closeSuggest();
     try {
       await Graph.ensureScopes(Graph.SCOPES.devices);
       rep = await Defender.report({ onStatus: prog });
       prog("");
       render();
       showExports(!rep.deviceError);
+      if (!rep.deviceError && $("dfSearchWrap")) $("dfSearchWrap").style.display = "";
     } catch (e) {
       $("dfBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>`;
       prog("");
@@ -283,7 +309,10 @@ const DefenderTool = (() => {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>The tenant rollup could not be read.</b><span class="why">${esc(rep.overviewError)} — the per-device answer below stands on its own.</span></div></div>`);
     }
 
-    const shown = (rep.devices || []).filter((r) => !bucketFilter || r.bucket === bucketFilter);
+    const q = searchTerm.trim().toLowerCase();
+    const shown = (rep.devices || []).filter((r) =>
+      (!bucketFilter || r.bucket === bucketFilter)
+      && (!q || r.name.toLowerCase().includes(q) || r.user.toLowerCase().includes(q) || r.id.toLowerCase() === q));
     const CAP = 200;
     const rows = shown.slice(0, CAP).map((r) => {
       const isOpen = open.has(r.id);
@@ -316,7 +345,8 @@ const DefenderTool = (() => {
     }).join("");
 
     parts.push(`<div class="list-card">
-      <h4 style="margin:0 0 4px">Devices (${shown.length}${bucketFilter ? ` of ${rep.totals.windows}` : ""})</h4>
+      <h4 style="margin:0 0 4px">Devices (${shown.length}${(bucketFilter || searchTerm) ? ` of ${rep.totals.windows}` : ""})</h4>
+      ${searchTerm ? `<p class="mini muted" style="margin:0 0 6px">Filtered by search “${esc(searchTerm)}” — clear the box for the whole fleet.</p>` : ""}
       <p class="mini muted" style="margin:0 0 10px">Worst first — click a device for its full protection state. A flag the device did not report reads <i>not reported</i>, never <i>off</i>: they are different answers.</p>
       ${rows || `<p class="mini muted" style="margin:0">Nothing in this bucket.</p>`}
       ${shown.length > CAP ? `<p class="mini muted" style="margin:8px 0 0">Showing the worst ${CAP} of ${shown.length} — the CSV export carries all of them.</p>` : ""}
@@ -337,11 +367,64 @@ const DefenderTool = (() => {
     return download("Defender-status-report.csv", Defender.csv(rep), "text/csv");
   }
 
+  // ---- the autocomplete (10446) ----------------------------------------
+  // Suggestions come from Defender.searchDevices over the fleet in memory —
+  // no Graph call per keystroke, and nothing to suggest before a read.
+  let sugIndex = -1;
+  function closeSuggest() { const d = $("dfSuggest"); if (d) d.style.display = "none"; sugIndex = -1; }
+  function renderSuggest() {
+    const d = $("dfSuggest");
+    if (!d || !rep) return;
+    const hits = Defender.searchDevices(rep, $("dfSearch").value, 10);
+    if (!hits.length) { closeSuggest(); return; }
+    const badge = (r) => r.bucket === "issues" ? `<span class="au-op delete">${r.issues.length}</span>`
+      : r.bucket === "nostate" ? `<span class="gu-how priv">no state</span>` : `<span class="au-op create">ok</span>`;
+    d.innerHTML = hits.map((r, i) => `<button type="button" class="au-pop-item ${i === sugIndex ? "active" : ""}" data-dfsug="${esc(r.id)}" data-dfsugname="${esc(r.name)}">
+      <b>${esc(r.name)}</b> ${badge(r)} <span class="mini muted">${esc(r.user)}</span></button>`).join("");
+    d.style.display = "flex";
+    d.querySelectorAll("[data-dfsug]").forEach((b) => b.addEventListener("mousedown", (e) => {
+      // mousedown, not click — the input's blur would close the list first
+      e.preventDefault();
+      pickSuggestion(b.dataset.dfsug, b.dataset.dfsugname);
+    }));
+  }
+  function pickSuggestion(id, name) {
+    searchTerm = name;
+    $("dfSearch").value = name;
+    open.add(id);              // the point of finding it is reading it
+    bucketFilter = null;       // a found device shows whatever its bucket
+    closeSuggest();
+    $("dfSearchClear").style.display = "";
+    render();
+  }
+
   function init() {
     if (!$("dfRun")) return;
     $("dfRun").addEventListener("click", run);
     $("dfMd").addEventListener("click", () => exportAs("md"));
     $("dfCsv").addEventListener("click", () => exportAs("csv"));
+    if ($("dfSearch")) {
+      $("dfSearch").addEventListener("input", () => {
+        searchTerm = $("dfSearch").value;
+        $("dfSearchClear").style.display = searchTerm ? "" : "none";
+        sugIndex = -1;
+        renderSuggest();
+        render();
+      });
+      $("dfSearch").addEventListener("keydown", (e) => {
+        const d = $("dfSuggest");
+        const items = d ? [...d.querySelectorAll("[data-dfsug]")] : [];
+        if (e.key === "ArrowDown" && items.length) { e.preventDefault(); sugIndex = (sugIndex + 1) % items.length; renderSuggest(); }
+        else if (e.key === "ArrowUp" && items.length) { e.preventDefault(); sugIndex = (sugIndex - 1 + items.length) % items.length; renderSuggest(); }
+        else if (e.key === "Enter" && sugIndex >= 0 && items[sugIndex]) { e.preventDefault(); pickSuggestion(items[sugIndex].dataset.dfsug, items[sugIndex].dataset.dfsugname); }
+        else if (e.key === "Escape") closeSuggest();
+      });
+      $("dfSearch").addEventListener("blur", () => setTimeout(closeSuggest, 150));
+      $("dfSearchClear").addEventListener("click", () => {
+        searchTerm = ""; $("dfSearch").value = ""; $("dfSearchClear").style.display = "none";
+        closeSuggest(); render();
+      });
+    }
     $("dfBody").addEventListener("click", (e) => {
       // A device opens in the Device analyzer through the tile's own handler —
       // the compliance report's rule: crumb, tab and sidebar all follow.
