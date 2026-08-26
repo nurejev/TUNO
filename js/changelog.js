@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10443, date: "2026-08-26", title: "One card, one fix flow, and a header that stays in sight",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The merged card's header is now sticky, so however deep you scroll you can see whose card you are in — and Microsoft app coverage folded in as a section of the same card, its verdicts and one-click allow rules unchanged, its separate card gone. The events finding that said review the audited list below while pointing at nothing now carries that list itself: expandable in place, aggregated per file with counts and affected users — the 1068 audited executions from a real bundle become a readable list of the files behind them." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "One fix flow everywhere, reported from real use. The fleet-gap fixes used to apply instantly while the rule fixes opened an editor — two behaviours on one screen read as one of them broken. Every fix now opens the same card first: the exact rule about to be added, publisher, hash or path, then Apply. And applying announces itself — ✔ Applied with Undo beside it lands in the sticky header and fades after a few seconds. The publisher editor also stopped accepting an unchanged Apply: leaving the version bound at * used to rewrite the rule identically and close, which read as a fix that did nothing; now it says what is actually missing. Finally the unsigned-in-writable-locations finding gained its own fix card — one hash rule per collection, every hash inside, the expiry warning written into the rule itself." },
+    ],
+  },
+  {
     build: 10442, date: "2026-08-26", title: "Rules and findings become one card",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The rules list and the findings table told one story in two places: here is a rule, and here is what is wrong with it. Now they are one card. A finding that is about a rule sits nested under that rule, inside the per-collection rule tables — severity, reason, recommendation and the fix button right where the rule is, with the judgement editors opening in place. Findings about nothing in particular — a missing collection, the enforcement judgement, a fleet gap — keep the table shape at the top. The severity filters, the compact narrow-column summary and every fix behave exactly as before; the page just stopped asking you to scroll the same story twice. Chosen by mockup round over folding the rules away behind the findings." },

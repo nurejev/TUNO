@@ -2189,3 +2189,9 @@ button.au-card-btn:disabled{cursor:default;opacity:.6}
 .demo-bar{position:sticky;top:0;z-index:60}
 body.demo-mode header{top:var(--demo-bar-h,40px)}
 body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
+/* The merged Rules-and-findings card header stays IN SIGHT while the long
+   card scrolls (10443). Theme vars only; inside the ⛶ panel the sticky
+   anchors to the panel top instead of the page header. */
+.al-merged-head{position:sticky;top:calc(var(--sticky-nav,110px));background:var(--surface);
+  z-index:5;padding:4px 0 8px;margin:-4px 0 8px;border-bottom:1px solid var(--line)}
+#fsBody .al-merged-head{top:0}

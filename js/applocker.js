@@ -897,6 +897,10 @@ const AppLockerTool = (() => {
         cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
         reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
         rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
+        // 10443: the third option in that recommendation is a click, like the
+        // fleet gaps' fixes — one hash rule per collection, every unsigned
+        // artifact's hash inside, undo one click away.
+        fix: { kind: "hashUnsigned", artifacts: unsigned.filter((a) => a.hash) },
       });
     }
 
@@ -945,8 +949,11 @@ const AppLockerTool = (() => {
         cond: `${ev.summary.blocked} blocked · ${ev.summary.audited} audited · ${ev.daysBack} days`,
         reason: `The device's AppLocker logs show ${ev.summary.blocked} execution(s) actually blocked and ${ev.summary.audited} that would have been blocked under enforcement, across ${ev.summary.distinctUsers} user(s).`,
         rec: ev.summary.blocked
-          ? "Work through the blocked list below before touching enforcement anywhere else — these are real users who could not run something."
-          : "Review the audited list below: each one becomes a blocked user the day this policy is enforced.",
+          ? "Work through the blocked and audited list — open it right here — before touching enforcement anywhere else: these are real users who could not run something."
+          : "Review the audited list — open it right here: each one becomes a blocked user the day this policy is enforced.",
+        // The renderer attaches the list this recommendation promises (10443):
+        // a "below" that pointed at nothing was the complaint, verbatim.
+        eventsList: true,
       });
     }
     return out;
@@ -1380,11 +1387,22 @@ const AppLockerTool = (() => {
 
   // Run a policy mutation with an undo point. fn() returning false means
   // "nothing changed" — no undo point is burned and no re-render happens.
+  // The just-applied notice: a fix that lands must SAY so, visibly — the
+  // sticky card header carries "✔ <what happened> · Undo" for a few seconds.
+  // Reported from real use: a fix applied with no visible acknowledgement
+  // reads as a fix that did nothing.
+  let justApplied = null, justAppliedTimer = null;
   function mutate(label, fn) {
     if (!policy) return false;
     const before = snapshot();
     if (fn() === false) return false;
     undoState = { snapshot: before, label };
+    justApplied = label;
+    // Guarded: one headless harness evaluates this file in a bare VM context
+    // without timers, and a notice that never fades is better than a crash.
+    if (justAppliedTimer && typeof clearTimeout === "function") clearTimeout(justAppliedTimer);
+    justAppliedTimer = typeof setTimeout === "function"
+      ? setTimeout(() => { justApplied = null; justAppliedTimer = null; render(); }, 8000) : null;
     recompute();
     return true;
   }
@@ -1448,13 +1466,54 @@ const AppLockerTool = (() => {
     // A fleet gap closes with the rule its own evidence suggests — publisher
     // when signed, hash when the event carries one, exact path last. Applied
     // through the same mutate/undo as every other fix.
+    if (fx.kind === "hashUnsigned" && fx.artifacts.length) {
+      return {
+        mode: "editor", editor: "confirm", label: `Add hash rules (${fx.artifacts.length})…`,
+        title: "Open the fix card — it lists the hashes before anything is added",
+        preview: [`One FileHashRule per collection, ${fx.artifacts.length} SHA256 hash(es) inside:`]
+          .concat(fx.artifacts.slice(0, 8).map((a2) => `${a2.name || a2.path} — ${String(a2.hash || "").slice(0, 24)}…`))
+          .concat(fx.artifacts.length > 8 ? [`… and ${fx.artifacts.length - 8} more`] : [])
+          .concat(["Everyone · Allow — these EXPIRE the moment any file updates; put it on someone's calendar."]),
+        undoLabel: `added hash rules for ${fx.artifacts.length} unsigned executable(s)`,
+        apply: () => {
+          const groups = {};
+          for (const a2 of fx.artifacts) {
+            const t = a2.collection || "Exe";
+            (groups[t] = groups[t] || []).push(a2);
+          }
+          let added = false;
+          for (const t of Object.keys(groups)) {
+            const col2 = ensureCollection(t);
+            const name = `${BRANDING.name}: unsigned in writable locations (${t}, hash)`;
+            if (col2.rules.some((r2) => r2.name === name)) continue;
+            const norm2 = (x) => { let h = String(x || "").replace(/^SHA256\s*/i, "").trim(); return /^0x/i.test(h) ? h : "0x" + h; };
+            col2.rules.push(mkRule("FileHashRule", name, "S-1-1-0", "Allow",
+              [{ kind: "hash", hashes: groups[t].map((a2) => ({ type: "SHA256", data: norm2(a2.hash), file: a2.name || String(a2.path || "").split("\\").pop(), length: String(a2.sizeBytes || 0) })) }],
+              `Hash allows for the unsigned executables the scan found in user-writable locations. THESE EXPIRE the moment any file updates — put it on someone's calendar, and press the vendor to sign.`));
+            added = true;
+          }
+          return added;
+        },
+      };
+    }
+
     if (fx.kind === "fleetAllow") {
       const plan = fleetFixPlan(fx.row);
       if (!plan) return null;
       const base = fx.row.binary || (fx.row.path ? String(fx.row.path).split("\\").pop() : "file");
+      // A CONFIRM CARD, not an instant apply — the same design flow as every
+      // other fix: click opens the card showing exactly the rule to be added,
+      // Apply commits it. Reported from real use: two different fix flows on
+      // one screen read as one of them being broken.
+      const preview = plan.kind === "publisher"
+        ? [`FilePublisherRule — ${BRANDING.name}: allow ${base} (fleet gap)`, `Publisher='${fx.row.publisher}'; Product='${fx.row.product && fx.row.product !== "-" ? fx.row.product : "*"}'; Binary='*'; VersionRange=[*,*]`, `Everyone · Allow · ${plan.type} collection`]
+        : plan.kind === "hash"
+          ? [`FileHashRule — ${BRANDING.name}: allow ${base} (fleet gap)`, `SHA256 ${String(fx.row.sample.hash || "").slice(0, 40)}…`, `Everyone · Allow · ${plan.type} collection — goes STALE on the file's next update`]
+          : [`FilePathRule — ${BRANDING.name}: allow ${base} (fleet gap)`, `Path: ${fx.row.path}`, `Everyone · Allow · ${plan.type} collection — the weakest shape; replace with publisher or hash when the file is in hand`];
       return {
-        mode: "auto", label: plan.label,
-        title: "Add the allow rule the fleet evidence suggests — undo is one click",
+        mode: "editor", editor: "confirm", label: plan.label,
+        title: "Open the fix card — it shows the exact rule before anything is added",
+        preview,
         undoLabel: `allowed ${base} from the fleet evidence`,
         apply: () => addFixForFleetRow(fx.row),
       };
@@ -1580,6 +1639,18 @@ const AppLockerTool = (() => {
 
   function fixEditorHtml(f, plan) {
     if (plan.editor === "enforcement") return enforcementEditorHtml(f, plan);
+    if (plan.editor === "confirm") {
+      // The confirm card: the exact rule(s) about to be added, then Apply.
+      return `<div class="al-fixpanel" style="padding:12px 14px;border-left:3px solid var(--accent,#6b8afd)">
+        <div style="margin-bottom:6px"><b class="mini">Fix — ${esc(plan.label.replace(/…$/, ""))}</b></div>
+        <p class="mini muted" style="margin:0 0 8px">${esc(f.rec)}</p>
+        <div class="mini" style="margin:0 0 10px">${plan.preview.map((l) => `<div style="overflow-wrap:anywhere"><code>${esc(l)}</code></div>`).join("")}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn sm primary al-fx-apply">Apply</button>
+          <button class="btn sm al-fx-cancel">Cancel</button>
+          <span class="mini muted al-fx-hint"></span>
+        </div></div>`;
+    }
     const r = plan.rule;
     const c = r.conditions[0] || {};
     const known = SID_CHOICES.some(([s]) => s === r.sid);
@@ -1626,6 +1697,10 @@ const AppLockerTool = (() => {
   // Read the open editor out of the DOM and apply it to the rule.
   function applyFixEditor(f, plan, root) {
     const q = (sel) => root.querySelector(sel);
+
+    if (plan.editor === "confirm") {
+      return mutate(plan.undoLabel, plan.apply);
+    }
 
     if (plan.editor === "enforcement") {
       const target = plan.col;
@@ -1674,6 +1749,16 @@ const AppLockerTool = (() => {
       low: q(".al-fx-low").value.trim() || "*",
       high: q(".al-fx-high").value.trim() || "*",
     };
+    // Applying with nothing changed used to rewrite the rule identically and
+    // close the editor — which read as "fix applied" while the finding stayed.
+    // Say what is actually missing instead.
+    const b4 = rule.conditions[0] || {};
+    if (rule.nodeName === "FilePublisherRule" && sid === rule.sid
+      && b4.publisher === cond.publisher && b4.product === cond.product && b4.binary === cond.binary
+      && b4.low === cond.low && b4.high === cond.high) {
+      q(".al-fx-hint").textContent = "Nothing changed — for the version-bound finding, set High version to a real bound instead of *.";
+      return false;
+    }
     return mutate(`rewrote “${rule.name}” as a publisher rule`, () => {
       rule.sid = sid;
       rule.nodeName = "FilePublisherRule";
@@ -2081,7 +2166,20 @@ const AppLockerTool = (() => {
     const topTable = topFindings.length ? `<div class="al-find-table" style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
       topFindings.map(({ f, i }) => {
         const { plan, btn, editor } = fixBits(f, i);
-        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
+        // The events finding PROMISES a list — so it carries one, expandable
+        // in place: the scan's denied executions aggregated per file, exactly
+        // the aggregation the fleet evidence uses.
+        let evList = "";
+        if (f.eventsList && scan && scan.events && Array.isArray(scan.events.entries)) {
+          const agg = aggregateFleetEvents(scan.events.entries);
+          if (agg.length) {
+            const li = agg.slice(0, 40).map((r2) => `<li><code style="overflow-wrap:anywhere">${esc(r2.path || r2.binary || "(no path)")}</code> — <b>${r2.count}</b>× ${r2.verdict === "Blocked" ? "⛔ blocked" : "📝 audited"}${r2.users.size ? `, ${r2.users.size} user${r2.users.size === 1 ? "" : "s"}` : ""}${r2.publisher ? ` <span class="muted">· ${esc(r2.publisher)}</span>` : " <span class=\"muted\">· unsigned</span>"}</li>`).join("");
+            evList = `<details class="al-evlist" style="margin-top:6px"><summary class="mini">▸ The audited and blocked list — ${agg.length} distinct file${agg.length === 1 ? "" : "s"}</summary>
+              <ul class="mini al-list" style="margin:6px 0 0">${li}</ul>
+              ${agg.length > 40 ? `<p class="mini muted" style="margin:4px 0 0">Showing the 40 most frequent of ${agg.length} — the Export MD report carries all of them.</p>` : ""}</details>`;
+          }
+        }
+        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
         return row + (editor ? `<tr class="al-fixhost"><td colspan="6" style="padding:0">${editor}</td></tr>` : "");
       }).join("") +
       `</tbody></table></div>` : "";
@@ -2109,46 +2207,49 @@ const AppLockerTool = (() => {
             <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
         }).join("") + `</tbody></table></div>` : "").join("");
 
-    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Rules and findings")}Rules and findings <span class="mini muted">— a rule's findings sit under the rule; the rest lead. Static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      compact + topTable +
-      (shown.length === 0 ? `<p class="mini muted">Nothing at this severity.</p>` : "") +
-      (nestedCount ? `<p class="mini muted" style="margin:8px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} sit${nestedCount === 1 ? "s" : ""} under the rule${nestedCount === 1 ? "" : "s"} they are about, below.</p>` : "") +
-      rulesHtml;
-    // Handlers below index into `shown`, so it must outlive this function.
-    shownFindings = shown;
-
-    // ---- Microsoft coverage ----
-    $("alCoverage").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alCoverage", "Microsoft app coverage")}Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h3>` +
-      `<div style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
+    // Coverage is a SECTION of the same card since 10443 — it is the same
+    // question from the app's side (which files does the draft answer for),
+    // and a third card was a third scroll. Built here, injected below.
+    const coverageHtml = `<h4 class="al-sec-head" style="margin:16px 0 6px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h4>` +
+      `<div style="overflow-x:auto"><table class="plist al-cov-table"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
         let detail;
         if (v.status === "unenforced") detail = esc(v.detail);
         else detail = (v.perArt || []).map((a) => {
           const file = a.art.path.split("\\").pop();
-          let s = `<code>${esc(file)}</code> — ${a.status}`;
-          if (a.why) s += ` <span class="mini muted">(${esc(a.why)})</span>`;
+          let s2 = `<code>${esc(file)}</code> — ${a.status}`;
+          if (a.why) s2 += ` <span class="mini muted">(${esc(a.why)})</span>`;
           if (a.rule) {
-            s += ` via “${esc(a.rule.name)}”`;
-            if (risky.has(a.rule.id)) s += ` <span class="tag new" title="The allow works, but the audit flags this rule — see Findings">⚠ risky rule</span>`;
-            if (a.versionBound) s += ` <span class="mini muted">(version-bounded — verify the deployed version falls inside)</span>`;
-            if (a.denyCustom) s += ` <span class="mini muted">(a group-scoped deny “${esc(a.denyCustom.name)}” also matches — members of ${esc(sidName(a.denyCustom.sid))} are blocked)</span>`;
+            s2 += ` via “${esc(a.rule.name)}”`;
+            if (risky.has(a.rule.id)) s2 += ` <span class="tag new" title="The allow works, but the audit flags this rule — see its finding under the rule below">⚠ risky rule</span>`;
+            if (a.versionBound) s2 += ` <span class="mini muted">(version-bounded — verify the deployed version falls inside)</span>`;
+            if (a.denyCustom) s2 += ` <span class="mini muted">(a group-scoped deny “${esc(a.denyCustom.name)}” also matches — members of ${esc(sidName(a.denyCustom.sid))} are blocked)</span>`;
           }
-          return s;
+          return s2;
         }).join("<br>");
         const canFix = v.status === "blocked" || v.status === "conditional";
-        // The fix button goes UNDER the detail it acts on, not in a column of
-        // its own at the far right — as its own column it was the first thing
-        // pushed off the edge, so the only control on the row was the only
-        // thing you had to scroll sideways to reach. Same fix as the findings
-        // table got in 10312; this table was missed then.
-        return `<tr><td><b>${esc(row.app.name)}</b>${row.app.critical ? "" : ""}<div class="mini muted">${esc(row.app.context)}</div></td>
+        return `<tr><td><b>${esc(row.app.name)}</b><div class="mini muted">${esc(row.app.context)}</div></td>
           <td>${verdictTag(v.status, v.audit)}</td>
           <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${detail}${canFix
             ? `<div style="margin-top:8px"><button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button></div>`
             : ""}</td></tr>`;
       }).join("") + `</tbody></table></div>`;
 
+    // The header is STICKY: this card is the long one, and the reader should
+    // always see whose card they are scrolled into.
+    $("alFindings").innerHTML = `<div class="al-merged-head"><h3 style="margin:0">${fsBtn("alFindings", "Rules and findings")}Rules and findings <span class="mini muted">— findings first, then Microsoft app coverage, then the rules with their findings nested. NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>${justApplied ? `<div class="al-just mini" style="margin-top:4px;padding:4px 9px;border:1px solid var(--ok-bd);background:var(--ok-bg2);border-radius:8px;display:inline-block">✔ Applied: ${esc(justApplied)} <button class="btn sm al-just-undo" style="margin-left:6px">↩ Undo</button></div>` : ""}</div>` +
+      compact + topTable +
+      (shown.length === 0 ? `<p class="mini muted">Nothing at this severity.</p>` : "") +
+      coverageHtml +
+      (nestedCount ? `<p class="mini muted" style="margin:16px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} sit${nestedCount === 1 ? "s" : ""} under the rule${nestedCount === 1 ? "" : "s"} they are about, below.</p>` : "") +
+      rulesHtml;
+    // Handlers below index into `shown`, so it must outlive this function.
+    shownFindings = shown;
+
+    // Coverage renders inside the merged card above (10443); the old host
+    // stays empty like #alRules.
+    $("alCoverage").innerHTML = "";
 
     // The rules render lives inside the merged card above (10442); the old
     // #alRules host stays empty.
@@ -2188,6 +2289,7 @@ const AppLockerTool = (() => {
 
   function wireDynamic() {
     document.querySelectorAll(".al-sev").forEach((b) => b.addEventListener("click", () => { sevFilter = b.dataset.sev; render(); }));
+    document.querySelectorAll(".al-just-undo").forEach((b) => b.addEventListener("click", undoLast));
     document.querySelectorAll(".al-mode").forEach((s) => s.addEventListener("change", () => {
       mutate(`set ${s.dataset.col} to ${s.value}`, () => { ensureCollection(s.dataset.col).mode = s.value; });
     }));
