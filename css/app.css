@@ -2146,6 +2146,18 @@ ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
 .au-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
 .au-2col>div{background:var(--soft2);border-radius:8px;padding:8px 10px}
 @media (max-width:760px){.au-2col{grid-template-columns:1fr}}
+/* T03's type chips. Pills rather than stat cards, because there can be a
+   dozen of them and a dozen stat cards is a screen of its own — these are a
+   narrowing control, not a summary. The count stays legible when the chip is
+   not picked, since the counts are the answer before anything is clicked. */
+.au-types{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.au-type{font:inherit;font-size:12.5px;cursor:pointer;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap}
+.au-type b{font-weight:700;color:var(--ink);margin-left:2px}
+.au-type:hover{border-color:var(--accent2)}
+.au-type.active{border-color:var(--accent2);background:var(--ok-bg);color:var(--green-deep)}
+.au-type.active b{color:var(--green-deep)}
+
 /* Stat cards that are also buttons (T09's kind filter). Same anatomy as
    .au-card; the button chrome is stripped and the active state says which
    kind the list is narrowed to. */

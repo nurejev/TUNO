@@ -278,11 +278,29 @@ const Audit = (() => {
   const POLICY_RE = /DeviceManagementConfigurationPolicy|DeviceConfiguration|DeviceCompliancePolicy|GroupPolicyConfiguration|DeviceManagementScript|DeviceHealthScript|DeviceShellScript|WindowsAutopilotDeploymentProfile|DeviceEnrollmentConfiguration|MobileApp/i;
   const isPolicyChange = (r) => POLICY_RE.test(`${r.activityType} ${r.category}`);
 
+  // Counts per type, taken BEFORE the type filter is applied — otherwise
+  // picking a chip would rewrite every other chip's count to zero and the row
+  // would stop being a summary of the window.
+  function policyTypes(rows, opts) {
+    const base = policyRows(rows, Object.assign({}, opts || {}, { category: null }));
+    const m = new Map();
+    for (const r of base) {
+      const k = r.category || r.activityType || "—";
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return { total: base.length, types: [...m.entries()].map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)) };
+  }
+
   function policyRows(rows, opts) {
     const o = opts || {};
     let out = rows.filter(isPolicyChange);
     if (o.onlyChanges) out = out.filter((r) => /patch|update|modify|set|delete|remove/i.test(r.activityType || r.operation));
     if (o.minSeverity) out = out.filter((r) => SEV_ORDER[r.severity] <= SEV_ORDER[o.minSeverity]);
+    // Narrowing by TYPE. Matched against the same field the row displays, so
+    // what you click is what you filtered — a chip built from one field and
+    // applied to another is the kind of filter that quietly drops rows.
+    if (o.category) out = out.filter((r) => (r.category || r.activityType) === o.category);
     // NO CAP. The original keeps the first five, after paging everything.
     return out;
   }
@@ -481,7 +499,7 @@ footer{padding:14px 26px;color:#6b7280;font-size:12px}footer a{color:#2b4c9b}`;
     RETENTION_DAYS, WINDOWS, windowById, since, customRange, SCOPES,
     OPERATIONS, operationOf, operationLabel,
     decode, diff, parse, severity, actorOf, globRe,
-    fetchEvents, policyRows, allRows, categories, actors, summarize, changeText, isPolicyChange,
+    fetchEvents, policyRows, policyTypes, allRows, categories, actors, summarize, changeText, isPolicyChange,
     meta, markdown, csv, html, categoryFilter,
   };
 })();
@@ -505,6 +523,10 @@ const AuditTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, view = "policy", running = false;
+  // The type narrowing for the POLICY view. Held here rather than in a
+  // form control because it is a chip row, and because it must survive a
+  // re-render — the timeline re-renders on every fold and unfold.
+  let typePick = null;
   // Range state: a preset id, or a custom pair. One object, one truth.
   let range = { mode: "preset", id: "24h" };
   const open = new Set();          // event ids whose detail is unfolded
@@ -597,7 +619,7 @@ const AuditTool = (() => {
     if (!res) return [];
     const actorPick = $("auActorSel").value;
     return view === "policy"
-      ? Audit.policyRows(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null })
+      ? Audit.policyRows(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null, category: typePick })
       : Audit.allRows(res.rows, {
           category: $("auCat").value, operation: $("auOp").value, result: $("auResult").value,
           actor: actorPick !== "all" ? actorPick : $("auActor").value, activity: $("auActivity").value,
@@ -605,13 +627,17 @@ const AuditTool = (() => {
   };
 
   const filterText = () => (view === "policy"
-    ? [$("auOnlyChanges").checked ? "changes only" : "", $("auSev").value ? `min severity ${$("auSev").value}` : ""].filter(Boolean).join(", ")
+    ? [typePick ? `type ${typePick}` : "", $("auOnlyChanges").checked ? "changes only" : "", $("auSev").value ? `min severity ${$("auSev").value}` : ""].filter(Boolean).join(", ")
     : [$("auCat").value !== "All" ? `category ${$("auCat").value}` : "", $("auOp").value !== "all" ? `operation ${$("auOp").value}` : "",
       $("auResult").value !== "all" ? $("auResult").value : "",
       $("auActorSel").value !== "all" ? `actor ${$("auActorSel").value}` : ($("auActor").value ? `actor ${$("auActor").value}` : ""),
       $("auActivity").value ? `activity ${$("auActivity").value}` : ""].filter(Boolean).join(", "));
 
   function setView(v) {
+    // The type belongs to the policy view. Carrying it across to All events —
+    // which has its own category select — would leave a filter applied that
+    // its own controls do not show.
+    typePick = null;
     view = v === "all" ? "all" : "policy";
     document.querySelectorAll("#auViewSeg [data-auview]").forEach((b) => b.classList.toggle("active", b.dataset.auview === view));
     syncToolbar();
@@ -674,10 +700,28 @@ const AuditTool = (() => {
       <div class="au-card"><div class="au-card-l">Failure rate</div><div class="au-card-n ${s.failures ? "bad" : "ok"}">${s.failureRate}%</div><div class="au-card-s">${s.failures ? `${s.failures} of ${s.total} failed` : "no failures reported"}</div></div>
     </div>`;
 
+    // TYPE CHIPS. The counts are the answer before anything is clicked — you
+    // can see it was 37 application changes without narrowing to them. Only in
+    // the policy view: All events has its own category select, and two
+    // controls driving one piece of state is how they drift apart.
+    // Rendered only when there is a choice to make: one type is not a filter,
+    // it is a row of chrome saying what you can already read on every card.
+    let chips = "";
+    if (view === "policy" && res) {
+      const t = Audit.policyTypes(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null });
+      if (t.types.length > 1) {
+        chips = `<div class="au-types">`
+          + `<button type="button" class="au-type ${typePick ? "" : "active"}" data-autype="">All types <b>${t.total}</b></button>`
+          + t.types.map((x) => `<button type="button" class="au-type ${typePick === x.name ? "active" : ""}" data-autype="${esc(x.name)}">${esc(x.name)} <b>${x.count}</b></button>`).join("")
+          + `</div>`;
+      }
+    }
+
     const notes = [`<p class="mini muted" style="margin:10px 0 0"><b>Intune keeps audit data for ${Audit.RETENTION_DAYS} days.</b> Anything older is gone from the service — this tool cannot show it and neither can the portal.</p>`];
     if (res.clamped) notes.push(`<div class="gu-fail"><b>The range was clamped to the ${Audit.RETENTION_DAYS}-day floor.</b><span class="why">Events before ${esc(res.since)} no longer exist in the service — the quiet start of this list is missing data, not a quiet tenant.</span></div>`);
     if (res.skipped.length) notes.push(`<div class="gu-fail"><b>${res.skipped.length} record${res.skipped.length === 1 ? "" : "s"} could not be parsed</b><span class="why">Skipped rather than sinking the run, and not counted in the numbers above.</span></div>`);
-    if (view === "policy" && res.rows.length && !rows.length) notes.push(`<p class="mini muted">${res.rows.length} events were read but none is a configuration change. Switch to <b>All events</b> to see them.</p>`);
+    if (view === "policy" && typePick && !rows.length) notes.push(`<p class="mini muted">No <b>${esc(typePick)}</b> changes in this window. The other types still have events — clear the type to see them.</p>`);
+    else if (view === "policy" && res.rows.length && !rows.length) notes.push(`<p class="mini muted">${res.rows.length} events were read but none is a configuration change. Switch to <b>All events</b> to see them.</p>`);
 
     const body = rows.length ? `<div class="au-tl">${rows.map((r) => {
       const op = Audit.operationOf(r);
@@ -698,11 +742,19 @@ const AuditTool = (() => {
     }).join("")}</div>`
       : `<p class="mini" style="margin-top:12px">Nothing matched in this window.</p>`;
 
-    $("auBody").innerHTML = cards + `<div class="list-card">${notes.join("")}${body}</div>`;
+    $("auBody").innerHTML = cards + `<div class="list-card">${chips}${notes.join("")}${body}</div>`;
     $("auBody").querySelectorAll("[data-auev]").forEach((el) => el.addEventListener("click", (e) => {
       if (e.target.closest("a,code")) return;      // copying an id must not toggle
       const id = el.dataset.auev;
       open.has(id) ? open.delete(id) : open.add(id);
+      render();
+    }));
+    // Clicking the chip that is already picked CLEARS it, so the row is its
+    // own way out. A filter you can only undo by finding a Reset button
+    // somewhere else is one people leave applied by accident.
+    $("auBody").querySelectorAll("[data-autype]").forEach((el) => el.addEventListener("click", () => {
+      const want = el.dataset.autype || null;
+      typePick = (want && want === typePick) ? null : want;
       render();
     }));
   }
@@ -726,7 +778,7 @@ const AuditTool = (() => {
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeFilterDlg(); closeRangePop(); } });
     $("auRun").addEventListener("click", run);
     $("auReset").addEventListener("click", () => {
-      res = null; open.clear(); $("auBody").innerHTML = ""; prog(""); showExports(false);
+      res = null; open.clear(); typePick = null; $("auBody").innerHTML = ""; prog(""); showExports(false);
       range = { mode: "preset", id: "24h" };
       $("auFilterClear").click();
     });

@@ -70,6 +70,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 92,
+      title: "T03 policy changes filters by type, from a chip row with counts",
+      tools: ["T03"],
+      builds: [10439],
+      risk: "low",
+      what: "Audit.policyRows() takes a `category` option matched against (r.category || r.activityType) \u2014 the SAME field the row renders, so what you click is what you filtered. New Audit.policyTypes() counts per type off the rows with the type filter deliberately NOT applied, so the chips keep describing the window rather than the selection. The screen holds typePick outside the form controls because the timeline re-renders on every fold. Chips render only when types.length > 1; clicking the active chip clears it; switching to All events or re-running clears it. Option A of a mockup round \u2014 B was a select inside the existing filter dialog, which is where this filter already lived and where it was missed.",
+      why: "LOW \u2014 client-side narrowing over rows already read, no new call and no new scope. The judgement worth making on a real tenant is whether Graph's category values are the right grain: they are the tenant's own words, not ours, so a tenant may emit a category this tool has never seen. That is by design (the list is built from what was emitted) but it is worth seeing on real data.",
+      test: [
+        "THE ONE THAT MATTERS: pick a type, then read the OTHER chips. Their counts must be unchanged. If picking a type rewrites the row to zeroes, the row has stopped being a summary of the window and you can no longer see what you are choosing between.",
+        "Check a chip's count against what the list shows after clicking it \u2014 they must be the same number. A chip counting one field and filtering another silently drops rows.",
+        "Click the picked chip again. It must clear. A filter you can only undo from somewhere else gets left on by accident.",
+        "Combine a type with 'changes only' and with a minimum severity. They must compose, not replace one another.",
+        "Switch to All events and back. The type must be cleared, because All events has its own category select and would otherwise be filtered by a control it does not show.",
+        "Find a window with only ONE type of change (a short range on a quiet tenant). No chip row should be drawn at all.",
+        "On a tenant emitting many categories, check the row wraps sensibly and does not push the timeline off the first screen.",
+        "Both themes: the count must stay readable on an UNPICKED chip, since the counts are the point of the row.",
+      ],
+      files: ["js/audit.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 91,
       title: "Events first — the evidence card pulls the policy from the tenant",
       tools: ["🔐 AppLocker builder & validator"],

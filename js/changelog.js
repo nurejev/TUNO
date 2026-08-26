@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10439, date: "2026-08-26", title: "Change audit narrows to one type of thing",
+    items: [
+      { kind: "new", tool: "T03", text: "Policy changes now has a row of type chips \u2014 Application, Device configuration, Compliance policy, and whatever else your tenant emitted \u2014 each with its count. Click one to see only those, click it again to clear. Until now the only type filter lived in the All events tab, so on the tab most people use there was no way to ask for just the app changes." },
+      { kind: "improved", tool: "T03", text: "The counts are the answer before you click anything: 37 of 49 being application changes is the finding, and you should not have to filter to learn it. So picking a type does NOT rewrite the other chips \u2014 the row keeps describing the window rather than the selection, which is what lets you see what you are choosing between." },
+      { kind: "improved", tool: "T03", text: "The row is only drawn when there is more than one type in the window. A filter with a single option is chrome pretending to be a choice, and it would say nothing that every card in the list does not already say." },
+      { kind: "improved", tool: "T03", text: "A type with nothing under it says so, and says the others still have events \u2014 rather than showing an empty list that reads like a quiet tenant. Switching to All events drops the type, because that tab has its own category control and a filter its own screen cannot show you is a filter you will forget is on." },
+    ],
+  },
+  {
     build: 10438, date: "2026-08-26", title: "Two uploads, two buttons",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The upload split into the two acts it always was: Upload scan bundle or policy XML for the draft, Upload events results for what the collector brought home. Both open the same picker and the import still recognises the file by its content — the second button exists for the reader, because three files crammed into one label read as none of them." },
