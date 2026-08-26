@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10455, date: "2026-08-26", title: "An applied fix changes the finding, not just the rules",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Applying the unsigned-executables hash fix left the finding on screen unchanged — same files, same recommendation, button gone — which read as the fix not working (the bug report, verbatim; the new rules sat two cards down and the ✔ Applied notice fades after seconds). The finding now changes state once its collections carry the TUNO hash rules: Info, covered by the hash rules in this draft, with the expiry duty written in and the way back named — delete the TUNO hash rules in the Rules card and the original finding reopens, fix and all. Undo does the same in one click." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "For the record after the where-did-it-go report: the ＋ Add default Windows rules buttons live in the right column of the Enforcement per collection table (step 2), one per collection plus ＋ Default rules everywhere — a collection that already has its defaults shows ✓ present instead of a button, which is the button doing its job, not the button missing." },
+    ],
+  },
+  {
     build: 10454, date: "2026-08-26", title: "The grouping explains itself — and the deployed identity is one click away",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The question kept coming back, so the answer now lives where the deploy happens: the grouping is the policy's address on the device. Same policy, next iteration — same grouping, edit the deployed profile in place; a new GUID deploys a second policy beside the old one, the device merges both, and anything you removed keeps applying from the old address. That line sits at the create button now, with a Check-against-the-tenant button beside it that works even while findings block the deploy — which is exactly when someone is iterating." },

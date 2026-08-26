@@ -957,16 +957,31 @@ const AppLockerTool = (() => {
     // 2. Unsigned executables sitting in those directories.
     const unsigned = b.artifacts.filter((a) => a && !a.signed);
     if (unsigned.length) {
-      out.push({
-        sev: "Medium", source: "scan", collection: "Exe", ruleType: "(scan)",
-        cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
-        reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
-        rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
-        // 10443: the third option in that recommendation is a click, like the
-        // fleet gaps' fixes — one hash rule per collection, every unsigned
-        // artifact's hash inside, undo one click away.
-        fix: { kind: "hashUnsigned", artifacts: unsigned.filter((a) => a.hash) },
+      // Has the fix already been taken? Then the finding must SAY SO — after
+      // an Apply that left the row looking identical, the report was 'the fix
+      // is not working any more', verbatim. A finding whose fix is in the
+      // draft changes state: Info, covered, with the expiry duty named.
+      const typesU = [...new Set(unsigned.map((a) => a.collection || "Exe"))];
+      const hashCovered = model && typesU.every((t) => {
+        const colU = model.collections.find((c) => c.type === t);
+        return colU && colU.rules.some((r) => r.name === `${BRANDING.name}: unsigned in writable locations (${t}, hash)`);
       });
+      if (hashCovered) {
+        out.push({
+          sev: "Info", source: "scan", collection: typesU.join("/"), ruleType: "(scan)",
+          cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
+          reason: `${unsigned.length} unsigned executable(s) in user-writable locations are COVERED by the hash rules in this draft (see the Rules card).`,
+          rec: "Done — but hash rules die the moment any of these files updates. Put the expiry on someone's calendar, and keep pressing the vendor to sign. Deleting the TUNO hash rules in the Rules card reopens this finding.",
+        });
+      } else {
+        out.push({
+          sev: "Medium", source: "scan", collection: "Exe", ruleType: "(scan)",
+          cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
+          reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
+          rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
+          fix: { kind: "hashUnsigned", artifacts: unsigned.filter((a) => a.hash) },
+        });
+      }
     }
 
     // 3. Was this a reference machine? The single assumption everything else
