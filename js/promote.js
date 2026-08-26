@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 87,
+      title: "Surface-picker tick boxes stop overlapping the labels (the 10425 fix, done properly)",
+      tools: ["T08", "T09"],
+      builds: [10431],
+      risk: "low",
+      what: "CSS only. The 34px right inset moves from .gu-a-h onto .gu-area. Six tools draw these cards; four wrap the label in .gu-a-h and two (T08 what-if, T09 assignment health) write it as a bare text node, so the 10425 fix reached four of six and the two that were actually broken stayed broken. The inset now sits on the container every emitter shares. New headless suite areas-overlap-tests checks the SHAPE of the fix \u2014 that the reservation is on the shared container and that no per-shape inset has crept back \u2014 because jsdom cannot measure a collision and the symptom test would have passed either way.",
+      why: "LOW \u2014 one CSS declaration moved. Worth noting for the reviewer that this is the SECOND attempt: 10425 claimed this fix and shipped without it working, so the thing to do here is look at the screen rather than read the diff.",
+      test: [
+        "THE ONE THAT MATTERS: open T09 assignment health and T08 what-if and read the surface cards. No tick box may sit on any label. \u201cConfiguration profiles\u201d and \u201cEnrolment restrictions\u201d are the two that showed it \u2014 if those are clear, so is everything shorter.",
+        "Narrow the window until the cards reflow to one column and check again: the longest labels wrap rather than run under the box.",
+        "Check the four tools that were already right have not regressed \u2014 T02 group usage, T04 backup, T05 documenter, T06 device analyzer. Their titles must not now be double-inset and sitting oddly far from the right edge.",
+        "Confirm the description text and the Graph endpoint under each label still wrap inside the card and clear the box on the first line.",
+        "Both themes, since the card background changes and a collision is easier to miss on the darker one.",
+      ],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 86,
       title: "Demo mode \u2014 a whole fake tenant, answered at the Graph layer",
       tools: ["All tools"],

@@ -1119,17 +1119,26 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 
 /* ---------- Group Analyzer (gu-) ---------- */
 .gu-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+/* THE RIGHT INSET LIVES ON THE CARD, not on the title inside it. The tick
+   box is absolutely positioned against this card's right edge, so the space
+   it needs is the CARD's problem — every child is clear of it and no tool has
+   to remember to opt in.
+   Learned at 10431, the second attempt at this bug: 10425 put the inset on
+   .gu-a-h, which is only emitted by four of the six tools that draw these
+   cards. T08 and T09 write the label as bare text and kept the overlap the
+   fix was written for — the labels named in the comment below were, the whole
+   time, the ones still broken. */
 .gu-area{display:flex;flex-direction:column;gap:3px;border:1px solid var(--border);border-radius:12px;
-  padding:10px 12px;background:var(--soft2);cursor:pointer;position:relative}
+  padding:10px 34px 10px 12px;background:var(--soft2);cursor:pointer;position:relative}
 .gu-area:hover{border-color:var(--accent2)}
 .gu-area.on{border-color:var(--accent2);background:var(--ok-bg)}
 .gu-area input{position:absolute;top:12px;right:12px;margin:0}
 /* The box is 16px wide and sits 12px from the right edge, so it occupies
-   12-28px of that edge. Reserving 22px let the label run six pixels UNDER it,
-   which is what "Configuration profiles" and "Enrolment restrictions" were
-   doing. 34px is the box, its offset, and a gap. Inherited from ENCA, which
-   has the same 22px and has simply not had a label long enough to show it. */
-.gu-a-h{font-weight:600;font-size:13.5px;padding-right:34px}
+   12-28px of that edge; 34px is the box, its offset, and a gap. That
+   reservation is made once, on .gu-area above, so it protects the labels
+   whether a tool wraps them in this class or writes them as bare text —
+   which is the distinction the first fix missed. */
+.gu-a-h{font-weight:600;font-size:13.5px}
 /* The endpoint WRAPS rather than being cut off at the card edge. An ellipsis
    would be worse than useless here: these paths share the /deviceManagement/
    prefix and differ only in the tail, so clipping the end removes the only

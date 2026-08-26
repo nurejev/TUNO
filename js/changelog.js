@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10431, date: "2026-08-25", title: "The tick boxes stop sitting on the labels \u2014 in the two tools the first fix never reached",
+    items: [
+      { kind: "fixed", tool: "T08 · T09", text: "In the surface pickers, the tick box was printed on top of the end of the label \u2014 \u201cConfiguration profiles\u201d and \u201cEnrolment restrictions\u201d were the visible ones. This was reported before and fixed before, at build 10425, and the fix did not work: the space was reserved on the card's TITLE, and these two tools write their labels as plain text with no title element to reserve anything. The space is now reserved on the CARD, which every tool draws the same way, so it protects the label whatever shape the tool writes it in." },
+      { kind: "improved", tool: "All tools", text: "One mechanism instead of two. Having the reservation on a class only four of the six tools emitted is exactly how the same bug survived being fixed \u2014 the four that opted in looked right, the two that did not kept the fault, and both looked like the same card on screen. The headless suite now checks the shape of the fix rather than the symptom: it counts the tools that draw these cards, notes which write the label bare and which wrap it, and fails if the reservation ever moves back onto a child that a tool has to remember to use." },
+    ],
+  },
+  {
     build: 10430, date: "2026-08-25", title: "A whole demo tenant, and not one line of it inside a tool",
     items: [
       { kind: "new", tool: "All tools", text: "TUNO has a demo. Add ?demo=1, or take the link on the sign-in card, and every one of the seventeen tools runs against a fake tenant called Contoso \u2014 no sign-in, no consent prompt, nothing read from anybody's real tenant and nothing written to one." },
