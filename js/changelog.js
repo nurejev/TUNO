@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10437, date: "2026-08-26", title: "DLL events step out of the way",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "A real fleet bundle drowned the evidence in DLL rows — 112 audits of one Windows library among them — all reading undecided, which was technically true and practically noise. Generated policies omit the DLL collection on purpose (absence is the only state that restricts nothing), so a DLL load in the log is the record of that decision, not a question waiting for an answer. Those events are now set aside: out of the default view and the undecided count, behind their own chip that brings them back with the reasoning written into each row, no fix button offered, and their own section in the gap report. The one case where they classify normally is a draft that actually carries DLL rules — because then policing DLL loads was a choice, and the evidence should be judged against it." },
+    ],
+  },
+  {
     build: 10436, date: "2026-08-26", title: "Filter the evidence, clear the table",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The counts above the fleet evidence became filters: click 4 gaps to close and the table shows exactly those four rows — the fifty-row cap applies after the filter, so a handful of gaps among two hundred files never hides. The active chip reads as pressed, clicking it again shows everything, and the downloadable gap report deliberately ignores the filter, because a document for the change ticket covers everything or it is not evidence." },

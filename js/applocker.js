@@ -455,6 +455,16 @@ const AppLockerTool = (() => {
   // block is BY DESIGN: closing it is a business decision, not a repair, so it
   // gets an offer worded as one rather than a recommendation.
   function fleetRowClass(row, dv) {
+    // DLL events are SET ASIDE, not undecided — the generated policies omit
+    // the DLL collection deliberately (absence is the only state that
+    // restricts nothing), so every DLL load in the log is the record of that
+    // decision, not a question waiting for an answer. They only classify
+    // normally when the draft actually carries DLL rules, i.e. when somebody
+    // has chosen to police DLL loads on purpose.
+    if (eventCollectionType(row.sample) === "Dll") {
+      const dllCol = policy && policy.collections.find((c) => c.type === "Dll");
+      if (!dllCol || !dllCol.rules.length) return "dll";
+    }
     if (dv.s === "no-policy" || dv.s === "no-rules") return "undecided";
     if (dv.s === "allowed") return "covered";
     return /(^|%OSDRIVE%|[a-z]:)\\users\\/i.test(row.path || "") ? "bydesign" : "gap";
@@ -509,7 +519,7 @@ const AppLockerTool = (() => {
     const ci = eventsEvidence.codeIntegrity || {};
     const m = eventsEvidence.machine || {};
     const rows = aggregateFleetEvents(ev.entries || []);
-    const cls = { gap: [], bydesign: [], covered: [], undecided: [] };
+    const cls = { gap: [], bydesign: [], covered: [], undecided: [], dll: [] };
     for (const row of rows) {
       const dv = draftVerdictForEvent(row.sample);
       cls[fleetRowClass(row, dv)].push({ row, dv });
@@ -528,6 +538,7 @@ const AppLockerTool = (() => {
     L.push(`| Blocked by design — user-writable origin | ${cls.bydesign.length} |`);
     L.push(`| Covered — the draft already allows it | ${cls.covered.length} |`);
     L.push(`| Undecided — no rules for the type${policy ? "" : " (no policy loaded)"} | ${cls.undecided.length} |`);
+    L.push(`| DLL — set aside (the draft omits DLL on purpose) | ${cls.dll.length} |`);
     L.push(`| WDAC CodeIntegrity 3076 audit / 3077 block | ${ci.audit3076 ?? 0} / ${ci.block3077 ?? 0} |`);
     L.push("");
     const table = (list, withFix) => {
@@ -561,6 +572,14 @@ const AppLockerTool = (() => {
       L.push("");
       table(cls.undecided, false);
     }
+    if (cls.dll.length) {
+      L.push("");
+      L.push(`## DLL — set aside (${cls.dll.length})`);
+      L.push("");
+      L.push("The draft omits the DLL collection deliberately: AppLocker evaluates every DLL load, and absence is the only state that restricts nothing. These events are the record of that decision, not gaps. They would classify normally only if the draft carried DLL rules.");
+      L.push("");
+      table(cls.dll, false);
+    }
     if ((eventsEvidence.warnings || []).length) {
       L.push("");
       L.push(`## What the collector could not see`);
@@ -576,10 +595,10 @@ const AppLockerTool = (() => {
   function fleetGapStats() {
     if (!eventsEvidence) return null;
     const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
-    const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0 };
+    const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0 };
     for (const row of rows) {
       const c = fleetRowClass(row, draftVerdictForEvent(row.sample));
-      out[c === "bydesign" ? "bydesign" : c]++;
+      out[c]++;
     }
     return out;
   }
@@ -657,8 +676,11 @@ const AppLockerTool = (() => {
     const nGap = rowsC.filter((x) => x.c === "gap").length,
       nDesign = rowsC.filter((x) => x.c === "bydesign").length,
       nCovered = rowsC.filter((x) => x.c === "covered").length,
-      nUndecided = rowsC.filter((x) => x.c === "undecided").length;
-    const filtered = fleetFilter === "all" ? rowsC : rowsC.filter((x) => x.c === fleetFilter);
+      nUndecided = rowsC.filter((x) => x.c === "undecided").length,
+      nDll = rowsC.filter((x) => x.c === "dll").length;
+    // "all" excludes the set-aside DLL rows — that is what set aside MEANS;
+    // their own chip brings them back when someone wants to look.
+    const filtered = fleetFilter === "all" ? rowsC.filter((x) => x.c !== "dll") : rowsC.filter((x) => x.c === fleetFilter);
     const shownC = filtered.slice(0, 50);
 
     const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
@@ -692,7 +714,7 @@ const AppLockerTool = (() => {
         ${fact("WDAC 3076 audit", ci.audit3076)}${fact("WDAC 3077 block", ci.block3077)}
       </div>
       ${rows.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" role="group" aria-label="Filter the evidence table">
-        ${[["gap", nGap + " gap" + (nGap === 1 ? "" : "s") + " to close"], ["bydesign", nDesign + " blocked by design"], ["covered", nCovered + " covered by the draft"], ["undecided", nUndecided + " undecided"]]
+        ${[["gap", nGap + " gap" + (nGap === 1 ? "" : "s") + " to close"], ["bydesign", nDesign + " blocked by design"], ["covered", nCovered + " covered by the draft"], ["undecided", nUndecided + " undecided"]].concat(nDll ? [["dll", nDll + " DLL — set aside"]] : [])
           .map(([f, label]) => `<button class="btn sm al-ev-chip ${fleetFilter === f ? "primary" : ""}" data-f="${f}" title="${fleetFilter === f ? "Click again to show everything" : "Show only these rows"}">${label}</button>`).join("")}
         ${fleetFilter !== "all" ? `<button class="btn sm al-ev-chip" data-f="all" title="Drop the filter">show all</button>` : ""}
       </div>` : ""}
@@ -710,8 +732,8 @@ const AppLockerTool = (() => {
           return `<tr>
             <td style="overflow-wrap:anywhere"><code>${esc(row.path || row.binary || "(no path)")}</code>${row.publisher ? `<div class="mini muted">${esc(row.publisher)}${row.product && row.product !== "*" ? " · " + esc(row.product) : ""}</div>` : `<div class="mini muted">unsigned</div>`}</td>
             <td style="white-space:nowrap"><b>${row.count}</b>× ${row.verdict === "Blocked" ? "⛔ blocked" : "📝 audited"}${row.users.size ? `<div class="mini muted">${row.users.size} user${row.users.size === 1 ? "" : "s"}</div>` : ""}</td>
-            <td class="mini">${c === "gap" ? "🕳 " : ""}${esc(dv.text)}</td>
-            <td class="mini">${esc(fleetEventRecommendation(row, dv))}${fixBtn}</td>
+            <td class="mini">${c === "gap" ? "🕳 " : ""}${c === "dll" ? "set aside — the draft omits the DLL collection on purpose" : esc(dv.text)}</td>
+            <td class="mini">${c === "dll" ? "Nothing to do. AppLocker evaluates every DLL load; generated policies leave DLL out because absence is the only state that restricts nothing. These events are the record of that decision, not a gap." : esc(fleetEventRecommendation(row, dv))}${fixBtn}</td>
           </tr>`;
         }).join("")}
       </tbody></table></div>
