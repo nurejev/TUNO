@@ -188,8 +188,14 @@ const OverviewTool = (() => {
   async function run() {
     if (running) return;
     running = true; $("ovRun").disabled = true;
-    $("ovToolbar").style.display = "none"; $("ovSurfs").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = "";
-    const prog = (m) => { $("ovProg").textContent = m || ""; };
+    $("ovToolbar").style.display = "none"; $("ovSurfs").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = ""; $("ovBody").innerHTML = "";
+    // The one way a read looks while it runs — TunoProgress, like every
+    // other tool; 10458 shipped a hand-rolled text line, which is exactly
+    // the divergence the shared implementation exists to prevent. The card
+    // lives in #ovBody, a plain host, NOT in the .cards grid — a centred
+    // progress card as a grid item would be the fifteenth subtly different
+    // progress card.
+    const prog = (m) => TunoProgress.show("ovBody", "ovProg", m);   // ENCA-style centred card (10397)
     try {
       prog("Checking permissions…");
       // The same union T05's own run asks: every surface's read scope plus

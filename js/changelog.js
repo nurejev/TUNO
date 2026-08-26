@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10459, date: "2026-08-26", title: "The overview's read looks like every other read",
+    items: [
+      { kind: "fixed", tool: "🗂 Policy overview", text: "Reading the tenant now shows the same centred progress card — spinner, current step, the bar — that every other tool shows while it reads. The first build hand-rolled a small text line under the button instead, which is exactly the divergence the shared progress implementation exists to prevent: one way a read looks, everywhere. The step names are the documenter's own, because the read is." },
+    ],
+  },
+  {
     build: 10458, date: "2026-08-26", title: "Policy overview — the tenant as cards, at last",
     items: [
       { kind: "new", tool: "🗂 Policy overview", text: "A new tool, in BETA: every configured object in the tenant as clickable cards — the sister tool ENCA's list-policies view, applied to Intune. The thirteen configuration surfaces sit on top as stat cards saying how many objects each holds and how many actually reach somebody, and clicking one filters the grid to it; clicking again brings everything back. The verdict chips work the same way: Assigned means reaching somebody by construction — at least one include or tenant-wide target — excluded-only is its own verdict because a policy whose every assignment says not-you is a different fault from one nobody assigned at all, and an assignment filter caps reach at may, worn on the card, because the filter rule is evaluated by the service against inventory a browser cannot see. The search box matches names, types, descriptions, platforms, surfaces and assignment group names, so which policies hit this group is one keystroke run. Clicking a card opens the full policy with its settings through the Configuration documenter's own popout — the read is the documenter's own thirteen-surface read and the popout template was extracted to be shared in this build, so the two tools cannot render one policy two ways, and every value has already passed the documenter's redaction. A surface that could not be read appears as its own warning card, named and deliberately not clickable as a filter, because filtering to a surface nobody read would be an empty grid pretending to be an answer. Reads only, no new permission, no exports on purpose: the document is the documenter's job, one click away in the same popout." },
