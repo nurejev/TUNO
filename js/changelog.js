@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10444, date: "2026-08-26", title: "The queue takes ticks, and hands back an order",
+    items: [
+      { kind: "new", tool: "All tools", text: "The promotion queue in Help grew a tick box per item and an export button. Tick the items you have verified on this channel, press export, and a small file comes down — the promotion order: the ticked numbers up front, each item's title, builds, risk and files below, and a machine-readable block at the end. Hand that file to the working session and it becomes the promotion instruction. Ticks persist across reloads, keyed on the item's stable number, and a tick whose item ships is pruned rather than left pointing at nothing." },
+      { kind: "new", tool: "All tools", text: "The file says on its face what it is and is not: the ORDER, not the verification. The receiving session still checks every item against what main actually contains before building the production commit — the queue's own oldest rule, and a nicer file format does not bend it. An export with nothing ticked refuses; a stale tick for a shipped item refuses by name rather than silently dropping, because an order that quietly shrank is the same lie as a range that quietly shrank." },
+    ],
+  },
+  {
     build: 10443, date: "2026-08-26", title: "One card, one fix flow, and a header that stays in sight",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The merged card's header is now sticky, so however deep you scroll you can see whose card you are in — and Microsoft app coverage folded in as a section of the same card, its verdicts and one-click allow rules unchanged, its separate card gone. The events finding that said review the audited list below while pointing at nothing now carries that list itself: expandable in place, aggregated per file with counts and affected users — the 1068 audited executions from a real bundle become a readable list of the files behind them." },

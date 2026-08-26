@@ -70,6 +70,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 93,
+      title: "The queue takes ticks and exports a promotion order",
+      tools: ["All tools"],
+      builds: [10444],
+      risk: "low",
+      what: "Help's queue table gains a tick column (persisted in localStorage on item numbers, pruned when an item leaves the queue), a count, a clear button, and an export: PROMOTE.buildOrder(ns, APP_BUILD) produces a dated .md — ticked numbers up front, per-item detail, a JSON block for the machine — refusing an empty order and refusing a number not in the queue BY NAME. The toolbar and the file both state the rule: the file is the ORDER, not the verification; the receiving session verifies each item against main before promoting. The wiring lives outside the renderer block the pq harness extracts, so the harness still runs it without a window.",
+      why: "LOW — Help-only chrome plus a pure builder in promote.js; nothing tenant-facing changes. The one behaviour worth confirming by hand is the localStorage pruning: a tick must die with its item, or the next export after a promotion refuses on a ghost.",
+      test: [
+        "Tick two items, reload the page, reopen Help: both still ticked, the count right, export enabled. Clear ticks: all boxes off, export disabled.",
+        "Export with two ticked and read the file: the PROMOTE ITEMS line lists exactly those numbers sorted; each has its detail section; the JSON block parses; the order-not-verification sentence is present.",
+        "THE ONE THAT MATTERS: after the NEXT real promotion, reopen Help — ticks for the shipped items must be gone (pruned), and an export of the remainder must not mention them.",
+        "In a private window (no localStorage): ticking works for the session and nothing throws.",
+      ],
+      files: ["js/app.js", "js/promote.js", "index.html", "js/version.js", "js/changelog.js"],
+    },
+    {
       n: 92,
       title: "T03 policy changes filters by type, from a chip row with counts",
       tools: ["T03"],
@@ -641,3 +657,54 @@ const PROMOTE = {
     },
   ],
 };
+
+// ======================================================================
+// THE PROMOTION ORDER (build 10444). The Help queue grew tick boxes; this
+// turns the ticked numbers into a small file Mihai hands to a working
+// session as the promotion instruction.
+//
+// THE FILE IS THE ORDER, NOT THE VERIFICATION — it says which items to
+// promote, in Mihai's words, with the machine-readable order embedded. The
+// session that receives it still verifies every item against what main
+// actually contains, because the queue's own header says not to trust the
+// queue's list, and that rule does not bend for a nicer file format.
+// ======================================================================
+PROMOTE.buildOrder = function (pickedNs, appBuild) {
+  const ns = [...new Set((pickedNs || []).map(Number))].sort((a, b) => a - b);
+  if (!ns.length) throw new Error("Nothing is ticked — an empty order is not an order.");
+  const items = ns.map((n) => {
+    const it = (PROMOTE.items || []).find((i) => i.n === n);
+    if (!it) throw new Error(`Item ${n} is not in the queue — it may have shipped since the tick. Untick it and export again.`);
+    return it;
+  });
+  const when = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const beta = appBuild ? appBuild.label : "";
+  const L = [];
+  L.push("# TUNO promotion order");
+  L.push("");
+  L.push(`Generated ${when} on ${beta} · production is ${PROMOTE.productionBuild}`);
+  L.push("");
+  L.push(`PROMOTE ITEMS: ${ns.join(", ")}`);
+  L.push("");
+  L.push("For the working session: this file is the ORDER, not the verification.");
+  L.push("Verify each item against what main actually contains before building");
+  L.push("the production commit — the queue's own rule. Items promote together");
+  L.push("where their builds interleave; the session decides the cut.");
+  L.push("");
+  for (const it of items) {
+    L.push(`## Item ${it.n} — ${it.title}`);
+    L.push(`- tools: ${(it.tools || []).join(", ")}`);
+    L.push(`- beta builds: ${(it.builds || []).join(", ")}`);
+    L.push(`- risk: ${it.risk}`);
+    L.push(`- files: ${(it.files || []).join(", ")}`);
+    L.push("");
+  }
+  L.push("```json");
+  L.push(JSON.stringify({ order: ns, generated: when, betaBuild: appBuild ? appBuild.build : null, productionBuild: PROMOTE.productionBuild }));
+  L.push("```");
+  return {
+    filename: `tuno-promotion-order-${when.slice(0, 10)}.md`,
+    text: L.join("\n"),
+  };
+};
+
