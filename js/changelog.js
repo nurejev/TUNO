@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10432, date: "2026-08-25", title: "The group box suggests groups again \u2014 by any word in the name, not just the first",
+    items: [
+      { kind: "fixed", tool: "T01 \u00b7 T08 \u00b7 T11", text: "Typing in a group box suggested nothing unless you happened to type the START of the group's name. It asked Graph for names BEGINNING with what you typed, so \u201cpilot\u201d found a group called \u201cPilot ring\u201d and did not find \u201cINT-DEV-Pilot\u201d \u2014 which is how tenants actually name groups: site, then function, then purpose. The word you remember is almost never the first one. It now matches a word anywhere in the name, so the box finds the group you were thinking of." },
+      { kind: "improved", tool: "T01 \u00b7 T08 \u00b7 T11", text: "Both searches are asked and the answers merged, because neither alone is enough: word matching splits on separators, so a half-typed word finds nothing, while prefix matching still catches it. A tenant that refuses word search loses the extra matches rather than the box \u2014 the field keeps working on the prefix alone instead of going dead." },
+      { kind: "fixed", tool: "T01 \u00b7 T08 \u00b7 T11", text: "The group name is now escaped the way the rest of the read layer escapes it. It was being encoded twice, which quietly mangled any search containing an apostrophe or an ampersand \u2014 the two characters most likely to appear in a real group name." },
+    ],
+  },
+  {
     build: 10431, date: "2026-08-25", title: "The tick boxes stop sitting on the labels \u2014 in the two tools the first fix never reached",
     items: [
       { kind: "fixed", tool: "T08 · T09", text: "In the surface pickers, the tick box was printed on top of the end of the label \u2014 \u201cConfiguration profiles\u201d and \u201cEnrolment restrictions\u201d were the visible ones. This was reported before and fixed before, at build 10425, and the fix did not work: the space was reserved on the card's TITLE, and these two tools write their labels as plain text with no title element to reserve anything. The space is now reserved on the CARD, which every tool draws the same way, so it protects the label whatever shape the tool writes it in." },

@@ -70,6 +70,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 88,
+      title: "Group type-ahead matches any word in the name, not just the prefix",
+      tools: ["T01", "T08", "T11"],
+      builds: [10432],
+      risk: "low",
+      what: "Graph.searchGroups only ever sent startswith(displayName,'<term>'), so the suggestion box was prefix-only and returned nothing for the way tenants really name groups (INT-DEV-Pilot searched for as 'pilot'). It now asks $search=\"displayName:<term>\" WITH ConsistencyLevel: eventual alongside the startswith, unions and dedupes, prefix hits first. A tenant that refuses $search falls back to prefix rather than losing the field \u2014 GroupUse already learned that lesson on its own sweep. Also switched to the odata`` tagged template: the term was being encodeURIComponent'd INSIDE an OData string literal, double-encoding it.",
+      why: "LOW in blast radius, but it touches the shared read layer, so all three group boxes move together \u2014 T01's pilot picker, T08's what-if group, T11's assignment target. The judgement to make on a real tenant is whether $search's tokenising actually helps on YOUR naming convention, since it splits on separators rather than matching substrings: 'pilot' finds INT-DEV-Pilot, 'ilot' will not.",
+      test: [
+        "THE ONE THAT MATTERS: in T08, type a word from the MIDDLE of a real group's name. It must suggest the group. That is the case that returned nothing before.",
+        "Type the start of a group name and confirm prefix matching still works and that the prefix hit is listed FIRST \u2014 if you typed the beginning of the name, that is the one you meant.",
+        "Type a partial word ('pilo'). Word search tokenises and will miss it; the prefix search must still catch anything that starts that way. Neither alone is enough and the union is the point.",
+        "Try a group whose name contains an apostrophe or an ampersand. Before this build the term was double-encoded and those two characters were exactly what broke.",
+        "Check the same box in T01's pilot picker and T11's assignment target \u2014 one function serves all three, so all three changed.",
+        "On a tenant that refuses $search (or with the directory scope granted but advanced query unsupported), confirm the box still suggests on prefix rather than going silent.",
+        "Confirm no duplicate rows when a group is found by both searches.",
+      ],
+      files: ["js/graph.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 87,
       title: "Surface-picker tick boxes stop overlapping the labels (the 10425 fix, done properly)",
       tools: ["T08", "T09"],

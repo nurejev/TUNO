@@ -630,10 +630,39 @@ const Graph = (() => {
 
   // ---------- groups, for the pilot assignment ----------
 
+  // GROUP TYPE-AHEAD. Prefix matching alone is close to useless here, and it
+  // was all this did until 10432: `startswith(displayName,'pilot')` finds a
+  // group called "Pilot ring" and does NOT find "INT-DEV-Pilot", which is how
+  // tenants actually name things — site, function, purpose, in that order.
+  // Typing the word you remember returned nothing, so the field looked like
+  // it had no type-ahead at all rather than like it had searched and failed.
+  //
+  // $search matches TOKENS anywhere in the name, so the memorable word works
+  // wherever it sits. It needs ConsistencyLevel: eventual, and a tenant may
+  // still refuse it — GroupUse learned that at its own sweep and falls back,
+  // so this does too rather than leaving the field dead on those tenants.
+  //
+  // Both are asked and the results are UNIONED: $search tokenises on
+  // separators, so a partial word ("pilo") tokenises to nothing while
+  // startswith still matches it. Either alone leaves a gap the person would
+  // read as "that group does not exist".
+  const GROUP_SELECT = "id,displayName,description,groupTypes,securityEnabled,membershipRule";
   async function searchGroups(term) {
-    const q = String(term || "").replace(/'/g, "''");
-    const r = await get(`/groups?$filter=startswith(displayName,'${encodeURIComponent(q)}')&$select=id,displayName,description,groupTypes,securityEnabled,membershipRule&$top=20`, { scopes: SCOPES.groups });
-    return (r && r.value) || [];
+    const t = String(term || "").trim();
+    if (!t) return [];
+    const dedupe = (rows) => {
+      const seen = new Set();
+      return rows.filter((g) => g && g.id && !seen.has(g.id) && seen.add(g.id));
+    };
+    const prefix = get(odata`/groups?$filter=startswith(displayName,'${t}')` + `&$select=${GROUP_SELECT}&$top=20`,
+      { scopes: SCOPES.groups }).then((r) => (r && r.value) || [], () => []);
+    const tokens = get(odata`/groups?$search="displayName:${t}"` + `&$select=${GROUP_SELECT}&$top=20`,
+      { scopes: SCOPES.groups, headers: { ConsistencyLevel: "eventual" } })
+      .then((r) => (r && r.value) || [], () => []);   // a refusing tenant loses the tokens, not the field
+    const [a, b] = await Promise.all([prefix, tokens]);
+    // Prefix hits first: if you typed the start of the name, that is the one
+    // you meant, and it should not be sorted under a token match.
+    return dedupe(a.concat(b)).slice(0, 20);
   }
 
   // The number that makes an accidental target obvious before it is one.
