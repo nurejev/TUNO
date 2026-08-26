@@ -247,6 +247,20 @@ const AppLockerTool = (() => {
     return (intuneCfg.grouping || "").replace(/\s+/g, "");
   };
 
+  // The trailing version token in the house profile name — V4.0, v3.8,
+  // V4.0.1 — incremented per loop iteration: two segments gain a third
+  // (V4.0 → V4.0.1), three or more increment the last (V4.0.1 → V4.0.2).
+  // The case of the V is kept; a name with no token is returned unchanged,
+  // because inventing a version is worse than not having one.
+  function bumpVersionInName(name) {
+    const m = /^(.*[\s-][Vv])(\d+(?:\.\d+)*)$/.exec(String(name || "").trim());
+    if (!m) return name;
+    const seg = m[2].split(".");
+    if (seg.length < 3) seg.push("1");
+    else seg[seg.length - 1] = String(Number(seg[seg.length - 1]) + 1);
+    return m[1] + seg.join(".");
+  }
+
   function intuneProfileName(mode) {
     const base = (intuneCfg.displayName || "AppLocker").trim();
     const token = mode === "Enforce" ? "(Enforced)" : "(AuditOnly)";
@@ -638,7 +652,17 @@ const AppLockerTool = (() => {
     // Adopt the profile's identity so the export EDITS rather than duplicates.
     const m = APPLOCKER_OMA_RE.exec(String(settings[0].omaUri || ""));
     if (m && m[1]) intuneCfg.grouping = m[1];
-    if (p.displayName) intuneCfg.displayName = p.displayName;
+    // The next export is the NEXT iteration of this profile, so its name gets
+    // the next version — V4.0 in the tenant means V4.0.1 on the table. Typing
+    // in the name field overrides this, and a name without a token stays put.
+    if (p.displayName) intuneCfg.displayName = bumpVersionInName(p.displayName);
+    // The form inputs were filled at init and do not follow intuneCfg by
+    // themselves — sync them, the ↻ regroup button's own pattern, or the
+    // screen keeps showing the name and grouping that just stopped being true.
+    const ni = $("alIntuneName");
+    if (ni) ni.value = intuneCfg.displayName;
+    const gi = $("alIntuneGrouping");
+    if (gi) gi.value = intuneCfg.grouping;
     loadFresh();
   }
 
@@ -2439,6 +2463,13 @@ const AppLockerTool = (() => {
     };
     bind("alIntuneName", "displayName");
     bind("alIntuneGrouping", "grouping");
+    const bumpV = $("alIntuneBumpV");
+    if (bumpV) bumpV.addEventListener("click", () => {
+      intuneCfg.displayName = bumpVersionInName(intuneCfg.displayName);
+      const inp = $("alIntuneName");
+      if (inp) inp.value = intuneCfg.displayName;
+      renderCodePane();
+    });
     const regroup = $("alIntuneRegroup");
     if (regroup) regroup.addEventListener("click", () => {
       intuneCfg.grouping = newGrouping();

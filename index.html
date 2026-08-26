@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10439"></script>
+<script src="js/popup-guard.js?v=10440"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10439">
+<link rel="stylesheet" href="css/app.css?v=10440">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10439"></script>
+<script src="js/selfhost-boot.js?v=10440"></script>
 </head>
 <body>
 
@@ -411,7 +411,9 @@
               </div>
             </div>
             <div class="al-intune-form" id="alIntuneForm" style="display:none">
-              <label class="al-f"><span>Profile name</span><input id="alIntuneName" spellcheck="false"></label>
+              <label class="al-f"><span>Profile name <b title="The trailing version token (V4.0, V4.0.1 …) is part of the name. The +v button increments it — V4.0 → V4.0.1 → V4.0.2 — and it auto-increments when a deployed profile is pulled from the tenant, so the next edit carries the next number. Typing in the field overrides everything.">ⓘ</b></span>
+                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneName" spellcheck="false" style="flex:1;min-width:0">
+                <button class="btn" id="alIntuneBumpV" title="Increment the version token in the name — V4.0 → V4.0.1 → V4.0.2">+v</button></span></label>
               <label class="al-f"><span>Grouping <b title="The grouping names a CSP node and must be UNIQUE per profile — Microsoft's stated best practice is a random GUID, because two profiles sharing a grouping write the same OMA-URIs and unassigning one can delete the nodes the other depends on. TUNO prefills AppLocker-<guid>: unique like a GUID, recognisable in logs and carry-over findings. Do NOT name it pilot or production — that distinction lives in the assignment and the mode, edited in place.">ⓘ</b></span>
                 <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneGrouping" spellcheck="false" style="flex:1;min-width:0">
                 <button class="btn" id="alIntuneRegroup" title="Mint a fresh AppLocker-<guid> grouping — use when this export is a NEW deployment rather than an edit of an existing profile">↻</button></span></label>
@@ -1619,36 +1621,36 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10439"></script>
-<script src="js/selfhost.js?v=10439"></script>
-<script src="js/version.js?v=10439"></script>
-<script src="js/promote.js?v=10439"></script>
-<script src="js/authConfig.js?v=10439"></script>
-<script src="js/changelog.js?v=10439"></script>
-<script src="js/msappcatalog.js?v=10439"></script>
-<script src="js/demo.js?v=10439"></script>
-<script src="js/graph.js?v=10439"></script>
-<script src="js/suggest.js?v=10439"></script>
-<script src="js/progress.js?v=10439"></script>
-<script src="js/groupuse.js?v=10439"></script>
-<script src="js/audit.js?v=10439"></script>
-<script src="js/backup.js?v=10439"></script>
-<script src="js/document.js?v=10439"></script>
-<script src="js/devicewhy.js?v=10439"></script>
-<script src="js/whatif.js?v=10439"></script>
-<script src="js/health.js?v=10439"></script>
-<script src="js/settingsearch.js?v=10439"></script>
-<script src="js/conflict.js?v=10439"></script>
-<script src="js/compliance.js?v=10439"></script>
-<script src="js/filters.js?v=10439"></script>
-<script src="js/restore.js?v=10439"></script>
-<script src="js/assignedit.js?v=10439"></script>
-<script src="js/roles.js?v=10439"></script>
-<script src="js/defender.js?v=10439"></script>
-<script src="js/endpointsec.js?v=10439"></script>
-<script src="js/maa.js?v=10439"></script>
-<script src="js/laps.js?v=10439"></script>
-<script src="js/applocker.js?v=10439"></script>
-<script src="js/app.js?v=10439"></script>
+<script src="js/branding.js?v=10440"></script>
+<script src="js/selfhost.js?v=10440"></script>
+<script src="js/version.js?v=10440"></script>
+<script src="js/promote.js?v=10440"></script>
+<script src="js/authConfig.js?v=10440"></script>
+<script src="js/changelog.js?v=10440"></script>
+<script src="js/msappcatalog.js?v=10440"></script>
+<script src="js/demo.js?v=10440"></script>
+<script src="js/graph.js?v=10440"></script>
+<script src="js/suggest.js?v=10440"></script>
+<script src="js/progress.js?v=10440"></script>
+<script src="js/groupuse.js?v=10440"></script>
+<script src="js/audit.js?v=10440"></script>
+<script src="js/backup.js?v=10440"></script>
+<script src="js/document.js?v=10440"></script>
+<script src="js/devicewhy.js?v=10440"></script>
+<script src="js/whatif.js?v=10440"></script>
+<script src="js/health.js?v=10440"></script>
+<script src="js/settingsearch.js?v=10440"></script>
+<script src="js/conflict.js?v=10440"></script>
+<script src="js/compliance.js?v=10440"></script>
+<script src="js/filters.js?v=10440"></script>
+<script src="js/restore.js?v=10440"></script>
+<script src="js/assignedit.js?v=10440"></script>
+<script src="js/roles.js?v=10440"></script>
+<script src="js/defender.js?v=10440"></script>
+<script src="js/endpointsec.js?v=10440"></script>
+<script src="js/maa.js?v=10440"></script>
+<script src="js/laps.js?v=10440"></script>
+<script src="js/applocker.js?v=10440"></script>
+<script src="js/app.js?v=10440"></script>
 </body>
 </html>

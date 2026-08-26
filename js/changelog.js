@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10440, date: "2026-08-26", title: "The profile version counts its iterations",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The version token at the end of the profile name now moves with the loop. Pull the deployed profile from the tenant and the name on the table is already the next iteration — V4.0 in the tenant becomes V4.0.1 to edit, V4.0.1 becomes V4.0.2 — so the portal's history reads as a sequence instead of one name overwritten in place. A +v button beside the name field increments by hand, typing in the field overrides everything, and a name without a version token is left alone: inventing a version is worse than not having one. The pull also learned to sync the form fields it changes — the screen was still showing the old name and grouping after adopting a profile, which this build's own test caught." },
+    ],
+  },
+  {
     build: 10439, date: "2026-08-26", title: "Change audit narrows to one type of thing",
     items: [
       { kind: "new", tool: "T03", text: "Policy changes now has a row of type chips \u2014 Application, Device configuration, Compliance policy, and whatever else your tenant emitted \u2014 each with its count. Click one to see only those, click it again to clear. Until now the only type filter lived in the All events tab, so on the tab most people use there was no way to ask for just the app changes." },
