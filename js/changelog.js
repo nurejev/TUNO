@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10450, date: "2026-08-26", title: "Production stops calling its tools beta",
+    items: [
+      { kind: "changed", tool: "TUNO", text: "Mihai's rule, recorded on both channels: BETA is channel language and never ships to production. Here it says a tool is still proving itself on this channel; on production it named a channel the visitor is not on, sixty times over after build 9. Production build 10 translated its chips — NEW on the nine tools new to that production line, UPDATED on the six that changed in it, nothing on the rest — and this build makes it a standing rule: the promotion ritual gains a fifth step (relabel on main), the production check now fails any BETA chip that slips through, and CLAUDE.md carries the rule for future sessions. Nothing changes on this channel's own chips: BETA still means what it always meant here." },
+    ],
+  },
+  {
     build: 10449, date: "2026-08-26", title: "Fifth promotion — the whole queue ships as build 9",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 9 and takes all thirty-five queue items with it — beta builds 10357 through 10448, the largest promotion yet: nine tools (what-if, health, settings search, conflicts, compliance, Defender, firewall and ASR, multi-admin approval, the LAPS audit with the registration's first new permission in ninety-nine builds), the widened self-verifying backup with assignment import, the timeline layout across five tools, demo mode, self-host branding, and the shell polish. The queue is empty again; the roadmap's In-beta-today era stands empty on both channels, saying truthfully that they match." },
