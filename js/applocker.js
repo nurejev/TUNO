@@ -2032,38 +2032,88 @@ const AppLockerTool = (() => {
     // its own width and render() should not need to care; browsers without
     // container queries keep the table, which is the status quo.
     const shown = findings.filter((f) => sevFilter === "all" || f.sev === sevFilter);
+
+    // ONE CARD FOR RULES AND FINDINGS (10442, mockup round: option A). A
+    // finding that is ABOUT a rule renders NESTED under that rule, inside the
+    // per-collection rule tables; findings about nothing in particular — a
+    // missing collection, a scan verdict on a directory, a fleet gap — keep
+    // the table shape at the top. Two cards were two scrolls over one story:
+    // here is a rule, and here is what is wrong with it.
+    //
+    // The index space is untouched: `shown` numbers EVERY filtered finding,
+    // nested or not, and the al-fixfind/al-fixrow handlers keep reading
+    // shownFindings[i] — a nested fix is the same fix in a different seat.
+    const byRule = new Map();
+    const topFindings = [];
+    shown.forEach((f, i) => {
+      const attached = f.ruleId && policy.collections.some((c) => c.rules.some((r) => r.id === f.ruleId));
+      if (attached) {
+        if (!byRule.has(f.ruleId)) byRule.set(f.ruleId, []);
+        byRule.get(f.ruleId).push({ f, i });
+      } else topFindings.push({ f, i });
+    });
+
+    const srcMark = (f, long) => f.source === "scan"
+      ? ` <span class="tag new" title="${long ? "This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did." : "From the device scan"}">🛰</span>`
+      : f.source === "fleet" ? ` <span class="tag new" title="${long ? "This came from the fleet events evidence — a device actually tried to run it." : "From the fleet events"}">📡</span>` : "";
+
+    const fixBits = (f, i) => {
+      const key = findingKey(f);
+      const plan = planFix(f);
+      const btn = plan
+        ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
+        : "";
+      const editor = (plan && plan.mode === "editor" && fixOpen === key)
+        ? `<div class="al-fixrow" data-i="${i}">${fixEditorHtml(f, plan)}</div>`
+        : "";
+      return { plan, btn, editor };
+    };
+
     const compact = shown.length ? `<div class="al-find-compact">` +
-      shown.map((f) => {
-        const mark = f.source === "scan" ? ` <span class="tag new" title="From the device scan">🛰</span>` : f.source === "fleet" ? ` <span class="tag new" title="From the fleet events evidence">📡</span>` : "";
-        return `<div class="al-fc-row">
-          <div class="al-fc-head">${sevTag(f.sev)}${mark} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
+      shown.map((f) => `<div class="al-fc-row">
+          <div class="al-fc-head">${sevTag(f.sev)}${srcMark(f)} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
           <div class="al-fc-reason mini">${esc(f.reason)}</div>
-        </div>`;
-      }).join("") +
-      `<button class="btn al-fs al-fc-more" data-fs="alFindings" data-fslabel="Findings">⛶ Open full screen for the recommendations and one-click fixes</button>
+        </div>`).join("") +
+      `<button class="btn al-fs al-fc-more" data-fs="alFindings" data-fslabel="Rules and findings">⛶ Open full screen for the recommendations and one-click fixes</button>
       </div>` : "";
-    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Findings")}Findings <span class="mini muted">— static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
-      compact +
-      (shown.length ? `<div class="al-find-table" style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
-        shown.map((f, i) => {
-          const key = findingKey(f);
-          const plan = planFix(f);
-          const btn = plan
-            ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
-            : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply">—</span>`;
-          const mark = f.source === "scan" ? ` <span class="tag new" title="This verdict came from the device scan. The browser cannot read an ACL — the scan can, and did.">🛰</span>` : f.source === "fleet" ? ` <span class="tag new" title="This came from the fleet events evidence — a device actually tried to run it.">📡</span>` : "";
-          // The fix button lives UNDER the recommendation it carries out, not
-          // in a column of its own at the far right. As its own column it was
-          // the first thing pushed off the edge on any narrow window, so the
-          // one control on the row that does something was the one you had to
-          // scroll sideways to reach.
-          const row = `<tr><td>${sevTag(f.sev)}${mark}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : ""}</td></tr>`;
-          const editor = (plan && plan.mode === "editor" && fixOpen === key)
-            ? `<tr class="al-fixrow" data-i="${i}"><td colspan="6" style="padding:0">${fixEditorHtml(f, plan)}</td></tr>`
-            : "";
-          return row + editor;
-        }).join("") +
-        `</tbody></table></div>` : `<p class="mini muted">Nothing at this severity.</p>`);
+
+    // The findings that belong to no rule keep the six-column table.
+    const topTable = topFindings.length ? `<div class="al-find-table" style="overflow-x:auto"><table class="plist"><thead><tr><th style="width:74px"></th><th style="width:92px">Collection</th><th style="width:19%">Rule</th><th style="width:17%">Condition</th><th style="width:26%">Reason</th><th style="width:26%">Recommendation</th></tr></thead><tbody>` +
+      topFindings.map(({ f, i }) => {
+        const { plan, btn, editor } = fixBits(f, i);
+        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
+        return row + (editor ? `<tr class="al-fixhost"><td colspan="6" style="padding:0">${editor}</td></tr>` : "");
+      }).join("") +
+      `</tbody></table></div>` : "";
+
+    // The rules, per collection, each carrying its own findings — OUTSIDE the
+    // container-query switch, because the rule list must stay reachable in the
+    // narrow column where the findings table folds into the compact summary.
+    const nestedCount = shown.length - topFindings.length;
+    const rulesHtml = policy.collections.map((col) => col.rules.length ? `<h4 class="mini" style="margin:12px 0 6px">${esc(COLLECTION_LABEL[col.type] || col.type)} · ${esc(col.mode)}</h4>
+        <div style="overflow-x:auto"><table class="plist"><tbody>` + col.rules.map((r) => {
+          const c = r.conditions[0] || {};
+          const cond = c.kind === "path" ? c.path : c.kind === "publisher" ? `${c.publisher} · ${c.product} · ${c.binary} [${c.low},${c.high}]` : c.kind === "hash" ? `${(c.hashes || []).length} hash(es)` : "";
+          const mine = byRule.get(r.id) || [];
+          const nested = mine.map(({ f, i }) => {
+            const { plan, btn, editor } = fixBits(f, i);
+            return `<div class="al-rule-find" style="margin-top:6px;padding:5px 9px;border-left:2px solid var(--warn-bd);background:var(--soft2)">
+              ${sevTag(f.sev)}${srcMark(f, true)} <span class="mini">${esc(f.reason)}</span>
+              ${f.cond && f.cond !== cond ? `<div class="mini muted" style="margin-top:2px;overflow-wrap:anywhere"><code>${esc(f.cond)}</code></div>` : ""}
+              <div class="mini muted" style="margin-top:2px">${esc(f.rec)}</div>
+              ${btn ? `<div style="margin-top:5px">${btn}</div>` : ""}${editor}</div>`;
+          }).join("");
+          return `<tr><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
+            <td>${esc(r.name)}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div>${nested}</td>
+            <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
+            <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
+        }).join("") + `</tbody></table></div>` : "").join("");
+
+    $("alFindings").innerHTML = `<h3 style="margin:0 0 8px">${fsBtn("alFindings", "Rules and findings")}Rules and findings <span class="mini muted">— a rule's findings sit under the rule; the rest lead. Static checks; NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>` +
+      compact + topTable +
+      (shown.length === 0 ? `<p class="mini muted">Nothing at this severity.</p>` : "") +
+      (nestedCount ? `<p class="mini muted" style="margin:8px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} sit${nestedCount === 1 ? "s" : ""} under the rule${nestedCount === 1 ? "" : "s"} they are about, below.</p>` : "") +
+      rulesHtml;
     // Handlers below index into `shown`, so it must outlive this function.
     shownFindings = shown;
 
@@ -2099,18 +2149,10 @@ const AppLockerTool = (() => {
             : ""}</td></tr>`;
       }).join("") + `</tbody></table></div>`;
 
-    // ---- rules / builder ----
-    $("alRules").innerHTML = `<h3 style="margin:0 0 8px">Rules</h3>` +
-      policy.collections.map((col) => col.rules.length ? `<h4 class="mini" style="margin:12px 0 6px">${esc(COLLECTION_LABEL[col.type] || col.type)} · ${esc(col.mode)}</h4>
-        <div style="overflow-x:auto"><table class="plist"><tbody>` + col.rules.map((r) => {
-          const c = r.conditions[0] || {};
-          const cond = c.kind === "path" ? c.path : c.kind === "publisher" ? `${c.publisher} · ${c.product} · ${c.binary} [${c.low},${c.high}]` : c.kind === "hash" ? `${(c.hashes || []).length} hash(es)` : "";
-          return `<tr><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
-            <td>${esc(r.name)}${risky.has(r.id) ? ' <span class="tag new">⚠ flagged</span>' : ""}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div></td>
-            <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
-            <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
-        }).join("") + `</tbody></table></div>` : "").join("");
 
+    // The rules render lives inside the merged card above (10442); the old
+    // #alRules host stays empty.
+    $("alRules").innerHTML = "";
     // The add-rule form lives in its own host high in the column, not at the
     // bottom of the rules list. Same markup, same ids, wired by the same
     // wireDynamic() below — only its address changed.

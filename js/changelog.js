@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10442, date: "2026-08-26", title: "Rules and findings become one card",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The rules list and the findings table told one story in two places: here is a rule, and here is what is wrong with it. Now they are one card. A finding that is about a rule sits nested under that rule, inside the per-collection rule tables — severity, reason, recommendation and the fix button right where the rule is, with the judgement editors opening in place. Findings about nothing in particular — a missing collection, the enforcement judgement, a fleet gap — keep the table shape at the top. The severity filters, the compact narrow-column summary and every fix behave exactly as before; the page just stopped asking you to scroll the same story twice. Chosen by mockup round over folding the rules away behind the findings." },
+    ],
+  },
+  {
     build: 10441, date: "2026-08-26", title: "One table — the fleet gaps become findings",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The findings table and the fleet evidence were two tables saying the same kind of thing about the same files — a file needs a decision — and together they made the overview long. Now there is one. Every fleet gap is a finding: a 📡-marked row beside the audit's and the scan's, carrying the event count and the still-blocked reason, closed through the same one-click fix framework as everything else — publisher when signed, hash when the event carries one, exact path last, undo one click away. The evidence card shrank to what only it can say: the device facts, one counts line (gaps, blocked by design, covered, undecided, DLL set aside) that links into the findings, the gap report download, and the pull-from-tenant chooser. Covered and by-design files need no rows on a working screen — they are reassurance, and reassurance lives in the counts and the report. The filter chips retired with the second table they filtered." },
