@@ -1514,6 +1514,15 @@ const AppLockerTool = (() => {
     // when signed, hash when the event carries one, exact path last. Applied
     // through the same mutate/undo as every other fix.
     if (fx.kind === "hashUnsigned" && fx.artifacts.length) {
+      // Applied once already? The rules this fix would add exist by name, so
+      // Apply would add NOTHING — a button that silently does nothing was the
+      // bug report, verbatim. No fix is offered when there is nothing to do.
+      const types = [...new Set(fx.artifacts.map((a2) => a2.collection || "Exe"))];
+      const allExist = types.every((t) => {
+        const col2 = policy.collections.find((c) => c.type === t);
+        return col2 && col2.rules.some((r2) => r2.name === `${BRANDING.name}: unsigned in writable locations (${t}, hash)`);
+      });
+      if (allExist) return null;
       return {
         mode: "editor", editor: "confirm", label: `Add hash rules (${fx.artifacts.length})…`,
         title: "Open the fix card — it lists the hashes before anything is added",
@@ -1746,7 +1755,13 @@ const AppLockerTool = (() => {
     const q = (sel) => root.querySelector(sel);
 
     if (plan.editor === "confirm") {
-      return mutate(plan.undoLabel, plan.apply);
+      const applied = mutate(plan.undoLabel, plan.apply);
+      if (!applied) {
+        // The one way a confirm apply comes back false is the dedupe: the
+        // rule(s) it would add already exist by name from an earlier apply.
+        q(".al-fx-hint").textContent = "Nothing to add — these rules already exist (from an earlier apply). Find them in the Rules card; delete them there first if you want to rebuild.";
+      }
+      return applied;
     }
 
     if (plan.editor === "enforcement") {

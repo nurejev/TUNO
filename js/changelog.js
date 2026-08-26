@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10453, date: "2026-08-26", title: "Apply is never a dead button",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The Add-hash-rules fix deduplicates by rule name, so applying it a second time added nothing — and said nothing, which reads as a broken button. Two corrections: a fix whose rules already exist is not offered at all any more, and any confirm-card Apply that ends up adding nothing now says why right in the card — the rules already exist from an earlier apply, and deleting them in the Rules card is the way to rebuild." },
+    ],
+  },
+  {
     build: 10452, date: "2026-08-26", title: "A flood of gaps becomes one finding",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Adding five DLL hash allows put rules into the Dll collection — and one rule in a collection makes AppLocker enforce the whole collection, so every other DLL the fleet had loaded woke up as a would-block and the findings table became a scroll of two hundred rows. The flood was true, but a finding you cannot read is not a finding. More than eight gaps in one collection now collapse into a single High row: the count, the reason they all woke, and every file behind an expand-and-collapse — with a recommendation that says the honest thing: allowing DLLs one hash at a time is not a policy; decide whether the collection should be governed at all, or remove its rules and the events go back to set-aside. A handful of gaps keep their individual rows and their fix cards. Long unbroken file names also stopped crushing the neighbouring columns." },
