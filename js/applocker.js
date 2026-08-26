@@ -692,7 +692,7 @@ const AppLockerTool = (() => {
     const signedIn = !noGraph && Graph.signedIn();
     const chooser = policy ? "" : `
       <div class="al-dep-ok" style="margin-bottom:10px"><b>Evidence loaded — now give it a policy to judge against.</b>
-        <div class="mini" style="margin-top:4px">Two ways: <b>upload</b> the draft (scan bundle or policy XML, same Upload button as this file used) — or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
+        <div class="mini" style="margin-top:4px">Two ways: <b>upload</b> the draft (scan bundle or policy XML, the 📂 button in step 2) — or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
         <div style="margin-top:8px">
           ${noGraph ? "" : !signedIn
             ? `<span class="mini muted">Sign in (top right) and a button appears here to fetch the AppLocker profile.</span>`
@@ -2332,6 +2332,9 @@ const AppLockerTool = (() => {
       e.target.value = "";
     });
     $("alImport").addEventListener("click", () => $("alFile").click());
+    // The events entrance — same picker, same content-routed import. The
+    // second button exists for the READER: two acts, two buttons.
+    $("alImportEv").addEventListener("click", () => $("alFile").click());
     // Start over: everything off the table in one act — policy, scan, events
     // evidence, the tenant-pull state, the loop's manual marks, the undo
     // stack. Confirmed first because there is no undo past this, and the
