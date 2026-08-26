@@ -2146,7 +2146,7 @@ const AppLockerTool = (() => {
       const key = findingKey(f);
       const plan = planFix(f);
       const btn = plan
-        ? `<button class="btn sm ${plan.mode === "auto" ? "primary" : ""} al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
+        ? `<button class="btn sm al-fixfind" data-i="${i}" title="${esc(plan.title)}">🔧 ${esc(plan.label)}</button>`
         : "";
       const editor = (plan && plan.mode === "editor" && fixOpen === key)
         ? `<div class="al-fixrow" data-i="${i}">${fixEditorHtml(f, plan)}</div>`
@@ -2232,7 +2232,7 @@ const AppLockerTool = (() => {
         return `<tr><td><b>${esc(row.app.name)}</b><div class="mini muted">${esc(row.app.context)}</div></td>
           <td>${verdictTag(v.status, v.audit)}</td>
           <td class="mini" style="word-break:normal;overflow-wrap:anywhere">${detail}${canFix
-            ? `<div style="margin-top:8px"><button class="btn sm primary al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button></div>`
+            ? `<div style="margin-top:8px"><button class="btn sm al-fix" data-i="${i}" title="${esc(row.app.fix.note)}">🔧 Add allow rule</button></div>`
             : ""}</td></tr>`;
       }).join("") + `</tbody></table></div>`;
 

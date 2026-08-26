@@ -70,6 +70,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 96,
+      title: "T01 — one outline family for fix and allow buttons",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10448],
+      risk: "low",
+      what: "Coverage's Add-allow-rule loses its primary class; the findings' conditional primary (auto plans) goes with it. One outline family everywhere, the label carrying one-click-vs-editor: act-named labels act, Fix… opens. Picked by Mihai from three mocked options (all-outline / all-primary / keep-convention-align-size). t01-fix asserts no fix/allow button is primary; a mutation re-adding it fails.",
+      why: "LOW — a class change; every handler untouched and asserted so. The judgement to confirm on screen: with the dark affordance gone, the coverage table's blocked rows must still draw the eye to their fix — if they stop being found, the convention was doing work and this item should be reverted by its number.",
+      test: [
+        "Load a scan with blocked Microsoft apps and confirm the Add-allow-rule button is found without hunting — the row's blocked badge has to carry what the dark button used to.",
+        "Apply one auto fix and one Fix… editor fix; both must behave exactly as before the restyle.",
+        "Both themes: the outline family must remain visible on the cream and dark panels alike.",
+      ],
+      files: ["js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 95,
       title: "T01 step 1 — the companion scripts fold",
       tools: ["🔐 AppLocker builder & validator"],

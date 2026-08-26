@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10448, date: "2026-08-26", title: "One family of fix buttons",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The coverage table's Add-allow-rule button wore the dark primary style while the findings' fix buttons were outline, and the two never read as one family. Mihai picked the quiet option from three: every fix and allow action is now the same outline button, and the wording carries the difference — a label that names an act (Set AuditOnly, Add allow rule, Add collection) happens on the click; a label trailing an ellipsis (Fix…) opens the editor. The suite holds the family together: a primary class creeping back onto either side fails it." },
+    ],
+  },
+  {
     build: 10447, date: "2026-08-26", title: "The companion scripts fold away",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Step 1's eight download rows were most of a screen before the tool's own work began. The scanner — the act step 1 exists for — stays out; the seven companions and the paragraph explaining them fold under one line: cleanup pair, IT-TOOLS provisioning pair, events-collection set. A native fold, closed by default, no script behind it to break; find-in-page still opens it." },
