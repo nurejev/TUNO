@@ -63,7 +63,25 @@ const Graph = (() => {
 
   const app = () => (provider && provider.getApp && provider.getApp()) || null;
   const account = () => (provider && provider.getAccount && provider.getAccount()) || null;
-  const signedIn = () => !!(app() && account());
+  const signedIn = () => demo || !!(app() && account());
+
+  // ---------- demo mode ----------
+  //
+  // THE WHOLE OF DEMO MODE IS THESE FEW LINES. Every read and every write in
+  // every tool passes through call() below, so standing here once is enough:
+  // no tool knows demo mode exists, no tool has a branch for it, and a tool
+  // written next year gets it for nothing. ENCA needed roughly eighty
+  // branches for the same feature because it had no single place to stand —
+  // that difference is architectural, not effort.
+  //
+  // The flag is one-way ON PURPOSE. A session that has looked at fake data
+  // must not be able to slide back into a real tenant with a stale screen
+  // still up; leaving the demo is a page load, which is also what makes the
+  // "am I looking at real data?" question answerable by looking at the URL.
+  let demo = false;
+  const useDemo = () => { demo = true; };
+  const isDemo = () => demo;
+  const DEMO_LATENCY = () => (typeof TUNO_DEMO_GRAPH !== "undefined" ? TUNO_DEMO_GRAPH.LATENCY_MS : 0);
 
   // The scopes each capability needs, named where they are used so a reader
   // can see what a button costs before pressing it.
@@ -96,6 +114,15 @@ const Graph = (() => {
     groups: ["Group.Read.All"],
     groupMembers: ["GroupMember.Read.All"],
     directory: ["User.Read.All", "Group.Read.All"],
+    // Windows LAPS escrow METADATA — device name and backup time, never the
+    // password. Added at build 10429 with T18 (R29), the R18 rule: a new
+    // scope goes on in the open, with the tool that needs it. ReadBasic is
+    // deliberate — DeviceLocalCredential.Read.All returns password values
+    // and belongs to R10's helpdesk viewer if that ever ships, not to an
+    // audit. Graph also gates this endpoint on the CALLER'S directory role
+    // (Intune Administrator among them), so consent alone does not open it —
+    // T18's screen says so rather than printing a bare 403.
+    laps: ["DeviceLocalCredential.ReadBasic.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,
@@ -137,7 +164,11 @@ const Graph = (() => {
       (p.scp || "").split(" ").filter(Boolean).forEach((s) => granted.add(scopeName(s)));
     } catch { /* opaque or malformed token — leave the cache alone */ }
   }
-  const hasScopes = (scopes) => (scopes || []).every((s) => granted.has(scopeName(s)));
+  // In demo mode every scope reads as granted. Not a shortcut: a demo that
+  // asked for consent would open a real Microsoft sign-in for a tenant it is
+  // not going to touch, which is worse than confusing — it is a login prompt
+  // the person did not ask for and cannot usefully answer.
+  const hasScopes = (scopes) => demo || (scopes || []).every((s) => granted.has(scopeName(s)));
 
   // DOES THIS ERROR MEAN "ASK THE USER"?
   //
@@ -229,6 +260,7 @@ const Graph = (() => {
   // configuration scope — the incremental principle is per RUN rather than
   // per request, which is the granularity a person can actually consent to.
   async function ensureScopes(scopes) {
+    if (demo) return true;
     const want = [...new Set(scopes || [])];
     if (!want.length || hasScopes(want)) return true;
     if (!signedIn()) throw new GraphError("auth", "Not signed in.");
@@ -272,6 +304,27 @@ const Graph = (() => {
   // `retry` is opt-in and only reads ever pass it — see rule 3 in the header.
   async function call(method, path, { body, scopes, headers, retry } = {}) {
     const url = safeGraphUrl(path);
+
+    // THE INTERCEPTION. Before the token, before the fetch — so a demo
+    // session cannot acquire a credential it has no use for, and cannot
+    // reach the network even if a route below is missing. The router hands
+    // back a fault descriptor rather than throwing, and it is turned into a
+    // real GraphError here, so every tool's error handling stays on exactly
+    // the path it already knows.
+    if (demo) {
+      await sleep(DEMO_LATENCY());
+      const r = TUNO_DEMO_GRAPH.answer(method, url, body);
+      if (r && r.__demoFault) {
+        const f = r.__demoFault;
+        let kind = "graph";
+        if (f.status === 401) kind = "auth";
+        else if (f.status === 404) kind = "notfound";
+        else if (f.status === 403) kind = /Authorization_RequestDenied|insufficient privileges/i.test(f.message) ? "admin" : "graph";
+        throw new GraphError(kind, f.message, { status: f.status, code: f.code, requestId: "demo" });
+      }
+      return r;
+    }
+
     const send = async () => {
       const at = await token(scopes || SCOPES.profiles);
       return fetch(url, {
@@ -577,10 +630,39 @@ const Graph = (() => {
 
   // ---------- groups, for the pilot assignment ----------
 
+  // GROUP TYPE-AHEAD. Prefix matching alone is close to useless here, and it
+  // was all this did until 10432: `startswith(displayName,'pilot')` finds a
+  // group called "Pilot ring" and does NOT find "INT-DEV-Pilot", which is how
+  // tenants actually name things — site, function, purpose, in that order.
+  // Typing the word you remember returned nothing, so the field looked like
+  // it had no type-ahead at all rather than like it had searched and failed.
+  //
+  // $search matches TOKENS anywhere in the name, so the memorable word works
+  // wherever it sits. It needs ConsistencyLevel: eventual, and a tenant may
+  // still refuse it — GroupUse learned that at its own sweep and falls back,
+  // so this does too rather than leaving the field dead on those tenants.
+  //
+  // Both are asked and the results are UNIONED: $search tokenises on
+  // separators, so a partial word ("pilo") tokenises to nothing while
+  // startswith still matches it. Either alone leaves a gap the person would
+  // read as "that group does not exist".
+  const GROUP_SELECT = "id,displayName,description,groupTypes,securityEnabled,membershipRule";
   async function searchGroups(term) {
-    const q = String(term || "").replace(/'/g, "''");
-    const r = await get(`/groups?$filter=startswith(displayName,'${encodeURIComponent(q)}')&$select=id,displayName,description,groupTypes,securityEnabled,membershipRule&$top=20`, { scopes: SCOPES.groups });
-    return (r && r.value) || [];
+    const t = String(term || "").trim();
+    if (!t) return [];
+    const dedupe = (rows) => {
+      const seen = new Set();
+      return rows.filter((g) => g && g.id && !seen.has(g.id) && seen.add(g.id));
+    };
+    const prefix = get(odata`/groups?$filter=startswith(displayName,'${t}')` + `&$select=${GROUP_SELECT}&$top=20`,
+      { scopes: SCOPES.groups }).then((r) => (r && r.value) || [], () => []);
+    const tokens = get(odata`/groups?$search="displayName:${t}"` + `&$select=${GROUP_SELECT}&$top=20`,
+      { scopes: SCOPES.groups, headers: { ConsistencyLevel: "eventual" } })
+      .then((r) => (r && r.value) || [], () => []);   // a refusing tenant loses the tokens, not the field
+    const [a, b] = await Promise.all([prefix, tokens]);
+    // Prefix hits first: if you typed the start of the name, that is the one
+    // you meant, and it should not be sorted under a token match.
+    return dedupe(a.concat(b)).slice(0, 20);
   }
 
   // The number that makes an accidental target obvious before it is one.
@@ -606,6 +688,15 @@ const Graph = (() => {
     odata, isGuid, chunk, setThrottleHandler, safeGraphUrl,
     // consent (build 10322)
     ensureScopes, hasScopes, needsInteraction, isPopupBlocked,
-    grantedScopes: () => [...granted],
+    // The permissions screen reads this to paint its chips. In demo mode it
+    // answers with every scope the app can ask for, marked as granted — and
+    // the screen says "simulated" beside them, because a permissions page
+    // that quietly showed a real-looking grant would be the one screen in the
+    // app where the demo told a lie worth believing.
+    grantedScopes: () => (demo
+      ? [...new Set(Object.values(SCOPES).flat().map(scopeName))]
+      : [...granted]),
+    // demo (build 10426)
+    useDemo, isDemo,
   };
 })();

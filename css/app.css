@@ -853,7 +853,16 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 .tool:hover{border-color:var(--accent2);transform:translateY(-2px)}
 .tool-ic{font-size:30px;margin-bottom:12px}
 .tool h3{font-size:17px;letter-spacing:-.01em;margin-bottom:8px;color:var(--green)}
-.tool p{font-size:13px;color:var(--muted);line-height:1.5}
+/* CLAMPED. The tile CSS is otherwise ENCA's byte for byte; what differed was
+   the prose. ENCA's blurbs run 17-63 words, ours 111-175, and a grid row takes
+   the height of its tallest card - so one long description inflated the whole
+   row and the home screen became a wall.
+   The text stays in the markup, where Help and the exports still read it; the
+   TILE shows four lines. Clamping rather than rewriting is the durable half of
+   the choice: the next long blurb someone writes clamps too, instead of
+   reopening this. */
+.tool p{font-size:13px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .readme{margin-top:26px;padding:26px;max-width:1180px}
 .readme h3{font-size:16px;margin-bottom:10px;color:var(--green)}
 .readme h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent2);margin:18px 0 6px}
@@ -1110,12 +1119,35 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 
 /* ---------- Group Analyzer (gu-) ---------- */
 .gu-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+/* THE RIGHT INSET LIVES ON THE CARD, not on the title inside it. The tick
+   box is absolutely positioned against this card's right edge, so the space
+   it needs is the CARD's problem — every child is clear of it and no tool has
+   to remember to opt in.
+   Learned at 10431, the second attempt at this bug: 10425 put the inset on
+   .gu-a-h, which is only emitted by four of the six tools that draw these
+   cards. T08 and T09 write the label as bare text and kept the overlap the
+   fix was written for — the labels named in the comment below were, the whole
+   time, the ones still broken. */
 .gu-area{display:flex;flex-direction:column;gap:3px;border:1px solid var(--border);border-radius:12px;
-  padding:10px 12px;background:var(--soft2);cursor:pointer;position:relative}
+  padding:10px 34px 10px 12px;background:var(--soft2);cursor:pointer;position:relative}
 .gu-area:hover{border-color:var(--accent2)}
 .gu-area.on{border-color:var(--accent2);background:var(--ok-bg)}
 .gu-area input{position:absolute;top:12px;right:12px;margin:0}
-.gu-a-h{font-weight:600;font-size:13.5px;padding-right:22px}
+/* The box is 16px wide and sits 12px from the right edge, so it occupies
+   12-28px of that edge; 34px is the box, its offset, and a gap. That
+   reservation is made once, on .gu-area above, so it protects the labels
+   whether a tool wraps them in this class or writes them as bare text —
+   which is the distinction the first fix missed. */
+.gu-a-h{font-weight:600;font-size:13.5px}
+/* The endpoint WRAPS rather than being cut off at the card edge. An ellipsis
+   would be worse than useless here: these paths share the /deviceManagement/
+   prefix and differ only in the tail, so clipping the end removes the only
+   part that identifies which one you are looking at. */
+.gu-area code{white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.45}
+.gu-area > .mini{min-width:0}
+/* the toggle sits with the section heading, not among the cards */
+.gu-areas-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.gu-areas-all{flex-shrink:0;white-space:nowrap}
 /* Compact. Four numbers do not need the height of a button, and the label
    should not outweigh the figure it labels. */
 .gu-sum{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
@@ -1204,6 +1236,13 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .gu-m-foot .spacer{margin-left:auto}
 .gu-fail .why{display:block;color:var(--muted);margin-top:2px;font-size:12px}
 
+/* The group name in a sweep is a control, and has to look like one before it
+   is hovered — the whole feature is invisible if the row reads as plain text.
+   Underline on hover only, so a long table does not become a wall of rules. */
+.gu-gopen{color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)}
+.gu-gopen:hover{color:var(--accent2);border-bottom-style:solid}
+.gu-gopen b{cursor:pointer}
+
 /* "back to the sweep" — only rendered when a finished sweep is parked */
 .gu-back{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
 
@@ -1267,7 +1306,6 @@ main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-
   /* the header wraps instead of pushing the page wide: host string hidden
      (decoration), tenant box on its own row, long names ellipsised */
   .hwrap{flex-wrap:wrap;row-gap:6px;padding:10px 14px}
-  #brandHost{display:none}
   .tenant{flex:1 1 100%;min-width:0;justify-content:flex-end}
   #tenantName,#tenantUser{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48vw}
   /* wide tables (permissions overview, per-policy summaries) scroll inside
@@ -1368,6 +1406,9 @@ main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-
 .rm-era::before{content:"";position:absolute;left:-27px;top:3px;width:12px;height:12px;border-radius:50%;
   background:var(--green);border:3px solid var(--surface);box-shadow:0 0 0 2px var(--green)}
 .rm-era.future::before{background:var(--surface);box-shadow:0 0 0 2px var(--green)}
+/* ENCA's marker for the beta era: lemon, which in this palette is the signal
+   colour — "here, and not in production yet" is the roadmap's one live state. */
+.rm-era.beta::before{background:var(--lemon);box-shadow:0 0 0 2px var(--green)}
 .rm-era.far::before{box-shadow:0 0 0 2px var(--border)}
 .rm-era h3{margin:0 0 8px;font-size:15px}
 /* Roadmap reference. Monospaced and quiet: it is a handle for pointing at an
@@ -1514,6 +1555,24 @@ body.wide .readme p{max-width:1100px}
    readable, it is less. */
 body.with-side .readme{max-width:none}
 body.with-side .readme p{max-width:1100px}
+/* THE HOME CENTRES ITS OWN COLUMN (build 10423, option A of a two-option
+   mockup round). The 10399 shell widened main to 1500 and every tool
+   screen's cards widened with it (the .readme cap lifted just above) — but
+   the home grid kept its 1180 cap and stayed left-anchored, so the leftover
+   ~320px piled up as a dead band on the home's right edge: the home is the
+   one screen that is nothing BUT the capped block. The grid, its section
+   headings and the title centre as ONE unit — the headings take the grid's
+   own cap so every left edge stays aligned, which is what makes this read
+   as a narrower page rather than scattered pieces. Scoped to #screen-home
+   because .home-title also opens the roadmap, whose 820px timeline is
+   left-anchored: centring the title there would tear the two apart. The
+   "Show N more" button is inline and cannot take auto margins, so it gets
+   the same offset the centring produces, clamped at zero for screens
+   narrower than the cap. */
+body.with-side #screen-home .home-title,
+body.with-side #screen-home .tool-sec,
+body.with-side #screen-home .tools{max-width:1180px;margin-left:auto;margin-right:auto}
+body.with-side #screen-home .home-more{margin-left:max(0px, calc((100% - 1180px)/2))}
 
 /* ---- side navigation shell (build 10380) ----
    The console layout the category leaders use: a fixed sidebar with every
@@ -1536,9 +1595,16 @@ body.with-side .readme p{max-width:1100px}
   background:var(--surface);border-right:1px solid var(--border);padding:12px 10px 24px}
 .sidenav h4{margin:16px 10px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 .sidenav h4:first-of-type{margin-top:12px}
-.sidenav button{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
+/* flex, not block, so the T number can be pushed to the right and the NAME
+   is what truncates. Appended to the label it would have been the first thing
+   ellipsised, on exactly the longer names it is most useful for. */
+.sidenav button{display:flex;align-items:center;width:100%;text-align:left;border:0;background:none;color:var(--ink);cursor:pointer;
   font:inherit;font-size:13px;font-weight:600;padding:7px 10px;border-radius:8px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  white-space:nowrap;overflow:hidden}
+.sidenav .sn-txt{overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* Quiet: the number is for finding and quoting a tool, not for reading past. */
+.sidenav .sn-t{margin-left:auto;padding-left:8px;flex:0 0 auto;
+  font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--muted)}
 .sidenav button:hover{background:var(--soft)}
 .sidenav button.active{background:var(--green);color:#fff}
 :root[data-theme="dark"] .sidenav button.active{color:var(--green-deep)}
@@ -1576,7 +1642,8 @@ body.with-side .toolnav-inner > :last-child{margin-right:0}
    like the expanded one, just on top instead of beside. */
 body.with-side.side-min .sidenav:not(.peek){width:56px;padding:12px 6px 24px}
 body.with-side.side-min .sidenav:not(.peek) h4{height:0;overflow:hidden;padding:0;margin:10px 8px;border-top:1px solid var(--border)}
-body.with-side.side-min .sidenav:not(.peek) .sn-txt{display:none}
+body.with-side.side-min .sidenav:not(.peek) .sn-txt,
+body.with-side.side-min .sidenav:not(.peek) .sn-t{display:none}
 body.with-side.side-min .sidenav:not(.peek) button{text-align:center;padding:7px 0}
 body.with-side.side-min .sidenav:not(.peek) .sn-ic{margin:0;width:100%}
 body.with-side.side-min .sidenav:not(.peek) .sn-toggle{text-align:center;padding:2px 0 6px}
@@ -1976,3 +2043,172 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
    lands hidden behind them. */
 .help-page h3[id]{scroll-margin-top:130px}
 .help-page #helpPromote{scroll-margin-top:130px}
+
+/* ============ T01 — the audit loop strip ============
+   Every color comes from the theme variables, so the strip follows the
+   light/dark/auto themes for free — nothing here names a literal color. */
+.al-loop-row{display:flex;align-items:stretch;gap:4px;flex-wrap:wrap}
+.al-loop-st{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:6px 10px;border-radius:10px;border:1px solid transparent;background:var(--soft2);
+  cursor:pointer;min-width:76px;text-align:center}
+.al-loop-st:hover{border-color:var(--border)}
+.al-loop-st .al-loop-ico{font-size:16px;line-height:1}
+.al-loop-st .al-loop-name{font-size:11px;font-weight:600;color:var(--muted)}
+.al-loop-st .al-loop-sub{font-size:10.5px;color:var(--faint);max-width:110px}
+.al-loop-st.done{background:var(--ok-bg2);border-color:var(--ok-bd)}
+.al-loop-st.done .al-loop-name{color:var(--on)}
+.al-loop-st.done .al-loop-sub{color:var(--on)}
+.al-loop-st.warn{background:var(--warn-bg2);border-color:var(--warn-bd)}
+.al-loop-st.warn .al-loop-name,.al-loop-st.warn .al-loop-sub{color:var(--warn-fg)}
+.al-loop-st.here{outline:2px solid var(--accent2);outline-offset:1px}
+.al-loop-arrow{align-self:center;color:var(--faint);font-size:12px}
+.al-loop-back{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)}
+.al-loop-head{display:flex;align-items:center;gap:8px}
+.al-loop-head b{font-size:13px}
+.al-loop-toggle{margin-left:auto}
+.al-loop-mini{font-size:12px;color:var(--muted)}
+/* Loop-strip jump targets sit under the sticky header; without this the
+   station lands hidden behind it. */
+.al-steps,#alSummary,#alDeploy,#alEvents,#alEnforce,#alRemedyDetails,#alEmpty{scroll-margin-top:130px}
+/* Manual marks on the loop strip: the tick lives OUTSIDE the station button
+   (nested buttons are invalid HTML and eat each other's clicks), and a
+   hand-marked station is DASHED — a claim, never dressed as evidence. */
+.al-loop-wrap{position:relative;display:inline-flex}
+.al-loop-st.manual{border-style:dashed}
+.al-loop-mark{position:absolute;top:-1px;right:3px;border:none;background:none;cursor:pointer;
+  font-size:13px;line-height:1;padding:2px;color:var(--faint)}
+.al-loop-mark:hover{color:var(--muted)}
+.al-loop-mark.on{color:var(--on)}
+
+/* ============ T03 Change audit — the 10413 redesign (Option A) ============
+   Stat cards, range popover, filter dialog, and a timeline whose cards
+   expand in place. Dot colours come from the house tokens so the dark
+   theme keeps working without a second set of rules. */
+.au-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative}
+.au-badge{display:inline-block;background:var(--ok-bg);color:var(--on);border-radius:9px;padding:0 7px;font-size:11px;font-weight:700;vertical-align:1px}
+.au-pop{position:absolute;z-index:60;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);display:flex;gap:0;overflow:hidden}
+.au-pop-side{display:flex;flex-direction:column;padding:8px;border-right:1px solid var(--line);min-width:150px}
+.au-pop-item{border:0;background:none;text-align:left;padding:7px 12px;border-radius:8px;font-size:13px;color:var(--ink);cursor:pointer}
+.au-pop-item:hover{background:var(--hover)}
+.au-pop-item.active{background:var(--ok-bg);color:var(--on);font-weight:600}
+.au-pop-main{padding:12px 14px;display:flex;flex-direction:column;gap:8px;max-width:260px}
+.au-pop-main input[type="date"]{margin-left:6px}
+.au-dlg-back{position:fixed;inset:0;background:rgba(18,51,31,.35);z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 16px}
+.au-dlg{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:18px 22px;width:min(680px,100%);max-height:80vh;overflow:auto}
+.au-dlg-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.au-dlg-h .btn{margin-left:auto}
+.au-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}
+.au-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
+.au-card-l{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.au-card-n{font-size:22px;font-weight:700;margin:2px 0;overflow-wrap:anywhere}
+.au-card-n.au-card-t{font-size:16px}
+.au-card-n.ok{color:var(--on)}.au-card-n.bad{color:var(--off)}
+.au-card-s{font-size:11.5px;color:var(--muted)}
+.au-tl{position:relative;margin-top:12px;padding-left:34px}
+.au-tl::before{content:"";position:absolute;left:11px;top:10px;bottom:10px;width:2px;background:var(--border)}
+.au-ev{position:relative;margin-bottom:10px}
+.au-dot{position:absolute;left:-34px;top:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;background:var(--muted)}
+.au-dot.create{background:var(--on)}.au-dot.delete{background:var(--off)}
+.au-dot.update{background:var(--report)}.au-dot.assign,.au-dot.action{background:var(--accent2)}
+.au-ev-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:0 10px 10px 0;padding:10px 14px;cursor:pointer}
+.au-ev.create .au-ev-card{border-left-color:var(--on)}
+.au-ev.delete .au-ev-card{border-left-color:var(--off)}
+.au-ev.update .au-ev-card{border-left-color:var(--report)}
+.au-ev.assign .au-ev-card,.au-ev.action .au-ev-card{border-left-color:var(--accent2)}
+.au-ev-card:hover{background:var(--hover)}
+.au-ev.open .au-ev-card{background:var(--surface)}
+.au-ev-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.au-when{margin-left:auto;white-space:nowrap}
+.au-op{display:inline-block;padding:1px 9px;border-radius:11px;font-size:11px;font-weight:700}
+.au-op.create{background:var(--ok-bg);color:var(--on)}
+.au-op.delete{background:#fdeceb;color:var(--off)}
+.au-op.update{background:var(--warn-bg);color:var(--report)}
+.au-op.assign,.au-op.action{background:var(--soft);color:var(--accent2)}
+.au-op.other{background:var(--line);color:var(--muted)}
+.au-ev-m .au-chev{color:var(--muted)}
+.au-detail{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;cursor:default}
+.au-detail-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 14px}
+.au-detail-grid code{overflow-wrap:anywhere}
+ul.au-diff{margin:2px 0 0;padding-left:18px}
+ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
+:root[data-theme="dark"] .au-dot{color:var(--green-deep)}
+:root[data-theme="dark"] .au-op.delete{background:rgba(176,74,58,.2)}
+
+/* Folded result rows — the 10413 unfold pattern outside a timeline, shared
+   by T13/T09/T07/T12. Reuses the audit's card anatomy; the accent names a
+   VERDICT here (ok/warn/bad/muted) rather than an operation. */
+.au-fold{margin-bottom:10px}
+.au-fold>.au-ev-card{border-radius:10px}
+.au-fold.ok>.au-ev-card{border-left-color:var(--on)}
+.au-fold.warn>.au-ev-card{border-left-color:var(--report)}
+.au-fold.bad>.au-ev-card{border-left-color:var(--off)}
+.au-fold.dim>.au-ev-card{opacity:.65}
+.au-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.au-2col>div{background:var(--soft2);border-radius:8px;padding:8px 10px}
+@media (max-width:760px){.au-2col{grid-template-columns:1fr}}
+/* T03's type chips. Pills rather than stat cards, because there can be a
+   dozen of them and a dozen stat cards is a screen of its own — these are a
+   narrowing control, not a summary. The count stays legible when the chip is
+   not picked, since the counts are the answer before anything is clicked. */
+.au-types{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.au-type{font:inherit;font-size:12.5px;cursor:pointer;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap}
+.au-type b{font-weight:700;color:var(--ink);margin-left:2px}
+.au-type:hover{border-color:var(--accent2)}
+.au-type.active{border-color:var(--accent2);background:var(--ok-bg);color:var(--green-deep)}
+.au-type.active b{color:var(--green-deep)}
+
+/* Stat cards that are also buttons (T09's kind filter). Same anatomy as
+   .au-card; the button chrome is stripped and the active state says which
+   kind the list is narrowed to. */
+button.au-card-btn{text-align:left;cursor:pointer;font:inherit;color:inherit}
+button.au-card-btn:hover{background:var(--hover)}
+button.au-card-btn.active{border-color:var(--on);box-shadow:0 0 0 1px var(--on) inset}
+button.au-card-btn:disabled{cursor:default;opacity:.6}
+
+/* ---------- demo mode (build 10430) ----------
+   Warn colours, not the brand's: the bar has to read as an interruption
+   every time the eye passes it, and the lemon is what the app uses when it
+   is pleased with itself. It is not dismissible and has no close control —
+   see the note on the markup. */
+.demo-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:9px 18px;background:var(--warn-bg);border-bottom:1px solid var(--warn-bd);
+  color:var(--warn-fg);font-size:13px;line-height:1.45}
+.demo-bar strong{letter-spacing:.06em;font-size:11.5px;padding:2px 8px;border-radius:4px;
+  background:var(--warn-fg);color:var(--warn-bg);white-space:nowrap}
+.demo-bar span{flex:1 1 260px;min-width:0}
+.demo-bar a{color:var(--warn-fg);font-weight:600;white-space:nowrap}
+/* The bar sticks ABOVE the header rather than scrolling away, because a
+   warning you can leave behind by scrolling is one you will forget by the
+   second screen. The header then sticks below it, and the sidebar — which is
+   position:fixed and knows nothing about either — has to be told.
+
+   --demo-bar-h is MEASURED in js/app.js rather than assumed: the bar wraps to
+   two lines on a narrow window, and a hardcoded height would slide the rail
+   under it at exactly the width where the rail matters most. */
+.demo-bar{position:sticky;top:0;z-index:60}
+body.demo-mode header{top:var(--demo-bar-h,40px)}
+body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
+/* The merged Rules-and-findings card header stays IN SIGHT while the long
+   card scrolls (10443). Theme vars only; inside the ⛶ panel the sticky
+   anchors to the panel top instead of the page header. */
+.al-merged-head{position:sticky;top:calc(var(--sticky-nav,110px));background:var(--surface);
+  z-index:5;padding:4px 0 8px;margin:-4px 0 8px;border-bottom:1px solid var(--line)}
+#fsBody .al-merged-head{top:0}
+/* 10445: sticky NEVER engages inside a clipped ancestor, and .list-card sets
+   overflow:hidden for its rounded corners — which is why the header quietly
+   did not stick. This card gets overflow:visible; its padding keeps content
+   off the corners, and the inner tables carry their own scrollers. The id
+   selector also outweighs the mobile .list-card{overflow-x:auto} rule. */
+#alFindings.list-card{overflow:visible}
+
+/* 10447: the companion-script fold in T01 step 1. Native details; the
+   summary reads as a row of the same list, not as a widget. */
+.al-dl-more{border:1px dashed var(--border);border-radius:10px;padding:6px 12px}
+.al-dl-more[open]{border-style:solid;padding-bottom:10px}
+.al-dl-more>summary{cursor:pointer;list-style:none;padding:4px 0;color:var(--muted)}
+.al-dl-more>summary::-webkit-details-marker{display:none}
+.al-dl-more>summary:hover{color:var(--ink)}
+.al-dl-more[open]>summary{margin-bottom:8px}
+.al-dl-more[open]>summary .muted{transform:rotate(180deg);display:inline-block}
+.al-dl-more>.al-dl-row{margin-bottom:8px}

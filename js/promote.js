@@ -54,7 +54,7 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 8.
+  // Verified against `git show main:js/version.js` — main is at build 9.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
   // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
@@ -62,129 +62,17 @@ const PROMOTE = {
   // items 44, 58, 59 and 63-67 (10360, 10378-10380, 10384-10405 less the
   // held builds) as build 8 — the second partial promotion.
   //
-  // What remains: T08 what-if, T09 health, T10 settings search (41-43),
-  // and the three IntuneShade reads — the assignment matrix (60), the
-  // setting conflict scan (61) and the compliance report (62) — each held
-  // in beta until it has run against a real tenant.
-  productionBuild: "v1.0.8",
+  // Items 41-43, 60-62 and 68-96 (beta 10357-10448) went as build 9 — the
+  // FULL-QUEUE promotion, and the first ordered by the exported promotion
+  // file (item 93's own feature, eating its own dog food).
+  //
+  // THE QUEUE IS EMPTY. Every tool on this channel is also in production;
+  // the only differences left are the two permanent ones in staying[]. An
+  // empty queue is a state worth returning to: it means "beta and main
+  // match", and the next item added is the whole of the next promotion.
+  productionBuild: "v1.0.9",
 
   items: [
-    {
-      n: 62,
-      title: "R22 — the compliance report (T13)",
-      tools: ["📈 Compliance report"],
-      builds: [10383, 10395, 10398],
-      risk: "medium",
-      what: "New tool T13 (js/compliance.js), after Alper Atar's IntuneShade (MIT). Estate: managedDevices ($select minimal, paged) bucketed compliant/noncompliant/grace/unknown/other, stale threshold on screen (default 30 days, never-synced counts stale), compliant-AND-stale counted in both columns with the tension stated. Policies: deviceCompliancePolicies?$expand=assignments, then deviceStatusOverview + deviceSettingStateSummaries per policy via $batch; only settings failing somewhere shown, worst-first sort; status-gap tag when a rollup could not be read (unknown ≠ clean); unassigned = 'evaluates nobody' tag. Failed estate/policy read marks that half unknown, not zero. No new scope. Exports MD + CSV + stale CSV. Tile (Monitoring), screen, tab, sidebar, t:13. R22 card to Now with the HTML-export departure tagged 'next'.",
-      why: "MEDIUM — reads only on existing scopes, but the two rollup endpoints' field names (successCount/failedCount, settingName, nonCompliantDeviceCount) are asserted against fabricated shapes, not a real tenant's, and beta moves. The stale arithmetic and the both-columns rule are headlessly proven; whether Graph's rollup matches the portal's numbers on a real tenant is not provable here. Graduates when a real tenant's report matches the portal's compliance blade for the same policies, give or take the rollup's refresh lag.",
-      test: [
-        "THE ONE THAT MATTERS: run against a real tenant and compare three policies' numbers with the portal's compliance blade — same order of magnitude, differences explained by the rollup's refresh schedule.",
-        "A device that has not synced for more than the threshold must appear in the stale table, oldest first; set the threshold to 1 day and watch the stale count grow accordingly.",
-        "A compliant device with an old last-sync must be counted in BOTH compliant and stale, and the both-columns warning must appear.",
-        "An unassigned compliance policy must wear the 'unassigned' tag; a tenant with none must show no false tags.",
-        "Revoke DeviceManagementManagedDevices.Read.All mid-session: the estate half must read as unknown while the policy half still renders (and vice versa for the config scope).",
-        "A policy whose deviceStatusOverview 404s must be listed with 'status gap', never dropped, and the MD export must name it in the gaps line.",
-        "Exports: MD tables well-formed; stale CSV row count equals the on-screen stale count.",
-      ],
-      files: ["js/compliance.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 61,
-      title: "R20 — the setting conflict scan (T12)",
-      tools: ["⚔️ Setting conflict scan"],
-      builds: [10382, 10393, 10395, 10396],
-      risk: "medium",
-      what: "New tool T12 (js/conflict.js), after Alper Atar's IntuneShade (MIT). Reads via Docs.collect() over settingsCatalog + deviceConfigurations + admx — no second read path. Identity: sc defId / admx category+name / dc type+property; cross-surface CSP collisions stated as NOT detected. Verdicts from assignments: can (shared include or tenant-wide meets reach), may (different groups; any filter caps at may), cannot (one side has no include and no tenant-wide — reaches nobody by construction). Docs.assignmentOf now carries filterId/filterType (additive; nothing else renders them). Redacted values skipped and counted, agreement is not a finding, unread surfaces named. MD + CSV exports. Tile, screen, tab, sidebar, t:12.",
-      why: "MEDIUM — reads only over an already-proven read path, but the engine's judgements (identity keys, verdict boundaries) have run against fabricated shapes, not a real tenant's, and a conflict scan that mis-keys produces confident nonsense. Graduates when a real tenant's scan shows a known-true conflict as 'can', a known-deliberate baseline split as 'may', and no cross-type device-config false positives.",
-      test: [
-        "THE ONE THAT MATTERS: create two settings-catalog policies setting the same definition to different values, assign both to one group — the scan must find exactly that setting, verdict 'can collide', both values shown.",
-        "Re-assign one to a different group: verdict drops to 'may collide' with the shared-members reason.",
-        "Put an assignment filter on one: verdict must cap at 'may' and name the filter as the reason.",
-        "Unassign one policy entirely: 'cannot collide — reaches nobody as assigned'.",
-        "Two policies agreeing on a value must NOT appear; a secret-bearing setting (e.g. a password field) must be skipped and counted, never compared.",
-        "Two device configurations of DIFFERENT types with same-named properties must not be matched; two of the SAME type must be.",
-        "Revoke the config read scope: the scan must name the unread surfaces as unknown, not report a clean tenant.",
-      ],
-      files: ["js/conflict.js", "js/document.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 60,
-      title: "R19 — the assignment matrix, the sweep's second face",
-      tools: ["🔗 Group Analyzer"],
-      builds: [10381],
-      risk: "low",
-      what: "T02 v0.4, after Alper Atar's IntuneShade (MIT). The sweep gains a Table/Matrix view switch rendered from the ONE read it already does — switching asks the tenant nothing. Matrix: groups × surfaces grid, includes as the count, exclusions as their own red −n per surface (sweepTotals grew bySourceExc; bySource still counts everything, so the table and all three exports are unchanged), dangling groups keep the deleted flag, group click opens single-group mode via the tile's own handler. Opt-in empty-group peek: $top=1 transitiveMembers per group, $batch 20/trip (T09's technique), GroupMember.Read.All asked on the click; failed probe renders 'reach?' (unknown), success 'empty' or nothing. Absent-not-empty until run, and the screen says so.",
-      why: "LOW — reads only, one optional scope already in the app's read set, no export or table changes (asserted headless). The judgement calls worth real eyes: the sticky first column and header on a 300-group matrix, and whether −n reads as exclusions without a legend.",
-      test: [
-        "THE ONE THAT MATTERS: sweep a real tenant, switch to Matrix — no network activity on the switch (DevTools), counts per cell must equal the table's per-surface numbers, with exclusions split out as −n.",
-        "A group with only exclusions on a surface must show only −n in that cell, never a positive count.",
-        "Click 'Check which groups are empty': one consent prompt at most, then batched probes; a known-empty group reads 'empty', a populated one gains no tag, and the button disappears once peeked.",
-        "Break one probe (revoke GroupMember.Read.All mid-session or use a group you cannot read): that row must say 'reach?', not 'empty'.",
-        "Click a group name in the matrix: single-group mode opens and runs with that group, tab bar and sidebar still agree.",
-        "Dangling (deleted) groups: flagged in the matrix, not clickable, never counted as coverage.",
-        "Exports (MD/CSV/HTML) byte-identical to a pre-10381 sweep of the same tenant, modulo timestamps.",
-      ],
-      files: ["js/groupuse.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 43,
-      title: "Settings search — from the definition to the policy",
-      tools: ["🔦 Settings search"],
-      builds: [10359],
-      risk: "medium",
-      what: "T10, after Ugur Koc's IntuneAssignmentChecker (MIT). Search the settings-catalog definition catalog (~17k definitions, one beta read, held in memory per session) with ranked token matching, then optionally read the tenant's settings-catalog policies (the backup's N+1, pooled) to answer 'who sets it, to what value'. Usage column is ABSENT until read, never empty; child settings indexed under their own definition ids; values pass Docs.redactValue — the documenter's gate, one implementation. Reads only, one scope.",
-      why: "MEDIUM — read-only and additive, but two things carry real risk: the redaction gate is now load-bearing for a second tool, and the catalog read is the largest single read TUNO makes (~17k objects), which is where throttling behaviour and memory actually get tested. A wrong 'nothing sets it' would also invite somebody to configure a duplicate.",
-      test: [
-        "THE ONE THAT MATTERS: search for a setting you know carries a secret (a Wi-Fi pre-shared key, an OMA-URI password) in a tenant that sets one, with usage read. The value column must show the redaction marker, not the value. If the value appears, do not promote — this is the disclosure-engine case.",
-        "Read the catalog on a real tenant and note the count and the time. It should land in the tens of seconds, survive a 429 (watch for the throttle notice), and the page must stay responsive while searching afterwards.",
-        "Search 'bitlocker recovery' and confirm ranked results: names starting with the term above names containing it, keyword hits below those. Then search a word that only appears in descriptions and confirm it still lands, ranked last.",
-        "Pick a setting configured in exactly one policy as a CHILD of a choice setting and confirm usage finds it — the child-indexing is the part a naive walker misses.",
-        "Before reading usage, confirm every result says 'not read' rather than 'nothing sets it'; after reading, confirm a genuinely-unused definition says 'nothing sets it'. Those are different sentences and both must appear in the right place.",
-        "Make one policy's settings unreadable (RBAC-scope an account, or pick a tenant with a scoped role) and confirm the failure is named and the export says the usage column is missing that policy's settings.",
-        "Platform filter: pick Windows and confirm macOS-only definitions drop out; clear it and confirm they return.",
-      ],
-      files: ["js/settingsearch.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 42,
-      title: "Assignment health — what looks configured and is not",
-      tools: ["🩺 Assignment health"],
-      builds: [10358],
-      risk: "medium",
-      what: "T09, after Ugur Koc's IntuneAssignmentChecker (MIT). Six finding kinds over one assignment read: policies assigned to transitively EMPTY groups (one-row peek, batched), DANGLING references to deleted groups, UNASSIGNED policies (enrolment restrictions exempt — their defaults are unassigned by design), EXCLUDED-ONLY policies, one group included AND excluded on the same policy, and optionally FAILED deployments from the cheap per-policy status on device configurations, compliance, scripts and remediations — with the surfaces that keep status behind the reports API named as unchecked. GroupUse.intuneHits gained an opt-in `unassigned` flag keyed on the assignments array being empty; T02/T06/T08 pass nothing and are unchanged. Reads only.",
-      why: "MEDIUM — read-only, nothing existing changes behaviour, but the shared reader was touched and the findings invite cleanup actions: a wrong 'empty group' or 'unassigned' row could prompt somebody to delete configuration that is actually live. The exemption list and the unknown-vs-empty distinctions are where a mistake would do real work.",
-      test: [
-        "THE ONE THAT MATTERS: create a test group with no members, assign a test policy to it, run. It must appear under empty-group findings. Add one member (or a nested group WITH a member), re-run, and it must disappear — transitively is the word being tested.",
-        "Nest an empty group inside an empty group, assign to the parent, and confirm it still reads as empty — a direct-members check would pass it.",
-        "Assign a policy to a group, delete the group, re-run: the assignment must land under dangling, not empty, and the two lists must not double-count it.",
-        "Create a policy with no assignments and confirm it is found; then confirm the built-in enrolment restriction defaults are NOT listed — the exemption is deliberate and this is its test.",
-        "Create a policy whose only assignment is an exclusion and confirm the excluded-only finding; add an include of the same group and confirm it moves to the include+exclude contradiction instead.",
-        "Run with the deployment-status toggle on against a tenant with at least one known-failing deployment and confirm the counts match the portal's device status blade for that policy.",
-        "Run T02, T06 and T08 after this change and confirm no unassigned rows appear in any of them — the flag is opt-in and this is the regression that matters.",
-        "Revoke Group.Read.All consent (or run as a user without it) and confirm empty-group findings come back as UNKNOWN rather than as an empty list that reads clean.",
-      ],
-      files: ["js/health.js", "js/groupuse.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 41,
-      title: "Assignment what-if — the delta before the change",
-      tools: ["🔮 Assignment what-if"],
-      builds: [10357],
-      risk: "medium",
-      what: "T08, after Ugur Koc's IntuneAssignmentChecker (MIT). Pick a user or a device, name a group, and see what joining or leaving would change: gained, lost, pre-excluded, unchanged — with 'lost by joining' (an exclusion on the group) called out, uninstall intents labelled as removals, filtered rows kept at 'may' in both directions, and tenant-wide targets excluded from the delta because membership does not move them. Joins carry the group's own transitive parents; leaves rebuild the closure from the remaining direct memberships; a membership held only through nesting says so instead of simulating an impossible removal. Compare mode: two to four groups side by side, differences only. Assignments read through GroupUse.SOURCES — no second endpoint list. Reads only.",
-      why: "MEDIUM — a new read-only tool; nothing existing changes behaviour. The risk is an answer that is WRONG rather than missing: a simulation that overstates or understates a delta invites a membership change on bad evidence. The closure logic (join inherits parents, leave recomputes from remaining directs) is the part that most needs a real directory, because nested and dynamic groups are exactly where hand-reasoning fails.",
-      test: [
-        "THE ONE THAT MATTERS: take a user, pick a group with at least one policy assigned, and run the join simulation. Then actually add them, run T02 or T06 for the real answer, and compare. Every gained row must appear; anything that applied which the simulation did not predict is a miss worth a bug report. Remove them afterwards.",
-        "Join a group that is EXCLUDED from a policy the user receives today. The policy must appear under LOST with 'an exclusion on this group takes it away' — this is the row the tool exists for.",
-        "Simulate joining a group that is itself a member of a parent carrying assignments. The parent's policies must appear as gained, marked as coming through inheritance. A what-if that misses this understates every nested join.",
-        "Simulate leaving a group the subject is only in through nesting. The tool must say the membership is inherited and produce an empty delta — not simulate a removal the portal cannot perform.",
-        "Simulate leaving a group whose policies the subject ALSO receives through a second group. Those policies must NOT appear as lost — the closure rebuild is what this checks, and it is the easiest thing to get wrong.",
-        "Pick a dynamic group and confirm the answer is labelled as conditional on the rule, for join and for leave both.",
-        "Compare two groups with deliberately different assignments and confirm only the differences are listed, with the identical remainder counted. Then compare a group with itself via a parent-child pair and confirm the child column includes everything the parent's does.",
-        "Run as a device subject on a machine with no Entra device id and confirm the refusal is explained rather than an empty answer.",
-      ],
-      files: ["js/whatif.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
   ],
 
   staying: [
@@ -198,3 +86,54 @@ const PROMOTE = {
     },
   ],
 };
+
+// ======================================================================
+// THE PROMOTION ORDER (build 10444). The Help queue grew tick boxes; this
+// turns the ticked numbers into a small file Mihai hands to a working
+// session as the promotion instruction.
+//
+// THE FILE IS THE ORDER, NOT THE VERIFICATION — it says which items to
+// promote, in Mihai's words, with the machine-readable order embedded. The
+// session that receives it still verifies every item against what main
+// actually contains, because the queue's own header says not to trust the
+// queue's list, and that rule does not bend for a nicer file format.
+// ======================================================================
+PROMOTE.buildOrder = function (pickedNs, appBuild) {
+  const ns = [...new Set((pickedNs || []).map(Number))].sort((a, b) => a - b);
+  if (!ns.length) throw new Error("Nothing is ticked — an empty order is not an order.");
+  const items = ns.map((n) => {
+    const it = (PROMOTE.items || []).find((i) => i.n === n);
+    if (!it) throw new Error(`Item ${n} is not in the queue — it may have shipped since the tick. Untick it and export again.`);
+    return it;
+  });
+  const when = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const beta = appBuild ? appBuild.label : "";
+  const L = [];
+  L.push("# TUNO promotion order");
+  L.push("");
+  L.push(`Generated ${when} on ${beta} · production is ${PROMOTE.productionBuild}`);
+  L.push("");
+  L.push(`PROMOTE ITEMS: ${ns.join(", ")}`);
+  L.push("");
+  L.push("For the working session: this file is the ORDER, not the verification.");
+  L.push("Verify each item against what main actually contains before building");
+  L.push("the production commit — the queue's own rule. Items promote together");
+  L.push("where their builds interleave; the session decides the cut.");
+  L.push("");
+  for (const it of items) {
+    L.push(`## Item ${it.n} — ${it.title}`);
+    L.push(`- tools: ${(it.tools || []).join(", ")}`);
+    L.push(`- beta builds: ${(it.builds || []).join(", ")}`);
+    L.push(`- risk: ${it.risk}`);
+    L.push(`- files: ${(it.files || []).join(", ")}`);
+    L.push("");
+  }
+  L.push("```json");
+  L.push(JSON.stringify({ order: ns, generated: when, betaBuild: appBuild ? appBuild.build : null, productionBuild: PROMOTE.productionBuild }));
+  L.push("```");
+  return {
+    filename: `tuno-promotion-order-${when.slice(0, 10)}.md`,
+    text: L.join("\n"),
+  };
+};
+

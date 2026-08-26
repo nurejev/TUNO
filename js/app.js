@@ -117,7 +117,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -196,23 +196,90 @@ const Fs = (() => {
     console.info(`${BRANDING.name} ${APP_BUILD.full}`);
   })();
 
-  // ---------- branding ----------
+  // ---------- branding, including per-audience overrides ----------
+  // ENCA's mechanism, ported with the self-host gear (js/selfhost.js). The
+  // active look: BRANDING, unless a brand override is selected — via the
+  // ?brand= query, a stored choice from earlier in the session, or the
+  // signed-in account's UPN domain; the "selfhost" override (registered by
+  // js/selfhost.js from the gear or /selfhost-branding.json) is the fallback
+  // when nothing else is chosen.
+  const BRAND_STORE = "tuno-brand";
+  function activeOverrideKey() {
+    const q = new URLSearchParams(location.search).get("brand");
+    if (q != null) {
+      try { q && typeof BrandOverrides !== "undefined" && BrandOverrides.byKey(q) ? sessionStorage.setItem(BRAND_STORE, q) : sessionStorage.removeItem(BRAND_STORE); } catch { /* private mode */ }
+      return q;
+    }
+    try { const s = sessionStorage.getItem(BRAND_STORE); if (s) return s; } catch { /* private mode */ }
+    return (typeof BrandOverrides !== "undefined" && BrandOverrides.byKey("selfhost")) ? "selfhost" : null;
+  }
+  function activeBrand() {
+    if (typeof BRANDING === "undefined") return null;
+    const o = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
+    return o ? Object.assign({}, BRANDING, o.brand, { colors: BRANDING.colors }) : BRANDING;
+  }
+  // Colour overrides land as inline :root properties; remember what we set so
+  // switching back to the default look actually removes them.
   let appliedBrandColors = [];
   function applyBranding(B) {
     if (!B) return;
+    // Publish before painting: activeBrand() hands back a MERGED COPY rather
+    // than mutating the global BRANDING — anything reading the global directly
+    // would keep showing the deployment's own logo under an override.
     Brand.setActive(B);
     const set = (id, fn) => { const el = $(id); if (el) fn(el); };
     document.title = Brand.pageTitle;
     set("favicon", (el) => { if (B.favicon) el.href = B.favicon; });
     // The mark is the PRODUCT's (TUNO office logo), not the org's — alt follows.
-    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => { if (B.logo) el.src = B.logo; el.alt = B.name || B.org; }));
+    ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => {
+      if (B.logo) el.src = B.logo;
+      el.alt = B.name || B.org;
+      // Wide wordmarks (the default marks are 1:1) keep their aspect: fix the
+      // height the layout expects and let the width follow.
+      if (B.logoWide) { el.style.height = id === "brandLogo" ? "34px" : "56px"; el.style.width = "auto"; }
+      else { el.style.height = ""; el.style.width = ""; }
+    }));
+    // Dark mode swaps the DEFAULT logo via a CSS content: rule; flag the root
+    // when an override is active so that rule stands down (see app.css).
+    const oBrand = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
+    const oKey = oBrand ? oBrand.key : "";
+    if (oKey) document.documentElement.setAttribute("data-brand", oKey);
+    else document.documentElement.removeAttribute("data-brand");
+    // Override palettes ship as a stylesheet, scoped per theme — explicit
+    // light/dark via data-theme, auto via prefers-color-scheme — so both
+    // modes get a palette designed for them (appended last, so it wins ties).
+    document.getElementById("brandOverrideCss")?.remove();
+    // The pre-paint boot stylesheet (js/selfhost-boot.js) hands over here:
+    // its palette matches what this function is about to apply, but its
+    // logo content:url rule would beat the src= this function sets, so it
+    // must not outlive the authoritative branding pass.
+    document.getElementById("selfhostBootCss")?.remove();
+    if (oBrand) {
+      const decl = (obj) => Object.entries(obj || {}).filter(([k, v]) => k.startsWith("--") && v)
+        .map(([k, v]) => `${k}:${v}`).join(";");
+      const both = decl(oBrand.brand.colors), L = decl(oBrand.brand.colorsLight), D = decl(oBrand.brand.colorsDark);
+      const sel = `:root[data-brand="${oKey}"]`;
+      const css = [
+        both ? `${sel}{${both}}` : "",
+        L ? `${sel}[data-theme="light"]{${L}}
+@media (prefers-color-scheme: light){ ${sel}:not([data-theme="dark"]){${L}} }` : "",
+        D ? `${sel}[data-theme="dark"]{${D}}
+@media (prefers-color-scheme: dark){ ${sel}:not([data-theme="light"]){${D}} }` : "",
+      ].filter(Boolean).join("\n");
+      const tag = document.createElement("style");
+      tag.id = "brandOverrideCss";
+      tag.textContent = css;
+      document.head.appendChild(tag);
+    }
     set("brandOrg", (el) => {
+      // A wordmark logo already carries the name — drawing it again as text
+      // next to it is redundant.
+      el.style.display = B.hideOrgName ? "none" : "";
       const org = B.org || "";
       const tail = B.orgSplit && org.endsWith(B.orgSplit) ? B.orgSplit : "";
       el.innerHTML = tail ? `${esc(org.slice(0, org.length - tail.length))}<span>${esc(tail)}</span>` : esc(org);
     });
     set("brandTag", (el) => { el.textContent = B.name; });
-    set("brandHost", (el) => { el.textContent = B.host || ""; el.style.display = B.host ? "" : "none"; });
     set("brandLoginTitle", (el) => { el.textContent = B.loginTitle || Brand.title; });
     set("brandLoginBlurb", (el) => { if (B.loginBlurb) el.textContent = B.loginBlurb; });
     set("brandFoot", (el) => { el.textContent = [B.copyright, B.name].filter(Boolean).join(" · "); });
@@ -227,7 +294,15 @@ const Fs = (() => {
       if (k.startsWith("--") && v) { document.documentElement.style.setProperty(k, v); appliedBrandColors.push(k); }
     });
   }
-  applyBranding(BRANDING);
+  applyBranding(activeBrand());
+  // Self-host branding can change after first paint — the deployment file
+  // arrives async, and the ⚙ gear saves without a reload. Repainting resets
+  // document.title, so the ribbon's channel tag has to be put back on.
+  document.addEventListener("tuno:brand-updated", () => {
+    applyBranding(activeBrand());
+    const rb = $("betaRibbon");
+    if (rb && rb.dataset.titleTag && !document.title.startsWith("[")) document.title = rb.dataset.titleTag + " " + document.title;
+  });
 
   // ---------- beta / preview ribbon ----------
   // The production deployment lives on BRANDING.host; any other origin (the
@@ -238,6 +313,10 @@ const Fs = (() => {
       const here = location.hostname.toLowerCase();
       if (!prod || !here || here === prod) return;
       const r = document.createElement("div");
+      // The id and titleTag are the seam js/selfhost.js softens: a deployment
+      // file turns this into the neutral SELF-HOSTED ribbon.
+      r.id = "betaRibbon";
+      r.dataset.titleTag = "[BETA]";
       r.textContent = "⚠ BETA — not production";
       r.style.cssText = "position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;" +
         "background:#b04a3a;color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;padding:7px 22px;" +
@@ -247,6 +326,198 @@ const Fs = (() => {
     } catch { /* cosmetic only */ }
   })();
   const isProduction = () => { try { return location.hostname.toLowerCase() === (BRANDING.host || "").toLowerCase(); } catch { return true; } };
+
+  // ---------- "select all" for every surface picker ----------
+  // Six tools render a .gu-areas grid of tick boxes and none of them offered a
+  // way to clear the lot. Rather than six copies of the same button, the shell
+  // adds one to each grid's heading row and drives it by dispatching a real
+  // change event on every box — which is precisely what clicking them one at a
+  // time does, so each tool's own listener updates its own state and nothing
+  // here needs to know what that state is.
+  //
+  // Label follows ENCA's idiom for a toggle-all: it states what pressing it
+  // will DO, not what is currently true.
+  function initAreaPickers() {
+    document.querySelectorAll(".gu-areas").forEach((box) => {
+      const label = box.previousElementSibling;
+      if (!label || box.dataset.allWired) return;
+      box.dataset.allWired = "1";
+
+      const row = document.createElement("div");
+      row.className = "gu-areas-head";
+      label.parentNode.insertBefore(row, label);
+      row.appendChild(label);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn sm gu-areas-all";
+      row.appendChild(btn);
+
+      const boxes = () => [...box.querySelectorAll('input[type="checkbox"]')];
+      const paint = () => {
+        const all = boxes();
+        if (!all.length) { btn.style.display = "none"; return; }
+        btn.style.display = "";
+        const on = all.filter((c) => c.checked).length;
+        btn.textContent = on === all.length ? "\u2610 Deselect all" : `\u2611 Select all${on ? ` (${on}/${all.length})` : ""}`;
+      };
+      btn.addEventListener("click", () => {
+        const all = boxes();
+        const want = all.some((c) => !c.checked);      // any off -> turn everything on
+        all.forEach((c) => {
+          if (c.checked === want) return;              // no event for a box already right
+          c.checked = want;
+          c.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        paint();
+      });
+      // The tools re-render their own grids, so watch rather than assume.
+      // GUARDED: MutationObserver is an enhancement here — it keeps the count
+      // honest when a tool rebuilds its grid. Where it is missing, the button
+      // still works and still repaints on change; what it loses is the repaint
+      // after a re-render. An optional API must not be able to throw partway
+      // through the shell's start-up and take everything below it with it.
+      box.addEventListener("change", paint);
+      if (typeof MutationObserver === "function") {
+        new MutationObserver(paint).observe(box, { childList: true, subtree: true });
+      }
+      paint();
+    });
+  }
+  initAreaPickers();
+
+  // ---------- home sections: collapse, with what changed on top ----------
+  // Ported verbatim from ENCA (js/app.js), storage key aside. The whole design
+  // is theirs and the comments below are theirs; they record decisions that
+  // were made by getting them wrong first, which is exactly the kind of thing
+  // a reimplementation loses.
+  //
+  // The part worth reading twice: a NEW, BETA or UPDATED tile claims a visible
+  // slot FIRST but does not enlarge the section, and flagged tiles are ranked
+  // by RECENCY read from the changelog rather than by DOM order - so a tool
+  // changed in this build outranks a BETA tag that has sat there for weeks.
+  // Anything flagged that still does not fit is COUNTED ON THE BUTTON rather
+  // than silently buried.
+  const HOME_VISIBLE = 4;
+  const HOME_KEY = "tuno-home-expanded";
+  // The expanded/collapsed choice is remembered, but only WITHIN A BUILD. A
+  // release that adds or changes tools has changed what the section contains,
+  // so "show me all eleven" — decided against a different eleven, possibly
+  // months ago — is no longer an answer to the question being asked. Left to
+  // persist, it also silently defeats the point of putting what changed at the
+  // top of a collapsed section: an expanded section has no top.
+  //
+  // The old format was a bare array. It is read once and discarded rather than
+  // migrated: it carries no build, so there is no honest way to decide whether
+  // it still applies, and one collapsed visit costs a click.
+  const homeExpanded = (() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(HOME_KEY) || "null");
+      if (raw && !Array.isArray(raw) && raw.build === APP_BUILD.build) return new Set(raw.keys || []);
+    } catch { /* unreadable or private mode */ }
+    return new Set();
+  })();
+  const homeSave = () => {
+    try { localStorage.setItem(HOME_KEY, JSON.stringify({ build: APP_BUILD.build, keys: [...homeExpanded] })); }
+    catch { /* private mode */ }
+  };
+
+  function initHomeSections() {
+    const grids = [...document.querySelectorAll("#screen-home .tools")];
+    grids.forEach((grid, gi) => {
+      const tiles = [...grid.children].filter((el) => el.classList.contains("tool"));
+      if (tiles.length <= HOME_VISIBLE) return;               // nothing worth hiding
+      // A section is keyed by the heading above it, not its index, so adding a
+      // section later does not silently re-collapse a different one.
+      const head = grid.previousElementSibling;
+      const key = (head && head.querySelector("h3") ? head.querySelector("h3").textContent : `sec${gi}`).trim();
+      const btn = document.createElement("button");
+      btn.className = "btn home-more";
+      // A tool that just shipped or just changed should not be behind the fold.
+      // NEW, BETA and UPDATED tiles therefore claim the visible slots FIRST —
+      // but they do not enlarge the section, because when a release touches six
+      // tools that stopped the section collapsing at all. Order never changes;
+      // only which tiles are shown.
+      const flagged = (t) => !!t.querySelector(".tag.new, .tag.upd");
+      // When more tiles are flagged than there are slots, DOM order decided who
+      // got one — so a tool changed in the current build lost its place to a
+      // BETA tag that had been sitting there for weeks, which is precisely
+      // backwards. Rank the flagged by RECENCY instead, read from the changelog:
+      // the build number of the newest entry naming that tool. The changelog
+      // records tools by their display name, which is the tile's heading, so the
+      // two are matched on that. A tool the changelog has never named sorts last
+      // among the flagged rather than first — no date is not a recent date.
+      const toolName = (t) => {
+        const h = t.querySelector("h3");
+        if (!h) return "";
+        return [...h.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
+      };
+      const lastBuild = (() => {
+        const cache = new Map();
+        return (t) => {
+          const name = toolName(t);
+          if (!name) return -1;
+          if (cache.has(name)) return cache.get(name);
+          let best = -1;
+          try {
+            for (const entry of (typeof CHANGELOG !== "undefined" ? CHANGELOG : [])) {
+              if ((entry.items || []).some((i) => String(i.tool || "").toLowerCase() === name.toLowerCase())) {
+                best = Math.max(best, +entry.build || -1);
+              }
+            }
+          } catch { /* changelog optional */ }
+          cache.set(name, best);
+          return best;
+        };
+      })();
+      // most recently changed first; ties keep their authored order
+      const byRecency = tiles.filter(flagged)
+        .map((t, i) => ({ t, i, b: lastBuild(t) }))
+        .sort((a, b) => b.b - a.b || a.i - b.i)
+        .map((x) => x.t);
+      const paint = () => {
+        const open = homeExpanded.has(key);
+        // The visible budget is HOME_VISIBLE in total. Flagged tiles claim those
+        // slots FIRST — a release must be reachable without expanding — but they
+        // no longer sit on top of the budget. With six flagged tiles in a section
+        // that meant nothing collapsed at all, which is the opposite of the point.
+        // Anything flagged that still does not fit is counted on the button, so it
+        // is announced rather than silently buried.
+        const keep = new Set();
+        for (const t of byRecency) { if (keep.size >= HOME_VISIBLE) break; keep.add(t); }
+        for (const t of tiles) { if (keep.size >= HOME_VISIBLE) break; keep.add(t); }
+        const hidden = [];
+        tiles.forEach((t) => {
+          const show = open || keep.has(t);
+          t.style.display = show ? "" : "none";
+          // COLLAPSED: what changed goes first. A flagged tile claimed a visible
+          // slot before this but kept its page position, so a flagged tile
+          // sitting ninth was on screen and still read as an afterthought.
+          // Order is a CSS property here, not a DOM move — nothing is
+          // reparented, so expanding restores the authored order exactly, and
+          // the grid's grouping (which is meaningful) survives untouched.
+          // Newest first among the flagged, so the tile you are looking for is
+          // the leftmost one rather than somewhere among the badges.
+          const rank = byRecency.indexOf(t);
+          t.style.order = open ? "" : (rank >= 0 ? String(rank - byRecency.length) : "");
+          if (!show) hidden.push(t);
+        });
+        const buried = hidden.filter(flagged).length;
+        btn.style.display = hidden.length || open ? "" : "none";
+        btn.textContent = open
+          ? "▲ Show fewer"
+          : `▼ Show ${hidden.length} more${buried ? ` · ${buried} new, beta or updated` : ""}`;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      btn.addEventListener("click", () => {
+        homeExpanded.has(key) ? homeExpanded.delete(key) : homeExpanded.add(key);
+        homeSave(); paint();
+      });
+      grid.insertAdjacentElement("afterend", btn);            // outside the grid, not a grid cell
+      paint();
+    });
+  }
+  initHomeSections();
 
   // ---------- theme ----------
   const THEME_KEY = "tuno-theme";
@@ -355,6 +626,48 @@ const Fs = (() => {
       loginErr("Sign-in failed: " + (e && e.message ? e.message : e));
     }
   }
+  // ---------- demo mode ----------
+  //
+  // ENCA's entry, ported: ?demo=1, a link on the sign-in card, and a fake
+  // identity in the tenant box. What is NOT ported is the eighty branches
+  // behind it — Graph.useDemo() puts the whole tenant behind the read layer,
+  // so from here down demo mode is just a sign-in that skips Microsoft.
+  //
+  // The banner is not decoration and must not be made dismissible. Every
+  // number on every screen after this point is invented, and the one thing a
+  // demo owes the person looking at it is that they never forget that.
+  function loadDemo() {
+    Graph.useDemo();
+    signedIn = true;
+    account = null;
+    tenantDomain = "";
+    tenantName = "Contoso B.V. (demo)";
+    $("tenantName").textContent = tenantName;
+    $("tenantUser").textContent = "demo@contoso.onmicrosoft.com";
+    $("avatar").textContent = "DM";
+    $("cfdevBadge").style.display = "none";
+    $("tenantBox").style.display = "flex";
+    $("homeBtn").style.display = "";
+    document.body.classList.add("demo-mode");
+    const bar = $("demoBar");
+    if (bar) {
+      bar.style.display = "";
+      // The bar wraps to two lines on a narrow window and the fixed sidebar
+      // has to start below whatever height it actually is, so it is measured
+      // rather than assumed — and re-measured on resize, because the wrap
+      // point is exactly where somebody will be looking.
+      const measure = () => document.documentElement.style.setProperty("--demo-bar-h", `${bar.offsetHeight}px`);
+      measure();
+      if (typeof ResizeObserver === "function") new ResizeObserver(measure).observe(bar);
+      else window.addEventListener("resize", measure);
+    }
+    buildToolNav();
+    renderSideNav();
+    $("sideNav").style.display = "";
+    document.body.classList.add("with-side");
+    show("screen-home");
+  }
+
   function enter() {
     signedIn = true;
     $("tenantName").textContent = (account && (account.tenantId ? account.username.split("@")[1] : "")) || "";
@@ -362,6 +675,16 @@ const Fs = (() => {
     // Extended behaviour is said where the tenant identity lives instead of
     // being a hidden mode — ENCA's rule, ported with the badge.
     $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
+    // Audience branding by who signed in: an account whose UPN matches a
+    // BRAND_OVERRIDES entry gets that look even without ?brand=. The list
+    // ships empty — the machinery arrives with the self-host gear.
+    if (typeof BrandOverrides !== "undefined") {
+      const bo = BrandOverrides.forUpn(account && account.username);
+      if (bo && activeOverrideKey() !== bo.key) {
+        try { sessionStorage.setItem(BRAND_STORE, bo.key); } catch { /* private mode */ }
+        applyBranding(activeBrand());
+      }
+    }
     $("tenantUser").textContent = account ? account.username : "";
     const nm = account && (account.name || account.username) || "?";
     $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
@@ -414,7 +737,18 @@ const Fs = (() => {
     if (msalApp) { try { msalApp.setActiveAccount(null); } catch { /* older msal-browser */ } }
     if (msalApp && acc) msalApp.logoutPopup({ account: acc }).catch(() => {});
   });
+  const demoLink = $("demoLink");
+  if (demoLink) demoLink.addEventListener("click", (e) => { e.preventDefault(); loadDemo(); });
+
   authInit().then((cameBack) => {
+    // ?demo=1 is checked AFTER auth init and BEFORE the redirect short-circuit,
+    // so a demo cannot be entered on top of a half-finished real sign-in.
+    // It is deliberately not remembered anywhere: the URL is the only thing
+    // that puts the app in demo mode, which makes "is this real?" a question
+    // the address bar answers.
+    try {
+      if (new URLSearchParams(location.search).get("demo") === "1") { loadDemo(); return; }
+    } catch { /* no URLSearchParams — fall through to the normal sign-in */ }
     // Only a COMPLETED interactive sign-in (the redirect flow landing back
     // here) enters directly — it is a sign-in finishing, not a refresh.
     // Everything else stays on the sign-in screen and signs in for real.
@@ -427,14 +761,23 @@ const Fs = (() => {
   // whether the tool was opened from the grid or a tab.
   const TOOL_TABS = [
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
+    ["toolDefender", "🦠 Defender status"],
+    ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
+    ["toolLaps", "🔑 Windows LAPS audit"],
     ["toolGroupUse", "🔗 Group Analyzer"],
+    ["toolWhatIf", "🔮 Assignment what-if"],
+    ["toolHealth", "🩺 Assignment health"],
     ["toolAssignEdit", "✏️ Assignment editor"],
     ["toolFilters", "🧩 Assignment filters"],
     ["toolDevice", "🖥 Device analyzer"],
+    ["toolCompliance", "📈 Compliance report"],
     ["toolAudit", "🕓 Change audit"],
     ["toolBackup", "📦 Backup configuration"],
     ["toolDocs", "📄 Configuration documenter"],
+    ["toolSetSearch", "🔦 Settings search"],
+    ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolRoles", "🛡 Intune RBAC"],
+    ["toolMaa", "🤝 Multi-admin approval"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -560,11 +903,28 @@ const Fs = (() => {
     // every button as its title, so the collapsed rail's hover names cost
     // nothing and clip nowhere — a CSS tooltip inside an overflow:auto
     // sidebar would be cut off at the edge, which is why it is native.
+    // The T number comes from TOOL_VERSIONS rather than being typed into the
+    // label, because it is the tool's PERMANENT number and the one place it
+    // is already recorded. Typing it here would let the menu and the tile
+    // disagree, and a wrong T number is worse than none — the numbers are how
+    // these tools get referred to out loud.
+    const tNum = (id) => {
+      const t = (typeof TOOL_VERSIONS !== "undefined" && TOOL_VERSIONS[id] || {}).t;
+      return Number.isFinite(t) ? `T${String(t).padStart(2, "0")}` : "";
+    };
     const item = (id) => {
       const label = labelFor(id);
       const sp = label.indexOf(" ");
       const [ic, txt] = sp > 0 ? [label.slice(0, sp), label.slice(sp + 1)] : ["·", label];
-      return `<button data-nav="${id}" id="side-${id}" title="${esc(label)}"><span class="sn-ic">${esc(ic)}</span><span class="sn-txt">${esc(txt)}</span></button>`;
+      const n = tNum(id);
+      // The number rides in its OWN span, pushed to the right, rather than
+      // being appended to the name. The rail is 240px and the names ellipsise;
+      // appended, the number would be the first thing cut off on exactly the
+      // longer names people need it for.
+      return `<button data-nav="${id}" id="side-${id}" title="${esc(n ? `${label} (${n})` : label)}">`
+        + `<span class="sn-ic">${esc(ic)}</span><span class="sn-txt">${esc(txt)}</span>`
+        + (n ? `<span class="sn-t">${n}</span>` : "")
+        + `</button>`;
     };
     $("sideNav").innerHTML =
       `<button class="sn-toggle" id="sideToggle" data-navtoggle>«</button>` +
@@ -605,12 +965,21 @@ const Fs = (() => {
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
+  $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
+  $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
+  $("toolLaps").addEventListener("click", () => { crumb("🔑 Windows LAPS audit"); show("screen-laps"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
+  $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
+  $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
+  $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
+  $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
+  $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
+  $("toolMaa").addEventListener("click", () => { crumb("🤝 Multi-admin approval"); show("screen-maa"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
@@ -720,6 +1089,19 @@ const Fs = (() => {
       low:    { label: "low",    cls: "",      note: "convenience or documentation" },
     };
     const items = (PROMOTE.items || []).slice().sort((a, b) => a.n - b.n);
+    // Ticks for the promotion order (10444). Persisted per item NUMBER, so a
+    // tick survives reloads and dies with its item: numbers not in the queue
+    // any more are pruned on render — a shipped item cannot stay ticked.
+    // (Guarded: the pq test harness runs this block without a window.)
+    const picked = (() => {
+      try {
+        const raw = new Set(JSON.parse(localStorage.getItem("TUNO_PQ_PICK") || "[]").map(Number));
+        const live = new Set(items.map((i) => i.n));
+        const kept = [...raw].filter((n) => live.has(n));
+        if (kept.length !== raw.size) localStorage.setItem("TUNO_PQ_PICK", JSON.stringify(kept));
+        return new Set(kept);
+      } catch { return new Set(); }
+    })();
 
     box.innerHTML = `
       <h3>🚚 Waiting for production <span class="tag new">BETA CHANNEL</span></h3>
@@ -734,12 +1116,18 @@ const Fs = (() => {
         under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
         step can fail rather than be nodded through. Where a check needs a tenant nobody has to hand, the step says
         so: knowing which check was skipped is worth more than a list that pretends all of them were run.</p>
-      ${items.length ? `<div class="cg-tablewrap"><table class="cg-table">
-        <thead><tr><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
+      ${items.length ? `<div class="tb-actions" style="margin:0 0 8px">
+        <span class="mini" id="pqPickCount"><b>${picked.size}</b> of ${items.length} ticked for promotion</span>
+        <button class="btn sm" id="pqExport" ${picked.size ? "" : "disabled"}>⭳ Export promotion order</button>
+        <button class="btn sm" id="pqClear" ${picked.size ? "" : "disabled"}>Clear ticks</button>
+        <span class="mini muted">tick what you have verified, export, and hand the file to the working session — it is the order, not the verification</span>
+      </div><div class="cg-tablewrap"><table class="cg-table">
+        <thead><tr><th style="width:34px" title="Tick to include in the promotion order"></th><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
         <tbody>${items.map((it) => {
           const r = RISK[it.risk] || RISK.low;
           const test = it.test || [];
           return `<tr>
+            <td><input type="checkbox" data-pqpick="${it.n}" ${picked.has(it.n) ? "checked" : ""} title="Include item ${it.n} in the promotion order"></td>
             <td><b style="font-size:15px">${it.n}</b></td>
             <td><b>${esc(it.title)}</b>
               <div class="mini muted">${(it.tools || []).map(esc).join(" · ")}</div>
@@ -760,6 +1148,43 @@ const Fs = (() => {
         <ul>${PROMOTE.staying.map((s) => `<li><b>${esc(s.title)}</b> — ${esc(s.why)}</li>`).join("")}</ul>` : ""}
       <p class="mini muted" style="margin-top:14px"><b>Promoting one of these is four steps, not one:</b> remove the row and bump the production build here; set the roadmap card on <b>main</b> to <code>live · build NNN</code>; set the <b>same card on this channel</b> to <code>live · beta NNNNN · production NNN</code>; and add the changelog entry on both. The third is the one that gets missed — each channel carries its own roadmap, so promoting touches main's copy and this one keeps claiming the work is beta-only.</p>
       <p class="help-x">This list is written by hand — the app is static files in a browser and cannot read git or diff two branches. It is maintained alongside <b>📋 What's new</b>; if an entry looks stale, trust the changelog and the build numbers over this table.</p>`;
+
+    // ---- the tick wiring (10444) — outside the block the pq harness runs ----
+    const readPicks = () => {
+      try { return JSON.parse(localStorage.getItem("TUNO_PQ_PICK") || "[]").map(Number); } catch { return []; }
+    };
+    const writePicks = (ns) => { try { localStorage.setItem("TUNO_PQ_PICK", JSON.stringify(ns)); } catch { /* private mode — ticks live for the session only */ } };
+    const syncBar = () => {
+      const ns = readPicks();
+      const c = $("pqPickCount"), ex = $("pqExport"), cl = $("pqClear");
+      if (c) c.innerHTML = `<b>${ns.length}</b> of ${(PROMOTE.items || []).length} ticked for promotion`;
+      if (ex) ex.disabled = !ns.length;
+      if (cl) cl.disabled = !ns.length;
+    };
+    box.querySelectorAll("[data-pqpick]").forEach((cb) => cb.addEventListener("change", () => {
+      const n = Number(cb.dataset.pqpick);
+      const ns = new Set(readPicks());
+      cb.checked ? ns.add(n) : ns.delete(n);
+      writePicks([...ns]);
+      syncBar();
+    }));
+    const exBtn = $("pqExport");
+    if (exBtn) exBtn.addEventListener("click", () => {
+      try {
+        const o = PROMOTE.buildOrder(readPicks(), APP_BUILD);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([o.text], { type: "text/markdown" }));
+        a.download = o.filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      } catch (e) { alert(String((e && e.message) || e)); }
+    });
+    const clBtn = $("pqClear");
+    if (clBtn) clBtn.addEventListener("click", () => {
+      writePicks([]);
+      box.querySelectorAll("[data-pqpick]").forEach((cb) => { cb.checked = false; });
+      syncBar();
+    });
   }
 
   // ---------- the popout ----------
@@ -772,10 +1197,19 @@ const Fs = (() => {
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
   if (typeof AuditTool !== "undefined") AuditTool.init();
   if (typeof DeviceWhyTool !== "undefined") DeviceWhyTool.init();
+  if (typeof WhatIfTool !== "undefined") WhatIfTool.init();
+  if (typeof HealthTool !== "undefined") HealthTool.init();
+  if (typeof SettingSearchTool !== "undefined") SettingSearchTool.init();
+  if (typeof ConflictTool !== "undefined") ConflictTool.init();
+  if (typeof ComplianceTool !== "undefined") ComplianceTool.init();
   if (typeof FiltersTool !== "undefined") FiltersTool.init();
   if (typeof Suggest !== "undefined") Suggest.init();
   if (typeof AssignEditTool !== "undefined") AssignEditTool.init();
   if (typeof RolesTool !== "undefined") RolesTool.init();
+  if (typeof DefenderTool !== "undefined") DefenderTool.init();
+  if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
+  if (typeof MaaTool !== "undefined") MaaTool.init();
+  if (typeof LapsTool !== "undefined") LapsTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();

@@ -63,6 +63,55 @@ const Audit = (() => {
   // depending on when you ask — the difference between the two originals.
   const since = (hours) => new Date(Date.now() - hours * 3600 * 1000).toISOString().replace(/\.\d+Z$/, "Z");
 
+  // A CUSTOM RANGE (build 10413), for "what happened while I was away last
+  // week" — a question the rolling windows answer badly. Two rules:
+  //   * The FROM is clamped to the retention floor, and the clamp is REPORTED
+  //     rather than silent: a range that quietly shrank would read as a quiet
+  //     tenant, which is this tool's cardinal sin.
+  //   * A day picked in a date control means the WHOLE day, so the `to` runs
+  //     to 23:59:59Z of the chosen date — half-open ranges off a date picker
+  //     are how "up to Tuesday" silently excludes Tuesday.
+  function customRange(fromDate, toDate) {
+    const floor = new Date(Date.now() - RETENTION_DAYS * 24 * 3600 * 1000);
+    let from = new Date(`${fromDate}T00:00:00Z`);
+    const to = new Date(`${toDate}T23:59:59Z`);
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) throw new Error("Pick both dates.");
+    if (to < from) throw new Error("The range ends before it starts.");
+    let clamped = false;
+    if (from < floor) { from = floor; clamped = true; }
+    if (to < floor) throw new Error(`That whole range is older than the ${RETENTION_DAYS}-day retention — Intune no longer has it, and neither does the portal.`);
+    return {
+      since: from.toISOString().replace(/\.\d+Z$/, "Z"),
+      until: to.toISOString().replace(/\.\d+Z$/, "Z"),
+      clamped,
+      label: `${fromDate} → ${toDate}`,
+    };
+  }
+
+  // ---- operation classification -----------------------------------------
+  // One event, one operation kind — the timeline's dot and badge. Read from
+  // activityOperationType first (Graph's own word), the activity text as the
+  // fallback. "Assign" is split out of Action because an assignment change is
+  // the row people scan for.
+  const OPERATIONS = [
+    { id: "create", label: "Created" },
+    { id: "delete", label: "Deleted" },
+    { id: "update", label: "Updated" },
+    { id: "assign", label: "Assigned" },
+    { id: "action", label: "Action" },
+    { id: "other", label: "Other" },
+  ];
+  function operationOf(r) {
+    const op = lc(r.operation || ""), t = lc(`${r.activityType || ""} ${r.activity || ""}`);
+    if (/assign/.test(t)) return "assign";
+    if (op === "create" || /create|add|import/.test(t)) return "create";
+    if (op === "delete" || /delete|remove/.test(t)) return "delete";
+    if (op === "patch" || op === "update" || /patch|update|modify|set\b/.test(t)) return "update";
+    if (op === "action" || /action|search|sync|wipe|retire|rotate/.test(t)) return "action";
+    return "other";
+  }
+  const operationLabel = (id) => (OPERATIONS.find((o) => o.id === id) || { label: id }).label;
+
   // ---- value decoding (ENCA's T16, ported) ------------------------------
   // modifiedProperties values arrive as JSON strings, and are sometimes
   // double-encoded ("\"{...}\""), sometimes wrapped in a one-element array.
@@ -195,8 +244,17 @@ const Audit = (() => {
 
   async function fetchEvents(opts) {
     const o = opts || {};
-    const w = windowById(o.window);
-    const parts = [`activityDateTime ge ${since(w.hours)}`];
+    let w, from, until = null, clamped = false;
+    if (o.from && o.to) {
+      const r = customRange(o.from, o.to);
+      w = { id: "custom", label: r.label, kind: "custom" };
+      from = r.since; until = r.until; clamped = r.clamped;
+    } else {
+      w = windowById(o.window);
+      from = since(w.hours);
+    }
+    const parts = [`activityDateTime ge ${from}`];
+    if (until) parts.push(`activityDateTime le ${until}`);
     if (o.category && o.category !== "All") parts.push(categoryFilter(o.category));
     if (o.onlyFailures) parts.push(`activityResult eq 'Failure'`);
     const path = `/deviceManagement/auditEvents?$filter=${parts.join(" and ")}&$orderby=activityDateTime desc`;
@@ -208,7 +266,7 @@ const Audit = (() => {
       try { rows.push(parse(rec)); }
       catch (e) { skipped.push({ id: rec && rec.id, error: String((e && e.message) || e) }); }
     }
-    return { rows, skipped, window: w, since: since(w.hours), raw: raw.length };
+    return { rows, skipped, window: w, since: from, until, clamped, raw: raw.length };
   }
 
   // ---- the two views ----------------------------------------------------
@@ -220,11 +278,29 @@ const Audit = (() => {
   const POLICY_RE = /DeviceManagementConfigurationPolicy|DeviceConfiguration|DeviceCompliancePolicy|GroupPolicyConfiguration|DeviceManagementScript|DeviceHealthScript|DeviceShellScript|WindowsAutopilotDeploymentProfile|DeviceEnrollmentConfiguration|MobileApp/i;
   const isPolicyChange = (r) => POLICY_RE.test(`${r.activityType} ${r.category}`);
 
+  // Counts per type, taken BEFORE the type filter is applied — otherwise
+  // picking a chip would rewrite every other chip's count to zero and the row
+  // would stop being a summary of the window.
+  function policyTypes(rows, opts) {
+    const base = policyRows(rows, Object.assign({}, opts || {}, { category: null }));
+    const m = new Map();
+    for (const r of base) {
+      const k = r.category || r.activityType || "—";
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return { total: base.length, types: [...m.entries()].map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)) };
+  }
+
   function policyRows(rows, opts) {
     const o = opts || {};
     let out = rows.filter(isPolicyChange);
     if (o.onlyChanges) out = out.filter((r) => /patch|update|modify|set|delete|remove/i.test(r.activityType || r.operation));
     if (o.minSeverity) out = out.filter((r) => SEV_ORDER[r.severity] <= SEV_ORDER[o.minSeverity]);
+    // Narrowing by TYPE. Matched against the same field the row displays, so
+    // what you click is what you filtered — a chip built from one field and
+    // applied to another is the kind of filter that quietly drops rows.
+    if (o.category) out = out.filter((r) => (r.category || r.activityType) === o.category);
     // NO CAP. The original keeps the first five, after paging everything.
     return out;
   }
@@ -247,12 +323,19 @@ const Audit = (() => {
     const actorRe = globRe(o.actor), actRe = globRe(o.activity);
     return rows.filter((r) => {
       if (o.category && o.category !== "All" && r.category !== o.category) return false;
+      if (o.operation && o.operation !== "all" && operationOf(r) !== o.operation) return false;
       if (o.result === "failure" && r.ok) return false;
       if (o.result === "success" && !r.ok) return false;
       if (actorRe && !actorRe.test(r.actor)) return false;
       if (actRe && !actRe.test(r.activity) && !actRe.test(r.activityType)) return false;
       return true;
     });
+  }
+
+  // The actors actually seen in this window — the filter dialog's dropdown is
+  // built from these, same rule as the categories: options that can match.
+  function actors(rows) {
+    return [...new Set(rows.map((r) => r.actor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   }
 
   // Categories FROM THE DATA. The original ships a fixed list containing
@@ -264,14 +347,23 @@ const Audit = (() => {
 
   function summarize(rows) {
     const s = { total: rows.length, high: 0, medium: 0, low: 0, failures: 0, actors: 0, changed: 0 };
-    const actors = new Set();
+    const actorCount = new Map(), catCount = new Map();
     for (const r of rows) {
       s[r.severity]++;
       if (!r.ok) s.failures++;
       if (r.changes.length) s.changed++;
-      actors.add(r.actor);
+      actorCount.set(r.actor, (actorCount.get(r.actor) || 0) + 1);
+      if (r.category) catCount.set(r.category, (catCount.get(r.category) || 0) + 1);
     }
-    s.actors = actors.size;
+    s.actors = actorCount.size;
+    const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0] || null;
+    const ta = top(actorCount), tc = top(catCount);
+    // The stat cards. topActor/topArea are null on an empty window rather than
+    // a placeholder string, so the renderer decides what "nothing" looks like.
+    s.topActor = ta ? { name: ta[0], count: ta[1] } : null;
+    s.topArea = tc ? { name: tc[0], count: tc[1] } : null;
+    // Whole percent, rounded — 0 failures of 0 events is 0%, not NaN%.
+    s.failureRate = s.total ? Math.round((s.failures / s.total) * 100) : 0;
     return s;
   }
 
@@ -404,16 +496,26 @@ footer{padding:14px 26px;color:#6b7280;font-size:12px}footer a{color:#2b4c9b}`;
   const categoryFilter = (v) => Graph.odata`category eq '${v}'`;
 
   return {
-    RETENTION_DAYS, WINDOWS, windowById, since, SCOPES,
+    RETENTION_DAYS, WINDOWS, windowById, since, customRange, SCOPES,
+    OPERATIONS, operationOf, operationLabel,
     decode, diff, parse, severity, actorOf, globRe,
-    fetchEvents, policyRows, allRows, categories, summarize, changeText, isPolicyChange,
+    fetchEvents, policyRows, policyTypes, allRows, categories, actors, summarize, changeText, isPolicyChange,
     meta, markdown, csv, html, categoryFilter,
   };
 })();
 
 
 // ======================================================================
-// T03 — the screen.
+// T03 — the screen (rebuilt at 10413, Option A of the mockup round).
+//
+// Stat cards → toolbar (range picker, filter dialog) → a TIMELINE whose
+// cards expand IN PLACE. Everything still happens in this tab: the range
+// picker and the filter dialog are DOM in this page, the filters run over
+// rows already read, and nothing is stored anywhere.
+//
+// The expand state survives a re-render because it is keyed on EVENT IDS in
+// a Set, not on DOM state — a filter change redraws the list and the cards
+// you had open stay open if they are still shown.
 // ======================================================================
 const AuditTool = (() => {
   "use strict";
@@ -421,6 +523,13 @@ const AuditTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, view = "policy", running = false;
+  // The type narrowing for the POLICY view. Held here rather than in a
+  // form control because it is a chip row, and because it must survive a
+  // re-render — the timeline re-renders on every fold and unfold.
+  let typePick = null;
+  // Range state: a preset id, or a custom pair. One object, one truth.
+  let range = { mode: "preset", id: "24h" };
+  const open = new Set();          // event ids whose detail is unfolded
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -429,7 +538,7 @@ const AuditTool = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
-  const prog = (m) => TunoProgress.show("auBody", "auProg", m);   // ENCA-style centred card (10397)
+  const prog = (m) => TunoProgress.show("auBody", "auProg", m);
   const showExports = (on) => ["auMd", "auCsv", "auHtml"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
 
   function fail(e) {
@@ -442,79 +551,212 @@ const AuditTool = (() => {
     showExports(false); prog("");
   }
 
+  // ---------------------------------------------------------- range picker --
+  function rangeLabel() {
+    return range.mode === "custom" ? `${range.from} → ${range.to}` : Audit.windowById(range.id).label;
+  }
+  function renderRangePop() {
+    const preset = (w) => `<button class="au-pop-item ${range.mode === "preset" && range.id === w.id ? "active" : ""}" data-aurange="${w.id}">${esc(w.label)}</button>`;
+    $("auRangePop").innerHTML = `
+      <div class="au-pop-side">${Audit.WINDOWS.map(preset).join("")}
+        <button class="au-pop-item ${range.mode === "custom" ? "active" : ""}" data-aurange="custom">Custom…</button></div>
+      <div class="au-pop-main" id="auRangeCustom" style="${range.mode === "custom" ? "" : "display:none"}">
+        <label class="mini">From <input type="date" id="auFrom" value="${esc(range.from || "")}"></label>
+        <label class="mini">To <input type="date" id="auTo" value="${esc(range.to || "")}"></label>
+        <button class="btn sm primary" id="auRangeApply">Use range</button>
+        <p class="mini muted" style="margin:6px 0 0">Days older than ${Audit.RETENTION_DAYS} are <b>gone from the service</b> — a range reaching past that is clamped to the floor and says so.</p>
+      </div>`;
+    $("auRangePop").querySelectorAll("[data-aurange]").forEach((b) => b.addEventListener("click", () => {
+      const v = b.dataset.aurange;
+      if (v === "custom") {
+        const today = new Date().toISOString().slice(0, 10);
+        const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+        range = { mode: "custom", from: range.from || weekAgo, to: range.to || today };
+        renderRangePop();                       // shows the date inputs
+      } else {
+        range = { mode: "preset", id: v };
+        closeRangePop(); syncToolbar();
+      }
+    }));
+    const apply = $("auRangeApply");
+    if (apply) apply.addEventListener("click", () => {
+      try {
+        Audit.customRange($("auFrom").value, $("auTo").value);   // validate NOW, not at run time
+        range = { mode: "custom", from: $("auFrom").value, to: $("auTo").value };
+        closeRangePop(); syncToolbar();
+      } catch (e) { $("auRangeCustom").querySelector("p").innerHTML = `<b>${esc(String(e.message || e))}</b>`; }
+    });
+  }
+  function openRangePop() { renderRangePop(); $("auRangePop").style.display = ""; setTimeout(() => document.addEventListener("click", outsideRange), 0); }
+  function closeRangePop() { $("auRangePop").style.display = "none"; document.removeEventListener("click", outsideRange); }
+  const outsideRange = (e) => { if (!e.target.closest("#auRangePop") && !e.target.closest("#auRangeBtn")) closeRangePop(); };
+
+  // ---------------------------------------------------------- filter dialog --
+  // The dialog holds the SAME controls the old inline bar had (same ids, so
+  // the exports and the tests keep their handles) plus the operation type.
+  // Category, operation and actor options are built from THE ROWS READ — the
+  // rule the tool has had since 10323: options that can match, nothing else.
+  function filterCount() {
+    if (view === "policy") return ($("auSev").value ? 1 : 0) + ($("auOnlyChanges").checked ? 1 : 0);
+    return ($("auCat").value !== "All" ? 1 : 0) + ($("auOp").value !== "all" ? 1 : 0)
+      + ($("auResult").value !== "all" ? 1 : 0) + ($("auActorSel").value !== "all" ? 1 : 0)
+      + ($("auActor").value.trim() ? 1 : 0) + ($("auActivity").value.trim() ? 1 : 0);
+  }
+  function syncToolbar() {
+    $("auRangeBtn").innerHTML = `📅 ${esc(rangeLabel())} <span class="mini">▾</span>`;
+    const n = filterCount();
+    $("auFilterBtn").innerHTML = `⚙ Filter${n ? ` <span class="au-badge">${n}</span>` : ""}`;
+    if (res) render();
+  }
+  function openFilterDlg() {
+    $("auPolicyFilters").style.display = view === "policy" ? "" : "none";
+    $("auAllFilters").style.display = view === "all" ? "" : "none";
+    $("auFilterDlg").style.display = "";
+  }
+  function closeFilterDlg() { $("auFilterDlg").style.display = "none"; }
+
   const currentRows = () => {
     if (!res) return [];
+    const actorPick = $("auActorSel").value;
     return view === "policy"
-      ? Audit.policyRows(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null })
-      : Audit.allRows(res.rows, { category: $("auCat").value, result: $("auResult").value, actor: $("auActor").value, activity: $("auActivity").value });
+      ? Audit.policyRows(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null, category: typePick })
+      : Audit.allRows(res.rows, {
+          category: $("auCat").value, operation: $("auOp").value, result: $("auResult").value,
+          actor: actorPick !== "all" ? actorPick : $("auActor").value, activity: $("auActivity").value,
+        });
   };
 
   const filterText = () => (view === "policy"
-    ? [$("auOnlyChanges").checked ? "changes only" : "", $("auSev").value ? `min severity ${$("auSev").value}` : ""].filter(Boolean).join(", ")
-    : [$("auCat").value !== "All" ? `category ${$("auCat").value}` : "", $("auResult").value !== "all" ? $("auResult").value : "",
-      $("auActor").value ? `actor ${$("auActor").value}` : "", $("auActivity").value ? `activity ${$("auActivity").value}` : ""].filter(Boolean).join(", "));
+    ? [typePick ? `type ${typePick}` : "", $("auOnlyChanges").checked ? "changes only" : "", $("auSev").value ? `min severity ${$("auSev").value}` : ""].filter(Boolean).join(", ")
+    : [$("auCat").value !== "All" ? `category ${$("auCat").value}` : "", $("auOp").value !== "all" ? `operation ${$("auOp").value}` : "",
+      $("auResult").value !== "all" ? $("auResult").value : "",
+      $("auActorSel").value !== "all" ? `actor ${$("auActorSel").value}` : ($("auActor").value ? `actor ${$("auActor").value}` : ""),
+      $("auActivity").value ? `activity ${$("auActivity").value}` : ""].filter(Boolean).join(", "));
 
   function setView(v) {
+    // The type belongs to the policy view. Carrying it across to All events —
+    // which has its own category select — would leave a filter applied that
+    // its own controls do not show.
+    typePick = null;
     view = v === "all" ? "all" : "policy";
     document.querySelectorAll("#auViewSeg [data-auview]").forEach((b) => b.classList.toggle("active", b.dataset.auview === view));
-    $("auPolicyFilters").style.display = view === "policy" ? "" : "none";
-    $("auAllFilters").style.display = view === "all" ? "" : "none";
-    if (res) render();
+    syncToolbar();
   }
 
   async function run() {
     if (running) return;
-    running = true; $("auRun").disabled = true; showExports(false); $("auBody").innerHTML = "";
+    running = true; $("auRun").disabled = true; showExports(false); $("auBody").innerHTML = ""; open.clear();
     try {
       prog("Checking permissions…");
       await Graph.ensureScopes(Audit.SCOPES());
-      const w = Audit.windowById($("auWindow").value);
-      prog(`Reading the audit log — ${w.label.toLowerCase()}…`);
-      res = await Audit.fetchEvents({
-        window: w.id,
-        onlyFailures: false,
-        onPage: (n) => prog(`Reading the audit log — ${n} events…`),
-      });
-      // The category list is rebuilt from what the tenant actually emitted.
-      const cats = Audit.categories(res.rows);
-      $("auCat").innerHTML = `<option value="All">All categories</option>` + cats.map((c) => `<option>${esc(c)}</option>`).join("");
+      prog(`Reading the audit log — ${rangeLabel().toLowerCase()}…`);
+      res = await Audit.fetchEvents(Object.assign(
+        range.mode === "custom" ? { from: range.from, to: range.to } : { window: range.id },
+        { onPage: (n) => prog(`Reading the audit log — ${n} events…`) }));
+      // Dropdowns from the data: categories, operations seen, actors seen.
+      $("auCat").innerHTML = `<option value="All">All categories</option>` + Audit.categories(res.rows).map((c) => `<option>${esc(c)}</option>`).join("");
+      const seen = new Set(res.rows.map(Audit.operationOf));
+      $("auOp").innerHTML = `<option value="all">All operations</option>` + Audit.OPERATIONS.filter((o) => seen.has(o.id)).map((o) => `<option value="${o.id}">${esc(o.label)}</option>`).join("");
+      $("auActorSel").innerHTML = `<option value="all">All actors</option>` + Audit.actors(res.rows).map((a) => `<option>${esc(a)}</option>`).join("");
       prog("");
-      render();
+      syncToolbar();
       showExports(true);
     } catch (e) { fail(e); }
     finally { running = false; $("auRun").disabled = false; }
   }
 
+  // ------------------------------------------------------------- timeline --
+  const OP_ICON = { create: "＋", delete: "－", update: "✎", assign: "⇄", action: "▸", other: "·" };
+  const when = (iso) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso || "";
+    return d.toISOString().replace("T", " ").replace(/:\d\d\.\d+Z$/, "").replace(/:\d\dZ$/, "") + " UTC";
+  };
+
+  function detail(r) {
+    const rowsHtml = r.changes.length
+      ? `<div class="mini muted" style="margin-top:6px">What moved</div>
+         <ul class="mini au-diff">${r.changes.slice(0, 200).map((c) => `<li>${esc(Audit.changeText(c))}</li>`).join("")}
+         ${r.changes.length > 200 ? `<li class="muted">…and ${r.changes.length - 200} more (the export has all of them)</li>` : ""}</ul>`
+      : `<p class="mini muted" style="margin:6px 0 0">The audit record carries no field-level detail for this event — Intune logged that it happened, not what moved.</p>`;
+    return `<div class="au-detail">
+      <div class="au-detail-grid mini">
+        <span class="muted">Actor</span><span><b>${esc(r.actor)}</b>${r.ip ? ` · ${esc(r.ip)}` : ""} <span class="muted">(${esc(r.actorKind)})</span></span>
+        <span class="muted">Result</span><span>${esc(r.result || "unknown")} · severity ${esc(r.severity)}</span>
+        <span class="muted">Activity</span><span>${esc(r.activity)}${r.activityType && r.activityType !== r.activity ? ` <span class="muted">· ${esc(r.activityType)}</span>` : ""}</span>
+        ${r.correlationId ? `<span class="muted">Correlation</span><span><code>${esc(r.correlationId)}</code></span>` : ""}
+        ${r.resourceIds.length ? `<span class="muted">Resource id${r.resourceIds.length === 1 ? "" : "s"}</span><span>${r.resourceIds.map((x) => `<code>${esc(x)}</code>`).join(" ")}</span>` : ""}
+      </div>${rowsHtml}</div>`;
+  }
+
   function render() {
     const rows = currentRows();
     const s = Audit.summarize(rows);
-    const stat = (n, l, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(l)}</span>`;
 
-    const head = `<div class="gu-sticky">
-      <span class="gu-who">${view === "policy" ? "Policy changes" : "All audit events"}
-        <span class="mini muted">${esc(res.window.label)} · since ${esc(res.since)} · ${res.rows.length} event${res.rows.length === 1 ? "" : "s"} read</span></span>
-      <div class="gu-sum">
-        ${stat(s.total, "shown")}${stat(s.high, "high", "act")}${stat(s.medium, "medium")}${stat(s.failures, "failed")}${stat(s.actors, "actors")}
-      </div></div>`;
+    const cards = `<div class="au-cards">
+      <div class="au-card"><div class="au-card-l">Total changes</div><div class="au-card-n">${s.total}</div><div class="au-card-s">${res.rows.length} read in the window${res.rows.length !== s.total ? `, ${s.total} shown` : ""}</div></div>
+      <div class="au-card"><div class="au-card-l">Most active admin</div><div class="au-card-n au-card-t">${s.topActor ? esc(s.topActor.name) : "—"}</div><div class="au-card-s">${s.topActor ? `${s.topActor.count} change${s.topActor.count === 1 ? "" : "s"} · ${s.actors} actor${s.actors === 1 ? "" : "s"} total` : "nothing in this window"}</div></div>
+      <div class="au-card"><div class="au-card-l">Most active area</div><div class="au-card-n au-card-t">${s.topArea ? esc(s.topArea.name) : "—"}</div><div class="au-card-s">${s.topArea ? `${s.topArea.count} event${s.topArea.count === 1 ? "" : "s"}` : "&nbsp;"}</div></div>
+      <div class="au-card"><div class="au-card-l">Failure rate</div><div class="au-card-n ${s.failures ? "bad" : "ok"}">${s.failureRate}%</div><div class="au-card-s">${s.failures ? `${s.failures} of ${s.total} failed` : "no failures reported"}</div></div>
+    </div>`;
 
-    const notes = [`<p class="mini muted"><b>Intune keeps audit data for ${Audit.RETENTION_DAYS} days.</b> Anything older is gone from the service — this tool cannot show it and neither can the portal.</p>`];
+    // TYPE CHIPS. The counts are the answer before anything is clicked — you
+    // can see it was 37 application changes without narrowing to them. Only in
+    // the policy view: All events has its own category select, and two
+    // controls driving one piece of state is how they drift apart.
+    // Rendered only when there is a choice to make: one type is not a filter,
+    // it is a row of chrome saying what you can already read on every card.
+    let chips = "";
+    if (view === "policy" && res) {
+      const t = Audit.policyTypes(res.rows, { onlyChanges: $("auOnlyChanges").checked, minSeverity: $("auSev").value || null });
+      if (t.types.length > 1) {
+        chips = `<div class="au-types">`
+          + `<button type="button" class="au-type ${typePick ? "" : "active"}" data-autype="">All types <b>${t.total}</b></button>`
+          + t.types.map((x) => `<button type="button" class="au-type ${typePick === x.name ? "active" : ""}" data-autype="${esc(x.name)}">${esc(x.name)} <b>${x.count}</b></button>`).join("")
+          + `</div>`;
+      }
+    }
+
+    const notes = [`<p class="mini muted" style="margin:10px 0 0"><b>Intune keeps audit data for ${Audit.RETENTION_DAYS} days.</b> Anything older is gone from the service — this tool cannot show it and neither can the portal.</p>`];
+    if (res.clamped) notes.push(`<div class="gu-fail"><b>The range was clamped to the ${Audit.RETENTION_DAYS}-day floor.</b><span class="why">Events before ${esc(res.since)} no longer exist in the service — the quiet start of this list is missing data, not a quiet tenant.</span></div>`);
     if (res.skipped.length) notes.push(`<div class="gu-fail"><b>${res.skipped.length} record${res.skipped.length === 1 ? "" : "s"} could not be parsed</b><span class="why">Skipped rather than sinking the run, and not counted in the numbers above.</span></div>`);
-    if (view === "policy" && res.rows.length && !rows.length) notes.push(`<p class="mini muted">${res.rows.length} events were read but none is a configuration change. Switch to <b>All events</b> to see them.</p>`);
+    if (view === "policy" && typePick && !rows.length) notes.push(`<p class="mini muted">No <b>${esc(typePick)}</b> changes in this window. The other types still have events — clear the type to see them.</p>`);
+    else if (view === "policy" && res.rows.length && !rows.length) notes.push(`<p class="mini muted">${res.rows.length} events were read but none is a configuration change. Switch to <b>All events</b> to see them.</p>`);
 
-    const body = rows.length ? rows.map((r) => `
-      <div class="rk-card ${esc(r.severity)}">
-        <div class="rk-h"><b>${esc(r.name)}</b>
-          <span class="rk-lv ${esc(r.severity)}">${esc(r.severity)}</span>
-          ${r.ok ? "" : `<span class="gu-how exc">failed</span>`}</div>
-        <div class="rk-meta mini muted">${esc(r.activity)} · ${esc(r.when)} · <b>${esc(r.actor)}</b>${r.ip ? ` (${esc(r.ip)})` : ""} · ${esc(r.category)}</div>
-        ${r.changes.length
-          ? `<ul class="mini" style="margin:6px 0 0;padding-left:18px">${r.changes.slice(0, 40).map((c) => `<li>${esc(Audit.changeText(c))}</li>`).join("")}
-             ${r.changes.length > 40 ? `<li class="muted">…and ${r.changes.length - 40} more (the export has all of them)</li>` : ""}</ul>`
-          : `<p class="mini muted" style="margin:6px 0 0">The audit record carries no field-level detail for this event.</p>`}
-      </div>`).join("")
-      : `<p class="mini">Nothing matched in this window.</p>`;
+    const body = rows.length ? `<div class="au-tl">${rows.map((r) => {
+      const op = Audit.operationOf(r);
+      const isOpen = open.has(r.id);
+      return `<div class="au-ev ${esc(op)} ${isOpen ? "open" : ""}" data-auev="${esc(r.id)}">
+        <span class="au-dot ${esc(op)}">${OP_ICON[op] || "·"}</span>
+        <div class="au-ev-card">
+          <div class="au-ev-h">
+            <b>${esc(r.name)}</b>
+            <span class="au-op ${esc(op)}">${esc(Audit.operationLabel(op))}</span>
+            ${r.ok ? "" : `<span class="gu-how exc">failed</span>`}
+            <span class="au-when mini muted">${esc(when(r.when))}</span>
+          </div>
+          <div class="mini muted au-ev-m">${esc(r.category || r.activityType)} · <b>${esc(r.actor)}</b> · ${r.changes.length ? `${r.changes.length} propert${r.changes.length === 1 ? "y" : "ies"} changed` : "no field-level detail"} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>
+          ${isOpen ? detail(r) : ""}
+        </div>
+      </div>`;
+    }).join("")}</div>`
+      : `<p class="mini" style="margin-top:12px">Nothing matched in this window.</p>`;
 
-    $("auBody").innerHTML = head + `<div class="list-card">${notes.join("")}${body}</div>`;
+    $("auBody").innerHTML = cards + `<div class="list-card">${chips}${notes.join("")}${body}</div>`;
+    $("auBody").querySelectorAll("[data-auev]").forEach((el) => el.addEventListener("click", (e) => {
+      if (e.target.closest("a,code")) return;      // copying an id must not toggle
+      const id = el.dataset.auev;
+      open.has(id) ? open.delete(id) : open.add(id);
+      render();
+    }));
+    // Clicking the chip that is already picked CLEARS it, so the row is its
+    // own way out. A filter you can only undo by finding a Reset button
+    // somewhere else is one people leave applied by accident.
+    $("auBody").querySelectorAll("[data-autype]").forEach((el) => el.addEventListener("click", () => {
+      const want = el.dataset.autype || null;
+      typePick = (want && want === typePick) ? null : want;
+      render();
+    }));
   }
 
   function init() {
@@ -522,21 +764,31 @@ const AuditTool = (() => {
     $("auViewSeg").addEventListener("click", (e) => {
       const b = e.target.closest("[data-auview]"); if (b) setView(b.dataset.auview);
     });
+    $("auRangeBtn").addEventListener("click", () => ($("auRangePop").style.display === "none" ? openRangePop() : closeRangePop()));
+    $("auFilterBtn").addEventListener("click", openFilterDlg);
+    $("auFilterClose").addEventListener("click", closeFilterDlg);
+    $("auFilterDlg").addEventListener("click", (e) => { if (e.target.id === "auFilterDlg") closeFilterDlg(); });
+    $("auFilterApply").addEventListener("click", () => { closeFilterDlg(); syncToolbar(); });
+    $("auFilterClear").addEventListener("click", () => {
+      $("auActor").value = ""; $("auActivity").value = "";
+      $("auResult").value = "all"; $("auCat").value = "All"; $("auOp").value = "all"; $("auActorSel").value = "all";
+      $("auSev").value = ""; $("auOnlyChanges").checked = false;
+      syncToolbar();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeFilterDlg(); closeRangePop(); } });
     $("auRun").addEventListener("click", run);
     $("auReset").addEventListener("click", () => {
-      res = null; $("auBody").innerHTML = ""; prog(""); showExports(false);
-      $("auActor").value = ""; $("auActivity").value = "";
-      $("auResult").value = "all"; $("auCat").value = "All"; $("auSev").value = "";
-      $("auOnlyChanges").checked = false;
+      res = null; open.clear(); typePick = null; $("auBody").innerHTML = ""; prog(""); showExports(false);
+      range = { mode: "preset", id: "24h" };
+      $("auFilterClear").click();
     });
-    ["auOnlyChanges", "auSev", "auCat", "auResult"].forEach((id) => $(id).addEventListener("change", () => { if (res) render(); }));
-    ["auActor", "auActivity"].forEach((id) => $(id).addEventListener("input", () => { if (res) render(); }));
     const m = () => Audit.meta(res, { view, filters: filterText() });
     $("auMd").addEventListener("click", () => download(`Intune-change-audit-${view}.md`, Audit.markdown(currentRows(), res, m()), "text/markdown"));
     $("auCsv").addEventListener("click", () => download(`Intune-change-audit-${view}.csv`, Audit.csv(currentRows()), "text/csv"));
     $("auHtml").addEventListener("click", () => download(`Intune-change-audit-${view}.html`, Audit.html(currentRows(), res, m()), "text/html"));
+    syncToolbar();
     setView("policy");
   }
 
-  return { init, run, setView, render, currentRows, getView: () => view };
+  return { init, run, setView, render, currentRows, getView: () => view, getRange: () => range };
 })();

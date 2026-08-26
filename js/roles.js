@@ -507,6 +507,9 @@ const RolesTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let out = null, running = false;
+  // Open role folds, keyed on role ids — the T03 rule; survives re-renders
+  // and the empty-roles toggle. Reset on a new read.
+  const open = new Set();
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -516,7 +519,12 @@ const RolesTool = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
-  const showEmpty = () => !!($("rbEmpty") && $("rbEmpty").checked);
+  // Inverted at 10417 with the dimmed folds: empty roles are SHOWN by
+  // default (one membership change from live is a fact worth seeing), and
+  // the checkbox now HIDES them for tenants where fourteen idle built-ins
+  // are noise. showEmpty() keeps its name and callers: it answers "should
+  // empty roles be shown", which is now the checkbox NOT being ticked.
+  const showEmpty = () => !($("rbEmpty") && $("rbEmpty").checked);
   const prog = (m) => TunoProgress.show("rbBody", "rbProg", m);   // ENCA-style centred card (10397)
   const showExports = (on) => ["rbMd", "rbCsv", "rbHtml"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; });
 
@@ -543,6 +551,7 @@ const RolesTool = (() => {
     try {
       prog("Checking permissions…");
       await Graph.ensureScopes(Roles.SCOPES());
+      open.clear();
       out = await Roles.run({ showEmpty: showEmpty(), onStatus: prog });
       prog("");
       render();
@@ -559,22 +568,24 @@ const RolesTool = (() => {
   }
   const meta = () => Roles.meta(out, { showEmpty: showEmpty(), tenant: tenantHint() });
 
+  // The 10413 layout (build 10417, third of four). Stat cards over the old
+  // strip; each ROLE is a folded card that unfolds in place to its
+  // assignments and member tables. Empty roles are no longer hidden behind
+  // the toggle: they fold in DIMMED, because a role with nobody in it is one
+  // membership change from being live and hiding it was the old compromise.
+  // The toggle survives as "hide empty roles" for tenants where fourteen
+  // built-ins are noise — same element, same id, inverted reading.
   function render() {
     const t = Roles.totals(out);
-    const stat = (n, label, cls) => `<span class="gu-stat ${n ? (cls || "") : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
-
-    const head = `<div class="gu-sticky">
-      <span class="gu-who">Intune role assignments
-        <span class="mini muted">${t.builtIn} built-in and ${t.custom} custom role${t.custom === 1 ? "" : "s"} · ${t.assignments} assignment${t.assignments === 1 ? "" : "s"} · ${t.members} distinct member${t.members === 1 ? "" : "s"}</span></span>
-      <div class="gu-sum">
-        ${stat(t.withAssignments, "with assignments")}
-        ${stat(t.empty, "with none")}
-        ${stat(t.assignments, "assignments")}
-        ${stat(t.members, "members")}
-        ${stat(t.unresolved, "unresolved")}
-        ${stat(t.observations, "worth a look")}
-        ${t.failed ? `<span class="gu-stat" style="border-color:var(--off)"><b>${t.failed}</b> could not be read</span>` : ""}
-      </div></div>`;
+    const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    const cards = `<div class="au-cards">
+      ${card("Roles", t.builtIn + t.custom, `${t.builtIn} built-in · ${t.custom} custom`)}
+      ${card("Assignments", t.assignments, `${t.withAssignments} role${t.withAssignments === 1 ? "" : "s"} carry them`)}
+      ${card("Members", t.members, t.unresolved ? `${t.unresolved} unresolved` : "all resolved to names")}
+      ${card("Empty roles", t.empty, "one membership change from live", t.empty ? "" : "ok")}
+      ${card("Worth a look", t.observations, "observations — deliberately no score", t.observations ? "bad" : "ok")}
+      ${t.failed ? card("Could not be read", t.failed, "they grant access; to whom is unknown", "bad") : ""}
+    </div>`;
 
     const notes = Roles.caveats(out).map((c, i) =>
       i === 0 ? `<div class="gu-fail"><b>Intune RBAC only.</b><span class="why">${esc(c.replace(/^THIS IS INTUNE RBAC ONLY\. /, ""))}</span></div>`
@@ -586,11 +597,18 @@ const RolesTool = (() => {
       ${out.observations.map((o) => `<div class="gu-fail gu-skip">${esc(o.text)}</div>`).join("")}
     </div>` : "";
 
-    const roles = Roles.shown(out, showEmpty()).map((r) => `
-      <div class="gu-src">
-        <h5>${esc(r.name)} <span class="gu-how ${r.builtIn ? "priv" : "inc"}">${r.unknownRole ? "unknown" : r.builtIn ? "built-in" : "custom"}</span>
-          <span class="mini muted">${r.assignments.length} assignment${r.assignments.length === 1 ? "" : "s"}</span></h5>
-        ${r.description ? `<p class="mini muted" style="margin:0 0 8px">${esc(r.description)}</p>` : ""}
+    const roles = Roles.shown(out, showEmpty()).map((r) => {
+      const isOpen = open.has(r.id);
+      const empty = !r.assignments.length;
+      const memberCount = r.assignments.reduce((n, a) => n + a.memberObjects.length, 0);
+      const head = `<div class="au-ev-h">
+          <b>${esc(r.name)}</b>
+          <span class="au-op ${r.unknownRole ? "other" : r.builtIn ? "action" : "create"}">${r.unknownRole ? "unknown" : r.builtIn ? "built-in" : "custom"}</span>
+          ${empty ? `<span class="gu-how exc">empty</span>` : ""}
+          <span class="au-when mini muted">${r.assignments.length} assignment${r.assignments.length === 1 ? "" : "s"}${memberCount ? ` · ${memberCount} member${memberCount === 1 ? "" : "s"}` : ""}</span>
+        </div>
+        <div class="mini muted au-ev-m">${esc(r.description || (empty ? "Nobody holds this role today." : ""))} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
+      const detail = !isOpen ? "" : `<div class="au-detail">
         ${r.assignments.length ? r.assignments.map((a) => `
           <div style="margin:0 0 12px">
             <div class="mini"><b>${esc(a.name)}</b> — scope: ${esc(Roles.scopeLabel(a))} · tags: ${a.tags.length ? a.tags.map((x) => `<span class="gu-stat zero">${esc(x.name)}</span>`).join(" ") : "none"}</div>
@@ -598,8 +616,10 @@ const RolesTool = (() => {
     ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th>Member</th><th style="width:120px">Type</th><th style="width:280px">Sign-in / mail</th></tr></thead>
          <tbody>${a.memberObjects.map((mm) => `<tr><td><b>${esc(mm.name)}</b></td><td class="mini">${esc(mm.type)}</td><td class="mini">${esc(mm.upn)}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="mini muted" style="margin:4px 0 0">No members. The assignment is live — adding one member to it grants this role.</p>`}
-          </div>`).join("") : `<p class="mini muted" style="margin:0">No assignments. Nobody holds this role today.</p>`}
-      </div>`).join("");
+          </div>`).join("") : `<p class="mini muted" style="margin:0">No assignments. Nobody holds this role today — and it is one membership change from being a live grant.</p>`}
+      </div>`;
+      return `<div class="au-fold ${empty ? "dim" : r.builtIn ? "" : "ok"} ${isOpen ? "open" : ""}" data-rbrole="${esc(r.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
+    }).join("");
 
     const failed = out.failed.length ? `<div class="list-card">
       <h4 style="margin:0 0 4px">Could not be read</h4>
@@ -607,8 +627,17 @@ const RolesTool = (() => {
       ${out.failed.map((f) => `<div class="gu-fail"><b>${esc(f.name)}</b> — ${esc(f.error)}</div>`).join("")}
     </div>` : "";
 
-    $("rbBody").innerHTML = head + `<div class="list-card">${notes}${roles}
+    $("rbBody").innerHTML = cards + `<div class="list-card">${notes}
+      <p class="mini muted" style="margin:0 0 10px">Click a role for its assignments and members. Empty roles fold in dimmed rather than hiding — one membership change from live is a fact worth seeing.</p>
+      ${roles}
       <p class="mini muted" style="margin:10px 0 0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (MIT). Member names are resolved through <code>directoryObjects/getByIds</code> in one batched call rather than probing <code>/users/{id}</code> then <code>/groups/{id}</code> per member, which is what the original does and costs up to two round trips each.</p></div>` + obs + failed;
+
+    $("rbBody").querySelectorAll("[data-rbrole]").forEach((el) => el.addEventListener("click", (e) => {
+      if (e.target.closest("a,code")) return;
+      const id = el.dataset.rbrole;
+      open.has(id) ? open.delete(id) : open.add(id);
+      render();
+    }));
   }
 
   function exportAs(fmt) {
