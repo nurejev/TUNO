@@ -2787,6 +2787,8 @@ const AppLockerTool = (() => {
     assigned: null,       // { groupName, count }
     groups: null,         // last search result
     picked: null,         // { id, displayName, count }
+    updating: null,       // { id, name } — the in-place update awaiting its confirm
+    updated: null,        // the profile updated in place THIS session
     error: null,          // last GraphError, shown verbatim
     note: "",
     // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
@@ -3096,11 +3098,18 @@ const AppLockerTool = (() => {
       <div class="al-dep-row">
         <button class="btn primary" id="alDepAudit" ${d.busy || issues.length ? "disabled" : ""}>
           ${d.busy === "audit" ? "Creating…" : "🚀 Create the AuditOnly profile"}</button>
-        <span class="mini muted">as <b>${escq(name)}</b>, grouping <b>${escq(grouping || "(none)")}</b></span>
+        <span class="mini muted">as ${(() => {
+          const vm = /^(.*[\s-][Vv])(\d+(?:\.\d+)*)$/.exec(name);
+          return vm
+            ? `<b>${escq(vm[1])}</b><input id="alDepVer" class="al-dep-in al-dep-ver" value="${escq(vm[2])}" spellcheck="false" title="The version token in the profile name — edit it here, it moves in the name only, never in the grouping">`
+            : `<b>${escq(name)}</b>`;
+        })()}, grouping <b>${escq(grouping || "(none)")}</b></span>
       </div>
       <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
       <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
-      ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length ? "The grouping on screen matches the deployed profile — the export edits it in place." : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
+      ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length
+        ? `The grouping on screen matches the deployed profile${d.checked.tenantAppLocker[0] && d.checked.tenantAppLocker[0].id ? ` — <button class="btn sm al-dep-upd" data-id="${escq(d.checked.tenantAppLocker[0].id)}" data-name="${escq(d.checked.tenantAppLocker[0].displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> writes the adjusted rules and the new version name into it, assignments untouched` : " — the export edits it in place"}.`
+        : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
       ${(() => {
         const tap = tenantOtherGroupings();
         return tap.length ? `<div class="al-dep-ok" style="margin-top:8px"><b>This tenant already runs AppLocker under a different grouping.</b>
@@ -3109,9 +3118,17 @@ const AppLockerTool = (() => {
       })()}
 
       ${coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has ${coll.length} profile${coll.length === 1 ? "" : "s"} in the way.</b>
-        <div class="mini" style="margin-top:4px">TUNO did not create ${coll.length === 1 ? "it" : "them"}, so it will not change ${coll.length === 1 ? "it" : "them"}. Rename yours, pick a different grouping, or deal with ${coll.length === 1 ? "it" : "them"} in the portal.</div>
-        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li><b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
-        <div class="mini" style="margin-top:6px"><b>Iterating on it deliberately?</b> Then this stop is the system working: TUNO creates, never overwrites. Take the <b>Intune profile</b> tab's values (or the XML) and paste them into the existing profile's OMA-URIs in the portal — same grouping, edited in place.</div></div>` : ""}
+        <div class="mini" style="margin-top:4px">TUNO will not create a twin beside ${coll.length === 1 ? "it" : "them"}, and never overwrites anything without being told to.</div>
+        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li>${c.id ? `<button class="btn sm al-dep-upd" data-id="${escq(c.id)}" data-name="${escq(c.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        <div class="mini" style="margin-top:6px"><b>Iterating on it deliberately?</b> Then this stop is the system working. <b>Update it in place</b> writes the adjusted rules and the new version name into the deployed profile — same grouping, same profile, its assignments never move. Or do the same by hand: paste the <b>Intune profile</b> tab's values into the existing profile's OMA-URIs in the portal.</div></div>` : ""}
+      ${d.updating ? `<div class="al-dep-confirm" style="margin-top:8px">
+          <b>Update ${escq(d.updating.name)} in place?</b>
+          <div class="mini" style="margin-top:2px">TUNO writes the rules on this table and the name <b>${escq(name)}</b> into the deployed profile. Its assignments stay exactly where they are — no second profile, nothing to move. Devices pick the change up at their next sync. This is the one edit TUNO makes to something it did not create, and it happens only on this confirmation.</div>
+          <div class="al-dep-row" style="margin-top:6px">
+            <button class="btn primary sm" id="alDepUpdYes" ${d.busy ? "disabled" : ""}>${d.busy === "update" ? "Updating…" : "Yes, update it"}</button>
+            <button class="btn sm" id="alDepUpdNo">Cancel</button>
+          </div></div>` : ""}
+      ${d.updated ? `<div class="al-dep-ok"><b>Updated in place.</b> ${escq(d.updated.displayName)} — id <code>${escq(d.updated.id)}</code>. Same profile, same grouping, assignments untouched; devices get the new rules at their next sync.</div>` : ""}
 
       ${createdFor("audit") ? `<div class="al-dep-ok"><b>Created.</b> ${escq(createdFor("audit").displayName)} — id <code>${escq(createdFor("audit").id)}</code>. It is in the tenant and assigned to nobody.</div>` : ""}
 
@@ -3216,9 +3233,75 @@ const AppLockerTool = (() => {
     } catch (e) { depFail(e); }
   }
 
+  // UPDATE IN PLACE — the one deliberate exception to "TUNO never changes
+  // what it did not create", and it exists because the alternative was worse:
+  // the same-grouping stop told an iterating admin to go paste OMA-URI values
+  // into the portal by hand, every loop. The rules: it runs only from the
+  // stop-box's own confirm card, it re-reads the profile first (the tenant
+  // may have changed since the stop), it keeps the DEPLOYED grouping — same
+  // address, that is the whole point — and it replaces the omaSettings array
+  // whole, so removals land. Assignments are not touched because the profile
+  // object is not replaced; there is nothing to move.
+  async function updateProfileInPlace() {
+    const d = deployState;
+    const u = d.updating;
+    if (!u) return;
+    d.error = null;
+    d.busy = "update";
+    renderDeploy();
+    try {
+      const existing = await Graph.customProfiles();
+      const target = existing.find((p) => p.id === u.id);
+      if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check. Re-run the deploy; there may be nothing in the way any more.");
+      const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
+      const body = intuneProfile(mode);
+      // The deployed profile's own grouping wins — same address on the
+      // device is what makes this an edit instead of a second policy.
+      const st = (target.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
+      if (m && m[1]) {
+        body.omaSettings.forEach((s2) => { s2.omaUri = s2.omaUri.replace(/ApplicationLaunchRestrictions\/[^/]+\//, `ApplicationLaunchRestrictions/${m[1]}/`); });
+        intuneCfg.grouping = m[1];
+        const gi = $("alIntuneGrouping");
+        if (gi) gi.value = m[1];
+      }
+      await Graph.patch(`/deviceManagement/deviceConfigurations/${encodeURIComponent(u.id)}`, body, { scopes: Graph.SCOPES.profiles });
+      d.updated = { id: u.id, displayName: body.displayName };
+      d.updating = null;
+      // The stop was about the state before this write; after it, the profile
+      // in the way IS the profile on screen. The next create-click re-reads
+      // anyway — read before write does not bend.
+      d.checked = Object.assign({}, d.checked, {
+        collisions: [],
+        auditInTenant: (d.checked && d.checked.auditInTenant) || mode === "Audit",
+      });
+      d.busy = "";
+      renderDeploy();
+      renderCodePane();
+    } catch (e) { depFail(e); }
+  }
+
   function wireDeploy() {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepCheckGroup", "click", checkTenantGrouping);
+    // The version token is editable where the name is shown: committing a
+    // value moves it in the NAME only (the grouping never follows a version).
+    const ver = $("alDepVer");
+    if (ver) ver.addEventListener("change", () => {
+      const v = ver.value.trim();
+      if (!/^\d+(?:\.\d+)*$/.test(v)) { renderDeploy(); return; }
+      intuneCfg.displayName = String(intuneCfg.displayName || "").replace(/([\s-][Vv])\d+(?:\.\d+)*$/, "$1" + v);
+      const ni = $("alIntuneName");
+      if (ni) ni.value = intuneCfg.displayName;
+      renderCodePane();
+      renderDeploy();
+    });
+    document.querySelectorAll(".al-dep-upd").forEach((b) => b.addEventListener("click", () => {
+      deployState.updating = { id: b.dataset.id, name: b.dataset.name };
+      renderDeploy();
+    }));
+    on("alDepUpdYes", "click", updateProfileInPlace);
+    on("alDepUpdNo", "click", () => { deployState.updating = null; renderDeploy(); });
     document.querySelectorAll(".al-dep-adopt-id").forEach((b) => b.addEventListener("click", () => {
       const p = tenantOtherGroupings()[+b.dataset.i];
       if (p) adoptTenantIdentity(p);

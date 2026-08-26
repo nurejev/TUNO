@@ -1973,6 +1973,8 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
 .al-dep-in{flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
 .al-dep-in:focus{outline:none;border-color:var(--accent2)}
+/* 10456: the version token in the create row — small, inline, name-only */
+.al-dep-ver{flex:0 0 auto;width:72px;min-width:0;padding:2px 6px;font-size:.85em;text-align:center;margin:0 2px}
 .al-dep-err{margin:8px 0 0;padding:9px 11px;border:1px solid var(--bad-bd);background:var(--bad-bg2);
   border-radius:10px;font-size:12.5px;line-height:1.55}
 .al-dep-err b{color:var(--off)}

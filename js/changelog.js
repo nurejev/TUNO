@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10456, date: "2026-08-26", title: "Update the deployed profile in place — and edit the version where the button is",
+    items: [
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The same-grouping stop used to end with go-paste-the-OMA-URIs-into-the-portal — every loop, by hand. It now offers ✎ Update it in place: a confirm card names the deployed profile and the promise, then TUNO writes the adjusted rules and the new version name into that profile — same grouping, same object, so its assignments never move and there is nothing to unassign or carry over. Removals land too, because the settings are replaced whole. This is the one deliberate exception to TUNO-never-overwrites, it happens only on that confirmation, and it re-reads the tenant first. Also reachable from the 🔎 check button when the grouping matches — a draft with open findings has its deploy disabled, and that is exactly when someone is iterating. (A supersede flow — new profile, assignments moved over — was mocked up and declined: transition window, sequencing risk, no gain over the in-place edit.)" },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The version token in the create row is an input now: edit V4.0.1 right where the profile name is shown. It moves the version in the name only — the grouping never follows a version — and anything that is not a version number is refused." },
+    ],
+  },
+  {
     build: 10455, date: "2026-08-26", title: "An applied fix changes the finding, not just the rules",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Applying the unsigned-executables hash fix left the finding on screen unchanged — same files, same recommendation, button gone — which read as the fix not working (the bug report, verbatim; the new rules sat two cards down and the ✔ Applied notice fades after seconds). The finding now changes state once its collections carry the TUNO hash rules: Info, covered by the hash rules in this draft, with the expiry duty written in and the way back named — delete the TUNO hash rules in the Rules card and the original finding reopens, fix and all. Undo does the same in one click." },
