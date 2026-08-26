@@ -736,6 +736,24 @@ const AppLockerTool = (() => {
     loadFresh();
   }
 
+  // Adopt only the deployed profile's IDENTITY — name (version-bumped) and
+  // grouping — while the ADJUSTED draft on the table stays exactly as edited.
+  // This is the mid-loop case: the rules you want are on screen, the address
+  // they must land at is in the tenant. (adoptTenantProfile, by contrast,
+  // REPLACES the draft with the tenant's rules.)
+  function adoptTenantIdentity(p) {
+    const setting = (p.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+    const m = setting && APPLOCKER_OMA_RE.exec(String(setting.omaUri || ""));
+    if (m && m[1]) intuneCfg.grouping = m[1];
+    if (p.displayName) intuneCfg.displayName = bumpVersionInName(p.displayName);
+    const ni = $("alIntuneName");
+    if (ni) ni.value = intuneCfg.displayName;
+    const gi = $("alIntuneGrouping");
+    if (gi) gi.value = intuneCfg.grouping;
+    renderCodePane();
+    renderDeploy();
+  }
+
   async function loadTenantProfiles() {
     evTenant.busy = true; evTenant.error = ""; evTenant.list = null;
     renderEventsCard();
@@ -3065,10 +3083,20 @@ const AppLockerTool = (() => {
           ${d.busy === "audit" ? "Creating…" : "🚀 Create the AuditOnly profile"}</button>
         <span class="mini muted">as <b>${escq(name)}</b>, grouping <b>${escq(grouping || "(none)")}</b></span>
       </div>
+      <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
+      <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
+      ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length ? "The grouping on screen matches the deployed profile — the export edits it in place." : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
+      ${(() => {
+        const tap = tenantOtherGroupings();
+        return tap.length ? `<div class="al-dep-ok" style="margin-top:8px"><b>This tenant already runs AppLocker under a different grouping.</b>
+          <div class="mini" style="margin-top:4px">Iterating on ${tap.length === 1 ? "that profile" : "one of them"}? Adopt its name and grouping — your ADJUSTED draft stays exactly as it is on screen, only the address and name change, and the export becomes an edit-in-place of the deployed profile.</div>
+          <ul class="mini al-list" style="margin-top:6px">${tap.map((p, i) => `<li><button class="btn sm al-dep-adopt-id" data-i="${i}">⤓ Adopt identity</button> <b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : "";
+      })()}
 
       ${coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has ${coll.length} profile${coll.length === 1 ? "" : "s"} in the way.</b>
         <div class="mini" style="margin-top:4px">TUNO did not create ${coll.length === 1 ? "it" : "them"}, so it will not change ${coll.length === 1 ? "it" : "them"}. Rename yours, pick a different grouping, or deal with ${coll.length === 1 ? "it" : "them"} in the portal.</div>
-        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li><b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li><b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        <div class="mini" style="margin-top:6px"><b>Iterating on it deliberately?</b> Then this stop is the system working: TUNO creates, never overwrites. Take the <b>Intune profile</b> tab's values (or the XML) and paste them into the existing profile's OMA-URIs in the portal — same grouping, edited in place.</div></div>` : ""}
 
       ${createdFor("audit") ? `<div class="al-dep-ok"><b>Created.</b> ${escq(createdFor("audit").displayName)} — id <code>${escq(createdFor("audit").id)}</code>. It is in the tenant and assigned to nobody.</div>` : ""}
 
@@ -3128,6 +3156,10 @@ const AppLockerTool = (() => {
       d.checked = {
         collisions: coll,
         auditInTenant: existing.some((p) => (p.displayName || "").toLowerCase() === intuneProfileName("Audit").toLowerCase()),
+        // The tenant's AppLocker profiles, for the same-policy-same-grouping
+        // guidance the panel renders — iterating on a deployed profile under
+        // a FRESH guid is the mistake this catches.
+        tenantAppLocker: appLockerProfilesOf(existing),
       };
       if (coll.length) { d.busy = ""; renderDeploy(); return; }
       const made = await Graph.createProfile(intuneProfile(mode));
@@ -3141,8 +3173,41 @@ const AppLockerTool = (() => {
     } catch (e) { depFail(e); }
   }
 
+  // The tenant's AppLocker profiles under a DIFFERENT grouping than the one
+  // on screen — the ones the adopt-identity offer is about. One filter,
+  // used by the panel template and its wiring alike.
+  function tenantOtherGroupings() {
+    const g = String(intuneGrouping() || "").toLowerCase();
+    return (deployState.checked && deployState.checked.tenantAppLocker || []).filter((p) => {
+      const st = (p.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
+      return m && m[1] && m[1].toLowerCase() !== g;
+    });
+  }
+
+  // The grouping check stands alone: the adopt-identity offer must be
+  // reachable BEFORE the deploy button is — a draft with open findings has
+  // its deploy disabled, and that is exactly when someone is iterating.
+  async function checkTenantGrouping() {
+    const d = deployState;
+    d.error = null;
+    d.busy = "groupcheck";
+    renderDeploy();
+    try {
+      const existing = await Graph.customProfiles();
+      d.checked = Object.assign({}, d.checked, { tenantAppLocker: appLockerProfilesOf(existing) });
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
   function wireDeploy() {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+    on("alDepCheckGroup", "click", checkTenantGrouping);
+    document.querySelectorAll(".al-dep-adopt-id").forEach((b) => b.addEventListener("click", () => {
+      const p = tenantOtherGroupings()[+b.dataset.i];
+      if (p) adoptTenantIdentity(p);
+    }));
     on("alDepAudit", "click", () => deployProfile("Audit"));
     on("alDepEnforce", "click", () => deployProfile("Enforce"));
     // The Remediation controls are wired by renderRemedy() itself — its box

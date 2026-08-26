@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10454, date: "2026-08-26", title: "The grouping explains itself — and the deployed identity is one click away",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The question kept coming back, so the answer now lives where the deploy happens: the grouping is the policy's address on the device. Same policy, next iteration — same grouping, edit the deployed profile in place; a new GUID deploys a second policy beside the old one, the device merges both, and anything you removed keeps applying from the old address. That line sits at the create button now, with a Check-against-the-tenant button beside it that works even while findings block the deploy — which is exactly when someone is iterating." },
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The check lists any AppLocker profile deployed under a different grouping and offers to adopt its identity: the deployed grouping and the name at its next version land in the form, while the adjusted draft on the table stays exactly as edited — unlike the evidence card's full pull, which replaces the draft with the tenant's rules. This is the mid-loop move: scan bundle in, results in, gaps closed, adopt the deployed identity, export, edit in place. Re-checking confirms the match, and the collision stop now says plainly that a same-grouping stop while iterating is the system working — the export goes into the existing profile in the portal, not into a twin beside it." },
+    ],
+  },
+  {
     build: 10453, date: "2026-08-26", title: "Apply is never a dead button",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The Add-hash-rules fix deduplicates by rule name, so applying it a second time added nothing — and said nothing, which reads as a broken button. Two corrections: a fix whose rules already exist is not offered at all any more, and any confirm-card Apply that ends up adding nothing now says why right in the card — the rules already exist from an earlier apply, and deleting them in the Rules card is the way to rebuild." },
