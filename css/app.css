@@ -2195,3 +2195,9 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 .al-merged-head{position:sticky;top:calc(var(--sticky-nav,110px));background:var(--surface);
   z-index:5;padding:4px 0 8px;margin:-4px 0 8px;border-bottom:1px solid var(--line)}
 #fsBody .al-merged-head{top:0}
+/* 10445: sticky NEVER engages inside a clipped ancestor, and .list-card sets
+   overflow:hidden for its rounded corners — which is why the header quietly
+   did not stick. This card gets overflow:visible; its padding keeps content
+   off the corners, and the inner tables carry their own scrollers. The id
+   selector also outweighs the mobile .list-card{overflow-x:auto} rule. */
+#alFindings.list-card{overflow:visible}

@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10445, date: "2026-08-26", title: "The sticky header actually sticks",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The merged card's sticky header shipped in 10443 and quietly never stuck: the card clips its corners with overflow hidden, and a sticky element inside a clipped ancestor never engages — no error, just nothing. The card now lets its overflow show; the padding keeps content off the rounded corners and the tables inside carry their own scrollers, so nothing else changes." },
+    ],
+  },
+  {
     build: 10444, date: "2026-08-26", title: "The queue takes ticks, and hands back an order",
     items: [
       { kind: "new", tool: "All tools", text: "The promotion queue in Help grew a tick box per item and an export button. Tick the items you have verified on this channel, press export, and a small file comes down — the promotion order: the ticked numbers up front, each item's title, builds, risk and files below, and a machine-readable block at the end. Hand that file to the working session and it becomes the promotion instruction. Ticks persist across reloads, keyed on the item's stable number, and a tick whose item ships is pruned rather than left pointing at nothing." },
