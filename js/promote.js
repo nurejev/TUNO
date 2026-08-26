@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 98,
+      title: "The organization is read at sign-in — TUNO's header names the tenant",
+      tools: ["TUNO"],
+      builds: [10457],
+      risk: "low",
+      what: "ENCA's org read at sign-in, ported: enter() fires a best-effort GET /organization?$select=id,displayName,verifiedDomains on the sign-in token (Graph's permission table lists User.Read — the base scope — as sufficient for exactly those three properties; everything else answers null and is not asked for). The header upgrades from the UPN domain to the org's display name when the read lands; a failed read leaves the UPN domain and never pops consent (the catch swallows interaction_required — a consent popup at sign-in is what Graph-layer rule 1 forbids). The org-name half of the cfdev detection (dormant since 10373) goes live, re-evaluated when the name arrives. New seam: TunoTenant.org() answers {id, displayName, verifiedDomains} or null-meaning-not-read; sign-out clears it; demo mode fills it with the same Contoso org demo.js answers for /organization. Badge tooltip updated to name both halves of the check.",
+      why: "LOW — one read on an already-held scope, fully hedged; no tool behaviour changes until something opts into TunoTenant.org(). Real eyes needed on: the header on a real tenant flipping from UPN domain to display name without a visible jump, and the cfdev badge appearing on the devcf tenant from either half.",
+      test: [
+        "Sign in to any real tenant: the header shows the UPN domain instantly, then the organization's display name; no consent popup at any point.",
+        "Sign in to the devcf tenant: the cfdev badge is on from the UPN half immediately and stays on when the org name lands.",
+        "Sign out and back in as a different tenant: the previous org name must not flash — TunoTenant.org() is cleared at sign-out.",
+        "Demo mode (?demo=1): header says Contoso B.V. (demo) and TunoTenant.org() answers the demo org, no Graph call.",
+        "Offline/failed read (block graph.microsoft.com in devtools, sign in): header keeps the UPN domain, console stays quiet, nothing else breaks.",
+      ],
+      files: ["js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 97,
       title: "Three cards, one per layout — and the gap report carries coverage",
       tools: ["🔐 AppLocker builder & validator"],

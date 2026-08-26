@@ -76,12 +76,19 @@ const Fs = (() => {
   // the meaning here. A request marked "cfdev detect" is a feature gated on
   // this and nothing else.
   //
-  // ONE DIFFERENCE FROM ENCA, stated rather than hidden: ENCA reads
+  // THE DIFFERENCE FROM ENCA IS CLOSED (build 10457): ENCA reads
   // /organization at sign-in and fills tenantName with the org's display
-  // name; TUNO signs in with User.Read only and reads no org, so tenantName
-  // stays empty until a tool that has read the org fills it through
-  // TunoTenant.setOrgName. The UPN-domain half of the check is the one that
-  // answers today, and it is the reliable half anyway.
+  // name, and now so does TUNO — readOrgAtSignIn() below, ported. The read
+  // rides the SAME User.Read the sign-in already holds: Graph's own
+  // permission table lists User.Read for GET /organization, answering
+  // exactly id, displayName and verifiedDomains (everything else null),
+  // which is precisely the three fields wanted. No new scope, no consent
+  // popup — the token is the sign-in token, acquired silently, and a read
+  // that fails leaves the UPN-domain header exactly as it was (ENCA's own
+  // try/catch, ported with it). This wakes the org-name half of the cfdev
+  // check, dormant since 10373, and gives every tool one place to get the
+  // tenant's identity — TunoTenant.org() — instead of each paying its own
+  // /organization read.
   let tenantName = "", tenantDomain = "";
   // Two entries because the tenant answers to two names: devcf.onmicrosoft.com
   // is what the sign-in UPN actually carries (the tenant's initial domain), and
@@ -95,9 +102,16 @@ const Fs = (() => {
   // Tools live in their own files and gate cfdev-only features through this
   // seam rather than keeping a second copy of the list — the first time two
   // lists exist, one of them is wrong. The headless tests drive it too.
+  // The org read at sign-in lands here — id, displayName, verifiedDomains,
+  // the three fields User.Read answers. null until the read has answered
+  // (or forever, if it could not), so a caller distinguishes "not read"
+  // from "read and empty" the same way the tools distinguish unknown from
+  // zero everywhere else.
+  let orgInfo = null;
   window.TunoTenant = {
     isCfdev: isCfdevTenant,
     domain: () => tenantDomain,
+    org: () => orgInfo,
     setOrgName: (n) => { tenantName = String(n || ""); },
     // for the headless tests only — the real values are set by enter()/sign out
     _setForTest: (d, n) => { tenantDomain = String(d || ""); tenantName = String(n || ""); },
@@ -642,6 +656,10 @@ const Fs = (() => {
     account = null;
     tenantDomain = "";
     tenantName = "Contoso B.V. (demo)";
+    // The same org demo.js answers for /organization — set directly rather
+    // than read, so TunoTenant.org() and the demo Graph cannot disagree
+    // about who the pretend tenant is.
+    orgInfo = { id: "d0e1f2a3-4b5c-6d7e-8f90-abcdef012345", displayName: tenantName, verifiedDomains: [] };
     $("tenantName").textContent = tenantName;
     $("tenantUser").textContent = "demo@contoso.onmicrosoft.com";
     $("avatar").textContent = "DM";
@@ -666,6 +684,37 @@ const Fs = (() => {
     $("sideNav").style.display = "";
     document.body.classList.add("with-side");
     show("screen-home");
+  }
+
+  // ---------- tenant identity at sign-in (ENCA's org read, ported) ----------
+  // ENCA's loadTenant fetches /organization right after sign-in and puts the
+  // org's display name in the header; this is that read, alone — TUNO has no
+  // tenant-wide load to ride, so it rides enter() instead. Fire-and-forget:
+  // the header shows the UPN domain immediately (what enter() always did)
+  // and upgrades to the organization's display name when the read answers,
+  // which on a warm token cache is the same paint. $select names exactly the
+  // three properties User.Read is documented to answer; asking for more
+  // would only get nulls back. A failure of any kind — offline, a guest
+  // account, a token MSAL wants interaction for (never granted here: a
+  // consent popup at sign-in is the one thing rule 1 of the Graph layer
+  // exists to prevent, and the catch swallows it instead) — leaves the
+  // header on the UPN domain and orgInfo null, which every caller treats as
+  // "not read", never as an empty tenant.
+  async function readOrgAtSignIn() {
+    try {
+      const j = await Graph.readOne("/organization?$select=id,displayName,verifiedDomains",
+        { scopes: AUTH_CONFIG.scopes });
+      const org = j && Array.isArray(j.value) ? j.value[0] : j;
+      if (!signedIn || !org) return;   // signed out mid-flight, or nothing came back
+      orgInfo = { id: org.id || "", displayName: org.displayName || "", verifiedDomains: org.verifiedDomains || [] };
+      if (org.displayName) {
+        tenantName = org.displayName;
+        $("tenantName").textContent = tenantName;
+        // The org-name half of the cfdev check just woke up — re-ask with
+        // both halves in hand, the same call enter() made with one.
+        $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
+      }
+    } catch { /* ENCA's own hedge, ported: the org read is best-effort */ }
   }
 
   function enter() {
@@ -702,6 +751,7 @@ const Fs = (() => {
     document.body.classList.add("with-side");
     show("screen-home");
     openWhatsNewOverlay();
+    readOrgAtSignIn();
   }
   // Dismiss marks it seen; "Read the full list" hands over to the page, which
   // marks it seen itself. Escape and the backdrop close WITHOUT marking, so a
@@ -723,7 +773,7 @@ const Fs = (() => {
   $("signOutBtn").addEventListener("click", () => {
     const acc = account;
     account = null; signedIn = false;
-    tenantDomain = ""; tenantName = "";
+    tenantDomain = ""; tenantName = ""; orgInfo = null;
     $("cfdevBadge").style.display = "none";
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
