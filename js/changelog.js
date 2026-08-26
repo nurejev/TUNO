@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10449, date: "2026-08-26", title: "Fifth promotion — the whole queue ships as build 9",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 9 and takes all thirty-five queue items with it — beta builds 10357 through 10448, the largest promotion yet: nine tools (what-if, health, settings search, conflicts, compliance, Defender, firewall and ASR, multi-admin approval, the LAPS audit with the registration's first new permission in ninety-nine builds), the widened self-verifying backup with assignment import, the timeline layout across five tools, demo mode, self-host branding, and the shell polish. The queue is empty again; the roadmap's In-beta-today era stands empty on both channels, saying truthfully that they match." },
+      { kind: "improved", tool: "All tools", text: "This was the first promotion ordered by the exported promotion file — the tick boxes shipped in 10444, exported by Mihai two days later, handed to a working session, verified against what main actually contained, and promoted. The order file's own sentence held: it was the order, not the verification, and the verification found every difference between the channels accounted for before a single file moved." },
+    ],
+  },
+  {
     build: 10448, date: "2026-08-26", title: "One family of fix buttons",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The coverage table's Add-allow-rule button wore the dark primary style while the findings' fix buttons were outline, and the two never read as one family. Mihai picked the quiet option from three: every fix and allow action is now the same outline button, and the wording carries the difference — a label that names an act (Set AuditOnly, Add allow rule, Add collection) happens on the click; a label trailing an ellipsis (Fix…) opens the editor. The suite holds the family together: a primary class creeping back onto either side fails it." },

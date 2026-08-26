@@ -26,7 +26,7 @@ Replaces  : Detect_ACB.ps1 v3.9 - same always-trigger design, house conventions.
 #>
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10448
+$script:TunoBuild = 10449
 
 $LogFolder = "$env:ProgramData\IT-TOOLS\LOGS"
 $LogFile   = Join-Path $LogFolder 'AppControlEvents-Detect.log'
