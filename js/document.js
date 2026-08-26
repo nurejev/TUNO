@@ -436,6 +436,34 @@ const Docs = (() => {
   // string. platformsOf() is what the filter uses.
   function platformOf(it) { return platformsOf(it, null)[0] || ""; }
 
+  // ------------------------------------------------------------- popout --
+  // The head + body of the policy popout, as one function, because two tools
+  // show it now: T05's browse and T19's overview cards. The first time two
+  // copies of this template exist, one of them renders a policy differently —
+  // the redactValue lesson (T10), applied to markup. The FOOT is deliberately
+  // not here: what you can do with an open policy is each tool's own claim
+  // (T05 ticks it into the document; T19 just closes).
+  function popoutHtml(sec, it) {
+    return `
+      <div class="gu-m-head">
+        <h3>${esc(it.name)}</h3>
+        <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
+        ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
+        <div class="mini" style="margin-top:8px">${it.assignments.length
+          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
+          : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
+        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
+      </div>
+      <div class="gu-m-body">
+        ${it.detailError
+          ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
+          : it.rows.length
+            ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
+               <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
+            : `<p class="mini muted">No documentable settings.</p>`}
+      </div>`;
+  }
+
   function assignmentOf(a) {
     const t = (a && a.target) || {};
     const ty = lc(t["@odata.type"]);
@@ -758,6 +786,7 @@ ${body.join("\n")}
     SECTIONS, sectionById, allSectionIds, scopesFor,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
     collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
+    popoutHtml,
     PLATFORM_ORDER, NOT_SPECIFIC,
     meta, markdown, html, docx, NOTE_REDACTED, scopeLine, filterText,
   };
@@ -987,23 +1016,7 @@ const DocsTool = (() => {
     const { sec, it } = found;
     const picked = selected.has(key);
     $("dcModalBody").innerHTML = `
-      <div class="gu-m-head">
-        <h3>${esc(it.name)}</h3>
-        <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
-        ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
-        <div class="mini" style="margin-top:8px">${it.assignments.length
-          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
-          : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
-        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
-      </div>
-      <div class="gu-m-body">
-        ${it.detailError
-          ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
-          : it.rows.length
-            ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
-               <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
-            : `<p class="mini muted">No documentable settings.</p>`}
-      </div>
+      ${Docs.popoutHtml(sec, it)}
       <div class="gu-m-foot">
         <label class="chk" style="display:inline-flex;gap:8px;align-items:center;cursor:pointer">
           <input type="checkbox" id="dcModalPick"${picked ? " checked" : ""}> Include in the document</label>

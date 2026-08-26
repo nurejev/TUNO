@@ -81,6 +81,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 99,
+      title: "T19 🗂 Policy overview — the tenant as cards (R30, mockup Option B)",
+      tools: ["🗂 Policy overview", "📄 Configuration documenter"],
+      builds: [10458],
+      risk: "low",
+      what: "New tool file js/overview.js: ENCA's list-policies view, Intune-side-out — Option B of the mockup round (surface stat cards double as filters, T09 pattern, over ONE flat .scard grid; ENCA's card classes worn for the first time). Read = Docs.collect() whole, scopes at the click as T05's own union (all thirteen surfaces + directory for group names). Verdicts: assigned (reaching by construction) / unassigned / excluded-only (its own verdict, T09's distinction), ⚑ filter caps at may on the card. Failed surfaces render as ⚠ non-filter cards (unknown, not zero). Search (static toolbar, survives re-render) matches names/types/descriptions/platforms/surfaces/assignment group names; chips count the surface+search set. Card click opens Docs.popoutHtml — EXTRACTED from DocsTool.openPolicy in this build so the popout template exists once (T05 keeps its include-in-document foot, T19's foot is Close). Registered: tile leads the 📦 Configuration section, TOOL_TABS, HISTORY_SCREENS, sidebar (derived), T19 in TOOL_VERSIONS, R30 roadmap card live · beta 10458, .ov-surf styles in app.css.",
+      why: "LOW — reads only through T05's already-proven collect(); the one shared-code change is the popout extraction, byte-identical markup, and the suite renders both tools' popouts to hold it. Real eyes needed on: the surface rail wrapping on a narrow window, the ⚠ card in all three themes, and a real tenant's card grid at 300+ objects.",
+      test: [
+        "THE ONE THAT MATTERS: read a real tenant, click ✅ Compliance's surface card — the grid narrows to compliance only, the chips recount, clicking the card again brings everything back; same toggle on a verdict chip.",
+        "Click a settings-catalog card: the documenter's popout opens with the full settings table, redacted values italic; Close and Escape and backdrop all close it; open the SAME policy in T05 — identical head and body.",
+        "Type a group name in the search: only policies assigned to (or excluding) that group remain, and typing is never interrupted by the re-render.",
+        "A tenant (or role) where a surface 403s: that surface is a dashed ⚠ card naming the error, it does not filter, and the note above says N surfaces could not be read.",
+        "Excluded-only policy: amber chip on the card, reach says nobody (−n excluded); a filtered assignment wears ⚑ filter — may.",
+        "T05 regression: browse, open a popout, tick include-in-the-document from the popout — the selection still follows.",
+      ],
+      files: ["js/overview.js", "js/document.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 98,
       title: "The organization is read at sign-in — TUNO's header names the tenant",
       tools: ["TUNO"],

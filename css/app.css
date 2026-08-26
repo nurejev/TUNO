@@ -2214,3 +2214,14 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 .al-dl-more[open]>summary{margin-bottom:8px}
 .al-dl-more[open]>summary .muted{transform:rotate(180deg);display:inline-block}
 .al-dl-more>.al-dl-row{margin-bottom:8px}
+
+/* ---------- T19 Policy overview: surface cards that double as filters ----- */
+.ov-surfs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:14px 0 4px}
+.ov-surf{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;cursor:pointer;box-shadow:var(--shadow)}
+.ov-surf b{font-size:13px}
+.ov-surf .mini{font-size:11px;color:var(--muted)}
+.ov-surf.active{background:var(--soft);border-color:var(--accent2);outline:2px solid var(--accent2)}
+.ov-surf.ov-fail{cursor:help;border-style:dashed}
+.ov-surf-ic{font-size:18px;flex:none}
+.ov-on{color:var(--on)}
+.ov-off{color:var(--off)}

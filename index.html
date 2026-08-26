@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10457"></script>
+<script src="js/popup-guard.js?v=10458"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10457">
+<link rel="stylesheet" href="css/app.css?v=10458">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10457"></script>
+<script src="js/selfhost-boot.js?v=10458"></script>
 </head>
 <body>
 
@@ -157,6 +157,10 @@
     </div>
     <div class="tool-sec"><h3>📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
     <div class="tools">
+      <div class="tool" id="toolOverview">
+        <div class="tool-ic">🗂</div><h3>Policy overview <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Every configured policy in the tenant as clickable cards — the sister tool ENCA's list-policies view, Intune-side-out. The thirteen surfaces sit on top as stat cards that <b>double as filters</b>: each says how many objects it holds and how many actually reach somebody, so "what does this tenant even have" is answered before any scrolling. One flat card grid below, filterable by verdict — <b>Assigned</b> means reaching somebody by construction, <b>excluded-only</b> is its own finding, and an assignment filter caps reach at <i>may</i>. A card click opens the full policy with its settings, through the documenter's own popout — same read, same redaction, one implementation. A surface that could not be read is a named ⚠ card, never a silent zero. <b>Reads only, no new permission.</b></p>
+      </div>
       <div class="tool" id="toolBackup">
         <div class="tool-ic">📦</div><h3>Backup configuration <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
         <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back. And now the other direction: <b>restore from an archive</b> — create only, an editable [Restored] prefix on everything, a collision stop checked fresh before each create, administrative-template child writes included in the dry run, everything arriving unassigned by design. <b>Widened at beta 10426 (R15):</b> twenty-four areas, a SHA-256 per file with the manifest written last, an offline verify that names modified, missing and untracked files — and assignments that export to <code>assignments.json</code> and import back, same tenant only, through the assignment editor's own write discipline.</p>
@@ -802,6 +806,32 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
        Coverage after Ugur Koc's IntuneDocumentation (Elastic 2.0 —
        reimplemented from its published coverage list, not forked). Two views
        over one read, the T03 shape: browse what you are about to document. -->
+  <!-- ============ POLICY OVERVIEW (T19) ============ -->
+  <section id="screen-overview" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🗂 Policy overview <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Every configured object in the tenant as clickable cards — <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s list-policies view, Intune-side-out. The read is the 📄 Configuration documenter's own thirteen-surface read — one implementation, so the two tools cannot disagree about one tenant — and a card click opens the documenter's popout with the full settings, redaction included. The surface cards on top <b>double as filters</b>: click one to see only it, click again for everything; the verdict chips do the same.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The verdict is the house claim, not a new one.</b> <b>Assigned</b> means at least one include or tenant-wide target — reaching somebody <i>by construction</i>. <b>Excluded-only</b> is its own verdict, not a flavour of unassigned: the policy has assignments and every one says "not you". An assignment filter caps reach at <i>may</i>, worn on the card, because the rule is evaluated by the service against inventory a browser cannot see. Whether an included group is actually empty is the 🩺 Assignment health tool's finding — pointed at, not half-repeated. A surface that could not be read is a named ⚠ card: unknown, never zero. <b>Reads only.</b></p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="ovRun">🗂 Read the tenant</button>
+        <span class="mini muted" id="ovCount"></span>
+      </div>
+      <div id="ovProg" class="mini muted" style="margin-top:10px"></div>
+      <div id="ovNotes"></div>
+    </div>
+    <div id="ovSurfs" class="ov-surfs"></div>
+    <div class="toolbar" id="ovToolbar" style="display:none">
+      <div class="search"><input id="ovSearch" type="search" placeholder="🔎 Filter by name, group, platform, surface…"></div>
+      <span id="ovChips"></span>
+    </div>
+    <div id="ovCards" class="cards" style="margin-top:14px"></div>
+    <div class="modal-bg" id="ovModal">
+      <div class="modal gu-modal" id="ovModalBody"></div>
+    </div>
+  </section>
+
   <section id="screen-docs" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">📄 Configuration documenter <span class="tag new">BETA</span></h2>
@@ -1283,6 +1313,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Shipped as carded, one addition found in the building: escrowed-with-no-timestamp is its own bucket.</b> A record whose backup time cannot be parsed is neither healthy nor stale — calling it either would be a guess, so it reads <i>age unknown</i>, counted and listed. The role-gate refusal is detected and named on screen — "this is about who you are, not what TUNO may do" — and the stale threshold is yours (default 60 days, the original's).</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R30</span> 🗂 Policy overview <span class="tag grant">live · beta 10458</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">The sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s list-policies view, Intune-side-out: every configured object as clickable cards, the thirteen surfaces on top as stat cards that double as filters — Option B of a two-option mockup round. <b>The read is the 📄 documenter's own <code>collect()</code></b>, one implementation so two tools cannot disagree about one tenant, and a card click opens the documenter's own popout, extracted in the same build so the policy template exists once. Verdicts are the house claims: <b>Assigned</b> = reaching somebody by construction, <b>excluded-only</b> its own finding, a filter caps reach at <i>may</i>. A surface that could not be read is a named ⚠ card and deliberately not a filter. Reads only, no new permission, no exports — the document is the documenter's job, one click away.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R15</span> 📦 Backup, widened and checkable <span class="tag grant">live · beta 10426 · production 9</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">After Ugur Koc's <a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a> (MIT), which backs up <b>twenty-seven</b> policy types where <span class="rm-ref">R08</span> covers five. The missing twenty-two are not obscure: security-baseline intents, Autopilot profiles, enrolment configurations, feature, quality and driver update profiles, macOS custom-attribute scripts, assignment filters, scope tags, device categories, terms and conditions, notification templates, app configuration for devices and for managed apps, app protection for iOS, Android and Windows, Windows Information Protection, and app categories. Most of them TUNO already <i>reads</i> somewhere — <span class="rm-ref">R06</span> documents thirteen surfaces — so the gap is the archive, not the plumbing.</p>
             <p class="mini" style="margin:6px 0 0"><b>And an archive you can check.</b> TenuVault writes a SHA-256 per policy file and a <code>verify</code> that reports modified, missing and untracked files — entirely offline, no tenant. An archive nobody can verify is a file you hope is a backup. <b>Its atomicity trick is worth copying exactly</b>: <code>metadata.json</code> is written LAST, so its presence is what marks a backup complete, and a folder without one is hidden rather than offered. TUNO builds its zip in memory and hands it to the browser in one act, so a half-written archive is less likely — but "less likely" is not "cannot", and a manifest that only exists when the run finished is a better guarantee than a promise.</p>
@@ -1645,36 +1679,37 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10457"></script>
-<script src="js/selfhost.js?v=10457"></script>
-<script src="js/version.js?v=10457"></script>
-<script src="js/promote.js?v=10457"></script>
-<script src="js/authConfig.js?v=10457"></script>
-<script src="js/changelog.js?v=10457"></script>
-<script src="js/msappcatalog.js?v=10457"></script>
-<script src="js/demo.js?v=10457"></script>
-<script src="js/graph.js?v=10457"></script>
-<script src="js/suggest.js?v=10457"></script>
-<script src="js/progress.js?v=10457"></script>
-<script src="js/groupuse.js?v=10457"></script>
-<script src="js/audit.js?v=10457"></script>
-<script src="js/backup.js?v=10457"></script>
-<script src="js/document.js?v=10457"></script>
-<script src="js/devicewhy.js?v=10457"></script>
-<script src="js/whatif.js?v=10457"></script>
-<script src="js/health.js?v=10457"></script>
-<script src="js/settingsearch.js?v=10457"></script>
-<script src="js/conflict.js?v=10457"></script>
-<script src="js/compliance.js?v=10457"></script>
-<script src="js/filters.js?v=10457"></script>
-<script src="js/restore.js?v=10457"></script>
-<script src="js/assignedit.js?v=10457"></script>
-<script src="js/roles.js?v=10457"></script>
-<script src="js/defender.js?v=10457"></script>
-<script src="js/endpointsec.js?v=10457"></script>
-<script src="js/maa.js?v=10457"></script>
-<script src="js/laps.js?v=10457"></script>
-<script src="js/applocker.js?v=10457"></script>
-<script src="js/app.js?v=10457"></script>
+<script src="js/branding.js?v=10458"></script>
+<script src="js/selfhost.js?v=10458"></script>
+<script src="js/version.js?v=10458"></script>
+<script src="js/promote.js?v=10458"></script>
+<script src="js/authConfig.js?v=10458"></script>
+<script src="js/changelog.js?v=10458"></script>
+<script src="js/msappcatalog.js?v=10458"></script>
+<script src="js/demo.js?v=10458"></script>
+<script src="js/graph.js?v=10458"></script>
+<script src="js/suggest.js?v=10458"></script>
+<script src="js/progress.js?v=10458"></script>
+<script src="js/groupuse.js?v=10458"></script>
+<script src="js/audit.js?v=10458"></script>
+<script src="js/backup.js?v=10458"></script>
+<script src="js/document.js?v=10458"></script>
+<script src="js/overview.js?v=10458"></script>
+<script src="js/devicewhy.js?v=10458"></script>
+<script src="js/whatif.js?v=10458"></script>
+<script src="js/health.js?v=10458"></script>
+<script src="js/settingsearch.js?v=10458"></script>
+<script src="js/conflict.js?v=10458"></script>
+<script src="js/compliance.js?v=10458"></script>
+<script src="js/filters.js?v=10458"></script>
+<script src="js/restore.js?v=10458"></script>
+<script src="js/assignedit.js?v=10458"></script>
+<script src="js/roles.js?v=10458"></script>
+<script src="js/defender.js?v=10458"></script>
+<script src="js/endpointsec.js?v=10458"></script>
+<script src="js/maa.js?v=10458"></script>
+<script src="js/laps.js?v=10458"></script>
+<script src="js/applocker.js?v=10458"></script>
+<script src="js/app.js?v=10458"></script>
 </body>
 </html>

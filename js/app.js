@@ -131,7 +131,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -822,6 +822,7 @@ const Fs = (() => {
     ["toolDevice", "🖥 Device analyzer"],
     ["toolCompliance", "📈 Compliance report"],
     ["toolAudit", "🕓 Change audit"],
+    ["toolOverview", "🗂 Policy overview"],
     ["toolBackup", "📦 Backup configuration"],
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
@@ -1031,6 +1032,7 @@ const Fs = (() => {
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
   $("toolMaa").addEventListener("click", () => { crumb("🤝 Multi-admin approval"); show("screen-maa"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
+  $("toolOverview").addEventListener("click", () => { crumb("🗂 Policy overview"); show("screen-overview"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
   $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
@@ -1258,6 +1260,7 @@ const Fs = (() => {
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
+  if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof LapsTool !== "undefined") LapsTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
