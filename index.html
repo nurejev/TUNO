@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10434"></script>
+<script src="js/popup-guard.js?v=10435"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10434">
+<link rel="stylesheet" href="css/app.css?v=10435">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10434"></script>
+<script src="js/selfhost-boot.js?v=10435"></script>
 </head>
 <body>
 
@@ -349,8 +349,15 @@
       <p style="margin:0 0 6px"><b>Upload what the scan wrote — the <code>.json</code> bundle.</b></p>
       <p class="mini muted" style="margin:0">It carries the generated rule set, the policy the device was really running, the directories a standard user can write to, the unsigned binaries sitting in them, and what AppLocker has already blocked. The tool loads the generated <b>AuditOnly</b> policy by default and you can switch to either of the others once it is open.<br><br>
       <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
-      Or load the sample policy to see what the audit and the Microsoft coverage check produce.</p>
+      Or load the sample policy to see what the audit and the Microsoft coverage check produce.<br><br>
+      <b>Coming back mid-loop with only an events bundle?</b> Upload it with the same button — the fleet evidence card appears below, and it can pull the deployed AppLocker profile straight from the tenant to judge against, so nothing needs hunting for on disk.</p>
     </div>
+    <!-- Fleet events evidence — OUTSIDE the policy-only body, on purpose:
+         the mid-loop return carries ONLY the events bundle (the policy is in
+         the TENANT), and a card that hides until a policy file is found is
+         exactly the confusion it caused. Full-width here, visible in both
+         states; it offers to pull the deployed profile from the tenant. -->
+    <div class="list-card" id="alEvents" style="margin-top:14px;padding:16px 18px;display:none"></div>
     <!-- Two columns: the policy you are working on, and the XML it currently
          produces. The XML panel is the thing that goes into the GPO, so it is
          visible while you change the policy rather than only at download. It
@@ -369,11 +376,6 @@
           <div class="list-card" id="alEnforce" style="padding:16px 18px"></div>
           <div id="alAddRule"></div>
           <div class="list-card" id="alScan" style="padding:16px 18px;display:none"></div>
-          <!-- Fleet events evidence — the tuno.applocker.events bundle the
-               collection Remediation harvests from the estate. Separate card
-               from the scan: one device's reference scan and the fleet's
-               event history are different kinds of evidence. -->
-          <div class="list-card" id="alEvents" style="padding:16px 18px;display:none"></div>
           <div class="list-card" id="alCoverage" style="padding:16px 18px"></div>
           <div class="list-card" id="alFindings" style="padding:16px 18px"></div>
           <div id="alRules"></div>
@@ -1611,36 +1613,36 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10434"></script>
-<script src="js/selfhost.js?v=10434"></script>
-<script src="js/version.js?v=10434"></script>
-<script src="js/promote.js?v=10434"></script>
-<script src="js/authConfig.js?v=10434"></script>
-<script src="js/changelog.js?v=10434"></script>
-<script src="js/msappcatalog.js?v=10434"></script>
-<script src="js/demo.js?v=10434"></script>
-<script src="js/graph.js?v=10434"></script>
-<script src="js/suggest.js?v=10434"></script>
-<script src="js/progress.js?v=10434"></script>
-<script src="js/groupuse.js?v=10434"></script>
-<script src="js/audit.js?v=10434"></script>
-<script src="js/backup.js?v=10434"></script>
-<script src="js/document.js?v=10434"></script>
-<script src="js/devicewhy.js?v=10434"></script>
-<script src="js/whatif.js?v=10434"></script>
-<script src="js/health.js?v=10434"></script>
-<script src="js/settingsearch.js?v=10434"></script>
-<script src="js/conflict.js?v=10434"></script>
-<script src="js/compliance.js?v=10434"></script>
-<script src="js/filters.js?v=10434"></script>
-<script src="js/restore.js?v=10434"></script>
-<script src="js/assignedit.js?v=10434"></script>
-<script src="js/roles.js?v=10434"></script>
-<script src="js/defender.js?v=10434"></script>
-<script src="js/endpointsec.js?v=10434"></script>
-<script src="js/maa.js?v=10434"></script>
-<script src="js/laps.js?v=10434"></script>
-<script src="js/applocker.js?v=10434"></script>
-<script src="js/app.js?v=10434"></script>
+<script src="js/branding.js?v=10435"></script>
+<script src="js/selfhost.js?v=10435"></script>
+<script src="js/version.js?v=10435"></script>
+<script src="js/promote.js?v=10435"></script>
+<script src="js/authConfig.js?v=10435"></script>
+<script src="js/changelog.js?v=10435"></script>
+<script src="js/msappcatalog.js?v=10435"></script>
+<script src="js/demo.js?v=10435"></script>
+<script src="js/graph.js?v=10435"></script>
+<script src="js/suggest.js?v=10435"></script>
+<script src="js/progress.js?v=10435"></script>
+<script src="js/groupuse.js?v=10435"></script>
+<script src="js/audit.js?v=10435"></script>
+<script src="js/backup.js?v=10435"></script>
+<script src="js/document.js?v=10435"></script>
+<script src="js/devicewhy.js?v=10435"></script>
+<script src="js/whatif.js?v=10435"></script>
+<script src="js/health.js?v=10435"></script>
+<script src="js/settingsearch.js?v=10435"></script>
+<script src="js/conflict.js?v=10435"></script>
+<script src="js/compliance.js?v=10435"></script>
+<script src="js/filters.js?v=10435"></script>
+<script src="js/restore.js?v=10435"></script>
+<script src="js/assignedit.js?v=10435"></script>
+<script src="js/roles.js?v=10435"></script>
+<script src="js/defender.js?v=10435"></script>
+<script src="js/endpointsec.js?v=10435"></script>
+<script src="js/maa.js?v=10435"></script>
+<script src="js/laps.js?v=10435"></script>
+<script src="js/applocker.js?v=10435"></script>
+<script src="js/app.js?v=10435"></script>
 </body>
 </html>

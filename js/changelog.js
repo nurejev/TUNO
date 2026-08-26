@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10435, date: "2026-08-26", title: "Events first — and the policy comes from the tenant",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Uploading the events bundle before a policy used to earn you an alert telling you to go find the scan or the XML — confusing, and wrong about where the policy actually is mid-loop: in the tenant, not on your disk. The fleet evidence card now stands on its own. It renders the moment the bundle lands, ahead of any policy, and leads with the real question — what to judge the evidence against — instead of hiding until a file is found." },
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "And the best answer to that question is now a button: pull the deployed AppLocker profile straight from the tenant. Sign in, click, and the tool lists the custom profiles that carry AppLocker OMA-URIs; pick one and the policy is rebuilt from the RuleCollection values the profile holds. Pulling adopts the profile name and grouping into the Intune form, so closing gaps and re-exporting edits the same profile in place — and the deploy panel keeps refusing to create a twin beside it, which is exactly the discipline the grouping rules demand. If Graph withholds a value, the pull refuses with a reason rather than rebuilding half a policy quietly." },
+    ],
+  },
+  {
     build: 10434, date: "2026-08-25", title: "Click a group in the sweep and see everything it is connected to",
     items: [
       { kind: "new", tool: "T02", text: "A group in the sweep is now a link. Clicking it opens that group on its own \u2014 every assignment naming it, grouped by surface, with how it is targeted and any filter capping the reach. Until now the sweep gave you counts and no way to ask what they were counting." },

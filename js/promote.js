@@ -70,6 +70,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 91,
+      title: "Events first — the evidence card pulls the policy from the tenant",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10435],
+      risk: "medium",
+      what: "T01 v0.15. The fleet evidence card moved OUTSIDE the policy-only body: an events bundle uploaded first renders immediately (the hunt-for-a-file alert is gone) and the card leads with a chooser — upload the draft, or PULL THE DEPLOYED PROFILE FROM THE TENANT. The pull lists Graph.customProfiles(), keeps only profiles whose omaSettings carry AppLocker OMA-URIs, and rebuilds the policy from their RuleCollection values; the profile's NAME and GROUPING are adopted into the Intune form so a later export edits in place and the collision stop refuses a twin. Values Graph withholds → refusal with a reason, never a half-rebuilt policy. Read-only, existing scope (DeviceManagementConfiguration.ReadWrite.All already covers the read).",
+      why: "MEDIUM — the card move is layout (visible in both states now; it left the left column), and the pull's real-world unknown is Graph itself: whether the deviceConfigurations LIST returns omaSettingString VALUES in this tenant or masks them. The refusal path covers masking honestly, but the happy path is only argued until a real pull round-trips.",
+      test: [
+        "THE ONE THAT MATTERS: fresh session, upload ONLY an events bundle — the card must appear with counts and the chooser, no alert. Sign in, pull the deployed profile, and the verdict column must fill with the same judgements a file-loaded copy of that policy gives.",
+        "Round-trip: pull, close a gap, export the Intune JSON — name and grouping must equal the deployed profile's, and the deploy panel must STOP on the collision (edit in place, not a twin).",
+        "A tenant profile with masked omaSetting values must produce the refusal message, not a policy with missing collections.",
+        "A tenant with NO AppLocker-carrying custom profile must say so and point at the upload path.",
+        "With a policy already loaded, the chooser must not render — the card goes straight to evidence.",
+      ],
+      files: ["js/applocker.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 90,
       title: "T02: sweep rows open a per-group popup, plus Deep analyze and a way back",
       tools: ["T02"],

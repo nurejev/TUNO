@@ -588,6 +588,49 @@ const AppLockerTool = (() => {
   // innerHTML they live in has been rebuilt.
   let fleetRowByKey = new Map();
 
+  // ---- pulling the deployed policy FROM THE TENANT ----
+  //
+  // The mid-loop return carries only the events bundle; the policy it should
+  // be judged against is not a file on anyone's disk — it is the profile in
+  // the tenant. So the evidence card can fetch it: list the custom profiles,
+  // keep the ones carrying AppLocker OMA-URIs, and rebuild the policy from
+  // the RuleCollection values they hold. The profile's NAME and GROUPING are
+  // adopted into the Intune form, so a later export is an edit of the same
+  // profile in place — and the deploy panel's collision stop will refuse to
+  // create a duplicate beside it, which is exactly right.
+  let evTenant = { busy: false, list: null, error: "" };
+
+  const APPLOCKER_OMA_RE = /\/applocker\/applicationlaunchrestrictions\/([^/]+)\//i;
+  const appLockerProfilesOf = (profiles) => profiles.filter((p) => (p.omaSettings || []).some((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || ""))));
+
+  function adoptTenantProfile(p) {
+    const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
+    const values = settings.map((s) => String(s.value || "")).filter((v) => /<RuleCollection/i.test(v));
+    if (!values.length) throw new Error("That profile's AppLocker settings carry no readable RuleCollection values — Graph may have withheld them. Export the policy from the portal instead.");
+    const xml = `<AppLockerPolicy Version="1">\n${values.join("\n")}\n</AppLockerPolicy>`;
+    policy = parsePolicy(xml, p.displayName || "tenant profile");
+    scan = null; scanSource = "";
+    importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
+    // Adopt the profile's identity so the export EDITS rather than duplicates.
+    const m = APPLOCKER_OMA_RE.exec(String(settings[0].omaUri || ""));
+    if (m && m[1]) intuneCfg.grouping = m[1];
+    if (p.displayName) intuneCfg.displayName = p.displayName;
+    loadFresh();
+  }
+
+  async function loadTenantProfiles() {
+    evTenant.busy = true; evTenant.error = ""; evTenant.list = null;
+    renderEventsCard();
+    try {
+      const all = await Graph.customProfiles();
+      evTenant.list = appLockerProfilesOf(all);
+    } catch (e) {
+      evTenant.error = (e && e.message) || String(e);
+    }
+    evTenant.busy = false;
+    renderEventsCard();
+  }
+
   function renderEventsCard() {
     const host = $("alEvents");
     if (!host) return;
@@ -609,9 +652,28 @@ const AppLockerTool = (() => {
 
     const fact = (k, v) => `<div><div class="mini muted">${esc(k)}</div><div class="mini"><b>${esc(v == null || v === "" ? "—" : String(v))}</b></div></div>`;
 
+    // No policy yet: the card leads with how to GET one, because that is the
+    // question the person actually has at this moment — and the best answer
+    // is usually sitting in the tenant.
+    const noGraph = typeof Graph === "undefined";
+    const signedIn = !noGraph && Graph.signedIn();
+    const chooser = policy ? "" : `
+      <div class="al-dep-ok" style="margin-bottom:10px"><b>Evidence loaded — now give it a policy to judge against.</b>
+        <div class="mini" style="margin-top:4px">Two ways: <b>upload</b> the draft (scan bundle or policy XML, same Upload button as this file used) — or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
+        <div style="margin-top:8px">
+          ${noGraph ? "" : !signedIn
+            ? `<span class="mini muted">Sign in (top right) and a button appears here to fetch the AppLocker profile.</span>`
+            : `<button class="btn sm primary" id="alEvTenant" ${evTenant.busy ? "disabled" : ""}>${evTenant.busy ? "Reading the tenant…" : "⤓ Load the deployed AppLocker profile"}</button>`}
+        </div>
+        ${evTenant.error ? `<div class="al-dep-err mini" style="margin-top:8px">${esc(evTenant.error)}</div>` : ""}
+        ${evTenant.list && !evTenant.list.length ? `<div class="mini muted" style="margin-top:8px">No custom profile in this tenant carries AppLocker OMA-URIs. Upload the draft instead.</div>` : ""}
+        ${evTenant.list && evTenant.list.length ? `<ul class="mini al-list" style="margin-top:8px">${evTenant.list.map((p, i) => `<li><button class="btn sm al-ev-adopt" data-i="${i}">${esc(p.displayName || "(unnamed profile)")}</button>${p.lastModifiedDateTime ? ` <span class="muted">last changed ${esc(String(p.lastModifiedDateTime).slice(0, 10))}</span>` : ""}</li>`).join("")}</ul>` : ""}
+      </div>`;
+
     host.innerHTML = `
       <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span>
         ${rows.length ? `<button class="btn sm" id="alEvGapDl" style="float:right" title="Download the gap report as Markdown — the same judgement as this card, for the change ticket">⭳ Gap report</button>` : ""}</h3>
+      ${chooser}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px">
         ${fact("Device", m.name)}${fact("Window", (ev.daysBack || m.daysBack || "?") + " days")}
         ${fact("Blocked", s.blocked)}${fact("Audited (would block)", s.audited)}${fact("Allowed", s.allowed)}
@@ -652,6 +714,14 @@ const AppLockerTool = (() => {
       const row = fleetRowByKey.get(b.dataset.key);
       if (!row) return;
       mutate(`allowed ${row.binary || row.path || "a fleet-denied file"} from the fleet evidence`, () => addFixForFleetRow(row));
+    }));
+    const tb = host.querySelector("#alEvTenant");
+    if (tb) tb.addEventListener("click", loadTenantProfiles);
+    host.querySelectorAll(".al-ev-adopt").forEach((b) => b.addEventListener("click", () => {
+      const p = (evTenant.list || [])[+b.dataset.i];
+      if (!p) return;
+      try { adoptTenantProfile(p); }
+      catch (e) { evTenant.error = e.message; renderEventsCard(); }
     }));
   }
 
@@ -2204,13 +2274,12 @@ const AppLockerTool = (() => {
       if (!f) return;
       try {
         importFile(await f.text(), f.name);
-        if (policy) loadFresh();
-        else {
-          render();
-          // An events bundle accepted with nothing to judge it against: say so
-          // now, or the upload looks like it did nothing.
-          if (eventsEvidence) alert("Events bundle loaded. Now load the policy it should be judged against — a scan bundle or a policy XML — and the fleet evidence card appears with it.");
-        }
+        // No alert for the events-first case any more: the evidence card lives
+        // OUTSIDE the policy-only body now, renders immediately, and itself
+        // offers the two ways to get a policy under the evidence — including
+        // pulling the deployed profile from the tenant. The alert told people
+        // to go hunt for a file the tenant already had.
+        if (policy) loadFresh(); else render();
       }
       catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
