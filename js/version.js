@@ -23,12 +23,12 @@
 const APP_BUILD = {
   version: "1.0",
   cycle: 3,          // hand-set cycle name — first beta cycle after production 2
-  build: 9,          // production series, main
+  build: 10,         // production series, main
   date: "2026-08-26",
   // When this build was cut, UTC — set with `date -u +%Y-%m-%dT%H:%MZ`,
   // never by hand (a local time typed into a UTC field puts the sign-in
   // stamp an hour into the future; ENCA builds 25090-25092 proved it).
-  released: "2026-08-26T11:15Z",
+  released: "2026-08-26T11:26Z",
   get isBeta() { return this.build >= 10000; },
   get stamp() { return `${this.label} · ${this.releasedLocal}`; },
   get releasedLocal() {
@@ -69,8 +69,11 @@ const APP_BUILD = {
 // commit that adds the tile. ❓ Help, 📋 What's new and 🗺 Roadmap are
 // deliberately not numbered: they are the app describing itself.
 //
-// A tool that has reached PRODUCTION is at least 1.0; it is the BETA chip,
-// not the version number, that says "still proving itself".
+// CHIPS ARE CHANNEL LANGUAGE (build 10 / beta 10450): the BETA chip lives
+// on the beta channel only — there it says "still proving itself". On
+// production a tool wears NEW (first production build carrying it) or
+// UPDATED (changed in the current production build), or nothing at all;
+// BETA on production would name the channel the visitor is not on.
 const TOOL_VERSIONS = {
   toolLaps: { t: 18, v: "0.1", note: "BETA — R29, after Ugur Koc's Get Windows LAPS Audit (MIT): which Windows devices have an escrowed local administrator password and how old it is — NOT ESCROWED and STALE are the two shapes of one finding, a LAPS policy that is not applying, found before the day somebody needs the password that is not there. THE READS: directory/deviceLocalCredentials (beta, metadata only — id, deviceName, lastBackupDateTime) cross-referenced against Intune Windows devices on the ENTRA DEVICE ID, the original's join key. PASSWORDS ARE NEVER RETRIEVED AND THERE IS NO SWITCH THAT WOULD: the scope is DeviceLocalCredential.ReadBasic.All — the FIRST NEW PERMISSION since Device.Read.All at 10330, taken in the open per the R18 rule, and ReadBasic deliberately because Graph cannot return a password value through it; the full Read.All stays with R10's helpdesk viewer if that ever ships. TWO GATES NAMED BEFORE THE RUN: the scope at the click, and Graph's own DIRECTORY-ROLE gate on the endpoint (Intune Administrator among the allowed) — a 403 after consent is detected and explained as 'who you are, not what TUNO may do', never a bare status code. FIVE BUCKETS, not the original's four: healthy / stale (threshold yours, default 60 days) / not escrowed / AGE UNKNOWN (escrowed, unparseable backup time — neither healthy nor stale, because either would be a guess) / UNMATCHABLE (no Entra device id on the enrolment record — the original counts these not-escrowed, which accuses a machine it never looked up). Escrow records no enrolled device claims (retired machines, passwords still held) are their own list, never silently ignored. Cards double as bucket filters (T09), rows fold on device ids (T03), click-through to the 🖥 Device analyzer. Reads only. Exports MD + CSV" },
   toolMaa: { t: 17, v: "0.1", note: "BETA — R27, after Ugur Koc's MAA Compliance Dashboard Report (MIT): whether multi-admin approval is protecting anything, which nothing in the portal shows. THE READS: operationApprovalPolicies and operationApprovalRequests (both beta, both under the RBAC read), the four gated inventories (apps, scripts, settings catalog, roles) as context, roleAssignments + transitive group members for the admins, approver groups transitive for who can approve — request status tolerated as string OR number because tenants answer both ways, the original's own hedge. COVERAGE IS COMPUTED THE WAY MAA WORKS: a policy gates its operation TYPE tenant-wide, so one app policy protects every app; a category with no policy has NO GATE, which is the finding; device-action types are listed as action gates, not inventories; an inventory that could not be read is UNKNOWN, never zero, and the gate verdict stands on the policy list. THE FINDING THE ORIGINAL CANNOT MAKE: a policy whose approver groups hold no members is A GATE NOBODY CAN OPEN — every operation it gates sits pending until someone is added; checked transitively, and a group that could not be read makes the count unknown, not zero. THE ADMINS TABLE CARRIES T07's SENTENCE verbatim on screen and in every export: Intune RBAC only — Global Administrator and Intune Administrator do not appear in deviceManagement/roleAssignments, so the accounts with the most access are not in the admins-without-MAA count. 'No MAA policies' is an answer, not an error, and reads as one. Approved requests without parseable timestamps sit OUTSIDE the approval-time numbers with their count stated. FEWER SCOPES THAN THE ORIGINAL: it asks six including Directory.Read.All; everything here rides already-consented reads, names via getByIds (R07's technique). Reads only, NO NEW SCOPE. Exports MD + requests CSV + admins CSV" },

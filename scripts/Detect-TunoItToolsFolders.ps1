@@ -39,7 +39,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 9
+$script:TunoBuild = 10
 
 $ErrorActionPreference = 'SilentlyContinue'
 $found = @()

@@ -19,11 +19,14 @@
 //     number. "Push 3" has to mean one decision.
 //   * Never queue documentation (roadmap cards, changelog entries, this
 //     file): it travels with whatever promotion happens next.
-//   * PROMOTING AN ITEM IS FOUR STEPS: 1) delete the item here and bump
+//   * PROMOTING AN ITEM IS FIVE STEPS: 1) delete the item here and bump
 //     `productionBuild`; 2) set the roadmap card ON MAIN to `live · build
 //     NNN`; 3) set the SAME card ON BETA to `live · beta NNNNN · production
 //     NNN` (the step that gets missed); 4) add the changelog entry on both
-//     channels. Before promoting, verify each item against what `main`
+//     channels; 5) RELABEL THE CHIPS ON MAIN — BETA is channel language and
+//     never ships to production: a tool new to production wears NEW, one an
+//     item changed wears UPDATED, the rest wear nothing (Mihai's rule,
+//     build 10; main-check enforces it). Before promoting, verify each item against what `main`
 //     actually contains — `git show main:<file> | grep <marker>` — and do
 //     not trust this queue's own list.
 //   * `risk`: high (a real problem in production until it lands) / medium
@@ -54,13 +57,17 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 9.
+  // Verified against `git show main:js/version.js` — main is at build 10.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
   // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
   // 54-57 (10350-10356, 10361-10376; 53 retired into 57) as build 7, and
   // items 44, 58, 59 and 63-67 (10360, 10378-10380, 10384-10405 less the
   // held builds) as build 8 — the second partial promotion.
+  //
+  // Build 10 is main-only: the chip relabel (BETA off production, NEW and
+  // UPDATED on), a channel transform like the roadmap tags, made a standing
+  // promotion step at the same time.
   //
   // Items 41-43, 60-62 and 68-96 (beta 10357-10448) went as build 9 — the
   // FULL-QUEUE promotion, and the first ordered by the exported promotion
@@ -70,7 +77,7 @@ const PROMOTE = {
   // the only differences left are the two permanent ones in staying[]. An
   // empty queue is a state worth returning to: it means "beta and main
   // match", and the next item added is the whole of the next promotion.
-  productionBuild: "v1.0.9",
+  productionBuild: "v1.0.10",
 
   items: [
   ],

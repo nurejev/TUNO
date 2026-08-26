@@ -60,6 +60,17 @@ git push origin beta:beta
 (Corrected from an earlier note that said one block per command — Mihai
 showed the format he wants and it is this one.)
 
+## Chips are channel language (production build 10)
+
+`BETA` chips exist ONLY on the beta channel — there they say "still proving
+itself here". Production never shows a BETA chip: promotion step 5 (see
+js/promote.js) relabels the tiles on `main` — `NEW` on tools new to that
+production build, `UPDATED` on tools a promoted item changed, nothing on the
+rest — and strips the chips from screen headers and roadmap cards outright.
+`_to_delete/main-check.js` fails any BETA chip on production, any status
+chip other than `tag.new`>NEW or `tag.upd`>UPDATED, and a home page with no
+status chips at all (a strip is not a translation).
+
 ## The other standing rules, in one breath
 
 Work lands on `beta`, never on `main`; every commit is a build with its

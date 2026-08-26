@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10, date: "2026-08-26", title: "Production stops calling its tools beta",
+    items: [
+      { kind: "fixed", tool: "TUNO", text: "Every tool tile and screen wore a BETA chip that came across from the beta channel with the code — sixty of them after build 9. BETA is channel language: on the beta site it says a tool is still proving itself there, and on production it named a channel the visitor is not on. Production now speaks its own labels — NEW on the nine tools this production line first shipped in build 9, UPDATED on the six that changed in it, nothing on the rest — and the production check fails any future promotion that lets a BETA chip through." },
+    ],
+  },
+  {
     build: 9, date: "2026-08-26", title: "Nine tools, the widened backup, and the timeline look",
     items: [
       { kind: "new", tool: "TUNO", text: "The largest promotion yet — thirty-five changes, beta builds 10357 through 10448 — and it brings nine tools to production. Assignment what-if: what a user or device would gain and lose by joining or leaving a group, exclusions and inheritance included, a simulation that says so. Assignment health: the assignments that exist and reach nobody — empty groups, deleted groups, unassigned, excluded-only, contradictions, failing deployments. Settings search: seventeen thousand definitions searched as you type, then who sets each one and to what, secrets redacted. Setting conflict scan: the same setting configured to different values by policies whose reach overlaps. Compliance report: the estate rolled up with stale as its own column and per-setting failure detail, plus the coverage section." },
