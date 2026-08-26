@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10446"></script>
+<script src="js/popup-guard.js?v=10447"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10446">
+<link rel="stylesheet" href="css/app.css?v=10447">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10446"></script>
+<script src="js/selfhost-boot.js?v=10447"></script>
 </head>
 <body>
 
@@ -247,6 +247,14 @@
               <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <!-- 10447: the seven companions FOLD. Eight rows of download
+                 commands were most of a screen before the tool's own work
+                 began; the scanner is the step-1 act and stays out, the
+                 companions and the paragraph explaining them collapse under
+                 one line. Native details — no JS to break, and Find-in-page
+                 still opens it in modern browsers. -->
+            <details class="al-dl-more">
+              <summary class="mini"><b>7 companion scripts</b> — cleanup pair, IT-TOOLS provisioning pair, events-collection set <span class="muted">▾</span></summary>
             <!-- The brownfield pair sits here as well as in step 5: a device
                  that already carries a policy needs the cleanup BEFORE the new
                  policy means anything, so the download belongs where the work
@@ -290,8 +298,9 @@
               <code class="al-dl-cmd" data-file="Compress-TunoAppControlReport.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Compress-TunoAppControlReport.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-          </div>
           <p class="mini muted" style="margin:8px 0 0"><b>The fourth and fifth are the IT-TOOLS provisioning pair</b> — the fourth creates the house folders with the admin-only ACL the standing allow rules depend on (and proves SYSTEM can write to <code>IT-TOOLS\LOGS</code>, where the house scripts log), the fifth is its detection half so the pair ships as an Intune Remediation. Deploy it BEFORE the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass — and unlike the cleanup pair, leave it assigned: a folder that drifts writable after provisioning is exactly what its detection exists to catch. <b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping that pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5. <b>The last three are the events-collection set</b> — a Remediation pair whose detection always triggers (the "remediation" IS the harvest: CodeIntegrity and AppLocker events into CSV/XML, an HTML report, and a JSON bundle) plus the Live Response zipper for fetching the results. Upload the <code>AppControlEvents_Bundle_*.log</code> a device produces and this tool matches every blocked or audited event against the draft on screen, with a recommendation per file — the audit month, made legible.</p>
+            </details>
+          </div>
           <!-- The Remediation deploy lives HERE, with the downloads, because it
                is the same act done for you — and it needs no policy on the
                table, so gating it behind an upload (as it was in step 5's
@@ -1630,36 +1639,36 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10446"></script>
-<script src="js/selfhost.js?v=10446"></script>
-<script src="js/version.js?v=10446"></script>
-<script src="js/promote.js?v=10446"></script>
-<script src="js/authConfig.js?v=10446"></script>
-<script src="js/changelog.js?v=10446"></script>
-<script src="js/msappcatalog.js?v=10446"></script>
-<script src="js/demo.js?v=10446"></script>
-<script src="js/graph.js?v=10446"></script>
-<script src="js/suggest.js?v=10446"></script>
-<script src="js/progress.js?v=10446"></script>
-<script src="js/groupuse.js?v=10446"></script>
-<script src="js/audit.js?v=10446"></script>
-<script src="js/backup.js?v=10446"></script>
-<script src="js/document.js?v=10446"></script>
-<script src="js/devicewhy.js?v=10446"></script>
-<script src="js/whatif.js?v=10446"></script>
-<script src="js/health.js?v=10446"></script>
-<script src="js/settingsearch.js?v=10446"></script>
-<script src="js/conflict.js?v=10446"></script>
-<script src="js/compliance.js?v=10446"></script>
-<script src="js/filters.js?v=10446"></script>
-<script src="js/restore.js?v=10446"></script>
-<script src="js/assignedit.js?v=10446"></script>
-<script src="js/roles.js?v=10446"></script>
-<script src="js/defender.js?v=10446"></script>
-<script src="js/endpointsec.js?v=10446"></script>
-<script src="js/maa.js?v=10446"></script>
-<script src="js/laps.js?v=10446"></script>
-<script src="js/applocker.js?v=10446"></script>
-<script src="js/app.js?v=10446"></script>
+<script src="js/branding.js?v=10447"></script>
+<script src="js/selfhost.js?v=10447"></script>
+<script src="js/version.js?v=10447"></script>
+<script src="js/promote.js?v=10447"></script>
+<script src="js/authConfig.js?v=10447"></script>
+<script src="js/changelog.js?v=10447"></script>
+<script src="js/msappcatalog.js?v=10447"></script>
+<script src="js/demo.js?v=10447"></script>
+<script src="js/graph.js?v=10447"></script>
+<script src="js/suggest.js?v=10447"></script>
+<script src="js/progress.js?v=10447"></script>
+<script src="js/groupuse.js?v=10447"></script>
+<script src="js/audit.js?v=10447"></script>
+<script src="js/backup.js?v=10447"></script>
+<script src="js/document.js?v=10447"></script>
+<script src="js/devicewhy.js?v=10447"></script>
+<script src="js/whatif.js?v=10447"></script>
+<script src="js/health.js?v=10447"></script>
+<script src="js/settingsearch.js?v=10447"></script>
+<script src="js/conflict.js?v=10447"></script>
+<script src="js/compliance.js?v=10447"></script>
+<script src="js/filters.js?v=10447"></script>
+<script src="js/restore.js?v=10447"></script>
+<script src="js/assignedit.js?v=10447"></script>
+<script src="js/roles.js?v=10447"></script>
+<script src="js/defender.js?v=10447"></script>
+<script src="js/endpointsec.js?v=10447"></script>
+<script src="js/maa.js?v=10447"></script>
+<script src="js/laps.js?v=10447"></script>
+<script src="js/applocker.js?v=10447"></script>
+<script src="js/app.js?v=10447"></script>
 </body>
 </html>

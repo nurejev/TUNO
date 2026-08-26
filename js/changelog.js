@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10447, date: "2026-08-26", title: "The companion scripts fold away",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Step 1's eight download rows were most of a screen before the tool's own work began. The scanner — the act step 1 exists for — stays out; the seven companions and the paragraph explaining them fold under one line: cleanup pair, IT-TOOLS provisioning pair, events-collection set. A native fold, closed by default, no script behind it to break; find-in-page still opens it." },
+    ],
+  },
+  {
     build: 10446, date: "2026-08-26", title: "The Defender report learns to find one machine",
     items: [
       { kind: "improved", tool: "🦠 Defender status", text: "A search box joins the toolbar: type a device name, a user, or an id, and the fleet list filters live under it while ranked suggestions unfold from what was just read — no call to the tenant per keystroke, because the fleet is already in memory. Picking a suggestion narrows the list to that machine and opens its fold in one act, since the point of finding a device is reading its protection state. Arrow keys and Enter work; Escape and clearing restore the whole fleet." },

@@ -70,6 +70,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 95,
+      title: "T01 step 1 — the companion scripts fold",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10447],
+      risk: "low",
+      what: "The scanner stays visible as step 1's act; the seven companion scripts and their explainer collapse into a native details, closed by default. Rider: t01-ui's 'ONE download' pin — stale since the companions arrived — got its meaning back as 'one download OUTSIDE the fold', and ittools-remedy re-anchored on .al-dl instead of the row's parent.",
+      why: "LOW — markup and CSS only, no behaviour. The judgement to confirm on screen: the summary line must read as part of the download list, and downloads inside the opened fold must work identically (same hrefs, same copy buttons, commands still populated by the same code).",
+      test: [
+        "Open the fold, download a companion, copy its command — identical to before the fold. Closed, step 1 is one row and one summary line.",
+        "Find-in-page for a folded script name must reveal it (browser auto-open of details).",
+        "Both themes: the dashed closed border and solid open border read correctly.",
+      ],
+      files: ["index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 94,
       title: "Defender status — a device search that autocompletes from the fleet",
       tools: ["🦠 Defender status"],

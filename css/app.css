@@ -2201,3 +2201,14 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
    off the corners, and the inner tables carry their own scrollers. The id
    selector also outweighs the mobile .list-card{overflow-x:auto} rule. */
 #alFindings.list-card{overflow:visible}
+
+/* 10447: the companion-script fold in T01 step 1. Native details; the
+   summary reads as a row of the same list, not as a widget. */
+.al-dl-more{border:1px dashed var(--border);border-radius:10px;padding:6px 12px}
+.al-dl-more[open]{border-style:solid;padding-bottom:10px}
+.al-dl-more>summary{cursor:pointer;list-style:none;padding:4px 0;color:var(--muted)}
+.al-dl-more>summary::-webkit-details-marker{display:none}
+.al-dl-more>summary:hover{color:var(--ink)}
+.al-dl-more[open]>summary{margin-bottom:8px}
+.al-dl-more[open]>summary .muted{transform:rotate(180deg);display:inline-block}
+.al-dl-more>.al-dl-row{margin-bottom:8px}
