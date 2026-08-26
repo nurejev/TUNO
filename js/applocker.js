@@ -2971,11 +2971,36 @@ const AppLockerTool = (() => {
   // and marks persist per browser (guarded localStorage), because the portal
   // edit you did yesterday is still done after a refresh.
   const LOOP_MANUAL_KEY = "tuno-al-loop-manual";
-  const loopManual = () => { try { return JSON.parse(localStorage.getItem(LOOP_MANUAL_KEY) || "{}") || {}; } catch { return {}; } };
+  // 10460: marks are claims about ONE tenant. "Deploy audit · marked by you"
+  // ticked against tenant A is not true of tenant B, so the marks carry the
+  // tenant id they were made under (TunoTenant.org(), the 10457 sign-in
+  // read) and CLEAR THEMSELVES the first time the strip renders under a
+  // different one. Marks made signed OUT are adopted by the first tenant
+  // that signs in — they were claims about the tenant the person had in
+  // mind, and that is the one they then signed in to. The legacy shape
+  // (bare marks, no tenant) reads as signed-out marks and migrates the
+  // same way. Signed out entirely, marks keep working as before: a
+  // browser that never signs in has exactly one tenant in mind.
+  const loopTenantId = () => {
+    try {
+      const o = typeof TunoTenant !== "undefined" && TunoTenant.org && TunoTenant.org();
+      return (o && o.id) || "";
+    } catch { return ""; }
+  };
+  const loopManual = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LOOP_MANUAL_KEY) || "{}") || {};
+      const stored = raw && raw.marks ? raw : { tenant: "", marks: raw || {} };
+      const t = loopTenantId();
+      if (t && stored.tenant && stored.tenant !== t) { localStorage.removeItem(LOOP_MANUAL_KEY); return {}; }
+      if (t && !stored.tenant && Object.keys(stored.marks).length) localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify({ tenant: t, marks: stored.marks }));
+      return stored.marks || {};
+    } catch { return {}; }
+  };
   function loopToggleManual(key) {
     const m = loopManual();
     if (m[key]) delete m[key]; else m[key] = true;
-    try { Object.keys(m).length ? localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify(m)) : localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
+    try { Object.keys(m).length ? localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify({ tenant: loopTenantId(), marks: m })) : localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
   }
 
   function loopStations() {
@@ -3031,7 +3056,7 @@ const AppLockerTool = (() => {
           <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
             <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}${s.manual ? " · marked by you" : ""}</span>
           </button>
-          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence."}">${s.manual ? "☑" : "☐"}</button>`}
+          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence. Marks belong to the tenant you are signed in to and clear on their own when a different tenant signs in."}">${s.manual ? "☑" : "☐"}</button>`}
           </span>`).join("")}
       </div>
       <div class="al-loop-back">↰ <span>Collect → Gaps → Update repeats until a full window shows <b>0 gaps</b> — that evidence is what the Enforce gate reads. Updating the profile happens in the portal (edit in place, same grouping); this strip cannot see it and does not pretend to.</span></div>`}

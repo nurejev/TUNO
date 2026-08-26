@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10460, date: "2026-08-26", title: "Loop marks belong to one tenant",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "A fresh sign-in showed the audit loop's stations already ticked — old manual marks, persisted per browser by design, but a hand-mark is a claim about ONE tenant and it kept being shown against the next. Marks now carry the tenant they were made under (the organization read at sign-in) and clear themselves automatically when a different tenant signs in. Marks made before signing in are adopted by the first tenant that does; a browser that never signs in keeps the old behaviour unchanged; and 🧹 Start over still clears them by hand." },
+    ],
+  },
+  {
     build: 10459, date: "2026-08-26", title: "The overview's read looks like every other read",
     items: [
       { kind: "fixed", tool: "🗂 Policy overview", text: "Reading the tenant now shows the same centred progress card — spinner, current step, the bar — that every other tool shows while it reads. The first build hand-rolled a small text line under the button instead, which is exactly the divergence the shared progress implementation exists to prevent: one way a read looks, everywhere. The step names are the documenter's own, because the read is." },
