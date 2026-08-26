@@ -80,6 +80,22 @@ const PROMOTE = {
   productionBuild: "v1.0.10",
 
   items: [
+    {
+      n: 97,
+      title: "Three cards, one per layout — and the gap report carries coverage",
+      tools: ["🔐 AppLocker builder & validator"],
+      builds: [10451],
+      risk: "low",
+      what: "Splits 10442's merged card into three, one per table layout: Findings (top table + compact + the expandable audited list), Microsoft app coverage (own card again, al-cov-table), Rules with nested findings. Kept from the merges: one confirm-card fix flow, nested findings, per-card sticky headers (.al-merged-head; all three cards opt out of .list-card's overflow clip or sticky silently no-ops), the ✔ Applied + Undo notice in every header. Empty leftover hosts removed (#alRules got its card chrome back). fleetGapReport() now ALWAYS appends a Microsoft app coverage section — verdict per app from the same pass the card renders — and states plainly when no policy was loaded instead of omitting it.",
+      why: "LOW — pure re-hosting of already-tested renders plus one report section; the suites walk every fix flow across the new card boundaries. Real eyes needed on: three sticky headers stacking against the app header while scrolling through all three cards, in all three themes.",
+      test: [
+        "THE ONE THAT MATTERS: load a real policy + events bundle and scroll the whole column — each card's header must pin while its card is in view and hand over to the next; no empty card anywhere between Scan and the XML panel.",
+        "Apply a fix from each card (findings table, coverage allow, nested rule fix): the ✔ Applied notice must appear in the pinned header each time, and Undo from the notice must work.",
+        "Download the gap report with a policy loaded: a Microsoft app coverage section with per-app verdicts; without a policy: the explicit no-policy line.",
+        "Narrow window: the findings card folds to compact, coverage and rules stay browsable as their own cards.",
+      ],
+      files: ["js/applocker.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
   ],
 
   staying: [

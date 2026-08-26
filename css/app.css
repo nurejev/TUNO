@@ -2200,7 +2200,7 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
    did not stick. This card gets overflow:visible; its padding keeps content
    off the corners, and the inner tables carry their own scrollers. The id
    selector also outweighs the mobile .list-card{overflow-x:auto} rule. */
-#alFindings.list-card{overflow:visible}
+#alFindings.list-card,#alCoverage.list-card,#alRules.list-card{overflow:visible}
 
 /* 10447: the companion-script fold in T01 step 1. Native details; the
    summary reads as a row of the same list, not as a widget. */

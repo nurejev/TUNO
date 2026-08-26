@@ -594,6 +594,24 @@ const AppLockerTool = (() => {
       L.push("");
       table(cls.dll, false);
     }
+    // Microsoft app coverage rides in EVERY gap report (Mihai's rule): the
+    // report is the change-ticket document, and "can a standard user still
+    // run OneDrive" belongs in the same envelope as the gaps.
+    L.push("");
+    L.push(`## Microsoft app coverage`);
+    L.push("");
+    if (!policy || !coverage.length) {
+      L.push("No policy loaded when this report was generated — load the draft and regenerate for the coverage verdicts.");
+    } else {
+      L.push(`| App | Verdict | Detail |`);
+      L.push(`|---|---|---|`);
+      for (const row of coverage) {
+        const v = row.result;
+        const det = v.status === "unenforced" ? v.detail
+          : (v.perArt || []).map((a) => `${a.art.path.split("\\").pop()} — ${a.status}${a.rule ? ` via “${a.rule.name}”` : ""}`).join("; ");
+        L.push(`| ${cell(row.app.name)} | ${cell(v.status)}${v.audit ? " (audit)" : ""} | ${cell(det)} |`);
+      }
+    }
     if ((eventsEvidence.warnings || []).length) {
       L.push("");
       L.push(`## What the collector could not see`);
@@ -2210,7 +2228,7 @@ const AppLockerTool = (() => {
     // Coverage is a SECTION of the same card since 10443 — it is the same
     // question from the app's side (which files does the draft answer for),
     // and a third card was a third scroll. Built here, injected below.
-    const coverageHtml = `<h4 class="al-sec-head" style="margin:16px 0 6px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h4>` +
+    const coverageHtml = '' +
       `<div style="overflow-x:auto"><table class="plist al-cov-table"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
@@ -2238,22 +2256,25 @@ const AppLockerTool = (() => {
 
     // The header is STICKY: this card is the long one, and the reader should
     // always see whose card they are scrolled into.
-    $("alFindings").innerHTML = `<div class="al-merged-head"><h3 style="margin:0">${fsBtn("alFindings", "Rules and findings")}Rules and findings <span class="mini muted">— findings first, then Microsoft app coverage, then the rules with their findings nested. NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>${justApplied ? `<div class="al-just mini" style="margin-top:4px;padding:4px 9px;border:1px solid var(--ok-bd);background:var(--ok-bg2);border-radius:8px;display:inline-block">✔ Applied: ${esc(justApplied)} <button class="btn sm al-just-undo" style="margin-left:6px">↩ Undo</button></div>` : ""}</div>` +
+    // THREE CARDS AGAIN (10451) — but not the three from before the merges.
+    // The single card put three DIFFERENT table layouts under one roof, and
+    // different layouts in one card read as a broken card; the split follows
+    // the layouts. What the merges won stays won: findings nest under their
+    // rules, one fix flow, sticky headers — now one per card — and the
+    // ✔ Applied notice lands in whichever header is pinned above the fix.
+    const appliedNote = justApplied ? `<div class="al-just mini" style="margin-top:4px;padding:4px 9px;border:1px solid var(--ok-bd);background:var(--ok-bg2);border-radius:8px;display:inline-block">✔ Applied: ${esc(justApplied)} <button class="btn sm al-just-undo" style="margin-left:6px">↩ Undo</button></div>` : "";
+    const stickyHead = (host, title, note) => `<div class="al-merged-head"><h3 style="margin:0">${fsBtn(host, title)}${title} <span class="mini muted">— ${note}</span></h3>${appliedNote}</div>`;
+
+    $("alFindings").innerHTML = stickyHead("alFindings", "Findings", "what needs a decision. NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host") +
       compact + topTable +
       (shown.length === 0 ? `<p class="mini muted">Nothing at this severity.</p>` : "") +
-      coverageHtml +
-      (nestedCount ? `<p class="mini muted" style="margin:16px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} sit${nestedCount === 1 ? "s" : ""} under the rule${nestedCount === 1 ? "" : "s"} they are about, below.</p>` : "") +
-      rulesHtml;
+      (nestedCount ? `<p class="mini muted" style="margin:8px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} about specific rules sit${nestedCount === 1 ? "s" : ""} nested in the <b>Rules</b> card below.</p>` : "");
     // Handlers below index into `shown`, so it must outlive this function.
     shownFindings = shown;
 
-    // Coverage renders inside the merged card above (10443); the old host
-    // stays empty like #alRules.
-    $("alCoverage").innerHTML = "";
+    $("alCoverage").innerHTML = stickyHead("alCoverage", "Microsoft app coverage", "would a standard user still be able to run these?") + coverageHtml;
 
-    // The rules render lives inside the merged card above (10442); the old
-    // #alRules host stays empty.
-    $("alRules").innerHTML = "";
+    $("alRules").innerHTML = stickyHead("alRules", "Rules", nestedCount ? `${nestedCount} finding${nestedCount === 1 ? "" : "s"} nested under the rule${nestedCount === 1 ? "" : "s"} they are about` : "the policy's rules, per collection") + rulesHtml;
     // The add-rule form lives in its own host high in the column, not at the
     // bottom of the rules list. Same markup, same ids, wired by the same
     // wireDynamic() below — only its address changed.

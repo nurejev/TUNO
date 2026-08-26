@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10451, date: "2026-08-26", title: "Three cards, one per layout",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The merged card put three different table layouts under one roof — the findings table, the coverage table, the rule tables — and three layouts in one card read as a broken card. The split now follows the layouts: Findings lead as their own card, Microsoft app coverage has its own, and Rules carry their nested findings in a third. Everything the merges won stays won: one fix flow, findings under the rules they are about, and a sticky header on each card — with the Applied notice landing in whichever header is pinned above the fix you just clicked. The empty leftover cards from the merge are gone." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "The gap report now always carries a Microsoft app coverage section. The report is the change-ticket document, and whether a standard user can still run OneDrive belongs in the same envelope as the gaps; a report generated before a policy is loaded says exactly that instead of dropping the section without a word." },
+    ],
+  },
+  {
     build: 10450, date: "2026-08-26", title: "Production stops calling its tools beta",
     items: [
       { kind: "changed", tool: "TUNO", text: "Mihai's rule, recorded on both channels: BETA is channel language and never ships to production. Here it says a tool is still proving itself on this channel; on production it named a channel the visitor is not on, sixty times over after build 9. Production build 10 translated its chips — NEW on the nine tools new to that production line, UPDATED on the six that changed in it, nothing on the rest — and this build makes it a standing rule: the promotion ritual gains a fifth step (relabel on main), the production check now fails any BETA chip that slips through, and CLAUDE.md carries the rule for future sessions. Nothing changes on this channel's own chips: BETA still means what it always meant here." },
