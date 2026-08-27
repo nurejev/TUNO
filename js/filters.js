@@ -37,10 +37,42 @@ const Filters = (() => {
   const S = () => Graph.SCOPES;
   const FILTER_SELECT = "id,displayName,description,platform,rule,assignmentFilterManagementType,lastModifiedDateTime";
 
+  // PAYLOADS COME WITH THE FILTER (10491). Graph's own word for this
+  // navigation property is "associated assignments for a specific filter" —
+  // the used-by answer was one $expand away the whole time, and the column
+  // sat empty behind an opt-in nine-surface sweep. It carries payloadId,
+  // payloadType, groupId and assignmentFilterType per reference: everything
+  // except the policy's NAME, which is the one thing the sweep still adds.
+  // So the COUNT is now free and always present, and the scan's job shrinks
+  // to turning ids into names.
   async function list() {
-    return Graph.readAll(`${Graph.BETA}/deviceManagement/assignmentFilters?$select=${FILTER_SELECT}`, {
+    return Graph.readAll(`${Graph.BETA}/deviceManagement/assignmentFilters?$select=${FILTER_SELECT}&$expand=payloads`, {
       scopes: S().config, retry: true,
     });
+  }
+
+  // The payloadType enum, in the words the portal uses. An unrecognised
+  // value is passed through rather than guessed at — a new Intune surface
+  // should read as itself, not as "other".
+  const PAYLOAD_LABEL = {
+    deviceconfigurationandcompliance: "Configuration / compliance",
+    application: "Application",
+    enrollmentconfiguration: "Enrolment configuration",
+    windows10xapp: "Windows app",
+    deviceconfiguration: "Device configuration",
+    devicemanagmentconfigurationandcompliance: "Configuration / compliance",
+    devicemanagementconfigurationandcompliance: "Configuration / compliance",
+  };
+  const payloadLabel = (t) => PAYLOAD_LABEL[String(t || "").toLowerCase()] || String(t || "unknown type");
+
+  // Every reference a filter carries, off the payloads it arrived with.
+  function refsOf(f) {
+    return ((f && f.payloads) || []).map((p) => ({
+      payloadId: String(p.payloadId || "").toLowerCase(),
+      type: payloadLabel(p.payloadType),
+      groupId: String(p.groupId || "").toLowerCase(),
+      mode: String(p.assignmentFilterType || "").toLowerCase() === "exclude" ? "exclude" : "include",
+    }));
   }
 
   // Usage over T02's sources: one sweep-shaped read (match-all ids,
@@ -52,13 +84,15 @@ const Filters = (() => {
       sourceIds: GroupUse.allSourceIds(), tenantWide: true, onStatus,
     });
     const by = new Map();
+    const names = new Map();      // payloadId -> policy name, for the payload rows
     for (const r of res.rows) {
+      if (r.id) names.set(String(r.id).toLowerCase(), r.name);
       if (!r.filterId) continue;
       let e = by.get(r.filterId);
       if (!e) by.set(r.filterId, e = []);
       e.push({ policy: r.name, source: r.sourceLabel, how: r.how, mode: r.filterMode || "" });
     }
-    return { by, failed: res.failed, ran: res.ran };
+    return { by, names, failed: res.failed, ran: res.ran };
   }
 
   // The fresh association check that gates a delete. Distinct from usage():
@@ -147,30 +181,32 @@ const Filters = (() => {
     const L = [];
     L.push("# Intune assignment filters", "");
     L.push(`Generated ${new Date().toISOString().replace("T", " ").replace(/\..*/, " UTC")} by TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}`, "");
-    L.push(`| Filter | Platform | Type | ${use ? "Used by | " : ""}Rule |`);
-    L.push(`|---|---|---|${use ? "---|" : ""}---|`);
+    // Used by is always a column now (10491) — it comes off the filter's own
+    // payloads, not the scan.
+    L.push(`| Filter | Platform | Type | Used by | Rule |`);
+    L.push(`|---|---|---|---|---|`);
     for (const f of filters) {
-      const u = use && use.by.get(f.id);
-      L.push(`| ${mdCell(f.displayName)} | ${mdCell(platformLabel(f.platform))} | ${mdCell(f.assignmentFilterManagementType || "devices")} | ${use ? `${u ? u.length : 0} | ` : ""}\`${mdCell(String(f.rule || "").slice(0, 160))}\` |`);
+      const rule = String(f.rule || "");
+      L.push(`| ${mdCell(f.displayName)} | ${mdCell(platformLabel(f.platform))} | ${mdCell(f.assignmentFilterManagementType || "devices")} | ${refsOf(f).length} | \`${mdCell(rule.slice(0, 160))}${rule.length > 160 ? "…" : ""}\` |`);
     }
     L.push("");
     if (use) {
-      if (use.failed.length) L.push(`> **${use.failed.length} surfaces could not be read** (${use.failed.map((f) => f.label).join(", ")}) — a zero above is a floor, not an answer.`, "");
+      if (use.failed.length) L.push(`> **${use.failed.length} surfaces could not be read** (${use.failed.map((f) => f.label).join(", ")}) — the counts above are unaffected; the policy names below are what is missing.`, "");
       for (const f of filters) {
         const u = use.by.get(f.id);
         if (!u || !u.length) continue;
         L.push(`## ${mdCell(f.displayName)} — ${u.length} reference${u.length === 1 ? "" : "s"}`, "");
         L.push(`| Policy | Surface | Assignment | Mode |`, `|---|---|---|---|`);
-        u.forEach((x) => L.push(`| ${mdCell(x.policy)} | ${mdCell(x.source)} | ${mdCell(x.how)} | ${mdCell(x.mode)} |`));
+        u.forEach((x) => L.push(`| ${mdCell(x.policy)} | ${mdCell(x.source)} | ${mdCell(x.how)} | ${mdCell(x.mode || "include")} |`));
         L.push("");
       }
     } else {
-      L.push(`> Usage was not scanned — the used-by answer is **absent, not zero**.`, "");
+      L.push(`> Usage was not scanned, so the POLICY NAMES behind each reference are absent. The reference counts in the table above came from the filters themselves and are complete.`, "");
     }
     return L.join("\n");
   }
 
-  return { list, usage, associations, readOne, create, update, remove, PLATFORMS, platformLabel, markdown };
+  return { list, usage, associations, readOne, create, update, remove, PLATFORMS, platformLabel, payloadLabel, refsOf, markdown };
 })();
 
 
@@ -190,8 +226,12 @@ const FiltersTool = (() => {
   // an absent column would be a filter on nothing.
   let usedOnly = false;
   const openUse = new Set();
+  const groupNames = new Map();   // groupId -> display name, for the payload rows
 
-  function prog(msg) { TunoProgress.show("afBody", "afProg", msg); }   // ENCA-style centred card (10397)
+  // n and of are passed through (10491) — GroupUse's onStatus supplies them
+  // and this dropped both on the floor, so the scan's bar was indeterminate
+  // while the sweep knew exactly where it was.
+  function prog(msg, n, of) { TunoProgress.show("afBody", "afProg", msg, n, of); }   // ENCA-style centred card (10397)
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));
@@ -206,6 +246,20 @@ const FiltersTool = (() => {
       await Graph.ensureScopes(Graph.SCOPES.config);
       prog("Reading assignment filters…");
       filters = (await Filters.list()).sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)));
+      // The payloads name the GROUP each reference targets by id. A row of
+      // GUIDs is not an answer, so they are resolved once for the whole
+      // list — and a failure leaves the ids visible rather than the row
+      // blank, because "which group" unanswered is better than absent.
+      groupNames.clear();
+      const gids = [...new Set(filters.flatMap((f) => Filters.refsOf(f).map((r) => r.groupId).filter(Boolean)))];
+      if (gids.length) {
+        prog(`Naming ${gids.length} targeted group${gids.length === 1 ? "" : "s"}…`);
+        try {
+          await Graph.ensureScopes(Graph.SCOPES.directory);
+          const look = await Graph.resolveNames(gids, { types: ["group"] });
+          gids.forEach((g) => groupNames.set(g, look(g)));
+        } catch (e) { /* ids stay visible — unknown, not absent */ }
+      }
       prog("");
       render();
       $("afMd").style.display = "";
@@ -235,39 +289,50 @@ const FiltersTool = (() => {
   function render() {
     const stat = (n, label) => `<span class="gu-stat ${n ? "" : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
     const scanned = !!use;
-    if (!scanned) usedOnly = false;   // a filter on an absent column filters nothing
-    const shown = filters.filter((f) => !usedOnly || (use.by.get(f.id) || []).length);
+    // THE COUNT IS NO LONGER BEHIND THE SCAN (10491). Every filter arrived
+    // with its payloads — Graph's own "associated assignments" — so used-by
+    // is answered on the first read. What the scan still buys is the policy
+    // NAMES behind those payload ids, and the cross-check that the two
+    // agree.
+    const refs = (f) => Filters.refsOf(f);
+    const shown = filters.filter((f) => !usedOnly || refs(f).length);
     const rows = shown.map((f) => {
-      const u = scanned ? (use.by.get(f.id) || []) : null;
-      const open = scanned && openUse.has(f.id) && u.length;
+      const u = refs(f);
+      const open = openUse.has(f.id) && u.length;
       return `<tr>
         <td><b>${esc(f.displayName)}</b>${f.description ? `<div class="mini muted">${esc(f.description)}</div>` : ""}</td>
         <td class="mini">${esc(Filters.platformLabel(f.platform))}</td>
         <td class="mini">${esc(f.assignmentFilterManagementType || "devices")}</td>
-        ${scanned
-          ? (u.length
-            ? `<td class="gu-num"><a href="#" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter"><b>${u.length}</b> ${open ? "▾" : "▸"}</a></td>`
-            : `<td class="gu-num gu-zero">0</td>`)
-          : `<td class="gu-num mini muted" title="Usage has not been scanned — absent, not zero">—</td>`}
+        ${u.length
+          ? `<td class="gu-num"><a href="#" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter"><b>${u.length}</b> ${open ? "▾" : "▸"}</a></td>`
+          : `<td class="gu-num gu-zero" title="Graph returned no associated assignments for this filter">0</td>`}
         <td class="mini"><code style="overflow-wrap:anywhere">${esc(String(f.rule || "").slice(0, 160))}${String(f.rule || "").length > 160 ? "…" : ""}</code></td>
         <td class="af-acts">
           <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
           <button class="btn sm" data-afdel="${esc(f.id)}" title="Refused while any assignment references this filter">🗑 Delete</button>
         </td></tr>${open ? `<tr class="af-userow"><td colspan="6">
-          ${u.map((x) => `<span class="gu-stat"><b>${esc(x.policy)}</b> · ${esc(x.source)} · ${esc(x.how)}${x.mode ? ` · ${esc(x.mode)}` : ""}</span>`).join(" ")}
+          ${u.map((x) => {
+            // The policy NAME if the scan has run, the id if not — and the
+            // GROUP the assignment targets, named where the directory read
+            // answered. A row of GUIDs was the old shape of this answer.
+            const nm = (scanned && use.names && use.names.get(x.payloadId)) || "";
+            const grp = x.groupId ? (groupNames.get(x.groupId) || `group ${x.groupId.slice(0, 8)}…`) : "tenant-wide";
+            return `<span class="gu-stat"><b>${esc(nm || `policy ${String(x.payloadId).slice(0, 8)}…`)}</b> · ${esc(x.type)} · ${esc(grp)} · ${esc(x.mode)}</span>`;
+          }).join(" ")}
+          ${scanned ? "" : `<div class="mini muted" style="margin-top:6px">Policy names need the usage scan — the references themselves came with the filters.</div>`}
         </td></tr>` : ""}`;
     }).join("");
 
     const usageNote = scanned
-      ? (use.failed.length ? `<div class="gu-fail"><b>${use.failed.length} surfaces could not be read</b> (${use.failed.map((f) => esc(f.label)).join(", ")})<span class="why">A zero in the used-by column is a floor, not an answer — a reference may exist on the unread surfaces.</span></div>` : "")
-      : `<p class="mini muted"><b>The used-by column is absent, not empty</b> — scan usage to fill it. The scan is one read per assignment surface (the Group Analyzer's own source table), matched here by filter id.</p>`;
+      ? (use.failed.length ? `<div class="gu-fail"><b>${use.failed.length} surfaces could not be read</b> (${use.failed.map((f) => esc(f.label)).join(", ")})<span class="why">The used-by counts came from the filters themselves and are unaffected; the POLICY NAMES on the unread surfaces are what is missing.</span></div>` : "")
+      : `<p class="mini muted"><b>Used-by is Graph's own answer</b> — every filter arrives with its associated assignments, so the column is filled by the first read. <b>Scan usage</b> adds the policy names behind those references, which the filter object does not carry.</p>`;
 
-    const refCount = scanned ? [...use.by.values()].reduce((n, v) => n + v.length, 0) : 0;
+    const refCount = filters.reduce((n, f) => n + Filters.refsOf(f).length, 0);
     $("afBody").innerHTML = `<div class="gu-sticky">
       <span class="gu-who">Assignment filters${usedOnly ? ` <span class="mini muted">— only filters something uses</span>` : ""}</span>
       <div class="gu-sum">${stat(filters.length, "filters")}${scanned
         ? `<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a>`
-        : `<span class="gu-stat zero" title="Scan usage to fill this — absent, not zero"><b>—</b> references</span>`}</div>
+        : `<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a>`}</div>
     </div>
     <div class="list-card">
       ${usageNote}
@@ -329,8 +394,11 @@ const FiltersTool = (() => {
 
   async function refreshList() {
     filters = (await Filters.list()).sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)));
-    use = null;   // the scan described the tenant before the write — absent again, not stale
-    openUse.clear(); usedOnly = false;
+    use = null;   // the scan's POLICY NAMES described the tenant before the write — absent again, not stale
+    openUse.clear();
+    // usedOnly survives (10491): it filters on the payload counts, which are
+    // re-read with the filters and are therefore never stale. Only the names
+    // went away.
     render();
   }
 

@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10491, date: "2026-08-27", title: "Used by is Graph's own answer, not a scan away",
+    items: [
+      { kind: "fixed", tool: "T14", text: "The used-by column sat empty behind an opt-in nine-surface sweep when the answer had been one $expand away the whole time. A filter arrives with its PAYLOADS \u2014 Graph's own words for the property are \"associated assignments for a specific filter\" \u2014 carrying the policy id, the surface type, the targeted group and the filter mode for every reference. The count is now filled by the first read, always, and a 0 means Graph said none rather than nobody having looked." },
+      { kind: "improved", tool: "T14", text: "A reference row names the GROUP it targets. It had shown the raw sweep tokens \u2014 policy \u00b7 surface \u00b7 all-devices \u00b7 include \u2014 with no group at all; the payload carries the group id and it is resolved once for the whole list, with the id left visible where the directory read did not answer." },
+      { kind: "improved", tool: "T14", text: "The usage scan's job shrinks to what only it can do: turning payload ids into policy NAMES. Its failure note moved with it \u2014 unread surfaces no longer make the counts a floor, because the counts no longer come from the sweep. And after a write the reference counts stay, since they are re-read with the filters; only the names go absent." },
+      { kind: "fixed", tool: "T14", text: "The scan's progress bar was indeterminate while the sweep knew exactly where it was \u2014 prog() took a message and dropped the n and of that GroupUse's onStatus supplies. And a rule longer than 160 characters was cut silently in the Markdown export; it now says it was cut, as the screen already did." },
+    ],
+  },
+  {
     build: 10490, date: "2026-08-27", title: "One reader for the assignment filter, and the right permission for it",
     items: [
       { kind: "fixed", tool: "T05", text: "The assignment-filters surface had asked for the WRONG PERMISSION since it was written \u2014 DeviceManagementRBAC.Read.All, where learn.microsoft.com's List deviceAndAppManagementAssignmentFilters names DeviceManagementConfiguration.Read.All. 10482 built the filter-naming read on top of that mistake and 10488 added it to two more scope unions, so on a tenant granting config and not RBAC the names 403'd and the changelog stated the wrong fix. \ud83e\udde9 Assignment filters had it right all along, which is precisely how the two came to disagree." },
