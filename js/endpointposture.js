@@ -116,6 +116,60 @@ const EndpointPosture = (() => {
   const STATE_WORD = { assigned: "enforced now", unassigned: "not assigned yet", excludedOnly: "excluded-only — reaches nobody" };
   const stateOf = (doc) => OverviewTool.verdictOf(doc);
 
+  // ------------------------------------------- device reach (build 10479) --
+  // How many Intune Windows devices a finding's policies actually target,
+  // and how many the tenant leaves out — TARGETS, NOT CHECK-INS: this is
+  // assignment arithmetic, the same claim the rest of the house makes.
+  // Tenant-wide is the whole Windows fleet; group targets are summed by
+  // member count (Graph.memberCount, the AppLocker deploy's own seam) —
+  // members as the groups are built, users or devices, overlaps NOT
+  // deduplicated, exclusions NOT subtracted, a filter capping at may.
+  // Every one of those limits is worn on the line, because a device
+  // number that hides its arithmetic is how a claim becomes a lie.
+  function deviceReach(docs, counts, deviceCount) {
+    const live = (docs || []).filter((d) => stateOf(d) === "assigned");
+    const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0 };
+    if (!live.length) { out.missing = deviceCount == null ? null : deviceCount; return out; }
+    const ids = new Set();
+    for (const d of live) for (const a of (d.assignments || [])) {
+      if (a.kind === "All devices" || a.kind === "All users") out.wide = true;
+      else if (a.kind === "Included" && a.groupId) ids.add(String(a.groupId).toLowerCase());
+      else if (a.kind === "Excluded") out.excludes++;
+      if (a.filterId && a.kind !== "Excluded") out.filtered = true;
+    }
+    out.groups = ids.size;
+    if (out.wide) { out.reached = deviceCount == null ? null : deviceCount; out.missing = deviceCount == null ? null : 0; return out; }
+    let n = 0;
+    for (const id of ids) {
+      const c = counts ? counts[id] : null;
+      if (c == null || !Number.isFinite(Number(c))) out.unknownGroups++;
+      else n += Number(c);
+    }
+    out.reached = n;
+    out.missing = deviceCount == null ? null : Math.max(0, deviceCount - n);
+    return out;
+  }
+
+  // The one sentence both the screen and the export speak.
+  function reachLine(r, deviceCount) {
+    const D = deviceCount;
+    const caveats = [];
+    if (r.wide) caveats.push("tenant-wide target");
+    if (!r.wide && r.groups) caveats.push(`${r.groups} included group${r.groups === 1 ? "" : "s"} summed by member count — members as the groups are built, overlaps not deduplicated`);
+    if (r.unknownGroups) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable, the sum is a floor`);
+    if (r.excludes) caveats.push(`${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} not subtracted`);
+    if (r.filtered) caveats.push("⚑ an assignment filter caps reach at may");
+    const cav = caveats.length ? ` (${caveats.join("; ")})` : "";
+    if (!r.live || (r.reached === 0 && !r.unknownGroups)) {
+      return D == null
+        ? `0 devices targeted — and the Windows device count could not be read, so how many are missing is unknown, not zero`
+        : `0 of ${D} enrolled Windows devices targeted — all ${D} are missing this control`;
+    }
+    if (r.reached == null) return `the Windows device count could not be read — reach is unknown, not zero${cav}`;
+    const missing = r.missing == null ? "an unknown number" : r.missing;
+    return `~${r.reached} of ${D == null ? "an unknown number of" : D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
+  }
+
   // ------------------------------------------------------ impact brief --
   // One rule = one statement in the communication — T32's contract, the
   // wording translated from sign-ins to devices. `match` decides from a
@@ -320,16 +374,16 @@ ${body.join("\n")}
       else if (bad && bad(v)) { if (st === "assigned") liveBad = liveBad || d; }
       else unknown = unknown || { d, v };
     }
-    return { seen, liveGood, liveBad, deadGood, unknown };
+    return { seen, liveGood, liveBad, deadGood, unknown, docs: hits };
   }
   const ev = (seen) => seen.map((s) => `${s.name} = ${s.v} [${STATE_WORD[s.st]}]`).join("; ");
 
   function stdVerdict(j, wording) {
-    if (j.liveGood) return { status: "pass", detail: `${wording.pass} ${ev(j.seen)}`, pols: j.seen };
-    if (j.liveBad) return { status: "misconfig", detail: `${wording.bad} ${ev(j.seen)}`, pols: j.seen };
-    if (j.deadGood) return { status: "notReaching", detail: `Configured as recommended, but only in a policy that reaches nobody by construction — configured is not enforced. ${ev(j.seen)}`, pols: j.seen };
-    if (j.unknown) return { status: "unknown", detail: `Configured with a value this check does not recognise ("${j.unknown.v}") — open ${j.unknown.d.name} and read it there; a guess would be worse than a look.`, pols: j.seen };
-    return { status: "gap", detail: wording.gap, pols: [] };
+    if (j.liveGood) return { status: "pass", detail: `${wording.pass} ${ev(j.seen)}`, pols: j.seen, docs: j.docs };
+    if (j.liveBad) return { status: "misconfig", detail: `${wording.bad} ${ev(j.seen)}`, pols: j.seen, docs: j.docs };
+    if (j.deadGood) return { status: "notReaching", detail: `Configured as recommended, but only in a policy that reaches nobody by construction — configured is not enforced. ${ev(j.seen)}`, pols: j.seen, docs: j.docs };
+    if (j.unknown) return { status: "unknown", detail: `Configured with a value this check does not recognise ("${j.unknown.v}") — open ${j.unknown.d.name} and read it there; a guess would be worse than a look.`, pols: j.seen, docs: j.docs };
+    return { status: "gap", detail: wording.gap, pols: [], docs: [] };
   }
 
   const CHECKS = [
@@ -383,10 +437,10 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/defender-endpoint/manage-gradual-rollout-process",
       eval: (ctx) => {
         const hits = anyDoc(ctx.docs, /_defender_configuration_(platform|engine|securityintelligence)updateschannel/i);
-        if (!hits.length) return { status: "gap", detail: "No policy pins the Defender update channels — devices take the default gradual rollout. Low: a deliberate choice to leave default is defensible; say it somewhere.", pols: [] };
+        if (!hits.length) return { status: "gap", detail: "No policy pins the Defender update channels — devices take the default gradual rollout. Low: a deliberate choice to leave default is defensible; say it somewhere.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        return live.length ? { status: "pass", detail: `Managed: ${live.map((d) => d.name).join("; ")}`, pols: hits.map((d) => ({ name: d.name, st: stateOf(d) })) }
-          : { status: "notReaching", detail: `Configured only in policies reaching nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [] };
+        return live.length ? { status: "pass", detail: `Managed: ${live.map((d) => d.name).join("; ")}`, pols: hits.map((d) => ({ name: d.name, st: stateOf(d) })), docs: hits }
+          : { status: "notReaching", detail: `Configured only in policies reaching nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
       } },
     // ── ASR ───────────────────────────────────────────────────────────
     { id: "asr-any", node: "asr", sev: "high", title: "ASR rules are configured at all",
@@ -395,10 +449,10 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/defender-endpoint/attack-surface-reduction-rules-overview",
       eval: (ctx) => {
         const hits = anyDoc(ctx.docs, /attacksurfacereductionrules/i);
-        if (!hits.length) return { status: "gap", detail: "No policy configures any ASR rule — the whole rule set is running on local defaults, which is off.", pols: [] };
+        if (!hits.length) return { status: "gap", detail: "No policy configures any ASR rule — the whole rule set is running on local defaults, which is off.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        return live.length ? { status: "pass", detail: `Configured: ${live.map((d) => d.name).join("; ")}`, pols: [] }
-          : { status: "notReaching", detail: `ASR rules exist only in policies reaching nobody by construction: ${hits.map((d) => d.name).join("; ")}`, pols: [] };
+        return live.length ? { status: "pass", detail: `Configured: ${live.map((d) => d.name).join("; ")}`, pols: [], docs: hits }
+          : { status: "notReaching", detail: `ASR rules exist only in policies reaching nobody by construction: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
       } },
     { id: "asr-std", node: "asr", sev: "high", title: "The three standard-protection rules are in Block",
       req: "Microsoft: the standard-protection rules — vulnerable signed drivers, LSASS credential stealing, WMI event subscription persistence — can go to Block without prior audit (WMI: test first when Configuration Manager is in use).",
@@ -410,12 +464,13 @@ ${body.join("\n")}
           [/blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem/i, "LSASS credential stealing"],
           [/blockpersistencethroughwmieventsubscription/i, "WMI persistence"],
         ];
-        const missing = [], weak = [], ok = [];
+        const missing = [], weak = [], ok = [], matched = new Set();
         for (const [re, label] of STD) {
           let best = null; // block in assigned > block unassigned > other
           for (const d of ctx.docs) {
             const r = findRow(d, re);
             if (!r) continue;
+            matched.add(d);
             const v = String(r.value || "").toLowerCase(); const st = stateOf(d);
             const rank = isBlockV(v) ? (st === "assigned" ? 3 : 2) : 1;
             if (!best || rank > best.rank) best = { rank, v, st, name: d.name };
@@ -424,9 +479,9 @@ ${body.join("\n")}
           else if (best.rank === 3) ok.push(label);
           else weak.push(`${label} (${best.v}${best.st === "assigned" ? "" : ", " + STATE_WORD[best.st]} — ${best.name})`);
         }
-        if (!missing.length && !weak.length) return { status: "pass", detail: `All three in Block and reaching: ${ok.join(", ")}.`, pols: [] };
-        if (missing.length === 3 && !ok.length && !weak.length) return { status: "gap", detail: "None of the three standard-protection rules is configured anywhere.", pols: [] };
-        return { status: "misconfig", detail: `${ok.length ? `In Block: ${ok.join(", ")}. ` : ""}${weak.length ? `Not blocking: ${weak.join("; ")}. ` : ""}${missing.length ? `Not configured: ${missing.join(", ")}.` : ""}`, pols: [] };
+        if (!missing.length && !weak.length) return { status: "pass", detail: `All three in Block and reaching: ${ok.join(", ")}.`, pols: [], docs: [...matched] };
+        if (missing.length === 3 && !ok.length && !weak.length) return { status: "gap", detail: "None of the three standard-protection rules is configured anywhere.", pols: [], docs: [] };
+        return { status: "misconfig", detail: `${ok.length ? `In Block: ${ok.join(", ")}. ` : ""}${weak.length ? `Not blocking: ${weak.join("; ")}. ` : ""}${missing.length ? `Not configured: ${missing.join(", ")}.` : ""}`, pols: [], docs: [...matched] };
       } },
     // ── Disk encryption ───────────────────────────────────────────────
     { id: "bde-req", node: "disk", sev: "critical", title: "BitLocker is required",
@@ -442,7 +497,7 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/intune/device-configuration/endpoint-security/encrypt-bitlocker-windows#configure-silent-bitlocker-encryption",
       eval: (ctx) => {
         const base = anyDoc(ctx.docs, /requiredeviceencryption/i);
-        if (!base.length) return { status: "gap", detail: "No BitLocker policy to shape — see the check above.", pols: [] };
+        if (!base.length) return { status: "gap", detail: "No BitLocker policy to shape — see the check above.", pols: [], docs: [] };
         const probs = [];
         for (const d of base) {
           const warn = val(d, /allowwarningforotherdiskencryption/i);
@@ -452,8 +507,8 @@ ${body.join("\n")}
           const pin = val(d, /tpmstartuppin$/i);
           if (pin && /require/.test(pin)) probs.push(`${d.name}: a TPM startup PIN is required — silent enable cannot complete, and the user is asked at boot`);
         }
-        return probs.length ? { status: "misconfig", detail: probs.join(". ") + ".", pols: [] }
-          : { status: "pass", detail: "The silent-enable trio is in place on every BitLocker policy found.", pols: [] };
+        return probs.length ? { status: "misconfig", detail: probs.join(". ") + ".", pols: [], docs: base }
+          : { status: "pass", detail: "The silent-enable trio is in place on every BitLocker policy found.", pols: [], docs: base };
       } },
     // ── Firewall ──────────────────────────────────────────────────────
     { id: "fw-on", node: "fw", sev: "critical", title: "The firewall is enabled on all three profiles",
@@ -462,19 +517,20 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/intune/device-configuration/endpoint-security/endpoint-security-firewall-policy",
       eval: (ctx) => {
         const PROFILES = ["domain", "private", "public"];
-        const missing = [], off = [], dead = [];
+        const missing = [], off = [], dead = [], united = new Set();
         for (const p of PROFILES) {
           const re = new RegExp(`mdmstore_${p}profile_enablefirewall`, "i");
           const hits = anyDoc(ctx.docs, re);
+          hits.forEach((d) => united.add(d));
           if (!hits.length) { missing.push(p); continue; }
           const live = hits.filter((d) => stateOf(d) === "assigned");
           const anyOn = (set) => set.some((d) => isOn(val(d, re)));
           if (live.length && anyOn(live)) continue;
           if (live.length) off.push(p); else if (anyOn(hits)) dead.push(p); else off.push(p);
         }
-        if (!missing.length && !off.length && !dead.length) return { status: "pass", detail: "All three profiles enabled and reaching.", pols: [] };
-        if (missing.length === 3) return { status: "gap", detail: "No policy enables the firewall on any profile.", pols: [] };
-        return { status: "misconfig", detail: `${missing.length ? `Unmanaged profiles: ${missing.join(", ")}. ` : ""}${off.length ? `Configured but not on: ${off.join(", ")}. ` : ""}${dead.length ? `Enabled only in policies reaching nobody: ${dead.join(", ")}.` : ""}`, pols: [] };
+        if (!missing.length && !off.length && !dead.length) return { status: "pass", detail: "All three profiles enabled and reaching.", pols: [], docs: [...united] };
+        if (missing.length === 3) return { status: "gap", detail: "No policy enables the firewall on any profile.", pols: [], docs: [] };
+        return { status: "misconfig", detail: `${missing.length ? `Unmanaged profiles: ${missing.join(", ")}. ` : ""}${off.length ? `Configured but not on: ${off.join(", ")}. ` : ""}${dead.length ? `Enabled only in policies reaching nobody: ${dead.join(", ")}.` : ""}`, pols: [], docs: [...united] };
       } },
     { id: "fw-inbound", node: "fw", sev: "high", title: "Default inbound action is Block",
       req: "Block-by-default inbound with explicit allow rules is the firewall posture Microsoft's guidance assumes; an Allow default makes rules decorative.",
@@ -491,10 +547,10 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/defender-endpoint/onboarding-endpoint-manager",
       eval: (ctx) => {
         const hits = ctx.docs.filter((d) => /EndpointDetectionAndResponse/i.test(String(d.templateFamily || "")) || rowsOf(d).some((r) => /windowsadvancedthreatprotection_onboarding/i.test(r.defId || "")));
-        if (!hits.length) return { status: "gap", detail: "No EDR policy found — onboarding may still exist outside Intune, but nothing here carries it.", pols: [] };
+        if (!hits.length) return { status: "gap", detail: "No EDR policy found — onboarding may still exist outside Intune, but nothing here carries it.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        return live.length ? { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [] }
-          : { status: "notReaching", detail: `EDR policies exist but reach nobody by construction: ${hits.map((d) => d.name).join("; ")}`, pols: [] };
+        return live.length ? { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [], docs: hits }
+          : { status: "notReaching", detail: `EDR policies exist but reach nobody by construction: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
       } },
     { id: "edr-samples", node: "edr", sev: "low", title: "Sample sharing is enabled",
       req: "Sample sharing lets Defender for Endpoint pull a suspicious file for deep analysis when investigation needs it.",
@@ -512,11 +568,11 @@ ${body.join("\n")}
       eval: (ctx) => {
         const hits = ctx.docs.filter((d) => /AccountProtection/i.test(String(d.templateFamily || "")));
         const legacy = (ctx.intents || []).filter((i) => i.node === "acct");
-        if (!hits.length && !legacy.length) return { status: "gap", detail: "No account protection policy — sign-in strength and local-group membership run unmanaged.", pols: [] };
+        if (!hits.length && !legacy.length) return { status: "gap", detail: "No account protection policy — sign-in strength and local-group membership run unmanaged.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        if (live.length) return { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [] };
-        if (legacy.some((i) => i.isAssigned)) return { status: "pass", detail: `Enforced through a legacy intent (${legacy.filter((i) => i.isAssigned).map((i) => i.name).join("; ")}) — the legacy surface says only assigned or not.`, pols: [] };
-        return { status: "notReaching", detail: `Account protection exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [] };
+        if (live.length) return { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
+        if (legacy.some((i) => i.isAssigned)) return { status: "pass", detail: `Enforced through a legacy intent (${legacy.filter((i) => i.isAssigned).map((i) => i.name).join("; ")}) — the legacy surface says only assigned or not, so its device reach cannot be counted.`, pols: [], docs: hits };
+        return { status: "notReaching", detail: `Account protection exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
       } },
     { id: "appctl-any", node: "appctl", sev: "medium", title: "Application control exists somewhere",
       req: "App Control for Business (or AppLocker, which 🔐 T01 builds and validates) is the only category that stops unknown-but-not-yet-malicious software.",
@@ -524,10 +580,10 @@ ${body.join("\n")}
       doc: "https://learn.microsoft.com/windows/security/application-security/application-control/app-control-for-business/appcontrol",
       eval: (ctx) => {
         const hits = ctx.docs.filter((d) => /ApplicationControl/i.test(String(d.templateFamily || "")));
-        if (!hits.length) return { status: "gap", detail: "No App Control policy in endpoint security. If AppLocker is deployed through a custom profile, this check cannot see it — T01 knows.", pols: [] };
+        if (!hits.length) return { status: "gap", detail: "No App Control policy in endpoint security. If AppLocker is deployed through a custom profile, this check cannot see it — T01 knows.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        return live.length ? { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [] }
-          : { status: "notReaching", detail: `App Control exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [] };
+        return live.length ? { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [], docs: hits }
+          : { status: "notReaching", detail: `App Control exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
       } },
     // ── Edge ──────────────────────────────────────────────────────────
     { id: "edge-ss", node: "edge", sev: "high", title: "Edge SmartScreen is on and cannot be bypassed",
@@ -540,17 +596,19 @@ ${body.join("\n")}
           [/preventsmartscreenpromptoverride(?!forfiles)/i, "site-warning override prevention"],
           [/preventsmartscreenpromptoverrideforfiles/i, "download-warning override prevention"],
         ];
-        const missing = [], off = [], dead = [];
+        const missing = [], off = [], dead = [], united = new Set();
         for (const [re, label] of parts) {
-          const j = judge(anyDoc(ctx.docs, re), re, isOn, isOff);
+          const hits2 = anyDoc(ctx.docs, re);
+          hits2.forEach((d) => united.add(d));
+          const j = judge(hits2, re, isOn, isOff);
           if (j.liveGood) continue;
           if (j.liveBad) off.push(label);
           else if (j.deadGood) dead.push(label);
           else missing.push(label);
         }
-        if (!missing.length && !off.length && !dead.length) return { status: "pass", detail: "All three enforced.", pols: [] };
-        if (missing.length === 3) return { status: "gap", detail: "No policy configures Edge SmartScreen at all.", pols: [] };
-        return { status: "misconfig", detail: `${off.length ? `Disabled by policy: ${off.join(", ")}. ` : ""}${missing.length ? `Not configured: ${missing.join(", ")}. ` : ""}${dead.length ? `Configured only in policies reaching nobody: ${dead.join(", ")}.` : ""}`, pols: [] };
+        if (!missing.length && !off.length && !dead.length) return { status: "pass", detail: "All three enforced.", pols: [], docs: [...united] };
+        if (missing.length === 3) return { status: "gap", detail: "No policy configures Edge SmartScreen at all.", pols: [], docs: [] };
+        return { status: "misconfig", detail: `${off.length ? `Disabled by policy: ${off.join(", ")}. ` : ""}${missing.length ? `Not configured: ${missing.join(", ")}. ` : ""}${dead.length ? `Configured only in policies reaching nobody: ${dead.join(", ")}.` : ""}`, pols: [], docs: [...united] };
       } },
     { id: "edge-pua", node: "edge", sev: "medium", title: "Edge blocks potentially unwanted downloads",
       req: "SmartScreenPuaEnabled extends SmartScreen to bundleware — the baseline default is Enabled.",
@@ -572,7 +630,7 @@ ${body.join("\n")}
     return CHECKS.map((c) => {
       let r;
       try { r = c.eval(ctx); }
-      catch (e) { r = { status: "unknown", detail: `The check itself failed: ${String((e && e.message) || e).slice(0, 160)}`, pols: [] }; }
+      catch (e) { r = { status: "unknown", detail: `The check itself failed: ${String((e && e.message) || e).slice(0, 160)}`, pols: [], docs: [] }; }
       return { id: c.id, node: c.node, sev: c.sev, title: c.title, req: c.req, fix: c.fix, doc: c.doc, ...r };
     });
   }
@@ -581,7 +639,7 @@ ${body.join("\n")}
   const findings = (checks) => checks.filter((c) => BAD.has(c.status))
     .sort((a, b) => SEV_ORDER[a.sev] - SEV_ORDER[b.sev] || a.title.localeCompare(b.title));
 
-  function checksMd(checks, { tenantName } = {}) {
+  function checksMd(checks, { tenantName, deviceCount = null, counts = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
     out.push(`# Endpoint security — best-practice analysis`);
@@ -595,6 +653,7 @@ ${body.join("\n")}
       out.push(`## ${word[c.status]} · ${c.sev} — ${c.title}`);
       out.push(`- **Recommendation:** ${c.req}`);
       out.push(`- **This tenant:** ${c.detail}`);
+      out.push(`- **Devices:** ${reachLine(deviceReach(c.docs || [], counts, deviceCount), deviceCount)}`);
       if (c.status !== "pass") out.push(`- **Remediation:** ${c.fix}`);
       out.push(`- **Source:** ${c.doc}`);
       out.push(``);
@@ -606,6 +665,7 @@ ${body.join("\n")}
     NODES, nodeById, classify, intentNode,
     RULES, analyzeImpact, briefMd, briefDocx,
     CHECKS, runChecks, findings, checksMd,
+    deviceReach, reachLine,
     STATE_WORD, stateOf,
     // seams for the headless suite
     _match: { MDE_RE, EDGE_RE, isOn, isOff, isBlockV, isAuditV },
@@ -692,9 +752,31 @@ const EndpointPostureTool = (() => {
         nodes.forEach((n) => (byNode[n] || byNode.otherdisc).push(it));
       }
       const ctx = { docs, byNode, intents };
+
+      // Group member counts for the device-reach lines (build 10479) —
+      // Graph.memberCount, the AppLocker deploy's own seam, pooled the
+      // documenter's way. A count that cannot be read is null: unknown,
+      // not zero, and the reach line says the sum is a floor.
+      const gids = [...new Set(docs.flatMap((d) => (d.assignments || [])
+        .filter((a) => a.kind === "Included" && a.groupId)
+        .map((a) => String(a.groupId).toLowerCase())))];
+      const groupCounts = {};
+      let groupCountErrors = 0;
+      if (gids.length) {
+        let done = 0;
+        const rs = await Graph.pool(gids, async (id) => {
+          prog(`Counting group members — ${++done}/${gids.length}…`);
+          try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
+        }, 6);
+        rs.forEach((r, i) => {
+          const v = (r && typeof r === "object" && "error" in r) ? null : r;
+          groupCounts[gids[i]] = Number.isFinite(v) ? v : null;
+          if (!Number.isFinite(v)) groupCountErrors++;
+        });
+      }
       res = {
         sec, docs, byNode, intents, intentsError, templatesError,
-        deviceCount, deviceCountError,
+        deviceCount, deviceCountError, groupCounts, groupCountErrors,
         partial: col.partial || [], nameError: col.nameError || null,
         impact: EndpointPosture.analyzeImpact(docs),
         checks: EndpointPosture.runChecks(ctx),
@@ -878,15 +960,20 @@ const EndpointPostureTool = (() => {
     const cls = { gap: "off", misconfig: "off", notReaching: "report", unknown: "report", pass: "on" };
     const bad = EndpointPosture.findings(res.checks);
     const pass = res.checks.filter((c) => c.status === "pass");
-    const item = (c) => `<div class="ep-check">
+    const item = (c) => {
+      const r = EndpointPosture.deviceReach(c.docs || [], res.groupCounts, res.deviceCount);
+      const bad = c.status !== "pass" && (r.missing === null || r.missing > 0 || r.reached === 0);
+      return `<div class="ep-check">
       <div class="ep-check-h"><span class="state ${cls[c.status]}">${word[c.status]}</span> <span class="ep-sev ${c.sev}">${c.sev}</span> <b>${esc(c.title)}</b></div>
       <p class="mini" style="margin:6px 0 0"><b>Microsoft:</b> ${esc(c.req)}</p>
       <p class="mini" style="margin:4px 0 0"><b>This tenant:</b> ${esc(c.detail)}</p>
+      <p class="mini" style="margin:4px 0 0"><b>📟 Devices:</b> <span${bad ? ` style="color:var(--off)"` : ""}>${esc(EndpointPosture.reachLine(r, res.deviceCount))}</span></p>
       ${c.status !== "pass" ? `<p class="mini" style="margin:4px 0 0"><b>Remediation:</b> ${esc(c.fix)}</p>` : ""}
       <p class="mini muted" style="margin:4px 0 0"><a href="${esc(c.doc)}" target="_blank" rel="noopener">${esc(c.doc.replace("https://", ""))}</a></p>
     </div>`;
+    };
     return `<div class="list-card"><h4 style="margin:0 0 4px">🎓 Best practice — measured against learn.microsoft.com</h4>
-      <p class="mini muted" style="margin:0 0 12px">${bad.length} finding${bad.length === 1 ? "" : "s"}, ${pass.length} passed, of ${res.checks.length} checks. Checks read the documenter's setting rows — a value the check set does not recognise is said so, never guessed. <b>Not reaching</b> means configured as recommended, but only in a policy that reaches nobody by construction.</p>
+      <p class="mini muted" style="margin:0 0 12px">${bad.length} finding${bad.length === 1 ? "" : "s"}, ${pass.length} passed, of ${res.checks.length} checks. Checks read the documenter's setting rows — a value the check set does not recognise is said so, never guessed. <b>Not reaching</b> means configured as recommended, but only in a policy that reaches nobody by construction. <b>📟 Devices</b> is assignment arithmetic — tenant-wide is the Windows fleet, groups are summed by member count, and every limit of that sum is worn on the line: targets, not check-ins.${res.groupCountErrors ? ` ${res.groupCountErrors} group count${res.groupCountErrors === 1 ? "" : "s"} could not be read — those sums are floors.` : ""}</p>
       ${bad.map(item).join("")}${pass.length ? `<h4 class="ep-h">Passed</h4>${pass.map(item).join("")}` : ""}
     </div>`;
   }
@@ -953,7 +1040,7 @@ const EndpointPostureTool = (() => {
     $("epRun").addEventListener("click", run);
     $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName() }), "text/markdown"));
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
-    $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName() }), "text/markdown"));
+    $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {
       const rb = e.target.closest("[data-epbrief]");
       if (rb) { openBrief(); return; }

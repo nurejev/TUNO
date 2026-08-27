@@ -1286,14 +1286,19 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    two result containers that do not follow the *Body convention. */
 main [id$="Body"] > .list-card,
 #aePlanOut > .list-card,
-#rsPlan > .list-card{padding:16px 18px}
+#rsPlan > .list-card,
+.ep-main > .list-card{padding:16px 18px}   /* T20's rail pane (10479): one level deeper than *Body, same convention — its cards shipped flush against the border, the 10395 disease repeating in a new container shape */
 /* …and stacked cards SEPARATE (build 10396). A run of cards with no gap
    reads as one long surface — the conflict scan's findings merged into a
    wall. Convention again, not a list: any tool body that stacks cards
    gets the gap. */
 main [id$="Body"] > .list-card + .list-card,
 #aePlanOut > .list-card + .list-card,
-#rsPlan > .list-card + .list-card{margin-top:14px}
+#rsPlan > .list-card + .list-card,
+.ep-main > .list-card + .list-card,
+.ep-main > .au-cards + .list-card,
+.ep-main > .cg-tablewrap + .list-card,
+.ep-main > .ep-cards + .list-card{margin-top:14px}
 
 /* ---- TunoProgress (build 10397): ENCA's read, in the middle ---- */
 main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-align:center;padding:28px 26px}
@@ -2281,7 +2286,7 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 }
 
 /* T20 build 10477: the pane toolbar is a card; cards|list toggle */
-.ep-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px;padding:12px 16px}
+.ep-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}   /* padding comes from the .ep-main > .list-card convention — one source */
 .ep-bar input{flex:0 1 320px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);padding:7px 10px;font:inherit}
 .ep-row{cursor:pointer}
 .ep-row:hover td{background:var(--soft)}

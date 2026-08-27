@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10479, date: "2026-08-27", title: "Every finding says how many devices it is about",
+    items: [
+      { kind: "new", tool: "T20", text: "📟 Devices on every best-practice check, on screen and in the export: how many enrolled Windows devices the check's policies actually target, and how many the tenant leaves out. A GAP now reads '0 of N — all N are missing this control' — T16's denominator idea carried into every check, because a gap is not an empty row, it is that many machines on local defaults. The arithmetic is assignment reach and says so on the line: tenant-wide is the Windows fleet, groups are summed by member count, overlaps are not deduplicated, exclusions are not subtracted, a filter caps reach at may, and an unreadable group count makes the sum a floor — targets, not check-ins." },
+      { kind: "fixed", tool: "T20", text: "The rail pane's cards rendered their text flush against the card border — the 10395 disease in a new container shape: the shared padding rule pads direct children of *Body containers, and the rail pane sits one level deeper. The pane joins the convention's named exceptions, and stacked cards get the standard gap." },
+    ],
+  },
+  {
     build: 10478, date: "2026-08-27", title: "The impact brief is readable before it is a file",
     items: [
       { kind: "new", tool: "T20", text: "👁 Read the full brief — the finished communication renders on screen: intro, every statement, the what-if-you-are-blocked section and the appendix, exactly as the Markdown export writes it, with Copy Markdown and Download in the viewer. A document you hand to a communications team should be readable before it is a file in your Downloads folder." },
