@@ -26,6 +26,19 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 11, date: "2026-08-27", title: "The AppLocker workflow explains itself, and TUNO names the tenant you are in",
+    items: [
+      { kind: "improved", tool: "AppLocker builder & validator", text: "The generator's layouts are three cards, one per layout, so the choice is made by looking rather than by reading a dropdown. The gap report carries coverage with it: a finding now says what the policy does reach as well as what it misses, because a list of gaps with no denominator is a number nobody can act on." },
+      { kind: "improved", tool: "AppLocker builder & validator", text: "A flood of gaps became one finding. Hundreds of rows saying the same thing about the same folder is not hundreds of problems, and reading it as such is how a real one gets buried." },
+      { kind: "fixed", tool: "AppLocker builder & validator", text: "Apply is never a dead button. It either does something or says why it cannot, instead of sitting there looking available." },
+      { kind: "improved", tool: "AppLocker builder & validator", text: "An applied fix changes the finding rather than only the rules, so the report you are reading keeps up with the policy you are editing. The deployed profile can be updated in place, its identity is one click away, and its version is editable at the button that writes it." },
+      { kind: "fixed", tool: "AppLocker builder & validator", text: "Loop marks belong to one tenant. A station marked by hand is a claim about a specific tenant, and carrying it into another one would answer a question nobody asked." },
+      { kind: "new", tool: "TUNO", text: "The header names the tenant you are signed in to. The organization is read at sign-in, so the name in the corner is the tenant's own rather than a domain guessed from your account." },
+      { kind: "improved", tool: "All tools", text: "The sidebar icons are legible, and they are the same size whether the rail is folded or open. They used to change size as it folded, because the two states set the size in two places." },
+      { kind: "improved", tool: "All tools", text: "The branding gear now works here, limited to your own browser. Applying a look changes it for you and for nobody else visiting the site, and the production deployment still ignores any branding file served next to it. Its real identity remains the one in the repository." },
+    ],
+  },
+  {
     build: 10, date: "2026-08-26", title: "Production stops calling its tools beta",
     items: [
       { kind: "fixed", tool: "TUNO", text: "Every tool tile and screen wore a BETA chip that came across from the beta channel with the code — sixty of them after build 9. BETA is channel language: on the beta site it says a tool is still proving itself there, and on production it named a channel the visitor is not on. Production now speaks its own labels — NEW on the nine tools this production line first shipped in build 9, UPDATED on the six that changed in it, nothing on the rest — and the production check fails any future promotion that lets a BETA chip through." },

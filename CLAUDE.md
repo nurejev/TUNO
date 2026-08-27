@@ -23,6 +23,22 @@ This applies to LAYOUT — placement, structure, chrome. It does not apply to
 fixes with one honest answer (a clipped menu, a missing padding rule, a
 table that does not fit): fix those directly.
 
+## Patch handovers: the base SHA is part of the handover
+
+Some sessions (claude.ai chat) work in a detached clone and hand commits over
+as `git format-patch` files instead of committing in `~/REPO/TUNO`. Two rounds
+of build-number collisions (10455 taken twice, then 10456) taught the rules:
+
+1. **Every handover names the exact SHA it must sit on.** Before `git am`,
+   run `git log --oneline -1` — if HEAD is not that SHA, STOP and report the
+   SHA back; the patches need renumbering, because build numbers are permanent
+   and the tip has moved.
+2. **Verify the files exist before applying**: `ls ~/Downloads/000*.patch`.
+   A `git am` on a missing path fails fatally and the pushes after it say
+   "Everything up-to-date" — which reads as success and is nothing.
+3. Builds cut in parallel sessions race for the next number. Whichever lands
+   on the remote first keeps it; the patch side renumbers.
+
 ## Git locks: MOVE them, do not delete them
 
 The known lock friction (`index.lock` / `HEAD.lock` recreated by a host-side

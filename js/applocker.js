@@ -594,6 +594,24 @@ const AppLockerTool = (() => {
       L.push("");
       table(cls.dll, false);
     }
+    // Microsoft app coverage rides in EVERY gap report (Mihai's rule): the
+    // report is the change-ticket document, and "can a standard user still
+    // run OneDrive" belongs in the same envelope as the gaps.
+    L.push("");
+    L.push(`## Microsoft app coverage`);
+    L.push("");
+    if (!policy || !coverage.length) {
+      L.push("No policy loaded when this report was generated — load the draft and regenerate for the coverage verdicts.");
+    } else {
+      L.push(`| App | Verdict | Detail |`);
+      L.push(`|---|---|---|`);
+      for (const row of coverage) {
+        const v = row.result;
+        const det = v.status === "unenforced" ? v.detail
+          : (v.perArt || []).map((a) => `${a.art.path.split("\\").pop()} — ${a.status}${a.rule ? ` via “${a.rule.name}”` : ""}`).join("; ");
+        L.push(`| ${cell(row.app.name)} | ${cell(v.status)}${v.audit ? " (audit)" : ""} | ${cell(det)} |`);
+      }
+    }
     if ((eventsEvidence.warnings || []).length) {
       L.push("");
       L.push(`## What the collector could not see`);
@@ -628,11 +646,39 @@ const AppLockerTool = (() => {
     const out = [];
     if (!eventsEvidence || !policy) return out;
     const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    // Gaps per collection first: a handful get a row and a fix each, a FLOOD
+    // collapses into ONE finding with an expandable list. The flood is real —
+    // one rule in a collection makes AppLocker enforce the whole collection,
+    // so five DLL hash allows wake every other DLL load as a would-block —
+    // but two hundred rows of it is a scroll, not a finding. Reported from
+    // real use, verbatim: "now I have a whole list to scroll".
+    const FLOOD = 8;
+    const gapsByCol = new Map();
     for (const row of rows) {
       const dv = draftVerdictForEvent(row.sample);
       if (fleetRowClass(row, dv) !== "gap") continue;
-      const plan = fleetFixPlan(row);
-      out.push({
+      const t = eventCollectionType(row.sample);
+      if (!gapsByCol.has(t)) gapsByCol.set(t, []);
+      gapsByCol.get(t).push(row);
+    }
+    for (const [colType, colRows] of gapsByCol) {
+      if (colRows.length > FLOOD) {
+        const events = colRows.reduce((n, r2) => n + r2.count, 0);
+        out.push({
+          sev: "High", source: "fleet", collection: colType, ruleType: "(fleet)",
+          rule: `${colRows.length} fleet-denied files`,
+          cond: "",
+          reason: `${colRows.length} distinct files (${events} events) would still be blocked from machine space under this draft. The ${colType} collection carries rules, so AppLocker enforces the WHOLE collection — everything not allowed is a block.`,
+          rec: colType === "Dll"
+            ? "Allowing DLLs one hash at a time is not a policy. Decide whether Dll should be governed at all: if not, remove the Dll rules and these return to set-aside; if yes, plan publisher-level allows for the platform. The list is expandable below."
+            : "Work the list below by publisher where files are signed — one publisher rule closes many of these at once. The list is expandable below.",
+          fleetGroup: colRows,
+        });
+        continue;
+      }
+      for (const row of colRows) {
+        const plan = fleetFixPlan(row);
+        out.push({
         sev: "High", source: "fleet",
         collection: eventCollectionType(row.sample),
         rule: row.binary || (row.path ? String(row.path).split("\\").pop() : "(fleet event)"),
@@ -643,8 +689,9 @@ const AppLockerTool = (() => {
           : plan.kind === "hash" ? "Unsigned — allow by the event's hash. Hash rules go stale on the file's next update."
           : "Allow this exact path as a stopgap, then replace it with a publisher or hash rule.")
           : "The event carries no publisher, hash or path — no rule can be built from it. Decide by hand.",
-        fix: plan ? { kind: "fleetAllow", row } : null,
-      });
+          fix: plan ? { kind: "fleetAllow", row } : null,
+        });
+      }
     }
     return out;
   }
@@ -687,6 +734,24 @@ const AppLockerTool = (() => {
     const gi = $("alIntuneGrouping");
     if (gi) gi.value = intuneCfg.grouping;
     loadFresh();
+  }
+
+  // Adopt only the deployed profile's IDENTITY — name (version-bumped) and
+  // grouping — while the ADJUSTED draft on the table stays exactly as edited.
+  // This is the mid-loop case: the rules you want are on screen, the address
+  // they must land at is in the tenant. (adoptTenantProfile, by contrast,
+  // REPLACES the draft with the tenant's rules.)
+  function adoptTenantIdentity(p) {
+    const setting = (p.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+    const m = setting && APPLOCKER_OMA_RE.exec(String(setting.omaUri || ""));
+    if (m && m[1]) intuneCfg.grouping = m[1];
+    if (p.displayName) intuneCfg.displayName = bumpVersionInName(p.displayName);
+    const ni = $("alIntuneName");
+    if (ni) ni.value = intuneCfg.displayName;
+    const gi = $("alIntuneGrouping");
+    if (gi) gi.value = intuneCfg.grouping;
+    renderCodePane();
+    renderDeploy();
   }
 
   async function loadTenantProfiles() {
@@ -892,16 +957,31 @@ const AppLockerTool = (() => {
     // 2. Unsigned executables sitting in those directories.
     const unsigned = b.artifacts.filter((a) => a && !a.signed);
     if (unsigned.length) {
-      out.push({
-        sev: "Medium", source: "scan", collection: "Exe", ruleType: "(scan)",
-        cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
-        reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
-        rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
-        // 10443: the third option in that recommendation is a click, like the
-        // fleet gaps' fixes — one hash rule per collection, every unsigned
-        // artifact's hash inside, undo one click away.
-        fix: { kind: "hashUnsigned", artifacts: unsigned.filter((a) => a.hash) },
+      // Has the fix already been taken? Then the finding must SAY SO — after
+      // an Apply that left the row looking identical, the report was 'the fix
+      // is not working any more', verbatim. A finding whose fix is in the
+      // draft changes state: Info, covered, with the expiry duty named.
+      const typesU = [...new Set(unsigned.map((a) => a.collection || "Exe"))];
+      const hashCovered = model && typesU.every((t) => {
+        const colU = model.collections.find((c) => c.type === t);
+        return colU && colU.rules.some((r) => r.name === `${BRANDING.name}: unsigned in writable locations (${t}, hash)`);
       });
+      if (hashCovered) {
+        out.push({
+          sev: "Info", source: "scan", collection: typesU.join("/"), ruleType: "(scan)",
+          cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
+          reason: `${unsigned.length} unsigned executable(s) in user-writable locations are COVERED by the hash rules in this draft (see the Rules card).`,
+          rec: "Done — but hash rules die the moment any of these files updates. Put the expiry on someone's calendar, and keep pressing the vendor to sign. Deleting the TUNO hash rules in the Rules card reopens this finding.",
+        });
+      } else {
+        out.push({
+          sev: "Medium", source: "scan", collection: "Exe", ruleType: "(scan)",
+          cond: unsigned.slice(0, 4).map((a) => a.name).join(", ") + (unsigned.length > 4 ? `, +${unsigned.length - 4} more` : ""),
+          reason: `${unsigned.length} unsigned executable(s) were found in user-writable locations. Nothing but a hash rule can allow them, and a hash rule stops working the moment the file is updated.`,
+          rec: "Press the vendor to sign, relocate the application into a protected directory, or accept the hash rules and put their expiry on someone's calendar.",
+          fix: { kind: "hashUnsigned", artifacts: unsigned.filter((a) => a.hash) },
+        });
+      }
     }
 
     // 3. Was this a reference machine? The single assumption everything else
@@ -1467,6 +1547,15 @@ const AppLockerTool = (() => {
     // when signed, hash when the event carries one, exact path last. Applied
     // through the same mutate/undo as every other fix.
     if (fx.kind === "hashUnsigned" && fx.artifacts.length) {
+      // Applied once already? The rules this fix would add exist by name, so
+      // Apply would add NOTHING — a button that silently does nothing was the
+      // bug report, verbatim. No fix is offered when there is nothing to do.
+      const types = [...new Set(fx.artifacts.map((a2) => a2.collection || "Exe"))];
+      const allExist = types.every((t) => {
+        const col2 = policy.collections.find((c) => c.type === t);
+        return col2 && col2.rules.some((r2) => r2.name === `${BRANDING.name}: unsigned in writable locations (${t}, hash)`);
+      });
+      if (allExist) return null;
       return {
         mode: "editor", editor: "confirm", label: `Add hash rules (${fx.artifacts.length})…`,
         title: "Open the fix card — it lists the hashes before anything is added",
@@ -1699,7 +1788,13 @@ const AppLockerTool = (() => {
     const q = (sel) => root.querySelector(sel);
 
     if (plan.editor === "confirm") {
-      return mutate(plan.undoLabel, plan.apply);
+      const applied = mutate(plan.undoLabel, plan.apply);
+      if (!applied) {
+        // The one way a confirm apply comes back false is the dedupe: the
+        // rule(s) it would add already exist by name from an earlier apply.
+        q(".al-fx-hint").textContent = "Nothing to add — these rules already exist (from an earlier apply). Find them in the Rules card; delete them there first if you want to rebuild.";
+      }
+      return applied;
     }
 
     if (plan.editor === "enforcement") {
@@ -2179,7 +2274,16 @@ const AppLockerTool = (() => {
               ${agg.length > 40 ? `<p class="mini muted" style="margin:4px 0 0">Showing the 40 most frequent of ${agg.length} — the Export MD report carries all of them.</p>` : ""}</details>`;
           }
         }
-        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td>${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
+        // A flood finding carries its files as an expandable list — the same
+        // shape as the audited list, one row instead of two hundred.
+        let groupList = "";
+        if (f.fleetGroup) {
+          const li = f.fleetGroup.slice(0, 60).map((r2) => `<li><code style="overflow-wrap:anywhere">${esc(r2.path || r2.binary || "(no path)")}</code> — <b>${r2.count}</b>× ${r2.verdict === "Blocked" ? "⛔" : "📝"}${r2.publisher ? ` <span class="muted">· ${esc(r2.publisher)}</span>` : ""}</li>`).join("");
+          groupList = `<details class="al-evlist" style="margin-top:6px"><summary class="mini">▸ The ${f.fleetGroup.length} files</summary>
+            <ul class="mini al-list" style="margin:6px 0 0">${li}</ul>
+            ${f.fleetGroup.length > 60 ? `<p class="mini muted" style="margin:4px 0 0">Showing 60 of ${f.fleetGroup.length} — the gap report carries all of them.</p>` : ""}</details>`;
+        }
+        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td style="overflow-wrap:anywhere">${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${groupList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
         return row + (editor ? `<tr class="al-fixhost"><td colspan="6" style="padding:0">${editor}</td></tr>` : "");
       }).join("") +
       `</tbody></table></div>` : "";
@@ -2210,7 +2314,7 @@ const AppLockerTool = (() => {
     // Coverage is a SECTION of the same card since 10443 — it is the same
     // question from the app's side (which files does the draft answer for),
     // and a third card was a third scroll. Built here, injected below.
-    const coverageHtml = `<h4 class="al-sec-head" style="margin:16px 0 6px">Microsoft app coverage <span class="mini muted">— would a standard user still be able to run these?</span></h4>` +
+    const coverageHtml = '' +
       `<div style="overflow-x:auto"><table class="plist al-cov-table"><thead><tr><th style="width:34%">App</th><th style="width:110px">Verdict</th><th>Detail</th></tr></thead><tbody>` +
       coverage.map((row, i) => {
         const v = row.result;
@@ -2238,22 +2342,25 @@ const AppLockerTool = (() => {
 
     // The header is STICKY: this card is the long one, and the reader should
     // always see whose card they are scrolled into.
-    $("alFindings").innerHTML = `<div class="al-merged-head"><h3 style="margin:0">${fsBtn("alFindings", "Rules and findings")}Rules and findings <span class="mini muted">— findings first, then Microsoft app coverage, then the rules with their findings nested. NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host</span></h3>${justApplied ? `<div class="al-just mini" style="margin-top:4px;padding:4px 9px;border:1px solid var(--ok-bd);background:var(--ok-bg2);border-radius:8px;display:inline-block">✔ Applied: ${esc(justApplied)} <button class="btn sm al-just-undo" style="margin-left:6px">↩ Undo</button></div>` : ""}</div>` +
+    // THREE CARDS AGAIN (10451) — but not the three from before the merges.
+    // The single card put three DIFFERENT table layouts under one roof, and
+    // different layouts in one card read as a broken card; the split follows
+    // the layouts. What the merges won stays won: findings nest under their
+    // rules, one fix flow, sticky headers — now one per card — and the
+    // ✔ Applied notice lands in whichever header is pinned above the fix.
+    const appliedNote = justApplied ? `<div class="al-just mini" style="margin-top:4px;padding:4px 9px;border:1px solid var(--ok-bd);background:var(--ok-bg2);border-radius:8px;display:inline-block">✔ Applied: ${esc(justApplied)} <button class="btn sm al-just-undo" style="margin-left:6px">↩ Undo</button></div>` : "";
+    const stickyHead = (host, title, note) => `<div class="al-merged-head"><h3 style="margin:0">${fsBtn(host, title)}${title} <span class="mini muted">— ${note}</span></h3>${appliedNote}</div>`;
+
+    $("alFindings").innerHTML = stickyHead("alFindings", "Findings", "what needs a decision. NTFS/share ACL checks need Invoke-AppLockerInspector.ps1 on a host") +
       compact + topTable +
       (shown.length === 0 ? `<p class="mini muted">Nothing at this severity.</p>` : "") +
-      coverageHtml +
-      (nestedCount ? `<p class="mini muted" style="margin:16px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} sit${nestedCount === 1 ? "s" : ""} under the rule${nestedCount === 1 ? "" : "s"} they are about, below.</p>` : "") +
-      rulesHtml;
+      (nestedCount ? `<p class="mini muted" style="margin:8px 0 0">${nestedCount} finding${nestedCount === 1 ? "" : "s"} about specific rules sit${nestedCount === 1 ? "s" : ""} nested in the <b>Rules</b> card below.</p>` : "");
     // Handlers below index into `shown`, so it must outlive this function.
     shownFindings = shown;
 
-    // Coverage renders inside the merged card above (10443); the old host
-    // stays empty like #alRules.
-    $("alCoverage").innerHTML = "";
+    $("alCoverage").innerHTML = stickyHead("alCoverage", "Microsoft app coverage", "would a standard user still be able to run these?") + coverageHtml;
 
-    // The rules render lives inside the merged card above (10442); the old
-    // #alRules host stays empty.
-    $("alRules").innerHTML = "";
+    $("alRules").innerHTML = stickyHead("alRules", "Rules", nestedCount ? `${nestedCount} finding${nestedCount === 1 ? "" : "s"} nested under the rule${nestedCount === 1 ? "" : "s"} they are about` : "the policy's rules, per collection") + rulesHtml;
     // The add-rule form lives in its own host high in the column, not at the
     // bottom of the rules list. Same markup, same ids, wired by the same
     // wireDynamic() below — only its address changed.
@@ -2680,6 +2787,8 @@ const AppLockerTool = (() => {
     assigned: null,       // { groupName, count }
     groups: null,         // last search result
     picked: null,         // { id, displayName, count }
+    updating: null,       // { id, name } — the in-place update awaiting its confirm
+    updated: null,        // the profile updated in place THIS session
     error: null,          // last GraphError, shown verbatim
     note: "",
     // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
@@ -2862,11 +2971,36 @@ const AppLockerTool = (() => {
   // and marks persist per browser (guarded localStorage), because the portal
   // edit you did yesterday is still done after a refresh.
   const LOOP_MANUAL_KEY = "tuno-al-loop-manual";
-  const loopManual = () => { try { return JSON.parse(localStorage.getItem(LOOP_MANUAL_KEY) || "{}") || {}; } catch { return {}; } };
+  // 10460: marks are claims about ONE tenant. "Deploy audit · marked by you"
+  // ticked against tenant A is not true of tenant B, so the marks carry the
+  // tenant id they were made under (TunoTenant.org(), the 10457 sign-in
+  // read) and CLEAR THEMSELVES the first time the strip renders under a
+  // different one. Marks made signed OUT are adopted by the first tenant
+  // that signs in — they were claims about the tenant the person had in
+  // mind, and that is the one they then signed in to. The legacy shape
+  // (bare marks, no tenant) reads as signed-out marks and migrates the
+  // same way. Signed out entirely, marks keep working as before: a
+  // browser that never signs in has exactly one tenant in mind.
+  const loopTenantId = () => {
+    try {
+      const o = typeof TunoTenant !== "undefined" && TunoTenant.org && TunoTenant.org();
+      return (o && o.id) || "";
+    } catch { return ""; }
+  };
+  const loopManual = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LOOP_MANUAL_KEY) || "{}") || {};
+      const stored = raw && raw.marks ? raw : { tenant: "", marks: raw || {} };
+      const t = loopTenantId();
+      if (t && stored.tenant && stored.tenant !== t) { localStorage.removeItem(LOOP_MANUAL_KEY); return {}; }
+      if (t && !stored.tenant && Object.keys(stored.marks).length) localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify({ tenant: t, marks: stored.marks }));
+      return stored.marks || {};
+    } catch { return {}; }
+  };
   function loopToggleManual(key) {
     const m = loopManual();
     if (m[key]) delete m[key]; else m[key] = true;
-    try { Object.keys(m).length ? localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify(m)) : localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
+    try { Object.keys(m).length ? localStorage.setItem(LOOP_MANUAL_KEY, JSON.stringify({ tenant: loopTenantId(), marks: m })) : localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
   }
 
   function loopStations() {
@@ -2922,7 +3056,7 @@ const AppLockerTool = (() => {
           <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
             <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}${s.manual ? " · marked by you" : ""}</span>
           </button>
-          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence."}">${s.manual ? "☑" : "☐"}</button>`}
+          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence. Marks belong to the tenant you are signed in to and clear on their own when a different tenant signs in."}">${s.manual ? "☑" : "☐"}</button>`}
           </span>`).join("")}
       </div>
       <div class="al-loop-back">↰ <span>Collect → Gaps → Update repeats until a full window shows <b>0 gaps</b> — that evidence is what the Enforce gate reads. Updating the profile happens in the portal (edit in place, same grouping); this strip cannot see it and does not pretend to.</span></div>`}
@@ -2989,12 +3123,37 @@ const AppLockerTool = (() => {
       <div class="al-dep-row">
         <button class="btn primary" id="alDepAudit" ${d.busy || issues.length ? "disabled" : ""}>
           ${d.busy === "audit" ? "Creating…" : "🚀 Create the AuditOnly profile"}</button>
-        <span class="mini muted">as <b>${escq(name)}</b>, grouping <b>${escq(grouping || "(none)")}</b></span>
+        <span class="mini muted">as ${(() => {
+          const vm = /^(.*[\s-][Vv])(\d+(?:\.\d+)*)$/.exec(name);
+          return vm
+            ? `<b>${escq(vm[1])}</b><input id="alDepVer" class="al-dep-in al-dep-ver" value="${escq(vm[2])}" spellcheck="false" title="The version token in the profile name — edit it here, it moves in the name only, never in the grouping">`
+            : `<b>${escq(name)}</b>`;
+        })()}, grouping <b>${escq(grouping || "(none)")}</b></span>
       </div>
+      <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
+      <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
+      ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length
+        ? `The grouping on screen matches the deployed profile${d.checked.tenantAppLocker[0] && d.checked.tenantAppLocker[0].id ? ` — <button class="btn sm al-dep-upd" data-id="${escq(d.checked.tenantAppLocker[0].id)}" data-name="${escq(d.checked.tenantAppLocker[0].displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> writes the adjusted rules and the new version name into it, assignments untouched` : " — the export edits it in place"}.`
+        : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
+      ${(() => {
+        const tap = tenantOtherGroupings();
+        return tap.length ? `<div class="al-dep-ok" style="margin-top:8px"><b>This tenant already runs AppLocker under a different grouping.</b>
+          <div class="mini" style="margin-top:4px">Iterating on ${tap.length === 1 ? "that profile" : "one of them"}? Adopt its name and grouping — your ADJUSTED draft stays exactly as it is on screen, only the address and name change, and the export becomes an edit-in-place of the deployed profile.</div>
+          <ul class="mini al-list" style="margin-top:6px">${tap.map((p, i) => `<li><button class="btn sm al-dep-adopt-id" data-i="${i}">⤓ Adopt identity</button> <b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : "";
+      })()}
 
       ${coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has ${coll.length} profile${coll.length === 1 ? "" : "s"} in the way.</b>
-        <div class="mini" style="margin-top:4px">TUNO did not create ${coll.length === 1 ? "it" : "them"}, so it will not change ${coll.length === 1 ? "it" : "them"}. Rename yours, pick a different grouping, or deal with ${coll.length === 1 ? "it" : "them"} in the portal.</div>
-        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li><b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+        <div class="mini" style="margin-top:4px">TUNO will not create a twin beside ${coll.length === 1 ? "it" : "them"}, and never overwrites anything without being told to.</div>
+        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li>${c.id ? `<button class="btn sm al-dep-upd" data-id="${escq(c.id)}" data-name="${escq(c.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        <div class="mini" style="margin-top:6px"><b>Iterating on it deliberately?</b> Then this stop is the system working. <b>Update it in place</b> writes the adjusted rules and the new version name into the deployed profile — same grouping, same profile, its assignments never move. Or do the same by hand: paste the <b>Intune profile</b> tab's values into the existing profile's OMA-URIs in the portal.</div></div>` : ""}
+      ${d.updating ? `<div class="al-dep-confirm" style="margin-top:8px">
+          <b>Update ${escq(d.updating.name)} in place?</b>
+          <div class="mini" style="margin-top:2px">TUNO writes the rules on this table and the name <b>${escq(name)}</b> into the deployed profile. Its assignments stay exactly where they are — no second profile, nothing to move. Devices pick the change up at their next sync. This is the one edit TUNO makes to something it did not create, and it happens only on this confirmation.</div>
+          <div class="al-dep-row" style="margin-top:6px">
+            <button class="btn primary sm" id="alDepUpdYes" ${d.busy ? "disabled" : ""}>${d.busy === "update" ? "Updating…" : "Yes, update it"}</button>
+            <button class="btn sm" id="alDepUpdNo">Cancel</button>
+          </div></div>` : ""}
+      ${d.updated ? `<div class="al-dep-ok"><b>Updated in place.</b> ${escq(d.updated.displayName)} — id <code>${escq(d.updated.id)}</code>. Same profile, same grouping, assignments untouched; devices get the new rules at their next sync.</div>` : ""}
 
       ${createdFor("audit") ? `<div class="al-dep-ok"><b>Created.</b> ${escq(createdFor("audit").displayName)} — id <code>${escq(createdFor("audit").id)}</code>. It is in the tenant and assigned to nobody.</div>` : ""}
 
@@ -3054,6 +3213,10 @@ const AppLockerTool = (() => {
       d.checked = {
         collisions: coll,
         auditInTenant: existing.some((p) => (p.displayName || "").toLowerCase() === intuneProfileName("Audit").toLowerCase()),
+        // The tenant's AppLocker profiles, for the same-policy-same-grouping
+        // guidance the panel renders — iterating on a deployed profile under
+        // a FRESH guid is the mistake this catches.
+        tenantAppLocker: appLockerProfilesOf(existing),
       };
       if (coll.length) { d.busy = ""; renderDeploy(); return; }
       const made = await Graph.createProfile(intuneProfile(mode));
@@ -3067,8 +3230,107 @@ const AppLockerTool = (() => {
     } catch (e) { depFail(e); }
   }
 
+  // The tenant's AppLocker profiles under a DIFFERENT grouping than the one
+  // on screen — the ones the adopt-identity offer is about. One filter,
+  // used by the panel template and its wiring alike.
+  function tenantOtherGroupings() {
+    const g = String(intuneGrouping() || "").toLowerCase();
+    return (deployState.checked && deployState.checked.tenantAppLocker || []).filter((p) => {
+      const st = (p.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
+      return m && m[1] && m[1].toLowerCase() !== g;
+    });
+  }
+
+  // The grouping check stands alone: the adopt-identity offer must be
+  // reachable BEFORE the deploy button is — a draft with open findings has
+  // its deploy disabled, and that is exactly when someone is iterating.
+  async function checkTenantGrouping() {
+    const d = deployState;
+    d.error = null;
+    d.busy = "groupcheck";
+    renderDeploy();
+    try {
+      const existing = await Graph.customProfiles();
+      d.checked = Object.assign({}, d.checked, { tenantAppLocker: appLockerProfilesOf(existing) });
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
+  // UPDATE IN PLACE — the one deliberate exception to "TUNO never changes
+  // what it did not create", and it exists because the alternative was worse:
+  // the same-grouping stop told an iterating admin to go paste OMA-URI values
+  // into the portal by hand, every loop. The rules: it runs only from the
+  // stop-box's own confirm card, it re-reads the profile first (the tenant
+  // may have changed since the stop), it keeps the DEPLOYED grouping — same
+  // address, that is the whole point — and it replaces the omaSettings array
+  // whole, so removals land. Assignments are not touched because the profile
+  // object is not replaced; there is nothing to move.
+  async function updateProfileInPlace() {
+    const d = deployState;
+    const u = d.updating;
+    if (!u) return;
+    d.error = null;
+    d.busy = "update";
+    renderDeploy();
+    try {
+      const existing = await Graph.customProfiles();
+      const target = existing.find((p) => p.id === u.id);
+      if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check. Re-run the deploy; there may be nothing in the way any more.");
+      const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
+      const body = intuneProfile(mode);
+      // The deployed profile's own grouping wins — same address on the
+      // device is what makes this an edit instead of a second policy.
+      const st = (target.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
+      if (m && m[1]) {
+        body.omaSettings.forEach((s2) => { s2.omaUri = s2.omaUri.replace(/ApplicationLaunchRestrictions\/[^/]+\//, `ApplicationLaunchRestrictions/${m[1]}/`); });
+        intuneCfg.grouping = m[1];
+        const gi = $("alIntuneGrouping");
+        if (gi) gi.value = m[1];
+      }
+      await Graph.patch(`/deviceManagement/deviceConfigurations/${encodeURIComponent(u.id)}`, body, { scopes: Graph.SCOPES.profiles });
+      d.updated = { id: u.id, displayName: body.displayName };
+      d.updating = null;
+      // The stop was about the state before this write; after it, the profile
+      // in the way IS the profile on screen. The next create-click re-reads
+      // anyway — read before write does not bend.
+      d.checked = Object.assign({}, d.checked, {
+        collisions: [],
+        auditInTenant: (d.checked && d.checked.auditInTenant) || mode === "Audit",
+      });
+      d.busy = "";
+      renderDeploy();
+      renderCodePane();
+    } catch (e) { depFail(e); }
+  }
+
   function wireDeploy() {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+    on("alDepCheckGroup", "click", checkTenantGrouping);
+    // The version token is editable where the name is shown: committing a
+    // value moves it in the NAME only (the grouping never follows a version).
+    const ver = $("alDepVer");
+    if (ver) ver.addEventListener("change", () => {
+      const v = ver.value.trim();
+      if (!/^\d+(?:\.\d+)*$/.test(v)) { renderDeploy(); return; }
+      intuneCfg.displayName = String(intuneCfg.displayName || "").replace(/([\s-][Vv])\d+(?:\.\d+)*$/, "$1" + v);
+      const ni = $("alIntuneName");
+      if (ni) ni.value = intuneCfg.displayName;
+      renderCodePane();
+      renderDeploy();
+    });
+    document.querySelectorAll(".al-dep-upd").forEach((b) => b.addEventListener("click", () => {
+      deployState.updating = { id: b.dataset.id, name: b.dataset.name };
+      renderDeploy();
+    }));
+    on("alDepUpdYes", "click", updateProfileInPlace);
+    on("alDepUpdNo", "click", () => { deployState.updating = null; renderDeploy(); });
+    document.querySelectorAll(".al-dep-adopt-id").forEach((b) => b.addEventListener("click", () => {
+      const p = tenantOtherGroupings()[+b.dataset.i];
+      if (p) adoptTenantIdentity(p);
+    }));
     on("alDepAudit", "click", () => deployProfile("Audit"));
     on("alDepEnforce", "click", () => deployProfile("Enforce"));
     // The Remediation controls are wired by renderRemedy() itself — its box

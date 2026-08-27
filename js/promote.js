@@ -57,7 +57,7 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 10.
+  // Verified against `git show main:js/version.js` — main is at build 11.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
   // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
@@ -73,13 +73,35 @@ const PROMOTE = {
   // FULL-QUEUE promotion, and the first ordered by the exported promotion
   // file (item 93's own feature, eating its own dog food).
   //
-  // THE QUEUE IS EMPTY. Every tool on this channel is also in production;
-  // the only differences left are the two permanent ones in staying[]. An
-  // empty queue is a state worth returning to: it means "beta and main
-  // match", and the next item added is the whole of the next promotion.
-  productionBuild: "v1.0.10",
+  // Items 97, 98 and 100-102 (beta 10451-10457, 10460-10463) went as build
+  // 11 — a PARTIAL promotion. Item 99 (T19 Policy overview, beta 10458-10459)
+  // was held back and is listed below, so this channel's queue is not empty:
+  // main-check requires every item still listed here to name a file that
+  // genuinely differs from beta, which is how a shipped-but-not-removed item
+  // gets caught.
+  //
+  productionBuild: "v1.0.11",
 
   items: [
+    {
+      n: 99,
+      title: "T19 🗂 Policy overview — the tenant as cards (R30, mockup Option B)",
+      tools: ["🗂 Policy overview", "📄 Configuration documenter"],
+      builds: [10458, 10459],
+      risk: "low",
+      what: "10459 folds in: prog() delegates to TunoProgress (the 10397 shared card) hosted in a plain #ovBody div, replacing 10458's hand-rolled text line — one way a read looks, everywhere. New tool file js/overview.js: ENCA's list-policies view, Intune-side-out — Option B of the mockup round (surface stat cards double as filters, T09 pattern, over ONE flat .scard grid; ENCA's card classes worn for the first time). Read = Docs.collect() whole, scopes at the click as T05's own union (all thirteen surfaces + directory for group names). Verdicts: assigned (reaching by construction) / unassigned / excluded-only (its own verdict, T09's distinction), ⚑ filter caps at may on the card. Failed surfaces render as ⚠ non-filter cards (unknown, not zero). Search (static toolbar, survives re-render) matches names/types/descriptions/platforms/surfaces/assignment group names; chips count the surface+search set. Card click opens Docs.popoutHtml — EXTRACTED from DocsTool.openPolicy in this build so the popout template exists once (T05 keeps its include-in-document foot, T19's foot is Close). Registered: tile leads the 📦 Configuration section, TOOL_TABS, HISTORY_SCREENS, sidebar (derived), T19 in TOOL_VERSIONS, R30 roadmap card live · beta 10458, .ov-surf styles in app.css.",
+      why: "LOW — reads only through T05's already-proven collect(); the one shared-code change is the popout extraction, byte-identical markup, and the suite renders both tools' popouts to hold it. Real eyes needed on: the surface rail wrapping on a narrow window, the ⚠ card in all three themes, and a real tenant's card grid at 300+ objects.",
+      test: [
+        "THE ONE THAT MATTERS: read a real tenant, click ✅ Compliance's surface card — the grid narrows to compliance only, the chips recount, clicking the card again brings everything back; same toggle on a verdict chip.",
+        "Click a settings-catalog card: the documenter's popout opens with the full settings table, redacted values italic; Close and Escape and backdrop all close it; open the SAME policy in T05 — identical head and body.",
+        "Type a group name in the search: only policies assigned to (or excluding) that group remain, and typing is never interrupted by the re-render.",
+        "A tenant (or role) where a surface 403s: that surface is a dashed ⚠ card naming the error, it does not filter, and the note above says N surfaces could not be read.",
+        "Excluded-only policy: amber chip on the card, reach says nobody (−n excluded); a filtered assignment wears ⚑ filter — may.",
+        "T05 regression: browse, open a popout, tick include-in-the-document from the popout — the selection still follows.",
+        "10459: click Read the tenant — the centred spinner card appears where the results will land (not squeezed into the card grid), steps name the surfaces, and it is gone the moment the surface rail renders.",
+      ],
+      files: ["js/overview.js", "js/document.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
   ],
 
   staying: [
