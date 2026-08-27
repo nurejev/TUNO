@@ -81,6 +81,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 100,
+      title: "The collapsed sidebar's icons are legible",
+      tools: ["All tools"],
+      builds: [10461],
+      risk: "low",
+      what: "One rule: the collapsed rail's .sn-ic goes from the inherited 13px to 20px, with line-height pinned at 1.35 so the row height does not grow. Scoped to body.with-side.side-min .sidenav:not(.peek), so the expanded rail and the peeked overlay are untouched — both still show the label, where the icon is a marker beside a word rather than the whole identifier.",
+      why: "LOW — one declaration, one state of one component. The only way it goes wrong is vertical: if the glyph pushes the rows apart, seventeen tools stop fitting and the rail starts scrolling, which costs more than the bigger icon gains.",
+      test: [
+        "Collapse the rail. Every icon must be comfortably readable, and all the tools plus the section dividers must still fit WITHOUT the rail scrolling — on a laptop screen, not just a large monitor.",
+        "Hover the collapsed rail so it peeks open. The peeked rail shows labels, so its icons must be back at the smaller size — if they are still 20px, the scoping is wrong.",
+        "Expand the rail properly and confirm the icons beside the labels are unchanged.",
+        "Check no icon clips at the left or right edge of the 56px rail, including the wider emoji.",
+      ],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 99,
       title: "T19 🗂 Policy overview — the tenant as cards (R30, mockup Option B)",
       tools: ["🗂 Policy overview", "📄 Configuration documenter"],

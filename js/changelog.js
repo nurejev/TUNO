@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10461, date: "2026-08-27", title: "Bigger icons in the collapsed sidebar",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The icons in the collapsed rail are larger. Folded down to the icon rail there is no label beside them, so the icon is the only thing telling one tool from another — and it was doing that job at the same size as the row text it inherited, which is sized to sit NEXT to a word rather than to replace one." },
+      { kind: "fixed", tool: "All tools", text: "The row height is unchanged. A taller glyph left to its own line height would have spread seventeen tools far enough apart to need scrolling, which would have cost more than the larger icon gained." },
+    ],
+  },
+  {
     build: 10460, date: "2026-08-26", title: "Loop marks belong to one tenant",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "A fresh sign-in showed the audit loop's stations already ticked — old manual marks, persisted per browser by design, but a hand-mark is a claim about ONE tenant and it kept being shown against the next. Marks now carry the tenant they were made under (the organization read at sign-in) and clear themselves automatically when a different tenant signs in. Marks made before signing in are adopted by the first tenant that does; a browser that never signs in keeps the old behaviour unchanged; and 🧹 Start over still clears them by hand." },
