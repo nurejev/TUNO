@@ -220,7 +220,7 @@ const Fs = (() => {
     const SCREEN_TOOL = {
       "screen-applocker": "toolAppLocker", "screen-defender": "toolDefender",
       "screen-endpointsec": "toolEndpointSec", "screen-laps": "toolLaps",
-      "screen-posture": "toolPosture",
+      "screen-posture": "toolPosture", "screen-securescore": "toolSecureScore",
       "screen-groupuse": "toolGroupUse", "screen-audit": "toolAudit",
       "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
       "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
@@ -855,6 +855,7 @@ const Fs = (() => {
     ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
     ["toolLaps", "🔑 Windows LAPS audit"],
     ["toolPosture", "🧭 Endpoint security posture"],
+    ["toolSecureScore", "📊 Secure Score visualizer"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
@@ -1061,6 +1062,7 @@ const Fs = (() => {
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
   $("toolLaps").addEventListener("click", () => { crumb("🔑 Windows LAPS audit"); show("screen-laps"); });
   $("toolPosture").addEventListener("click", () => { crumb("🧭 Endpoint security posture"); show("screen-posture"); });
+  $("toolSecureScore").addEventListener("click", () => { crumb("📊 Secure Score visualizer"); show("screen-securescore"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
@@ -1303,6 +1305,7 @@ const Fs = (() => {
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
   if (typeof EndpointPostureTool !== "undefined") EndpointPostureTool.init();
+  if (typeof SecureScoreTool !== "undefined") SecureScoreTool.init();
   if (typeof TunoReport !== "undefined") TunoReport.init();
   if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();

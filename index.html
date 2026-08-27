@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10499"></script>
+<script src="js/popup-guard.js?v=10500"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10499">
+<link rel="stylesheet" href="css/app.css?v=10500">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10499"></script>
+<script src="js/selfhost-boot.js?v=10500"></script>
 </head>
 <body>
 
@@ -132,9 +132,13 @@
         <div class="tool-ic">🔑</div><h3>Windows LAPS audit</h3>
         <p>Which Windows devices have an escrowed local administrator password, and how old it is — <b>not escrowed</b> and <b>stale</b> are the two shapes of one finding, a LAPS policy that is not applying, found before the day somebody needs the password that is not there. Escrow <b>metadata only</b>: device names and backup times, under a permission that cannot return password values — reading a password is a different act, and this tool does not have it. A device that cannot be matched to the escrow store is unknown, never counted as not escrowed; escrowed records for retired machines are listed, not ignored. Export as Markdown or CSV.</p>
       </div>
+      <div class="tool" id="toolSecureScore">
+        <div class="tool-ic">📊</div><h3>Secure Score visualizer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>Microsoft's own measurement of this tenant, made explorable: the score with its gauge, how it sits against tenants of a similar size and against all tenants, the per-category breakdown with Microsoft's two comparison ticks on every bar, and the timeline of every reading Graph still holds. <b>The improvement actions, ordered by the cheapest points first</b> — points still available weighted down by the user impact and implementation cost Microsoft publishes, with Microsoft's own stack ranking beside it and the ordering openly labelled as ours, not theirs. <b>Graph remembers about ninety days</b>, which is why this exports a snapshot you can upload back next quarter: the timeline then reaches past what the tenant can still be asked, with uploaded points drawn as their own marks and a snapshot from a different tenant refused rather than merged. Markdown for the monthly report, CSV for the controls and for the history. Asks for <code>SecurityEvents.Read.All</code> on the click. <b>Reads only.</b></p>
+      </div>
       <div class="tool" id="toolPosture">
         <div class="tool-ic">🧭</div><h3>Endpoint security posture <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>Reads only, no new permission.</b></p>
+        <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
@@ -1265,12 +1269,18 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <p class="mini muted" style="margin:0 0 10px">Built and running here, not yet promoted. New work lands in this era and stays until a promotion moves it up to Now with the production build it shipped in.</p>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer <span class="tag grant">live · beta 10500</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">The tenant's Microsoft Secure Score over Graph — <code>security/secureScores</code> and the control profiles — as the card promised: score over time, per-category breakdown with Microsoft's own comparison figures as ticks on each bar, what changed across the window, and <b>the improvement actions that buy the most points for the least user pain</b>. That last ordering is <b>TUNO's, not Microsoft's</b>, and says so wherever it renders: points still available weighted down by the <code>userImpact</code> and <code>implementationCost</code> Microsoft publishes, with a control declaring neither treated as <i>moderate</i> — calling an unstated impact low is how a quick win becomes Monday's incident. Markdown for the monthly report, CSV for the controls and the history. <code>SecurityEvents.Read.All</code> on the click, reads only.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Two things the card did not promise.</b> <b>Graph keeps about ninety days</b>, so "what changed since last month" runs out at a quarter — the tool exports a versioned <b>snapshot</b> carrying the readings <i>and the catalogue they were read under</i>, and uploads them back, so the timeline reaches as far back as somebody kept files. Uploaded points are drawn as their own marks, a same-day clash resolves to the live reading and says how many it dropped, and a snapshot from a different tenant is <b>refused by tenant id</b> rather than merged with a caveat. And <b>🧭 T20 correlates against it</b>: Secure Score reads the estate, the posture checks read policy, and a check that passes while Microsoft still holds the points is the finding neither tool could produce alone.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R32</span> 🔎 Filter rules, counted <span class="tag grant">live · beta 10498</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">Every tool here could say a filter narrows an assignment and none could say by how much — <b>at most</b>, <b>may reach it</b>, <b>⚑ filter — may</b>. <code>js/filterrules.js</code> parses the <a href="https://learn.microsoft.com/intune/fundamentals/filters/ref-device-properties" target="_blank" rel="noopener">documented rule grammar</a> and evaluates it against the enrolled inventory, so 🧩 Assignment filters can say <b>312 of 9969</b>. <b>A count is offered only where the whole rule is understood</b> — not best-effort with a confidence marker, because a wrong count renders exactly as confidently as a right one. A rule outside the grammar says <i>not evaluated</i> and names what stopped it: <code>deviceOwnership</code> because Personal/Corporate against personal/company would be a guessed translation, <code>operatingSystemSKU</code> because Graph does not return it, <code>app.*</code> because it is not about devices. The number is a reading of <b>today</b>; the service evaluates the rule at assignment time, against inventory that moves.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R31</span> 🧭 Endpoint security posture <span class="tag grant">live · beta 10476</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">The portal's Endpoint security blade, mirrored — Option B of a two-option mockup round: a rail of the portal's own nodes, plus two the portal does not have (settings-catalog policies configuring <b>Defender</b> or <b>Edge</b>, found by their setting definition ids), and two analyses in the same rail. <b>🗣 The impact brief</b> is the sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T32 translated from sign-ins to devices: what people will notice, in end-user language, exportable as Markdown or Word. <b>🎓 Best practice</b> wears ENCA's MSLearn check shape — severity, requirement, remediation, the learn.microsoft.com page per check — pointed at MDE and Edge, with <b>not reaching</b> as its own verdict when the right setting sits in a policy reaching nobody. The read is the 📄 documenter's <code>collect()</code> (which carries <code>templateFamily</code> since this build), disciplines split by 🧱 T16's own classifier, verdicts the house claims. Cross-checked against ShadowDeploy MDE's defId families — <b>BUSL-licensed, so checked against, not ported</b>; every check stands on its Learn page.</p>
+            <p class="mini" style="margin:6px 0 0"><b>A third analysis arrived with <span class="rm-ref">R02</span> (beta 10500): 📊 Secure Score gaps.</b> These checks read <b>policy</b> — what is configured and whether it reaches anybody. Microsoft Secure Score reads <b>the estate</b> — what devices actually report. They disagree constantly and <b>the disagreement is the finding</b>, which neither reading produces alone: a check that passes while Microsoft still withholds the points is almost never the policy, it is machines that never onboarded, a licence the control needs, or devices that have not reported since it was written. Four buckets — both agree, configured-but-unscored, Microsoft-only, this-tool-only — and <b>every pair prints both names</b>, so a wrong match is visible rather than load-bearing; a control that matches no check is listed under Microsoft's own title, so a miss can only under-correlate. It is a <b>separate button</b> because it costs <code>SecurityEvents.Read.All</code>, and the posture read itself still costs no new permission.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R30</span> 🗂 Policy overview <span class="tag grant">live · beta 10458</span> <span class="tag new">BETA</span></h4>
@@ -1426,13 +1436,6 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           </div>
         </div>
         
-        <div class="rm-era next">
-          <h3>Next</h3>
-          <div class="list-card rm-card">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer</h4>
-            <p class="mini" style="margin:0">Read the tenant's Microsoft Secure Score over Graph (<code>security/secureScores</code> and the control profiles) and make it explorable: score over time, per-category breakdown, which improvement actions buy the most points for the least user pain, and what changed since last month — with a Markdown export for the monthly report. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent, and reads only.</p>
-          </div>
-        </div>
         <div class="rm-era later">
           <h3>Later</h3>
           <div class="list-card rm-card">
@@ -1539,6 +1542,26 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div class="modal-bg" id="epModal">
       <div class="modal gu-modal" id="epModalBody"></div>
     </div>
+  </section>
+
+  <!-- ============ SECURE SCORE VISUALIZER (T21) ============ -->
+  <section id="screen-securescore" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">📊 Secure Score visualizer <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">Microsoft Secure Score for this tenant, read over Graph and made explorable: the score with its gauge, the comparison against tenants of a similar size and against all tenants, the <b>per-category breakdown</b> with Microsoft's two comparison ticks on each bar, the <b>timeline</b> of every reading Graph still holds with what improved and what regressed across it, and the <b>improvement actions ranked cheapest points first</b> — points still available, weighted down by the user impact and implementation cost Microsoft publishes on each control. Export as Markdown for the monthly report, or CSV for the controls and the history. Asks for <code>SecurityEvents.Read.All</code> on the click, ENCA-style incremental consent. <b>Reads only.</b></p>
+      <p class="mini muted" style="margin:8px 0 0"><b>These are Microsoft's numbers, not TUNO's</b> — Secure Score measures the estate as Microsoft observes it, so a control can be configured in a policy and reaching every device and still score zero. That difference is what the 🧭 Endpoint security posture tool's Secure Score node exists to name. <b>The cheapest-points ordering IS ours</b> and says so wherever it renders; a control that declares neither impact nor cost is treated as <i>moderate</i>, never as low. <b>Graph keeps about ninety days</b>, so the timeline is capped there unless you feed it snapshots: ⭳ Snapshot JSON exports the readings with the catalogue they were read under, ⭱ Upload puts them back, uploaded points are drawn as their own marks, a same-day clash resolves to the live reading, and a snapshot from a different tenant is <b>refused</b> — two tenants in one timeline is not a comparison, it is a wrong graph.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="ssRun">📊 Read the Secure Score</button>
+        <button class="btn" id="ssMd" style="display:none">👁 Report</button>
+        <button class="btn" id="ssCsv" style="display:none">⭳ Controls CSV</button>
+        <button class="btn" id="ssHistCsv" style="display:none">⭳ History CSV</button>
+        <button class="btn" id="ssSnap" style="display:none">⭳ Snapshot JSON</button>
+      </div>
+      <div id="ssProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="ssBody" style="margin-top:14px"></div>
   </section>
 
   <!-- ============ MULTI-ADMIN APPROVAL (T17) ============ -->
@@ -1754,40 +1777,41 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10499"></script>
-<script src="js/selfhost.js?v=10499"></script>
-<script src="js/version.js?v=10499"></script>
-<script src="js/promote.js?v=10499"></script>
-<script src="js/authConfig.js?v=10499"></script>
-<script src="js/changelog.js?v=10499"></script>
-<script src="js/msappcatalog.js?v=10499"></script>
-<script src="js/demo.js?v=10499"></script>
-<script src="js/graph.js?v=10499"></script>
-<script src="js/suggest.js?v=10499"></script>
-<script src="js/progress.js?v=10499"></script>
-<script src="js/groupuse.js?v=10499"></script>
-<script src="js/audit.js?v=10499"></script>
-<script src="js/backup.js?v=10499"></script>
-<script src="js/document.js?v=10499"></script>
-<script src="js/overview.js?v=10499"></script>
-<script src="js/devicewhy.js?v=10499"></script>
-<script src="js/whatif.js?v=10499"></script>
-<script src="js/health.js?v=10499"></script>
-<script src="js/settingsearch.js?v=10499"></script>
-<script src="js/conflict.js?v=10499"></script>
-<script src="js/compliance.js?v=10499"></script>
-<script src="js/filterrules.js?v=10499"></script>
-<script src="js/filters.js?v=10499"></script>
-<script src="js/restore.js?v=10499"></script>
-<script src="js/assignedit.js?v=10499"></script>
-<script src="js/roles.js?v=10499"></script>
-<script src="js/defender.js?v=10499"></script>
-<script src="js/endpointsec.js?v=10499"></script>
-<script src="js/report.js?v=10499"></script>
-<script src="js/endpointposture.js?v=10499"></script>
-<script src="js/maa.js?v=10499"></script>
-<script src="js/laps.js?v=10499"></script>
-<script src="js/applocker.js?v=10499"></script>
-<script src="js/app.js?v=10499"></script>
+<script src="js/branding.js?v=10500"></script>
+<script src="js/selfhost.js?v=10500"></script>
+<script src="js/version.js?v=10500"></script>
+<script src="js/promote.js?v=10500"></script>
+<script src="js/authConfig.js?v=10500"></script>
+<script src="js/changelog.js?v=10500"></script>
+<script src="js/msappcatalog.js?v=10500"></script>
+<script src="js/demo.js?v=10500"></script>
+<script src="js/graph.js?v=10500"></script>
+<script src="js/suggest.js?v=10500"></script>
+<script src="js/progress.js?v=10500"></script>
+<script src="js/groupuse.js?v=10500"></script>
+<script src="js/audit.js?v=10500"></script>
+<script src="js/backup.js?v=10500"></script>
+<script src="js/document.js?v=10500"></script>
+<script src="js/overview.js?v=10500"></script>
+<script src="js/devicewhy.js?v=10500"></script>
+<script src="js/whatif.js?v=10500"></script>
+<script src="js/health.js?v=10500"></script>
+<script src="js/settingsearch.js?v=10500"></script>
+<script src="js/conflict.js?v=10500"></script>
+<script src="js/compliance.js?v=10500"></script>
+<script src="js/filterrules.js?v=10500"></script>
+<script src="js/filters.js?v=10500"></script>
+<script src="js/restore.js?v=10500"></script>
+<script src="js/assignedit.js?v=10500"></script>
+<script src="js/roles.js?v=10500"></script>
+<script src="js/defender.js?v=10500"></script>
+<script src="js/endpointsec.js?v=10500"></script>
+<script src="js/report.js?v=10500"></script>
+<script src="js/securescore.js?v=10500"></script>
+<script src="js/endpointposture.js?v=10500"></script>
+<script src="js/maa.js?v=10500"></script>
+<script src="js/laps.js?v=10500"></script>
+<script src="js/applocker.js?v=10500"></script>
+<script src="js/app.js?v=10500"></script>
 </body>
 </html>

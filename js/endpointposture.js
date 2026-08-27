@@ -62,6 +62,7 @@ const EndpointPosture = (() => {
     { id: "edge",    icon: "🌐", label: "Edge in settings catalog",       kind: "catalog" },
     { id: "impact",  icon: "🗣", label: "Impact brief",                   kind: "analysis" },
     { id: "bp",      icon: "🎓", label: "Best practice",                  kind: "analysis" },
+    { id: "score",   icon: "📊", label: "Secure Score gaps",              kind: "analysis" },
   ];
   const nodeById = (id) => NODES.find((n) => n.id === id) || null;
   const DISC_NODE = {};
@@ -467,7 +468,16 @@ const EndpointPosture = (() => {
     return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${nar}`;
   }
 
-  function briefMd(items, { tenantName, deviceCount = null, counts = null } = {}) {
+  // THE IT APPENDIX (R02). The brief above is END-USER language — it is
+  // a communications draft, and that is a contract, not a style. Microsoft
+  // Secure Score gaps are an administrator's document and would be noise
+  // in a rollout mail, so they ride at the END, behind a heading that says
+  // to cut them before sending. Appended only when the Secure Score has
+  // actually been read: an absent correlation writes nothing rather than
+  // an empty section implying nothing was found.
+  const SCORE_CUT = `Everything below this line is for IT. Cut it before the brief is sent — it is administrator detail about the tenant's Microsoft Secure Score, not something to tell a person about their laptop.`;
+
+  function briefMd(items, { tenantName, deviceCount = null, counts = null, corr = null, score = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
     out.push(`# Endpoint security — what you will notice on your device`);
@@ -516,8 +526,17 @@ const EndpointPosture = (() => {
     out.push(`Contact the IT helpdesk with what you were doing and the message on screen. A block is almost always: a quarantined download, an attack-surface rule, a SmartScreen warning, or a firewall rule — every one has a controlled exception process.`);
     out.push(``);
     out.push(`---`);
-    out.push(`### Appendix — the policies behind each statement`);
+    out.push(`### Appendix A — the policies behind each statement`);
     for (const i of items) out.push(`- ${i.icon} ${i.title}: ${i.pols.map((p) => `${p.name} [${p.word || STATE_WORD[p.state]}]`).join("; ")}`);
+    if (corr) {
+      out.push(``);
+      out.push(`---`);
+      out.push(`### Appendix B — for IT, not for the mail`);
+      out.push(``);
+      out.push(`> ${SCORE_CUT}`);
+      out.push(``);
+      out.push(scoreMd(corr, { tenantName, score }));
+    }
     return out.join("\n");
   }
 
@@ -527,7 +546,43 @@ const EndpointPosture = (() => {
     (Array.isArray(t) ? t : [[t, o]]).map(([txt, ro = {}]) =>
       `<w:r><w:rPr>${ro.b || o.b || o.h ? "<w:b/>" : ""}${o.h ? `<w:sz w:val="${o.h === 1 ? 32 : 26}"/><w:color w:val="1F4729"/>` : ""}${ro.i ? "<w:i/>" : ""}</w:rPr><w:t xml:space="preserve">${X(txt)}</w:t></w:r>`).join("") + `</w:p>`;
 
-  function briefDocx(items, { tenantName, deviceCount = null, counts = null } = {}) {
+  // The same correlation as scoreMd, written as Word paragraphs. The
+  // Markdown version leans on tables and this writer has none, so the
+  // pairs are written as sentences that carry BOTH names — the rule that
+  // matters (a pairing a reader can check) survives the format change.
+  function scoreDocxBody(corr, score) {
+    const b = [];
+    const s = score || {};
+    b.push(P(`Appendix B — for IT, not for the mail`, { h: 2 }));
+    b.push(P([[SCORE_CUT, { i: true }]]));
+    b.push(P(`What Microsoft still scores against this tenant`, { h: 2 }));
+    b.push(P(`Microsoft Secure Score${s.latest ? ` — ${s.latest.currentScore} of ${s.latest.maxScore} points, read ${String(s.latest.taken || "").slice(0, 10)}` : ""}. Secure Score reads the estate: what devices actually report. The checks read policy: what is configured and whether it reaches anybody. Where they disagree, the disagreement is the finding. ${corr.pointsOpen} points are still open across the endpoint controls below.`));
+    const sect = (title, note, rows) => {
+      if (!rows.length) return;
+      b.push(P(title, { h: 2 }));
+      b.push(P(note));
+      rows.forEach((t) => b.push(P([[`• `, {}], [t[0], { b: true }], [t[1], {}]])));
+    };
+    sect(`Configured here, still unscored by Microsoft (${corr.contested.length})`,
+      `The check passes and Microsoft still holds the points. That gap is almost never the policy: it is devices that have not onboarded to Defender for Endpoint, a licence the control needs, or machines that have not reported since the policy was written. Open these first — the work is already done and is not being counted.`,
+      corr.contested.map((r) => [r.check.title, ` — Microsoft's ${r.open.map((c) => c.title).join("; ")}: ${r.points} point${r.points === 1 ? "" : "s"} still available.`]));
+    sect(`Both readings agree it is open (${corr.confirmed.length})`,
+      `A finding here and points there — two independent measurements of one weakness, and the least arguable items on the list.`,
+      corr.confirmed.map((r) => [`${r.check.title} (${r.check.sev})`, ` — ${r.check.detail} Microsoft's ${r.open.map((c) => c.title).join("; ")}: ${r.points} point${r.points === 1 ? "" : "s"} still available.`]));
+    sect(`Microsoft scores it, this tool has no check for it (${corr.msOnly.length})`,
+      `Endpoint controls with points available that no check covers — a gap in the check set, shown rather than hidden, under Microsoft's own titles.`,
+      corr.msOnly.slice(0, 25).map((c) => [c.title, ` — ${c.category}, ${c.points} point${c.points === 1 ? "" : "s"}, user impact ${c.userImpact || "not stated"}.`]));
+    sect(`A finding here, full marks there (${corr.scored.length})`,
+      `Microsoft is satisfied and this tool is not: the control it scores is broader or narrower than the check. The finding stands on its own evidence, it just has no points behind it.`,
+      corr.scored.map((r) => [`${r.check.title} (${r.check.sev})`, ` — ${r.check.detail}`]));
+    sect(`Not scored by Microsoft at all (${corr.tunoOnly.length})`,
+      `Findings with no matching Secure Score control. Nothing here earns points, and every one is still real — App Control running in audit mode blocks nothing whatever the score says.`,
+      corr.tunoOnly.map((r) => [`${r.check.title} (${r.check.sev})`, ` — ${r.check.detail}`]));
+    b.push(P([[`Pairs are matched on Microsoft's own control id or published title, and every pair names both sides so a wrong match is visible rather than load-bearing. An unmatched control is listed under Microsoft's title instead of being dropped. ${corr.agreed} check${corr.agreed === 1 ? "" : "s"} agreed clean on both readings and ${corr.agreed === 1 ? "is" : "are"} not listed.`, { i: true }]]));
+    return b;
+  }
+
+  function briefDocx(items, { tenantName, deviceCount = null, counts = null, corr = null, score = null } = {}) {
     if (typeof JSZip === "undefined") throw new Error("JSZip not loaded");
     const d = new Date().toISOString().slice(0, 10);
     const body = [];
@@ -571,8 +626,9 @@ const EndpointPosture = (() => {
     }
     body.push(P(`If something you need is blocked`, { h: 2 }));
     body.push(P(`Contact the IT helpdesk with what you were doing and the message on screen. A block is almost always: a quarantined download, an attack-surface rule, a SmartScreen warning, or a firewall rule — every one has a controlled exception process.`));
-    body.push(P(`Appendix — the policies behind each statement`, { h: 2 }));
+    body.push(P(`Appendix A — the policies behind each statement`, { h: 2 }));
     for (const i of items) body.push(P(`${i.title}: ${i.pols.map((p) => `${p.name} [${p.word || STATE_WORD[p.state]}]`).join("; ")}`));
+    if (corr) scoreDocxBody(corr, score).forEach((p) => body.push(p));
     const zip = new JSZip();
     zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -931,6 +987,191 @@ ${body.join("\n")}
     return out.join("\n");
   }
 
+  // ================================================================== //
+  // SECURE SCORE CORRELATION (R02 · T21)
+  // ================================================================== //
+  //
+  // T20 reads POLICY: what the tenant has configured, and whether it
+  // reaches anybody. Microsoft Secure Score reads the ESTATE: what the
+  // devices actually report back. Those are two different questions and
+  // they disagree constantly — a policy can be perfectly configured and
+  // assigned tenant-wide while the score sits at zero, because the
+  // machines have not onboarded, are not licensed, or have not checked
+  // in since the policy was written. THE DISAGREEMENT IS THE FINDING,
+  // and it is the one thing neither tool can say on its own.
+  //
+  // The score comes from T21's SecureScore.collect() — the one reader,
+  // the T05 rule on a second surface. T20 never reads secureScores.
+  //
+  // ---- HOW A PAIR IS MADE, AND WHY IT IS SHOWN ----
+  //
+  // A check is tied to a Secure Score control by an EXPLICIT entry
+  // below: a regex on Microsoft's control id, and/or one on the title
+  // Microsoft publishes for it. Both are matched against Microsoft's own
+  // words, never against ours.
+  //
+  // Control ids on this surface are not a documented contract — they are
+  // provider strings that Microsoft renames — so a miss is designed to be
+  // HARMLESS: an unmatched Microsoft gap falls into its own bucket and is
+  // reported under Microsoft's title, and an unmatched T20 finding falls
+  // into its own. Nothing is dropped by failing to match. What must never
+  // happen is a WRONG pair, so every correlated row renders BOTH names —
+  // the check's title and the control's title, side by side — and a
+  // reader can see at a glance what was matched to what and say so if it
+  // is wrong. A pairing you cannot check is a pairing you cannot trust.
+  const SS_MAP = [
+    { check: "av-tamper", id: /tamper/i,                                   title: /tamper protection/i },
+    { check: "av-rt",     id: /realtime|real_time/i,                       title: /real[- ]?time protection/i },
+    { check: "av-cloud",  id: /cloudprotection|blockatfirstsight|mapsreporting/i, title: /cloud[- ]delivered protection|block at first sight/i },
+    { check: "av-pua",    id: /\bpua\b|potentiallyunwanted/i,              title: /potentially unwanted/i },
+    { check: "av-np",     id: /networkprotection/i,                        title: /network protection/i },
+    { check: "asr-any",   id: /attacksurfacereduction|(^|_)asr(_|$)/i,     title: /attack surface reduction/i },
+    { check: "asr-std",   id: /attacksurfacereduction|(^|_)asr(_|$)/i,     title: /attack surface reduction rules/i },
+    { check: "bde-req",   id: /bitlocker|diskencryption/i,                 title: /bitlocker|disk encryption/i },
+    { check: "fw-on",     id: /firewall/i,                                 title: /firewall/i },
+    { check: "fw-inbound", id: /firewall.*inbound|inbound.*firewall/i,     title: /inbound connections/i },
+    { check: "edr-policy", id: /onboard|edrblockmode|sensor/i,             title: /onboard|endpoint detection|edr in block mode/i },
+    { check: "edr-samples", id: /samplesubmission|samplesharing/i,         title: /sample submission|sample sharing/i },
+    { check: "edge-ss",   id: /smartscreen/i,                              title: /smartscreen/i },
+    { check: "edge-pua",  id: /edge.*(pua|unwanted)|unwanted.*edge/i,      title: /unwanted app.*(edge|browser)|edge.*unwanted/i },
+  ];
+
+  const matchesControl = (m, ctrl) =>
+    (m.id && m.id.test(String(ctrl.id || ""))) || (m.title && m.title.test(String(ctrl.title || "")));
+
+  // The verdicts a check can carry that mean "something is not right here".
+  const isFinding = (c) => BAD.has(c.status);
+
+  // correlate(checks, controls) — controls are T21's rows for the LATEST
+  // reading (SecureScore.controlsFrom), full set, not pre-filtered: this
+  // function needs the achieved ones to answer "Microsoft is satisfied
+  // and we are not", which is as interesting as the reverse.
+  //
+  // Four buckets, plus the two agreements:
+  //
+  //   confirmed  — T20 has a finding AND Microsoft still holds points.
+  //                Two independent readings of one weakness.
+  //   contested  — T20 PASSES and Microsoft still holds points. The
+  //                policy is right and the estate does not show it:
+  //                onboarding, licensing, or devices that have not
+  //                reported. This is the bucket worth opening first.
+  //   scored     — T20 has a finding and Microsoft gives FULL marks.
+  //                Microsoft's control is broader or narrower than the
+  //                check; the finding stands, the points do not.
+  //   msOnly     — an endpoint control Microsoft scores against the
+  //                tenant that no T20 check covers. Named in full so a
+  //                gap in the CHECK SET is visible rather than invisible.
+  //   tunoOnly   — a T20 finding no Secure Score control matches.
+  //                Microsoft does not score it; it is still real.
+  //   agreed     — both clean. Counted, not listed.
+  function correlate(checks, controls) {
+    const all = (controls || []).filter((c) => !c.deprecated);
+    const endpoint = all.filter((c) => ["Device", "Apps"].includes(c.category));
+    const out = { confirmed: [], contested: [], scored: [], msOnly: [], tunoOnly: [], agreed: 0, matchedIds: new Set(), unscorable: [] };
+
+    for (const c of (checks || [])) {
+      const m = SS_MAP.find((x) => x.check === c.id);
+      const hits = m ? all.filter((ctrl) => matchesControl(m, ctrl)) : [];
+      hits.forEach((h) => out.matchedIds.add(String(h.id).toLowerCase()));
+      // A matched control whose score could not be read says so rather
+      // than counting as either satisfied or open — the house rule about
+      // unknowns, applied to somebody else's number.
+      const readable = hits.filter((h) => h.points != null);
+      if (hits.length && !readable.length) { out.unscorable.push({ check: c, controls: hits }); continue; }
+      const open = readable.filter((h) => h.points > 0.05);
+      const points = Math.round(open.reduce((n, h) => n + h.points, 0) * 10) / 10;
+      const row = { check: c, controls: readable, open, points };
+      if (!hits.length) { if (isFinding(c)) out.tunoOnly.push(row); continue; }
+      if (isFinding(c) && open.length) out.confirmed.push(row);
+      else if (!isFinding(c) && open.length) out.contested.push(row);
+      else if (isFinding(c)) out.scored.push(row);
+      else out.agreed++;
+    }
+
+    out.msOnly = endpoint
+      .filter((c) => c.points != null && c.points > 0.05 && !out.matchedIds.has(String(c.id).toLowerCase()))
+      .sort((a, b) => b.points - a.points || a.rank - b.rank);
+
+    const sev = (r) => SEV_ORDER[r.check.sev];
+    out.confirmed.sort((a, b) => b.points - a.points || sev(a) - sev(b));
+    out.contested.sort((a, b) => b.points - a.points || sev(a) - sev(b));
+    out.scored.sort((a, b) => sev(a) - sev(b));
+    out.tunoOnly.sort((a, b) => sev(a) - sev(b));
+    out.pointsOpen = Math.round(
+      ([...out.confirmed, ...out.contested].reduce((n, r) => n + r.points, 0)
+        + out.msOnly.reduce((n, c) => n + c.points, 0)) * 10) / 10;
+    out.matchedIds = [...out.matchedIds];
+    return out;
+  }
+
+  // The Secure Score section, as Markdown. Shared by the Secure Score
+  // node's own export, the impact brief's IT appendix and the Word
+  // export, so all three say the same thing about one correlation.
+  function scoreMd(corr, { tenantName, score } = {}) {
+    const out = [];
+    const s = score || {};
+    out.push(`## What Microsoft still scores against this tenant`);
+    out.push(``);
+    out.push(`Microsoft Secure Score${s.latest ? ` — **${s.latest.currentScore} of ${s.latest.maxScore} points**, read ${String(s.latest.taken || "").slice(0, 10)}` : ""}. Secure Score reads **the estate**: what devices actually report. The checks above read **policy**: what is configured and whether it reaches anybody. Where the two disagree, the disagreement is the finding — neither tool can see it alone.`);
+    out.push(``);
+    out.push(`**${corr.pointsOpen} points** are still open across the endpoint controls below.`);
+    out.push(``);
+
+    if (corr.contested.length) {
+      out.push(`### Configured here, still unscored by Microsoft (${corr.contested.length})`);
+      out.push(``);
+      out.push(`The check passes — the setting is right and reaches devices — and Microsoft still holds the points. That gap is almost never the policy: it is devices that have not onboarded to Defender for Endpoint, a licence the control needs, or machines that have not reported since the policy was written. **Open these first**: the work is already done and is not being counted.`);
+      out.push(``);
+      out.push(`| This tool's check | Microsoft's control | Points left |`);
+      out.push(`| --- | --- | --- |`);
+      corr.contested.forEach((r) => out.push(`| ✅ ${r.check.title} | ${r.open.map((c) => c.title).join("; ")} | ${r.points} |`));
+      out.push(``);
+    }
+    if (corr.confirmed.length) {
+      out.push(`### Both readings agree it is open (${corr.confirmed.length})`);
+      out.push(``);
+      out.push(`A finding here and points there. Two independent measurements of one weakness — these are the least arguable items on the list.`);
+      out.push(``);
+      out.push(`| This tool's check | What this tenant has | Microsoft's control | Points left |`);
+      out.push(`| --- | --- | --- | --- |`);
+      corr.confirmed.forEach((r) => out.push(`| ${r.check.sev} — ${r.check.title} | ${r.check.detail.replace(/\|/g, "/").slice(0, 220)} | ${r.open.map((c) => c.title).join("; ")} | ${r.points} |`));
+      out.push(``);
+    }
+    if (corr.msOnly.length) {
+      out.push(`### Microsoft scores it, this tool has no check for it (${corr.msOnly.length})`);
+      out.push(``);
+      out.push(`Endpoint controls with points available that no check above covers — a gap in the check set, shown rather than hidden. Listed under Microsoft's own titles and remediation.`);
+      out.push(``);
+      out.push(`| Improvement action | Category | Points | User impact |`);
+      out.push(`| --- | --- | --- | --- |`);
+      corr.msOnly.slice(0, 25).forEach((c) => out.push(`| ${c.title} | ${c.category} | ${c.points} | ${c.userImpact || "not stated"} |`));
+      if (corr.msOnly.length > 25) out.push(`| _…and ${corr.msOnly.length - 25} more_ | | | |`);
+      out.push(``);
+    }
+    if (corr.scored.length) {
+      out.push(`### A finding here, full marks there (${corr.scored.length})`);
+      out.push(``);
+      out.push(`Microsoft is satisfied and this tool is not. The control it scores is broader or narrower than the check — the finding stands on its own evidence, it just has no points behind it.`);
+      out.push(``);
+      corr.scored.forEach((r) => out.push(`- **${r.check.title}** (${r.check.sev}) — ${r.check.detail.slice(0, 200)} _Microsoft's ${r.controls.map((c) => c.title).join("; ")} is at full score._`));
+      out.push(``);
+    }
+    if (corr.tunoOnly.length) {
+      out.push(`### Not scored by Microsoft at all (${corr.tunoOnly.length})`);
+      out.push(``);
+      out.push(`Findings with no matching Secure Score control. Nothing here earns points, and every one of them is still real — App Control running in audit mode blocks nothing whatever the score says.`);
+      out.push(``);
+      corr.tunoOnly.forEach((r) => out.push(`- **${r.check.title}** (${r.check.sev}) — ${r.check.detail.slice(0, 200)}`));
+      out.push(``);
+    }
+    if (corr.unscorable.length) {
+      out.push(`> ${corr.unscorable.length} matched control${corr.unscorable.length === 1 ? "" : "s"} had no readable score or ceiling and ${corr.unscorable.length === 1 ? "is" : "are"} counted as neither satisfied nor open: ${corr.unscorable.map((r) => r.check.title).join("; ")}.`);
+      out.push(``);
+    }
+    out.push(`> Pairs are matched on Microsoft's own control id or published title, and every pair prints both names so a wrong match is visible rather than load-bearing. An unmatched control is listed under Microsoft's title instead of being dropped. ${corr.agreed} check${corr.agreed === 1 ? "" : "s"} agreed clean on both readings and ${corr.agreed === 1 ? "is" : "are"} not listed.`);
+    return out.join("\n");
+  }
+
   return {
     NODES, countsFrom, nodeById, classify, intentNode,
     RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
@@ -938,6 +1179,8 @@ ${body.join("\n")}
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine,
     STATE_WORD, stateOf,
+    // Secure Score correlation (R02)
+    SS_MAP, correlate, scoreMd,
     // seams for the headless suite
     _match: { MDE_RE, EDGE_RE, isOn, isOff, isBlockV, isAuditV },
   };
@@ -952,6 +1195,11 @@ const EndpointPostureTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, running = false, node = "overview", search = "";
+  // The Secure Score is a SECOND read under a SECOND permission, so it is
+  // opt-in and lives here rather than inside run(): T20's own read still
+  // costs no new scope, and the tile keeps saying so honestly. Set by the
+  // 📊 node's button; null until somebody asks for it.
+  let score = null, corr = null, scoreErr = null, scoring = false;
   // Cards is the default — Mihai's call after seeing both: the card reads
   // better. The list is the same policies as one table row each, for the
   // long-node case (an Antivirus with seventeen policies scrolls as a
@@ -1046,6 +1294,10 @@ const EndpointPostureTool = (() => {
         Object.assign(groupCounts, c.counts);
         groupCountErrors = c.errors;
       }
+      // A fresh posture read invalidates the correlation: the checks it
+      // was computed against no longer exist. Cleared rather than kept —
+      // a matrix pairing new checks with an old score is a wrong screen.
+      score = null; corr = null; scoreErr = null;
       res = {
         sec, docs, byNode, intents, intentsError, templatesError,
         deviceCount, deviceCountError, groupCounts, groupCountErrors,
@@ -1081,7 +1333,14 @@ const EndpointPostureTool = (() => {
   function renderRail() {
     const row = (n) => {
       if (n.kind === "analysis") {
-        const g = n.id === "bp" ? EndpointPosture.findings(res.checks).length : 0;
+        // The score node's badge is the number of correlated rows where
+        // points are still open — and it stays EMPTY until the score has
+        // been read, because a 0 there would read as "nothing open"
+        // rather than "nobody looked". Those are different answers and
+        // only one of them is dangerous.
+        const g = n.id === "bp" ? EndpointPosture.findings(res.checks).length
+          : n.id === "score" ? (corr ? corr.confirmed.length + corr.contested.length + corr.msOnly.length : 0)
+          : 0;
         return `<div class="ep-node${node === n.id ? " active" : ""}" data-epnode="${n.id}" role="button" tabindex="0">${n.icon} ${esc(n.label)}${g ? `<span class="ep-n gap">${g} ⚠</span>` : `<span class="ep-n"></span>`}</div>`;
       }
       if (n.kind === "top") return `<div class="ep-node${node === n.id ? " active" : ""}" data-epnode="${n.id}" role="button" tabindex="0">${n.icon} ${esc(n.label)}<span class="ep-n"></span></div>`;
@@ -1097,7 +1356,7 @@ const EndpointPostureTool = (() => {
     $("epRail").innerHTML = row(EndpointPosture.nodeById("overview"))
       + shownDiscs.map(row).join("") + other
       + `<hr>` + [EndpointPosture.nodeById("mde"), EndpointPosture.nodeById("edge")].map(row).join("")
-      + `<hr>` + [EndpointPosture.nodeById("impact"), EndpointPosture.nodeById("bp")].map(row).join("");
+      + `<hr>` + [EndpointPosture.nodeById("impact"), EndpointPosture.nodeById("bp"), EndpointPosture.nodeById("score")].map(row).join("");
   }
 
   // ---- node panes ----
@@ -1285,6 +1544,107 @@ const EndpointPostureTool = (() => {
     </div>`;
   }
 
+  // ------------------------------------------------- Secure Score node --
+  //
+  // The read is T21's SecureScoreTool.readFor() — the one reader, asked
+  // at THIS click under its own consent. Nothing is borrowed from a T21
+  // screen that may be holding a result: this node would then be showing
+  // numbers whose age it cannot state.
+  async function readScore() {
+    if (scoring || !res) return;
+    scoring = true; render();
+    const prog = (m) => { const p = $("epScoreProg"); if (p) p.textContent = m || ""; };
+    try {
+      if (typeof SecureScoreTool === "undefined") throw new Error("The Secure Score reader (T21) is not loaded on this page.");
+      const s = await SecureScoreTool.readFor({ onStatus: prog });
+      if (s.empty) { score = s; corr = null; scoreErr = null; }
+      else { score = s; corr = EndpointPosture.correlate(res.checks, s.controls); scoreErr = null; }
+    } catch (e) {
+      scoreErr = String((e && e.message) || e);
+      if (e && e.kind === "admin") scoreErr += " SecurityEvents.Read.All is an admin-consent permission in most tenants — an administrator grants it once for the whole tenant.";
+      score = null; corr = null;
+    } finally { scoring = false; render(); }
+  }
+
+  function paneScore() {
+    if (scoring) {
+      return `<div class="list-card"><div class="spinner"></div>
+        <p class="mini" style="margin:10px 0 0" id="epScoreProg">Reading the tenant's Secure Score…</p></div>`;
+    }
+    if (!corr) {
+      return `<div class="list-card">
+        <h4 style="margin:0 0 4px">📊 Secure Score gaps</h4>
+        <p class="mini" style="margin:0 0 10px">This tool reads <b>policy</b> — what is configured, and whether it reaches anybody. Microsoft Secure Score reads <b>the estate</b> — what the devices actually report back. They disagree constantly, and <b>the disagreement is the finding</b>: a policy can be perfectly configured, assigned tenant-wide and still score zero, because the machines have not onboarded, are not licensed, or have not reported since it was written. Neither reading can see that on its own.</p>
+        <p class="mini muted" style="margin:0 0 12px"><b>This costs a permission the rest of the tool does not.</b> Everything else here runs on the 📄 documenter's read; the score needs <code>SecurityEvents.Read.All</code>, which is why it is a button rather than part of the run. The read is 📊 Secure Score visualizer's own — one reader, so this node and that tool can never disagree about one tenant.</p>
+        ${scoreErr ? `<div class="gu-fail" style="margin-bottom:12px"><b>The Secure Score could not be read.</b><span class="why">${esc(scoreErr)}</span></div>` : ""}
+        ${score && score.empty ? `<p class="mini" style="margin:0 0 12px"><b>This tenant has no Secure Score readings.</b> The read succeeded and returned an empty collection — Secure Score starts producing readings once the tenant has the licensed services it measures. There is nothing to correlate, and nothing is wrong.</p>` : ""}
+        <button class="btn primary" type="button" data-epscore="1">📊 Read the Secure Score</button>
+      </div>`;
+    }
+
+    const s = score.latest;
+    const p = SecureScore.pct(s.currentScore, s.maxScore);
+    const pair = (r, extra) => `<div class="ep-check">
+      <div class="ep-check-h"><span class="ep-sev ${r.check.sev}">${r.check.sev}</span> <b>${esc(r.check.title)}</b> <span class="ss-pts">${r.points} pt${r.points === 1 ? "" : "s"}</span></div>
+      <p class="mini" style="margin:6px 0 0"><b>This tool:</b> ${esc(r.check.detail)}</p>
+      <p class="mini" style="margin:4px 0 0"><b>Microsoft's control:</b> ${esc((r.open.length ? r.open : r.controls).map((c) => `${c.title} (${c.score} of ${c.maxScore})`).join("; "))}</p>
+      ${extra ? `<p class="mini muted" style="margin:4px 0 0">${extra}</p>` : ""}
+      ${(r.open[0] && r.open[0].remediation) ? `<p class="mini" style="margin:4px 0 0"><b>Microsoft's remediation:</b> ${esc(r.open[0].remediation)}</p>` : ""}
+    </div>`;
+
+    const parts = [];
+    parts.push(`<div class="list-card">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <h4 style="margin:0 0 4px">📊 Secure Score gaps — policy against the estate</h4>
+        <div style="flex:1"></div>
+        <button class="btn" type="button" data-epscoremd="1">👁 Read this as a report</button>
+        <button class="btn" type="button" data-epscore="1">↻ Re-read</button>
+      </div>
+      <p class="mini" style="margin:0 0 6px"><b>${s.currentScore} of ${s.maxScore} points — ${p}%</b>, read ${esc(String(s.taken).slice(0, 10))}. <b>${corr.pointsOpen} points</b> still open across the endpoint controls below.</p>
+      <p class="mini muted" style="margin:0">Pairs are matched on Microsoft's own control id or published title, and <b>every pair shows both names</b> — the check's and the control's — so a wrong match is visible rather than load-bearing. A control that matches nothing is listed under Microsoft's title instead of being dropped, so a miss can only ever under-correlate, never mis-correlate. ${corr.agreed} check${corr.agreed === 1 ? "" : "s"} agreed clean on both readings and ${corr.agreed === 1 ? "is" : "are"} not listed.${score.profileError ? ` <b>The control catalogue could not be read (${esc(score.profileError)})</b> — controls show raw ids and no remediation.` : ""}</p>
+    </div>`);
+
+    parts.push(`<div class="au-cards">
+      <div class="au-card"><div class="au-card-l">🟠 Configured, unscored</div><div class="au-card-n ${corr.contested.length ? "bad" : "ok"}">${corr.contested.length}</div><div class="au-card-s">check passes, points still open</div></div>
+      <div class="au-card"><div class="au-card-l">🔴 Both agree open</div><div class="au-card-n ${corr.confirmed.length ? "bad" : "ok"}">${corr.confirmed.length}</div><div class="au-card-s">a finding here and points there</div></div>
+      <div class="au-card"><div class="au-card-l">📋 Microsoft only</div><div class="au-card-n ${corr.msOnly.length ? "bad" : "ok"}">${corr.msOnly.length}</div><div class="au-card-s">no check covers it yet</div></div>
+      <div class="au-card"><div class="au-card-l">🧭 This tool only</div><div class="au-card-n ${corr.tunoOnly.length ? "bad" : "ok"}">${corr.tunoOnly.length}</div><div class="au-card-s">real, and unscored by Microsoft</div></div>
+    </div>`);
+
+    if (corr.contested.length) parts.push(`<div class="list-card">
+      <h4 class="ep-h" style="margin:0 0 4px">🟠 Configured here, still unscored by Microsoft (${corr.contested.length})</h4>
+      <p class="mini muted" style="margin:0 0 12px"><b>Open these first.</b> The check passes — the setting is right and it reaches devices — and Microsoft still holds the points. That gap is almost never the policy: it is devices that have not onboarded to Defender for Endpoint, a licence the control needs, or machines that have not reported since the policy was written. The work is already done and is not being counted.</p>
+      ${corr.contested.map((r) => pair(r, "The policy side of this passes every check above. The points are being withheld by something outside Intune — start with onboarding and licensing, not with the policy.")).join("")}</div>`);
+
+    if (corr.confirmed.length) parts.push(`<div class="list-card">
+      <h4 class="ep-h" style="margin:0 0 4px">🔴 Both readings agree it is open (${corr.confirmed.length})</h4>
+      <p class="mini muted" style="margin:0 0 12px">A finding here and points there — two independent measurements of one weakness, and the least arguable items on the list.</p>
+      ${corr.confirmed.map((r) => pair(r, `Remediation from this tool: ${esc(r.check.fix)}`)).join("")}</div>`);
+
+    if (corr.msOnly.length) parts.push(`<div class="list-card">
+      <h4 class="ep-h" style="margin:0 0 4px">📋 Microsoft scores it, this tool has no check for it (${corr.msOnly.length})</h4>
+      <p class="mini muted" style="margin:0 0 12px">Endpoint controls with points available that no check above covers — <b>a gap in the check set, shown rather than hidden</b>. Under Microsoft's own titles and remediation.</p>
+      <div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Improvement action</th><th>Category</th><th>Points</th><th>User impact</th><th>Remediation</th></tr></thead><tbody>
+      ${corr.msOnly.map((c) => `<tr><td><b>${esc(c.title)}</b>${c.actionUrl ? ` <a href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">↗</a>` : ""}</td><td>${esc(c.category)}</td><td>${c.points}</td><td>${esc(c.userImpact || "not stated")}</td><td class="mini">${esc(String(c.remediation || "—").slice(0, 240))}</td></tr>`).join("")}
+      </tbody></table></div></div>`);
+
+    if (corr.scored.length) parts.push(`<div class="list-card">
+      <h4 class="ep-h" style="margin:0 0 4px">⚪ A finding here, full marks there (${corr.scored.length})</h4>
+      <p class="mini muted" style="margin:0 0 12px">Microsoft is satisfied and this tool is not — the control it scores is broader or narrower than the check. The finding stands on its own evidence; it just has no points behind it.</p>
+      ${corr.scored.map((r) => pair(r, "")).join("")}</div>`);
+
+    if (corr.tunoOnly.length) parts.push(`<div class="list-card">
+      <h4 class="ep-h" style="margin:0 0 4px">🧭 Not scored by Microsoft at all (${corr.tunoOnly.length})</h4>
+      <p class="mini muted" style="margin:0 0 12px">Findings with no matching Secure Score control. Nothing here earns a point, and every one of them is still real — App Control running in audit mode blocks nothing whatever the score says.</p>
+      ${corr.tunoOnly.map((r) => `<div class="ep-check"><div class="ep-check-h"><span class="ep-sev ${r.check.sev}">${r.check.sev}</span> <b>${esc(r.check.title)}</b></div>
+        <p class="mini" style="margin:6px 0 0">${esc(r.check.detail)}</p>
+        <p class="mini" style="margin:4px 0 0"><b>Remediation:</b> ${esc(r.check.fix)}</p></div>`).join("")}</div>`);
+
+    if (corr.unscorable.length) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">${corr.unscorable.length} matched control${corr.unscorable.length === 1 ? "" : "s"} had no readable score or ceiling and ${corr.unscorable.length === 1 ? "is" : "are"} counted as neither satisfied nor open: ${esc(corr.unscorable.map((r) => r.check.title).join("; "))}.</p></div>`);
+
+    return parts.join("");
+  }
+
   function render() {
     if (!res) return;
     // The rail scaffold lives in #epBody only while there is a result —
@@ -1297,6 +1657,7 @@ const EndpointPostureTool = (() => {
     const main = node === "overview" ? paneOverview()
       : node === "impact" ? paneImpact()
       : node === "bp" ? paneBp()
+      : node === "score" ? paneScore()
       : paneNode(node);
     $("epMain").innerHTML = main;
     const s = $("epSearch");
@@ -1325,9 +1686,15 @@ const EndpointPostureTool = (() => {
   function tenantName() {
     try { const o = window.TunoTenant && TunoTenant.org && TunoTenant.org(); return (o && o.displayName) || null; } catch (e) { return null; }
   }
+  // The one place the brief's options are built, so the Markdown export,
+  // the Word export and the on-screen report cannot drift into three
+  // slightly different documents. `corr` is null until somebody reads the
+  // Secure Score, and a null correlation writes no section at all.
+  const briefOpts = () => ({ tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, corr, score });
+
   async function exportBriefDocx() {
     try {
-      const zip = EndpointPosture.briefDocx(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts });
+      const zip = EndpointPosture.briefDocx(res.impact, briefOpts());
       const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = "Endpoint-impact-brief.docx"; a.click();
@@ -1339,18 +1706,26 @@ const EndpointPostureTool = (() => {
   // nothing and downloading holds no surprises.
   function openBrief() {
     if (!res) return;
-    TunoReport.show("🗣 Endpoint impact brief", "Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }));
+    TunoReport.show("🗣 Endpoint impact brief", "Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, briefOpts()));
   }
 
   function init() {
     if (!$("epRun")) return;
     $("epRun").addEventListener("click", run);
-    $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
+    $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, briefOpts()), "text/markdown"));
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
     $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {
       const rb = e.target.closest("[data-epbrief]");
       if (rb) { openBrief(); return; }
+      const sc = e.target.closest("[data-epscore]");
+      if (sc) { readScore(); return; }
+      const sm = e.target.closest("[data-epscoremd]");
+      if (sm) {
+        TunoReport.show("📊 Secure Score gaps", "Endpoint-secure-score-gaps.md",
+          EndpointPosture.scoreMd(corr, { tenantName: tenantName(), score }));
+        return;
+      }
       const vb = e.target.closest("[data-epview]");
       if (vb) { const k = vb.getAttribute("data-epview"); if (k !== view) { view = k; render(); } return; }
       const nn = e.target.closest("[data-epnode]");
@@ -1363,7 +1738,14 @@ const EndpointPostureTool = (() => {
   return {
     init, run,
     // for the headless tests only — the real res is set by run()
-    _setForTest: (r) => { res = r; node = "overview"; search = ""; view = "cards"; render(); },
-    _state: () => ({ node, search, view }),
+    _setForTest: (r, sc) => {
+      res = r; node = "overview"; search = ""; view = "cards";
+      score = (sc && sc.score) || null;
+      corr = (sc && sc.score && !sc.score.empty) ? EndpointPosture.correlate(r.checks, sc.score.controls) : null;
+      scoreErr = null; scoring = false;
+      render();
+    },
+    _state: () => ({ node, search, view, scored: !!corr }),
+    _briefOpts: () => (res ? briefOpts() : null),
   };
 })();
