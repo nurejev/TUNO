@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10489, date: "2026-08-27", title: "The documenter writes an assignment one way, and the filter is in it",
+    items: [
+      { kind: "fixed", tool: "T05", text: "A filtered assignment lost its filter on EVERY surface the documenter writes \u2014 the popout, the Markdown, the HTML report and the Word export all printed name (kind) and stopped. So a policy targeted at All devices through PVM-DG-CORP-FILTER-AVD-ALL circulated as a claim of whole-fleet reach in the document an auditor reads. The filter had been resolved onto the assignment since 10482 and not one writer read it. All four now route through Docs.assignmentText(), so they cannot drift apart again." },
+      { kind: "fixed", tool: "T05", text: "\"All devices \u00b7 All devices\" \u2014 the tenant-wide chip said its name and its kind, which for a tenant-wide target are the same word. assignmentOf sets name === kind there and all four writers concatenated both; T19 and T20 had dodged it with name || kind and the documenter never got the fix. The kind is now dropped when it only repeats the name." },
+      { kind: "improved", tool: "T19", text: "The shared popout is T19's and T20's too, so both gained the named filter and lost the duplicate in the same change \u2014 which is the whole argument for the template existing once." },
+    ],
+  },
+  {
     build: 10488, date: "2026-08-27", title: "The review round \u2014 five ways the new numbers could still lie",
     items: [
       { kind: "fixed", tool: "T20", text: "The count unwrap had 10479's bug hiding in a second shape. The pool worker catches its OWN failures and returns null, so a 403'd group arrived as { value: null } rather than { error } \u2014 and Number(null) is 0. A refused group would have contributed a confident zero to the sum with no \"the sum is a floor\" caveat raised anywhere. Absent is now unknown BEFORE it is a number, and both failure shapes are counted." },

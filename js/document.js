@@ -439,6 +439,28 @@ const Docs = (() => {
     const name = a.filterName || `filter ${String(a.filterId).slice(0, 8)}… (name unread)`;
     return `${name} (${mode})`;
   }
+  // ONE ASSIGNMENT, ONE SENTENCE — the four surfaces that write an
+  // assignment down (the popout, Markdown, the HTML report and Word) had
+  // four copies of `name (kind)`, and every one of them did the same two
+  // things wrong. It printed "All devices · All devices", because
+  // assignmentOf sets name === kind for a tenant-wide target and both were
+  // concatenated. And it DROPPED THE FILTER — on all four, including the
+  // Word export, so a policy targeted at All devices through
+  // PVM-DG-CORP-FILTER-AVD-ALL circulated as a claim of whole-fleet reach
+  // in the document an auditor reads. The filter had been resolved onto the
+  // assignment since 10482 and no writer read it.
+  //
+  // The kind is dropped when it merely repeats the name; the filter is
+  // appended when there is one. Returns plain text — each surface escapes
+  // it for its own medium.
+  function assignmentText(a) {
+    if (!a) return "";
+    const name = a.name || a.kind || "unknown";
+    const kind = (a.kind && a.kind !== a.name) ? ` (${a.kind})` : "";
+    const f = a.filterId ? ` — ⚑ ${filterLabel(a)}` : "";
+    return `${name}${kind}${f}`;
+  }
+
   // Every distinct filter on the non-excluded targets of one policy.
   function filtersOf(it) {
     const seen = new Map();
@@ -520,7 +542,7 @@ const Docs = (() => {
         <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
         ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
         <div class="mini" style="margin-top:8px">${it.assignments.length
-          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
+          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}"${a.filterId ? ` title="An assignment filter narrows this target — the service evaluates it against inventory a browser cannot see"` : ""}>${esc(assignmentText(a))}</span>`).join(" ")
           : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
         <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
       </div>
@@ -702,7 +724,7 @@ const Docs = (() => {
         if (facts.length) L.push(facts.join(" · "), "");
         if (it.description) L.push(mdCell(it.description), "");
         L.push(`**Assignments** — ${it.assignments.length
-          ? it.assignments.map((a) => `${mdCell(a.name)} (${a.kind})`).join(", ")
+          ? it.assignments.map((a) => mdCell(assignmentText(a))).join(", ")
           : "_not assigned to anything_"}`, "");
         if (it.detailError) {
           L.push(`> The settings for this policy could not be read (${mdCell(it.detailError)}). It is listed because it exists; its configuration is unknown.`, "");
@@ -750,7 +772,7 @@ footer{padding:18px 26px;color:#6b7280;font-size:12px}footer a{color:#2b4c9b}
 
   function html(sections, res, m) {
     const s = summarize(res);
-    const pill = (a) => `<span class="pill ${a.kind === "Excluded" ? "exc" : (a.groupId ? "inc" : "tw")}">${esc(a.name)} · ${esc(a.kind)}</span>`;
+    const pill = (a) => `<span class="pill ${a.kind === "Excluded" ? "exc" : (a.groupId ? "inc" : "tw")}">${esc(assignmentText(a))}</span>`;
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(m.title)}${m.tenant ? ` — ${esc(m.tenant)}` : ""}</title><style>${REPORT_CSS}</style></head><body>
 <header><h1>${esc(m.title)}</h1><div class="meta">${m.tenant ? esc(m.tenant) + " · " : ""}generated ${esc(m.when)} by TUNO ${esc(m.build)}</div></header>
@@ -824,7 +846,7 @@ ${rows.map(([k, v, red]) => `<w:tr><w:tc><w:tcPr><w:tcW w:w="42" w:type="pct"/><
         if (facts) body.push(P(facts, { i: true, small: true, tight: true }));
         if (it.description) body.push(P(it.description, { tight: true }));
         body.push(P([["Assignments: ", { b: true }],
-          [it.assignments.length ? it.assignments.map((a) => `${a.name} (${a.kind})`).join(", ") : "not assigned to anything", {}]], { tight: true }));
+          [it.assignments.length ? it.assignments.map(assignmentText).join(", ") : "not assigned to anything", {}]], { tight: true }));
         if (it.detailError) body.push(P(`The settings for this policy could not be read (${it.detailError}). It is listed because it exists; its configuration is unknown.`, { i: true }));
         else if (it.rows.length) body.push(TBL(it.rows.map((r) => [r.name, r.value, r.redacted])));
         else body.push(P("No documentable settings.", { i: true, small: true }));
@@ -853,7 +875,7 @@ ${body.join("\n")}
   }
 
   return {
-    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf,
+    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf, assignmentText,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
     collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
     popoutHtml,

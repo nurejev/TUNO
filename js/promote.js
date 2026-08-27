@@ -81,6 +81,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 113,
+      title: "The assignment-filter round \u2014 one parser, one phrase, every surface",
+      tools: ["T05", "T19", "T20"],
+      builds: [10489],
+      risk: "medium",
+      what: "10489: Docs.assignmentText() becomes the single way an assignment is written down, and the documenter\u0027s four writers (popoutHtml, markdown, html, docx) all route through it. Two bugs die together: the FILTER WAS DROPPED on all four \u2014 resolved onto the assignment since 10482, read by none of them, so a filtered All-devices target exported as whole-fleet reach \u2014 and the tenant-wide chip printed \"All devices \u00b7 All devices\" because name === kind there and both were concatenated. The popout is shared with T19 and T20, so both inherit the fix.",
+      why: "MEDIUM: display and export only, no read changes, no verdict changes. The risk is the opposite of the old one \u2014 documents generated before this build understate reach and should be regenerated.",
+      test: [
+        "A policy assigned to All devices WITH a filter: the popout chip, the Markdown, the HTML report and the Word export must all name the filter and its mode, and none may say \"All devices \u00b7 All devices\".",
+        "An ordinary group assignment must still read \"SG-Pilot (Included)\" and gain no \u2691 flag.",
+        "An excluded group must still read \"SG-Exec (Excluded)\".",
+      ],
+    },
+    {
       n: 112,
       title: "T19 \u00b7 T20 \u2014 the second live-tenant round: filters named, device counts that land, a list face for T19",
       tools: ["T19", "T20"],
