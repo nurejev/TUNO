@@ -116,6 +116,21 @@ const EndpointPosture = (() => {
   const STATE_WORD = { assigned: "enforced now", unassigned: "not assigned yet", excludedOnly: "excluded-only — reaches nobody" };
   const stateOf = (doc) => OverviewTool.verdictOf(doc);
 
+  // ---------------------------------------------- interim (build 10480) --
+  // Mihai's tenant convention: a policy with (TO-BE-REMOVED) in its name
+  // is in place NOW and is PHASED OUT at rollout. That is a third
+  // temporal state, and both analyses must speak it: a brief statement
+  // carried only by interim policies is enforced today and STOPS at
+  // rollout (unless a staged replacement exists), and a best-practice
+  // check that passes only through interim policies is a pass with an
+  // expiry date — flagged, never silently green.
+  const isInterim = (doc) => /TO[-\s]?BE[-\s]?REMOVED/i.test(String((doc && doc.name) || ""));
+  const stateWordOf = (doc) => {
+    const st = stateOf(doc);
+    if (st === "assigned" && isInterim(doc)) return "enforced now — interim, retired at rollout";
+    return STATE_WORD[st];
+  };
+
   // ------------------------------------------- device reach (build 10479) --
   // How many Intune Windows devices a finding's policies actually target,
   // and how many the tenant leaves out — TARGETS, NOT CHECK-INS: this is
@@ -243,12 +258,24 @@ const EndpointPosture = (() => {
       if (!hits.length) continue;
       const states = { assigned: 0, unassigned: 0, excludedOnly: 0 };
       hits.forEach((d) => states[stateOf(d)]++);
+      // The interim split (10480): a statement carried today ONLY by
+      // (TO-BE-REMOVED) policies either hands over to a staged permanent
+      // policy at rollout (transition) or simply STOPS (goesAway) — two
+      // different sentences in a communication, never blurred.
+      const live = hits.filter((d) => stateOf(d) === "assigned");
+      const permLive = live.filter((d) => !isInterim(d));
+      const interimLive = live.filter(isInterim);
+      const staged = hits.filter((d) => stateOf(d) !== "assigned" && !isInterim(d));
       items.push({
         rule: rule.id, icon: rule.icon, title: rule.title,
         text: rule.expect, lost: rule.lost || null, states,
         liveNow: states.assigned > 0,
-        filtered: hits.some((d) => stateOf(d) === "assigned" && OverviewTool.filterMay(d)),
-        pols: hits.map((d) => ({ id: d.id, name: d.name, state: stateOf(d) })),
+        interimOnly: !permLive.length && interimLive.length > 0,
+        transition: !permLive.length && interimLive.length > 0 && staged.length > 0,
+        goesAway: !permLive.length && interimLive.length > 0 && !staged.length,
+        filtered: live.some((d) => OverviewTool.filterMay(d)),
+        docs: hits,
+        pols: hits.map((d) => ({ id: d.id, name: d.name, state: stateOf(d), word: stateWordOf(d) })),
       });
     }
     // What people notice first: what is live leads, losses sort before
@@ -257,7 +284,21 @@ const EndpointPosture = (() => {
     return items;
   }
 
-  function briefMd(items, { tenantName } = {}) {
+  // The device sentence a LIVE brief statement wears (10480, Mihai's ask):
+  // the target-group count against the whole fleet — the same arithmetic
+  // as the findings' line, one implementation, spoken shorter.
+  function impactReachLine(item, counts, deviceCount) {
+    if (!item.liveNow) return null;
+    const r = deviceReach(item.docs || [], counts, deviceCount);
+    if (r.wide) return deviceCount == null ? "applies tenant-wide (device count unreadable)" : `applies to all ${deviceCount} enrolled Windows devices`;
+    if (r.reached == null) return null;
+    const D = deviceCount == null ? "an unknown number of" : deviceCount;
+    const miss = r.missing == null ? "" : ` · ${r.missing} not yet targeted`;
+    const floor = r.unknownGroups ? " (some group counts unreadable — a floor)" : "";
+    return `applies to ~${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}`;
+  }
+
+  function briefMd(items, { tenantName, deviceCount = null, counts = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
     out.push(`# Endpoint security — what you will notice on your device`);
@@ -269,13 +310,26 @@ const EndpointPosture = (() => {
     const later = items.filter((i) => !i.liveNow);
     if (live.length) {
       out.push(`## Already enforced today`);
-      for (const i of live) out.push(`- ${i.icon} **${i.title}** — ${i.text}${i.filtered ? " _(scoped by an assignment filter — some devices, not all)_" : ""}`);
+      for (const i of live) {
+        const reach = impactReachLine(i, counts, deviceCount);
+        const marks = [];
+        if (i.transition) marks.push(`today through an interim policy — at rollout the staged replacement takes over`);
+        if (i.filtered) marks.push(`scoped by an assignment filter — some devices, not all`);
+        out.push(`- ${i.icon} **${i.title}** — ${i.text}${marks.length ? ` _(${marks.join("; ")})_` : ""}${reach ? `\n  - 📟 ${reach}` : ""}`);
+      }
       out.push(``);
     }
     if (later.length) {
       out.push(`## What changes at rollout`);
       out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.`);
       for (const i of later) out.push(`- ${i.icon} **${i.title}** — ${i.text}`);
+      out.push(``);
+    }
+    const stops = items.filter((i) => i.goesAway);
+    if (stops.length) {
+      out.push(`## What stops at rollout`);
+      out.push(`These protections run today only through interim (TO-BE-REMOVED) policies with no staged replacement — at rollout they go away. If that is not intended, stage the replacement before retiring the interim policy.`);
+      for (const i of stops) out.push(`- ${i.icon} **${i.title}** — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => p.name).join("; ")}`);
       out.push(``);
     }
     const lost = items.filter((i) => i.lost);
@@ -290,7 +344,7 @@ const EndpointPosture = (() => {
     out.push(``);
     out.push(`---`);
     out.push(`### Appendix — the policies behind each statement`);
-    for (const i of items) out.push(`- ${i.icon} ${i.title}: ${i.pols.map((p) => `${p.name} [${STATE_WORD[p.state]}]`).join("; ")}`);
+    for (const i of items) out.push(`- ${i.icon} ${i.title}: ${i.pols.map((p) => `${p.name} [${p.word || STATE_WORD[p.state]}]`).join("; ")}`);
     return out.join("\n");
   }
 
@@ -300,7 +354,7 @@ const EndpointPosture = (() => {
     (Array.isArray(t) ? t : [[t, o]]).map(([txt, ro = {}]) =>
       `<w:r><w:rPr>${ro.b || o.b || o.h ? "<w:b/>" : ""}${o.h ? `<w:sz w:val="${o.h === 1 ? 32 : 26}"/><w:color w:val="1F4729"/>` : ""}${ro.i ? "<w:i/>" : ""}</w:rPr><w:t xml:space="preserve">${X(txt)}</w:t></w:r>`).join("") + `</w:p>`;
 
-  function briefDocx(items, { tenantName } = {}) {
+  function briefDocx(items, { tenantName, deviceCount = null, counts = null } = {}) {
     if (typeof JSZip === "undefined") throw new Error("JSZip not loaded");
     const d = new Date().toISOString().slice(0, 10);
     const body = [];
@@ -311,12 +365,25 @@ const EndpointPosture = (() => {
     const later = items.filter((i) => !i.liveNow);
     if (live.length) {
       body.push(P(`Already enforced today`, { h: 2 }));
-      for (const i of live) body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (i.filtered ? " (scoped by an assignment filter — some devices, not all)" : ""), {}]]));
+      for (const i of live) {
+        const reach = impactReachLine(i, counts, deviceCount);
+        const marks = [];
+        if (i.transition) marks.push("today through an interim policy — at rollout the staged replacement takes over");
+        if (i.filtered) marks.push("scoped by an assignment filter — some devices, not all");
+        body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (marks.length ? ` (${marks.join("; ")})` : ""), {}]]));
+        if (reach) body.push(P([[`   ${reach}`, { i: true }]]));
+      }
     }
     if (later.length) {
       body.push(P(`What changes at rollout`, { h: 2 }));
       body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.`));
       for (const i of later) body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
+    }
+    const stops = items.filter((i) => i.goesAway);
+    if (stops.length) {
+      body.push(P(`What stops at rollout`, { h: 2 }));
+      body.push(P(`These protections run today only through interim (TO-BE-REMOVED) policies with no staged replacement — at rollout they go away. If that is not intended, stage the replacement before retiring the interim policy.`));
+      for (const i of stops) body.push(P([[`• ${i.title}`, { b: true }], [` — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => p.name).join("; ")}`, {}]]));
     }
     const lost = items.filter((i) => i.lost);
     if (lost.length) {
@@ -326,7 +393,7 @@ const EndpointPosture = (() => {
     body.push(P(`If something you need is blocked`, { h: 2 }));
     body.push(P(`Contact the IT helpdesk with what you were doing and the message on screen. A block is almost always: a quarantined download, an attack-surface rule, a SmartScreen warning, or a firewall rule — every one has a controlled exception process.`));
     body.push(P(`Appendix — the policies behind each statement`, { h: 2 }));
-    for (const i of items) body.push(P(`${i.title}: ${i.pols.map((p) => `${p.name} [${STATE_WORD[p.state]}]`).join("; ")}`));
+    for (const i of items) body.push(P(`${i.title}: ${i.pols.map((p) => `${p.name} [${p.word || STATE_WORD[p.state]}]`).join("; ")}`));
     const zip = new JSZip();
     zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -631,11 +698,28 @@ ${body.join("\n")}
       let r;
       try { r = c.eval(ctx); }
       catch (e) { r = { status: "unknown", detail: `The check itself failed: ${String((e && e.message) || e).slice(0, 160)}`, pols: [], docs: [] }; }
+      // The interim override (10480), ONE place instead of eighteen: a
+      // PASS whose every reaching policy is (TO-BE-REMOVED) is a pass
+      // with an expiry date — at rollout the interim policy retires and
+      // this becomes a gap, unless a staged permanent policy stands
+      // ready. Said as its own verdict, never worn as plain green.
+      if (r.status === "pass") {
+        const live = (r.docs || []).filter((d) => stateOf(d) === "assigned");
+        if (live.length && live.every(isInterim)) {
+          const staged = (r.docs || []).filter((d) => stateOf(d) !== "assigned" && !isInterim(d));
+          r = Object.assign({}, r, {
+            status: "interimOnly",
+            detail: `Passes today ONLY through interim policies (${live.map((d) => d.name).join("; ")}) — retired at rollout. ${staged.length
+              ? `A staged replacement exists (${staged.map((d) => d.name).join("; ")}): assign it before the interim policy goes.`
+              : `No staged replacement found — at rollout this becomes the gap below the green.`} Original: ${r.detail}`,
+          });
+        }
+      }
       return { id: c.id, node: c.node, sev: c.sev, title: c.title, req: c.req, fix: c.fix, doc: c.doc, ...r };
     });
   }
   const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-  const BAD = new Set(["gap", "misconfig", "notReaching", "unknown"]);
+  const BAD = new Set(["gap", "misconfig", "notReaching", "unknown", "interimOnly"]);
   const findings = (checks) => checks.filter((c) => BAD.has(c.status))
     .sort((a, b) => SEV_ORDER[a.sev] - SEV_ORDER[b.sev] || a.title.localeCompare(b.title));
 
@@ -648,7 +732,7 @@ ${body.join("\n")}
     const bad = findings(checks);
     out.push(`**${bad.length} finding${bad.length === 1 ? "" : "s"}**, ${checks.filter((c) => c.status === "pass").length} passed, of ${checks.length} checks.`);
     out.push(``);
-    const word = { gap: "GAP", misconfig: "MISCONFIGURED", notReaching: "NOT REACHING", unknown: "UNRECOGNISED VALUE", pass: "PASS" };
+    const word = { gap: "GAP", misconfig: "MISCONFIGURED", notReaching: "NOT REACHING", unknown: "UNRECOGNISED VALUE", interimOnly: "PASS — INTERIM ONLY", pass: "PASS" };
     for (const c of [...bad, ...checks.filter((x) => x.status === "pass")]) {
       out.push(`## ${word[c.status]} · ${c.sev} — ${c.title}`);
       out.push(`- **Recommendation:** ${c.req}`);
@@ -663,7 +747,8 @@ ${body.join("\n")}
 
   return {
     NODES, nodeById, classify, intentNode,
-    RULES, analyzeImpact, briefMd, briefDocx,
+    RULES, analyzeImpact, impactReachLine, briefMd, briefDocx,
+    isInterim, stateWordOf,
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine,
     STATE_WORD, stateOf,
@@ -939,12 +1024,17 @@ const EndpointPostureTool = (() => {
     const items = res.impact;
     if (!items.length) return `<div class="list-card"><p class="mini muted" style="margin:0">No endpoint security policy matched any statement — there is nothing to brief, which is itself a finding.</p></div>`;
     const live = items.filter((i) => i.liveNow), later = items.filter((i) => !i.liveNow);
-    const item = (i) => `<div class="ep-brief${i.liveNow ? "" : " later"}">
-      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ filtered — some devices</span>` : ""}
+    const stops = items.filter((i) => i.goesAway);
+    const item = (i) => {
+      const reach = EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount);
+      return `<div class="ep-brief${i.liveNow ? "" : " later"}">
+      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ filtered — some devices</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>
+      ${reach ? `<p class="mini" style="margin:0 0 6px"><b>📟</b> ${esc(reach)}</p>` : ""}
       ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>No longer possible:</b> ${esc(i.lost)}</p>` : ""}
-      <p class="mini muted" style="margin:0">Behind it: ${i.pols.map((p) => `${esc(p.name)} <i>[${EndpointPosture.STATE_WORD[p.state]}]</i>`).join("; ")}</p>
+      <p class="mini muted" style="margin:0">Behind it: ${i.pols.map((p) => `${esc(p.name)} <i>[${esc(p.word || EndpointPosture.STATE_WORD[p.state])}]</i>`).join("; ")}</p>
     </div>`;
+    };
     return `<div class="list-card">
       <div style="display:flex;gap:10px;align-items:flex-start"><h4 style="margin:0 0 4px">🗣 What people will notice on their device</h4>
         <div class="spacer" style="flex:1"></div>
@@ -952,12 +1042,15 @@ const EndpointPostureTool = (() => {
       <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
       ${live.length ? `<h4 class="ep-h">Already enforced today</h4>${live.map(item).join("")}` : ""}
       ${later.length ? `<h4 class="ep-h">At rollout — these reach nobody yet</h4>${later.map(item).join("")}` : ""}
+      ${stops.length ? `<h4 class="ep-h" style="color:var(--off)">Stops at rollout — interim only, no staged replacement</h4>
+        <p class="mini muted" style="margin:0 0 8px">Carried today only by (TO-BE-REMOVED) policies. At rollout these protections go away — if that is not intended, stage the replacement before retiring the interim policy.</p>
+        ${stops.map((i) => `<p class="mini" style="margin:4px 0">${i.icon} <b>${esc(i.title)}</b> — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => esc(p.name)).join("; ")}</p>`).join("")}` : ""}
     </div>`;
   }
 
   function paneBp() {
-    const word = { gap: "GAP", misconfig: "MISCONFIGURED", notReaching: "NOT REACHING", unknown: "UNRECOGNISED", pass: "PASS" };
-    const cls = { gap: "off", misconfig: "off", notReaching: "report", unknown: "report", pass: "on" };
+    const word = { gap: "GAP", misconfig: "MISCONFIGURED", notReaching: "NOT REACHING", unknown: "UNRECOGNISED", interimOnly: "PASS — INTERIM ONLY", pass: "PASS" };
+    const cls = { gap: "off", misconfig: "off", notReaching: "report", unknown: "report", interimOnly: "report", pass: "on" };
     const bad = EndpointPosture.findings(res.checks);
     const pass = res.checks.filter((c) => c.status === "pass");
     const item = (c) => {
@@ -1020,7 +1113,7 @@ const EndpointPostureTool = (() => {
   }
   async function exportBriefDocx() {
     try {
-      const zip = EndpointPosture.briefDocx(res.impact, { tenantName: tenantName() });
+      const zip = EndpointPosture.briefDocx(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts });
       const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob); a.download = "Endpoint-impact-brief.docx"; a.click();
@@ -1032,13 +1125,13 @@ const EndpointPostureTool = (() => {
   // nothing and downloading holds no surprises.
   function openBrief() {
     if (!res) return;
-    TunoReport.show("🗣 Endpoint impact brief", "Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName() }));
+    TunoReport.show("🗣 Endpoint impact brief", "Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }));
   }
 
   function init() {
     if (!$("epRun")) return;
     $("epRun").addEventListener("click", run);
-    $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName() }), "text/markdown"));
+    $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
     $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {

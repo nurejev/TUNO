@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10480, date: "2026-08-27", title: "The interim policies say they are interim, and the brief counts its devices",
+    items: [
+      { kind: "new", tool: "T20", text: "(TO-BE-REMOVED) is understood as what it is in this tenant: in place now, phased out at rollout. The impact brief wears it — ⏳ interim chips on the affected statements, 'staged replacement takes over' when a permanent policy stands ready, and a new WHAT STOPS AT ROLLOUT section when nothing is staged, because a protection quietly disappearing is exactly what a rollout communication exists to say out loud. The appendix states 'enforced now — interim, retired at rollout' per policy, in the pane, the Markdown and the Word export alike." },
+      { kind: "new", tool: "T20", text: "A best-practice PASS whose every reaching policy is interim is now PASS — INTERIM ONLY, counted as a finding: it is true today and expires at rollout. The verdict names the staged replacement to assign, or says plainly that the gap is coming. One override in one place, so all eighteen checks speak it identically." },
+      { kind: "improved", tool: "T20", text: "The brief's 'Already enforced today' statements carry their 📟 device count — the target group's members against the whole Windows fleet, with the not-yet-targeted remainder. The findings' arithmetic, spoken shorter, same honesty: targets, not check-ins." },
+    ],
+  },
+  {
     build: 10479, date: "2026-08-27", title: "Every finding says how many devices it is about",
     items: [
       { kind: "new", tool: "T20", text: "📟 Devices on every best-practice check, on screen and in the export: how many enrolled Windows devices the check's policies actually target, and how many the tenant leaves out. A GAP now reads '0 of N — all N are missing this control' — T16's denominator idea carried into every check, because a gap is not an empty row, it is that many machines on local defaults. The arithmetic is assignment reach and says so on the line: tenant-wide is the Windows fleet, groups are summed by member count, overlaps are not deduplicated, exclusions are not subtracted, a filter caps reach at may, and an unreadable group count makes the sum a floor — targets, not check-ins." },
