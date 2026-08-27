@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10465, date: "2026-08-27", title: "The roadmap stops calling a beta-only tool shipped",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "R30, the Policy overview, was sitting under “Now — shipped & shipping” while it runs only on this channel. It was the one card in that era naming no production build, and it was there while “In beta today” sat empty saying the two channels match — so the roadmap claimed the opposite of the truth in two places at once. Moved to the era it belongs in." },
+      { kind: "improved", tool: "All tools", text: "The beta era no longer has an empty-state sentence claiming the channels match. It describes what the era is for, so it reads correctly whether it holds one card or none." },
+    ],
+  },
+  {
     build: 10464, date: "2026-08-27", title: "Sixth promotion — items 97, 98 and 100-102 ship as build 11",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 11 and takes five queue items with it — beta 10451-10457 and 10460-10463: the AppLocker generator's three layout cards and its gap report carrying coverage, the flood of gaps collapsed into one finding, Apply never a dead button, an applied fix changing the finding rather than only the rules, the deployed profile updatable in place, loop marks belonging to one tenant, the tenant's own name read at sign-in, the sidebar icons made legible and consistent between the folded and open rail, and the branding gear working on production as a preview that stays in your own browser." },

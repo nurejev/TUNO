@@ -81,6 +81,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 100,
+      title: "R30 moves out of Now — the roadmap stops calling a beta-only tool shipped",
+      tools: ["All tools"],
+      builds: [10465],
+      risk: "low",
+      what: "index.html only: the R30 card moves from .rm-era.now to .rm-era.beta, and the beta era's empty-state sentence \u2014 the one claiming the channels match \u2014 is replaced by a description of the era, since it now holds a card. R30 was the only card in Now carrying a live tag with no production build, which is exactly the condition the era split introduced at 10425 exists to prevent.",
+      why: "LOW to build, but the roadmap is a customer-facing claim about what is in production — a card in the wrong era says something false about the tenant-facing site, which is why this one is worth checking rather than reasoning about.",
+      test: [
+        "Read the roadmap on this channel: every card under Now must name a production build, and every card under In beta today must not. R30 is the only card that should be in the beta era.",
+        "Confirm the beta era's intro sentence no longer claims the two channels match, because they do not while R30 sits there.",
+        "Card count must still be 30 and no reference number may appear twice.",
+        "On production, confirm R30 does not appear at all — the tool is not there, so neither is its card.",
+      ],
+      files: ["index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 99,
       title: "T19 🗂 Policy overview — the tenant as cards (R30, mockup Option B)",
       tools: ["🗂 Policy overview", "📄 Configuration documenter"],
