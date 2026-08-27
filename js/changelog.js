@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10495, date: "2026-08-27", title: "The payload read, and the counts that hang off it",
+    items: [
+      { kind: "fixed", tool: "T14", text: "10491's used-by read was broken in the one way demo mode cannot show. payloads is a STRUCTURAL property of an assignment filter, not a relationship \u2014 the resource lists Relationships: None \u2014 so $select=<fields>&$expand=payloads projects the property away and the expand has nothing to attach. On a live tenant every filter would have reported a confident 0 references, on the screen whose delete gate exists precisely because a wrong zero there widens live assignments; and \ud83c\udf9b Assignment editor, which calls the same list inside a bare catch to fill its filter dropdown, would have silently lost the ability to attach a filter at all. The demo router discards the query string and every fixture carries payloads by hand, so the mock looked perfect. payloads now rides in the $select, which is the shape the delete gate's own read had all along." },
+      { kind: "fixed", tool: "T14", text: "The Markdown export stated two different totals for one filter \u2014 the table counted payloads, the section heading below it counted sweep rows \u2014 directly under a note saying the counts were unaffected by unread surfaces. The heading counts payloads too, and says how many of them the scan managed to name." },
+      { kind: "fixed", tool: "T14", text: "A newly created filter references nothing, so the only-used view hid the row whose success message was still on screen. The view drops back after a write." },
+      { kind: "fixed", tool: "T02", text: "Filter ids are matched case-insensitively on both sides of the name lookup. 10490 normalised ids to lowercase in the sweep and left the resolver keyed on the raw id, so a tenant returning mixed-case filter ids would have shown \u201cfilter 3f2a1b9c\u2026\u201d everywhere instead of a name." },
+    ],
+  },
+  {
     build: 10494, date: "2026-08-27", title: "A filter is part of an assignment's identity",
     items: [
       { kind: "fixed", tool: "T11", text: "The Assignment editor's noop check compared the target type and the group id and nothing else, so a filter was invisible to the one check standing between an operator and a write. \"Add an include for SG-Pilot\" reported ALREADY ASSIGNED against an existing include for SG-Pilot narrowed by a filter \u2014 two assignments that reach different machines, called identical \u2014 and adding a filter to a group already targeted without one was equally a noop, so the filter never landed. A write path is the worst place in the tool for a silent nothing." },

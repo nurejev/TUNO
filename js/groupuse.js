@@ -719,16 +719,16 @@ tr.miss td{background:#fdeceb}</style></head><body>
     const names = {};
     try {
       (await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform", S().config))
-        .forEach((f) => { names[f.id] = f.displayName || f.id; });
+        .forEach((f) => { names[String(f.id).toLowerCase()] = f.displayName || f.id; });
     } catch { return rows; }
     // The splice used to hunt for "filter: <word>" in the detail string and
     // do nothing when it was not there — which was exactly the case a
     // missing mode created. Built from the parts instead.
-    return rows.map((r) => (r.filterId && names[r.filterId]
-      ? { ...r, filterName: names[r.filterId],
+    return rows.map((r) => (r.filterId && names[String(r.filterId).toLowerCase()]
+      ? { ...r, filterName: names[String(r.filterId).toLowerCase()],
           detail: r.detail.includes("filter: ")
-            ? r.detail.replace(/filter: (\w+)/, `filter: $1 “${names[r.filterId]}”`)
-            : [r.detail, `filter: ${r.filterMode || "include"} “${names[r.filterId]}”`].filter(Boolean).join(" · ") }
+            ? r.detail.replace(/filter: (\w+)/, `filter: $1 “${names[String(r.filterId).toLowerCase()]}”`)
+            : [r.detail, `filter: ${r.filterMode || "include"} “${names[String(r.filterId).toLowerCase()]}”`].filter(Boolean).join(" · ") }
       : r));
   }
 

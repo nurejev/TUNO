@@ -38,15 +38,25 @@ const Filters = (() => {
   const FILTER_SELECT = "id,displayName,description,platform,rule,assignmentFilterManagementType,lastModifiedDateTime";
 
   // PAYLOADS COME WITH THE FILTER (10491). Graph's own word for this
-  // navigation property is "associated assignments for a specific filter" —
+  // property is "associated assignments for a specific filter" —
   // the used-by answer was one $expand away the whole time, and the column
   // sat empty behind an opt-in nine-surface sweep. It carries payloadId,
   // payloadType, groupId and assignmentFilterType per reference: everything
   // except the policy's NAME, which is the one thing the sweep still adds.
   // So the COUNT is now free and always present, and the scan's job shrinks
   // to turning ids into names.
+  // payloads MUST be in the $select. It is a structural property of the
+  // filter, not a relationship — the resource lists Relationships: None —
+  // so $expand alone has nothing to attach and the projection drops it. Get
+  // this wrong and every filter reports a confident 0 references on the one
+  // screen whose delete gate exists because a wrong zero there widens live
+  // assignments; and T11's filter dropdown, which calls this inside a bare
+  // catch, silently loses the ability to attach a filter at all. Invisible
+  // in demo mode, where the router discards the query string and every
+  // fixture carries payloads by hand. associations() had the working shape
+  // (no $select) all along.
   async function list() {
-    return Graph.readAll(`${Graph.BETA}/deviceManagement/assignmentFilters?$select=${FILTER_SELECT}&$expand=payloads`, {
+    return Graph.readAll(`${Graph.BETA}/deviceManagement/assignmentFilters?$select=${FILTER_SELECT},payloads`, {
       scopes: S().config, retry: true,
     });
   }
@@ -193,9 +203,17 @@ const Filters = (() => {
     if (use) {
       if (use.failed.length) L.push(`> **${use.failed.length} surfaces could not be read** (${use.failed.map((f) => f.label).join(", ")}) — the counts above are unaffected; the policy names below are what is missing.`, "");
       for (const f of filters) {
-        const u = use.by.get(f.id);
+        // Keyed lowercase: groupuse normalises filter ids through
+        // Docs.filterOfTarget, so a raw f.id would miss on any tenant whose
+        // ids come back mixed case.
+        const u = use.by.get(String(f.id).toLowerCase()) || use.by.get(f.id);
         if (!u || !u.length) continue;
-        L.push(`## ${mdCell(f.displayName)} — ${u.length} reference${u.length === 1 ? "" : "s"}`, "");
+        // The COUNT is the payload count, the same number the table printed —
+        // the heading had counted sweep rows, so an unread surface made one
+        // document state two different totals for one filter, directly under
+        // a note saying the counts were unaffected.
+        const n = refsOf(f).length;
+        L.push(`## ${mdCell(f.displayName)} — ${n} reference${n === 1 ? "" : "s"}${u.length !== n ? ` (${u.length} named below; the rest are on surfaces the scan could not read)` : ""}`, "");
         L.push(`| Policy | Surface | Assignment | Mode |`, `|---|---|---|---|`);
         u.forEach((x) => L.push(`| ${mdCell(x.policy)} | ${mdCell(x.source)} | ${mdCell(x.how)} | ${mdCell(x.mode || "include")} |`));
         L.push("");
@@ -330,9 +348,7 @@ const FiltersTool = (() => {
     const refCount = filters.reduce((n, f) => n + Filters.refsOf(f).length, 0);
     $("afBody").innerHTML = `<div class="gu-sticky">
       <span class="gu-who">Assignment filters${usedOnly ? ` <span class="mini muted">— only filters something uses</span>` : ""}</span>
-      <div class="gu-sum">${stat(filters.length, "filters")}${scanned
-        ? `<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a>`
-        : `<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a>`}</div>
+      <div class="gu-sum">${stat(filters.length, "filters")}<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a></div>
     </div>
     <div class="list-card">
       ${usageNote}
@@ -396,9 +412,11 @@ const FiltersTool = (() => {
     filters = (await Filters.list()).sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)));
     use = null;   // the scan's POLICY NAMES described the tenant before the write — absent again, not stale
     openUse.clear();
-    // usedOnly survives (10491): it filters on the payload counts, which are
-    // re-read with the filters and are therefore never stale. Only the names
-    // went away.
+    // A CREATE lands a filter that references nothing, and the only-used
+    // view would hide the row whose success message is still on screen. The
+    // view drops back so the thing that just happened is visible.
+    usedOnly = false;
+
     render();
   }
 
