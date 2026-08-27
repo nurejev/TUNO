@@ -57,7 +57,7 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 10.
+  // Verified against `git show main:js/version.js` — main is at build 11.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
   // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
@@ -77,61 +77,9 @@ const PROMOTE = {
   // the only differences left are the two permanent ones in staying[]. An
   // empty queue is a state worth returning to: it means "beta and main
   // match", and the next item added is the whole of the next promotion.
-  productionBuild: "v1.0.10",
+  productionBuild: "v1.0.11",
 
   items: [
-    {
-      n: 102,
-      title: "Sidebar icons are one size in both states",
-      tools: ["All tools"],
-      builds: [10463],
-      risk: "low",
-      what: "The shared .sidenav .sn-ic rule gains font-size:20px and line-height:1.35 and widens from 22px to 26px; the collapsed override drops the font-size it was restating and keeps only margin:0;width:100%. Before this the expanded rail inherited the 13px row text while the collapsed rail set 20px, so folding the rail resized every glyph. navnum-tests now asserts the collapsed rule does NOT restate the size, rather than asserting the two numbers match — matching numbers is the symptom, one declaration is the fix.",
-      why: "LOW — one rule, one component. The vertical question is the same as at 10461: a taller glyph must not spread the rows until the tool list needs scrolling. The horizontal one is new: the box had to widen with the glyph or the wider emoji push their labels out of alignment.",
-      test: [
-        "Fold and unfold the rail while watching the icons. Nothing may change size or jump — that motion is the whole bug.",
-        "Expanded, read down the list: every tool NAME must start at the same x position. If a wide emoji nudges its label right, the box is still too narrow.",
-        "Collapsed, confirm all the tools and their section dividers still fit without the rail scrolling, on a laptop screen.",
-        "Hover the collapsed rail so it peeks open at full width — the peeked state uses the expanded rules and must look identical to a properly expanded rail.",
-        "Both themes, and check the icon still sits vertically centred against its label now that it is taller than the text.",
-      ],
-      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 101,
-      title: "The branding gear works on production, limited to this browser",
-      tools: ["All tools"],
-      builds: [10462],
-      risk: "medium",
-      what: "js/selfhost.js no longer returns out of itself on the production host at module scope \u2014 that early return was what took the gear with it. isProd() now gates only the two things whose reach exceeds one browser: the selfhost-branding.json fetch and the SELF-HOSTED ribbon relabel (the latter lives inside the gated fetch chain, so it cannot fire). The gear, Apply, Import and Download run everywhere. On production the modal gains a standing note that this is the production site and the change is local, and the Download blurb stops claiming that serving the file rebrands this deployment — true on a copy, false here. BRANDING.host remains non-configurable on every deployment.",
-      why: "MEDIUM, and it is a DELIBERATE REVERSAL of a rule the file argued for in its own header — read that header before promoting. The original claim was that a settings dialog must never redress tuno.limon-it.nl from a browser. The narrower claim now is that it must never redress it FOR ANYBODY ELSE. Whether that trade is right is Mihai's call and he has made it; what the reviewer should check is that the narrowing is real and not just asserted.",
-      test: [
-        "THE ONE THAT MATTERS: on production, Apply a loud branding, then open the site in a different browser or a private window. It must be completely unbranded. If the look leaks to a second browser, the narrowing has failed and this must not ship.",
-        "Serve a selfhost-branding.json next to index.html on production and hard-refresh. NOTHING may change — production does not read it, and the dialog now says so.",
-        "Confirm production never shows the SELF-HOSTED ribbon, with or without a local brand applied, and that the title bar tag is unchanged.",
-        "Read the dialog on production: it must say this is the production site, that Apply reaches this browser only, and that serving the download here does nothing. Then read it on beta — it must still give the self-host wording, because there the file DOES work.",
-        "Check the canonical host is still absent from the form on both channels. That is the guarantee that stops a copy claiming to be production and it is the one thing that must not have moved.",
-        "Clear the applied branding on production and confirm the site returns to the real Limon-IT identity on the NEXT paint, not two paints later — selfhost-boot.js reads the same cache before first paint.",
-        "Confirm the exports still carry the neutral product credit on production even with a local brand applied.",
-      ],
-      files: ["js/selfhost.js", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 100,
-      title: "The collapsed sidebar's icons are legible",
-      tools: ["All tools"],
-      builds: [10461],
-      risk: "low",
-      what: "One rule: the collapsed rail's .sn-ic goes from the inherited 13px to 20px, with line-height pinned at 1.35 so the row height does not grow. Scoped to body.with-side.side-min .sidenav:not(.peek), so the expanded rail and the peeked overlay are untouched — both still show the label, where the icon is a marker beside a word rather than the whole identifier.",
-      why: "LOW — one declaration, one state of one component. The only way it goes wrong is vertical: if the glyph pushes the rows apart, seventeen tools stop fitting and the rail starts scrolling, which costs more than the bigger icon gains.",
-      test: [
-        "Collapse the rail. Every icon must be comfortably readable, and all the tools plus the section dividers must still fit WITHOUT the rail scrolling — on a laptop screen, not just a large monitor.",
-        "Hover the collapsed rail so it peeks open. The peeked rail shows labels, so its icons must be back at the smaller size — if they are still 20px, the scoping is wrong.",
-        "Expand the rail properly and confirm the icons beside the labels are unchanged.",
-        "Check no icon clips at the left or right edge of the 56px rail, including the wider emoji.",
-      ],
-      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
     {
       n: 99,
       title: "T19 🗂 Policy overview — the tenant as cards (R30, mockup Option B)",
@@ -150,44 +98,6 @@ const PROMOTE = {
         "10459: click Read the tenant — the centred spinner card appears where the results will land (not squeezed into the card grid), steps name the surfaces, and it is gone the moment the surface rail renders.",
       ],
       files: ["js/overview.js", "js/document.js", "js/app.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 98,
-      title: "The organization is read at sign-in — TUNO's header names the tenant",
-      tools: ["TUNO"],
-      builds: [10457],
-      risk: "low",
-      what: "ENCA's org read at sign-in, ported: enter() fires a best-effort GET /organization?$select=id,displayName,verifiedDomains on the sign-in token (Graph's permission table lists User.Read — the base scope — as sufficient for exactly those three properties; everything else answers null and is not asked for). The header upgrades from the UPN domain to the org's display name when the read lands; a failed read leaves the UPN domain and never pops consent (the catch swallows interaction_required — a consent popup at sign-in is what Graph-layer rule 1 forbids). The org-name half of the cfdev detection (dormant since 10373) goes live, re-evaluated when the name arrives. New seam: TunoTenant.org() answers {id, displayName, verifiedDomains} or null-meaning-not-read; sign-out clears it; demo mode fills it with the same Contoso org demo.js answers for /organization. Badge tooltip updated to name both halves of the check.",
-      why: "LOW — one read on an already-held scope, fully hedged; no tool behaviour changes until something opts into TunoTenant.org(). Real eyes needed on: the header on a real tenant flipping from UPN domain to display name without a visible jump, and the cfdev badge appearing on the devcf tenant from either half.",
-      test: [
-        "Sign in to any real tenant: the header shows the UPN domain instantly, then the organization's display name; no consent popup at any point.",
-        "Sign in to the devcf tenant: the cfdev badge is on from the UPN half immediately and stays on when the org name lands.",
-        "Sign out and back in as a different tenant: the previous org name must not flash — TunoTenant.org() is cleared at sign-out.",
-        "Demo mode (?demo=1): header says Contoso B.V. (demo) and TunoTenant.org() answers the demo org, no Graph call.",
-        "Offline/failed read (block graph.microsoft.com in devtools, sign in): header keeps the UPN domain, console stays quiet, nothing else breaks.",
-      ],
-      files: ["js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
-    },
-    {
-      n: 97,
-      title: "Three cards, one per layout — and the gap report carries coverage",
-      tools: ["🔐 AppLocker builder & validator"],
-      builds: [10451, 10452, 10453, 10454, 10455, 10456, 10460],
-      risk: "low",
-      what: "Splits 10442's merged card into three, one per table layout: Findings (top table + compact + the expandable audited list), Microsoft app coverage (own card again, al-cov-table), Rules with nested findings. Kept from the merges: one confirm-card fix flow, nested findings, per-card sticky headers (.al-merged-head; all three cards opt out of .list-card's overflow clip or sticky silently no-ops), the ✔ Applied + Undo notice in every header. Empty leftover hosts removed (#alRules got its card chrome back). fleetGapReport() now ALWAYS appends a Microsoft app coverage section — verdict per app from the same pass the card renders — and states plainly when no policy was loaded instead of omitting it. 10452: >8 fleet gaps in one collection collapse to ONE High finding with an expandable file list and a decide-the-collection recommendation (no hash-at-a-time fixes on a flood); few gaps keep rows + confirm cards; rule/cond columns wrap long names. 10453: a fix whose rules already exist is not offered (the dedupe made a second Apply a silent no-op — the dead-button report), and a confirm Apply that adds nothing says why in the card. 10454: the grouping one-liner lives at the create button; 🔎 Check against the tenant (own read, reachable while deploy is blocked) lists AppLocker profiles under other groupings and ⤓ Adopt identity takes the deployed grouping + next-version name while the ADJUSTED draft stays; the collision stop explains the edit-in-place route. 10455: once the hash fix is applied, the unsigned finding changes state to Info/covered (expiry duty + way back named) instead of re-listing the problem with no button — the applied fix is visible in the finding itself, not only in the Rules card and a fading notice. 10456: the version token in the create row is an editable input (name-only, grouping never follows), and the same-grouping stop offers ✎ Update it in place — the one deliberate exception to never-overwrite, behind its own confirm card: PATCH the deployed profile with the adjusted rules and new version name, deployed grouping kept, assignments untouched; also reachable from the 🔎 check while findings block the deploy. Supersede was mocked and declined. 10460: loop marks are tenant-scoped — stored with the tenant id from the 10457 org read, cleared automatically when a different tenant signs in, adopted from signed-out marks by the first tenant that does; the pre-10460 storage shape migrates.",
-      why: "LOW — pure re-hosting of already-tested renders plus one report section; the suites walk every fix flow across the new card boundaries. Real eyes needed on: three sticky headers stacking against the app header while scrolling through all three cards, in all three themes.",
-      test: [
-        "THE ONE THAT MATTERS: load a real policy + events bundle and scroll the whole column — each card's header must pin while its card is in view and hand over to the next; no empty card anywhere between Scan and the XML panel.",
-        "Apply a fix from each card (findings table, coverage allow, nested rule fix): the ✔ Applied notice must appear in the pinned header each time, and Undo from the notice must work.",
-        "Download the gap report with a policy loaded: a Microsoft app coverage section with per-app verdicts; without a policy: the explicit no-policy line.",
-        "Narrow window: the findings card folds to compact, coverage and rules stay browsable as their own cards.",
-        "10454: mid-loop on a real tenant — adjusted draft on the table, click Check, adopt the deployed identity, confirm the re-check says edit-in-place, and paste the export into the existing profile; the draft must never be replaced by the adoption.",
-        "10455: apply the hash-rules fix on a real bundle: the Medium unsigned finding must flip to an Info covered-by-this-draft row naming the expiry duty; deleting the TUNO hash rules in the Rules card must bring the Medium finding and its fix back.",
-        "10456: on a real tenant mid-loop — edit the version in the create row, hit the same-grouping stop, confirm Update it in place, then verify in the portal: SAME profile id, new name, new rules, assignments exactly as they were, and a device sync picks up the change. Cancel must leave the tenant untouched.",
-        "10460: mark a station by hand, sign in to a DIFFERENT tenant: the marks must be gone without touching anything; sign back in to the first tenant: they stay gone (a clear is a clear, not a hide).",
-        "10452: with a Dll rule in the draft and a real bundle, the DLL wave must be ONE row with the expandable list, its rec naming the remove-the-rules way back; fewer than nine gaps in a collection must still get individual rows with confirm-card fixes.",
-      ],
-      files: ["js/applocker.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
     },
   ],
 

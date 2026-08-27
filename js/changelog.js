@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10464, date: "2026-08-27", title: "Sixth promotion — items 97, 98 and 100-102 ship as build 11",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 11 and takes five queue items with it — beta 10451-10457 and 10460-10463: the AppLocker generator's three layout cards and its gap report carrying coverage, the flood of gaps collapsed into one finding, Apply never a dead button, an applied fix changing the finding rather than only the rules, the deployed profile updatable in place, loop marks belonging to one tenant, the tenant's own name read at sign-in, the sidebar icons made legible and consistent between the folded and open rail, and the branding gear working on production as a preview that stays in your own browser." },
+      { kind: "improved", tool: "All tools", text: "A PARTIAL promotion: item 99, T19 Policy overview, stays on this channel and stays in the queue on both. Its builds sit between the promoted ones, so index.html, the stylesheet and the shell each held promoted and unpromoted work in the same file — the promotion had to be assembled commit by commit rather than copied across, and one stray reference to the held-back tool's script did make it into the production tree before being caught." },
+    ],
+  },
+  {
     build: 10463, date: "2026-08-27", title: "The sidebar icons stop changing size when you fold the rail",
     items: [
       { kind: "fixed", tool: "All tools", text: "Folding the sidebar resized every icon. The collapsed rail set its own size and the expanded one quietly inherited the size of the row text beside it, so the two states disagreed and every glyph jumped as the rail opened. Both now come from ONE rule, so they are the same size in both states and nothing moves." },
