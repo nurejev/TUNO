@@ -437,7 +437,55 @@ const DeviceWhy = (() => {
     res.rows.forEach((r) => { r.reported = stateFor(r, idx); });
     res.verdicts = verdicts(res.rows, scope);
     res.stateIndex = { count: idx.count, ambiguous: idx.dupeNames.size };
+
+    // ONE DISPLAY ROW PER POLICY. res.rows stays one row per (policy,
+    // relationship) — that is the evidence, and the CSV keeps it — but the
+    // human views showed it raw, so a policy included by All Devices and
+    // excluded through a group rendered TWICE, each row telling half the
+    // story and both wearing the whole verdict. The verdict is per policy;
+    // the table now is too, with every relationship stacked in the Why cell
+    // and the rule that decided them said once.
+    const seen = new Map();
+    res.policyRows = [];
+    for (const r of res.rows) {
+      const k = policyKey(r);
+      let p = seen.get(k);
+      if (!p) {
+        const v = res.verdicts.get(k);
+        p = {
+          source: r.source, sourceLabel: r.sourceLabel, sub: r.sub, id: r.id, name: r.name,
+          effect: v.effect, mixedKind: v.mixedKind, included: v.included, excluded: v.excluded,
+          reported: r.reported, vias: [],
+        };
+        seen.set(k, p);
+        res.policyRows.push(p);
+      }
+      p.vias.push({
+        label: r.viaLabel, excluded: r.how === "excluded",
+        filterMode: r.filterMode || "", filterName: r.filterName || "",
+        tenantWide: r.pid === GroupUse.TENANT_WIDE,
+      });
+    }
+    // When the verdict IS the exclusion, the exclusion leads — the screenshot
+    // that forced this read "Excluded | All Devices, including this one",
+    // which is the story backwards.
+    res.policyRows.forEach((p) => {
+      if (p.effect === "excluded" || p.effect === "conflict")
+        p.vias.sort((a, b) => (b.excluded ? 1 : 0) - (a.excluded ? 1 : 0));
+    });
     return res;
+  }
+
+  // The Why cell's lines, shared by the screen and both text exports so the
+  // three cannot drift: every relationship on its own line, exclusions named
+  // as such, per-via filters carried, and the deciding rule said once.
+  function viaLines(p) {
+    const L = p.vias.map((v) => `${v.excluded ? "excluded " : ""}${v.label}${v.filterMode ? ` (filter: ${v.filterName || v.filterMode})` : ""}`);
+    if (p.effect === "excluded" && p.included)
+      L.push(`An exclusion beats an inclusion — the include${p.included === 1 ? "" : "s"} above ${p.included === 1 ? "does" : "do"} not land.`);
+    if (p.effect === "conflict")
+      L.push(`The include and the exclusion arrive through different kinds of group — device against user — and whether the exclusion applies depends on how the policy is targeted. The assignment does not say; this is left to the portal.`);
+    return L;
   }
 
   // --------------------------------------------------------------- totals --
@@ -519,7 +567,7 @@ const DeviceWhy = (() => {
     L.push("");
     caveats(m, res).forEach((c) => L.push(`> ${mdCell(c)}`, ""));
 
-    for (const g of GroupUse.grouped(res.rows)) {
+    for (const g of GroupUse.grouped(res.policyRows)) {
       L.push(`## ${g.source.icon} ${g.source.label} (${g.rows.length})`, "");
       L.push(`| Name | Kind | Effect | Why it reaches this device | Reported by the device |`, `|---|---|---|---|---|`);
       for (const r of g.rows) {
@@ -528,11 +576,11 @@ const DeviceWhy = (() => {
           : (r.reported.state === "unknown"
             ? `unknown (${mdCell(r.reported.matchedBy === "none" ? "the device has not reported this policy" : r.reported.matchedBy)})`
             : stateLabel(r.reported.state));
-        L.push(`| ${mdCell(r.name)} | ${mdCell(r.sub || "")} | ${EFFECT_LABEL[r.effect] || r.effect}${r.filterMode ? ` (filter: ${mdCell(r.filterName || r.filterMode)})` : ""} | ${mdCell(r.viaLabel)} | ${st} |`);
+        L.push(`| ${mdCell(r.name)} | ${mdCell(r.sub || "")} | ${EFFECT_LABEL[r.effect] || r.effect} | ${viaLines(r).map(mdCell).join("; ")} | ${st} |`);
       }
       L.push("");
     }
-    if (!res.rows.length) L.push("_Nothing in Intune reaches this device across the surfaces that were read._", "");
+    if (!res.policyRows.length) L.push("_Nothing in Intune reaches this device across the surfaces that were read._", "");
 
     if (res.failed.length) {
       L.push(`## Could not be read`, "");
@@ -602,13 +650,13 @@ footer a{color:#2b4c9b}`;
       return `<span class="st">${esc(stateLabel(r.reported.state))}</span>`;
     };
     const notes = caveats(m, res).map((c, i) => `<p class="note${(i === 0 || /could not|NEITHER/.test(c)) ? " bad" : ""}">${esc(c)}</p>`).join("");
-    const areas = GroupUse.grouped(res.rows).map((g) => `
+    const areas = GroupUse.grouped(res.policyRows).map((g) => `
       <section class="area"><h2>${esc(g.source.icon)} ${esc(g.source.label)} <span>${g.rows.length}</span></h2>
         <table><thead><tr><th>Policy</th><th style="width:150px">Kind</th><th style="width:170px">Effect</th><th style="width:280px">Why it reaches this device</th><th style="width:200px">Reported by the device</th></tr></thead>
         <tbody>${g.rows.map((r) => `<tr>
           <td><b>${esc(r.name)}</b></td><td>${esc(r.sub || "")}</td>
-          <td>${pill(r.effect)}${r.filterMode ? `<div class="via">filter: ${esc(r.filterName || r.filterMode)}</div>` : ""}</td>
-          <td class="via">${esc(r.viaLabel)}</td><td>${stCell(r)}</td></tr>`).join("")}</tbody></table>
+          <td>${pill(r.effect)}</td>
+          <td class="via">${viaLines(r).map(esc).join("<br>")}</td><td>${stCell(r)}</td></tr>`).join("")}</tbody></table>
       </section>`).join("");
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -633,7 +681,7 @@ footer a{color:#2b4c9b}`;
   return {
     scopesFor, findDevice, scanDevices, freshness, landedNote, buildScope,
     readStates, indexStates, stateFor, stateLabel, STATEFUL,
-    verdicts, EFFECT_LABEL, analyze, totals, caveats,
+    verdicts, EFFECT_LABEL, analyze, viaLines, totals, caveats,
     meta, markdown, csv, html, LIST_SELECT, SCAN_PAGES,
   };
 })();
@@ -957,7 +1005,7 @@ const DeviceWhyTool = (() => {
     };
     const effClass = { applies: "inc", maybe: "priv", excluded: "exc", conflict: "priv" };
 
-    const sources = GroupUse.grouped(result.rows).map((grp) => `
+    const sources = GroupUse.grouped(result.policyRows).map((grp) => `
       <div class="gu-src">
         <h5>${esc(grp.source.icon)} ${esc(grp.source.label)} <span class="mini muted">${grp.rows.length}</span>
           <a href="${esc(grp.source.doc)}" target="_blank" rel="noopener">docs ↗</a></h5>
@@ -970,8 +1018,8 @@ const DeviceWhyTool = (() => {
             <td><button class="dw-open${open ? " on" : ""}" data-src="${esc(grp.source.id)}" data-ri="${ri}"
                   title="Show what this policy actually sets">${esc(r.name)}</button></td>
             <td class="mini">${esc(r.sub || "")}</td>
-            <td><span class="gu-how ${effClass[r.effect] || "inc"}">${esc(DeviceWhy.EFFECT_LABEL[r.effect] || r.effect)}</span>${r.filterMode ? `<div class="mini muted">filter: ${esc(r.filterName || r.filterMode)}</div>` : ""}</td>
-            <td class="gu-via${r.pid === GroupUse.TENANT_WIDE ? " parent" : ""}">${esc(r.viaLabel)}</td>
+            <td><span class="gu-how ${effClass[r.effect] || "inc"}">${esc(DeviceWhy.EFFECT_LABEL[r.effect] || r.effect)}</span></td>
+            <td class="gu-via${r.vias.some((v) => v.tenantWide) ? " parent" : ""}">${DeviceWhy.viaLines(r).map((l, li) => `<div${li >= r.vias.length ? ' class="mini muted"' : ""}>${esc(l)}</div>`).join("")}</td>
             <td>${stCell(r)}</td>
           </tr>` + settingsRow(r, 5);
           }).join("")}</tbody></table></div>
@@ -985,7 +1033,7 @@ const DeviceWhyTool = (() => {
 
     const search = `<p class="mini muted">Matched on ${esc(found ? found.matchedOn : "")}.${(found && found.notes && found.notes.length) ? " " + found.notes.map(esc).join(" ") : ""}</p>`;
 
-    const body = result.rows.length
+    const body = result.policyRows.length
       ? `<div class="list-card">${sync}${search}${idTable}${notes}${sources}</div>`
       : `<div class="list-card">${sync}${search}${idTable}${notes}<p class="mini"><b>Nothing in Intune reaches this device</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.</p></div>`;
 
@@ -1023,7 +1071,7 @@ const DeviceWhyTool = (() => {
       if (p && picks) { const d = picks[+p.dataset.i]; if (d) pickDevice(d); return; }
       const b = e.target.closest && e.target.closest(".dw-open");
       if (!b || !result) return;
-      const grp = GroupUse.grouped(result.rows).find((g) => g.source.id === b.dataset.src);
+      const grp = GroupUse.grouped(result.policyRows).find((g) => g.source.id === b.dataset.src);
       const r = grp && grp.rows[+b.dataset.ri];
       if (r) openPolicy(r);
     });

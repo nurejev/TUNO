@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10474, date: "2026-08-27", title: "The Device analyzer says each policy once",
+    items: [
+      { kind: "fixed", tool: "T06", text: "A policy included by All Devices and excluded through a group appeared TWICE, each row telling half the story and both stamped with the whole verdict — which read as a duplicate and was worse than one: the row wearing Excluded next to All Devices, including this one was the story backwards. The verdict was always computed per policy; the table now is too. One row, every relationship stacked in the Why column with the exclusion leading when it decided, and the rule said once: an exclusion beats an inclusion, the include above does not land." },
+      { kind: "improved", tool: "T06", text: "Screen, Markdown and the HTML report share one implementation of the Why lines, so the three cannot drift; conflicts carry their own sentence about device-against-user targeting. The CSV deliberately keeps one line per assignment — it is the evidence export, and its Assignment and Via columns are per-row by design." },
+    ],
+  },
+  {
     build: 10473, date: "2026-08-27", title: "The tiles stop saying NEW and BETA about shipped work",
     items: [
       { kind: "fixed", tool: "All tools", text: "Eighteen home tiles wore NEW and BETA while their tools ran in production — the roadmap had this exact disease and build 10467 cured it there; the tiles kept it. Once a tool is in production it is live, whichever channel you read the tiles from. NEW and BETA now belong only to a tool that is not in production yet — one tile today, the Policy overview." },

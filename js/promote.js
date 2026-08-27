@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 109,
+      title: "T06 collapses to one row per policy — the verdict and its evidence in one place",
+      tools: ["T06"],
+      builds: [10474],
+      risk: "medium",
+      what: "js/devicewhy.js only. analyze() now also builds res.policyRows — one display row per policy, evidence rows folded into a vias list, exclusions sorted first when they decided the verdict — and a shared viaLines() renders the Why column for the screen, the Markdown export and the HTML report: every relationship on its own line, per-via filters carried, the exclusion-beats-inclusion sentence appended once, conflicts carrying the device-against-user sentence. The screen table, its settings-popout click handler and both text exports iterate policyRows; res.rows is untouched and the CSV still emits one line per assignment. The per-row filter note moves from the Effect cell into its via line.",
+      why: "MEDIUM only because it reshapes the tool's central table and both human exports in one build — the logic is a fold over data the verdict map already held, and the tests pin the halves: the same policy must appear once on screen and in both text exports, twice in the CSV, and a plain single-include policy must render exactly as before. The bug it cures made the most careful case — an exclusion overriding All Devices — look like a rendering accident.",
+      test: [
+        "Analyze a device carrying a policy that is All Devices-included AND excluded through one of its groups (the TO-BE-REMOVED LAPS case): ONE row, Excluded once, the Why cell reading exclusion first, then the include, then the beats sentence.",
+        "A policy included through two groups and excluded through a third must be one row with three via lines and the plural form of the beats sentence.",
+        "A device-group include with a user-group exclusion must be one row, Included and excluded, with the conflict sentence — not two rows and not a silent pick.",
+        "A plain single-include policy, a filtered assignment (may reach it, filter named on its via line) and an All Users row on a userless device must each render exactly as before the change.",
+        "Markdown and the HTML report must name each policy once with the stacked why; the CSV must still carry one line per assignment with the Assignment and Via columns intact. The settings popout must open from the collapsed row.",
+      ],
+      files: ["js/devicewhy.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 108,
       title: "Tile chips speak the channel truth: NEW/BETA only off-production, UPDATED from the queue",
       tools: ["All tools"],
