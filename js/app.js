@@ -1303,6 +1303,7 @@ const Fs = (() => {
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
   if (typeof EndpointPostureTool !== "undefined") EndpointPostureTool.init();
+  if (typeof TunoReport !== "undefined") TunoReport.init();
   if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof LapsTool !== "undefined") LapsTool.init();

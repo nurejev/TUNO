@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10478, date: "2026-08-27", title: "The impact brief is readable before it is a file",
+    items: [
+      { kind: "new", tool: "T20", text: "👁 Read the full brief — the finished communication renders on screen: intro, every statement, the what-if-you-are-blocked section and the appendix, exactly as the Markdown export writes it, with Copy Markdown and Download in the viewer. A document you hand to a communications team should be readable before it is a file in your Downloads folder." },
+      { kind: "new", tool: "All tools", text: "The Markdown report viewer arrives — the sister tool ENCA's, ported as one shared implementation (js/report.js): a deliberately small renderer for the subset the reports emit, everything escaped before inline markup so a policy name containing angle brackets can never become markup, and in-app tool links resolved through the tile's own click handler. The .md-view styles have sat in the stylesheet since the scaffold waiting for exactly this; any tool with a Markdown export can now show it first." },
+    ],
+  },
+  {
     build: 10477, date: "2026-08-27", title: "The posture toolbar becomes a card, and the policies learn to be a table",
     items: [
       { kind: "improved", tool: "T20", text: "The filter bar on a discipline node is a card like everything else on the page — the bare input floating on the background read as unfinished, and was. It carries the count and a new 🗂 Cards | ☰ List toggle: cards stay the default because they read better, and the list is the same policies as one table row each — Policy, Template, Reach, Platform, Settings, Verdict — for the node where seventeen cards scroll and one table scans. A row click opens the same popout a card click does, the choice sticks while you move between nodes, and a re-read resets it like every other filter." },

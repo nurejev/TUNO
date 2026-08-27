@@ -863,8 +863,11 @@ const EndpointPostureTool = (() => {
       ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>No longer possible:</b> ${esc(i.lost)}</p>` : ""}
       <p class="mini muted" style="margin:0">Behind it: ${i.pols.map((p) => `${esc(p.name)} <i>[${EndpointPosture.STATE_WORD[p.state]}]</i>`).join("; ")}</p>
     </div>`;
-    return `<div class="list-card"><h4 style="margin:0 0 4px">🗣 What people will notice on their device</h4>
-      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. Export as Markdown or Word above.</p>
+    return `<div class="list-card">
+      <div style="display:flex;gap:10px;align-items:flex-start"><h4 style="margin:0 0 4px">🗣 What people will notice on their device</h4>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn" type="button" data-epbrief="1">👁 Read the full brief</button></div>
+      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
       ${live.length ? `<h4 class="ep-h">Already enforced today</h4>${live.map(item).join("")}` : ""}
       ${later.length ? `<h4 class="ep-h">At rollout — these reach nobody yet</h4>${later.map(item).join("")}` : ""}
     </div>`;
@@ -937,6 +940,14 @@ const EndpointPostureTool = (() => {
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch (e) { alert(`Word export failed: ${(e && e.message) || e}`); }
   }
+  // The finished document, on screen — TunoReport renders EXACTLY what
+  // the Markdown export writes, same filename, so reading first costs
+  // nothing and downloading holds no surprises.
+  function openBrief() {
+    if (!res) return;
+    TunoReport.show("🗣 Endpoint impact brief", "Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, { tenantName: tenantName() }));
+  }
+
   function init() {
     if (!$("epRun")) return;
     $("epRun").addEventListener("click", run);
@@ -944,6 +955,8 @@ const EndpointPostureTool = (() => {
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
     $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName() }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {
+      const rb = e.target.closest("[data-epbrief]");
+      if (rb) { openBrief(); return; }
       const vb = e.target.closest("[data-epview]");
       if (vb) { const k = vb.getAttribute("data-epview"); if (k !== view) { view = k; render(); } return; }
       const nn = e.target.closest("[data-epnode]");

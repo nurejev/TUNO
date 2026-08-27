@@ -2285,3 +2285,6 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 .ep-bar input{flex:0 1 320px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);padding:7px 10px;font:inherit}
 .ep-row{cursor:pointer}
 .ep-row:hover td{background:var(--soft)}
+
+/* build 10478: the report viewer's blockquote callout */
+.md-view .md-quote{border-left:3px solid var(--accent2);padding:6px 12px;background:var(--soft);border-radius:0 8px 8px 0;color:var(--muted)}
