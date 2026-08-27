@@ -821,7 +821,10 @@ const EndpointPostureTool = (() => {
     const prog = (m, n, of) => TunoProgress.show("epBody", "epProg", m, n, of);
     try {
       prog("Checking permissions…");
-      await Graph.ensureScopes([...new Set([...Docs.scopesFor(["settingsCatalog"]), ...Graph.SCOPES.devices, ...Graph.SCOPES.directory])]);
+      // "filters" joins the union at 10482: the documenter names assignment
+      // filters in the same pass it names groups, and that read is RBAC-
+      // scoped. Without it every filtered assignment would print an id.
+      await Graph.ensureScopes([...new Set([...Docs.scopesFor(["settingsCatalog", "filters"]), ...Graph.SCOPES.devices, ...Graph.SCOPES.directory])]);
 
       // The documenter's own settings-catalog read: policies WITH their
       // settings rows, assignments named, values through the redaction gate.
@@ -894,7 +897,7 @@ const EndpointPostureTool = (() => {
       res = {
         sec, docs, byNode, intents, intentsError, templatesError,
         deviceCount, deviceCountError, groupCounts, groupCountErrors,
-        partial: col.partial || [], nameError: col.nameError || null,
+        partial: col.partial || [], nameError: col.nameError || null, filterError: col.filterError || null,
         impact: EndpointPosture.analyzeImpact(docs),
         checks: EndpointPosture.runChecks(ctx),
         when: Date.now(),
@@ -971,6 +974,7 @@ const EndpointPostureTool = (() => {
     if (res.intentsError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Legacy intents could not be read — ${esc(res.intentsError)}. Older tenants keep endpoint security there; that surface is unknown, not empty.</p></div>`);
     if (res.templatesError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Intent templates could not be read — ${esc(res.templatesError)}. Legacy intents are listed unclassified and count toward nothing.</p></div>`);
     if (res.nameError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.</p></div>`);
+    if (res.filterError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment still says it is filtered and shows the id. ${esc("DeviceManagementRBAC.Read.All is what names them.")}</p></div>`);
     return parts.join("");
   }
 
@@ -998,7 +1002,10 @@ const EndpointPostureTool = (() => {
     const named = it.assignments.filter((x) => x.kind !== "Excluded");
     const exc = it.assignments.length - named.length;
     const wide = named.some((x) => x.kind === "All devices" || x.kind === "All users");
-    const may = OverviewTool.filterMay(it) ? ` <span class="tag">⚑ filter — may</span>` : "";
+    const fl = Docs.filtersOf ? Docs.filtersOf(it) : [];
+    const may = fl.length
+      ? ` <span class="tag" title="${esc(fl.join("; "))}">⚑ ${esc(fl[0])}${fl.length > 1 ? ` +${fl.length - 1}` : ""} — may</span>`
+      : (OverviewTool.filterMay(it) ? ` <span class="tag">⚑ filter — may</span>` : "");
     const reach = v === "unassigned" ? "nobody"
       : v === "excludedOnly" ? `nobody <span class="excl-note">(−${exc} excluded)</span>`
       : `${wide ? `<span class="tag">tenant-wide</span>${named.length - (wide ? 1 : 0) > 0 ? ` + groups` : ""}` : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` <span class="excl-note">(−${exc})</span>` : ""}${esc(deviceBit(it))}${may}`;
@@ -1030,7 +1037,7 @@ const EndpointPostureTool = (() => {
     const wide = named.some((x) => x.kind === "All devices" || x.kind === "All users");
     const reach = v === "unassigned" ? "nobody"
       : v === "excludedOnly" ? `nobody (−${exc} excluded)`
-      : `${wide ? "tenant-wide" : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` (−${exc})` : ""}${deviceBit(it)}${OverviewTool.filterMay(it) ? " · ⚑ may" : ""}`;
+      : `${wide ? "tenant-wide" : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` (−${exc})` : ""}${deviceBit(it)}${(Docs.filtersOf ? Docs.filtersOf(it) : []).length ? ` · ⚑ ${Docs.filtersOf(it).join("; ")}` : (OverviewTool.filterMay(it) ? " · ⚑ may" : "")}`;
     return `<tr class="ep-row" data-epopen="${esc(it.id)}">
       <td><b>${esc(it.name)}</b></td>
       <td class="mini">${esc(it.templateName || "—")}</td>

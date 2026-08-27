@@ -308,7 +308,7 @@ const Docs = (() => {
     const o = opts || {};
     const ids = (o.sections && o.sections.length) ? o.sections : allSectionIds();
     const status = o.onStatus || (() => {});
-    const out = { sections: [], failed: [], partial: [], groupIds: new Set() };
+    const out = { sections: [], failed: [], partial: [], groupIds: new Set(), filterIds: new Set() };
 
     for (const id of ids) {
       const sec = sectionById(id);
@@ -357,6 +357,12 @@ const Docs = (() => {
         (it.assignments || []).forEach((a) => {
           const g = a.target && a.target.groupId;
           if (g) out.groupIds.add(lc(g));
+          // The filter id has ridden on the assignment since 10382 and has
+          // never been NAMED. An id in a reach line is not an answer: the
+          // portal shows PVM-DG-CORP-FILTER-AVD-ALL, the tool showed a GUID
+          // or, worse, nothing at all (Mihai, first live tenant).
+          const f = a.target && a.target.deviceAndAppManagementAssignmentFilterId;
+          if (f) out.filterIds.add(lc(f));
         });
         return {
           id: it.id,
@@ -391,7 +397,57 @@ const Docs = (() => {
         }
       } catch (e) { out.nameError = short((e && e.message) || e, 160); }
     }
+
+    // ASSIGNMENT FILTERS, NAMED ONCE — the group-name pattern exactly, for
+    // the same reason: one read for the whole collection rather than one per
+    // section, and a failure that is SAID rather than silently rendering
+    // GUIDs as if they were names. The list is small (a tenant has tens of
+    // filters, not thousands), so it is read whole rather than by id.
+    // Unreadable is unknown, never absent: filterError is what the tools
+    // print, and the assignment keeps its id.
+    if (out.filterIds.size && !o.skipNames) {
+      status(`Naming ${out.filterIds.size} assignment filter${out.filterIds.size === 1 ? "" : "s"}…`);
+      try {
+        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType", S().rbac);
+        const by = new Map((list || []).map((f) => [lc(f.id), f]));
+        out.filters = by;
+        for (const s2 of out.sections) for (const it of s2.items) {
+          it.assignments = it.assignments.map((a) => {
+            if (!a.filterId) return a;
+            const f = by.get(lc(a.filterId)) || null;
+            return Object.assign({}, a, {
+              filterName: (f && f.displayName) || "",
+              filterKind: (f && f.assignmentFilterManagementType) || "",
+            });
+          });
+        }
+      } catch (e) { out.filterError = short((e && e.message) || e, 160); }
+    }
     return out;
+  }
+
+  // ---------------------------------------------------------- filter word --
+  // The one way an assignment filter is written down, everywhere. A filter
+  // NARROWS a target — include mode keeps only matching devices, exclude
+  // mode drops them — so the mode is part of the name, never dropped: a
+  // reader who sees only the filter's name cannot tell which way it cut.
+  // An unnamed filter says so and keeps its id, because a blank is a claim
+  // that there is no filter and there is one.
+  function filterLabel(a) {
+    if (!a || !a.filterId) return "";
+    const mode = lc(a.filterType) === "exclude" ? "exclude" : "include";
+    const name = a.filterName || `filter ${String(a.filterId).slice(0, 8)}… (name unread)`;
+    return `${name} (${mode})`;
+  }
+  // Every distinct filter on the non-excluded targets of one policy.
+  function filtersOf(it) {
+    const seen = new Map();
+    for (const a of ((it && it.assignments) || [])) {
+      if (!a.filterId || a.kind === "Excluded") continue;
+      const k = `${lc(a.filterId)}|${lc(a.filterType)}`;
+      if (!seen.has(k)) seen.set(k, filterLabel(a));
+    }
+    return [...seen.values()];
   }
 
   // ---------------------------------------------------------- platforms --
@@ -797,7 +853,7 @@ ${body.join("\n")}
   }
 
   return {
-    SECTIONS, sectionById, allSectionIds, scopesFor,
+    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
     collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
     popoutHtml,

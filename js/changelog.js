@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10482, date: "2026-08-27", title: "An assignment filter says its name",
+    items: [
+      { kind: "fixed", tool: "T19", text: "A policy assigned through a filter showed \"\u2691 filter \u2014 may\" and nothing else \u2014 the tool knew a filter narrowed the assignment and refused to say which one, while the portal shows the name right beside the group. The documenter now names assignment filters in the same pass it names groups (one read of /deviceManagement/assignmentFilters for the whole collection), and the reach cell wears the name with its mode: \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) \u2014 may. The mode travels with the name on purpose: a reader who sees only the name cannot tell which way the filter cut." },
+      { kind: "fixed", tool: "T20", text: "The same naming, on the cards, the list rows and everywhere reach is stated. T20's scope union gains the assignment-filter read (DeviceManagementRBAC.Read.All, already asked for by the documenter's own filters surface) \u2014 without it every filtered assignment would have printed a GUID." },
+      { kind: "improved", tool: "T05", text: "Docs.filterLabel() and Docs.filtersOf() are the one way a filter is written down, so the two tools cannot drift into two spellings. A filter whose name could not be read says so and keeps its id \u2014 a blank would be a claim that there is no filter, and there is one." },
+    ],
+  },
+  {
     build: 10481, date: "2026-08-27", title: "Audit mode is read from the policy, and the reach cells count devices",
     items: [
       { kind: "fixed", tool: "T20", text: "The brief claimed 'only approved software runs — installing arbitrary software no longer possible' for App Control policies running in AUDIT mode — the wrong-direction error, caught on the first live tenant: the OIB WDAC policies say Enabled:Audit Mode in their XML, and an audit policy blocks nothing. The mode is now read from the policy content — the documenter stamps an audit flag from the RAW setting value, because the display row loses the word to tail-shortening and the 300-character cap — and App Control speaks three ways: an enforcing policy claims blocking, an auditing one says 'inventorying, not blocking yet — nothing changes for you today', and unreadable content says unknown, verify in the portal. The best-practice check moves the same way: audit-only coverage is a finding that names itself, never a silent green." },

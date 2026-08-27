@@ -83,7 +83,13 @@ const OverviewTool = (() => {
     const exc = a.filter((x) => x.kind === "Excluded").length;
     const wide = a.some((x) => x.kind === "All devices" || x.kind === "All users");
     const inc = a.filter((x) => x.kind === "Included" || x.kind === "Other").length;
-    const may = filterMay(r.it) ? ` <span class="tag">⚑ filter — may</span>` : "";
+    // The filter is NAMED (10482). "⚑ filter — may" told a reader that
+    // something narrowed this assignment and refused to say what; the
+    // portal shows the name right beside the group, and so does this.
+    const fl = (typeof Docs !== "undefined" && Docs.filtersOf) ? Docs.filtersOf(r.it) : [];
+    const may = fl.length
+      ? ` <span class="tag" title="${esc(fl.join("; "))}">⚑ ${esc(fl[0])}${fl.length > 1 ? ` +${fl.length - 1}` : ""} — may</span>`
+      : (filterMay(r.it) ? ` <span class="tag">⚑ filter — may</span>` : "");
     if (r.v === "unassigned") return "nobody";
     if (r.v === "excludedOnly") return `nobody <span class="excl-note">(−${exc} excluded)</span>`;
     const base = wide ? `<span class="tag">tenant-wide</span>${inc ? ` + ${inc} group${inc === 1 ? "" : "s"}` : ""}`
@@ -210,6 +216,7 @@ const OverviewTool = (() => {
       if (res.failed.length) notes.push(`${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — shown as unreadable below, never as zero.`);
       if (res.partial.length) notes.push(`Partly read: ${res.partial.map((p) => esc(p.label)).join(", ")}.`);
       if (res.nameError) notes.push(`Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.`);
+      if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
       if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
       $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
       $("ovToolbar").style.display = "";

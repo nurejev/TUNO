@@ -81,6 +81,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 112,
+      title: "T19 \u00b7 T20 \u2014 the second live-tenant round: filters named, device counts that land, a list face for T19",
+      tools: ["T19", "T20"],
+      builds: [10482],
+      risk: "medium",
+      what: "10482: assignment filters are NAMED. js/document.js collect() gathers filterIds beside groupIds and resolves them in one read of /deviceManagement/assignmentFilters (RBAC scope), stamping filterName/filterKind on every assignment; Docs.filterLabel()/filtersOf() are the single spelling, mode included, an unnamed filter keeping its id rather than rendering blank; out.filterError is said by both tools rather than silently showing GUIDs. T20's ensureScopes union gains the \"filters\" section.",
+      why: "MEDIUM: one added Graph read per collection (small, cached nowhere, failure is non-fatal and reported) and display-only changes on top of it. Nothing about how a verdict is decided moves.",
+      test: [
+        "A policy assigned to a group WITH an assignment filter must show the filter's name and its mode on the reach cell in both T19 and T20 \u2014 not a bare \u2691 chip, not a GUID.",
+        "Revoke DeviceManagementRBAC.Read.All (or 403 the filters surface): both tools must print the filter-names-unreadable note and still mark the assignment as filtered, with the id visible.",
+        "A policy with no filter must be unchanged \u2014 no chip, no note, no extra read visible in the network tab beyond the one filters call when some other policy has one.",
+      ],
+    },
+    {
       n: 111,
       title: "T20 🧭 Endpoint security posture — the blade, the brief, the best-practice checks",
       tools: ["T20"],
