@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 110,
+      title: "T06 settings popout: beta endpoints read on beta",
+      tools: ["T06"],
+      builds: [10475],
+      risk: "low",
+      what: "js/devicewhy.js, one call site. openPolicy read its detail URL with Graph.get, which has no beta switch and so hit v1.0 — where configurationPolicies and groupPolicyConfigurations do not exist. The read is now Graph.readOne for the single-object kinds and Graph.readAll for the collection kinds (catalog settings, ADMX definitionValues), both with beta and retry, the Documenter's own options; the rows already flowed through the Documenter's readers, so redaction is unchanged and the collection kinds gain paging.",
+      why: "LOW: one call corrected to the version the rest of the tool already speaks, no new endpoint, no new scope. The bug made the two most-used modern surfaces look unreadable from the one tool built to explain them.",
+      test: [
+        "Analyze a device, open a Settings catalog policy from the table: the settings list must render, redacted exactly as the Documenter shows the same policy.",
+        "Open an ADMX policy: definition values must render with their category paths.",
+        "Open a device configuration and a compliance policy: unchanged from before.",
+        "Open a catalog policy with more than one page of settings if the tenant has one: the list must be complete up to the 200-row display cap, with the and-N-more line pointing at the Documenter.",
+        "A genuinely unreadable policy (deleted between list and click) must still render the could-not-be-read row rather than throwing.",
+      ],
+      files: ["js/devicewhy.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 109,
       title: "T06 collapses to one row per policy — the verdict and its evidence in one place",
       tools: ["T06"],

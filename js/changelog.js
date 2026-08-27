@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10475, date: "2026-08-27", title: "The Device analyzer's settings popout reads the right Graph version",
+    items: [
+      { kind: "fixed", tool: "T06", text: "Opening a Settings catalog or ADMX policy from the table failed with Resource not found for the segment — those two surfaces exist only on the beta Graph endpoint, and the on-click settings read was going to v1.0 while the list it came from was read on beta all along. Device configuration and compliance opens worked, which is what made the failure look selective. The read now uses the same beta-and-retry options as the Documenter, whose readers it already shared for redaction — and the collection kinds page, so a catalog policy with hundreds of settings arrives whole instead of one truncated response." },
+    ],
+  },
+  {
     build: 10474, date: "2026-08-27", title: "The Device analyzer says each policy once",
     items: [
       { kind: "fixed", tool: "T06", text: "A policy included by All Devices and excluded through a group appeared TWICE, each row telling half the story and both stamped with the whole verdict — which read as a duplicate and was worse than one: the row wearing Excluded next to All Devices, including this one was the story backwards. The verdict was always computed per policy; the table now is too. One row, every relationship stacked in the Why column with the exclusion leading when it decided, and the rule said once: an exclusion beats an inclusion, the include above does not land." },

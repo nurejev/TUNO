@@ -745,9 +745,17 @@ const DeviceWhyTool = (() => {
     openRows.set(key, { state: "loading" });
     render();
     try {
-      const got = await Graph.get(d.url, { scopes: Graph.SCOPES.config });
-      const rows = d.kind === "catalog" ? Docs.catalogRows(got && got.value ? got.value : got)
-        : d.kind === "admx" ? Docs.admxRows(got && got.value ? got.value : got)
+      // THE SAME GRAPH VERSION AS THE LIST. Settings catalog and ADMX exist
+      // only on beta — Graph.get has no beta switch, so this call was going
+      // to v1.0 and 404ing with "Resource not found for the segment" while
+      // the policy it was about sat right there, read from beta by T05's
+      // collect. readAll also pages, so a catalog policy with hundreds of
+      // settings arrives whole; the single-object kinds read with readOne.
+      const got = d.kind === "object"
+        ? await Graph.readOne(d.url, { scopes: Graph.SCOPES.config, beta: true, retry: true })
+        : await Graph.readAll(d.url, { scopes: Graph.SCOPES.config, beta: true, retry: true });
+      const rows = d.kind === "catalog" ? Docs.catalogRows(got)
+        : d.kind === "admx" ? Docs.admxRows(got)
           : Docs.flatten(got);
       openRows.set(key, { state: "ok", rows: rows || [] });
     } catch (e) {
