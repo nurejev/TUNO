@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 102,
+      title: "Sidebar icons are one size in both states",
+      tools: ["All tools"],
+      builds: [10463],
+      risk: "low",
+      what: "The shared .sidenav .sn-ic rule gains font-size:20px and line-height:1.35 and widens from 22px to 26px; the collapsed override drops the font-size it was restating and keeps only margin:0;width:100%. Before this the expanded rail inherited the 13px row text while the collapsed rail set 20px, so folding the rail resized every glyph. navnum-tests now asserts the collapsed rule does NOT restate the size, rather than asserting the two numbers match — matching numbers is the symptom, one declaration is the fix.",
+      why: "LOW — one rule, one component. The vertical question is the same as at 10461: a taller glyph must not spread the rows until the tool list needs scrolling. The horizontal one is new: the box had to widen with the glyph or the wider emoji push their labels out of alignment.",
+      test: [
+        "Fold and unfold the rail while watching the icons. Nothing may change size or jump — that motion is the whole bug.",
+        "Expanded, read down the list: every tool NAME must start at the same x position. If a wide emoji nudges its label right, the box is still too narrow.",
+        "Collapsed, confirm all the tools and their section dividers still fit without the rail scrolling, on a laptop screen.",
+        "Hover the collapsed rail so it peeks open at full width — the peeked state uses the expanded rules and must look identical to a properly expanded rail.",
+        "Both themes, and check the icon still sits vertically centred against its label now that it is taller than the text.",
+      ],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 101,
       title: "The branding gear works on production, limited to this browser",
       tools: ["All tools"],

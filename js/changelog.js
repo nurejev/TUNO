@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10463, date: "2026-08-27", title: "The sidebar icons stop changing size when you fold the rail",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Folding the sidebar resized every icon. The collapsed rail set its own size and the expanded one quietly inherited the size of the row text beside it, so the two states disagreed and every glyph jumped as the rail opened. Both now come from ONE rule, so they are the same size in both states and nothing moves." },
+      { kind: "improved", tool: "All tools", text: "The size is declared in a single place rather than in each state. Two declarations for one requirement is how they came to disagree, and the headless suite now checks that the collapsed rule does not restate the size — not merely that the two numbers happen to match today." },
+      { kind: "fixed", tool: "All tools", text: "The icon box widened with them. A 20px glyph in the old 22px box pushed the wider emoji into their labels, so the tool names no longer started at the same place down the list." },
+    ],
+  },
+  {
     build: 10462, date: "2026-08-27", title: "The branding gear appears on production too — as a preview that stays in your browser",
     items: [
       { kind: "fixed", tool: "All tools", text: "The ⚙ branding gear was missing from tuno.limon-it.nl. It was not a bug — the whole self-host module returned early on the production host, and the gear went with it — but the effect was that the one deployment you most often want to show somebody a look on was the one you could not." },
