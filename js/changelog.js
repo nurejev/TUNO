@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10481, date: "2026-08-27", title: "Audit mode is read from the policy, and the reach cells count devices",
+    items: [
+      { kind: "fixed", tool: "T20", text: "The brief claimed 'only approved software runs — installing arbitrary software no longer possible' for App Control policies running in AUDIT mode — the wrong-direction error, caught on the first live tenant: the OIB WDAC policies say Enabled:Audit Mode in their XML, and an audit policy blocks nothing. The mode is now read from the policy content — the documenter stamps an audit flag from the RAW setting value, because the display row loses the word to tail-shortening and the 300-character cap — and App Control speaks three ways: an enforcing policy claims blocking, an auditing one says 'inventorying, not blocking yet — nothing changes for you today', and unreadable content says unknown, verify in the portal. The best-practice check moves the same way: audit-only coverage is a finding that names itself, never a silent green." },
+      { kind: "improved", tool: "T20", text: "The reach cell on every policy card and list row carries its device numbers: '4 groups · ~5000 of 9969 devices · 4969 still missing' — the target groups' member total against the fleet, the same arithmetic as the findings, per policy. Tenant-wide says 'all N devices'; an unreadable group count marks the sum a floor." },
+      { kind: "improved", tool: "T20", text: "The brief's at-rollout statements state the destination: 'at rollout: all N enrolled Windows devices' — today's interim coverage and the rollout's full fleet, side by side. And a retired interim policy — (TO-BE-REMOVED) but no longer assigned — is dropped from the brief entirely: not today, not the plan, mentioned nowhere." },
+    ],
+  },
+  {
     build: 10480, date: "2026-08-27", title: "The interim policies say they are interim, and the brief counts its devices",
     items: [
       { kind: "new", tool: "T20", text: "(TO-BE-REMOVED) is understood as what it is in this tenant: in place now, phased out at rollout. The impact brief wears it — ⏳ interim chips on the affected statements, 'staged replacement takes over' when a permanent policy stands ready, and a new WHAT STOPS AT ROLLOUT section when nothing is staged, because a protection quietly disappearing is exactly what a rollout communication exists to say out loud. The appendix states 'enforced now — interim, retired at rollout' per policy, in the pane, the Markdown and the Word export alike." },

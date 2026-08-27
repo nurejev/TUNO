@@ -125,6 +125,17 @@ const EndpointPosture = (() => {
   // check that passes only through interim policies is a pass with an
   // expiry date — flagged, never silently green.
   const isInterim = (doc) => /TO[-\s]?BE[-\s]?REMOVED/i.test(String((doc && doc.name) || ""));
+  // App Control enforcement mode (10481) — read from the policy content,
+  // never assumed: the OIB baseline ships WDAC policies whose XML says
+  // "Enabled:Audit Mode", and an audit-mode policy blocks NOTHING. The
+  // audit flag is stamped by the documenter's catalogRows from the RAW
+  // value (the display row loses the word to tail-shortening and the
+  // 300-char cap). No rows readable = unknown, said as unknown.
+  const appctlMode = (doc) => {
+    if (!doc || doc.detailError || !rowsOf(doc).length) return "unknown";
+    return rowsOf(doc).some((r) => r.audit) ? "audit" : "enforce";
+  };
+
   const stateWordOf = (doc) => {
     const st = stateOf(doc);
     if (st === "assigned" && isInterim(doc)) return "enforced now — interim, retired at rollout";
@@ -246,15 +257,26 @@ const EndpointPosture = (() => {
       expect: "Windows Hello (PIN, fingerprint or face) becomes the way into the device — faster than a password and it never leaves the machine.",
       lost: null },
     { id: "appctl", icon: "📵", title: "Only approved software runs",
-      match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")),
+      match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "enforce",
       expect: "Devices in scope only run software the organization has approved. A new tool you need goes through IT rather than a download-and-run.",
       lost: "Installing and running arbitrary downloaded software on managed devices." },
+    { id: "appctlaudit", icon: "🕵", title: "Approved-software control is inventorying, not blocking yet",
+      match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "audit",
+      expect: "App Control runs in audit mode: everything still runs, and what WOULD have been blocked is being recorded. Nothing changes for you today — the enforcement step comes later, announced separately.",
+      lost: null },
+    { id: "appctlunknown", icon: "❔", title: "Approved-software control whose mode could not be read",
+      match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "unknown",
+      expect: "An App Control policy exists but its content could not be read from here, so whether it blocks or only audits is unknown — verify in the portal before communicating either.",
+      lost: null },
   ];
 
   function analyzeImpact(docs) {
     const items = [];
     for (const rule of RULES) {
-      const hits = docs.filter((d) => { try { return rule.match(d); } catch (e) { return false; } });
+      const hits = docs.filter((d) => {
+        if (isInterim(d) && stateOf(d) !== "assigned") return false;   // retired interim: not today, not the plan (10481)
+        try { return rule.match(d); } catch (e) { return false; }
+      });
       if (!hits.length) continue;
       const states = { assigned: 0, unassigned: 0, excludedOnly: 0 };
       hits.forEach((d) => states[stateOf(d)]++);
@@ -321,8 +343,8 @@ const EndpointPosture = (() => {
     }
     if (later.length) {
       out.push(`## What changes at rollout`);
-      out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.`);
-      for (const i of later) out.push(`- ${i.icon} **${i.title}** — ${i.text}`);
+      out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` At rollout they apply to the whole fleet — all ${deviceCount} enrolled Windows devices.` : ""}`);
+      for (const i of later) out.push(`- ${i.icon} **${i.title}** — ${i.text}${deviceCount != null ? `\n  - 📟 at rollout: all ${deviceCount} enrolled Windows devices` : ""}`);
       out.push(``);
     }
     const stops = items.filter((i) => i.goesAway);
@@ -376,8 +398,11 @@ const EndpointPosture = (() => {
     }
     if (later.length) {
       body.push(P(`What changes at rollout`, { h: 2 }));
-      body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.`));
-      for (const i of later) body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
+      body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` At rollout they apply to the whole fleet — all ${deviceCount} enrolled Windows devices.` : ""}`));
+      for (const i of later) {
+        body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
+        if (deviceCount != null) body.push(P([[`   at rollout: all ${deviceCount} enrolled Windows devices`, { i: true }]]));
+      }
     }
     const stops = items.filter((i) => i.goesAway);
     if (stops.length) {
@@ -649,8 +674,15 @@ ${body.join("\n")}
         const hits = ctx.docs.filter((d) => /ApplicationControl/i.test(String(d.templateFamily || "")));
         if (!hits.length) return { status: "gap", detail: "No App Control policy in endpoint security. If AppLocker is deployed through a custom profile, this check cannot see it — T01 knows.", pols: [], docs: [] };
         const live = hits.filter((d) => stateOf(d) === "assigned");
-        return live.length ? { status: "pass", detail: `Reaching: ${live.map((d) => d.name).join("; ")}`, pols: [], docs: hits }
-          : { status: "notReaching", detail: `App Control exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
+        if (!live.length) return { status: "notReaching", detail: `App Control exists but reaches nobody: ${hits.map((d) => d.name).join("; ")}`, pols: [], docs: hits };
+        // The MODE decides the verdict (10481): audit observes, enforce
+        // controls, and unreadable content is unknown — never assumed.
+        const enforcing = live.filter((d) => appctlMode(d) === "enforce");
+        const auditing = live.filter((d) => appctlMode(d) === "audit");
+        const unknown = live.filter((d) => appctlMode(d) === "unknown");
+        if (enforcing.length) return { status: "pass", detail: `Enforcing: ${enforcing.map((d) => d.name).join("; ")}${auditing.length ? `. Also in audit: ${auditing.map((d) => d.name).join("; ")}` : ""}`, pols: [], docs: hits };
+        if (auditing.length) return { status: "misconfig", detail: `Every reaching App Control policy is in AUDIT mode — inventory, not control: nothing is blocked today (${auditing.map((d) => d.name).join("; ")}). Deliberate during a rollout, but the brief and this check must not claim blocking until a policy enforces.`, pols: [], docs: hits };
+        return { status: "unknown", detail: `Reaching App Control policies whose content could not be read (${unknown.map((d) => d.name).join("; ")}) — whether they block or audit is unknown; open them in the portal rather than trusting a guess.`, pols: [], docs: hits };
       } },
     // ── Edge ──────────────────────────────────────────────────────────
     { id: "edge-ss", node: "edge", sev: "high", title: "Edge SmartScreen is on and cannot be bypassed",
@@ -748,7 +780,7 @@ ${body.join("\n")}
   return {
     NODES, nodeById, classify, intentNode,
     RULES, analyzeImpact, impactReachLine, briefMd, briefDocx,
-    isInterim, stateWordOf,
+    isInterim, stateWordOf, appctlMode,
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine,
     STATE_WORD, stateOf,
@@ -942,6 +974,21 @@ const EndpointPostureTool = (() => {
     return parts.join("");
   }
 
+  // The device numbers a single ASSIGNED policy's reach cell wears
+  // (10481, Mihai's live-tenant ask): the target groups' member total
+  // against the fleet, with what is still missing — the reach engine's
+  // arithmetic, one policy at a time.
+  function deviceBit(it) {
+    if (!res || EndpointPosture.stateOf(it) !== "assigned") return "";
+    const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount);
+    const D = res.deviceCount;
+    if (r.wide) return D == null ? "" : ` · all ${D} devices`;
+    if (r.reached == null) return "";
+    const miss = r.missing != null ? ` · ${r.missing} still missing` : "";
+    const floor = r.unknownGroups ? " (floor)" : "";
+    return ` · ~${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}${floor}`;
+  }
+
   // T19's card, verbatim in shape — the scard classes have carried these
   // tools since the scaffold, and the popout is the documenter's own.
   function policyCard(it, icon, label) {
@@ -954,7 +1001,7 @@ const EndpointPostureTool = (() => {
     const may = OverviewTool.filterMay(it) ? ` <span class="tag">⚑ filter — may</span>` : "";
     const reach = v === "unassigned" ? "nobody"
       : v === "excludedOnly" ? `nobody <span class="excl-note">(−${exc} excluded)</span>`
-      : `${wide ? `<span class="tag">tenant-wide</span>${named.length - (wide ? 1 : 0) > 0 ? ` + groups` : ""}` : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` <span class="excl-note">(−${exc})</span>` : ""}${may}`;
+      : `${wide ? `<span class="tag">tenant-wide</span>${named.length - (wide ? 1 : 0) > 0 ? ` + groups` : ""}` : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` <span class="excl-note">(−${exc})</span>` : ""}${esc(deviceBit(it))}${may}`;
     return `<div class="scard" data-epopen="${esc(it.id)}">
       <div class="scard-top">
         <div class="scard-ic">${icon}</div>
@@ -983,7 +1030,7 @@ const EndpointPostureTool = (() => {
     const wide = named.some((x) => x.kind === "All devices" || x.kind === "All users");
     const reach = v === "unassigned" ? "nobody"
       : v === "excludedOnly" ? `nobody (−${exc} excluded)`
-      : `${wide ? "tenant-wide" : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` (−${exc})` : ""}${OverviewTool.filterMay(it) ? " · ⚑ may" : ""}`;
+      : `${wide ? "tenant-wide" : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` (−${exc})` : ""}${deviceBit(it)}${OverviewTool.filterMay(it) ? " · ⚑ may" : ""}`;
     return `<tr class="ep-row" data-epopen="${esc(it.id)}">
       <td><b>${esc(it.name)}</b></td>
       <td class="mini">${esc(it.templateName || "—")}</td>
@@ -1026,7 +1073,9 @@ const EndpointPostureTool = (() => {
     const live = items.filter((i) => i.liveNow), later = items.filter((i) => !i.liveNow);
     const stops = items.filter((i) => i.goesAway);
     const item = (i) => {
-      const reach = EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount);
+      const reach = i.liveNow
+        ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount)
+        : (res.deviceCount != null ? `at rollout: all ${res.deviceCount} enrolled Windows devices` : null);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
       <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ filtered — some devices</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>

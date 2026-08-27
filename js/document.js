@@ -137,6 +137,14 @@ const Docs = (() => {
   // name changes with the setting type.
   function catalogRows(settings) {
     const out = [];
+    // `audit: true` is stamped from the RAW value, BEFORE short() and the
+    // choice-tail shortening (build 10481): "_audit_mode" loses its word
+    // to the tail split ("mode"), and a WDAC policy XML's literal
+    // "Enabled:Audit Mode" sits past the 300-char display cap — both are
+    // exactly the evidence T20 needs to keep an audit-mode App Control
+    // policy from being reported as if it blocked anything. Additive:
+    // the key exists only when true, display rows are unchanged.
+    const auditOf = (raw) => /audit/i.test(String(raw ?? "")) || undefined;
     const walk = (inst, depth) => {
       if (!inst || depth > 6 || out.length > 300) return;
       const id = inst.settingDefinitionId || "";
@@ -144,15 +152,16 @@ const Docs = (() => {
       const pretty = name ? name.charAt(0).toUpperCase() + name.slice(1) : "(setting)";
       if (inst.choiceSettingValue) {
         const v = String(inst.choiceSettingValue.value || "");
-        out.push({ name: pretty, value: short(v.split("_").slice(-1)[0] || v), defId: id });
+        out.push({ name: pretty, value: short(v.split("_").slice(-1)[0] || v), defId: id, audit: auditOf(v) });
         (inst.choiceSettingValue.children || []).forEach((c) => walk(c, depth + 1));
       } else if (inst.simpleSettingValue) {
-        out.push({ name: pretty, value: short(redactValue(id, inst.simpleSettingValue.value)), defId: id });
+        out.push({ name: pretty, value: short(redactValue(id, inst.simpleSettingValue.value)), defId: id, audit: auditOf(inst.simpleSettingValue.value) });
       } else if (inst.simpleSettingCollectionValue) {
-        out.push({ name: pretty, value: short(inst.simpleSettingCollectionValue.map((x) => x.value).join(", ")), defId: id });
+        const joined = inst.simpleSettingCollectionValue.map((x) => x.value).join(", ");
+        out.push({ name: pretty, value: short(joined), defId: id, audit: auditOf(joined) });
       } else if (inst.choiceSettingCollectionValue) {
         inst.choiceSettingCollectionValue.forEach((c) => {
-          out.push({ name: pretty, value: short(String(c.value || "").split("_").slice(-1)[0]), defId: id });
+          out.push({ name: pretty, value: short(String(c.value || "").split("_").slice(-1)[0]), defId: id, audit: auditOf(c.value) });
           (c.children || []).forEach((x) => walk(x, depth + 1));
         });
       } else if (inst.groupSettingCollectionValue) {

@@ -47,9 +47,19 @@ of build-number collisions (10455 taken twice, then 10456) taught the rules:
    `git format-patch --stdout base..tip > builds.mbox`, one download, one
    `git am`, order guaranteed. Two of the three failures that night were a
    missing file and an out-of-order apply — an mbox cannot have either.
-6. After ANY failed `am`, `git am --abort` before trying anything else, and
-   never run the pushes: "Everything up-to-date" after a failed apply is
-   nothing wearing success's clothes.
+6. After ANY failed `am`, clean up before trying anything else, and never
+   run the pushes: "Everything up-to-date" after a failed apply is nothing
+   wearing success's clothes. WHICH cleanup depends on whether HEAD moved:
+   * `git am --abort` ONLY when HEAD is still where the failed session
+     started — it restores the branch to that session's ORIG_HEAD.
+   * `git am --quit` when commits landed since (a stale `rebase-apply`
+     from an old failure, discovered later) — it discards only the stuck
+     state and leaves HEAD alone. An `--abort` here can REWIND the branch
+     past applied builds. Learned the day 10480 sat behind a rebase-apply
+     directory left over from the 10476 handover.
+   * "Everything up-to-date" is only success when `git log --oneline -1`
+     already shows the build the handover was delivering — check the
+     subject, not the feeling.
 
 ## Git locks: MOVE them, do not delete them
 
