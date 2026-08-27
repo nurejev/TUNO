@@ -101,6 +101,22 @@ const AssignEdit = (() => {
   const isInclude = (a) => lc((a.target || {})["@odata.type"]).includes("groupassignmenttarget") && !lc((a.target || {})["@odata.type"]).includes("exclusion");
   const isExclude = (a) => lc((a.target || {})["@odata.type"]).includes("exclusiongroupassignmenttarget");
   const targets = (a) => lc((a.target || {}).groupId || "");
+  // THE FILTER IS PART OF THE ASSIGNMENT'S IDENTITY (10494). The noop check
+  // compared @odata.type and groupId only, so "add an include for SG-Pilot"
+  // reported ALREADY ASSIGNED against an existing include for SG-Pilot that
+  // is narrowed by a filter — two assignments that reach different machines,
+  // called the same by the one check standing between the operator and a
+  // write that silently does nothing. It goes the other way too: adding a
+  // FILTER to a group already targeted without one was a noop, so the filter
+  // never landed.
+  const filterSig = (a) => {
+    const f = Docs.filterOfTarget(a && a.target);
+    return f ? `${f.id}|${f.mode}` : "";
+  };
+  const wantSig = (filter) => (filter && filter.id
+    ? `${lc(filter.id)}|${filter.mode === "exclude" ? "exclude" : "include"}`
+    : "");
+  const filterWord = (sig) => (sig ? `⚑ ${sig.split("|")[0].slice(0, 8)}… (${sig.split("|")[1]})` : "no filter");
   // Tenant-wide targets (build 10404, Toolkit parity). Graph has exactly two,
   // and NO exclusion variant of either — that asymmetry drives the refusals.
   const TW_TYPE = {
@@ -157,8 +173,11 @@ const AssignEdit = (() => {
       let op = null;
       if (tw) {
         const has = before.some((a) => isTW(a, tw));
+        const want = wantSig(filter);
+        const sameF = before.some((a) => isTW(a, tw) && filterSig(a) === want);
         if (action === "add-include") {
-          if (has) op = { change: "noop", reason: `already targets ${group.displayName}` };
+          if (sameF) op = { change: "noop", reason: `already targets ${group.displayName}${want ? " through the same filter" : ""}` };
+          else if (has) op = { change: "refused", reason: `this policy already targets ${group.displayName}, but with ${filterWord(before.filter((a) => isTW(a, tw)).map(filterSig)[0])} rather than ${filterWord(want)}. Graph holds one tenant-wide target, so this is an EDIT, not an add — remove the existing target first if the change is intended. Reported rather than performed, because the two reach different machines.` };
           else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": TW_TYPE[tw] }) }]) };
         } else if (action === "add-exclude") {
           op = { change: "refused", reason: `Graph has no tenant-wide exclusion — ${group.displayName} can only be a target, never an exception. An exclusion names a group.` };
@@ -169,12 +188,19 @@ const AssignEdit = (() => {
       } else {
         const hasInc = before.some((a) => isInclude(a) && targets(a) === gid);
         const hasExc = before.some((a) => isExclude(a) && targets(a) === gid);
+        const want = wantSig(filter);
+        const incSame = before.some((a) => isInclude(a) && targets(a) === gid && filterSig(a) === want);
+        const excSame = before.some((a) => isExclude(a) && targets(a) === gid && filterSig(a) === want);
+        const incHave = before.filter((a) => isInclude(a) && targets(a) === gid).map(filterSig)[0] || "";
+        const excHave = before.filter((a) => isExclude(a) && targets(a) === gid).map(filterSig)[0] || "";
         if (action === "add-include") {
-          if (hasInc) op = { change: "noop", reason: "already assigned to this group" };
+          if (incSame) op = { change: "noop", reason: `already assigned to this group${want ? " through the same filter" : ""}` };
+          else if (hasInc) op = { change: "refused", reason: `this policy already includes this group, but with ${filterWord(incHave)} rather than ${filterWord(want)} — the two reach different machines, so this is an EDIT rather than an add. Remove the existing include first if the change is intended.` };
           else if (hasExc) op = { change: "refused", reason: "this policy EXCLUDES the group — adding an include would create the include+exclude contradiction the health tool flags. Remove the exclusion first if that is really the intent." };
           else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId: group.id }) }]) };
         } else if (action === "add-exclude") {
-          if (hasExc) op = { change: "noop", reason: "already excluded" };
+          if (excSame) op = { change: "noop", reason: `already excluded${want ? " through the same filter" : ""}` };
+          else if (hasExc) op = { change: "refused", reason: `this policy already excludes this group, but with ${filterWord(excHave)} rather than ${filterWord(want)} — remove the existing exclusion first if the change is intended.` };
           else if (hasInc) op = { change: "refused", reason: "this policy INCLUDES the group — an exclusion on top of an include is a contradiction, not a removal. Use “remove group” to take the include away." };
           else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": "#microsoft.graph.exclusionGroupAssignmentTarget", groupId: group.id }) }]) };
         } else if (action === "remove") {

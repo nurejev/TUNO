@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10494, date: "2026-08-27", title: "A filter is part of an assignment's identity",
+    items: [
+      { kind: "fixed", tool: "T11", text: "The Assignment editor's noop check compared the target type and the group id and nothing else, so a filter was invisible to the one check standing between an operator and a write. \"Add an include for SG-Pilot\" reported ALREADY ASSIGNED against an existing include for SG-Pilot narrowed by a filter \u2014 two assignments that reach different machines, called identical \u2014 and adding a filter to a group already targeted without one was equally a noop, so the filter never landed. A write path is the worst place in the tool for a silent nothing." },
+      { kind: "improved", tool: "T11", text: "Same group, different filter is now REFUSED and says which is which: Graph holds one include per group, so replacing the filter is an edit rather than an add, and the tool reports it instead of performing it. That is the same rule the file already keeps for removals \u2014 \"remove just the filter\" would be an edit wearing a removal's name." },
+    ],
+  },
+  {
     build: 10493, date: "2026-08-27", title: "Two tools stop paying for an answer and throwing it away",
     items: [
       { kind: "fixed", tool: "T08", text: "\ud83d\udd2e What-if resolved filter names on every run and then discarded them \u2014 only a boolean reached the screen, so the answer was \"may apply\" with no way to find out which filter decides. The names now travel with the effective state: \"may apply \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) decides\", on the gained and lost tables, the Markdown, the HTML report and a real CSV column in place of the word \"filtered\"." },
