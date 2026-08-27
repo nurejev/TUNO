@@ -58,6 +58,58 @@ const SecureScore = (() => {
   const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
   const dayOf = (iso) => String(iso || "").slice(0, 10);
 
+  // ------------------------------------------------ Microsoft's markup --
+  //
+  // THE CATALOGUE TEXT IS HTML, and nobody says so. Graph returns
+  // description, remediation and remediationImpact containing <br/>,
+  // <strong>, <p>, <ol><li>, <a href>, &lsquo; and &rsquo; — sometimes
+  // malformed, with an entity opening inside a tag it does not close.
+  //
+  // Two wrong answers, both tempting. Rendering it as HTML hands a third
+  // party's markup an injection point in a page holding a tenant token,
+  // for a string TUNO has no control over. Escaping it and printing it —
+  // which is what 10500 and 10501 did — puts "&lsquo;<strong>Enable
+  // mailbox intelligence&rsquo;</strong>" on the card, unreadable.
+  //
+  // So the markup is READ and thrown away, and the text inside it is kept:
+  // structure becomes newlines and bullets, a link keeps its label AND its
+  // href (the URL is frequently the actual instruction), entities are
+  // decoded, and the plain text that comes out is escaped on render like
+  // any other string. No markup of theirs ever reaches the DOM.
+  //
+  // It lives in the engine and is applied in controlsFrom, so the screen,
+  // the Markdown, the CSV and T20's correlation all read one clean shape —
+  // the alternative is four places each cleaning it slightly differently.
+  const ENTITIES = {
+    amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+    lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”",
+    hellip: "…", ndash: "–", mdash: "—", bull: "•",
+    middot: "·", times: "×", reg: "®", copy: "©", trade: "™",
+  };
+  function plain(s) {
+    let t = String(s ?? "");
+    if (!t) return "";
+    // A link is worth more than its label: Microsoft writes "see <a
+    // href=...>the portal</a>" where the href is the step.
+    t = t.replace(/<\s*a[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\s*\/\s*a\s*>/gi,
+      (m, href, label) => `${String(label).replace(/<[^>]*>/g, "").trim() || "link"} (${href})`);
+    t = t.replace(/<\s*br\s*\/?\s*>/gi, "\n")
+      .replace(/<\s*li[^>]*>/gi, "\n• ")
+      .replace(/<\s*\/\s*(p|div|tr|li|h[1-6]|ol|ul)\s*>/gi, "\n")
+      .replace(/<\s*(p|div|ol|ul)[^>]*>/gi, "\n");
+    t = t.replace(/<[^>]*>/g, "");                       // every tag that is left
+    t = t.replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)))
+      .replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/&([a-z]+);/gi, (m, n) => (Object.prototype.hasOwnProperty.call(ENTITIES, n.toLowerCase()) ? ENTITIES[n.toLowerCase()] : m));
+    return t.replace(/[ \t]+/g, " ")
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  // One line, for a CSV cell, a Markdown table cell or a Markdown bullet —
+  // all three of which a newline breaks.
+  const flat = (s) => plain(s).replace(/\s*\n\s*/g, " · ").replace(/ +/g, " ").trim();
+
   // ------------------------------------------------------------- read --
   //
   // TWO SURFACES. secureScores is the daily readings with the per-control
@@ -196,14 +248,15 @@ const SecureScore = (() => {
       const score = c.score == null ? null : c.score;
       return {
         id: c.controlName,
-        title: (p && p.title) || c.controlName,
+        title: plain((p && p.title) || c.controlName),
         titled: !!(p && p.title),
         category: (p && p.controlCategory) || c.controlCategory || "",
-        description: c.description || "",
+        // Through the markup gate, once, here — see plain() above.
+        description: plain(c.description),
         score, maxScore: max,
         points: (score == null || max == null) ? null : Math.round((max - score) * 10) / 10,
-        remediation: (p && p.remediation) || "",
-        remediationImpact: (p && p.remediationImpact) || "",
+        remediation: plain((p && p.remediation) || ""),
+        remediationImpact: plain((p && p.remediationImpact) || ""),
         actionUrl: (p && p.actionUrl) || "",
         actionType: (p && p.actionType) || "",
         service: (p && p.service) || "",
@@ -232,8 +285,26 @@ const SecureScore = (() => {
   // A control that declares neither is treated as moderate, because
   // treating an unstated impact as low is how "quick wins" end up being
   // the change that breaks sign-in on Monday.
-  const PAIN = { low: 1, moderate: 2, high: 4 };
-  const painOf = (s) => PAIN[String(s || "").toLowerCase()] || PAIN.moderate;
+  //
+  // TWO VOCABULARIES, BOTH REAL. The Graph reference documents these as
+  // low / moderate / high; live tenants answer Low / Medium / High, and
+  // very often the literal string "Unknown". Both spellings are mapped,
+  // and Unknown lands on the same weight as an absent value — moderate —
+  // rather than falling through a default nobody wrote down. Anything
+  // still unrecognised also weighs moderate, and the screen prints
+  // Microsoft's own word beside it so the reader can see what it said.
+  const PAIN = { low: 1, moderate: 2, medium: 2, high: 4, unknown: 2, notapplicable: 2 };
+  const painOf = (s) => {
+    const k = String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+    return Object.prototype.hasOwnProperty.call(PAIN, k) ? PAIN[k] : PAIN.moderate;
+  };
+  // Did Microsoft actually state a level, or is this the default standing
+  // in? The card says which, because "treated as moderate" and "Microsoft
+  // says moderate" are different claims.
+  const stated = (s) => {
+    const k = String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+    return !!k && k !== "unknown" && k !== "notapplicable";
+  };
   function value(c) {
     const cost = painOf(c.userImpact) + painOf(c.implementationCost);
     return Math.round(((c.points || 0) / cost) * 100) / 100;
@@ -404,13 +475,16 @@ const SecureScore = (() => {
   // One row per control: what it is worth, what the tenant has, and the
   // fields somebody prioritising work actually sorts on.
   function controlsCsv(controls) {
-    const head = ["Control", "Title", "Category", "Score", "MaxScore", "PointsAvailable", "UserImpact", "ImplementationCost", "Tier", "MicrosoftRank", "CheapestPointsValue", "Deprecated", "ActionUrl"];
+    const head = ["Control", "Title", "Category", "Score", "MaxScore", "PointsAvailable", "UserImpact", "ImplementationCost", "Tier", "MicrosoftRank", "CheapestPointsValue", "Deprecated", "Assessment", "Remediation", "ActionUrl"];
     const rows = (controls || []).map((c) => [
       c.id, c.title, c.category,
       c.score == null ? "" : c.score, c.maxScore == null ? "" : c.maxScore,
       c.points == null ? "" : c.points,
       c.userImpact, c.implementationCost, c.tier, c.rank === 9999 ? "" : c.rank,
-      value(c), c.deprecated ? "yes" : "no", c.actionUrl,
+      value(c), c.deprecated ? "yes" : "no",
+      // One line per cell: a quoted newline is legal CSV and still ruins
+      // the sheet somebody opens it in.
+      flat(c.description), flat(c.remediation), c.actionUrl,
     ].map(q).join(","));
     return [head.map(q).join(","), ...rows].join("\n");
   }
@@ -511,9 +585,12 @@ const SecureScore = (() => {
     ranked.forEach((c) => {
       out.push(`### ${c.title} — ${c.points} point${c.points === 1 ? "" : "s"} available`);
       out.push(`- **Category:** ${c.category || "not stated"} · **Tier:** ${c.tier || "not stated"} · **User impact:** ${c.userImpact || "not stated"} · **Implementation cost:** ${c.implementationCost || "not stated"}`);
-      out.push(`- **This tenant:** ${c.score} of ${c.maxScore}. ${c.description || ""}`.trim());
-      if (c.remediation) out.push(`- **Remediation:** ${c.remediation}`);
-      if (c.remediationImpact) out.push(`- **Impact of remediating:** ${c.remediationImpact}`);
+      // flat(): the text is already through plain(), but a Markdown bullet
+      // is one line and Microsoft's remediation is frequently a numbered
+      // list — a raw newline here silently ends the bullet.
+      out.push(`- **This tenant:** ${c.score} of ${c.maxScore}. ${flat(c.description)}`.trim());
+      if (c.remediation) out.push(`- **Remediation:** ${flat(c.remediation)}`);
+      if (c.remediationImpact) out.push(`- **Impact of remediating:** ${flat(c.remediationImpact)}`);
       if (c.actionUrl) out.push(`- **Action:** ${c.actionUrl}`);
       out.push(``);
     });
@@ -524,7 +601,7 @@ const SecureScore = (() => {
     SCOPE, CATEGORIES, ENDPOINT_CATEGORIES, SNAP_KIND, SNAP_VERSION,
     collect, normalizeScore, controlsFrom, categoryRows, deltas,
     gaps, unreadable, byValue, value, endpointGaps,
-    comparativeOf, pct, dayOf,
+    comparativeOf, pct, dayOf, plain, flat, painOf, stated,
     snapshot, parseSnapshot, mergeHistory,
     controlsCsv, historyCsv, md,
   };
@@ -539,6 +616,11 @@ const SecureScoreTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, running = false, uploaded = [], merged = null, search = "", view = "value";
+  // The cards-or-list face, the seg T19, T20 and T14 all wear. Cards lead
+  // because Microsoft's assessment text is the substance of a control and
+  // a fixed table column cannot hold it; the list is for the tenant with
+  // fifty-six of these, where scanning beats reading.
+  let face = "cards";
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -578,7 +660,7 @@ const SecureScoreTool = (() => {
       prog("Checking permissions…");
       await Graph.ensureScopes(SecureScore.SCOPE);
       const r = await SecureScore.collect({ onStatus: prog });
-      res = r; uploaded = []; search = ""; view = "value";
+      res = r; uploaded = []; search = ""; view = "value"; face = "cards";
       rebuild();
       prog("");
       if (r.empty) {
@@ -749,17 +831,40 @@ const SecureScoreTool = (() => {
     const rows = all.filter((c) => !q || c.title.toLowerCase().includes(q) || String(c.id).toLowerCase().includes(q) || (c.category || "").toLowerCase().includes(q) || (c.remediation || "").toLowerCase().includes(q));
     const un = SecureScore.unreadable(m.controls);
 
-    const card = (c) => `<div class="sc-ctrl">
+    // "Unknown" is Microsoft's own word on a great many controls, and it
+    // is not the same as a field they left empty — so it is printed as
+    // they wrote it, with what this tool DOES with it said once on the
+    // note above rather than re-explained on every card.
+    const level = (v) => (SecureScore.stated(v) ? esc(v) : `${esc(v || "not stated")} <span class="sc-def">→ weighed as moderate</span>`);
+
+    // The card. The long text is Microsoft's, through plain() — newlines
+    // survive as newlines via .sc-text, and a URL too long to break sits
+    // inside a container that is allowed to break it rather than one that
+    // widens the whole page (10502's layout fix).
+    const card = (c) => `<div class="sc-ctrl" data-scopen="${esc(c.id)}" role="button" tabindex="0">
       <div class="sc-ctrl-h">
         <b>${esc(c.title)}</b>
         <span class="sc-pts">${c.points != null ? `${c.points} pt${c.points === 1 ? "" : "s"} left` : "—"}</span>
       </div>
-      <div class="mini muted" style="margin:2px 0 8px">${esc(c.category || "uncategorised")} · ${c.score} of ${c.maxScore} · tier ${esc(c.tier || "not stated")} · user impact ${esc(c.userImpact || "not stated")} · cost ${esc(c.implementationCost || "not stated")}${c.rank !== 9999 ? ` · Microsoft rank ${c.rank}` : ""}${c.titled ? "" : " · <b>no title in the catalogue — this is the raw control id</b>"}</div>
-      ${c.description ? `<p class="mini" style="margin:0 0 6px"><b>Assessment:</b> ${esc(c.description)}</p>` : ""}
-      ${c.remediation ? `<p class="mini" style="margin:0 0 6px"><b>Remediation:</b> ${esc(c.remediation)}</p>` : ""}
-      ${c.remediationImpact ? `<p class="mini" style="margin:0 0 6px"><b>Impact of doing it:</b> ${esc(c.remediationImpact)}</p>` : ""}
-      ${c.actionUrl ? `<p class="mini" style="margin:0"><a href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">Open where this is configured ↗</a></p>` : ""}
+      <div class="mini muted sc-meta">${esc(c.category || "uncategorised")} · ${c.score} of ${c.maxScore} · tier ${esc(c.tier || "not stated")} · user impact ${level(c.userImpact)} · cost ${level(c.implementationCost)}${c.rank !== 9999 ? ` · Microsoft rank ${c.rank}` : ""}${c.titled ? "" : " · <b>no title in the catalogue — this is the raw control id</b>"}</div>
+      ${c.description ? `<p class="mini sc-text sc-clamp"><b>Assessment:</b> ${esc(c.description)}</p>` : ""}
+      ${c.remediation ? `<p class="mini sc-text sc-clamp"><b>Remediation:</b> ${esc(c.remediation)}</p>` : ""}
+      <p class="mini muted sc-more">Open for the full text${c.actionUrl ? " and the portal link" : ""} →</p>
     </div>`;
+
+    // The list face — the house .cg-table, the same rows, one line each,
+    // and a row click opening the same popout a card click does. T19 and
+    // T20 wear this seg; a third spelling of one control is how two
+    // screens start disagreeing about what a face is.
+    const row = (c) => `<tr class="sc-row" data-scopen="${esc(c.id)}">
+      <td><b>${esc(c.title)}</b></td>
+      <td>${esc(c.category || "—")}</td>
+      <td>${c.points != null ? c.points : "—"}</td>
+      <td class="mini">${c.score} / ${c.maxScore}</td>
+      <td class="mini">${esc(c.userImpact || "not stated")}</td>
+      <td class="mini">${esc(c.implementationCost || "not stated")}</td>
+      <td class="mini">${c.rank === 9999 ? "—" : c.rank}</td>
+    </tr>`;
 
     return `<div class="list-card sc-bar">
       <div class="seg" id="scViewSeg">
@@ -768,13 +873,51 @@ const SecureScoreTool = (() => {
         <button type="button" data-scview="rank" class="${view === "rank" ? "active" : ""}">🏅 Microsoft rank</button>
         <button type="button" data-scview="done" class="${view === "done" ? "active" : ""}">✅ Achieved</button>
       </div>
+      <div class="seg" id="scFaceSeg">
+        <button type="button" data-scface="cards" class="${face === "cards" ? "active" : ""}">🗂 Cards</button>
+        <button type="button" data-scface="list" class="${face === "list" ? "active" : ""}">☰ List</button>
+      </div>
       <input id="scSearch" type="search" placeholder="Filter by title, control id, category or remediation…" value="${esc(search)}">
       <span class="mini muted">${rows.length} shown</span></div>
-    ${view === "value" ? `<div class="list-card"><p class="mini muted" style="margin:0"><b>This ordering is TUNO's, not Microsoft's.</b> Points still available, weighted down by the user impact and implementation cost Microsoft publishes on the control. A control that declares neither is treated as <i>moderate</i> — an unstated impact is not a low one, and calling it low is how a "quick win" becomes the change that breaks sign-in on Monday. 🏅 Microsoft rank is Microsoft's own stack ranking, unchanged.</p></div>` : ""}
+    ${view === "value" ? `<div class="list-card"><p class="mini muted" style="margin:0"><b>This ordering is TUNO's, not Microsoft's.</b> Points still available, weighted down by the user impact and implementation cost Microsoft publishes on the control. Microsoft answers <i>Unknown</i> on a great many of them; an unknown level is weighed as <b>moderate</b>, never as low, because calling an unstated impact low is how a "quick win" becomes the change that breaks sign-in on Monday. 🏅 Microsoft rank is Microsoft's own stack ranking, unchanged.</p></div>` : ""}
     ${un.length && view !== "done" ? `<div class="list-card"><p class="mini muted" style="margin:0">${un.length} control${un.length === 1 ? "" : "s"} could not be scored — no readable score or no ceiling in the catalogue — and ${un.length === 1 ? "is" : "are"} counted as neither achieved nor a gap: ${esc(un.slice(0, 5).map((c) => c.title).join("; "))}${un.length > 5 ? `, and ${un.length - 5} more` : ""}.</p></div>` : ""}
-    ${rows.length ? `<div class="sc-ctrls">${rows.map(card).join("")}</div>`
+    ${rows.length
+      ? (face === "list"
+        ? `<div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Improvement action</th><th>Category</th><th>Points left</th><th>Score</th><th>User impact</th><th>Cost</th><th>MS rank</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`
+        : `<div class="sc-ctrls">${rows.map(card).join("")}</div>`)
       : `<div class="list-card"><p class="mini muted" style="margin:0">${q ? "Nothing matches that filter." : view === "done" ? "No control is fully achieved yet." : "No gaps — every scored control is at its maximum."}</p></div>`}`;
   }
+
+  // ------------------------------------------------------------- popout --
+  // One control, whole: the full assessment and remediation Microsoft
+  // wrote, unclipped, plus the portal link. Both faces open it, so the
+  // list is a denser view of the same information rather than a lossy one.
+  function openControl(id) {
+    const c = merged && merged.controls.find((x) => x.id === id);
+    if (!c) return;
+    const line = (label, text) => (text ? `<p class="mini sc-text" style="margin:0 0 10px"><b>${label}</b><br>${esc(text)}</p>` : "");
+    $("scModalBody").innerHTML = `
+      <div class="gu-m-head"><h3 style="margin:0">${esc(c.title)}</h3></div>
+      <div class="gu-m-body">
+        <p class="mini muted sc-meta" style="margin:0 0 12px">${esc(c.category || "uncategorised")} · <b>${c.score} of ${c.maxScore}</b>${c.points != null && c.points > 0 ? ` · <b>${c.points} point${c.points === 1 ? "" : "s"} still available</b>` : " · fully achieved"} · tier ${esc(c.tier || "not stated")} · user impact ${esc(c.userImpact || "not stated")} · cost ${esc(c.implementationCost || "not stated")}${c.rank !== 9999 ? ` · Microsoft rank ${c.rank}` : ""}${c.service ? ` · ${esc(c.service)}` : ""}</p>
+        ${line("Assessment", c.description)}
+        ${line("Remediation", c.remediation)}
+        ${line("Impact of doing it", c.remediationImpact)}
+        ${c.threats && c.threats.length ? `<p class="mini muted" style="margin:0 0 10px"><b>Threats it mitigates:</b> ${esc(c.threats.join(", "))}</p>` : ""}
+        <p class="mini muted" style="margin:0">Control id <code>${esc(c.id)}</code>${c.fromBeta ? " · title read from the beta catalogue" : ""}. This text is Microsoft's, with its HTML markup read and discarded — TUNO never renders a third party's markup in a page holding a tenant token.</p>
+      </div>
+      <div class="gu-m-foot">
+        ${c.actionUrl ? `<a class="btn" href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">Open where this is configured ↗</a>` : ""}
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn primary" id="scModalClose">Close</button>
+      </div>`;
+    $("scModal").classList.add("open");
+    $("scModalClose").addEventListener("click", closeControl);
+    $("scModal").onclick = (e) => { if (e.target === $("scModal")) closeControl(); };
+    document.addEventListener("keydown", onEsc);
+  }
+  function closeControl() { $("scModal").classList.remove("open"); document.removeEventListener("keydown", onEsc); }
+  function onEsc(e) { if (e.key === "Escape") closeControl(); }
 
   // -------------------------------------------------------------- render --
   const TABS = [
@@ -824,7 +967,11 @@ const SecureScoreTool = (() => {
       const t = e.target.closest("[data-sctab]");
       if (t) { const k = t.getAttribute("data-sctab"); if (k !== tab) { tab = k; search = ""; render(); } return; }
       const v = e.target.closest("[data-scview]");
-      if (v) { const k = v.getAttribute("data-scview"); if (k !== view) { view = k; render(); } }
+      if (v) { const k = v.getAttribute("data-scview"); if (k !== view) { view = k; render(); } return; }
+      const f = e.target.closest("[data-scface]");
+      if (f) { const k = f.getAttribute("data-scface"); if (k !== face) { face = k; render(); } return; }
+      const o = e.target.closest("[data-scopen]");
+      if (o) openControl(o.getAttribute("data-scopen"));
     });
   }
 
@@ -842,7 +989,7 @@ const SecureScoreTool = (() => {
   return {
     init, run, readFor,
     // seams for the headless suite — the real res is set by run()
-    _setForTest: (r, ups) => { res = r; uploaded = ups || []; tab = "score"; search = ""; view = "value"; rebuild(); render(); },
+    _setForTest: (r, ups) => { res = r; uploaded = ups || []; tab = "score"; search = ""; view = "value"; face = "cards"; rebuild(); render(); },
     _state: () => ({ tab, view, search, uploaded: uploaded.length, merged }),
   };
 })();

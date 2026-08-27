@@ -1589,7 +1589,7 @@ const EndpointPostureTool = (() => {
       <p class="mini" style="margin:6px 0 0"><b>This tool:</b> ${esc(r.check.detail)}</p>
       <p class="mini" style="margin:4px 0 0"><b>Microsoft's control:</b> ${esc((r.open.length ? r.open : r.controls).map((c) => `${c.title} (${c.score} of ${c.maxScore})`).join("; "))}</p>
       ${extra ? `<p class="mini muted" style="margin:4px 0 0">${extra}</p>` : ""}
-      ${(r.open[0] && r.open[0].remediation) ? `<p class="mini" style="margin:4px 0 0"><b>Microsoft's remediation:</b> ${esc(r.open[0].remediation)}</p>` : ""}
+      ${(r.open[0] && r.open[0].remediation) ? `<p class="mini sc-text" style="margin:4px 0 0"><b>Microsoft's remediation:</b> ${esc(r.open[0].remediation)}</p>` : ""}
     </div>`;
 
     const parts = [];
@@ -1625,7 +1625,7 @@ const EndpointPostureTool = (() => {
       <h4 class="ep-h" style="margin:0 0 4px">📋 Microsoft scores it, this tool has no check for it (${corr.msOnly.length})</h4>
       <p class="mini muted" style="margin:0 0 12px">Endpoint controls with points available that no check above covers — <b>a gap in the check set, shown rather than hidden</b>. Under Microsoft's own titles and remediation.</p>
       <div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Improvement action</th><th>Category</th><th>Points</th><th>User impact</th><th>Remediation</th></tr></thead><tbody>
-      ${corr.msOnly.map((c) => `<tr><td><b>${esc(c.title)}</b>${c.actionUrl ? ` <a href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">↗</a>` : ""}</td><td>${esc(c.category)}</td><td>${c.points}</td><td>${esc(c.userImpact || "not stated")}</td><td class="mini">${esc(String(c.remediation || "—").slice(0, 240))}</td></tr>`).join("")}
+      ${corr.msOnly.map((c) => `<tr><td><b>${esc(c.title)}</b>${c.actionUrl ? ` <a href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">↗</a>` : ""}</td><td>${esc(c.category)}</td><td>${c.points}</td><td>${esc(c.userImpact || "not stated")}</td><td class="mini">${esc(SecureScore.flat(c.remediation) || "—")}</td></tr>`).join("")}
       </tbody></table></div></div>`);
 
     if (corr.scored.length) parts.push(`<div class="list-card">
