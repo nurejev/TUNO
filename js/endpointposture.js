@@ -152,8 +152,13 @@ const EndpointPosture = (() => {
   // deduplicated, exclusions NOT subtracted, a filter capping at may.
   // Every one of those limits is worn on the line, because a device
   // number that hides its arithmetic is how a claim becomes a lie.
-  function deviceReach(docs, counts, deviceCount) {
-    const live = (docs || []).filter((d) => stateOf(d) === "assigned");
+  // `state` picks which of the statement's policies the arithmetic is about:
+  // "assigned" is what is enforced NOW, "planned" is the staged policy that
+  // is not assigned yet — the same sum over a different half of the same
+  // list, so today and the destination cannot drift into two arithmetics.
+  function deviceReach(docs, counts, deviceCount, opts) {
+    const want = (opts && opts.state) || "assigned";
+    const live = (docs || []).filter((d) => (want === "planned" ? stateOf(d) !== "assigned" : stateOf(d) === "assigned"));
     const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0 };
     if (!live.length) { out.missing = deviceCount == null ? null : deviceCount; return out; }
     const ids = new Set();
@@ -357,19 +362,46 @@ const EndpointPosture = (() => {
     const nar = r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller and a browser cannot compute it` : "";
     if (r.wide) {
       return deviceCount == null
-        ? `applies tenant-wide (device count unreadable)${nar}`
-        : `applies to ${r.cap ? "at most all" : "all"} ${deviceCount} enrolled Windows devices${nar}`;
+        ? `enforced now tenant-wide (device count unreadable)${nar}`
+        : `enforced now on ${r.cap ? "at most all" : "all"} ${deviceCount} enrolled Windows devices${nar}`;
     }
     if (r.reached == null) {
       return r.groups
-        ? `applies to ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
+        ? `enforced now on ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
         : null;
     }
     const D = deviceCount == null ? "an unknown number of" : deviceCount;
     const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
     const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
     const floor = r.unknownGroups && !r.cap ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
-    return `applies to ${verb}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}${nar}`;
+    return `enforced now on ${verb}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}${nar}`;
+  }
+
+  // WHERE THIS IS GOING — the other half of the brief's device sentence
+  // (10486, Mihai's ask): "enforced now on N" answers today, and says
+  // nothing about the destination, which is the only number a rollout
+  // communication is actually about. Read off the statement's own
+  // not-yet-assigned policies, so the plan is the tenant's plan and not an
+  // assumption that everything ends up fleet-wide. A staged policy with no
+  // assignment at all says exactly that, because "all 9969 at rollout" is a
+  // guess wearing a number.
+  function rolloutLine(item, counts, deviceCount) {
+    const r = deviceReach(item.docs || [], counts, deviceCount, { state: "planned" });
+    if (!r.live) return null;
+    const nar = r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller` : "";
+    if (r.wide) {
+      return deviceCount == null
+        ? `at rollout: targets All devices (the fleet size could not be read)${nar}`
+        : `at rollout: targets All devices — all ${deviceCount} enrolled Windows devices in total${nar}`;
+    }
+    if (!r.groups) {
+      return deviceCount == null
+        ? `at rollout: the staged policy carries NO assignment yet — its destination is not in the tenant to read`
+        : `at rollout: the staged policy carries NO assignment yet — nothing targets it, so the ${deviceCount}-device fleet is the intention, not a reading`;
+    }
+    if (r.reached == null) return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — no member count could be read, so the destination size is unknown, not zero`;
+    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
+    return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${nar}`;
   }
 
   function briefMd(items, { tenantName, deviceCount = null, counts = null } = {}) {
@@ -386,17 +418,21 @@ const EndpointPosture = (() => {
       out.push(`## Already enforced today`);
       for (const i of live) {
         const reach = impactReachLine(i, counts, deviceCount);
+        const roll = rolloutLine(i, counts, deviceCount);
         const marks = [];
         if (i.transition) marks.push(`today through an interim policy — at rollout the staged replacement takes over`);
         if (i.filtered) marks.push(`scoped by ⚑ ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
-        out.push(`- ${i.icon} **${i.title}** — ${i.text}${marks.length ? ` _(${marks.join("; ")})_` : ""}${reach ? `\n  - 📟 ${reach}` : ""}`);
+        out.push(`- ${i.icon} **${i.title}** — ${i.text}${marks.length ? ` _(${marks.join("; ")})_` : ""}${reach ? `\n  - 📟 ${reach}` : ""}${roll ? `\n  - 🎯 ${roll}` : ""}`);
       }
       out.push(``);
     }
     if (later.length) {
       out.push(`## What changes at rollout`);
-      out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` At rollout they apply to the whole fleet — all ${deviceCount} enrolled Windows devices.` : ""}`);
-      for (const i of later) out.push(`- ${i.icon} **${i.title}** — ${i.text}${deviceCount != null ? `\n  - 📟 at rollout: all ${deviceCount} enrolled Windows devices` : ""}`);
+      out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`);
+      for (const i of later) {
+        const roll = rolloutLine(i, counts, deviceCount) || (deviceCount != null ? `at rollout: all ${deviceCount} enrolled Windows devices` : null);
+        out.push(`- ${i.icon} **${i.title}** — ${i.text}${roll ? `\n  - 🎯 ${roll}` : ""}`);
+      }
       out.push(``);
     }
     const stops = items.filter((i) => i.goesAway);
@@ -446,14 +482,17 @@ const EndpointPosture = (() => {
         if (i.filtered) marks.push(`scoped by ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (marks.length ? ` (${marks.join("; ")})` : ""), {}]]));
         if (reach) body.push(P([[`   ${reach}`, { i: true }]]));
+        const roll = rolloutLine(i, counts, deviceCount);
+        if (roll) body.push(P([[`   ${roll}`, { i: true }]]));
       }
     }
     if (later.length) {
       body.push(P(`What changes at rollout`, { h: 2 }));
-      body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` At rollout they apply to the whole fleet — all ${deviceCount} enrolled Windows devices.` : ""}`));
+      body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`));
       for (const i of later) {
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
-        if (deviceCount != null) body.push(P([[`   at rollout: all ${deviceCount} enrolled Windows devices`, { i: true }]]));
+        const roll = rolloutLine(i, counts, deviceCount) || (deviceCount != null ? `at rollout: all ${deviceCount} enrolled Windows devices` : null);
+        if (roll) body.push(P([[`   ${roll}`, { i: true }]]));
       }
     }
     const stops = items.filter((i) => i.goesAway);
@@ -831,7 +870,7 @@ ${body.join("\n")}
 
   return {
     NODES, nodeById, classify, intentNode,
-    RULES, analyzeImpact, impactReachLine, briefMd, briefDocx,
+    RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
     isInterim, stateWordOf, appctlMode,
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine,
@@ -1142,13 +1181,19 @@ const EndpointPostureTool = (() => {
     const live = items.filter((i) => i.liveNow), later = items.filter((i) => !i.liveNow);
     const stops = items.filter((i) => i.goesAway);
     const item = (i) => {
-      const reach = i.liveNow
-        ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount)
-        : (res.deviceCount != null ? `at rollout: all ${res.deviceCount} enrolled Windows devices` : null);
+      const reach = i.liveNow ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount) : null;
+      // TODAY AND THE DESTINATION, SIDE BY SIDE (10486). A live statement
+      // that also has a staged policy behind it wears both lines: what is
+      // enforced now, and what the rollout targets. A not-yet-live one
+      // wears only the second — which is read off the staged policy's own
+      // assignment rather than assumed to be the whole fleet.
+      const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount)
+        || (!i.liveNow && res.deviceCount != null ? `at rollout: all ${res.deviceCount} enrolled Windows devices` : null);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
       <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — some devices, not all</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>
-      ${reach ? `<p class="mini" style="margin:0 0 6px"><b>📟</b> ${esc(reach)}</p>` : ""}
+      ${reach ? `<p class="mini" style="margin:0 0 4px"><b>📟</b> ${esc(reach)}</p>` : ""}
+      ${rollout ? `<p class="mini" style="margin:0 0 6px${i.liveNow ? ";color:var(--muted)" : ""}"><b>🎯</b> ${esc(rollout)}</p>` : ""}
       ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>No longer possible:</b> ${esc(i.lost)}</p>` : ""}
       <p class="mini muted" style="margin:0">Behind it: ${i.pols.map((p) => `${esc(p.name)} <i>[${esc(p.word || EndpointPosture.STATE_WORD[p.state])}]</i>`).join("; ")}</p>
     </div>`;

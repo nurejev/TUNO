@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10486, date: "2026-08-27", title: "The brief says what is enforced now AND where it is going",
+    items: [
+      { kind: "new", tool: "T20", text: "Every brief statement now carries two device lines instead of one: \ud83d\udcdf enforced now on ~5000 of 9969 enrolled Windows devices, and \ud83c\udfaf at rollout: targets All devices \u2014 all 9969 enrolled Windows devices in total. Today's coverage and the destination are the two numbers a rollout communication is actually about, and the brief had only ever printed the first." },
+      { kind: "fixed", tool: "T20", text: "The at-rollout number is READ, not assumed. It said \"at rollout: all N enrolled Windows devices\" about every staged policy, which is an assumption wearing a figure \u2014 a staged policy targeting two pilot groups does not end up fleet-wide. The line is now the same arithmetic run over the statement's own not-yet-assigned policies, and a staged policy with no assignment at all says exactly that rather than borrowing the fleet total." },
+      { kind: "improved", tool: "T20", text: "The wording moved with it \u2014 \"applies to\" became \"enforced now on\", so the two lines cannot be misread as one repeated. Pane, Markdown and Word exports all speak both." },
+    ],
+  },
+  {
     build: 10485, date: "2026-08-27", title: "Policy overview gets its list face",
     items: [
       { kind: "new", tool: "T19", text: "\ud83d\uddc2 Cards | \u2630 List \u2014 T20's own segment, ported rather than reinvented, because two tools showing the same policies must offer the same two faces or the eye has to relearn the screen. Cards stay the default (a tenant you do not know is a scan, not a lookup); the table is the house .cg-table with Policy, Surface, Included, Reach, Platform, Settings and Verdict, and a row click opens the same documenter popout a card click does. The choice survives filtering and typing, and resets on a fresh read." },
