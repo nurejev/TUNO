@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 104,
+      title: "The tool header wears the T-number and version, ENCA's stamp ported",
+      tools: ["All tools"],
+      builds: [10469],
+      risk: "low",
+      what: "js/app.js only. ENCA's stampHeadVersion, ported: a SCREEN_TOOL map (screen id to tool id, since TUNO's screens carry no head ids), the .tool-ver-head pill appended to the first list-card's heading on each of the nineteen tool screens, textContent T-number plus version from TOOL_VERSIONS, hover title carrying the permanent-number sentence and the tool's release note. A MutationObserver per head re-stamps if a tool ever re-renders its header — the stamped-already check is what stops it looping. The CSS class already existed, unused since the scaffold; no stylesheet change.",
+      why: "LOW: additive chrome from data already shipped (TOOL_VERSIONS), no tool logic touched, no reads, no scopes. The tile had the stamp and the header did not — which is backwards, because the header is where you are when you wonder what version answered you.",
+      test: [
+        "Open any tool: the header heading must end with the T-number and version pill, matching the home tile's stamp exactly, with the release note on hover.",
+        "Count: all nineteen tool screens carry the pill; Help, Roadmap, Changelog and the home screen carry none.",
+        "The pill must appear once, not stack — revisit a tool, switch tabs back and forth, and confirm a single stamp.",
+        "Tools whose headings carry chips (BETA, writes to the tenant) must show the pill after the chips without wrapping oddly at normal widths.",
+        "On production after promotion, the pill wording must be identical — the stamp carries no channel language.",
+      ],
+      files: ["js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 103,
       title: "The Device analyzer finds the machine from its primary user, and a multi-match is a pick",
       tools: ["T06"],

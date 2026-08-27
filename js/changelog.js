@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10469, date: "2026-08-27", title: "Every tool header wears its number and version",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The T-number and version stamp that rides every home tile now sits on the tool's own header card too — where somebody actually is when they wonder what changed. ENCA's implementation, ported: the same pill, hover for the tool's full release note, and the class had been waiting unused in the stylesheet since the scaffold. Stamped on all nineteen tool screens, and re-stamped automatically if a tool ever re-renders its header." },
+    ],
+  },
+  {
     build: 10468, date: "2026-08-27", title: "The Device analyzer finds the machine from its user",
     items: [
       { kind: "improved", tool: "T06", text: "The search box also takes the PRIMARY USER, because the ticket names the person far more often than the serial: a term with an @ is tried as a UPN before the device filters, an exact display name matches in the inventory scan, and a GUID gets a third try as the user's object id after the two device ids. No new permission — the Intune enrolment record already names its user, so nothing reads the directory to answer this." },

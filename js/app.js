@@ -207,6 +207,45 @@ const Fs = (() => {
         tile.appendChild(tag);
       }
     }
+    // The version badge is on the home tile; it belongs on the tool's own
+    // header too, which is where somebody actually is when they wonder what
+    // changed — ENCA's stampHeadVersion, ported. The .tool-ver-head class has
+    // sat in the stylesheet since the scaffold waiting for exactly this.
+    // TUNO's header cards are static markup today, but heads MAY be
+    // re-rendered by their tools, so observe rather than stamp once — the
+    // stamped-already check is also what stops the observer looping.
+    // ENCA maps head-element ids; TUNO's screens carry no head ids, so the
+    // map is screen id -> tool id and the head is the first list-card's
+    // heading — verified present for all nineteen at the time of the port.
+    const SCREEN_TOOL = {
+      "screen-applocker": "toolAppLocker", "screen-defender": "toolDefender",
+      "screen-endpointsec": "toolEndpointSec", "screen-laps": "toolLaps",
+      "screen-groupuse": "toolGroupUse", "screen-audit": "toolAudit",
+      "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
+      "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
+      "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
+      "screen-device": "toolDevice", "screen-filters": "toolFilters",
+      "screen-roles": "toolRoles", "screen-maa": "toolMaa",
+      "screen-backup": "toolBackup", "screen-overview": "toolOverview",
+      "screen-docs": "toolDocs",
+    };
+    function stampHeadVersion(card, toolId) {
+      const t = (typeof TOOL_VERSIONS !== "undefined" && TOOL_VERSIONS[toolId]) || null;
+      if (!t || !t.v) return;
+      const h = card.querySelector("h2, h3");
+      if (!h || h.querySelector(".tool-ver-head")) return;   // also stops the observer looping
+      const s = document.createElement("span");
+      s.className = "tool-ver-head";
+      s.textContent = `${toolNo(t)}${toolNo(t) ? " · " : ""}v${t.v}`;
+      s.title = `${toolNo(t) ? `${toolNo(t)} — this tool's permanent number. It never changes and is never reused, so it means one thing across both channels, every build and any future language.\n\n` : ""}${t.note || ""}`.trim();
+      h.appendChild(s);
+    }
+    Object.entries(SCREEN_TOOL).forEach(([sid, toolId]) => {
+      const card = document.querySelector(`#${sid} .list-card`);
+      if (!card) return;
+      stampHeadVersion(card, toolId);
+      new MutationObserver(() => stampHeadVersion(card, toolId)).observe(card, { childList: true, subtree: true });
+    });
     console.info(`${BRANDING.name} ${APP_BUILD.full}`);
   })();
 
