@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 105,
+      title: "Intune RBAC: a group member opens to who is in it — ENCA's per-group scan, ported",
+      tools: ["T07"],
+      builds: [10470],
+      risk: "low",
+      what: "js/roles.js plus the T07 screen and help text, and an rbModal block in index.html (ENCA's modal, the guModal/dcModal classes). Engine: Roles.groupMembers(id) — ENCA's loadMembers for one group — reads transitiveMembers/microsoft.graph.user with ENCA's 500 cap, returning total, capped and the member list with a disabled flag. Screen: group-typed member rows gain a 👥 members button (delegated handler, role-fold clicks ignore buttons); the modal reads on the click, caches per group id, paints only if that group is still the one asked for, and states the honesty lines — users only, nesting flattened, cap versus true total, who can change the list. run() and reset() clear the cache and close the modal. Exports are untouched: the report stays the assignment as written.",
+      why: "LOW: reads only, on demand only, under scopes the tool already asks for — nothing changes for anyone who never clicks the button, and the run itself makes not one extra call. The question it answers is the audit's next sentence every time a group appears in a role: fine, and who is that today?",
+      test: [
+        "Run T07 on a tenant where a role assignment names a group. The group row must carry the 👥 members button; user rows must not.",
+        "Click it: the modal opens with the group name, reads, and lists users with sign-in names, disabled accounts tagged, the subtitle carrying the flattened-user count. Close and reopen — the second open must be instant, with no new Graph call.",
+        "Click the button on a group inside a folded-open role: the fold must NOT toggle closed.",
+        "A group holding only devices or nothing must say so in the modal rather than showing an empty table; a group the account cannot read must show the refusal in the modal, with the report behind it untouched.",
+        "Run again: the cache is gone (a change to the group between runs shows on the next click). Exports before and after clicking must be identical — the expansion never enters the report.",
+      ],
+      files: ["js/roles.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 104,
       title: "The tool header wears the T-number and version, ENCA's stamp ported",
       tools: ["All tools"],

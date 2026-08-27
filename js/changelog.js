@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10470, date: "2026-08-27", title: "Intune RBAC: a group member answers who is in it",
+    items: [
+      { kind: "improved", tool: "T07", text: "A role member that is a group now carries a members button: who is IN it, read live on the click and shown in the same modal the other tools use. Transitive, so nested groups are flattened to the people who effectively hold the role; users only, since a device or service principal in the group holds no Intune RBAC; capped at 500 with the true total shown, disabled accounts tagged. The report itself keeps showing the assignment as written — group as group — because whoever can change that group's membership can grant the role without holding it, and that fact should not be flattened away." },
+      { kind: "improved", tool: "T07", text: "No new permission, and nothing extra during the run: the read happens only for the group you ask about, at the moment you ask, under the directory scopes the tool already brings in. The answer is cached per group until the next run, so a second look is instant. ENCA's per-group member scan, ported — the read, the cap and the modal." },
+    ],
+  },
+  {
     build: 10469, date: "2026-08-27", title: "Every tool header wears its number and version",
     items: [
       { kind: "improved", tool: "All tools", text: "The T-number and version stamp that rides every home tile now sits on the tool's own header card too — where somebody actually is when they wonder what changed. ENCA's implementation, ported: the same pill, hover for the tool's full release note, and the class had been waiting unused in the stylesheet since the scaffold. Stamped on all nineteen tool screens, and re-stamped automatically if a tool ever re-renders its header." },
