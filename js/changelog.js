@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10473, date: "2026-08-27", title: "The tiles stop saying NEW and BETA about shipped work",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Eighteen home tiles wore NEW and BETA while their tools ran in production — the roadmap had this exact disease and build 10467 cured it there; the tiles kept it. Once a tool is in production it is live, whichever channel you read the tiles from. NEW and BETA now belong only to a tool that is not in production yet — one tile today, the Policy overview." },
+      { kind: "improved", tool: "All tools", text: "A tool a pending promotion-queue item changed wears UPDATED — the Device analyzer, Intune RBAC and the Configuration documenter today — so the label answers the question the tile stamp raises: this version number moved, what happened. Cleared as items leave the queue at promotion. The writes-to-the-tenant chip is a property, not a status, and stays put. This build exists because the Device analyzer changed twice in one day and its tile said nothing but a stale NEW." },
+    ],
+  },
+  {
     build: 10472, date: "2026-08-27", title: "The Device analyzer suggests as you type",
     items: [
       { kind: "improved", tool: "T06", text: "The search box type-aheads from the tenant: devices and primary users together, four of each, every row saying which it is. Typing mihai now offers the person and their machines instead of silence. Picking a user fills the UPN, since two people can share a display name and a UPN is still readable; picking a device fills its name. Built on the shared Suggest component every other name box already uses, so the consent rule holds: nothing is read on a keystroke until the enable row is clicked, and that row now names both scopes the suggestions will use." },

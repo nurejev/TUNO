@@ -38,6 +38,18 @@ of build-number collisions (10455 taken twice, then 10456) taught the rules:
    "Everything up-to-date" — which reads as success and is nothing.
 3. Builds cut in parallel sessions race for the next number. Whichever lands
    on the remote first keeps it; the patch side renumbers.
+4. **A failed `am` whose patch subject matches HEAD's subject means the patch
+   is ALREADY APPLIED — skip it, never renumber.** `git am` re-hashes, so the
+   SHA differs while the tree is identical; verify with
+   `git rev-parse HEAD^{tree} <mine>^{tree}` when in doubt. Learned the night
+   10468 was applied twice.
+5. **A multi-build handover is ONE mbox file, never N patch files.**
+   `git format-patch --stdout base..tip > builds.mbox`, one download, one
+   `git am`, order guaranteed. Two of the three failures that night were a
+   missing file and an out-of-order apply — an mbox cannot have either.
+6. After ANY failed `am`, `git am --abort` before trying anything else, and
+   never run the pushes: "Everything up-to-date" after a failed apply is
+   nothing wearing success's clothes.
 
 ## Git locks: MOVE them, do not delete them
 

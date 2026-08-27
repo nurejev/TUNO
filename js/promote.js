@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 108,
+      title: "Tile chips speak the channel truth: NEW/BETA only off-production, UPDATED from the queue",
+      tools: ["All tools"],
+      builds: [10473],
+      risk: "low",
+      what: "index.html and CLAUDE.md only. Eighteen tiles lose their NEW and BETA chips (their tools run in production 11); the Policy overview keeps both as the one beta-only tool; the Configuration documenter, Device analyzer and Intune RBAC gain UPDATED because pending queue items 99, 103, 105-107 changed them; the two writes-to-the-tenant chips are untouched. The tile-tags comment now states the rule — the 10467 roadmap rule applied to tiles — and CLAUDE.md gains three patch-handover lessons from the night this shipped: an already-applied patch announces itself by its subject matching HEAD's, multi-build handovers are one mbox, and a failed am is aborted before anything else runs.",
+      why: "LOW and beta-facing: production tiles are relabelled at promotion by standing step 5 and main-check enforces them, so nothing a customer sees changes. What changes is whether this channel's own tiles mean anything — a page where every tile says NEW and BETA has chips that answer no question, which is how a genuinely updated tool went unnoticed on the day it changed twice.",
+      test: [
+        "On this channel, exactly one tile wears NEW or BETA and it is the Policy overview; every other tile wears either UPDATED or nothing, and the UPDATED set matches the tools named by the pending queue.",
+        "The Assignment editor and Assignment filters tiles keep the writes-to-the-tenant chip with no status chip beside it.",
+        "The version stamps on the tiles and headers are untouched — the chip is the news, the stamp is the number.",
+        "At the next promotion, step 5 clears the promoted tools' UPDATED chips here and sets main's own labels; after a full-queue promotion no tile here wears UPDATED.",
+        "Production after that promotion must satisfy main-check exactly as before — this build changes nothing it checks.",
+      ],
+      files: ["index.html", "CLAUDE.md", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 107,
       title: "T06's box suggests devices and users — Suggest's dvTerm registration widened",
       tools: ["T06"],
