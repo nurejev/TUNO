@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 106,
+      title: "Intune RBAC: a permissions button opens the role's allow list in the modal",
+      tools: ["T07"],
+      builds: [10471],
+      risk: "low",
+      what: "js/roles.js plus one sentence each in the T07 screen and help text. Engine: Roles.roleSettings(id) re-reads ONE definition with rolePermissions on the click (the run's $select still drops them), and parseActions splits Microsoft.Intune_Category_Action into the portal's own category grouping, keeping allowed and notAllowed apart. Screen: a ⚙ permissions button on every role head (skipped for unknown roles), opening the same rbModal — allowed actions as chips with the raw Graph name on hover, denied actions marked, an empty definition and a refused read each saying so, the allow-list sentence at the foot. Cached per role id, cleared with the members cache on run and reset. Exports untouched.",
+      why: "LOW: one read, on demand, under the RBAC scope the run already asked. The description field cannot be trusted to say what a role allows — the screenshot that prompted this had the permissions typed into the description by hand, which is exactly the thing that drifts.",
+      test: [
+        "Run T07 and click ⚙ permissions on a custom role: the modal must list its actions grouped by category, matching the portal's Role properties blade for that role.",
+        "Click it on a built-in role with a large grid (Policy and Profile manager): the categories must be legible, not one wall of chips, and hover must show the raw action name.",
+        "Open the same role's permissions twice: the second open must be instant with no new Graph call. Run again and reopen: a fresh read.",
+        "The button must not toggle the role fold, and the 👥 members button must still work beside it — both modals share rbModal and must not fight.",
+        "Exports before and after viewing permissions must be identical.",
+      ],
+      files: ["js/roles.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 105,
       title: "Intune RBAC: a group member opens to who is in it — ENCA's per-group scan, ported",
       tools: ["T07"],

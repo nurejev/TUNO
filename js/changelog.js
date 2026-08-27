@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10471, date: "2026-08-27", title: "Intune RBAC: the role opens to what it allows",
+    items: [
+      { kind: "improved", tool: "T07", text: "Every role head carries a permissions button: the actions the role allows, grouped the way the portal groups them, on one page instead of a blade per category. Read on the click from the role definition itself — the run deliberately leaves the permission sets unread, since they are large and most readers never ask — cached per role until the next run, with the raw Graph action name on hover. The rare denied actions are shown as denials rather than silently subtracted, and the sentence that matters is stated: Intune RBAC is an allow list, so anything not named is not granted." },
+    ],
+  },
+  {
     build: 10470, date: "2026-08-27", title: "Intune RBAC: a group member answers who is in it",
     items: [
       { kind: "improved", tool: "T07", text: "A role member that is a group now carries a members button: who is IN it, read live on the click and shown in the same modal the other tools use. Transitive, so nested groups are flattened to the people who effectively hold the role; users only, since a device or service principal in the group holds no Intune RBAC; capped at 500 with the true total shown, disabled accounts tagged. The report itself keeps showing the assignment as written — group as group — because whoever can change that group's membership can grant the role without holding it, and that fact should not be flattened away." },
