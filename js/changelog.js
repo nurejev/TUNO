@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10467, date: "2026-08-27", title: "In production it is live — the roadmap stops saying BETA about shipped work",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "Twenty-three roadmap cards wore a BETA chip while also naming the production build they shipped in. Both cannot be true: once something is in production it is live, whichever channel you happen to be reading the roadmap from. The chip now belongs only to work that is genuinely still only here — one card today." },
+      { kind: "improved", tool: "All tools", text: "The eras are reordered: what is on this channel and not yet in production comes FIRST, then what is live, then Next and Later. The beta era is the news on a beta channel — it was sitting below twenty-three shipped cards, which is the one place nobody scrolls to look for it." },
+    ],
+  },
+  {
     build: 10466, date: "2026-08-27", title: "Every text field looks like a text field",
     items: [
       { kind: "fixed", tool: "T15", text: "The device search in Defender status rendered as a raw browser input — square corners, the wrong border, the wrong height — next to controls that did not. It was not alone: nine controls across four tools had the same problem, because the field styling was only reachable through a wrapper class and any control written without it got the browser's default." },

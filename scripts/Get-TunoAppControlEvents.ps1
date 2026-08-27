@@ -99,7 +99,7 @@ param(
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
 $script:ScriptVersion = '1.0.2'
-$script:TunoBuild = 10466
+$script:TunoBuild = 10467
 
 $ErrorActionPreference = 'Stop'
 

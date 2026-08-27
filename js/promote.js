@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 102,
+      title: "The roadmap: shipped cards stop claiming BETA, and the beta era leads",
+      tools: ["All tools"],
+      builds: [10467],
+      risk: "low",
+      what: "index.html only. Every roadmap card whose live tag names a production build loses its BETA chip — 23 of them did, leaving exactly one (R30, genuinely beta-only). The .rm-era.beta block moves above .rm-era.now, so the order reads beta, now, next, later. areas-roadmap-tests gains two assertions: the era order, and that no card carries a BETA chip while naming a production build — with the corollary that every BETA chip sits on a card in the beta era.",
+      why: "LOW to build and BETA-ONLY in effect: production already forbids these chips outright and main-check enforces it, so nothing here changes what a customer sees on tuno.limon-it.nl. What it changes is whether this channel's own roadmap is readable — a page where 24 of 30 cards say BETA has a chip that means nothing.",
+      test: [
+        "Read the roadmap on this channel top to bottom. The beta era comes first and holds only work that is not in production; every card below it that names a production build must have NO beta chip.",
+        "Confirm exactly one card still carries a BETA chip and that it is the one in the beta era. If a second appears later, the chip and the era have disagreed again.",
+        "Card count is still 30 and no reference appears twice.",
+        "On production the roadmap must be unchanged — it never had these chips, and main-check would have failed if it did.",
+        "Check the era headings still read correctly in the new order, and that the beta era's intro does not imply it is a footnote to what is above it.",
+      ],
+      files: ["index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 101,
       title: "The field look is the default, not something a control opts into",
       tools: ["All tools"],
