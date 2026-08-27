@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10485, date: "2026-08-27", title: "Policy overview gets its list face",
+    items: [
+      { kind: "new", tool: "T19", text: "\ud83d\uddc2 Cards | \u2630 List \u2014 T20's own segment, ported rather than reinvented, because two tools showing the same policies must offer the same two faces or the eye has to relearn the screen. Cards stay the default (a tenant you do not know is a scan, not a lookup); the table is the house .cg-table with Policy, Surface, Included, Reach, Platform, Settings and Verdict, and a row click opens the same documenter popout a card click does. The choice survives filtering and typing, and resets on a fresh read." },
+      { kind: "improved", tool: "T19", text: "The seg sits in the static toolbar beside the search box, for the reason the search box is there: a control that gets re-rendered under a click is a control that loses clicks. The grid class comes off the host in list mode \u2014 a table dropped into a card grid renders as one very narrow grid item." },
+    ],
+  },
+  {
     build: 10484, date: "2026-08-27", title: "A filtered assignment states a ceiling, not a count",
     items: [
       { kind: "fixed", tool: "T20", text: "A policy targeted at All devices WITH an assignment filter was reported as reaching the whole fleet \u2014 \"applies to all 9969 enrolled Windows devices\" \u2014 when the filter is the entire point of that assignment and narrows it to a fraction. A filter only ever narrows: include mode keeps what the rule matches, exclude mode drops it, and either way the number a browser can compute is a CEILING. Filtered reach now says \"at most\" and names the filter that caps it, in the reach cells, the findings and the brief alike." },

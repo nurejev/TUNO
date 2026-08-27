@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10484"></script>
+<script src="js/popup-guard.js?v=10485"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10484">
+<link rel="stylesheet" href="css/app.css?v=10485">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10484"></script>
+<script src="js/selfhost-boot.js?v=10485"></script>
 </head>
 <body>
 
@@ -819,7 +819,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
   <section id="screen-overview" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">🗂 Policy overview <span class="tag new">BETA</span></h2>
-      <p class="mini" style="margin:0">Every configured object in the tenant as clickable cards — <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s list-policies view, Intune-side-out. The read is the 📄 Configuration documenter's own thirteen-surface read — one implementation, so the two tools cannot disagree about one tenant — and a card click opens the documenter's popout with the full settings, redaction included. The surface cards on top <b>double as filters</b>: click one to see only it, click again for everything; the verdict chips do the same.</p>
+      <p class="mini" style="margin:0">Every configured object in the tenant as clickable cards — <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s list-policies view, Intune-side-out. The read is the 📄 Configuration documenter's own thirteen-surface read — one implementation, so the two tools cannot disagree about one tenant — and a card click opens the documenter's popout with the full settings, redaction included. The surface cards on top <b>double as filters</b>: click one to see only it, click again for everything; the verdict chips do the same. <b>🗂 Cards or ☰ List</b> — the same objects either way: cards to scan a tenant you do not know, the table to compare a column down a long list.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>The verdict is the house claim, not a new one.</b> <b>Assigned</b> means at least one include or tenant-wide target — reaching somebody <i>by construction</i>. <b>Excluded-only</b> is its own verdict, not a flavour of unassigned: the policy has assignments and every one says "not you". An assignment filter caps reach at <i>may</i>, worn on the card, because the rule is evaluated by the service against inventory a browser cannot see. Whether an included group is actually empty is the 🩺 Assignment health tool's finding — pointed at, not half-repeated. A surface that could not be read is a named ⚠ card: unknown, never zero. <b>Reads only.</b></p>
     </div>
     <div class="list-card wi-form">
@@ -833,6 +833,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="ovBody"></div>
     <div id="ovSurfs" class="ov-surfs"></div>
     <div class="toolbar" id="ovToolbar" style="display:none">
+      <div class="seg" id="ovViewSeg"></div>
       <div class="search"><input id="ovSearch" type="search" placeholder="🔎 Filter by name, group, platform, surface…"></div>
       <span id="ovChips"></span>
     </div>
@@ -1748,39 +1749,39 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10484"></script>
-<script src="js/selfhost.js?v=10484"></script>
-<script src="js/version.js?v=10484"></script>
-<script src="js/promote.js?v=10484"></script>
-<script src="js/authConfig.js?v=10484"></script>
-<script src="js/changelog.js?v=10484"></script>
-<script src="js/msappcatalog.js?v=10484"></script>
-<script src="js/demo.js?v=10484"></script>
-<script src="js/graph.js?v=10484"></script>
-<script src="js/suggest.js?v=10484"></script>
-<script src="js/progress.js?v=10484"></script>
-<script src="js/groupuse.js?v=10484"></script>
-<script src="js/audit.js?v=10484"></script>
-<script src="js/backup.js?v=10484"></script>
-<script src="js/document.js?v=10484"></script>
-<script src="js/overview.js?v=10484"></script>
-<script src="js/devicewhy.js?v=10484"></script>
-<script src="js/whatif.js?v=10484"></script>
-<script src="js/health.js?v=10484"></script>
-<script src="js/settingsearch.js?v=10484"></script>
-<script src="js/conflict.js?v=10484"></script>
-<script src="js/compliance.js?v=10484"></script>
-<script src="js/filters.js?v=10484"></script>
-<script src="js/restore.js?v=10484"></script>
-<script src="js/assignedit.js?v=10484"></script>
-<script src="js/roles.js?v=10484"></script>
-<script src="js/defender.js?v=10484"></script>
-<script src="js/endpointsec.js?v=10484"></script>
-<script src="js/report.js?v=10484"></script>
-<script src="js/endpointposture.js?v=10484"></script>
-<script src="js/maa.js?v=10484"></script>
-<script src="js/laps.js?v=10484"></script>
-<script src="js/applocker.js?v=10484"></script>
-<script src="js/app.js?v=10484"></script>
+<script src="js/branding.js?v=10485"></script>
+<script src="js/selfhost.js?v=10485"></script>
+<script src="js/version.js?v=10485"></script>
+<script src="js/promote.js?v=10485"></script>
+<script src="js/authConfig.js?v=10485"></script>
+<script src="js/changelog.js?v=10485"></script>
+<script src="js/msappcatalog.js?v=10485"></script>
+<script src="js/demo.js?v=10485"></script>
+<script src="js/graph.js?v=10485"></script>
+<script src="js/suggest.js?v=10485"></script>
+<script src="js/progress.js?v=10485"></script>
+<script src="js/groupuse.js?v=10485"></script>
+<script src="js/audit.js?v=10485"></script>
+<script src="js/backup.js?v=10485"></script>
+<script src="js/document.js?v=10485"></script>
+<script src="js/overview.js?v=10485"></script>
+<script src="js/devicewhy.js?v=10485"></script>
+<script src="js/whatif.js?v=10485"></script>
+<script src="js/health.js?v=10485"></script>
+<script src="js/settingsearch.js?v=10485"></script>
+<script src="js/conflict.js?v=10485"></script>
+<script src="js/compliance.js?v=10485"></script>
+<script src="js/filters.js?v=10485"></script>
+<script src="js/restore.js?v=10485"></script>
+<script src="js/assignedit.js?v=10485"></script>
+<script src="js/roles.js?v=10485"></script>
+<script src="js/defender.js?v=10485"></script>
+<script src="js/endpointsec.js?v=10485"></script>
+<script src="js/report.js?v=10485"></script>
+<script src="js/endpointposture.js?v=10485"></script>
+<script src="js/maa.js?v=10485"></script>
+<script src="js/laps.js?v=10485"></script>
+<script src="js/applocker.js?v=10485"></script>
+<script src="js/app.js?v=10485"></script>
 </body>
 </html>

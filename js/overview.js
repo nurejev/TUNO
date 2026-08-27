@@ -42,6 +42,12 @@ const OverviewTool = (() => {
 
   let res = null, running = false;
   let surfFilter = "all", verdictFilter = "all";
+  // Cards or list — T20's own seg (10477), ported rather than reinvented,
+  // because two tools showing the same policies must offer the same two
+  // faces or the eye has to relearn the screen. Cards default: the tenant
+  // question ("what does this even have") is a scan, not a lookup. The
+  // choice survives filtering and search, and resets on a fresh read.
+  let view = "cards";
 
   // ---------------------------------------------------------- verdicts --
   const VERDICTS = [["all", "All"], ["assigned", "Assigned"], ["unassigned", "Unassigned"], ["excludedOnly", "Excluded-only"]];
@@ -125,6 +131,24 @@ const OverviewTool = (() => {
     </div>`;
   }
 
+  // The list face: the same objects, one table row each — the house
+  // .cg-table, a row click opening the same popout as a card click. The
+  // columns are the card's own fields in the card's own order, plus the
+  // surface, which a card carries as a chip and a row has nowhere else to
+  // put.
+  function row(r) {
+    const { sec, it, v } = r;
+    return `<tr class="ov-row" data-open="${esc(sec.id)}|${esc(it.id)}">
+      <td><b>${esc(it.name)}</b></td>
+      <td class="mini">${sec.icon || ""} ${esc(sec.label)}</td>
+      <td class="mini">${includedCell(it)}</td>
+      <td class="mini">${reachCell(r)}</td>
+      <td class="mini">${esc(it.platform || "Not platform-specific")}</td>
+      <td class="mini">${settingsCell(it)}</td>
+      <td><span class="state ${VCHIP[v]}">${VLABEL[v]}</span></td>
+    </tr>`;
+  }
+
   // ------------------------------------------------------------- render --
   function renderSurfs() {
     const all = flat();
@@ -155,15 +179,27 @@ const OverviewTool = (() => {
   }
   function renderCards(q) {
     const rows = shown(q);
-    $("ovCards").innerHTML = rows.length
-      ? rows.map(card).join("")
-      : `<p class="mini muted" style="grid-column:1/-1">Nothing matches — the filters are the claim, not the tenant: clear a chip or the surface card and the objects come back.</p>`;
+    const host = $("ovCards");
+    // The grid class comes off in list mode — a table dropped into a card
+    // grid becomes one very narrow grid item, which is how this looked the
+    // first time it was tried.
+    host.classList.toggle("cards", view === "cards");
+    host.innerHTML = !rows.length
+      ? `<p class="mini muted" style="grid-column:1/-1">Nothing matches — the filters are the claim, not the tenant: clear a chip or the surface card and the objects come back.</p>`
+      : view === "list"
+        ? `<div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Policy</th><th>Surface</th><th>Included</th><th>Reach</th><th>Platform</th><th>Settings</th><th>Verdict</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`
+        : rows.map(card).join("");
     $("ovCount").textContent = `${rows.length} shown`;
+  }
+  function renderView() {
+    const seg = $("ovViewSeg");
+    if (!seg) return;
+    seg.innerHTML = `<button type="button" data-ovview="cards" class="${view === "cards" ? "active" : ""}">🗂 Cards</button><button type="button" data-ovview="list" class="${view === "list" ? "active" : ""}">☰ List</button>`;
   }
   function render() {
     if (!res) return;
     const q = lc($("ovSearch").value.trim());
-    renderSurfs(); renderChips(q); renderCards(q);
+    renderSurfs(); renderView(); renderChips(q); renderCards(q);
   }
 
   // ------------------------------------------------------------- popout --
@@ -209,7 +245,7 @@ const OverviewTool = (() => {
       // read of the whole tenant.
       await Graph.ensureScopes([...new Set([...Docs.scopesFor(Docs.allSectionIds()), ...Graph.SCOPES.directory])]);
       res = await Docs.collect({ onStatus: prog });
-      surfFilter = "all"; verdictFilter = "all"; $("ovSearch").value = "";
+      surfFilter = "all"; verdictFilter = "all"; view = "cards"; $("ovSearch").value = "";
       const sum = Docs.summarize(res);
       const notes = [];
       notes.push(`${sum.total} object${sum.total === 1 ? "" : "s"} across ${sum.sections} surface${sum.sections === 1 ? "" : "s"}.`);
@@ -241,6 +277,16 @@ const OverviewTool = (() => {
       verdictFilter = (verdictFilter === k && k !== "all") ? "all" : k;   // click again for everything
       render();
     });
+    // The seg lives in the STATIC toolbar beside the search box, for the
+    // same reason the search box does: it must not be re-rendered out from
+    // under a click.
+    $("ovViewSeg").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-ovview]"); if (!b) return;
+      const k = b.getAttribute("data-ovview");
+      if (k === view) return;
+      view = k;
+      renderView(); renderCards(lc($("ovSearch").value.trim()));
+    });
     $("ovSurfs").addEventListener("click", (e) => {
       const c = e.target.closest("[data-surf]"); if (!c) return;
       const k = c.getAttribute("data-surf");
@@ -257,6 +303,7 @@ const OverviewTool = (() => {
     init, run,
     // pure seams, driven by the headless tests
     verdictOf, filterMay,
+    _view: () => view,
     // for the headless tests only — the real res is set by run()
     _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; render(); },
     _state: () => ({ surfFilter, verdictFilter }),
