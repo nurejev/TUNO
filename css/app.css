@@ -725,9 +725,22 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 .wi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .wi-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .wi-f .req{color:var(--off)}
+/* THE FIELD LOOK IS THE DEFAULT, not something a call site opts into.
+   It used to live only under .wi-f, so any control written outside that
+   wrapper rendered as a raw browser field — nine of them had, across four
+   tools, and T15's device search is the one that got noticed. Making it the
+   default is what stops the tenth.
+   Scoped to main so the sign-in card keeps its own treatment, and the tick
+   boxes and sliders opt OUT below rather than every text field opting in. */
+main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]),
+main select,
+main textarea,
 .wi-f input,.wi-f select{height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface);color:var(--ink);font:inherit;font-size:13px;width:100%}
+main textarea{height:auto;padding:8px 10px;line-height:1.5}
+main input:focus,main select:focus,main textarea:focus,
 .wi-f input:focus,.wi-f select:focus{outline:none;border-color:var(--green)}
+main input[type=checkbox],main input[type=radio]{height:auto;width:auto;padding:0;border:0;border-radius:0}
 /* …but not the tick boxes: the rule above is meant for text fields and selects,
    and it was inflating a checkbox into a 38px bordered square. */
 .wi-f input[type=checkbox],.wi-f input[type=radio]{width:16px;height:16px;padding:0;border:0;border-radius:0}

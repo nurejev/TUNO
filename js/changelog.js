@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10466, date: "2026-08-27", title: "Every text field looks like a text field",
+    items: [
+      { kind: "fixed", tool: "T15", text: "The device search in Defender status rendered as a raw browser input — square corners, the wrong border, the wrong height — next to controls that did not. It was not alone: nine controls across four tools had the same problem, because the field styling was only reachable through a wrapper class and any control written without it got the browser's default." },
+      { kind: "improved", tool: "All tools", text: "The field look is now the DEFAULT for text inputs, selects and text areas inside the app, rather than something each control opts into. That is what stops the tenth one — the pattern here was a control being written correctly in every way except remembering a class, which is not a mistake worth catching one screenshot at a time." },
+      { kind: "improved", tool: "All tools", text: "Tick boxes, radios, sliders, file and colour pickers opt OUT rather than every text field opting in, and are also explicitly reset — a 38px bordered checkbox is a bug this same rule already caused once when it lived under the wrapper. The sign-in card keeps its own treatment." },
+    ],
+  },
+  {
     build: 10465, date: "2026-08-27", title: "The roadmap stops calling a beta-only tool shipped",
     items: [
       { kind: "fixed", tool: "All tools", text: "R30, the Policy overview, was sitting under “Now — shipped & shipping” while it runs only on this channel. It was the one card in that era naming no production build, and it was there while “In beta today” sat empty saying the two channels match — so the roadmap claimed the opposite of the truth in two places at once. Moved to the era it belongs in." },

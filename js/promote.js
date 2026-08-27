@@ -81,6 +81,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 101,
+      title: "The field look is the default, not something a control opts into",
+      tools: ["All tools"],
+      builds: [10466],
+      risk: "medium",
+      what: "css/app.css: the .wi-f input/select rule gains 'main input:not([checkbox|radio|file|color|range]), main select, main textarea' as selectors, so every text-ish control inside the app gets the field treatment without a wrapper. textarea keeps its own height; tick boxes and radios are explicitly reset as well as excluded; the sign-in card is outside the scope. Found by enumerating every control in index.html and asking which sat outside .wi-f — nine did, across T01, T11, T15 and T19, and only T15's was reported.",
+      why: "MEDIUM, and only because the selector is BROAD. It reaches every input in the app rather than the nine that were wrong, which is the point — but it also means a control somewhere that was relying on the browser default now looks different. Reading the diff will not tell you that; opening the tools will.",
+      test: [
+        "THE ONE THAT MATTERS: walk every tool and look at every input, select and text area. They must all match. This rule reaches controls nobody listed, so the risk is a control that WANTED to be different, not the ones that were broken.",
+        "T15's device search is the reported one — confirm it now matches the fields around it.",
+        "Check the tick boxes in the surface pickers and the assignment editor are still tick boxes and not 38px bordered squares. That exact bug happened once already under the old rule.",
+        "Check any text area (the what-if group list) is still multi-line and has not collapsed to one row.",
+        "Check the sign-in screen is unchanged — it is outside the scope on purpose.",
+        "Both themes, and check focus rings still appear on the controls that gained the styling.",
+      ],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 100,
       title: "R30 moves out of Now — the roadmap stops calling a beta-only tool shipped",
       tools: ["All tools"],
