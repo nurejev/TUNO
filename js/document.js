@@ -649,7 +649,13 @@ const Docs = (() => {
         // matters: "macOSGeneralDeviceConfiguration" is how somebody searches
         // for a class of profile, and it is not in the settings rows because
         // @odata.type is filtered out as bookkeeping before they are built.
+        // …AND THE ASSIGNMENT (10492). "Which policies hit SG-Pilot" and
+        // "what does PVM-DG-CORP-FILTER-AVD-ALL touch" are the two questions
+        // this box was asked and could not answer — T19's search had reached
+        // group names since it shipped and T05's, on the same collection,
+        // had not.
         if (t && !lc(i.name).includes(t) && !lc(i.description).includes(t) && !lc(i.type).includes(t)
+          && !i.assignments.some((a) => lc(a.name).includes(t) || lc(a.kind).includes(t) || lc(a.filterName).includes(t))
           && !i.rows.some((r) => lc(r.name).includes(t) || lc(r.value).includes(t))) return false;
         if (plat && plat !== "All") {
           if (plat === NOT_SPECIFIC) { if (i.platforms.length) return false; }
@@ -967,8 +973,15 @@ const DocsTool = (() => {
   let platformFilter = "All";
   let platformOpts = [];
 
+  // A greyed box with its explanation in a paragraph underneath reads as a
+  // missing feature (Mihai, 10492 — "t05 missing a search"). The reason now
+  // lives IN the control, where the eye already is.
+  const SEARCH_PLACEHOLDER = "e.g. BitLocker, SG-Pilot, or a filter name";
+  const SEARCH_WAITING = "Read the configuration first — then search here";
   function setFiltersEnabled(on) {
     ["dcSearch", "dcState"].forEach((id) => { const el = $(id); if (el) el.disabled = !on; });
+    const se = $("dcSearch");
+    if (se) se.placeholder = on ? SEARCH_PLACEHOLDER : SEARCH_WAITING;
     const hint = $("dcFilterHint");
     if (hint) hint.style.display = on ? "none" : "";
   }
@@ -1083,7 +1096,7 @@ const DocsTool = (() => {
                 <input type="checkbox" data-pick="${esc(key)}"${selected.has(key) ? " checked" : ""}></label>
               <b data-open="${esc(key)}" style="cursor:pointer">${esc(it.name)}</b>
               ${it.platforms.length ? it.platforms.map((p) => `<span class="gu-how priv">${esc(p)}</span>`).join("") : ""}
-              ${it.assignments.length ? `<span class="gu-how inc">${it.assignments.length} assignment${it.assignments.length === 1 ? "" : "s"}</span>` : `<span class="gu-how exc">unassigned</span>`}
+              ${assignChips(it)}
               ${it.detailError ? `<span class="gu-how exc">settings unreadable</span>` : ""}
               <button class="btn sm" data-open="${esc(key)}" style="margin-left:auto">${it.rows.length} setting${it.rows.length === 1 ? "" : "s"} →</button>
             </div>
@@ -1158,6 +1171,25 @@ const DocsTool = (() => {
     document.removeEventListener("keydown", onEsc);
   }
   function onEsc(e) { if (e.key === "Escape") closePolicy(); }
+
+  // THE ROW SAYS WHO, NOT HOW MANY (10492). It had shown "2 assignments" —
+  // a number, on a screen whose entire job is writing down what a tenant is
+  // configured to do, while collect() had already resolved every group name
+  // and every filter name onto the object. Two chips at most, then a +N, so
+  // a policy assigned to eleven groups does not eat the row; the popout has
+  // the full list and the tooltip carries it meanwhile.
+  const MAX_CHIPS = 2;
+  function assignChips(it) {
+    const a = it.assignments || [];
+    if (!a.length) return `<span class="gu-how exc">unassigned</span>`;
+    const all = a.map((x) => Docs.assignmentText(x));
+    const chips = a.slice(0, MAX_CHIPS).map((x, i) => {
+      const cls = x.kind === "Excluded" ? "exc" : "inc";
+      return `<span class="gu-how ${cls}" title="${esc(all[i])}">${esc(Docs.assignmentText(x))}</span>`;
+    });
+    if (a.length > MAX_CHIPS) chips.push(`<span class="gu-how" title="${esc(all.slice(MAX_CHIPS).join("; "))}">+${a.length - MAX_CHIPS}</span>`);
+    return chips.join(" ");
+  }
 
   function openPolicy(key) {
     const found = findItem(key);

@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10492, date: "2026-08-27", title: "The documenter's list says who a policy reaches",
+    items: [
+      { kind: "fixed", tool: "T05", text: "A browse row said \"2 assignments\" \u2014 a number, on the screen whose whole job is writing down what a tenant is configured to do, while collect() had already resolved every group name and every filter name onto the object. Rows now name them: SG-Pilot (Included), All devices \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include). Two chips then a +N, so a policy on eleven groups does not eat the row, with the rest in the tooltip and all of them in the popout." },
+      { kind: "improved", tool: "T05", text: "The search reaches the assignment. \"Which policies hit SG-Pilot\" and \"what does this filter touch\" are the two questions the box was asked and could not answer \u2014 T19's search had reached group names since it shipped and T05's, over the same collection, had not." },
+      { kind: "fixed", tool: "T05", text: "The search read as MISSING rather than waiting. It is disabled until a read finishes, with the reason in a paragraph below it \u2014 which is not where the eye is. The control now says it itself: \"Read the configuration first \u2014 then search here\", becoming \"e.g. BitLocker, SG-Pilot, or a filter name\" once there is something to search." },
+    ],
+  },
+  {
     build: 10491, date: "2026-08-27", title: "Used by is Graph's own answer, not a scan away",
     items: [
       { kind: "fixed", tool: "T14", text: "The used-by column sat empty behind an opt-in nine-surface sweep when the answer had been one $expand away the whole time. A filter arrives with its PAYLOADS \u2014 Graph's own words for the property are \"associated assignments for a specific filter\" \u2014 carrying the policy id, the surface type, the targeted group and the filter mode for every reference. The count is now filled by the first read, always, and a 0 means Graph said none rather than nobody having looked." },
