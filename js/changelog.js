@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10477, date: "2026-08-27", title: "The posture toolbar becomes a card, and the policies learn to be a table",
+    items: [
+      { kind: "improved", tool: "T20", text: "The filter bar on a discipline node is a card like everything else on the page — the bare input floating on the background read as unfinished, and was. It carries the count and a new 🗂 Cards | ☰ List toggle: cards stay the default because they read better, and the list is the same policies as one table row each — Policy, Template, Reach, Platform, Settings, Verdict — for the node where seventeen cards scroll and one table scans. A row click opens the same popout a card click does, the choice sticks while you move between nodes, and a re-read resets it like every other filter." },
+    ],
+  },
+  {
     build: 10476, date: "2026-08-27", title: "The Endpoint security blade gets a mirror, a translator and an examiner",
     items: [
       { kind: "new", tool: "T20", text: "🧭 Endpoint security posture (R31, Option B of a two-option mockup round): the portal's Endpoint security blade as a rail — every discipline's policies as the Policy overview's clickable cards, opening the documenter's own popout — plus two nodes the portal does not have: plain settings-catalog policies that configure Defender (MDE) or Microsoft Edge, found by their setting definition ids. Legacy intents are classified through their template and say only assigned-or-not, because that is all their surface says. Reads only, no new permission — the read is the documenter's own." },

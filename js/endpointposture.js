@@ -621,6 +621,12 @@ const EndpointPostureTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, running = false, node = "overview", search = "";
+  // Cards is the default — Mihai's call after seeing both: the card reads
+  // better. The list is the same policies as one table row each, for the
+  // long-node case (an Antivirus with seventeen policies scrolls as a
+  // table, scans as a wall of cards). The choice sticks across nodes for
+  // the session; a re-read resets it like every other filter.
+  let view = "cards";
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -694,7 +700,7 @@ const EndpointPostureTool = (() => {
         checks: EndpointPosture.runChecks(ctx),
         when: Date.now(),
       };
-      node = "overview"; search = "";
+      node = "overview"; search = ""; view = "cards";
       prog("");
       ["epBriefMd", "epBriefDocx", "epChecksMd"].forEach((id) => { $(id).style.display = ""; });
       render();
@@ -799,16 +805,47 @@ const EndpointPostureTool = (() => {
     </div>`;
   }
 
+  // The list face: the same policies, one table row each — the house
+  // .cg-table, a row click opening the same popout as a card click.
+  function policyRow(it) {
+    const v = EndpointPosture.stateOf(it);
+    const VLABEL = { assigned: "Assigned", unassigned: "Unassigned", excludedOnly: "Excluded-only" };
+    const VCHIP = { assigned: "on", unassigned: "off", excludedOnly: "report" };
+    const named = it.assignments.filter((x) => x.kind !== "Excluded");
+    const exc = it.assignments.length - named.length;
+    const wide = named.some((x) => x.kind === "All devices" || x.kind === "All users");
+    const reach = v === "unassigned" ? "nobody"
+      : v === "excludedOnly" ? `nobody (−${exc} excluded)`
+      : `${wide ? "tenant-wide" : `${named.length} group${named.length === 1 ? "" : "s"}`}${exc ? ` (−${exc})` : ""}${OverviewTool.filterMay(it) ? " · ⚑ may" : ""}`;
+    return `<tr class="ep-row" data-epopen="${esc(it.id)}">
+      <td><b>${esc(it.name)}</b></td>
+      <td class="mini">${esc(it.templateName || "—")}</td>
+      <td>${esc(reach)}</td>
+      <td>${esc(it.platform || "Windows")}</td>
+      <td>${it.detailError ? `<span style="color:var(--report)">unreadable</span>` : it.rows.length || "—"}</td>
+      <td><span class="state ${VCHIP[v]}">${VLABEL[v]}</span></td>
+    </tr>`;
+  }
+
   function paneNode(id) {
     const n = EndpointPosture.nodeById(id) || { icon: "🗂", label: "Other endpoint security" };
     const q = search.trim().toLowerCase();
     const pols = (res.byNode[id] || []).filter((it) => !q || String(it.name).toLowerCase().includes(q) || it.rows.some((r) => (r.defId || "").toLowerCase().includes(q) || String(r.name).toLowerCase().includes(q)));
     const legacy = res.intents.filter((i) => i.node === id);
     const parts = [];
-    parts.push(`<div class="ep-search"><input id="epSearch" type="search" placeholder="Filter by name or setting id…" value="${esc(search)}"><span class="mini muted">${pols.length} shown</span></div>`);
-    parts.push(pols.length
-      ? `<div class="ep-cards">${pols.map((it) => policyCard(it, n.icon, n.label)).join("")}</div>`
-      : `<div class="list-card"><p class="mini muted" style="margin:0">No ${q ? "matching " : ""}policies here${q ? "" : " — which is itself the finding; 🎓 Best practice says what it costs"}.</p></div>`);
+    // The toolbar is a card like everything else on the page — a bare
+    // input floating on the background read as unfinished (Mihai, on the
+    // first live screenshot), and he is right: every other control on
+    // this screen lives on a card.
+    parts.push(`<div class="list-card ep-bar">
+      <div class="seg" id="epViewSeg"><button type="button" data-epview="cards" class="${view === "cards" ? "active" : ""}">🗂 Cards</button><button type="button" data-epview="list" class="${view === "list" ? "active" : ""}">☰ List</button></div>
+      <input id="epSearch" type="search" placeholder="Filter by name or setting id…" value="${esc(search)}">
+      <span class="mini muted">${pols.length} shown</span></div>`);
+    parts.push(!pols.length
+      ? `<div class="list-card"><p class="mini muted" style="margin:0">No ${q ? "matching " : ""}policies here${q ? "" : " — which is itself the finding; 🎓 Best practice says what it costs"}.</p></div>`
+      : view === "list"
+        ? `<div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Policy</th><th>Template</th><th>Reach</th><th>Platform</th><th>Settings</th><th>Verdict</th></tr></thead><tbody>${pols.map(policyRow).join("")}</tbody></table></div>`
+        : `<div class="ep-cards">${pols.map((it) => policyCard(it, n.icon, n.label)).join("")}</div>`);
     if (legacy.length) {
       parts.push(`<div class="list-card"><h4 style="margin:0 0 4px">Legacy intents in this discipline</h4>
         ${legacy.map((i) => `<p class="mini" style="margin:4px 0">${esc(i.name)} — ${i.isAssigned ? "assigned" : "not assigned"} <span class="muted">(${esc(i.template) || "template unreadable"} · the legacy surface says only assigned or not — no assignment detail, no settings)</span></p>`).join("")}</div>`);
@@ -907,6 +944,8 @@ const EndpointPostureTool = (() => {
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
     $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName() }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {
+      const vb = e.target.closest("[data-epview]");
+      if (vb) { const k = vb.getAttribute("data-epview"); if (k !== view) { view = k; render(); } return; }
       const nn = e.target.closest("[data-epnode]");
       if (nn) { const k = nn.getAttribute("data-epnode"); if (k !== node) { node = k; search = ""; render(); } return; }
       const c = e.target.closest("[data-epopen]");
@@ -917,7 +956,7 @@ const EndpointPostureTool = (() => {
   return {
     init, run,
     // for the headless tests only — the real res is set by run()
-    _setForTest: (r) => { res = r; node = "overview"; search = ""; render(); },
-    _state: () => ({ node, search }),
+    _setForTest: (r) => { res = r; node = "overview"; search = ""; view = "cards"; render(); },
+    _state: () => ({ node, search, view }),
   };
 })();
