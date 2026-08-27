@@ -202,7 +202,11 @@ const ConflictTool = (() => {
     if (running) return;
     running = true; $("cfRun").disabled = true; showExports(false); $("cfBody").innerHTML = ""; open.clear();
     try {
-      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Graph.SCOPES.groups])]);
+      // "filters" joins the union at 10488: collect() names assignment
+      // filters and that read is RBAC-scoped, so without it a tenant with
+      // one filtered assignment triggers a gestureless consent popup in the
+      // middle of a read the tool has already declared permitted.
+      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.groups])]);
       collectRes = await Docs.collect({ sections: Conflict.SECTIONS, onStatus: prog });
       prog("Comparing settings…");
       scan = Conflict.detect(collectRes);

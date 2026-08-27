@@ -933,7 +933,12 @@ const DocsTool = (() => {
     running = true; $("dcRun").disabled = true; showExports(false); $("dcBody").innerHTML = "";
     try {
       prog("Checking permissions…");
-      await Graph.ensureScopes([...Docs.scopesFor(secs), ...Graph.SCOPES.directory]);
+      // "filters" rides along because collect() NAMES assignment filters
+      // (10482) and that read is RBAC-scoped. Without it a collection with
+      // one filtered assignment reaches for a token mid-read, with no user
+      // gesture behind it — a consent popup the browser blocks, blamed on
+      // filter naming, after the tool has already said permissions were fine.
+      await Graph.ensureScopes([...new Set([...Docs.scopesFor(secs), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.directory])]);
       res = await Docs.collect({ sections: secs, onStatus: prog });
       // Every platform, every time, each with how many were found. A zero is
       // an answer — "Linux (0)" confirms there is no Linux estate, which an

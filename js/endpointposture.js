@@ -217,7 +217,16 @@ const EndpointPosture = (() => {
     let errors = 0;
     (ids || []).forEach((id, i) => {
       const r = (results || [])[i];
-      const v = (r && typeof r === "object" && "error" in r) ? null : Number(r && typeof r === "object" ? r.value : r);
+      // TWO SHAPES OF FAILURE, and the second one nearly repeated the bug
+      // this seam exists to prevent. pool() wraps a throw as { item, error },
+      // but the worker catches its own errors and returns null — so a 403'd
+      // group arrives as { item, value: null }, and Number(null) is 0. A
+      // refused group would have contributed a confident zero to the sum
+      // with no floor caveat raised: exactly 10479's failure wearing a new
+      // hat. Absent is unknown BEFORE it is a number.
+      const raw = (r && typeof r === "object" && "error" in r) ? undefined
+        : (r && typeof r === "object" && "value" in r) ? r.value : r;
+      const v = (raw === null || raw === undefined || raw === "") ? NaN : Number(raw);
       counts[id] = Number.isFinite(v) ? v : null;
       if (!Number.isFinite(v)) errors++;
     });
@@ -230,7 +239,12 @@ const EndpointPosture = (() => {
     const caveats = [];
     if (r.wide) caveats.push("tenant-wide target");
     if (!r.wide && r.groups) caveats.push(`${r.groups} included group${r.groups === 1 ? "" : "s"} summed by member count — members as the groups are built, overlaps not deduplicated`);
-    if (r.unknownGroups) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable, the sum is a floor`);
+    if (r.unknownGroups && r.reached != null && !r.cap) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable, the sum is a floor`);
+    else if (r.unknownGroups) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable`);
+    // Members are counted AS THE GROUPS ARE BUILT — a group of users, or two
+    // groups holding the same machine, both push the sum past the fleet. A
+    // bound larger than the thing it bounds is not a bound.
+    if (r.reached != null && deviceCount != null && r.reached > deviceCount) caveats.push(`the sum exceeds the ${deviceCount}-device fleet — overlapping groups, or groups of users rather than devices, are counted once each`);
     if (r.excludes) caveats.push(`${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} not subtracted`);
     if (r.filtered) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows this — the service evaluates the rule against inventory a browser cannot see`);
     const cav = caveats.length ? ` (${caveats.join("; ")})` : "";
@@ -391,6 +405,13 @@ const EndpointPosture = (() => {
         ? `enforced now on ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
         : null;
     }
+    // Bounded on NEITHER side when a filter caps a sum that is already
+    // floored by an unreadable count: the filter pushes the true number
+    // down, the missing groups push it up, and "at most" would be a ceiling
+    // the real reach can exceed. reachLine refuses this case; so does this.
+    if (r.cap && r.unknownGroups) {
+      return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted${deviceCount == null ? "" : ` of a ${deviceCount}-device fleet`} — ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low and the filter puts it high, so how many devices this reaches is not computable here${nar}`;
+    }
     const D = deviceCount == null ? "an unknown number of" : deviceCount;
     const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
     const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
@@ -416,11 +437,32 @@ const EndpointPosture = (() => {
         : `at rollout: targets All devices — all ${deviceCount} enrolled Windows devices in total${nar}`;
     }
     if (!r.groups) {
+      // EXCLUDED-ONLY IS NOT UNASSIGNED — T09's distinction, and the whole
+      // house keeps it. A staged policy whose every target is an exclusion
+      // HAS assignments and every one of them says "not you"; calling that
+      // "no assignment yet" would report a configured contradiction as an
+      // empty field waiting to be filled in.
+      if (r.excludes) {
+        return `at rollout: the staged policy carries ${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} and no include — as targeted today it would reach nobody`;
+      }
+      // THE NUMBER LEADS, THE CAVEAT FOLLOWS. "Where is this going" is the
+      // question a rollout communication exists to answer, and the fleet
+      // total is the only honest figure available when the staged policy
+      // has no target yet — so it is stated, and immediately labelled as an
+      // intention rather than a reading. Burying it behind the caveat left
+      // the brief with no destination number at all.
       return deviceCount == null
-        ? `at rollout: the staged policy carries NO assignment yet — its destination is not in the tenant to read`
-        : `at rollout: the staged policy carries NO assignment yet — nothing targets it, so the ${deviceCount}-device fleet is the intention, not a reading`;
+        ? `at rollout: destination unknown — the staged policy carries no assignment yet, and the fleet size could not be read either`
+        : `at rollout: all ${deviceCount} enrolled Windows devices in total — the staged policy carries NO assignment yet, so the fleet total is the intention, not a reading`;
     }
+    // Below here is defence, not a path a tenant reaches today: a policy
+    // carrying an include target is "assigned" by construction, so a staged
+    // one has no groups. Kept so that a future change to stateOf() cannot
+    // silently turn a real destination into "no assignment yet".
     if (r.reached == null) return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — no member count could be read, so the destination size is unknown, not zero`;
+    if (r.cap && r.unknownGroups) {
+      return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — an unreadable member count puts the sum low and the filter puts it high, so the destination size is not computable here${nar}`;
+    }
     const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
     return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${nar}`;
   }
@@ -451,7 +493,7 @@ const EndpointPosture = (() => {
       out.push(`## What changes at rollout`);
       out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`);
       for (const i of later) {
-        const roll = rolloutLine(i, counts, deviceCount) || (deviceCount != null ? `at rollout: all ${deviceCount} enrolled Windows devices` : null);
+        const roll = rolloutLine(i, counts, deviceCount);
         out.push(`- ${i.icon} **${i.title}** — ${i.text}${roll ? `\n  - 🎯 ${roll}` : ""}`);
       }
       out.push(``);
@@ -512,7 +554,7 @@ const EndpointPosture = (() => {
       body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`));
       for (const i of later) {
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
-        const roll = rolloutLine(i, counts, deviceCount) || (deviceCount != null ? `at rollout: all ${deviceCount} enrolled Windows devices` : null);
+        const roll = rolloutLine(i, counts, deviceCount);
         if (roll) body.push(P([[`   ${roll}`, { i: true }]]));
       }
     }
@@ -1098,7 +1140,7 @@ const EndpointPostureTool = (() => {
     const D = res.deviceCount;
     if (r.wide) return D == null ? "" : ` · ${r.cap ? `at most all ${D}` : `all ${D}`} devices`;
     if (r.reached == null) return r.groups ? ` · member counts unreadable — reach unknown` : "";
-    if (r.cap && r.unknownGroups) return ` · ${r.groups} group${r.groups === 1 ? "" : "s"} of ${D} — not computable`;
+    if (r.cap && r.unknownGroups) return ` · ${r.groups} group${r.groups === 1 ? "" : "s"}${D == null ? "" : ` of ${D}`} — not computable`;
     const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
     const miss = r.missing != null ? ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} still missing` : "";
     return ` · ${verb}${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}`;
@@ -1197,8 +1239,7 @@ const EndpointPostureTool = (() => {
       // enforced now, and what the rollout targets. A not-yet-live one
       // wears only the second — which is read off the staged policy's own
       // assignment rather than assumed to be the whole fleet.
-      const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount)
-        || (!i.liveNow && res.deviceCount != null ? `at rollout: all ${res.deviceCount} enrolled Windows devices` : null);
+      const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
       <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — some devices, not all</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>

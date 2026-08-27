@@ -26,6 +26,17 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10488, date: "2026-08-27", title: "The review round \u2014 five ways the new numbers could still lie",
+    items: [
+      { kind: "fixed", tool: "T20", text: "The count unwrap had 10479's bug hiding in a second shape. The pool worker catches its OWN failures and returns null, so a 403'd group arrived as { value: null } rather than { error } \u2014 and Number(null) is 0. A refused group would have contributed a confident zero to the sum with no \"the sum is a floor\" caveat raised anywhere. Absent is now unknown BEFORE it is a number, and both failure shapes are counted." },
+      { kind: "fixed", tool: "T20", text: "A policy both FILTERED and carrying an unreadable group count claimed \"at most N\" in the brief \u2014 an unsound ceiling the real reach can exceed, because the missing groups push the number up while the filter pushes it down. The findings line had already refused this case; the brief's two lines now refuse it the same way instead of picking the bound that reads better." },
+      { kind: "fixed", tool: "T20", text: "A staged policy assigned ONLY through exclusions was briefed as \"carries no assignment yet\" \u2014 reporting a configured contradiction as an empty field waiting to be filled in. Excluded-only is its own verdict here as everywhere else (T09's distinction), and the line says what it is." },
+      { kind: "fixed", tool: "T05", text: "Naming assignment filters (10482) is an RBAC-scoped read, and the documenter and \u2694 Conflict finder never asked for that scope \u2014 so a tenant with one filtered assignment reached for a token mid-read with no user gesture behind it: a consent popup the browser blocks, blamed on filter naming, after the tool had already reported permissions fine. Both unions now include it." },
+      { kind: "fixed", tool: "T20", text: "A reach line whose sentence says there is no sum no longer appends \"the sum is a floor\" after it; a sum larger than the fleet says why it can be (overlapping groups, or groups of users rather than devices); and the card's not-computable cell no longer renders \"of null\" when the fleet count itself could not be read." },
+      { kind: "improved", tool: "T20", text: "The brief's at-rollout line leads with the number. \"Where is this going\" is the question a rollout communication exists to answer, and burying the fleet total behind its caveat left the brief with no destination figure at all: it now reads \"at rollout: all 9969 enrolled Windows devices in total \u2014 the staged policy carries NO assignment yet, so the fleet total is the intention, not a reading\"." },
+    ],
+  },
+  {
     build: 10487, date: "2026-08-27", title: "The count unwrap becomes something a test can reach",
     items: [
       { kind: "improved", tool: "T20", text: "The group-count unwrap moves out of run() and into EndpointPosture.countsFrom(), a named seam in the DOM-free half. The 10483 bug is the argument: it threw nothing, logged nothing and rendered a confident \"~0 of 9969\" for four builds, because the one line that could be wrong lived where no headless test could call it. A wrong number that renders is worse than an exception \u2014 the defence is a test, and a test needs a seam." },
