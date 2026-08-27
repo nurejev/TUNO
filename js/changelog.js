@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10484, date: "2026-08-27", title: "A filtered assignment states a ceiling, not a count",
+    items: [
+      { kind: "fixed", tool: "T20", text: "A policy targeted at All devices WITH an assignment filter was reported as reaching the whole fleet \u2014 \"applies to all 9969 enrolled Windows devices\" \u2014 when the filter is the entire point of that assignment and narrows it to a fraction. A filter only ever narrows: include mode keeps what the rule matches, exclude mode drops it, and either way the number a browser can compute is a CEILING. Filtered reach now says \"at most\" and names the filter that caps it, in the reach cells, the findings and the brief alike." },
+      { kind: "improved", tool: "T20", text: "The missing side flips with it. At most N reached means AT LEAST the remainder missed \u2014 the old line put a firm number on the side that could only grow. And a policy that is both filtered and carrying an unreadable group count is bounded on neither side; it says so rather than picking whichever bound reads better." },
+      { kind: "improved", tool: "T20", text: "The brief's \u2691 chip names the filter and its mode instead of saying \"filtered \u2014 some devices\", which told a communications reader that some machines are left out and gave them no way to find out which." },
+    ],
+  },
+  {
     build: 10483, date: "2026-08-27", title: "The group member counts actually land",
     items: [
       { kind: "fixed", tool: "T20", text: "Every device number on the screen was wrong, and wrong in the direction that hides a problem: \"~0 of 9969 devices \u00b7 9969 still missing (floor)\" about policies whose groups Graph had answered for perfectly well. Graph.pool hands back { item, value }, and the 10479 code read the WRAPPER as the count \u2014 so Number.isFinite was false every single time, every group landed as unknown, and the sum of nothing rendered as a measured zero wearing a footnote. Caught on the first tenant big enough to notice. The value is now unwrapped; the cards, the list rows, the findings and the brief all count again." },

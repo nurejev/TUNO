@@ -157,14 +157,32 @@ const EndpointPosture = (() => {
     const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0 };
     if (!live.length) { out.missing = deviceCount == null ? null : deviceCount; return out; }
     const ids = new Set();
+    const fnames = new Map();
     for (const d of live) for (const a of (d.assignments || [])) {
       if (a.kind === "All devices" || a.kind === "All users") out.wide = true;
       else if (a.kind === "Included" && a.groupId) ids.add(String(a.groupId).toLowerCase());
       else if (a.kind === "Excluded") out.excludes++;
-      if (a.filterId && a.kind !== "Excluded") out.filtered = true;
+      if (a.filterId && a.kind !== "Excluded") {
+        out.filtered = true;
+        const k = `${String(a.filterId).toLowerCase()}|${String(a.filterType || "").toLowerCase()}`;
+        if (!fnames.has(k)) fnames.set(k, (typeof Docs !== "undefined" && Docs.filterLabel) ? Docs.filterLabel(a) : "an assignment filter");
+      }
     }
     out.groups = ids.size;
-    if (out.wide) { out.reached = deviceCount == null ? null : deviceCount; out.missing = deviceCount == null ? null : 0; return out; }
+    out.filterNames = [...fnames.values()];
+    // A FILTER ONLY EVER NARROWS. Include mode keeps the devices the rule
+    // matches and drops the rest; exclude mode drops the ones it matches.
+    // Either way the number a browser can compute is a CEILING, never the
+    // reach — the service evaluates the rule against inventory this tab
+    // cannot see. So a filtered target stops claiming a count and starts
+    // claiming a bound, and the missing side flips with it: at most this
+    // many reached means at least that many missed.
+    out.cap = out.filtered;
+    if (out.wide) {
+      out.reached = deviceCount == null ? null : deviceCount;
+      out.missing = deviceCount == null ? null : 0;
+      return out;
+    }
     let n = 0;
     for (const id of ids) {
       const c = counts ? counts[id] : null;
@@ -188,7 +206,7 @@ const EndpointPosture = (() => {
     if (!r.wide && r.groups) caveats.push(`${r.groups} included group${r.groups === 1 ? "" : "s"} summed by member count — members as the groups are built, overlaps not deduplicated`);
     if (r.unknownGroups) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable, the sum is a floor`);
     if (r.excludes) caveats.push(`${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} not subtracted`);
-    if (r.filtered) caveats.push("⚑ an assignment filter caps reach at may");
+    if (r.filtered) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows this — the service evaluates the rule against inventory a browser cannot see`);
     const cav = caveats.length ? ` (${caveats.join("; ")})` : "";
     if (!r.live || (r.reached === 0 && !r.unknownGroups)) {
       return D == null
@@ -202,12 +220,18 @@ const EndpointPosture = (() => {
         ? `${r.groups} group${r.groups === 1 ? "" : "s"} targeted — not one member count could be read, so how many devices this reaches is UNKNOWN, not zero${D == null ? "" : ` (the fleet is ${D})`}${cav}`
         : `the Windows device count could not be read — reach is unknown, not zero${cav}`;
     }
-    if (D == null) return `~${r.reached} devices targeted — the Windows device count could not be read, so how many are missing is unknown${cav}`;
-    // A partial floor counts UP from what was read, so "at least" is the
-    // honest verb and the missing side is at most that many.
-    const atLeast = r.unknownGroups ? "at least " : "~";
-    const missing = `${r.unknownGroups ? "at most " : ""}${r.missing}`;
-    return `${atLeast}${r.reached} of ${D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
+    if (D == null) return `${r.cap ? "at most " : "~"}${r.reached} devices targeted — the Windows device count could not be read, so how many are missing is unknown${cav}`;
+    // Three verbs, and which one is honest depends on which way the
+    // uncertainty leans. A FILTER caps: at most this many, so at least that
+    // many missed. An UNREADABLE group count floors: at least this many, so
+    // at most that many missed. Both at once has no useful bound in either
+    // direction and says so rather than picking the flattering one.
+    if (r.cap && r.unknownGroups) {
+      return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted of a ${D}-device fleet — bounded on neither side: ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low, and the filter puts it high. How many devices this reaches is not computable here${cav}`;
+    }
+    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
+    const missing = `${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing}`;
+    return `${verb}${r.reached} of ${D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
   }
 
   // ------------------------------------------------------ impact brief --
@@ -310,6 +334,10 @@ const EndpointPosture = (() => {
         transition: !permLive.length && interimLive.length > 0 && staged.length > 0,
         goesAway: !permLive.length && interimLive.length > 0 && !staged.length,
         filtered: live.some((d) => OverviewTool.filterMay(d)),
+        // Named, not just flagged (10484): "scoped by an assignment filter"
+        // tells a communications reader that some machines are left out and
+        // gives them no way to find out which.
+        filterNames: [...new Set(live.flatMap((d) => (typeof Docs !== "undefined" && Docs.filtersOf ? Docs.filtersOf(d) : [])))],
         docs: hits,
         pols: hits.map((d) => ({ id: d.id, name: d.name, state: stateOf(d), word: stateWordOf(d) })),
       });
@@ -326,16 +354,22 @@ const EndpointPosture = (() => {
   function impactReachLine(item, counts, deviceCount) {
     if (!item.liveNow) return null;
     const r = deviceReach(item.docs || [], counts, deviceCount);
-    if (r.wide) return deviceCount == null ? "applies tenant-wide (device count unreadable)" : `applies to all ${deviceCount} enrolled Windows devices`;
+    const nar = r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller and a browser cannot compute it` : "";
+    if (r.wide) {
+      return deviceCount == null
+        ? `applies tenant-wide (device count unreadable)${nar}`
+        : `applies to ${r.cap ? "at most all" : "all"} ${deviceCount} enrolled Windows devices${nar}`;
+    }
     if (r.reached == null) {
       return r.groups
         ? `applies to ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
         : null;
     }
     const D = deviceCount == null ? "an unknown number of" : deviceCount;
-    const miss = r.missing == null ? "" : ` · ${r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
-    const floor = r.unknownGroups ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
-    return `applies to ${r.unknownGroups ? "at least " : "~"}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}`;
+    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
+    const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
+    const floor = r.unknownGroups && !r.cap ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
+    return `applies to ${verb}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}${nar}`;
   }
 
   function briefMd(items, { tenantName, deviceCount = null, counts = null } = {}) {
@@ -354,7 +388,7 @@ const EndpointPosture = (() => {
         const reach = impactReachLine(i, counts, deviceCount);
         const marks = [];
         if (i.transition) marks.push(`today through an interim policy — at rollout the staged replacement takes over`);
-        if (i.filtered) marks.push(`scoped by an assignment filter — some devices, not all`);
+        if (i.filtered) marks.push(`scoped by ⚑ ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
         out.push(`- ${i.icon} **${i.title}** — ${i.text}${marks.length ? ` _(${marks.join("; ")})_` : ""}${reach ? `\n  - 📟 ${reach}` : ""}`);
       }
       out.push(``);
@@ -409,7 +443,7 @@ const EndpointPosture = (() => {
         const reach = impactReachLine(i, counts, deviceCount);
         const marks = [];
         if (i.transition) marks.push("today through an interim policy — at rollout the staged replacement takes over");
-        if (i.filtered) marks.push("scoped by an assignment filter — some devices, not all");
+        if (i.filtered) marks.push(`scoped by ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (marks.length ? ` (${marks.join("; ")})` : ""), {}]]));
         if (reach) body.push(P([[`   ${reach}`, { i: true }]]));
       }
@@ -1013,10 +1047,12 @@ const EndpointPostureTool = (() => {
     if (!res || EndpointPosture.stateOf(it) !== "assigned") return "";
     const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount);
     const D = res.deviceCount;
-    if (r.wide) return D == null ? "" : ` · all ${D} devices`;
+    if (r.wide) return D == null ? "" : ` · ${r.cap ? `at most all ${D}` : `all ${D}`} devices`;
     if (r.reached == null) return r.groups ? ` · member counts unreadable — reach unknown` : "";
-    const miss = r.missing != null ? ` · ${r.unknownGroups ? "at most " : ""}${r.missing} still missing` : "";
-    return ` · ${r.unknownGroups ? "at least " : "~"}${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}`;
+    if (r.cap && r.unknownGroups) return ` · ${r.groups} group${r.groups === 1 ? "" : "s"} of ${D} — not computable`;
+    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
+    const miss = r.missing != null ? ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} still missing` : "";
+    return ` · ${verb}${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}`;
   }
 
   // T19's card, verbatim in shape — the scard classes have carried these
@@ -1110,7 +1146,7 @@ const EndpointPostureTool = (() => {
         ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount)
         : (res.deviceCount != null ? `at rollout: all ${res.deviceCount} enrolled Windows devices` : null);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
-      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ filtered — some devices</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
+      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — some devices, not all</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>
       ${reach ? `<p class="mini" style="margin:0 0 6px"><b>📟</b> ${esc(reach)}</p>` : ""}
       ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>No longer possible:</b> ${esc(i.lost)}</p>` : ""}
