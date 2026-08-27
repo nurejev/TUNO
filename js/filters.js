@@ -85,6 +85,16 @@ const Filters = (() => {
     }));
   }
 
+  // R32: the device inventory the rules are counted against. One read, the
+  // documenter's own $select trimmed to the fields the grammar can reach —
+  // there is no point paging 9969 full device records to ask about a name.
+  async function devices(onStatus) {
+    onStatus && onStatus("Reading the device inventory…");
+    return Graph.readAll(`${Graph.BETA}/deviceManagement/managedDevices?$select=${FilterRules.SELECT}&$top=999`, {
+      scopes: S().devices, retry: true,
+    });
+  }
+
   // Usage over T02's sources: one sweep-shaped read (match-all ids,
   // tenant-wide included because tenant-wide assignments carry filters too),
   // rows grouped by the filter they reference.
@@ -224,7 +234,7 @@ const Filters = (() => {
     return L.join("\n");
   }
 
-  return { list, usage, associations, readOne, create, update, remove, PLATFORMS, platformLabel, payloadLabel, refsOf, markdown };
+  return { list, usage, devices, associations, readOne, create, update, remove, PLATFORMS, platformLabel, payloadLabel, refsOf, markdown };
 })();
 
 
@@ -252,6 +262,8 @@ const FiltersTool = (() => {
   // rest being to open the edit form. On a card it just sits there.
   let view = "cards";
   let search = "";
+  let devs = null;          // the inventory, once counted; null = not read
+  let devErr = null;
 
   // n and of are passed through (10491) — GroupUse's onStatus supplies them
   // and this dropped both on the floor, so the scan's bar was indeterminate
@@ -289,9 +301,23 @@ const FiltersTool = (() => {
       render();
       $("afMd").style.display = "";
       $("afScan").style.display = "";
+      $("afCount").style.display = "";
       $("afNew").style.display = "";
     } catch (e) { failCard(e); }
     finally { running = false; $("afRead").disabled = false; }
+  }
+
+  async function countDevices() {
+    if (running || !filters) return;
+    running = true; $("afCount").disabled = true;
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.devices);
+      devErr = null;
+      devs = await Filters.devices(prog);
+      prog("");
+      render();
+    } catch (e) { devErr = GroupUse.shortErr(e, 200); devs = null; prog(""); render(); }
+    finally { running = false; $("afCount").disabled = false; }
   }
 
   async function scanUsage() {
@@ -319,7 +345,18 @@ const FiltersTool = (() => {
     // How many devices the rule matches is R32's answer and is not read yet.
     // The cell exists and says so, rather than being absent: "we did not
     // look" and "none" are different, and the second is the dangerous one.
-    const deviceCell = () => `<div><label>Devices</label><b class="af-unknown" title="Evaluating a filter rule against the device inventory is R32 — not read yet, which is not the same as none">not evaluated</b></div>`;
+    // R32's answer, in three states that are three different things:
+    // not read, read-and-counted, read-and-refused. The third names the
+    // part of the rule that stopped it — a rule this evaluator cannot fully
+    // read gets no number at all, ever, because a wrong count renders as
+    // confidently as a right one.
+    function deviceAnswer(f) {
+      if (!devs) return { cls: "af-unknown", text: devErr ? "unreadable" : "not counted", title: devErr || "Count devices to fill this — not read is not the same as none" };
+      const r = FilterRules.count(f.rule, devs);
+      if (!r.ok) return { cls: "af-unknown", text: "not evaluated", title: `This rule is not fully understood here, so no number is offered: ${r.why}` };
+      return { cls: r.matched ? "" : "gu-zero", text: `${r.matched} of ${r.of}`, title: `${r.matched} enrolled devices match this rule now. The rule is evaluated here against the inventory; the service evaluates it at assignment time, so this is a reading of today, not a promise.` };
+    }
+    const deviceCell = (f) => { const a = deviceAnswer(f); return `<div><label>Devices</label><b class="${a.cls}" title="${esc(a.title)}">${esc(a.text)}</b></div>`; };
     function filterCard(f) {
       const u = Filters.refsOf(f);
       const open = openUse.has(f.id) && u.length;
@@ -335,7 +372,7 @@ const FiltersTool = (() => {
         </div>
         ${f.description ? `<p class="mini muted" style="margin:0 0 8px">${esc(f.description)}</p>` : ""}
         <div class="scard-grid">
-          ${deviceCell()}
+          ${deviceCell(f)}
           <div><label>Used as</label><b>${modes.length ? esc(modes.join(" + ")) : "—"}</b></div>
         </div>
         ${ruleBlock(f)}
@@ -383,7 +420,7 @@ const FiltersTool = (() => {
         ${u.length
           ? `<td class="gu-num"><a href="#" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter"><b>${u.length}</b> ${open ? "▾" : "▸"}</a></td>`
           : `<td class="gu-num gu-zero" title="Graph returned no associated assignments for this filter">0</td>`}
-        <td class="gu-num mini af-unknown" title="Evaluating a filter rule against the device inventory is R32 — not read yet, which is not the same as none">—</td>
+        ${(() => { const a = deviceAnswer(f); return `<td class="gu-num mini ${a.cls}" title="${esc(a.title)}">${esc(a.text)}</td>`; })()}
         <td class="mini"><code style="overflow-wrap:anywhere">${esc(String(f.rule || "").slice(0, 160))}${String(f.rule || "").length > 160 ? "…" : ""}</code></td>
         <td class="af-acts">
           <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
@@ -407,6 +444,8 @@ const FiltersTool = (() => {
     </div>
     <div class="list-card">
       ${usageNote}
+      ${devs ? `<p class="mini muted"><b>${devs.length} enrolled devices read.</b> A Devices number is how many match the rule TODAY, evaluated here — the service evaluates it at assignment time against inventory that moves. A rule this evaluator cannot fully read says <i>not evaluated</i> and never a number: ${esc(Object.keys(FilterRules.PROPS).length)} device properties are understood, and the rest name themselves on the row.</p>` : ""}
+      ${devErr ? `<div class="gu-fail"><b>The device inventory could not be read.</b><span class="why">${esc(devErr)} — the Devices column stays unknown rather than zero.</span></div>` : ""}
       ${view === "cards" ? `<div class="cards af-cards">${shown.map(filterCard).join("") || `<p class="mini muted" style="grid-column:1/-1">No assignment filters ${search ? "match" : "exist in this tenant"}.</p>`}</div>` : ""}
       <div class="gu-tw" style="${view === "list" ? "" : "display:none"}"><table class="cg-table af-table"><thead><tr>
         <th style="width:24%">Filter</th><th style="width:120px">Platform</th><th style="width:64px">Type</th><th class="gu-num" style="width:64px">Used by</th><th class="gu-num" style="width:86px">Devices</th><th>Rule</th><th style="width:132px"></th>
@@ -512,6 +551,7 @@ const FiltersTool = (() => {
     if (!$("afRead")) return;
     $("afRead").addEventListener("click", read);
     $("afScan").addEventListener("click", scanUsage);
+    $("afCount").addEventListener("click", countDevices);
     $("afNew").addEventListener("click", () => openForm(null));
     $("afMd").addEventListener("click", () => download("Intune-assignment-filters.md", Filters.markdown(filters, use), "text/markdown"));
     // Delegated from the static host, because afBody is rebuilt on every

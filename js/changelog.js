@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10498, date: "2026-08-27", title: "How many devices a filter actually matches (R32)",
+    items: [
+      { kind: "new", tool: "T14", text: "\ud83d\udcdf Count devices \u2014 new js/filterrules.js parses the Intune filter rule grammar and evaluates it against the enrolled device inventory, so a filter stops being an unknown and starts being a number: \"312 of 9969\". One read, trimmed by $select to the fields the grammar can reach. Every tool in the house has been saying \"at most\", \"may reach it\", \"\u2691 filter \u2014 may\" since filters were understood at all; this is the first thing that answers." },
+      { kind: "new", tool: "T14", text: "A COUNT IS OFFERED ONLY WHERE THE WHOLE RULE IS UNDERSTOOD. Not best-effort with a confidence marker \u2014 a wrong count renders exactly as confidently as a right one, which is the failure mode 10483 through 10496 were spent removing. A rule outside the grammar says <i>not evaluated</i> and NAMES what stopped it: deviceOwnership because Personal/Corporate and personal/company would need a guessed translation, operatingSystemSKU because Graph does not return it, app.* because it is not about devices. Seven device properties are evaluated; the rest declare themselves." },
+      { kind: "improved", tool: "T14", text: "The grammar is taken from learn.microsoft.com's own reference rather than from what one tenant happened to contain \u2014 and, or, not, parentheses, -eq -ne -startsWith -contains -notContains -in -notIn, plus -gt -lt -ge -le on version properties compared segment by segment so 10.0.19045 sorts below 10.0.22631 rather than lexically. Matching is case-insensitive; a device missing the property does not match a positive test and does match a negative one." },
+      { kind: "improved", tool: "T14", text: "Three states, because they are three different things: not counted, counted, and not evaluated. A device read that fails leaves the column unknown rather than zero, and the note says the number is a reading of today \u2014 the service evaluates the rule at assignment time against inventory that moves." },
+    ],
+  },
+  {
     build: 10497, date: "2026-08-27", title: "Assignment filters get a face, and a search box",
     items: [
       { kind: "new", tool: "T14", text: "\ud83d\uddc2 Cards | \u2630 List \u2014 Option B of the mockup round, Mihai's pick. Cards lead because a filter is a bounded object whose RULE is the thing a fixed table column could never hold: it was cut at 160 characters with the only way to read the rest being to open the edit form. On a card the whole rule just sits there. The list face keeps the dense view, and the reference chips are one implementation shared by both so they cannot drift." },

@@ -81,6 +81,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 114,
+      title: "R32 \u2014 the assignment filter rule, parsed and counted",
+      tools: ["T14"],
+      builds: [10498],
+      risk: "medium",
+      what: "NEW FILE js/filterrules.js: a tokeniser and recursive-descent parser for the documented Intune assignment-filter grammar (and/or/not, parentheses, -eq -ne -startsWith -contains -notContains -in -notIn, and -gt/-lt/-ge/-le on version properties with segment-wise comparison), plus an evaluator over Graph managedDevice records. T14 gains \ud83d\udcdf Count devices \u2014 one $select-trimmed inventory read \u2014 and the Devices cell on both faces fills in. The house rule is that a count is offered ONLY where the whole rule parses: seven properties are mapped, six documented ones are declared UNMAPPED by name with the reason, and any rule touching the rest returns { ok: false, why } and renders as \"not evaluated\", never as a number.",
+      why: "MEDIUM: additive, opt-in behind its own button, one new read scope already held (DeviceManagementManagedDevices.Read.All). The risk is the number being trusted further than it claims \u2014 it evaluates the rule against inventory NOW, while the service evaluates at assignment time, and it says so on the row and in the note. The refusal path is the safety: 26 headless tests cover the refusals specifically.",
+      test: [
+        "A rule of the shape (device.deviceName -startsWith \"CPC-\") must count the devices the portal\u0027s own Preview devices list shows \u2014 compare the two on a live tenant.",
+        "A rule using device.deviceOwnership, device.isRooted, device.cpuArchitecture or device.operatingSystemSKU must show \"not evaluated\" and name the reason on hover \u2014 never a number.",
+        "A malformed rule (unclosed parenthesis or quote) must refuse rather than throw, and the rest of the table must still render.",
+        "Deny DeviceManagementManagedDevices.Read.All: the Devices column must read unknown, not 0, and say why.",
+        "An -in list and a version -gt must both count correctly; 10.0.19045 must sort BELOW 10.0.22631, not above it lexically.",
+      ],
+    },
+    {
       n: 113,
       title: "The assignment-filter round \u2014 one parser, one phrase, every surface",
       tools: ["T02", "T05", "T08", "T09", "T11", "T12", "T13", "T14", "T16", "T19", "T20"],
