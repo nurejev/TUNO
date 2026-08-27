@@ -285,7 +285,15 @@ const Docs = (() => {
       rowsFrom: (o) => flatten(o),
     },
     {
-      id: "filters", label: "Assignment filters", icon: "🔎", scopes: () => S().rbac,
+      // CONFIG, NOT RBAC (corrected 10490). learn.microsoft.com's "List
+      // deviceAndAppManagementAssignmentFilters" names
+      // DeviceManagementConfiguration.Read.All; this section had asked for
+      // DeviceManagementRBAC.Read.All since it was written, and 10482 built
+      // the filter-naming read on top of that mistake — so on a tenant that
+      // granted config and not RBAC the names 403'd, and 10488's changelog
+      // stated the wrong permission as the fix. filters.js had it right all
+      // along, which is how the two disagreed.
+      id: "filters", label: "Assignment filters", icon: "🔎", scopes: () => S().config,
       endpoint: "/deviceManagement/assignmentFilters",
       list: "/deviceManagement/assignmentFilters",
       rowsFrom: (o) => flatten(o),
@@ -408,7 +416,7 @@ const Docs = (() => {
     if (out.filterIds.size && !o.skipNames) {
       status(`Naming ${out.filterIds.size} assignment filter${out.filterIds.size === 1 ? "" : "s"}…`);
       try {
-        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType", S().rbac);
+        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType", S().config);
         const by = new Map((list || []).map((f) => [lc(f.id), f]));
         out.filters = by;
         for (const s2 of out.sections) for (const it of s2.items) {
@@ -424,6 +432,50 @@ const Docs = (() => {
       } catch (e) { out.filterError = short((e && e.message) || e, 160); }
     }
     return out;
+  }
+
+  // ---------------------------------------------------- the filter, read --
+  //
+  // THE ONE READ OF AN ASSIGNMENT FILTER OFF A RAW GRAPH TARGET. There were
+  // five, and they disagreed with each other about the same tenant:
+  //
+  //   * groupuse.js keyed the whole thing off filterTYPE, so a target
+  //     carrying an id with a missing or "none" type had no filter at all in
+  //     T02, T06, T08, T09 and T14 — and a filter in T05, T12, T19 and T20.
+  //     Two tools describing one assignment differently is the exact failure
+  //     a single normaliser exists to prevent.
+  //   * compliance.js and endpointsec.js flagged a policy as filtered when
+  //     the filter sat on an EXCLUSION, where it narrows what is excluded
+  //     rather than capping what is reached — the "may reach, not does"
+  //     caveat those tools print does not describe that case at all.
+  //   * none of them read the mode, so include and exclude were the same
+  //     fact.
+  //
+  // KEYED ON THE ID, because the id is what makes a filter present. A mode
+  // that is absent is DEFAULTED to include and says so — `modeStated` is
+  // false — rather than being read as "no filter".
+  function filterOfTarget(target) {
+    const t = target || {};
+    const id = t.deviceAndAppManagementAssignmentFilterId || "";
+    if (!id) return null;
+    const raw = lc(t.deviceAndAppManagementAssignmentFilterType);
+    const stated = raw === "include" || raw === "exclude";
+    return { id: lc(id), mode: raw === "exclude" ? "exclude" : "include", modeStated: stated };
+  }
+
+  // The two questions every reach verdict actually asks, over RAW targets.
+  // `capped` is the one that means "this reaches fewer devices than the
+  // target suggests"; a filter on an exclusion is its own, opposite fact and
+  // is reported separately rather than folded into the caveat.
+  function filterReachOf(assignments) {
+    let capped = false, onExclusion = false;
+    for (const x of (assignments || [])) {
+      const f = filterOfTarget(x && x.target);
+      if (!f) continue;
+      if (/exclusionGroupAssignmentTarget/i.test((x.target && x.target["@odata.type"]) || "")) onExclusion = true;
+      else capped = true;
+    }
+    return { capped, onExclusion };
   }
 
   // ---------------------------------------------------------- filter word --
@@ -875,7 +927,7 @@ ${body.join("\n")}
   }
 
   return {
-    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf, assignmentText,
+    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf, assignmentText, filterOfTarget, filterReachOf,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
     collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
     popoutHtml,

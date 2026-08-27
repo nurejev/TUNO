@@ -1126,7 +1126,7 @@ const EndpointPostureTool = (() => {
     if (res.intentsError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Legacy intents could not be read — ${esc(res.intentsError)}. Older tenants keep endpoint security there; that surface is unknown, not empty.</p></div>`);
     if (res.templatesError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Intent templates could not be read — ${esc(res.templatesError)}. Legacy intents are listed unclassified and count toward nothing.</p></div>`);
     if (res.nameError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.</p></div>`);
-    if (res.filterError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment still says it is filtered and shows the id. ${esc("DeviceManagementRBAC.Read.All is what names them.")}</p></div>`);
+    if (res.filterError) parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment still says it is filtered and shows the id. ${esc("DeviceManagementConfiguration.Read.All is what names them.")}</p></div>`);
     return parts.join("");
   }
 

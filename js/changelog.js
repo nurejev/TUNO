@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10490, date: "2026-08-27", title: "One reader for the assignment filter, and the right permission for it",
+    items: [
+      { kind: "fixed", tool: "T05", text: "The assignment-filters surface had asked for the WRONG PERMISSION since it was written \u2014 DeviceManagementRBAC.Read.All, where learn.microsoft.com's List deviceAndAppManagementAssignmentFilters names DeviceManagementConfiguration.Read.All. 10482 built the filter-naming read on top of that mistake and 10488 added it to two more scope unions, so on a tenant granting config and not RBAC the names 403'd and the changelog stated the wrong fix. \ud83e\udde9 Assignment filters had it right all along, which is precisely how the two came to disagree." },
+      { kind: "fixed", tool: "T02", text: "The Group Analyzer keyed filter detection off the filter TYPE rather than its ID, so an assignment carrying a filter id with a missing or \"none\" type had no filter at all in T02, T06, T08, T09 and T14 \u2014 and a filter in T05, T12, T19 and T20. Five tools on one side of the split, four on the other, describing the same assignment differently. Docs.filterOfTarget() is now the one reader, keyed on the id; a mode that is absent is defaulted to include and SAYS it was assumed." },
+      { kind: "fixed", tool: "T13", text: "Compliance coverage, \ud83d\udee1 Endpoint security and the \u2694 Conflict finder all flagged a policy as filtered when the filter sat on an EXCLUSION \u2014 where it narrows what is kept out, not what is reached. The \"may reach, not does\" caveat those tools print does not describe that case. Filtered now means reach is capped; a filter on an exclusion is carried as its own fact rather than folded into the wrong caveat." },
+      { kind: "fixed", tool: "T02", text: "The filter-name splice hunted for \"filter: <word>\" in a detail string and silently did nothing when it was not there \u2014 which was exactly the case a missing mode produced. Built from the parts instead, so a resolved name always lands." },
+    ],
+  },
+  {
     build: 10489, date: "2026-08-27", title: "The documenter writes an assignment one way, and the filter is in it",
     items: [
       { kind: "fixed", tool: "T05", text: "A filtered assignment lost its filter on EVERY surface the documenter writes \u2014 the popout, the Markdown, the HTML report and the Word export all printed name (kind) and stopped. So a policy targeted at All devices through PVM-DG-CORP-FILTER-AVD-ALL circulated as a claim of whole-fleet reach in the document an auditor reads. The filter had been resolved onto the assignment since 10482 and not one writer read it. All four now route through Docs.assignmentText(), so they cannot drift apart again." },

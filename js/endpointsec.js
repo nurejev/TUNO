@@ -72,17 +72,23 @@ const EndpointSec = (() => {
   // claim, before anybody evaluates a filter or counts a member?
   function reachOf(assignments) {
     const a = assignments || [];
-    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false };
-    let includes = 0, excludes = 0, tenantWide = false, filtered = false;
+    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false, filteredExclusion: false };
+    let includes = 0, excludes = 0, tenantWide = false;
+    const fr = Docs.filterReachOf(a);
+    const filtered = fr.capped, filteredExclusion = fr.onExclusion;
     for (const x of a) {
       const t = (x.target && x.target["@odata.type"]) || "";
       if (/exclusionGroupAssignmentTarget/.test(t)) excludes++;
       else if (/groupAssignmentTarget/.test(t)) includes++;
       else if (/allDevicesAssignmentTarget|allLicensedUsersAssignmentTarget/.test(t)) { tenantWide = true; }
-      if (x.target && x.target.deviceAndAppManagementAssignmentFilterId) filtered = true;
+      // FILTERED MEANS "REACH IS CAPPED" (10490). This had counted a filter
+      // on an EXCLUSION too, where the filter narrows what is excluded
+      // rather than what is reached — the "may reach, not does" caveat this
+      // tool prints does not describe that case at all. Docs.filterReachOf
+      // is the one reader; a filter on an exclusion is its own fact.
     }
     const kind = (includes || tenantWide) ? "reaches" : excludes ? "excludedOnly" : "unassigned";
-    return { kind, includes, excludes, tenantWide, filtered };
+    return { kind, includes, excludes, tenantWide, filtered, filteredExclusion };
   }
 
   function groupIdsOf(assignments) {
