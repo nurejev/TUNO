@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 107,
+      title: "T06's box suggests devices and users — Suggest's dvTerm registration widened",
+      tools: ["T06"],
+      builds: [10472],
+      risk: "low",
+      what: "js/suggest.js only. A deviceUser kind whose scopes are the union of deviceObjects and directory, and whose fetch runs the existing device and user fetchers in parallel, four rows each, hints marked device and primary user; one fetcher failing never silences the other. dvTerm's registry entry moves from device to deviceUser. Pick behaviour is the component's own: users fill the UPN, devices fill the name — both exactly what T06's resolver matches.",
+      why: "LOW: no new component, no new tool code, and the consent rule is untouched — an ungranted scope shows the enable row, which now honestly names both scopes the first suggestion will read. The build exists because T06 learned to take a user in 10468 and its autocomplete did not: typing a name into the widened box produced silence, which reads as broken.",
+      test: [
+        "With both scopes in hand this session, type three letters of a colleague's name into T06: devices and users must appear together, each row labelled, users showing their UPN.",
+        "Pick a user: the box must fill with the UPN and the run must resolve it by the primary user. Pick a device: the name fills and resolves as before.",
+        "In a fresh session with no scopes granted, typing must show the enable-suggestions row naming Device.Read.All, User.Read.All and Group.Read.All — and typing on with the row ignored must change nothing about the run.",
+        "Arrow keys and Enter must pick without triggering the run, and Escape must close the menu — the capture-phase rule from the component.",
+        "Every other suggesting box (group boxes, the what-if subject) must behave exactly as before.",
+      ],
+      files: ["js/suggest.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 106,
       title: "Intune RBAC: a permissions button opens the role's allow list in the modal",
       tools: ["T07"],

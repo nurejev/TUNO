@@ -72,6 +72,26 @@ const Suggest = (() => {
         }));
       },
     },
+    // T06 takes a device OR its primary user, so its box suggests both —
+    // devices first, users after, four of each so neither drowns the other.
+    // One kind rather than two attachments because the menu is shared and
+    // the enable row must name everything the first suggestion will read.
+    // One fetcher failing (a refused filter, a throttle) must not silence
+    // the other, hence the catches.
+    deviceUser: {
+      scopes: () => [...new Set([...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory])],
+      label: "devices and users",
+      fetch: async (q) => {
+        const [d, u] = await Promise.all([
+          KINDS.device.fetch(q).catch(() => []),
+          KINDS.user.fetch(q).catch(() => []),
+        ]);
+        return [
+          ...d.slice(0, 4).map((x) => ({ ...x, hint: [x.hint, "device"].filter(Boolean).join(" · ") })),
+          ...u.slice(0, 4).map((x) => ({ ...x, hint: [x.hint, "primary user"].filter(Boolean).join(" · ") })),
+        ];
+      },
+    },
   };
 
   // ---- the one menu (shared — only one input has focus at a time) ----
@@ -200,7 +220,7 @@ const Suggest = (() => {
       ["wfGroup", { kind: "group" }],
       ["aeGroup", { kind: "group" }],
       ["wfGroups", { kind: "group", textarea: true }],
-      ["dvTerm", { kind: "device" }],
+      ["dvTerm", { kind: "deviceUser" }],
       ["wfSubject", { kind: () => (document.querySelector("#wfKindSeg .active") || {}).dataset?.wfkind === "device" ? "device" : "user" }],
     ];
     for (const [id, opts] of REG) {

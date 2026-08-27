@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10472, date: "2026-08-27", title: "The Device analyzer suggests as you type",
+    items: [
+      { kind: "improved", tool: "T06", text: "The search box type-aheads from the tenant: devices and primary users together, four of each, every row saying which it is. Typing mihai now offers the person and their machines instead of silence. Picking a user fills the UPN, since two people can share a display name and a UPN is still readable; picking a device fills its name. Built on the shared Suggest component every other name box already uses, so the consent rule holds: nothing is read on a keystroke until the enable row is clicked, and that row now names both scopes the suggestions will use." },
+    ],
+  },
+  {
     build: 10471, date: "2026-08-27", title: "Intune RBAC: the role opens to what it allows",
     items: [
       { kind: "improved", tool: "T07", text: "Every role head carries a permissions button: the actions the role allows, grouped the way the portal groups them, on one page instead of a blade per category. Read on the click from the role definition itself — the run deliberately leaves the permission sets unread, since they are large and most readers never ask — cached per role until the next run, with the raw Graph action name on hover. The rare denied actions are shown as denials rather than silently subtracted, and the sentence that matters is stated: Intune RBAC is an allow list, so anything not named is not granted." },
