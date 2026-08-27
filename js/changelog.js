@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10501, date: "2026-08-27", title: "T21 rendered into another tool's screen",
+    items: [
+      { kind: "fixed", tool: "T21", text: "THE SCREEN WAS BLANK AFTER A SUCCESSFUL READ. T21 shipped owning the element ids ssBody, ssMd and ssProg — ids T10 settings search already owned, and T10's screen comes first in the document. getElementById answers with the FIRST match, so every render wrote into the settings-search screen while T21's own stayed empty. The read worked, the consent worked, the exports worked; the page just showed nothing, which is the worst shape a failure can take because there is no error to follow. The ids are now scBody, scMd and scProg, and the whole tool's prefix moves from ss- to sc- in the markup and the stylesheet together." },
+      { kind: "fixed", tool: "T21", text: "The missing 👁 Report button was the same bug wearing a different face: T21's own scMd stayed hidden while T10's export button — invisible on a screen nobody was looking at — was the one being shown and wired up." },
+      { kind: "improved", tool: "TUNO", text: "THE HEADLESS SUITE HAD NOT CAUGHT IT BECAUSE IT ASKED THE SAME WRONG QUESTION. The render tests called getElementById(\"ssBody\") exactly as the tool did, both got T10's div, and every assertion passed on content sitting in another tool's screen. A test that shares the bug's assumption is not a test. Two checks close it: a document-wide duplicate-id assertion over index.html — run against 10500's markup it names all three ids — and a render test that reaches through T21's own section element rather than trusting an id lookup. The first one guards every tool, not just this one; a new tool is exactly when an id gets claimed twice." },
+    ],
+  },
+  {
     build: 10500, date: "2026-08-27", title: "The Secure Score, and the gap between policy and the estate (R02)",
     items: [
       { kind: "new", tool: "T21", text: "📊 Secure Score visualizer — R02, the oldest card on the roadmap. The tenant's Microsoft Secure Score over Graph, made explorable: the gauge, the comparison against tenants of a similar size and against all tenants, the per-category breakdown with Microsoft's two comparison figures as TICKS ON EACH BAR rather than numbers in a footnote, the timeline of every reading Graph still holds, and what improved and what regressed across it. Shaped after GCIT's Export-SecureScoreReports by Elliot Munro — that report's anatomy, rebuilt in a browser tab against one signed-in tenant instead of a partner-side PowerShell sweep across GDAP customers." },

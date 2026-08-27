@@ -1585,7 +1585,7 @@ const EndpointPostureTool = (() => {
     const s = score.latest;
     const p = SecureScore.pct(s.currentScore, s.maxScore);
     const pair = (r, extra) => `<div class="ep-check">
-      <div class="ep-check-h"><span class="ep-sev ${r.check.sev}">${r.check.sev}</span> <b>${esc(r.check.title)}</b> <span class="ss-pts">${r.points} pt${r.points === 1 ? "" : "s"}</span></div>
+      <div class="ep-check-h"><span class="ep-sev ${r.check.sev}">${r.check.sev}</span> <b>${esc(r.check.title)}</b> <span class="sc-pts">${r.points} pt${r.points === 1 ? "" : "s"}</span></div>
       <p class="mini" style="margin:6px 0 0"><b>This tool:</b> ${esc(r.check.detail)}</p>
       <p class="mini" style="margin:4px 0 0"><b>Microsoft's control:</b> ${esc((r.open.length ? r.open : r.controls).map((c) => `${c.title} (${c.score} of ${c.maxScore})`).join("; "))}</p>
       ${extra ? `<p class="mini muted" style="margin:4px 0 0">${extra}</p>` : ""}

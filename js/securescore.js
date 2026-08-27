@@ -570,10 +570,10 @@ const SecureScoreTool = (() => {
   // ---------------------------------------------------------------- run --
   async function run() {
     if (running) return;
-    running = true; $("ssRun").disabled = true;
-    ["ssMd", "ssCsv", "ssHistCsv", "ssSnap"].forEach((id) => { const b = $(id); if (b) b.style.display = "none"; });
-    $("ssBody").innerHTML = "";
-    const prog = (m, n, of) => TunoProgress.show("ssBody", "ssProg", m, n, of);
+    running = true; $("scRun").disabled = true;
+    ["scMd", "scCsv", "scHistCsv", "scSnap"].forEach((id) => { const b = $(id); if (b) b.style.display = "none"; });
+    $("scBody").innerHTML = "";
+    const prog = (m, n, of) => TunoProgress.show("scBody", "scProg", m, n, of);
     try {
       prog("Checking permissions…");
       await Graph.ensureScopes(SecureScore.SCOPE);
@@ -582,17 +582,17 @@ const SecureScoreTool = (() => {
       rebuild();
       prog("");
       if (r.empty) {
-        $("ssBody").innerHTML = `<div class="list-card"><p class="mini" style="margin:0"><b>This tenant has no Secure Score readings.</b> That is an answer, not a failure — <code>security/secureScores</code> returned an empty collection. Secure Score starts producing daily readings once the tenant has the licensed services it measures; until then there is nothing to visualise. Nothing was wrong with the permission: the read succeeded.</p></div>`;
+        $("scBody").innerHTML = `<div class="list-card"><p class="mini" style="margin:0"><b>This tenant has no Secure Score readings.</b> That is an answer, not a failure — <code>security/secureScores</code> returned an empty collection. Secure Score starts producing daily readings once the tenant has the licensed services it measures; until then there is nothing to visualise. Nothing was wrong with the permission: the read succeeded.</p></div>`;
         return;
       }
-      ["ssMd", "ssCsv", "ssHistCsv", "ssSnap"].forEach((id) => { const b = $(id); if (b) b.style.display = ""; });
+      ["scMd", "scCsv", "scHistCsv", "scSnap"].forEach((id) => { const b = $(id); if (b) b.style.display = ""; });
       render();
     } catch (e) {
       prog("");
       const why = (e && e.message) || String(e);
       const admin = e && e.kind === "admin";
-      $("ssBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>The read failed.</b><span class="why">${esc(why)}</span>${admin ? `<span class="why">SecurityEvents.Read.All is an admin-consent permission in most tenants — an administrator grants it once for the whole tenant.</span>` : ""}</div></div>`;
-    } finally { running = false; $("ssRun").disabled = false; }
+      $("scBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>The read failed.</b><span class="why">${esc(why)}</span>${admin ? `<span class="why">SecurityEvents.Read.All is an admin-consent permission in most tenants — an administrator grants it once for the whole tenant.</span>` : ""}</div></div>`;
+    } finally { running = false; $("scRun").disabled = false; }
   }
 
   // -------------------------------------------------------------- upload --
@@ -629,17 +629,17 @@ const SecureScoreTool = (() => {
     const colour = p >= 80 ? "var(--on)" : p >= 60 ? "var(--report)" : "var(--off)";
     const ARC = 251.3;
     const fill = Math.max(0, Math.min(ARC, ARC * (p / 100)));
-    return `<svg viewBox="0 0 200 122" class="ss-gauge" role="img" aria-label="Secure Score ${p} percent">
+    return `<svg viewBox="0 0 200 122" class="sc-gauge" role="img" aria-label="Secure Score ${p} percent">
       <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="14" stroke-linecap="round"/>
       <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="${colour}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${fill} ${ARC}"/>
-      <text x="100" y="92" text-anchor="middle" class="ss-gauge-n">${p}%</text>
+      <text x="100" y="92" text-anchor="middle" class="sc-gauge-n">${p}%</text>
     </svg>`;
   }
 
   function bar(label, v, colour) {
-    if (v == null) return `<div class="ss-cmp"><div class="ss-cmp-l"><span>${esc(label)}</span><b>not reported</b></div><div class="ss-track"></div></div>`;
-    return `<div class="ss-cmp"><div class="ss-cmp-l"><span>${esc(label)}</span><b>${v}%</b></div>
-      <div class="ss-track"><div class="ss-fill" style="width:${Math.max(0, Math.min(100, v))}%;background:${colour}"></div></div></div>`;
+    if (v == null) return `<div class="sc-cmp"><div class="sc-cmp-l"><span>${esc(label)}</span><b>not reported</b></div><div class="sc-track"></div></div>`;
+    return `<div class="sc-cmp"><div class="sc-cmp-l"><span>${esc(label)}</span><b>${v}%</b></div>
+      <div class="sc-track"><div class="sc-fill" style="width:${Math.max(0, Math.min(100, v))}%;background:${colour}"></div></div></div>`;
   }
 
   // The timeline. Uploaded points are drawn as their own marks rather than
@@ -662,18 +662,18 @@ const SecureScoreTool = (() => {
     const grid = [];
     for (let v = lo; v <= hi; v += Math.max(1, Math.ceil(range / 4))) {
       grid.push(`<line x1="${L}" y1="${y(v)}" x2="${L + pw}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="4,4"/>
-        <text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" class="ss-ax">${v}%</text>`);
+        <text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" class="sc-ax">${v}%</text>`);
     }
     const step = Math.max(1, Math.floor(readings.length / 6));
     const xlabels = readings.map((r, i) => (i % step ? "" :
-      `<text x="${x(i)}" y="${T + ph + 20}" text-anchor="middle" class="ss-ax">${esc(SecureScore.dayOf(r.taken).slice(5))}</text>`)).join("");
+      `<text x="${x(i)}" y="${T + ph + 20}" text-anchor="middle" class="sc-ax">${esc(SecureScore.dayOf(r.taken).slice(5))}</text>`)).join("");
     const marks = readings.map((r, i) => {
       const v = SecureScore.pct(r.currentScore, r.maxScore);
       if (v == null) return "";
       const up = r.__live === false;
       return `<circle cx="${x(i)}" cy="${y(v)}" r="${up ? 3.5 : 2}" fill="${up ? "var(--report)" : "var(--accent2)"}"><title>${esc(SecureScore.dayOf(r.taken))} — ${v}%${up ? " (from an uploaded snapshot)" : ""}</title></circle>`;
     }).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" class="ss-chart" role="img" aria-label="Secure Score over time">
+    return `<svg viewBox="0 0 ${W} ${H}" class="sc-chart" role="img" aria-label="Secure Score over time">
       ${grid.join("")}${xlabels}
       <polyline points="${line}" fill="none" stroke="var(--accent2)" stroke-width="2.5" stroke-linejoin="round"/>
       ${marks}</svg>`;
@@ -688,21 +688,21 @@ const SecureScoreTool = (() => {
       ? bar(label, Math.round(c.value * 10) / 10, colour)
       : bar(label + (c ? " (reported in points, not a percentage — not comparable to the bar above)" : ""), null, colour);
     const cats = SecureScore.categoryRows(l, m.controls);
-    const catBar = (c) => `<div class="ss-cat">
-      <div class="ss-cat-h"><b>${esc(c.category)}</b><span>${c.pct == null ? "—" : `${c.pct}%`}</span></div>
-      <div class="ss-track">
-        <div class="ss-fill" style="width:${c.pct == null ? 0 : c.pct}%"></div>
-        ${c.global == null ? "" : `<i class="ss-mark global" style="left:${c.global}%" title="All tenants: ${c.global}%"></i>`}
-        ${c.similar == null ? "" : `<i class="ss-mark similar" style="left:${c.similar}%" title="Similar tenants: ${c.similar}%"></i>`}
+    const catBar = (c) => `<div class="sc-cat">
+      <div class="sc-cat-h"><b>${esc(c.category)}</b><span>${c.pct == null ? "—" : `${c.pct}%`}</span></div>
+      <div class="sc-track">
+        <div class="sc-fill" style="width:${c.pct == null ? 0 : c.pct}%"></div>
+        ${c.global == null ? "" : `<i class="sc-mark global" style="left:${c.global}%" title="All tenants: ${c.global}%"></i>`}
+        ${c.similar == null ? "" : `<i class="sc-mark similar" style="left:${c.similar}%" title="Similar tenants: ${c.similar}%"></i>`}
       </div>
       <div class="mini muted">${c.score} / ${c.max} points · ${c.gaps} of ${c.controls} controls still have points left${c.global == null && c.similar == null ? " · Microsoft reported no comparison for this category" : ""}</div>
     </div>`;
 
     return `<div class="list-card">
       <h4 style="margin:0 0 4px">📊 Microsoft Secure Score</h4>
-      <div class="ss-hero">
+      <div class="sc-hero">
         ${gauge(p)}
-        <div class="ss-hero-r">
+        <div class="sc-hero-r">
           <p class="mini" style="margin:0 0 10px"><b>${l.currentScore} of ${l.maxScore} points</b> — read ${esc(SecureScore.dayOf(l.taken))}${l.__live === false ? " <b>from an uploaded snapshot</b>" : ""}. ${l.licensedUserCount != null ? `${l.licensedUserCount} licensed users, ${l.activeUserCount ?? "—"} active.` : ""}</p>
           ${bar("This tenant", p, "var(--on)")}
           ${cmpBar("Tenants of a similar size", s, "var(--report)")}
@@ -712,7 +712,7 @@ const SecureScoreTool = (() => {
       <p class="mini muted" style="margin:12px 0 0"><b>These are Microsoft's numbers, not TUNO's.</b> Secure Score measures the tenant's actual state as Microsoft observes it — a control can be configured in a policy and still score zero, because the score reads the estate rather than the intent. That difference is the whole point of the 🧭 Endpoint security posture tool's Secure Score node.${res.profileError ? ` <b>The control catalogue could not be read (${esc(res.profileError)})</b> — controls below show their raw ids, and remediation text is missing.` : ""}${res.betaFilled ? ` ${res.betaFilled} control title${res.betaFilled === 1 ? "" : "s"} came from the beta catalogue, where the Defender for Endpoint controls are titled; beta is a preview surface and may change.` : ""}</p>
     </div>
     ${cats.length ? `<div class="list-card"><h4 style="margin:0 0 10px">By category</h4>${cats.map(catBar).join("")}
-      <p class="mini muted" style="margin:8px 0 0">The two ticks on each bar are Microsoft's comparison figures — <span class="ss-key global"></span> all tenants, <span class="ss-key similar"></span> tenants of a similar size. A category Microsoft reported no comparison for simply has no ticks rather than a zero.</p></div>` : ""}`;
+      <p class="mini muted" style="margin:8px 0 0">The two ticks on each bar are Microsoft's comparison figures — <span class="sc-key global"></span> all tenants, <span class="sc-key similar"></span> tenants of a similar size. A category Microsoft reported no comparison for simply has no ticks rather than a zero.</p></div>` : ""}`;
   }
 
   function paneTimeline() {
@@ -720,7 +720,7 @@ const SecureScoreTool = (() => {
     const live = m.readings.filter((r) => r.__live !== false).length;
     const d = m.readings.length > 1 ? SecureScore.deltas(m.readings[0], m.readings[m.readings.length - 1], res.profiles) : null;
     const changeRows = (rows, colour, empty) => rows.length
-      ? rows.slice(0, 10).map((c) => `<div class="ss-chg"><span>${esc(c.title)}<br><i class="mini muted">${esc(c.category || "—")}</i></span><b style="color:${colour}">${c.change > 0 ? "+" : ""}${c.change}</b></div>`).join("")
+      ? rows.slice(0, 10).map((c) => `<div class="sc-chg"><span>${esc(c.title)}<br><i class="mini muted">${esc(c.category || "—")}</i></span><b style="color:${colour}">${c.change > 0 ? "+" : ""}${c.change}</b></div>`).join("")
       : `<p class="mini muted" style="margin:0">${empty}</p>`;
 
     return `<div class="list-card">
@@ -733,7 +733,7 @@ const SecureScoreTool = (() => {
     ${m.refused.length ? `<div class="list-card"><p class="mini" style="margin:0;color:var(--off)"><b>${m.refused.length} snapshot${m.refused.length === 1 ? "" : "s"} refused.</b> ${m.refused.map((r) => `${esc(r.name)} — ${esc(r.why)}`).join(" ")}</p></div>` : ""}
     ${d ? `<div class="list-card"><h4 style="margin:0 0 4px">What moved</h4>
       <p class="mini muted" style="margin:0 0 12px">Between ${esc(SecureScore.dayOf(m.readings[0].taken))} and ${esc(SecureScore.dayOf(m.readings[m.readings.length - 1].taken))}. ${(d.added.length || d.removed.length) ? `Microsoft also changed the catalogue over this window — ${d.added.length} control${d.added.length === 1 ? "" : "s"} added, ${d.removed.length} retired — and those are not counted here, because a control appearing is not the tenant improving.` : ""}</p>
-      <div class="ss-two">
+      <div class="sc-two">
         <div><h5 style="margin:0 0 8px;color:var(--on)">Improved (${d.improved.length})</h5>${changeRows(d.improved, "var(--on)", "Nothing improved over this window.")}</div>
         <div><h5 style="margin:0 0 8px;color:var(--off)">Regressed (${d.regressed.length})</h5>${changeRows(d.regressed, "var(--off)", "Nothing regressed over this window.")}</div>
       </div></div>` : ""}`;
@@ -749,10 +749,10 @@ const SecureScoreTool = (() => {
     const rows = all.filter((c) => !q || c.title.toLowerCase().includes(q) || String(c.id).toLowerCase().includes(q) || (c.category || "").toLowerCase().includes(q) || (c.remediation || "").toLowerCase().includes(q));
     const un = SecureScore.unreadable(m.controls);
 
-    const card = (c) => `<div class="ss-ctrl">
-      <div class="ss-ctrl-h">
+    const card = (c) => `<div class="sc-ctrl">
+      <div class="sc-ctrl-h">
         <b>${esc(c.title)}</b>
-        <span class="ss-pts">${c.points != null ? `${c.points} pt${c.points === 1 ? "" : "s"} left` : "—"}</span>
+        <span class="sc-pts">${c.points != null ? `${c.points} pt${c.points === 1 ? "" : "s"} left` : "—"}</span>
       </div>
       <div class="mini muted" style="margin:2px 0 8px">${esc(c.category || "uncategorised")} · ${c.score} of ${c.maxScore} · tier ${esc(c.tier || "not stated")} · user impact ${esc(c.userImpact || "not stated")} · cost ${esc(c.implementationCost || "not stated")}${c.rank !== 9999 ? ` · Microsoft rank ${c.rank}` : ""}${c.titled ? "" : " · <b>no title in the catalogue — this is the raw control id</b>"}</div>
       ${c.description ? `<p class="mini" style="margin:0 0 6px"><b>Assessment:</b> ${esc(c.description)}</p>` : ""}
@@ -761,18 +761,18 @@ const SecureScoreTool = (() => {
       ${c.actionUrl ? `<p class="mini" style="margin:0"><a href="${esc(c.actionUrl)}" target="_blank" rel="noopener noreferrer">Open where this is configured ↗</a></p>` : ""}
     </div>`;
 
-    return `<div class="list-card ss-bar">
-      <div class="seg" id="ssViewSeg">
-        <button type="button" data-ssview="value" class="${view === "value" ? "active" : ""}">💰 Cheapest points</button>
-        <button type="button" data-ssview="points" class="${view === "points" ? "active" : ""}">📈 Most points</button>
-        <button type="button" data-ssview="rank" class="${view === "rank" ? "active" : ""}">🏅 Microsoft rank</button>
-        <button type="button" data-ssview="done" class="${view === "done" ? "active" : ""}">✅ Achieved</button>
+    return `<div class="list-card sc-bar">
+      <div class="seg" id="scViewSeg">
+        <button type="button" data-scview="value" class="${view === "value" ? "active" : ""}">💰 Cheapest points</button>
+        <button type="button" data-scview="points" class="${view === "points" ? "active" : ""}">📈 Most points</button>
+        <button type="button" data-scview="rank" class="${view === "rank" ? "active" : ""}">🏅 Microsoft rank</button>
+        <button type="button" data-scview="done" class="${view === "done" ? "active" : ""}">✅ Achieved</button>
       </div>
-      <input id="ssSearch" type="search" placeholder="Filter by title, control id, category or remediation…" value="${esc(search)}">
+      <input id="scSearch" type="search" placeholder="Filter by title, control id, category or remediation…" value="${esc(search)}">
       <span class="mini muted">${rows.length} shown</span></div>
     ${view === "value" ? `<div class="list-card"><p class="mini muted" style="margin:0"><b>This ordering is TUNO's, not Microsoft's.</b> Points still available, weighted down by the user impact and implementation cost Microsoft publishes on the control. A control that declares neither is treated as <i>moderate</i> — an unstated impact is not a low one, and calling it low is how a "quick win" becomes the change that breaks sign-in on Monday. 🏅 Microsoft rank is Microsoft's own stack ranking, unchanged.</p></div>` : ""}
     ${un.length && view !== "done" ? `<div class="list-card"><p class="mini muted" style="margin:0">${un.length} control${un.length === 1 ? "" : "s"} could not be scored — no readable score or no ceiling in the catalogue — and ${un.length === 1 ? "is" : "are"} counted as neither achieved nor a gap: ${esc(un.slice(0, 5).map((c) => c.title).join("; "))}${un.length > 5 ? `, and ${un.length - 5} more` : ""}.</p></div>` : ""}
-    ${rows.length ? `<div class="ss-ctrls">${rows.map(card).join("")}</div>`
+    ${rows.length ? `<div class="sc-ctrls">${rows.map(card).join("")}</div>`
       : `<div class="list-card"><p class="mini muted" style="margin:0">${q ? "Nothing matches that filter." : view === "done" ? "No control is fully achieved yet." : "No gaps — every scored control is at its maximum."}</p></div>`}`;
   }
 
@@ -788,43 +788,43 @@ const SecureScoreTool = (() => {
     if (!res || !merged) return;
     const bad = (problems || []).length
       ? `<div class="list-card"><p class="mini" style="margin:0;color:var(--off)"><b>${problems.length} file${problems.length === 1 ? "" : "s"} could not be used.</b> ${problems.map(esc).join(" ")}</p></div>` : "";
-    const nav = `<div class="list-card ss-tabs">${TABS.map((t) =>
-      `<button type="button" class="btn${tab === t.id ? " primary" : ""}" data-sstab="${t.id}">${t.icon} ${esc(t.label)}</button>`).join("")}
+    const nav = `<div class="list-card sc-tabs">${TABS.map((t) =>
+      `<button type="button" class="btn${tab === t.id ? " primary" : ""}" data-sctab="${t.id}">${t.icon} ${esc(t.label)}</button>`).join("")}
       <div style="flex:1"></div>
-      <label class="btn" for="ssUpload" title="Extend the timeline past Graph's ninety-day window with snapshots this tool exported">⭱ Upload snapshot</label>
-      <input id="ssUpload" type="file" accept="application/json,.json" multiple style="display:none">
+      <label class="btn" for="scUpload" title="Extend the timeline past Graph's ninety-day window with snapshots this tool exported">⭱ Upload snapshot</label>
+      <input id="scUpload" type="file" accept="application/json,.json" multiple style="display:none">
     </div>`;
-    $("ssBody").innerHTML = nav + bad + (tab === "score" ? paneScore() : tab === "time" ? paneTimeline() : paneActions());
-    const u = $("ssUpload");
+    $("scBody").innerHTML = nav + bad + (tab === "score" ? paneScore() : tab === "time" ? paneTimeline() : paneActions());
+    const u = $("scUpload");
     if (u) u.addEventListener("change", () => { onUpload(u.files); u.value = ""; });
-    const s = $("ssSearch");
+    const s = $("scSearch");
     if (s) s.addEventListener("input", () => {
       search = s.value;
       const keep = s.selectionStart;
       render();
-      const s2 = $("ssSearch");
+      const s2 = $("scSearch");
       if (s2) { s2.focus(); s2.setSelectionRange(keep, keep); }
     });
   }
 
   // ---------------------------------------------------------------- init --
   function init() {
-    if (!$("ssRun")) return;
-    $("ssRun").addEventListener("click", run);
-    $("ssMd").addEventListener("click", () => {
+    if (!$("scRun")) return;
+    $("scRun").addEventListener("click", run);
+    $("scMd").addEventListener("click", () => {
       TunoReport.show("📊 Secure Score", "Secure-Score.md", SecureScore.md(merged, { tenantName: tenantName() }));
     });
-    $("ssCsv").addEventListener("click", () => download("Secure-Score-controls.csv", SecureScore.controlsCsv(merged.controls), "text/csv;charset=utf-8"));
-    $("ssHistCsv").addEventListener("click", () => download("Secure-Score-history.csv", SecureScore.historyCsv(merged.readings), "text/csv;charset=utf-8"));
-    $("ssSnap").addEventListener("click", () => {
+    $("scCsv").addEventListener("click", () => download("Secure-Score-controls.csv", SecureScore.controlsCsv(merged.controls), "text/csv;charset=utf-8"));
+    $("scHistCsv").addEventListener("click", () => download("Secure-Score-history.csv", SecureScore.historyCsv(merged.readings), "text/csv;charset=utf-8"));
+    $("scSnap").addEventListener("click", () => {
       const snap = SecureScore.snapshot(res, { tenantName: tenantName(), tenantId: tenantId() });
       download(`Secure-Score-snapshot-${SecureScore.dayOf(new Date().toISOString())}.json`, JSON.stringify(snap, null, 2), "application/json");
     });
-    $("ssBody").addEventListener("click", (e) => {
-      const t = e.target.closest("[data-sstab]");
-      if (t) { const k = t.getAttribute("data-sstab"); if (k !== tab) { tab = k; search = ""; render(); } return; }
-      const v = e.target.closest("[data-ssview]");
-      if (v) { const k = v.getAttribute("data-ssview"); if (k !== view) { view = k; render(); } }
+    $("scBody").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-sctab]");
+      if (t) { const k = t.getAttribute("data-sctab"); if (k !== tab) { tab = k; search = ""; render(); } return; }
+      const v = e.target.closest("[data-scview]");
+      if (v) { const k = v.getAttribute("data-scview"); if (k !== view) { view = k; render(); } }
     });
   }
 
