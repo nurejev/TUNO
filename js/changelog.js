@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10468, date: "2026-08-27", title: "The Device analyzer finds the machine from its user",
+    items: [
+      { kind: "improved", tool: "T06", text: "The search box also takes the PRIMARY USER, because the ticket names the person far more often than the serial: a term with an @ is tried as a UPN before the device filters, an exact display name matches in the inventory scan, and a GUID gets a third try as the user's object id after the two device ids. No new permission — the Intune enrolment record already names its user, so nothing reads the directory to answer this." },
+      { kind: "improved", tool: "T06", text: "More than one match is now an answer instead of an error. A user with a laptop and a phone is the normal case, so every multi-match — by user, name, serial or a shared Entra device id — renders as clickable device cards carrying the primary user, compliance and last check-in, and clicking one runs the analysis on that machine. The old dead end, matching three devices and being told to go find the Intune device id, is gone from every route." },
+    ],
+  },
+  {
     build: 10467, date: "2026-08-27", title: "In production it is live — the roadmap stops saying BETA about shipped work",
     items: [
       { kind: "fixed", tool: "All tools", text: "Twenty-three roadmap cards wore a BETA chip while also naming the production build they shipped in. Both cannot be true: once something is in production it is live, whichever channel you happen to be reading the roadmap from. The chip now belongs only to work that is genuinely still only here — one card today." },

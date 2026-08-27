@@ -81,6 +81,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 103,
+      title: "The Device analyzer finds the machine from its primary user, and a multi-match is a pick",
+      tools: ["T06"],
+      builds: [10468],
+      risk: "low",
+      what: "js/devicewhy.js plus the T06 screen, tile and help text. findDevice gains three routes off fields already in LIST_SELECT: a term with an @ is tried as userPrincipalName server-side before the device filters, the inventory-scan fallback also matches userPrincipalName and userDisplayName exactly, and a GUID is tried as the user's object id (userId) after the two device ids. Every multi-match path — user, name, serial, Entra device id, scan — now returns the matches instead of throwing, and the screen renders them as clickable .scard device cards (primary user, compliance, last check-in, model, enrolment date; keyboard-operable, capped at 24 with a narrowing note); a click runs the analysis on that device and the report's matched-on line names the route plus that it was picked from N. No new scope, no change to the analysis itself.",
+      why: "LOW: reads only, no new permission, and every single-match path returns exactly what it did before — the behaviour change is confined to searches that previously ended in an error telling the admin to go find a GUID, which now offer the devices found. The user route is the feature: the ticket names the person far more often than the serial, and the enrolment record has carried the answer all along.",
+      test: [
+        "Search a UPN whose user has one enrolled device: the analysis must run straight through, and the report's matched-on line must say the primary user.",
+        "Search a UPN with two or more devices: cards must render with the right user, compliance and check-in on each; clicking one must analyze that device, and the report must say it was picked from N. Enter on a focused card must do the same as a click.",
+        "Search a device name that collides (or a duplicated Entra device id if the tenant has one): the pick must appear where the old error did, and picking must work the same way.",
+        "On a tenant that refuses the userPrincipalName filter, the scan fallback must find the user's devices by UPN and by exact display name, and the notes must say which filter was refused and that the inventory was listed.",
+        "Regression: a name, a serial, an Intune device id and an Entra device id that each match exactly one device must all still resolve directly with the same matched-on wording as before; a term matching nothing must fail with the message now naming primary users among the exact-match keys.",
+      ],
+      files: ["js/devicewhy.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 102,
       title: "The roadmap: shipped cards stop claiming BETA, and the beta era leads",
       tools: ["All tools"],

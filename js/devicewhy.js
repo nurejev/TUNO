@@ -85,11 +85,14 @@ const DeviceWhy = (() => {
 
   // ------------------------------------------------------------- finding --
   //
-  // A device is looked up three ways because an admin has three things to
-  // hand: the name in the portal, the serial on the sticker, and a GUID out of
-  // a support ticket. The GUID is the interesting one — there are TWO of them
-  // for every machine (the Intune managedDevice id and the Entra device id)
-  // and they are not interchangeable. Both are tried.
+  // A device is looked up four ways because an admin has four things to
+  // hand: the name in the portal, the serial on the sticker, a GUID out of
+  // a support ticket — and, most often of all, THE USER the ticket is about.
+  // The enrolment record names its primary user, so a UPN, a display name or
+  // the user's object id resolves to their devices with no /users call and no
+  // new scope. The GUIDs stay interesting — every machine has TWO (the Intune
+  // managedDevice id and the Entra device id), they are not interchangeable,
+  // and the user's object id makes a third — so all three are tried.
   //
   // $filter SUPPORT ON managedDevices IS NOT DOCUMENTED PER PROPERTY and
   // tenants differ, so every server-side filter is attempted and its failure
@@ -123,17 +126,25 @@ const DeviceWhy = (() => {
     return { matches, scanned, truncated };
   }
 
+  // MORE THAN ONE MATCH IS AN ANSWER, NOT AN ERROR. A user with a laptop AND
+  // a phone is the normal case for the primary-user route, not a collision —
+  // so every multi-match here returns `{ devices }` for the screen to offer
+  // as a pick, and the old dead end ("use the Intune device id") is gone from
+  // the name and serial routes as a side effect: the admin who typed a
+  // colliding name gets the colliding devices, not homework.
   async function findDevice(term, onStatus) {
     term = String(term || "").trim();
-    if (!term) throw new Error("Enter a device name, serial number or object ID");
+    if (!term) throw new Error("Enter a device name, serial number, primary user or object ID");
     const notes = [];
     const t = lc(term);
+    const one = (device, matchedOn) => ({ device, matchedOn, notes });
+    const many = (devices, matchedOn) => ({ devices, matchedOn, notes });
 
     if (Graph.isGuid(term)) {
       onStatus && onStatus("Looking the device up by id…");
       try {
         const d = await Graph.readOne(`/deviceManagement/managedDevices/${encodeURIComponent(term)}`, { scopes: S().devices, beta: true });
-        if (d && d.id) return { device: d, matchedOn: "the Intune device id", notes };
+        if (d && d.id) return one(d, "the Intune device id");
       } catch (e) {
         // Only a 404 means "try the other GUID". A 403 here is a permission
         // problem, and treating it as a miss would report a device that is
@@ -142,34 +153,45 @@ const DeviceWhy = (() => {
       }
       const byAad = await tryFilter(Graph.odata`/deviceManagement/managedDevices?$filter=azureADDeviceId eq '${term}'` + `&$select=${LIST_SELECT}`, S().devices);
       if (byAad.fatal) throw byAad.fatal;
-      if (byAad.ok && byAad.items.length === 1) return { device: byAad.items[0], matchedOn: "the Entra device id", notes };
-      if (byAad.ok && byAad.items.length > 1) throw new Error(`${byAad.items.length} devices carry that Entra device id — use the Intune device id instead`);
+      if (byAad.ok && byAad.items.length === 1) return one(byAad.items[0], "the Entra device id");
+      if (byAad.ok && byAad.items.length > 1) return many(byAad.items, "the Entra device id");
       if (!byAad.ok) notes.push(`This tenant would not filter on azureADDeviceId (${byAad.error}).`);
+      // The THIRD GUID a ticket carries: the user's object id. The enrolment
+      // record names its user, so this needs no /users call and no new scope.
+      const byUid = await tryFilter(Graph.odata`/deviceManagement/managedDevices?$filter=userId eq '${term}'` + `&$select=${LIST_SELECT}`, S().devices);
+      if (byUid.fatal) throw byUid.fatal;
+      if (byUid.ok && byUid.items.length === 1) return one(byUid.items[0], "the primary user's object id");
+      if (byUid.ok && byUid.items.length > 1) return many(byUid.items, "the primary user's object id");
+      if (!byUid.ok) notes.push(`This tenant would not filter on userId (${byUid.error}).`);
     }
 
+    // A term with an @ in it is a UPN before it is anything else — no device
+    // name or serial carries one — so the primary-user filter goes first.
+    // Display names have no such marker; those are the scan's job below.
     const filters = [
-      ["deviceName", Graph.odata`/deviceManagement/managedDevices?$filter=deviceName eq '${term}'` + `&$select=${LIST_SELECT}`],
-      ["serialNumber", Graph.odata`/deviceManagement/managedDevices?$filter=serialNumber eq '${term}'` + `&$select=${LIST_SELECT}`],
+      ["deviceName", "the device name", Graph.odata`/deviceManagement/managedDevices?$filter=deviceName eq '${term}'` + `&$select=${LIST_SELECT}`],
+      ["serialNumber", "the serial number", Graph.odata`/deviceManagement/managedDevices?$filter=serialNumber eq '${term}'` + `&$select=${LIST_SELECT}`],
     ];
-    for (const [field, path] of filters) {
+    if (term.includes("@")) filters.unshift(
+      ["userPrincipalName", "the primary user", Graph.odata`/deviceManagement/managedDevices?$filter=userPrincipalName eq '${term}'` + `&$select=${LIST_SELECT}`]);
+    for (const [field, label, path] of filters) {
       onStatus && onStatus(`Looking for ${field} “${term}”…`);
       const r = await tryFilter(path, S().devices);
       if (r.fatal) throw r.fatal;
       if (!r.ok) { notes.push(`This tenant would not filter on ${field} (${r.error}).`); continue; }
-      if (r.items.length === 1) return { device: r.items[0], matchedOn: field === "deviceName" ? "the device name" : "the serial number", notes };
-      if (r.items.length > 1) throw new Error(`“${term}” matches ${r.items.length} devices by ${field} — use the Intune device id`);
+      if (r.items.length === 1) return one(r.items[0], label);
+      if (r.items.length > 1) return many(r.items, label);
     }
 
     // Nothing filtered, or nothing matched. List and match here.
     onStatus && onStatus("Listing the inventory…");
     const scan = await scanDevices((d) => lc(d.deviceName) === t || lc(d.serialNumber) === t
-      || lc(d.managedDeviceName) === t || lc(d.azureADDeviceId) === t || lc(d.id) === t, onStatus);
+      || lc(d.managedDeviceName) === t || lc(d.azureADDeviceId) === t || lc(d.id) === t
+      || lc(d.userPrincipalName) === t || lc(d.userDisplayName) === t, onStatus);
     notes.push(`Matched by listing the inventory — ${scan.scanned} device${scan.scanned === 1 ? "" : "s"} read.${scan.truncated ? ` Stopped after ${SCAN_PAGES} pages; a device further down the list would have been missed.` : ""}`);
-    if (scan.matches.length === 1) return { device: scan.matches[0], matchedOn: "name or serial, matched locally", notes, scanned: scan.scanned };
-    if (scan.matches.length > 1) {
-      throw new Error(`“${term}” matches ${scan.matches.length} devices (${scan.matches.slice(0, 5).map((d) => d.deviceName || d.id).join(", ")}${scan.matches.length > 5 ? "…" : ""}) — use the Intune device id`);
-    }
-    throw new Error(`No device matches “${term}”${scan.truncated ? `, in the first ${scan.scanned} of the inventory` : ""}. Names, serials and ids are matched exactly.`);
+    if (scan.matches.length === 1) return { device: scan.matches[0], matchedOn: "name, serial, id or primary user, matched locally", notes, scanned: scan.scanned };
+    if (scan.matches.length > 1) return { devices: scan.matches, matchedOn: "name, serial, id or primary user, matched locally", notes, scanned: scan.scanned };
+    throw new Error(`No device matches “${term}”${scan.truncated ? `, in the first ${scan.scanned} of the inventory` : ""}. Names, serials, ids and primary users (UPN or display name) are matched exactly.`);
   }
 
   // ------------------------------------------------------------ check-in --
@@ -627,6 +649,10 @@ const DeviceWhyTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let device = null, scope = null, states = null, result = null, found = null, running = false;
+  // The pick set when a search matched more than one device, and the
+  // matched-on/notes it arrived with — kept apart from `found` so picking a
+  // card can build a clean single-device `found` without losing the route.
+  let picks = null, pickBase = null;
 
   // ---- opening a policy to see what is actually in it ----
   // The table answers "does this reach the device". The next question is
@@ -752,10 +778,85 @@ const DeviceWhyTool = (() => {
     prog("");
   }
 
+  // ---- more than one device matched: the pick, Option A of the mockup ----
+  // The search can legitimately answer with several machines — a primary
+  // user with a laptop and a phone is the everyday case — so the matches
+  // render as the same clickable cards T19 taught the eye, and a click runs
+  // the analysis on that device. The check-in is ON the card, because
+  // "which of these is the live one" is usually the whole question.
+  const PICK_MAX = 24;
+
+  function pickCard(d, i) {
+    const os = String(d.operatingSystem || "");
+    const ic = /ios|ipad|android/i.test(os) ? "📱" : "💻";
+    const comp = String(d.complianceState || "").toLowerCase();
+    const chip = `<span class="state ${comp === "compliant" ? "on" : "report"}">${esc(d.complianceState || "unknown")}</span>`;
+    return `<div class="scard dw-pick" data-i="${i}" role="button" tabindex="0">
+      <div class="scard-top"><div class="scard-ic">${ic}</div>
+        <div class="scard-title"><h3>${esc(d.deviceName || d.id)}</h3>
+          <div class="mini">${esc([os, d.osVersion].filter(Boolean).join(" ") || "platform unknown")} · ${d.serialNumber ? esc(d.serialNumber) : "no serial reported"} · ${esc(d.managedDeviceOwnerType || "ownership unknown")}</div></div>
+        <div class="scard-right">${chip}</div></div>
+      <div class="scard-grid">
+        <div><label>Primary user</label><b>${esc(d.userDisplayName || d.userPrincipalName || "none")}</b></div>
+        <div><label>Last check-in</label><b>${esc(DeviceWhy.freshness(d).label)}</b></div>
+        <div><label>Model</label><b>${esc([d.manufacturer, d.model].filter(Boolean).join(" ") || "unknown")}</b></div>
+        <div><label>Enrolled</label><b>${esc((d.enrolledDateTime || "").slice(0, 10) || "unknown")}</b></div>
+      </div>
+      <div class="scard-foot">Intune device id: <code>${esc(d.id)}</code> — click to analyze</div>
+    </div>`;
+  }
+
+  function renderPicker(term) {
+    const shown = picks.slice(0, PICK_MAX);
+    $("dvBody").innerHTML = `<div class="list-card" style="padding:14px 18px">
+      <p class="mini" style="margin:0">“${esc(term)}” matched <b>${picks.length} devices</b> by ${esc(pickBase.matchedOn)} — pick the one to analyze.${picks.length > PICK_MAX ? ` Showing the first ${PICK_MAX}; narrow the search to reach the rest.` : ""}</p>
+      ${(pickBase.notes || []).map((n) => `<p class="mini muted" style="margin:6px 0 0">${esc(n)}</p>`).join("")}
+    </div>
+    <div class="cards" style="margin-top:14px">${shown.map(pickCard).join("")}</div>`;
+  }
+
+  function pickDevice(d) {
+    found = {
+      device: d, matchedOn: pickBase.matchedOn,
+      notes: [...(pickBase.notes || []), `Picked from ${picks.length} matching devices.`],
+    };
+    analyzeDevice(d);
+  }
+
+  async function analyzeDevice(dev) {
+    if (running) return;
+    const areas = chosen();
+    if (!areas.length) { fail("Pick at least one place to look."); return; }
+    running = true;
+    $("dvRun").disabled = true;
+    showExports(false);
+    try {
+      // Idempotent when run() already asked; load-bearing when the pick sat
+      // while the surface boxes changed underneath it.
+      await Graph.ensureScopes(DeviceWhy.scopesFor(areas));
+      device = dev;
+      scope = await DeviceWhy.buildScope(device, prog);
+      states = await DeviceWhy.readStates(device, prog);
+      result = await DeviceWhy.analyze({
+        device, scope, states,
+        sourceIds: areas, tenantWide: tenantWide(),
+        onStatus: prog,
+      });
+      prog("");
+      render();
+      showExports(true);
+    } catch (e) {
+      fail(e);
+    } finally {
+      running = false;
+      $("dvRun").disabled = false;
+    }
+  }
+
   async function run() {
     if (running) return;
     const term = (($("dvTerm") && $("dvTerm").value) || "").trim();
-    if (!term) { fail("Enter a device name, serial number or object ID."); return; }
+    if (!term) { fail("Enter a device name, serial number, primary user or object ID."); return; }
     const areas = chosen();
     if (!areas.length) { fail("Pick at least one place to look."); return; }
 
@@ -763,12 +864,20 @@ const DeviceWhyTool = (() => {
     $("dvRun").disabled = true;
     showExports(false);
     $("dvBody").innerHTML = "";
+    picks = null; pickBase = null;
     try {
       const want = DeviceWhy.scopesFor(areas);
       prog(`Checking permissions — ${want.length} scope${want.length === 1 ? "" : "s"}…`);
       await Graph.ensureScopes(want);
 
       found = await DeviceWhy.findDevice(term, prog);
+      if (found.devices) {
+        picks = found.devices;
+        pickBase = { matchedOn: found.matchedOn, notes: found.notes || [] };
+        prog("");
+        renderPicker(term);
+        return;
+      }
       device = found.device;
       scope = await DeviceWhy.buildScope(device, prog);
       states = await DeviceWhy.readStates(device, prog);
@@ -892,6 +1001,7 @@ const DeviceWhyTool = (() => {
 
   function reset() {
     device = scope = states = result = found = null;
+    picks = pickBase = null;
     if ($("dvTerm")) $("dvTerm").value = "";
     $("dvBody").innerHTML = "";
     prog("");
@@ -909,11 +1019,19 @@ const DeviceWhyTool = (() => {
     // the body. The row is found through the same grouping the table was
     // drawn from, so the click and the markup cannot drift apart.
     $("dvBody").addEventListener("click", (e) => {
+      const p = e.target.closest && e.target.closest(".dw-pick");
+      if (p && picks) { const d = picks[+p.dataset.i]; if (d) pickDevice(d); return; }
       const b = e.target.closest && e.target.closest(".dw-open");
       if (!b || !result) return;
       const grp = GroupUse.grouped(result.rows).find((g) => g.source.id === b.dataset.src);
       const r = grp && grp.rows[+b.dataset.ri];
       if (r) openPolicy(r);
+    });
+    // The cards are role=button; Enter and Space must do what a click does.
+    $("dvBody").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const p = e.target.closest && e.target.closest(".dw-pick");
+      if (p && picks) { e.preventDefault(); const d = picks[+p.dataset.i]; if (d) pickDevice(d); }
     });
     $("dvRun").addEventListener("click", run);
     $("dvReset").addEventListener("click", reset);
@@ -923,5 +1041,5 @@ const DeviceWhyTool = (() => {
     $("dvHtml").addEventListener("click", () => exportAs("html"));
   }
 
-  return { init, run, reset, render, renderAreas, chosen, tenantWide, exportAs };
+  return { init, run, reset, render, renderAreas, chosen, tenantWide, exportAs, analyzeDevice };
 })();

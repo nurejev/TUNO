@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10467"></script>
+<script src="js/popup-guard.js?v=10468"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10467">
+<link rel="stylesheet" href="css/app.css?v=10468">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10467"></script>
+<script src="js/selfhost-boot.js?v=10468"></script>
 </head>
 <body>
 
@@ -152,7 +152,7 @@
       </div>
       <div class="tool" id="toolDevice">
         <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>The same assignment graph, walked backwards from one machine: <b>why did THIS device get that policy?</b> Find it by name, serial or either of its two GUIDs, and see which of its own groups, which of its primary user's groups, or which tenant-wide target put each policy there. <b>The last check-in sits at the top of the answer</b>, because everything else is what Intune intends and a policy assigned minutes ago has not landed yet. Where the device has reported back, intended and actual sit in adjacent columns; where it has not, the state is unknown rather than assumed. Filtered assignments say <i>may</i> reach it — a browser cannot evaluate a filter rule, and this one does not pretend to. Export as Markdown, CSV or a standalone HTML report.</p>
+        <p>The same assignment graph, walked backwards from one machine: <b>why did THIS device get that policy?</b> Find it by name, serial, either of its two GUIDs — <b>or by its primary user</b>, since the ticket names the person far more often than the serial: a UPN resolves to their devices, with a pick list when they have more than one. Then see which of its own groups, which of its primary user's groups, or which tenant-wide target put each policy there. <b>The last check-in sits at the top of the answer</b>, because everything else is what Intune intends and a policy assigned minutes ago has not landed yet. Where the device has reported back, intended and actual sit in adjacent columns; where it has not, the state is unknown rather than assumed. Filtered assignments say <i>may</i> reach it — a browser cannot evaluate a filter rule, and this one does not pretend to. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
@@ -890,15 +890,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
   <section id="screen-device" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">🖥 Device analyzer <span class="tag new">BETA</span></h2>
-      <p class="mini" style="margin:0">Name one device and get the answer to “why did <i>this</i> machine get that policy”. The <b>Group Analyzer</b> asks what a group receives; this walks the same assignment graph backwards — the groups the device is in, the groups its primary user is in, and the tenant-wide targets that need no group at all — and says which of them put each policy here. <b>Reads only.</b></p>
+      <p class="mini" style="margin:0">Name one device — or <b>its user</b> — and get the answer to “why did <i>this</i> machine get that policy”. The <b>Group Analyzer</b> asks what a group receives; this walks the same assignment graph backwards — the groups the device is in, the groups its primary user is in, and the tenant-wide targets that need no group at all — and says which of them put each policy here. <b>Reads only.</b></p>
       <p class="mini muted" style="margin:8px 0 0"><b>Everything here is what Intune INTENDS.</b> What the device actually has is whatever it collected the last time it talked to the service, so the last check-in sits at the top of the answer rather than in a details panel: a policy assigned ten minutes ago has not reached a machine that last synced yesterday. Where Graph reports what the device itself said — configuration and compliance state — that sits in its own column next to the assignment. Where it does not, or could not be read, the state is <b>unknown</b>, never “fine”.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>An assignment carrying a device filter is an open question and is shown as one.</b> The filter rule is evaluated by the service against inventory a browser cannot see, and Graph has no call that answers “would this filter include this device”. Those rows say <b>may reach it</b> and name the filter. They will never say yes.</p>
     </div>
 
     <div class="list-card wi-form">
-      <label class="wi-f" style="max-width:520px"><span>Device <span class="mini muted">name, serial number, Intune device id or Entra device id</span></span>
-        <input id="dvTerm" placeholder="e.g. LT-0042, 5CD1234ABC, or a GUID" autocomplete="off" spellcheck="false"></label>
-      <p class="mini muted" style="margin:6px 0 0">Matched exactly, in that order. Every machine has <b>two</b> GUIDs — the Intune device id and the Entra device id — and both are tried, because which one is on a support ticket is a coin toss. Filtering the device inventory server-side is not supported for every property on every tenant; when a filter is refused the inventory is listed and matched here instead, and the report says which route answered.</p>
+      <label class="wi-f" style="max-width:520px"><span>Device or its user <span class="mini muted">device name, serial, primary user (UPN or display name), or a GUID</span></span>
+        <input id="dvTerm" placeholder="e.g. LT-0042, 5CD1234ABC, mihai@contoso.com, or a GUID" autocomplete="off" spellcheck="false"></label>
+      <p class="mini muted" style="margin:6px 0 0">Matched exactly. <b>The primary user is a search key</b> — the enrolment record names its user, so a UPN or the exact display name finds their machines with no extra permission — and a GUID is tried <b>three</b> ways: the Intune device id, the Entra device id, and the user's object id, because which one is on a support ticket is a coin toss. When more than one device matches — a user with a laptop <i>and</i> a phone is the normal case — the matches are offered as a pick, never an error. Filtering the device inventory server-side is not supported for every property on every tenant; when a filter is refused the inventory is listed and matched here instead, and the report says which route answered.</p>
 
       <div style="margin:12px 0">
         <div class="mini" style="font-weight:600;margin-bottom:6px">Where to look</div>
@@ -1597,7 +1597,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p class="mini" style="margin:0 0 10px">“Which policies configure BitLocker, and to what value?” — answered from the setting <i>definitions</i> rather than the policy names. The settings-catalog definition catalog (roughly seventeen thousand entries, Microsoft's rather than the tenant's) is read once and searched as you type; a second, optional read of the tenant's own policies lets each result say who sets it and to what.</p>
         <p class="mini" style="margin:0 0 10px"><b>Until that second read runs, the usage column is absent — not empty.</b> “Nobody sets this” and “nobody looked” are different answers, and the screen and the export both say which one you have. Values pass the documenter's redaction gate, because a settings search is exactly the tool somebody uses to hunt for “password”, and a result table printing secrets would be a disclosure engine with a search box.</p>
         <h3 id="help-device" style="margin:14px 0 6px">🖥 Device analyzer</h3>
-        <p class="mini" style="margin:0 0 10px">The Group Analyzer asks what a group receives. This asks what one <i>device</i> receives, and why — walking the same nine assignment surfaces backwards through the groups the machine is in, the groups its primary user is in, and the tenant-wide targets that name no group. Every row names the relationship that put it there. Reads only.</p>
+        <p class="mini" style="margin:0 0 10px">The Group Analyzer asks what a group receives. This asks what one <i>device</i> receives, and why — walking the same nine assignment surfaces backwards through the groups the machine is in, the groups its primary user is in, and the tenant-wide targets that name no group. Every row names the relationship that put it there. The device is found by name, serial, either of its two GUIDs — or by its <b>primary user</b>: a UPN, the exact display name, or the user's object id resolves to their machines straight off the enrolment record, no extra permission, and a user with more than one device gets a pick list of clickable cards. Reads only.</p>
         <p class="mini" style="margin:0 0 10px"><b>Read the check-in first.</b> Every assignment here is what Intune intends; what the device has is whatever it collected the last time it talked to the service. A policy assigned ten minutes ago has not reached a machine that last synced yesterday, and no amount of correct assignment data changes that — so the check-in time is the first thing on the page.</p>
         <p class="mini" style="margin:0 0 10px"><b>Three answers this tool refuses to guess at.</b> ① A <b>filtered</b> assignment may or may not reach this device: the rule is evaluated by the service against inventory a browser cannot see, and Graph offers no call that answers it. Those rows say <i>may reach it</i>. ② A policy the device has not reported on has state <b>unknown</b>, not compliant — and where a reported state cannot be tied to a policy with certainty, because two policies share a name, that is unknown too. ③ Where a policy is <b>included through one group and excluded through another</b>, an exclusion wins in Intune and the row says excluded — except when the two arrive through different kinds of group, device against user, where whether the exclusion applies depends on how the policy is targeted and the assignment does not say. That one is called a conflict and left to the portal.</p>
         <p class="mini" style="margin:0 0 10px"><b>Tenant-wide assignments are shown by default here</b>, unlike in the Group Analyzer. All Devices reaches this machine whatever else is true, so hiding those rows would hide policy it is definitely getting. All Users lands on the person, so a device with no primary user does not receive them — and the row says so rather than being dropped.</p>
@@ -1681,37 +1681,37 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10467"></script>
-<script src="js/selfhost.js?v=10467"></script>
-<script src="js/version.js?v=10467"></script>
-<script src="js/promote.js?v=10467"></script>
-<script src="js/authConfig.js?v=10467"></script>
-<script src="js/changelog.js?v=10467"></script>
-<script src="js/msappcatalog.js?v=10467"></script>
-<script src="js/demo.js?v=10467"></script>
-<script src="js/graph.js?v=10467"></script>
-<script src="js/suggest.js?v=10467"></script>
-<script src="js/progress.js?v=10467"></script>
-<script src="js/groupuse.js?v=10467"></script>
-<script src="js/audit.js?v=10467"></script>
-<script src="js/backup.js?v=10467"></script>
-<script src="js/document.js?v=10467"></script>
-<script src="js/overview.js?v=10467"></script>
-<script src="js/devicewhy.js?v=10467"></script>
-<script src="js/whatif.js?v=10467"></script>
-<script src="js/health.js?v=10467"></script>
-<script src="js/settingsearch.js?v=10467"></script>
-<script src="js/conflict.js?v=10467"></script>
-<script src="js/compliance.js?v=10467"></script>
-<script src="js/filters.js?v=10467"></script>
-<script src="js/restore.js?v=10467"></script>
-<script src="js/assignedit.js?v=10467"></script>
-<script src="js/roles.js?v=10467"></script>
-<script src="js/defender.js?v=10467"></script>
-<script src="js/endpointsec.js?v=10467"></script>
-<script src="js/maa.js?v=10467"></script>
-<script src="js/laps.js?v=10467"></script>
-<script src="js/applocker.js?v=10467"></script>
-<script src="js/app.js?v=10467"></script>
+<script src="js/branding.js?v=10468"></script>
+<script src="js/selfhost.js?v=10468"></script>
+<script src="js/version.js?v=10468"></script>
+<script src="js/promote.js?v=10468"></script>
+<script src="js/authConfig.js?v=10468"></script>
+<script src="js/changelog.js?v=10468"></script>
+<script src="js/msappcatalog.js?v=10468"></script>
+<script src="js/demo.js?v=10468"></script>
+<script src="js/graph.js?v=10468"></script>
+<script src="js/suggest.js?v=10468"></script>
+<script src="js/progress.js?v=10468"></script>
+<script src="js/groupuse.js?v=10468"></script>
+<script src="js/audit.js?v=10468"></script>
+<script src="js/backup.js?v=10468"></script>
+<script src="js/document.js?v=10468"></script>
+<script src="js/overview.js?v=10468"></script>
+<script src="js/devicewhy.js?v=10468"></script>
+<script src="js/whatif.js?v=10468"></script>
+<script src="js/health.js?v=10468"></script>
+<script src="js/settingsearch.js?v=10468"></script>
+<script src="js/conflict.js?v=10468"></script>
+<script src="js/compliance.js?v=10468"></script>
+<script src="js/filters.js?v=10468"></script>
+<script src="js/restore.js?v=10468"></script>
+<script src="js/assignedit.js?v=10468"></script>
+<script src="js/roles.js?v=10468"></script>
+<script src="js/defender.js?v=10468"></script>
+<script src="js/endpointsec.js?v=10468"></script>
+<script src="js/maa.js?v=10468"></script>
+<script src="js/laps.js?v=10468"></script>
+<script src="js/applocker.js?v=10468"></script>
+<script src="js/app.js?v=10468"></script>
 </body>
 </html>
