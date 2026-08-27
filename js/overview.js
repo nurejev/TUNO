@@ -305,7 +305,7 @@ const OverviewTool = (() => {
     verdictOf, filterMay,
     _view: () => view,
     // for the headless tests only — the real res is set by run()
-    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; render(); },
+    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; view = "cards"; render(); },   // mirrors run()'s reset
     _state: () => ({ surfFilter, verdictFilter }),
   };
 })();

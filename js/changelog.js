@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10487, date: "2026-08-27", title: "The count unwrap becomes something a test can reach",
+    items: [
+      { kind: "improved", tool: "T20", text: "The group-count unwrap moves out of run() and into EndpointPosture.countsFrom(), a named seam in the DOM-free half. The 10483 bug is the argument: it threw nothing, logged nothing and rendered a confident \"~0 of 9969\" for four builds, because the one line that could be wrong lived where no headless test could call it. A wrong number that renders is worse than an exception \u2014 the defence is a test, and a test needs a seam." },
+      { kind: "improved", tool: "T19", text: "_setForTest() resets the view the way a fresh read does, so the headless suite exercises the same reset the tool performs rather than a seam that quietly differs from it." },
+    ],
+  },
+  {
     build: 10486, date: "2026-08-27", title: "The brief says what is enforced now AND where it is going",
     items: [
       { kind: "new", tool: "T20", text: "Every brief statement now carries two device lines instead of one: \ud83d\udcdf enforced now on ~5000 of 9969 enrolled Windows devices, and \ud83c\udfaf at rollout: targets All devices \u2014 all 9969 enrolled Windows devices in total. Today's coverage and the destination are the two numbers a rollout communication is actually about, and the brief had only ever printed the first." },

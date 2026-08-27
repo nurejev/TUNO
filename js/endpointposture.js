@@ -203,6 +203,27 @@ const EndpointPosture = (() => {
     return out;
   }
 
+  // THE UNWRAP, AS A NAMED SEAM (10487) — because the bug it replaces was
+  // invisible from every direction: Graph.pool hands back { item, value } on
+  // success and { item, error } on failure, 10479 read the WRAPPER as the
+  // count, and Number.isFinite was quietly false every single time. Nothing
+  // threw. The screen simply said "~0 of 9969 · 9969 still missing (floor)"
+  // about groups Graph had answered for perfectly well. A wrong number that
+  // renders is worse than an exception, and the only defence is a test — so
+  // the unwrap stopped living inside run() where no test can reach it.
+  // A count is a NUMBER or it is unknown; unknown is COUNTED, never zero.
+  function countsFrom(ids, results) {
+    const counts = {};
+    let errors = 0;
+    (ids || []).forEach((id, i) => {
+      const r = (results || [])[i];
+      const v = (r && typeof r === "object" && "error" in r) ? null : Number(r && typeof r === "object" ? r.value : r);
+      counts[id] = Number.isFinite(v) ? v : null;
+      if (!Number.isFinite(v)) errors++;
+    });
+    return { counts, errors };
+  }
+
   // The one sentence both the screen and the export speak.
   function reachLine(r, deviceCount) {
     const D = deviceCount;
@@ -869,7 +890,7 @@ ${body.join("\n")}
   }
 
   return {
-    NODES, nodeById, classify, intentNode,
+    NODES, countsFrom, nodeById, classify, intentNode,
     RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
     isInterim, stateWordOf, appctlMode,
     CHECKS, runChecks, findings, checksMd,
@@ -979,20 +1000,9 @@ const EndpointPostureTool = (() => {
           prog(`Counting group members — ${++done}/${gids.length}…`);
           try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
         }, 6);
-        // Graph.pool hands back { item, value } on success and { item, error }
-        // on failure — 10479 read the WRAPPER as the count, so Number.isFinite
-        // was false every single time and every group landed as null. The
-        // screen then said "~0 of 9969 devices · 9969 still missing (floor)"
-        // about a tenant whose groups were read perfectly well: a zero that
-        // was never measured, wearing the floor caveat as if it had been.
-        // Caught on Mihai's live tenant. Unwrap the value; a count is a
-        // NUMBER or it is unknown, and unknown is counted, never rounded to
-        // nothing.
-        rs.forEach((r, i) => {
-          const v = (r && "error" in r) ? null : Number(r && r.value);
-          groupCounts[gids[i]] = Number.isFinite(v) ? v : null;
-          if (!Number.isFinite(v)) groupCountErrors++;
-        });
+        const c = EndpointPosture.countsFrom(gids, rs);
+        Object.assign(groupCounts, c.counts);
+        groupCountErrors = c.errors;
       }
       res = {
         sec, docs, byNode, intents, intentsError, templatesError,
