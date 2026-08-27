@@ -81,6 +81,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 101,
+      title: "The branding gear works on production, limited to this browser",
+      tools: ["All tools"],
+      builds: [10462],
+      risk: "medium",
+      what: "js/selfhost.js no longer returns out of itself on the production host at module scope \u2014 that early return was what took the gear with it. isProd() now gates only the two things whose reach exceeds one browser: the selfhost-branding.json fetch and the SELF-HOSTED ribbon relabel (the latter lives inside the gated fetch chain, so it cannot fire). The gear, Apply, Import and Download run everywhere. On production the modal gains a standing note that this is the production site and the change is local, and the Download blurb stops claiming that serving the file rebrands this deployment — true on a copy, false here. BRANDING.host remains non-configurable on every deployment.",
+      why: "MEDIUM, and it is a DELIBERATE REVERSAL of a rule the file argued for in its own header — read that header before promoting. The original claim was that a settings dialog must never redress tuno.limon-it.nl from a browser. The narrower claim now is that it must never redress it FOR ANYBODY ELSE. Whether that trade is right is Mihai's call and he has made it; what the reviewer should check is that the narrowing is real and not just asserted.",
+      test: [
+        "THE ONE THAT MATTERS: on production, Apply a loud branding, then open the site in a different browser or a private window. It must be completely unbranded. If the look leaks to a second browser, the narrowing has failed and this must not ship.",
+        "Serve a selfhost-branding.json next to index.html on production and hard-refresh. NOTHING may change — production does not read it, and the dialog now says so.",
+        "Confirm production never shows the SELF-HOSTED ribbon, with or without a local brand applied, and that the title bar tag is unchanged.",
+        "Read the dialog on production: it must say this is the production site, that Apply reaches this browser only, and that serving the download here does nothing. Then read it on beta — it must still give the self-host wording, because there the file DOES work.",
+        "Check the canonical host is still absent from the form on both channels. That is the guarantee that stops a copy claiming to be production and it is the one thing that must not have moved.",
+        "Clear the applied branding on production and confirm the site returns to the real Limon-IT identity on the NEXT paint, not two paints later — selfhost-boot.js reads the same cache before first paint.",
+        "Confirm the exports still carry the neutral product credit on production even with a local brand applied.",
+      ],
+      files: ["js/selfhost.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 100,
       title: "The collapsed sidebar's icons are legible",
       tools: ["All tools"],

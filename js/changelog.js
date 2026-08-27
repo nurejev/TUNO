@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10462, date: "2026-08-27", title: "The branding gear appears on production too — as a preview that stays in your browser",
+    items: [
+      { kind: "fixed", tool: "All tools", text: "The ⚙ branding gear was missing from tuno.limon-it.nl. It was not a bug — the whole self-host module returned early on the production host, and the gear went with it — but the effect was that the one deployment you most often want to show somebody a look on was the one you could not." },
+      { kind: "improved", tool: "All tools", text: "The gate now splits by REACH rather than by feature. What you do to your own browser is allowed on production: the gear, Apply, Import, Download. What would change the site for everyone else is not — production still never reads selfhost-branding.json, so no served file can restyle it, and it never relabels its own ribbon as SELF-HOSTED." },
+      { kind: "improved", tool: "All tools", text: "On production the dialog says what it is: that this is the production site, that its real identity is js/branding.js under review, that Apply reaches this browser and nowhere else, and that serving the downloaded file here does nothing. It previously promised that serving the file gives every visitor the look — true on a self-hosted copy, false here, and the kind of sentence somebody acts on." },
+      { kind: "improved", tool: "All tools", text: "The one guarantee that always mattered is untouched: the canonical host is still not a field in that form, on any deployment. No amount of local branding can make a copy claim to be production, which is what the original gate was really protecting." },
+    ],
+  },
+  {
     build: 10461, date: "2026-08-27", title: "Bigger icons in the collapsed sidebar",
     items: [
       { kind: "improved", tool: "All tools", text: "The icons in the collapsed rail are larger. Folded down to the icon rail there is no label beside them, so the icon is the only thing telling one tool from another — and it was doing that job at the same size as the row text it inherited, which is sized to sit NEXT to a word rather than to replace one." },

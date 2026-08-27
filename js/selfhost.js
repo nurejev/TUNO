@@ -40,7 +40,22 @@
       return !!prod && (location.hostname || "").toLowerCase() === prod;
     } catch { return true; }
   };
-  if (isProd()) return;
+
+  // ON PRODUCTION THE MODULE STILL LOADS, but only its per-browser half.
+  // Until 10462 this returned here and took the gear with it, which left the
+  // production site with no way to preview a look at all. What must NOT
+  // follow it onto tuno.limon-it.nl is anything that changes the site for
+  // SOMEBODY ELSE, so the split is by blast radius rather than by feature:
+  //
+  //   allowed on production — the gear, Apply (this browser's localStorage),
+  //     Import and Download. None of it leaves the machine it is typed on.
+  //   NOT on production — the /selfhost-branding.json fetch, which would
+  //     rebrand the site for every visitor, and the ribbon relabelling,
+  //     which would put "SELF-HOSTED" on the real production deployment.
+  //
+  // BRANDING.host stays non-configurable everywhere, so no amount of this
+  // can make a copy claim to be production. That was always the point the
+  // original gate was protecting, and it is protected without the gate.
 
   // ---- sanitising ----------------------------------------------------
   // Colour values end up inside a generated stylesheet; a value that can
@@ -97,7 +112,7 @@
 
   // ---- the deployment file -------------------------------------------
   const BOOT_CACHE = "tuno-selfhost-brand-cache";
-  fetch("selfhost-branding.json?v=" + Date.now(), { cache: "no-store" })
+  if (!isProd()) fetch("selfhost-branding.json?v=" + Date.now(), { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       deploymentBrand = cleanBrand(j && j.brand);
@@ -172,8 +187,11 @@
     bg.id = "selfhostModal";
     bg.className = "modal-bg";
     bg.innerHTML = `<div class="modal" style="max-width:680px">
-      <h3>⚙ Branding — this deployment</h3>
-      <p class="mini" style="margin:0 0 14px">The same mechanism as the hosted per-audience looks: chrome only, exports keep the neutral ${esc(B.name || "TUNO")} credit. 💾 applies in this browser; ⭳ downloads <b>selfhost-branding.json</b> — serve it next to index.html and every visitor gets this look.</p>
+      <h3>⚙ Branding — ${isProd() ? "this browser only" : "this deployment"}</h3>
+      <p class="mini" style="margin:0 0 14px">The same mechanism as the hosted per-audience looks: chrome only, exports keep the neutral ${esc(B.name || "TUNO")} credit. ${isProd()
+        ? `💾 applies <b>in this browser and nowhere else</b> — nobody else visiting ${esc((typeof BRANDING !== "undefined" && BRANDING.host) || "this site")} sees it, and a reload of a different browser is back to the real thing. ⭳ downloads <b>selfhost-branding.json</b> for use on a self-hosted copy; serving it here does nothing, because the production deployment does not read it.`
+        : `💾 applies in this browser; ⭳ downloads <b>selfhost-branding.json</b> — serve it next to index.html and every visitor gets this look.`}</p>
+      ${isProd() ? `<div class="gu-fail" style="margin:0 0 14px"><b>This is the production site.</b><span class="why">Its real identity is <code>js/branding.js</code>, reviewed in git — that is what every other visitor sees and what the exports credit. Anything set here is a local preview on top of it, so do not screenshot it as though it were live.</span></div>` : ""}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
         ${F("shName", "Product name", val("name"))}
         ${F("shLong", "Long name", val("longName"))}
