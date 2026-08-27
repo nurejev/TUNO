@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10476, date: "2026-08-27", title: "The Endpoint security blade gets a mirror, a translator and an examiner",
+    items: [
+      { kind: "new", tool: "T20", text: "🧭 Endpoint security posture (R31, Option B of a two-option mockup round): the portal's Endpoint security blade as a rail — every discipline's policies as the Policy overview's clickable cards, opening the documenter's own popout — plus two nodes the portal does not have: plain settings-catalog policies that configure Defender (MDE) or Microsoft Edge, found by their setting definition ids. Legacy intents are classified through their template and say only assigned-or-not, because that is all their surface says. Reads only, no new permission — the read is the documenter's own." },
+      { kind: "new", tool: "T20", text: "🗣 The impact brief — the sister tool ENCA's T32, translated from sign-ins to devices: what a person will notice, in end-user language meant for the rollout mail, every statement derived from a policy actually present and naming it. Enforced-today and at-rollout are never mixed, because the split is reach by construction — a policy reaching nobody describes the plan, not today. Export as Markdown or Word." },
+      { kind: "new", tool: "T20", text: "🎓 Best practice — the tenant's actual setting values measured against learn.microsoft.com: tamper protection, real-time and cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker's exact trio, firewall profiles and inbound defaults, EDR onboarding and sample sharing, Edge SmartScreen with its override prevention. Each check carries severity, what Microsoft recommends, what this tenant has, the remediation and the Learn page it stands on. NOT REACHING is its own verdict — the right setting in a policy reaching nobody is configured, not enforced — and a value the check set does not recognise is said so, never guessed into a verdict." },
+      { kind: "improved", tool: "T05", text: "The documenter's doc shape carries templateFamily and templateName — read from data the list request already returned, so no read changed. It is how the new tool tells the disciplines apart, and the popout subtitle can now name the template." },
+    ],
+  },
+  {
     build: 10475, date: "2026-08-27", title: "The Device analyzer's settings popout reads the right Graph version",
     items: [
       { kind: "fixed", tool: "T06", text: "Opening a Settings catalog or ADMX policy from the table failed with Resource not found for the segment — those two surfaces exist only on the beta Graph endpoint, and the on-click settings read was going to v1.0 while the list it came from was read on beta all along. Device configuration and compliance opens worked, which is what made the failure look selective. The read now uses the same beta-and-retry options as the Documenter, whose readers it already shared for redaction — and the collection kinds page, so a catalog policy with hundreds of settings arrives whole instead of one truncated response." },

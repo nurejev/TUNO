@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10475"></script>
+<script src="js/popup-guard.js?v=10476"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10475">
+<link rel="stylesheet" href="css/app.css?v=10476">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10475"></script>
+<script src="js/selfhost-boot.js?v=10476"></script>
 </head>
 <body>
 
@@ -131,6 +131,10 @@
       <div class="tool" id="toolLaps">
         <div class="tool-ic">🔑</div><h3>Windows LAPS audit</h3>
         <p>Which Windows devices have an escrowed local administrator password, and how old it is — <b>not escrowed</b> and <b>stale</b> are the two shapes of one finding, a LAPS policy that is not applying, found before the day somebody needs the password that is not there. Escrow <b>metadata only</b>: device names and backup times, under a permission that cannot return password values — reading a password is a different act, and this tool does not have it. A device that cannot be matched to the escrow store is unknown, never counted as not escrowed; escrowed records for retired machines are listed, not ignored. Export as Markdown or CSV.</p>
+      </div>
+      <div class="tool" id="toolPosture">
+        <div class="tool-ic">🧭</div><h3>Endpoint security posture <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
+        <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>Reads only, no new permission.</b></p>
       </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
@@ -1259,6 +1263,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <p class="mini muted" style="margin:0 0 10px">Built and running here, not yet promoted. New work lands in this era and stays until a promotion moves it up to Now with the production build it shipped in.</p>
           <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R31</span> 🧭 Endpoint security posture <span class="tag grant">live · beta 10476</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">The portal's Endpoint security blade, mirrored — Option B of a two-option mockup round: a rail of the portal's own nodes, plus two the portal does not have (settings-catalog policies configuring <b>Defender</b> or <b>Edge</b>, found by their setting definition ids), and two analyses in the same rail. <b>🗣 The impact brief</b> is the sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T32 translated from sign-ins to devices: what people will notice, in end-user language, exportable as Markdown or Word. <b>🎓 Best practice</b> wears ENCA's MSLearn check shape — severity, requirement, remediation, the learn.microsoft.com page per check — pointed at MDE and Edge, with <b>not reaching</b> as its own verdict when the right setting sits in a policy reaching nobody. The read is the 📄 documenter's <code>collect()</code> (which carries <code>templateFamily</code> since this build), disciplines split by 🧱 T16's own classifier, verdicts the house claims. Cross-checked against ShadowDeploy MDE's defId families — <b>BUSL-licensed, so checked against, not ported</b>; every check stands on its Learn page.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R30</span> 🗂 Policy overview <span class="tag grant">live · beta 10458</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">The sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s list-policies view, Intune-side-out: every configured object as clickable cards, the thirteen surfaces on top as stat cards that double as filters — Option B of a two-option mockup round. <b>The read is the 📄 documenter's own <code>collect()</code></b>, one implementation so two tools cannot disagree about one tenant, and a card click opens the documenter's own popout, extracted in the same build so the policy template exists once. Verdicts are the house claims: <b>Assigned</b> = reaching somebody by construction, <b>excluded-only</b> its own finding, a filter caps reach at <i>may</i>. A surface that could not be read is a named ⚠ card and deliberately not a filter. Reads only, no new permission, no exports — the document is the documenter's job, one click away.</p>
           </div>
@@ -1505,6 +1513,28 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="fwBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ ENDPOINT SECURITY POSTURE (T20) ============ -->
+  <section id="screen-posture" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🧭 Endpoint security posture <span class="tag new">BETA</span></h2>
+      <p class="mini" style="margin:0">The portal's Endpoint security blade, mirrored — one read, three answers behind one rail: the <b>disciplines</b> with their policies as clickable cards (plus settings-catalog policies that configure <b>Defender</b> or <b>Edge</b> without being endpoint security templates, found by their setting definition ids), the <b>🗣 impact brief</b> — what a person will notice on their device, in end-user language, exportable as Markdown or Word — and <b>🎓 best practice</b>: the tenant's actual setting values measured against learn.microsoft.com, each check carrying its severity, remediation and the Learn page it stands on. <b>Reads only, no new permission</b> — the policy read is the 📄 documenter's own, so values have passed its redaction gate.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The claims are the house claims.</b> Assigned means reaching somebody by construction; excluded-only is its own finding; an assignment filter caps reach at <i>may</i>. A best-practice check whose only correct configuration sits in a policy reaching nobody says <b>not reaching</b> — configured is not enforced. A setting value the check set does not recognise is said to be unrecognised, never guessed. Legacy intents are classified through their template and say only assigned-or-not, because that is all their surface says.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="epRun">🧭 Read the posture</button>
+        <button class="btn" id="epBriefMd" style="display:none">⭳ Brief MD</button>
+        <button class="btn" id="epBriefDocx" style="display:none">⭳ Brief Word</button>
+        <button class="btn" id="epChecksMd" style="display:none">⭳ Checks MD</button>
+      </div>
+      <div id="epProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="epBody" style="margin-top:14px"></div>
+    <div class="modal-bg" id="epModal">
+      <div class="modal gu-modal" id="epModalBody"></div>
+    </div>
+  </section>
+
   <!-- ============ MULTI-ADMIN APPROVAL (T17) ============ -->
   <section id="screen-maa" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
@@ -1702,37 +1732,38 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10475"></script>
-<script src="js/selfhost.js?v=10475"></script>
-<script src="js/version.js?v=10475"></script>
-<script src="js/promote.js?v=10475"></script>
-<script src="js/authConfig.js?v=10475"></script>
-<script src="js/changelog.js?v=10475"></script>
-<script src="js/msappcatalog.js?v=10475"></script>
-<script src="js/demo.js?v=10475"></script>
-<script src="js/graph.js?v=10475"></script>
-<script src="js/suggest.js?v=10475"></script>
-<script src="js/progress.js?v=10475"></script>
-<script src="js/groupuse.js?v=10475"></script>
-<script src="js/audit.js?v=10475"></script>
-<script src="js/backup.js?v=10475"></script>
-<script src="js/document.js?v=10475"></script>
-<script src="js/overview.js?v=10475"></script>
-<script src="js/devicewhy.js?v=10475"></script>
-<script src="js/whatif.js?v=10475"></script>
-<script src="js/health.js?v=10475"></script>
-<script src="js/settingsearch.js?v=10475"></script>
-<script src="js/conflict.js?v=10475"></script>
-<script src="js/compliance.js?v=10475"></script>
-<script src="js/filters.js?v=10475"></script>
-<script src="js/restore.js?v=10475"></script>
-<script src="js/assignedit.js?v=10475"></script>
-<script src="js/roles.js?v=10475"></script>
-<script src="js/defender.js?v=10475"></script>
-<script src="js/endpointsec.js?v=10475"></script>
-<script src="js/maa.js?v=10475"></script>
-<script src="js/laps.js?v=10475"></script>
-<script src="js/applocker.js?v=10475"></script>
-<script src="js/app.js?v=10475"></script>
+<script src="js/branding.js?v=10476"></script>
+<script src="js/selfhost.js?v=10476"></script>
+<script src="js/version.js?v=10476"></script>
+<script src="js/promote.js?v=10476"></script>
+<script src="js/authConfig.js?v=10476"></script>
+<script src="js/changelog.js?v=10476"></script>
+<script src="js/msappcatalog.js?v=10476"></script>
+<script src="js/demo.js?v=10476"></script>
+<script src="js/graph.js?v=10476"></script>
+<script src="js/suggest.js?v=10476"></script>
+<script src="js/progress.js?v=10476"></script>
+<script src="js/groupuse.js?v=10476"></script>
+<script src="js/audit.js?v=10476"></script>
+<script src="js/backup.js?v=10476"></script>
+<script src="js/document.js?v=10476"></script>
+<script src="js/overview.js?v=10476"></script>
+<script src="js/devicewhy.js?v=10476"></script>
+<script src="js/whatif.js?v=10476"></script>
+<script src="js/health.js?v=10476"></script>
+<script src="js/settingsearch.js?v=10476"></script>
+<script src="js/conflict.js?v=10476"></script>
+<script src="js/compliance.js?v=10476"></script>
+<script src="js/filters.js?v=10476"></script>
+<script src="js/restore.js?v=10476"></script>
+<script src="js/assignedit.js?v=10476"></script>
+<script src="js/roles.js?v=10476"></script>
+<script src="js/defender.js?v=10476"></script>
+<script src="js/endpointsec.js?v=10476"></script>
+<script src="js/endpointposture.js?v=10476"></script>
+<script src="js/maa.js?v=10476"></script>
+<script src="js/laps.js?v=10476"></script>
+<script src="js/applocker.js?v=10476"></script>
+<script src="js/app.js?v=10476"></script>
 </body>
 </html>

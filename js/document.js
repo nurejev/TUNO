@@ -356,6 +356,11 @@ const Docs = (() => {
           platforms: platformsOf(it, sec),
           platform: platformsOf(it, sec).join(", "),
           type: String(it["@odata.type"] || "").replace(/^#?microsoft\.graph\./, ""),
+          // Carried for T20 (build 10476): the template identity is how the
+          // endpoint security disciplines are told apart, and it is cheap —
+          // the object arrived with the list read either way.
+          templateFamily: (it.templateReference && it.templateReference.templateFamily) || "",
+          templateName: (it.templateReference && it.templateReference.templateDisplayName) || "",
           created: it.createdDateTime || "", modified: it.lastModifiedDateTime || "",
           assignments: (it.assignments || []).map((a) => assignmentOf(a)),
           rows: sec.rowsFrom(it) || [],

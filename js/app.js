@@ -220,6 +220,7 @@ const Fs = (() => {
     const SCREEN_TOOL = {
       "screen-applocker": "toolAppLocker", "screen-defender": "toolDefender",
       "screen-endpointsec": "toolEndpointSec", "screen-laps": "toolLaps",
+      "screen-posture": "toolPosture",
       "screen-groupuse": "toolGroupUse", "screen-audit": "toolAudit",
       "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
       "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
@@ -853,6 +854,7 @@ const Fs = (() => {
     ["toolDefender", "🦠 Defender status"],
     ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
     ["toolLaps", "🔑 Windows LAPS audit"],
+    ["toolPosture", "🧭 Endpoint security posture"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
@@ -1058,6 +1060,7 @@ const Fs = (() => {
   $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
   $("toolLaps").addEventListener("click", () => { crumb("🔑 Windows LAPS audit"); show("screen-laps"); });
+  $("toolPosture").addEventListener("click", () => { crumb("🧭 Endpoint security posture"); show("screen-posture"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
@@ -1299,6 +1302,7 @@ const Fs = (() => {
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
+  if (typeof EndpointPostureTool !== "undefined") EndpointPostureTool.init();
   if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof LapsTool !== "undefined") LapsTool.init();

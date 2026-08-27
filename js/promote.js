@@ -81,6 +81,27 @@ const PROMOTE = {
 
   items: [
     {
+      n: 111,
+      title: "T20 🧭 Endpoint security posture — the blade, the brief, the best-practice checks",
+      tools: ["T20"],
+      builds: [10476],
+      risk: "medium",
+      what: "NEW TOOL, R31. js/endpointposture.js: the portal's Endpoint security blade as a rail (Option B of the mockup round) — disciplines split by T16's own classifier over the documenter's settings-catalog read, plus MDE-in-catalog and Edge-in-catalog nodes found by setting definition id families; ENCA T32's impact brief translated from sign-ins to devices (end-user language, enforced-today vs at-rollout from reach-by-construction, MD + Word export via the vendored JSZip); and a best-practice analyser in ENCA's MSLearn check shape — 18 checks over MDE and Edge, each carrying severity, requirement, remediation and its learn.microsoft.com page, with NOT REACHING as its own verdict and unrecognised values said rather than guessed. js/document.js gains templateFamily/templateName on the doc shape (two fields, read from data already fetched). Tile, screen, rail CSS (.ep-*), tab, roadmap R31 ride along.",
+      why: "MEDIUM: new capability, nothing existing changes behaviour — the documenter read gains two carried fields and no read changes shape. The risk to watch is check-set wording being trusted as an audit: every check links its Learn page and says its own limits (reach by construction, no per-device evaluation).",
+      test: [
+        "Read a tenant with endpoint security policies: every discipline node's count must equal the policies the portal shows under that node (settings catalog templateFamily objects; legacy intents listed under their discipline with the legacy caveat).",
+        "A settings-catalog policy configuring Defender AV settings WITHOUT an endpointSecurity template must appear under MDE in settings catalog; one carrying microsoft_edge~policy ids under Edge in settings catalog; one carrying both, under both.",
+        "A policy assigned only through exclusions must wear Excluded-only and count as a gap on the overview, not as coverage.",
+        "Impact brief: a tenant with an assigned AV policy (realtime allowed) must show 'Files are checked the moment they arrive' under Already enforced today, naming the policy; unassign it (or use one unassigned) and the statement must move to At rollout.",
+        "Brief Word export must open in Word with headings and the appendix naming the policies.",
+        "Best practice: a tenant with no tamper protection row anywhere must show the critical GAP; one with tamperprotection=0/on in an ASSIGNED policy must PASS; the same setting only in an unassigned policy must read NOT REACHING.",
+        "A value the matcher does not know (edit a check regex to force it if no tenant offers one) must render UNRECOGNISED naming the policy, never pass or fail.",
+        "Card click must open the documenter's popout with redacted settings; ESC and backdrop close it, a click inside does not.",
+        "403 the config scope (a reader-only account): the read must fail as a named error, not an empty rail pretending to be an answer.",
+      ],
+      files: ["js/endpointposture.js", "js/document.js", "js/app.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 110,
       title: "T06 settings popout: beta endpoints read on beta",
       tools: ["T06"],
