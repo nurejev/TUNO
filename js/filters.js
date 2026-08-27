@@ -245,6 +245,13 @@ const FiltersTool = (() => {
   let usedOnly = false;
   const openUse = new Set();
   const groupNames = new Map();   // groupId -> display name, for the payload rows
+  // Cards or list — the seg T19 and T20 wear (Option B of the mockup round,
+  // Mihai's pick). Cards lead because a filter is a bounded object with a
+  // RULE in it, and a rule is the thing a fixed table column could never
+  // hold: 160 characters, then an ellipsis, with the only way to read the
+  // rest being to open the edit form. On a card it just sits there.
+  let view = "cards";
+  let search = "";
 
   // n and of are passed through (10491) — GroupUse's onStatus supplies them
   // and this dropped both on the floor, so the scan's bar was indeterminate
@@ -306,6 +313,50 @@ const FiltersTool = (() => {
 
   function render() {
     const stat = (n, label) => `<span class="gu-stat ${n ? "" : "zero"}"><b>${n}</b> ${esc(label)}</span>`;
+    // The rule, whole. Every other face of this tool has truncated it since
+    // the tool shipped.
+    const ruleBlock = (f) => `<code class="af-rule">${esc(String(f.rule || "") || "no rule — this filter matches nothing")}</code>`;
+    // How many devices the rule matches is R32's answer and is not read yet.
+    // The cell exists and says so, rather than being absent: "we did not
+    // look" and "none" are different, and the second is the dangerous one.
+    const deviceCell = () => `<div><label>Devices</label><b class="af-unknown" title="Evaluating a filter rule against the device inventory is R32 — not read yet, which is not the same as none">not evaluated</b></div>`;
+    function filterCard(f) {
+      const u = Filters.refsOf(f);
+      const open = openUse.has(f.id) && u.length;
+      const modes = [...new Set(u.map((x) => x.mode))];
+      return `<div class="scard af-card">
+        <div class="scard-top">
+          <div class="scard-ic">🔎</div>
+          <div class="scard-title"><h3>${esc(f.displayName)}</h3>
+            <div class="mini"><span class="tag">${esc(Filters.platformLabel(f.platform))}</span> ${esc(f.assignmentFilterManagementType || "devices")}${f.lastModifiedDateTime ? ` · Modified ${esc(String(f.lastModifiedDateTime).slice(0, 10))}` : ""}</div></div>
+          <div class="scard-right">${u.length
+            ? `<a href="#" class="state on" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter">${u.length} used ${open ? "▾" : "▸"}</a>`
+            : `<span class="state off" title="Graph returned no associated assignments for this filter">unused</span>`}</div>
+        </div>
+        ${f.description ? `<p class="mini muted" style="margin:0 0 8px">${esc(f.description)}</p>` : ""}
+        <div class="scard-grid">
+          ${deviceCell()}
+          <div><label>Used as</label><b>${modes.length ? esc(modes.join(" + ")) : "—"}</b></div>
+        </div>
+        ${ruleBlock(f)}
+        ${open ? `<div class="af-uses">${refChips(f, u)}</div>` : ""}
+        <div class="scard-foot af-foot">
+          <span>ID: ${esc(f.id)}</span>
+          <span class="af-acts">
+            <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
+            <button class="btn sm" data-afdel="${esc(f.id)}" title="Refused while any assignment references this filter">🗑 Delete</button>
+          </span>
+        </div>
+      </div>`;
+    }
+    // The reference chips, shared by both faces so they cannot drift.
+    function refChips(f, u) {
+      return `${u.map((x) => {
+        const nm = (scanned && use.names && use.names.get(x.payloadId)) || "";
+        const grp = x.groupId ? (groupNames.get(x.groupId) || `group ${x.groupId.slice(0, 8)}…`) : "tenant-wide";
+        return `<span class="gu-stat"><b>${esc(nm || `policy ${String(x.payloadId).slice(0, 8)}…`)}</b> · ${esc(x.type)} · ${esc(grp)} · ${esc(x.mode)}</span>`;
+      }).join(" ")}${scanned ? "" : `<div class="mini muted" style="margin-top:6px">Policy names need the usage scan — the references themselves came with the filters.</div>`}`;
+    }
     const scanned = !!use;
     // THE COUNT IS NO LONGER BEHIND THE SCAN (10491). Every filter arrived
     // with its payloads — Graph's own "associated assignments" — so used-by
@@ -313,7 +364,15 @@ const FiltersTool = (() => {
     // NAMES behind those payload ids, and the cross-check that the two
     // agree.
     const refs = (f) => Filters.refsOf(f);
-    const shown = filters.filter((f) => !usedOnly || refs(f).length);
+    // A search box, the thing T14 never had while T05, T19 and T20 all did —
+    // and the rule is IN it, because "which filter mentions weuavd" is the
+    // question a tenant with fourteen of these actually gets asked.
+    const q = search.trim().toLowerCase();
+    const shown = filters.filter((f) => (!usedOnly || refs(f).length)
+      && (!q || String(f.displayName).toLowerCase().includes(q)
+        || String(f.description || "").toLowerCase().includes(q)
+        || String(f.rule || "").toLowerCase().includes(q)
+        || String(Filters.platformLabel(f.platform)).toLowerCase().includes(q)));
     const rows = shown.map((f) => {
       const u = refs(f);
       const open = openUse.has(f.id) && u.length;
@@ -324,21 +383,12 @@ const FiltersTool = (() => {
         ${u.length
           ? `<td class="gu-num"><a href="#" data-afuse="${esc(f.id)}" title="Show the ${u.length} assignment${u.length === 1 ? "" : "s"} referencing this filter"><b>${u.length}</b> ${open ? "▾" : "▸"}</a></td>`
           : `<td class="gu-num gu-zero" title="Graph returned no associated assignments for this filter">0</td>`}
+        <td class="gu-num mini af-unknown" title="Evaluating a filter rule against the device inventory is R32 — not read yet, which is not the same as none">—</td>
         <td class="mini"><code style="overflow-wrap:anywhere">${esc(String(f.rule || "").slice(0, 160))}${String(f.rule || "").length > 160 ? "…" : ""}</code></td>
         <td class="af-acts">
           <button class="btn sm" data-afedit="${esc(f.id)}">✏️ Edit</button>
           <button class="btn sm" data-afdel="${esc(f.id)}" title="Refused while any assignment references this filter">🗑 Delete</button>
-        </td></tr>${open ? `<tr class="af-userow"><td colspan="6">
-          ${u.map((x) => {
-            // The policy NAME if the scan has run, the id if not — and the
-            // GROUP the assignment targets, named where the directory read
-            // answered. A row of GUIDs was the old shape of this answer.
-            const nm = (scanned && use.names && use.names.get(x.payloadId)) || "";
-            const grp = x.groupId ? (groupNames.get(x.groupId) || `group ${x.groupId.slice(0, 8)}…`) : "tenant-wide";
-            return `<span class="gu-stat"><b>${esc(nm || `policy ${String(x.payloadId).slice(0, 8)}…`)}</b> · ${esc(x.type)} · ${esc(grp)} · ${esc(x.mode)}</span>`;
-          }).join(" ")}
-          ${scanned ? "" : `<div class="mini muted" style="margin-top:6px">Policy names need the usage scan — the references themselves came with the filters.</div>`}
-        </td></tr>` : ""}`;
+        </td></tr>${open ? `<tr class="af-userow"><td colspan="7">${refChips(f, u)}</td></tr>` : ""}`;
     }).join("");
 
     const usageNote = scanned
@@ -350,11 +400,17 @@ const FiltersTool = (() => {
       <span class="gu-who">Assignment filters${usedOnly ? ` <span class="mini muted">— only filters something uses</span>` : ""}</span>
       <div class="gu-sum">${stat(filters.length, "filters")}<a href="#" data-afrefs class="gu-stat ${usedOnly ? "af-on" : ""} ${refCount ? "" : "zero"}" title="${usedOnly ? "Show every filter again" : "Show only the filters something references"}"><b>${refCount}</b> references</a></div>
     </div>
+    <div class="list-card af-bar">
+      <div class="seg" id="afViewSeg"><button type="button" data-afview="cards" class="${view === "cards" ? "active" : ""}">🗂 Cards</button><button type="button" data-afview="list" class="${view === "list" ? "active" : ""}">☰ List</button></div>
+      <input id="afSearch" type="search" placeholder="🔎 Filter by name, rule or platform…" value="${esc(search)}">
+      <span class="mini muted">${shown.length} shown</span>
+    </div>
     <div class="list-card">
       ${usageNote}
-      <div class="gu-tw"><table class="cg-table af-table"><thead><tr>
-        <th style="width:24%">Filter</th><th style="width:130px">Platform</th><th style="width:70px">Type</th><th class="gu-num" style="width:66px">Used by</th><th>Rule</th><th style="width:132px"></th>
-      </tr></thead><tbody>${rows || `<tr><td colspan="6" class="mini">No assignment filters exist in this tenant.</td></tr>`}</tbody></table></div>
+      ${view === "cards" ? `<div class="cards af-cards">${shown.map(filterCard).join("") || `<p class="mini muted" style="grid-column:1/-1">No assignment filters ${search ? "match" : "exist in this tenant"}.</p>`}</div>` : ""}
+      <div class="gu-tw" style="${view === "list" ? "" : "display:none"}"><table class="cg-table af-table"><thead><tr>
+        <th style="width:24%">Filter</th><th style="width:120px">Platform</th><th style="width:64px">Type</th><th class="gu-num" style="width:64px">Used by</th><th class="gu-num" style="width:86px">Devices</th><th>Rule</th><th style="width:132px"></th>
+      </tr></thead><tbody>${rows || `<tr><td colspan="7" class="mini">No assignment filters exist in this tenant.</td></tr>`}</tbody></table></div>
     </div>
     <div id="afFormWrap"></div>`;
   }
@@ -458,7 +514,19 @@ const FiltersTool = (() => {
     $("afScan").addEventListener("click", scanUsage);
     $("afNew").addEventListener("click", () => openForm(null));
     $("afMd").addEventListener("click", () => download("Intune-assignment-filters.md", Filters.markdown(filters, use), "text/markdown"));
+    // Delegated from the static host, because afBody is rebuilt on every
+    // render and a listener bound to its children would not survive one.
+    $("afBody").addEventListener("input", (e) => {
+      if (!e.target.closest("#afSearch")) return;
+      search = e.target.value;
+      const el = document.activeElement, pos = el && el.selectionStart;
+      render();
+      const again = $("afSearch");
+      if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (x) { /* not a text input */ } }
+    });
     $("afBody").addEventListener("click", (e) => {
+      const vb = e.target.closest("[data-afview]");
+      if (vb) { const k = vb.dataset.afview; if (k !== view) { view = k; render(); } return; }
       const ed = e.target.closest("[data-afedit]");
       if (ed) { const f = filters.find((x) => x.id === ed.dataset.afedit); if (f) openForm(f); return; }
       const dl = e.target.closest("[data-afdel]");

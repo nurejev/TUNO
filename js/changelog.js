@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10497, date: "2026-08-27", title: "Assignment filters get a face, and a search box",
+    items: [
+      { kind: "new", tool: "T14", text: "\ud83d\uddc2 Cards | \u2630 List \u2014 Option B of the mockup round, Mihai's pick. Cards lead because a filter is a bounded object whose RULE is the thing a fixed table column could never hold: it was cut at 160 characters with the only way to read the rest being to open the edit form. On a card the whole rule just sits there. The list face keeps the dense view, and the reference chips are one implementation shared by both so they cannot drift." },
+      { kind: "new", tool: "T14", text: "A search box, over the name, the description, the platform AND THE RULE \u2014 the one tool without one, while T05, T19 and T20 all had it. \"Which filter mentions weuavd\" is the question a tenant with fourteen of these actually gets asked, and the answer was scrolling." },
+      { kind: "new", tool: "T14", text: "A Devices cell on both faces, saying <i>not evaluated</i>. Counting the devices a rule matches is R32 and is not read yet \u2014 the cell exists and says which it is, because \"we did not look\" and \"none\" are different answers and only one of them is dangerous." },
+    ],
+  },
+  {
     build: 10496, date: "2026-08-27", title: "The refusal names the filter, and the claims match the code",
     items: [
       { kind: "fixed", tool: "T11", text: "10494's refusal \u2014 whose entire job is telling an operator WHICH two filters differ \u2014 printed an eight-character id prefix, while the display names sat loaded in the dropdown on the same screen. They are handed to the planner now, so the message names both." },

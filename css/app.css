@@ -1719,6 +1719,14 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
    sizes itself to the longest cell and scrolls. table-layout:fixed makes
    the declared widths real, and overflow-wrap:anywhere lets a rule wrap at
    any character rather than pushing the actions column off the card. */
+.af-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.af-bar #afSearch{flex:1;min-width:200px}
+.af-cards{margin-top:12px}
+.af-card .af-rule{display:block;background:var(--soft);border-radius:8px;padding:8px 10px;font-size:12px;overflow-wrap:anywhere;margin:0 0 10px}
+.af-card .scard-grid{grid-template-columns:1fr 1fr}
+.af-uses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.af-foot{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.af-unknown{color:var(--muted);font-style:italic}
 .af-table{table-layout:fixed;width:100%}
 .af-table code{overflow-wrap:anywhere}
 .af-acts{width:132px;white-space:nowrap;text-align:right}
