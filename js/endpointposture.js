@@ -171,8 +171,12 @@ const EndpointPosture = (() => {
       if (c == null || !Number.isFinite(Number(c))) out.unknownGroups++;
       else n += Number(c);
     }
-    out.reached = n;
-    out.missing = deviceCount == null ? null : Math.max(0, deviceCount - n);
+    // EVERY count unreadable is not a sum of zero — it is no sum at all.
+    // 10479 returned reached = 0 here, which rendered as "~0 devices" with a
+    // (floor) note beside it; a reader takes "~0" as a measurement and the
+    // caveat as a footnote. Nothing was measured, so nothing is claimed.
+    out.reached = (out.unknownGroups && out.unknownGroups === ids.size) ? null : n;
+    out.missing = (deviceCount == null || out.reached == null) ? null : Math.max(0, deviceCount - n);
     return out;
   }
 
@@ -191,9 +195,19 @@ const EndpointPosture = (() => {
         ? `0 devices targeted — and the Windows device count could not be read, so how many are missing is unknown, not zero`
         : `0 of ${D} enrolled Windows devices targeted — all ${D} are missing this control`;
     }
-    if (r.reached == null) return `the Windows device count could not be read — reach is unknown, not zero${cav}`;
-    const missing = r.missing == null ? "an unknown number" : r.missing;
-    return `~${r.reached} of ${D == null ? "an unknown number of" : D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
+    // Reach unknown has two causes and they read differently: no member count
+    // came back at all, or the fleet size did not. Neither is a number.
+    if (r.reached == null) {
+      return r.groups
+        ? `${r.groups} group${r.groups === 1 ? "" : "s"} targeted — not one member count could be read, so how many devices this reaches is UNKNOWN, not zero${D == null ? "" : ` (the fleet is ${D})`}${cav}`
+        : `the Windows device count could not be read — reach is unknown, not zero${cav}`;
+    }
+    if (D == null) return `~${r.reached} devices targeted — the Windows device count could not be read, so how many are missing is unknown${cav}`;
+    // A partial floor counts UP from what was read, so "at least" is the
+    // honest verb and the missing side is at most that many.
+    const atLeast = r.unknownGroups ? "at least " : "~";
+    const missing = `${r.unknownGroups ? "at most " : ""}${r.missing}`;
+    return `${atLeast}${r.reached} of ${D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
   }
 
   // ------------------------------------------------------ impact brief --
@@ -313,11 +327,15 @@ const EndpointPosture = (() => {
     if (!item.liveNow) return null;
     const r = deviceReach(item.docs || [], counts, deviceCount);
     if (r.wide) return deviceCount == null ? "applies tenant-wide (device count unreadable)" : `applies to all ${deviceCount} enrolled Windows devices`;
-    if (r.reached == null) return null;
+    if (r.reached == null) {
+      return r.groups
+        ? `applies to ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
+        : null;
+    }
     const D = deviceCount == null ? "an unknown number of" : deviceCount;
-    const miss = r.missing == null ? "" : ` · ${r.missing} not yet targeted`;
-    const floor = r.unknownGroups ? " (some group counts unreadable — a floor)" : "";
-    return `applies to ~${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}`;
+    const miss = r.missing == null ? "" : ` · ${r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
+    const floor = r.unknownGroups ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
+    return `applies to ${r.unknownGroups ? "at least " : "~"}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}`;
   }
 
   function briefMd(items, { tenantName, deviceCount = null, counts = null } = {}) {
@@ -888,8 +906,17 @@ const EndpointPostureTool = (() => {
           prog(`Counting group members — ${++done}/${gids.length}…`);
           try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
         }, 6);
+        // Graph.pool hands back { item, value } on success and { item, error }
+        // on failure — 10479 read the WRAPPER as the count, so Number.isFinite
+        // was false every single time and every group landed as null. The
+        // screen then said "~0 of 9969 devices · 9969 still missing (floor)"
+        // about a tenant whose groups were read perfectly well: a zero that
+        // was never measured, wearing the floor caveat as if it had been.
+        // Caught on Mihai's live tenant. Unwrap the value; a count is a
+        // NUMBER or it is unknown, and unknown is counted, never rounded to
+        // nothing.
         rs.forEach((r, i) => {
-          const v = (r && typeof r === "object" && "error" in r) ? null : r;
+          const v = (r && "error" in r) ? null : Number(r && r.value);
           groupCounts[gids[i]] = Number.isFinite(v) ? v : null;
           if (!Number.isFinite(v)) groupCountErrors++;
         });
@@ -987,10 +1014,9 @@ const EndpointPostureTool = (() => {
     const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount);
     const D = res.deviceCount;
     if (r.wide) return D == null ? "" : ` · all ${D} devices`;
-    if (r.reached == null) return "";
-    const miss = r.missing != null ? ` · ${r.missing} still missing` : "";
-    const floor = r.unknownGroups ? " (floor)" : "";
-    return ` · ~${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}${floor}`;
+    if (r.reached == null) return r.groups ? ` · member counts unreadable — reach unknown` : "";
+    const miss = r.missing != null ? ` · ${r.unknownGroups ? "at most " : ""}${r.missing} still missing` : "";
+    return ` · ${r.unknownGroups ? "at least " : "~"}${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}`;
   }
 
   // T19's card, verbatim in shape — the scard classes have carried these

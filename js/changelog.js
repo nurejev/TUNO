@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10483, date: "2026-08-27", title: "The group member counts actually land",
+    items: [
+      { kind: "fixed", tool: "T20", text: "Every device number on the screen was wrong, and wrong in the direction that hides a problem: \"~0 of 9969 devices \u00b7 9969 still missing (floor)\" about policies whose groups Graph had answered for perfectly well. Graph.pool hands back { item, value }, and the 10479 code read the WRAPPER as the count \u2014 so Number.isFinite was false every single time, every group landed as unknown, and the sum of nothing rendered as a measured zero wearing a footnote. Caught on the first tenant big enough to notice. The value is now unwrapped; the cards, the list rows, the findings and the brief all count again." },
+      { kind: "fixed", tool: "T20", text: "A sum with NO readable count in it is no longer a number. It said \"~0\" with a (floor) note beside it, and a reader takes ~0 as a measurement and the note as a footnote \u2014 the exact shape of an unmeasured claim. It now says what it is: \"4 groups targeted \u2014 not one member count could be read, so how many devices this reaches is UNKNOWN, not zero (the fleet is 9969)\"." },
+      { kind: "improved", tool: "T20", text: "A PARTIAL floor counts up rather than down: \"at least 5000 of 9969 targeted \u00b7 at most 4969 not targeted\". The old wording put ~ on a number that could only grow and a firm figure on the missing side that could only shrink \u2014 both leaning the wrong way." },
+    ],
+  },
+  {
     build: 10482, date: "2026-08-27", title: "An assignment filter says its name",
     items: [
       { kind: "fixed", tool: "T19", text: "A policy assigned through a filter showed \"\u2691 filter \u2014 may\" and nothing else \u2014 the tool knew a filter narrowed the assignment and refused to say which one, while the portal shows the name right beside the group. The documenter now names assignment filters in the same pass it names groups (one read of /deviceManagement/assignmentFilters for the whole collection), and the reach cell wears the name with its mode: \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) \u2014 may. The mode travels with the name on purpose: a reader who sees only the name cannot tell which way the filter cut." },
