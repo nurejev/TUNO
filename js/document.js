@@ -616,8 +616,10 @@ const Docs = (() => {
     // and a conflict verdict that ignored it would say "can collide" about
     // two policies a filter keeps apart. Additive — nothing that renders
     // assignments changes.
-    const filterId = t.deviceAndAppManagementAssignmentFilterId || null;
-    const withF = (o) => (filterId ? Object.assign(o, { filterId, filterType: t.deviceAndAppManagementAssignmentFilterType || "" }) : o);
+    // Through the one reader (10496), so "Docs.filterOfTarget is the single
+    // parse of this field" is true of the file that says it.
+    const fx = filterOfTarget(t);
+    const withF = (o) => (fx ? Object.assign(o, { filterId: fx.id, filterType: fx.mode, filterModeStated: fx.modeStated }) : o);
     if (ty.includes("exclusiongroupassignmenttarget")) return withF({ kind: "Excluded", groupId: lc(t.groupId), name: lc(t.groupId) });
     if (ty.includes("groupassignmenttarget")) return withF({ kind: "Included", groupId: lc(t.groupId), name: lc(t.groupId) });
     if (ty.includes("alldevicesassignmenttarget")) return withF({ kind: "All devices", groupId: null, name: "All devices" });

@@ -352,7 +352,7 @@ const WhatIf = (() => {
 
   function csv(res) {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const L = [["Change", "Policy", "ObjectId", "Surface", "Kind", "Before", "After", "Conditional", "Uninstall"].map(q).join(",")];
+    const L = [["Change", "Policy", "ObjectId", "Surface", "Kind", "Before", "After", "Filter", "Uninstall"].map(q).join(",")];
     const add = (change, rows) => rows.forEach((r) => L.push([change, r.name, r.id, r.sourceLabel, r.sub,
       r.before.state, r.after.state, (r.filters || []).join("; "), r.uninstall ? "yes" : ""].map(q).join(",")));
     add("gained", res.delta.gained); add("lost", res.delta.lost);
@@ -367,7 +367,7 @@ const WhatIf = (() => {
     L.push(`| Policy | Surface | Kind | ${cmp.groups.map((g) => mdCell(g.displayName)).join(" | ")} |`);
     L.push(`|---|---|---|${cmp.groups.map(() => "---").join("|")}|`);
     for (const r of cmp.differs) {
-      L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${r.eff.map((e) => (STATE_LABEL[e.state] || "—") + (e.filtered ? ` (⚑ ${(e.filters || []).join("; ") || "filtered"})` : "")).join(" | ")} |`);
+      L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${r.eff.map((e) => (STATE_LABEL[e.state] || "—") + (e.filtered ? ` (⚑ ${mdCell((e.filters || []).join("; ") || "filtered")})` : "")).join(" | ")} |`);
     }
     if (!cmp.differs.length) L.push(`| _No differences — every policy that reaches one reaches all._ |${cmp.groups.map(() => " |").join("")}`);
     L.push("", `${cmp.rows.length - cmp.differs.length} further polic${cmp.rows.length - cmp.differs.length === 1 ? "y" : "ies"} reach${cmp.rows.length - cmp.differs.length === 1 ? "es" : ""} all of them equally and ${cmp.rows.length - cmp.differs.length === 1 ? "is" : "are"} not listed.`, "");
@@ -446,7 +446,7 @@ const WhatIfTool = (() => {
     const failed = res.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — not empty, UNKNOWN:</b> ${res.failed.map((f) => esc(f.label)).join(", ")}. The delta is missing whatever they hold.</div>` : "";
     $("wfBody").innerHTML = `<div class="list-card">${strip}${notes}
       ${table("⬇ Gained", d.gained, (r) => r.uninstall ? "intent is UNINSTALL — applying REMOVES the software" : r.maybe ? `may apply — ⚑ ${(r.filters || []).join("; ") || "filtered"}` : "will apply")}
-      ${table("⬆ Lost", d.lost, (r) => r.becameExcluded ? "an exclusion on this group takes it away" : "no remaining assignment reaches the subject")}
+      ${table("⬆ Lost", d.lost, (r) => [r.becameExcluded ? "an exclusion on this group takes it away" : "no remaining assignment reaches the subject", r.maybe ? `the loss is conditional — ⚑ ${(r.filters || []).join("; ") || "an assignment filter"} decides` : ""].filter(Boolean).join("; "))}
       ${table("🛡 Pre-excluded — no change today", d.shielded, () => "cannot apply later while the exclusion stands")}
       ${table("· Unchanged", d.unchanged, () => "")}
       ${!d.gained.length && !d.lost.length && !d.shielded.length ? `<p class="mini" style="margin-top:12px"><b>No policy changes hands.</b>${res.impossible ? "" : " The group carries no assignments the subject does not already have."}</p>` : ""}

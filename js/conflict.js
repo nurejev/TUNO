@@ -63,7 +63,7 @@ const Conflict = (() => {
       // A filter on an EXCLUSION does not cap what this policy reaches
       // (10490) — it narrows what is kept out. The "can collide, may not"
       // verdict this tool prints is about capped reach, so only a filter on
-      // a non-excluded target sets it. Same rule as Docs.filtersOf.
+      // a non-excluded target sets it. Same rule as Docs.filterReachOf.
       if (a.filterId && a.kind !== "Excluded") filtered = true;
       if (a.kind === "Included" && a.groupId) inc.add(a.groupId);
       else if (a.kind === "Excluded" && a.groupId) exc.add(a.groupId);

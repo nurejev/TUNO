@@ -401,7 +401,7 @@ const ComplianceTool = (() => {
           : `<p class="mini muted" style="margin:0 0 10px">The "Mark devices with no compliance policy assigned as" setting <b>could not be read</b>${rep.settingError ? ` — ${esc(rep.settingError)}` : ""}. Check it under Devices → Compliance → Compliance settings: if it says Compliant, an uncovered platform silently passes Conditional Access.</p>`;
       const covRows = rep.coverage.map((c) => {
         const verdict = c.verdict === "gap" ? `<span class="au-op delete">NOT COVERED</span>`
-          : c.verdict === "covered" ? `<span class="au-op create">covered</span>${c.filtered ? ` <span class="gu-how priv" title="A covering policy carries an assignment filter — reach is may, not is">filtered</span>` : ""}`
+          : c.verdict === "covered" ? `<span class="au-op create">covered</span>${c.filtered ? ` <span class="gu-how priv" title="A covering policy carries an assignment filter — reach is may, not is">filtered</span>` : ""}${c.filteredExclusion ? ` <span class="gu-how priv" title="A filter narrows an EXCLUSION on a covering policy — fewer devices are kept out than the exclusion suggests. It does not cap coverage, which is why it is its own chip">filtered exclusion</span>` : ""}`
           : `<span class="gu-how exc">no devices</span>`;
         return `<tr>
           <td><b>${esc(c.platform)}</b></td>

@@ -116,7 +116,18 @@ const AssignEdit = (() => {
   const wantSig = (filter) => (filter && filter.id
     ? `${lc(filter.id)}|${filter.mode === "exclude" ? "exclude" : "include"}`
     : "");
-  const filterWord = (sig) => (sig ? `⚑ ${sig.split("|")[0].slice(0, 8)}… (${sig.split("|")[1]})` : "no filter");
+  // A refusal whose whole job is saying WHICH two filters differ must name
+  // them. It printed an eight-hex id prefix — the operator's own screen has
+  // the display names loaded, so they are handed in.
+  let FILTER_NAMES = new Map();          // lowercased id -> display name
+  const setFilterNames = (list) => {
+    FILTER_NAMES = new Map((list || []).map((f) => [lc(f.id), f.displayName || f.id]));
+  };
+  const filterWord = (sig) => {
+    if (!sig) return "no filter";
+    const [id, mode] = sig.split("|");
+    return `⚑ ${FILTER_NAMES.get(id) || `filter ${id.slice(0, 8)}…`} (${mode})`;
+  };
   // Tenant-wide targets (build 10404, Toolkit parity). Graph has exactly two,
   // and NO exclusion variant of either — that asymmetry drives the refusals.
   const TW_TYPE = {
@@ -283,7 +294,7 @@ const AssignEdit = (() => {
   }
 
   return {
-    SURFACES, surfaceById, READ, WRITE,
+    SURFACES, setFilterNames, surfaceById, READ, WRITE,
     cleanTarget, cleanAssignments, sig, readPolicies, planFor, backupJson, applyPlan,
   };
 })();
@@ -512,6 +523,7 @@ const AssignEditTool = (() => {
       try {
         if (typeof Filters !== "undefined") {
           const fl = await Filters.list();
+          AssignEdit.setFilterNames(fl);       // so a refusal can name them
           $("aeFilterSel").innerHTML = `<option value="">No filter</option>` +
             fl.sort((a, b) => String(a.displayName).localeCompare(String(b.displayName)))
               .map((f) => `<option value="${esc(f.id)}">${esc(f.displayName)} (${esc(Filters.platformLabel(f.platform))})</option>`).join("");

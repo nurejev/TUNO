@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10496, date: "2026-08-27", title: "The refusal names the filter, and the claims match the code",
+    items: [
+      { kind: "fixed", tool: "T11", text: "10494's refusal \u2014 whose entire job is telling an operator WHICH two filters differ \u2014 printed an eight-character id prefix, while the display names sat loaded in the dropdown on the same screen. They are handed to the planner now, so the message names both." },
+      { kind: "fixed", tool: "T08", text: "The on-screen Lost table said only \"no remaining assignment reaches the subject\" where the Markdown already said the loss was conditional and named the filter \u2014 the screen and the export disagreeing about the same row. A filter name containing a pipe also broke the comparison table: it was the one cell on that line not passed through mdCell. And the CSV column headed Conditional now says Filter, which is what it holds." },
+      { kind: "improved", tool: "T13", text: "\"A filter narrows an EXCLUSION\" gets its own chip in compliance coverage and \ud83d\udee1 Endpoint security. 10490 computed the fact and showed it nowhere, which is only half of not folding it into the wrong caveat \u2014 fewer devices are kept out than the exclusion suggests, and that is worth saying rather than merely worth not mis-saying." },
+      { kind: "improved", tool: "T05", text: "assignmentOf() reads its filter through Docs.filterOfTarget like everything else, so the claim that there is one parse of that field is true of the file making it." },
+    ],
+  },
+  {
     build: 10495, date: "2026-08-27", title: "The payload read, and the counts that hang off it",
     items: [
       { kind: "fixed", tool: "T14", text: "10491's used-by read was broken in the one way demo mode cannot show. payloads is a STRUCTURAL property of an assignment filter, not a relationship \u2014 the resource lists Relationships: None \u2014 so $select=<fields>&$expand=payloads projects the property away and the expand has nothing to attach. On a live tenant every filter would have reported a confident 0 references, on the screen whose delete gate exists precisely because a wrong zero there widens live assignments; and \ud83c\udf9b Assignment editor, which calls the same list inside a bare catch to fill its filter dropdown, would have silently lost the ability to attach a filter at all. The demo router discards the query string and every fixture carries payloads by hand, so the mock looked perfect. payloads now rides in the $select, which is the shape the delete gate's own read had all along." },
@@ -44,7 +53,7 @@ const CHANGELOG = [
   {
     build: 10493, date: "2026-08-27", title: "Two tools stop paying for an answer and throwing it away",
     items: [
-      { kind: "fixed", tool: "T08", text: "\ud83d\udd2e What-if resolved filter names on every run and then discarded them \u2014 only a boolean reached the screen, so the answer was \"may apply\" with no way to find out which filter decides. The names now travel with the effective state: \"may apply \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) decides\", on the gained and lost tables, the Markdown, the HTML report and a real CSV column in place of the word \"filtered\"." },
+      { kind: "fixed", tool: "T08", text: "\ud83d\udd2e What-if resolved filter names on every run and then discarded them \u2014 only a boolean reached the screen, so the answer was \"may apply\" with no way to find out which filter decides. The names now travel with the effective state: \"may apply \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) decides\", on the gained and lost tables, the Markdown and a real CSV column in place of the word \"filtered\"." },
       { kind: "fixed", tool: "T09", text: "\ud83e\ude7a Assignment health did the same: resolveFilters() over every row, then nothing read filterName, filterMode or filterId in the findings, the Markdown or the CSV. An empty-group finding on a FILTERED assignment describes reach the filter may already have removed and said nothing about it. Findings now name the filter, the Markdown gains a Filter column and the CSV gains Filter and FilterMode." },
     ],
   },
