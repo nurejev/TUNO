@@ -149,14 +149,24 @@ const WhatIf = (() => {
   // which kind of group each edge came through.
   function effectUnder(hits, set) {
     let inc = false, exc = false, filtered = false, intents = new Set();
+    // NAMED (10493). resolveFilters() has run over these rows since this
+    // tool shipped and only the boolean ever survived — the user was told
+    // "may apply" and given no way to find out which filter decides.
+    const fnames = new Set();
     for (const h of hits) {
       if (h.pid === GroupUse.TENANT_WIDE || !set.has(h.pid)) continue;
       if (h.how === "excluded") exc = true;
-      else { inc = true; if (h.filterMode) filtered = true; }
+      else {
+        inc = true;
+        if (h.filterId) {
+          filtered = true;
+          fnames.add(`${h.filterName || `filter ${String(h.filterId).slice(0, 8)}…`} (${h.filterMode || "include"})`);
+        }
+      }
       const m = /intent: ([^\s·]+)/.exec(h.detail || "");
       if (m) intents.add(m[1]);
     }
-    return { state: exc ? "excluded" : inc ? "included" : "none", filtered, intents: [...intents] };
+    return { state: exc ? "excluded" : inc ? "included" : "none", filtered, filters: [...fnames], intents: [...intents] };
   }
 
   // Group rows by the OBJECT they describe. (source, sub, id) is identity —
@@ -187,6 +197,7 @@ const WhatIf = (() => {
       const row = {
         ...p, before: a, after: b,
         maybe: a.filtered || b.filtered,
+        filters: [...new Set([...(a.filters || []), ...(b.filters || [])])],
         uninstall,
       };
       if (a.state === b.state) { if (a.state !== "none") out.unchanged.push(row); }
@@ -326,8 +337,8 @@ const WhatIf = (() => {
       rows.forEach((r) => L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${mdCell(fmt(r))} |`));
       L.push("");
     };
-    sec("Gained", res.delta.gained, (r) => [r.uninstall ? "intent is UNINSTALL — applying this REMOVES the software" : "", r.maybe ? "has an assignment filter — may apply" : ""].filter(Boolean).join("; ") || "will apply");
-    sec("Lost", res.delta.lost, (r) => [r.becameExcluded ? "an exclusion on the group takes it away" : "no remaining assignment reaches the subject", r.maybe ? "filtered — the loss is conditional" : ""].filter(Boolean).join("; "));
+    sec("Gained", res.delta.gained, (r) => [r.uninstall ? "intent is UNINSTALL — applying this REMOVES the software" : "", r.maybe ? `may apply — ⚑ ${(r.filters || []).join("; ") || "an assignment filter"} decides` : ""].filter(Boolean).join("; ") || "will apply");
+    sec("Lost", res.delta.lost, (r) => [r.becameExcluded ? "an exclusion on the group takes it away" : "no remaining assignment reaches the subject", r.maybe ? `the loss is conditional — ⚑ ${(r.filters || []).join("; ") || "an assignment filter"} decides` : ""].filter(Boolean).join("; "));
     sec("Pre-excluded (no change today)", res.delta.shielded, () => "does not apply now and cannot apply later while the exclusion stands");
     sec("Unchanged", res.delta.unchanged, (r) => STATE_LABEL[r.after.state] || "");
     if (res.failed.length) {
@@ -343,7 +354,7 @@ const WhatIf = (() => {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const L = [["Change", "Policy", "ObjectId", "Surface", "Kind", "Before", "After", "Conditional", "Uninstall"].map(q).join(",")];
     const add = (change, rows) => rows.forEach((r) => L.push([change, r.name, r.id, r.sourceLabel, r.sub,
-      r.before.state, r.after.state, r.maybe ? "filtered" : "", r.uninstall ? "yes" : ""].map(q).join(",")));
+      r.before.state, r.after.state, (r.filters || []).join("; "), r.uninstall ? "yes" : ""].map(q).join(",")));
     add("gained", res.delta.gained); add("lost", res.delta.lost);
     add("pre-excluded", res.delta.shielded); add("unchanged", res.delta.unchanged);
     return L.join("\n");
@@ -356,7 +367,7 @@ const WhatIf = (() => {
     L.push(`| Policy | Surface | Kind | ${cmp.groups.map((g) => mdCell(g.displayName)).join(" | ")} |`);
     L.push(`|---|---|---|${cmp.groups.map(() => "---").join("|")}|`);
     for (const r of cmp.differs) {
-      L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${r.eff.map((e) => (STATE_LABEL[e.state] || "—") + (e.filtered ? " (filtered)" : "")).join(" | ")} |`);
+      L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${r.eff.map((e) => (STATE_LABEL[e.state] || "—") + (e.filtered ? ` (⚑ ${(e.filters || []).join("; ") || "filtered"})` : "")).join(" | ")} |`);
     }
     if (!cmp.differs.length) L.push(`| _No differences — every policy that reaches one reaches all._ |${cmp.groups.map(() => " |").join("")}`);
     L.push("", `${cmp.rows.length - cmp.differs.length} further polic${cmp.rows.length - cmp.differs.length === 1 ? "y" : "ies"} reach${cmp.rows.length - cmp.differs.length === 1 ? "es" : ""} all of them equally and ${cmp.rows.length - cmp.differs.length === 1 ? "is" : "are"} not listed.`, "");
@@ -403,7 +414,7 @@ const WhatIfTool = (() => {
   const pickedSources = () => [...document.querySelectorAll("[data-wfsrc]:checked")].map((b) => b.dataset.wfsrc);
 
   function stateCell(e) {
-    if (e.state === "included") return `<span class="gu-how inc">reaches it${e.filtered ? " *" : ""}</span>`;
+    if (e.state === "included") return `<span class="gu-how inc"${e.filtered ? ` title="${esc((e.filters || []).join("; "))}"` : ""}>reaches it${e.filtered ? ` * ⚑ ${esc((e.filters || [])[0] || "filtered")}` : ""}</span>`;
     if (e.state === "excluded") return `<span class="gu-how exc">excluded</span>`;
     return `<span class="mini muted">—</span>`;
   }
@@ -434,7 +445,7 @@ const WhatIfTool = (() => {
         <td class="mini">${esc(note(r))}</td></tr>`).join("")}</tbody></table></div>` : "";
     const failed = res.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — not empty, UNKNOWN:</b> ${res.failed.map((f) => esc(f.label)).join(", ")}. The delta is missing whatever they hold.</div>` : "";
     $("wfBody").innerHTML = `<div class="list-card">${strip}${notes}
-      ${table("⬇ Gained", d.gained, (r) => r.uninstall ? "intent is UNINSTALL — applying REMOVES the software" : r.maybe ? "filtered — may apply" : "will apply")}
+      ${table("⬇ Gained", d.gained, (r) => r.uninstall ? "intent is UNINSTALL — applying REMOVES the software" : r.maybe ? `may apply — ⚑ ${(r.filters || []).join("; ") || "filtered"}` : "will apply")}
       ${table("⬆ Lost", d.lost, (r) => r.becameExcluded ? "an exclusion on this group takes it away" : "no remaining assignment reaches the subject")}
       ${table("🛡 Pre-excluded — no change today", d.shielded, () => "cannot apply later while the exclusion stands")}
       ${table("· Unchanged", d.unchanged, () => "")}

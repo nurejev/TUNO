@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10493, date: "2026-08-27", title: "Two tools stop paying for an answer and throwing it away",
+    items: [
+      { kind: "fixed", tool: "T08", text: "\ud83d\udd2e What-if resolved filter names on every run and then discarded them \u2014 only a boolean reached the screen, so the answer was \"may apply\" with no way to find out which filter decides. The names now travel with the effective state: \"may apply \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include) decides\", on the gained and lost tables, the Markdown, the HTML report and a real CSV column in place of the word \"filtered\"." },
+      { kind: "fixed", tool: "T09", text: "\ud83e\ude7a Assignment health did the same: resolveFilters() over every row, then nothing read filterName, filterMode or filterId in the findings, the Markdown or the CSV. An empty-group finding on a FILTERED assignment describes reach the filter may already have removed and said nothing about it. Findings now name the filter, the Markdown gains a Filter column and the CSV gains Filter and FilterMode." },
+    ],
+  },
+  {
     build: 10492, date: "2026-08-27", title: "The documenter's list says who a policy reaches",
     items: [
       { kind: "fixed", tool: "T05", text: "A browse row said \"2 assignments\" \u2014 a number, on the screen whose whole job is writing down what a tenant is configured to do, while collect() had already resolved every group name and every filter name onto the object. Rows now name them: SG-Pilot (Included), All devices \u2014 \u2691 PVM-DG-CORP-FILTER-AVD-ALL (include). Two chips then a +N, so a policy on eleven groups does not eat the row, with the rest in the tooltip and all of them in the popout." },
