@@ -23,12 +23,36 @@ This applies to LAYOUT — placement, structure, chrome. It does not apply to
 fixes with one honest answer (a clipped menu, a missing padding rule, a
 table that does not fit): fix those directly.
 
-## Patch handovers: the base SHA is part of the handover
+## Work in the repo. Patches are the fallback, not the method
 
-Some sessions (claude.ai chat) work in a detached clone and hand commits over
-as `git format-patch` files instead of committing in `~/REPO/TUNO`. Two rounds
-of build-number collisions (10455 taken twice, then 10456) taught the rules:
+**A session that can reach `~/REPO/TUNO` commits in it.** In Cowork, ask for
+the folder with `request_cowork_directory` at the START of the session, before
+writing a line — not after building, when the work is already stranded in a
+clone. The whole patch protocol below exists to survive not having the repo,
+and every failure it documents is a failure it caused.
 
+With the repo mounted the loop is: edit the real files, run the headless
+suite, commit with the full bookkeeping, hand Mihai the push block. No base
+SHA to name, no mbox, no `git am`, no renumbering, no way for the tree to
+diverge — a commit either exists on the branch or it does not.
+
+Two rules survive the bridge, because they are about the branch, not the
+transport:
+
+* **Never push.** Prepare commits, hand over the push block. Unchanged.
+* **Check the tip before building.** `git log --oneline -1` first, so the
+  build number is cut from the real tip. Parallel sessions still race.
+
+### If a session genuinely cannot reach the repo
+
+Then, and only then, `git format-patch`. The rules below were paid for; keep
+them.
+
+0. **A handover is cut from Mihai's APPLIED TIP, never re-cut from the base
+   the last one used.** Delivered 10489–10498 as one mbox after 10489–10496
+   were already applied: patch 1 hit a tree that already contained it and the
+   whole apply failed. Ask what HEAD is, cut from there, deliver only what is
+   missing.
 1. **Every handover names the exact SHA it must sit on.** Before `git am`,
    run `git log --oneline -1` — if HEAD is not that SHA, STOP and report the
    SHA back; the patches need renumbering, because build numbers are permanent
@@ -60,6 +84,26 @@ of build-number collisions (10455 taken twice, then 10456) taught the rules:
    * "Everything up-to-date" is only success when `git log --oneline -1`
      already shows the build the handover was delivering — check the
      subject, not the feeling.
+
+## Mihai runs PowerShell. Quote every rev-spec
+
+Commands handed over are typed into PowerShell, where `^`, `{`, `}` and `~`
+are live syntax. `git rev-parse HEAD^{tree}` does not fail there — PowerShell
+parses `{tree}` as a script block, git receives `HEAD^`, and it cheerfully
+answers **the parent commit's SHA**. A verification command that silently
+answers a different question is worse than one that errors, because the
+number looks exactly like the number that was asked for. (It printed
+`1a68d6cf…`, the SHA of the build one back, and read as a plausible tree
+hash.)
+
+So: quote any rev-spec containing `^`, `{}`, `~` or `@`.
+
+```powershell
+git rev-parse "HEAD^{tree}"     # correct
+git log --oneline "HEAD~3..HEAD"
+```
+
+The `cd`-first push block is already safe. This is about the checks around it.
 
 ## Git locks: MOVE them, do not delete them
 

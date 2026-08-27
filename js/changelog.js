@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10499, date: "2026-08-27", title: "The working session opens the repo instead of mailing patches to it",
+    items: [
+      { kind: "improved", tool: "TUNO", text: "No product behaviour changes in this build \u2014 it is a working-rules change, recorded here because every commit on this branch is a build. CLAUDE.md now says a session that can reach the repo COMMITS IN IT, and asks for the folder before writing a line rather than after, when the work is already stranded in a throwaway clone. The whole patch protocol existed to survive not having the repo, and every failure it documents \u2014 build numbers taken twice, a stale rebase-apply, an mbox re-cut from a base that had moved \u2014 is a failure it caused. It stays as the fallback, with the new rule at the top: a handover is cut from the APPLIED TIP, never re-cut from the base the last one used." },
+      { kind: "improved", tool: "TUNO", text: "And a note that commands handed over are typed into PowerShell, where ^ { } are live syntax: git rev-parse HEAD^{tree} does not fail there, it answers the PARENT COMMIT'S SHA and reads exactly like the tree hash that was asked for. Quote every rev-spec. A verification command that silently answers a different question is worse than one that errors." },
+    ],
+  },
+  {
     build: 10498, date: "2026-08-27", title: "How many devices a filter actually matches (R32)",
     items: [
       { kind: "new", tool: "T14", text: "\ud83d\udcdf Count devices \u2014 new js/filterrules.js parses the Intune filter rule grammar and evaluates it against the enrolled device inventory, so a filter stops being an unknown and starts being a number: \"312 of 9969\". One read, trimmed by $select to the fields the grammar can reach. Every tool in the house has been saying \"at most\", \"may reach it\", \"\u2691 filter \u2014 may\" since filters were understood at all; this is the first thing that answers." },
