@@ -227,6 +227,7 @@ const Fs = (() => {
       "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
       "screen-device": "toolDevice", "screen-filters": "toolFilters",
       "screen-roles": "toolRoles", "screen-maa": "toolMaa",
+      "screen-groupmigrate": "toolGroupMigrate",
       "screen-backup": "toolBackup", "screen-overview": "toolOverview",
       "screen-docs": "toolDocs",
     };
@@ -871,6 +872,7 @@ const Fs = (() => {
     ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolRoles", "🛡 Intune RBAC"],
     ["toolMaa", "🤝 Multi-admin approval"],
+    ["toolGroupMigrate", "🔄 Group migration"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -1075,6 +1077,7 @@ const Fs = (() => {
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
   $("toolMaa").addEventListener("click", () => { crumb("🤝 Multi-admin approval"); show("screen-maa"); });
+  $("toolGroupMigrate").addEventListener("click", () => { crumb("🔄 Group migration"); show("screen-groupmigrate"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
   $("toolOverview").addEventListener("click", () => { crumb("🗂 Policy overview"); show("screen-overview"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
@@ -1313,4 +1316,5 @@ const Fs = (() => {
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
+  if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();
 })();

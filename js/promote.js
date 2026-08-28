@@ -81,6 +81,37 @@ const PROMOTE = {
 
   items: [
     {
+      n: 117,
+      title: "T22 🔄 Group migration — off role-assignable, into a restricted unit (R33)",
+      tools: ["T22", "T11", "T02"],
+      builds: [10506],
+      files: ["js/groupmigrate.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      // HIGH, and the vocabulary is high / medium / low so this is the word
+      // rather than a fourth level. It is the third thing in TUNO that
+      // writes and the first that DELETES nothing while still being
+      // irreversible in one step: a rename plus a create plus an assignment
+      // rewrite, and the new object id cannot be undone by re-running it.
+      risk: "high",
+      what: "A NEW TOOL, ported from ENCA's ⑦ Migrate. Turns a ROLE-ASSIGNABLE security group into a plain one inside a RESTRICTED MANAGEMENT ADMINISTRATIVE UNIT. js/groupmigrate.js carries the engine (GroupMigrate) and the screen (GroupMigrateTool) in the T11 split. candidates() lists every role-assignable security group server-side via $filter=isAssignableToRole eq true with ConsistencyLevel:eventual. Per group it then reads: heldRoles() (roleAssignments + roleEligibilitySchedules — read-only, RoleManagement.Read.Directory), unitsHolding() (the frozen case), memberIds() split by TYPE, and references() — which is the load-bearing part: the REPOINTABLE half is AssignEdit.readPolicies() by definition, and the OTHER half is GroupUse.analyze() MINUS it, derived by subtraction rather than by source id because GroupUse's config source covers three collections and its compliance source two, only one of which T11 writes. plan() carries five refusals with printed reasons; apply() runs rename → create → members → repoint → unit in that order, rolls the rename back if the create fails, and stops at the first failure. repoint() builds ONE modify per policy (a policy that both includes and excludes the group is rewritten once, not raced twice through /assign) and hands it to AssignEdit.applyPlan, so the fresh-read drift check and the verify read-back are the production ones. Units follow the tenant's INT-RMAU- convention with the dominant prefix detected and stripped, suggested per group and overridable. New scopes, all asked for AT THE CLICK and never at sign-in: Group.ReadWrite.All, AdministrativeUnit.ReadWrite.All, RoleManagement.Read.Directory, and RoleManagement.ReadWrite.Directory ONLY on the path that creates a unit and grants a scoped Groups Administrator on it.",
+      why: "HIGH. Three separate reasons, and the first is the one that matters. (1) THE NEW GROUP HAS A NEW OBJECT ID and the tool can only move half the references. It repoints the four surfaces T11 writes, NAMES the other Intune surfaces, and declares everything outside Intune invisible — but a tenant that uses Conditional Access, group-based licensing or Azure RBAC against a migrated group will have a silently broken reference until somebody reads the report and acts on it. Verify on ONE low-stakes group in a test tenant before this goes anywhere near production, and re-run T02 Group Analyzer against the ARCHIVED group afterwards: it should come back empty except for the surfaces the report already named. (2) FOUR NEW DELEGATED PERMISSIONS, two of them broad directory writes. Group.ReadWrite.All and AdministrativeUnit.ReadWrite.All are needed to do the job at all; RoleManagement.ReadWrite.Directory rides only the create-a-unit path and exists because a restricted unit with nobody scoped to it is unmanageable by everyone. They are incremental-consent at the click, so a read-only visit to the screen acquires none of them — but the app registration's consent surface grows, and that is a conversation to have with a customer before promoting, not after. (3) IT SHARES AN ENGINE WITH T11. repoint() calls AssignEdit.applyPlan with a hand-built changes[] array; if T11's plan shape ever changes, this breaks quietly rather than loudly. The headless suite pins the shape.",
+      test: [
+        "THE ONE THAT MATTERS: migrate one disposable role-assignable group in a TEST tenant that is excluded from two settings-catalog policies and assigned to one application. Afterwards — the two settings-catalog exclusions must name the NEW group, the application must still name the ARCHIVED one, and the report must list that application under 'Still pointing at the ARCHIVED group'. If the app is missing from that list, stop and do not promote.",
+        "Run T02 Group Analyzer against the archived group after a migration: everything it returns must already appear in the report's not-repointed table.",
+        "A policy with a FILTER on its assignment to the group: after the migration the filter must still be there, same id and same mode. A dropped filter silently widens the assignment and is the worst thing either tool can do.",
+        "A group that holds a directory role: it must be REFUSED with the role named, and nothing may be written.",
+        "A group that is role-assignable AND already inside a restricted unit: it must be reported as 🧊 frozen and refused.",
+        "A group containing a device or service principal as a member: refused, with the member type named.",
+        "Deny the tool's role-read scope, or use an account that cannot read roleAssignments: the group must be refused with 'could not check', NOT migrated on the assumption that no roles came back.",
+        "Choose 'Create a unit' and leave the scoped administrator blank: apply must stay locked and the reason must say a unit nobody is scoped to is a vault nobody can open.",
+        "Choose 'Create a unit' with a name that already matches an existing RESTRICTED unit: the tool must use that unit rather than creating a second one under the same name.",
+        "Choose 'Leave it outside': the plan must warn that the replacement is LESS protected than the original, in those words.",
+        "Force the create to fail (a name Entra rejects): the rename must be rolled back and the group must be back under its original name.",
+        "Kill the network between the member copy and the repoint: the tool must stop, must NOT have touched an assignment, and the log must say the archived group is still the correctly assigned one.",
+        "Consent check: open the screen, read the groups, and confirm on the permissions page that NO write scope has been acquired. Only pressing Migrate may ask for one.",
+        "A tenant with no role-assignable groups at all: the empty state must read as the goal state, not as a failure."
+      ],
+    },
+    {
       n: 116,
       title: "Reach becomes a number \u2014 the filter count, the member count, and a brief that stops overclaiming",
       tools: ["T20", "T05", "T19", "T14"],
