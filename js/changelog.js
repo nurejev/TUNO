@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10504, date: "2026-08-28", title: "One read per session, not one per screen",
+    items: [
+      { kind: "fixed", tool: "T20", text: "THE SECURE SCORE NODE ASKED FOR A READING IT ALREADY HAD. With the Secure Score visualizer run and its numbers on screen, opening the posture tool's Secure Score node still offered a button to go and read the tenant — a Graph round trip, and on most tenants a second consent prompt, for an answer sitting in memory. The reading is now cached for the session and both screens share it: the node adopts it on open and shows the matrix straight away." },
+      { kind: "improved", tool: "T20", text: "10500 had refused to reuse it on purpose, and the reason was written into the code: T20 would be showing numbers whose age it could not state. That was the wrong conclusion drawn from a real constraint — the fix for an unstateable age is to state it. The node now says how long ago the reading was fetched and at what time, that it is shared with the Secure Score visualizer, and carries one button for a fresh one. A posture re-read still clears the correlation, because the checks it was computed against have changed; opening the node re-adopts." },
+      { kind: "improved", tool: "T21", text: "The Secure Score visualizer's own Read button still always goes to the tenant. An explicit click means a fresh read — the cache exists so a second SCREEN does not cost a second read, not so a button can quietly do nothing." },
+    ],
+  },
+  {
     build: 10503, date: "2026-08-28", title: "Every category bar is a filter",
     items: [
       { kind: "new", tool: "T21", text: "THE CATEGORY BARS ARE FILTERS. A bar answers \"how is Apps doing\" and the only next question anybody has is \"which Apps controls\" — a number you cannot click is a number you then have to go and find somewhere else on the page. Click one and the screen goes to that category's improvement actions with ITS OWN SCORE above them: points, gaps, and Microsoft's two comparison figures for that category rather than for the tenant. The rule is the Policy overview's, whose surface stat cards are its filters; this is the same idea on a bar." },

@@ -664,6 +664,9 @@ const SecureScoreTool = (() => {
       prog("Checking permissions…");
       await Graph.ensureScopes(SecureScore.SCOPE);
       const r = await SecureScore.collect({ onStatus: prog });
+      // The same reading T20 will find — one read per session unless
+      // somebody asks for a fresh one.
+      lastRead = shape(r);
       res = r; uploaded = []; search = ""; view = "value"; face = "cards"; cat = null;
       rebuild();
       prog("");
@@ -1043,21 +1046,39 @@ const SecureScoreTool = (() => {
     });
   }
 
-  // T20 asks for the score at ITS OWN click, under its own consent — this
-  // is the seam, so there is still exactly one implementation of the read
-  // and one shape of the answer. It deliberately does NOT reuse a result
-  // this screen happens to be holding: T20's node would then show numbers
-  // whose age it cannot state.
-  async function readFor({ onStatus } = {}) {
+  // THE SESSION'S LAST READING, held once for both screens.
+  //
+  // 10500 had T20 read the tenant again every time, on the argument that
+  // reusing a result this screen happened to be holding would show numbers
+  // whose age T20 could not state. That was the wrong conclusion from a
+  // real constraint: the fix for an unstateable age is to STATE IT, not to
+  // spend a second read and, on most tenants, a second consent prompt for
+  // an answer that is already in memory. So the reading is cached with the
+  // moment it was taken, both screens read it, and T20 says how old it is
+  // and offers one click to take a fresh one.
+  //
+  // Written by BOTH paths — this screen's run() and T20's readFor() — so
+  // whichever tool asks first, the other one has it.
+  let lastRead = null;
+  const shape = (r) => Object.assign(
+    { controls: r.empty ? [] : SecureScore.controlsFrom(r.latest, r.profiles), readAt: Date.now() }, r);
+  const current = () => lastRead;
+
+  // T21's own read still goes through run(); this is the seam T20 calls,
+  // so there is exactly one implementation of the read and one shape of
+  // the answer. `force` skips the cache for a deliberate re-read.
+  async function readFor({ onStatus, force } = {}) {
+    if (!force && lastRead) return lastRead;
     await Graph.ensureScopes(SecureScore.SCOPE);
     const r = await SecureScore.collect({ onStatus });
-    return Object.assign({ controls: r.empty ? [] : SecureScore.controlsFrom(r.latest, r.profiles) }, r);
+    lastRead = shape(r);
+    return lastRead;
   }
 
   return {
-    init, run, readFor,
+    init, run, readFor, current,
     // seams for the headless suite — the real res is set by run()
-    _setForTest: (r, ups) => { res = r; uploaded = ups || []; tab = "score"; search = ""; view = "value"; face = "cards"; cat = null; rebuild(); render(); },
+    _setForTest: (r, ups) => { res = r; lastRead = r ? shape(r) : null; uploaded = ups || []; tab = "score"; search = ""; view = "value"; face = "cards"; cat = null; rebuild(); render(); },
     _state: () => ({ tab, view, face, search, cat, uploaded: uploaded.length, merged }),
   };
 })();

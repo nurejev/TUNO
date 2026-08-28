@@ -1550,20 +1550,56 @@ const EndpointPostureTool = (() => {
   // at THIS click under its own consent. Nothing is borrowed from a T21
   // screen that may be holding a result: this node would then be showing
   // numbers whose age it cannot state.
-  async function readScore() {
+  // Take a reading — cached or fresh — and correlate the CURRENT checks
+  // against it. Kept separate from the fetching so both paths land on one
+  // piece of arithmetic; a posture re-read clears corr and this is what
+  // puts it back.
+  function useScore(s) {
+    score = s; scoreErr = null;
+    corr = s.empty ? null : EndpointPosture.correlate(res.checks, s.controls);
+  }
+
+  // THE READING THIS SESSION ALREADY HAS, adopted without a click.
+  // If T21 has read the tenant — or T20 read it earlier — the numbers are
+  // in memory, and re-reading them costs a Graph round trip and, on most
+  // tenants, a second consent prompt for an answer we already hold. The
+  // objection at 10500 was that T20 could not state such a reading's age;
+  // the answer to that is to state it, which the pane now does, with one
+  // click to take a fresh one.
+  function adoptScore() {
+    if (score || scoreErr || scoring || !res) return false;
+    if (typeof SecureScoreTool === "undefined" || !SecureScoreTool.current) return false;
+    const s = SecureScoreTool.current();
+    if (!s) return false;
+    useScore(s);
+    return true;
+  }
+
+  async function readScore(force) {
     if (scoring || !res) return;
     scoring = true; render();
     const prog = (m) => { const p = $("epScoreProg"); if (p) p.textContent = m || ""; };
     try {
       if (typeof SecureScoreTool === "undefined") throw new Error("The Secure Score reader (T21) is not loaded on this page.");
-      const s = await SecureScoreTool.readFor({ onStatus: prog });
-      if (s.empty) { score = s; corr = null; scoreErr = null; }
-      else { score = s; corr = EndpointPosture.correlate(res.checks, s.controls); scoreErr = null; }
+      useScore(await SecureScoreTool.readFor({ onStatus: prog, force: !!force }));
     } catch (e) {
       scoreErr = String((e && e.message) || e);
       if (e && e.kind === "admin") scoreErr += " SecurityEvents.Read.All is an admin-consent permission in most tenants — an administrator grants it once for the whole tenant.";
       score = null; corr = null;
     } finally { scoring = false; render(); }
+  }
+
+  // How old the reading in front of you is, in words. Not a decoration:
+  // it is the sentence that makes reusing a cached reading honest.
+  function agoWords(ms) {
+    if (!ms) return "";
+    const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 45) return "moments ago";
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`;
+    return `${Math.round(h / 24)} day${Math.round(h / 24) === 1 ? "" : "s"} ago`;
   }
 
   function paneScore() {
@@ -1575,7 +1611,7 @@ const EndpointPostureTool = (() => {
       return `<div class="list-card">
         <h4 style="margin:0 0 4px">📊 Secure Score gaps</h4>
         <p class="mini" style="margin:0 0 10px">This tool reads <b>policy</b> — what is configured, and whether it reaches anybody. Microsoft Secure Score reads <b>the estate</b> — what the devices actually report back. They disagree constantly, and <b>the disagreement is the finding</b>: a policy can be perfectly configured, assigned tenant-wide and still score zero, because the machines have not onboarded, are not licensed, or have not reported since it was written. Neither reading can see that on its own.</p>
-        <p class="mini muted" style="margin:0 0 12px"><b>This costs a permission the rest of the tool does not.</b> Everything else here runs on the 📄 documenter's read; the score needs <code>SecurityEvents.Read.All</code>, which is why it is a button rather than part of the run. The read is 📊 Secure Score visualizer's own — one reader, so this node and that tool can never disagree about one tenant.</p>
+        <p class="mini muted" style="margin:0 0 12px"><b>This costs a permission the rest of the tool does not.</b> Everything else here runs on the 📄 documenter's read; the score needs <code>SecurityEvents.Read.All</code>, which is why it is a button rather than part of the run. The read is 📊 Secure Score visualizer's own — one reader, so this node and that tool can never disagree about one tenant, and <b>a reading either of them has already taken is reused rather than asked for twice</b>. This screen is offering the button because nothing in this session has read it yet.</p>
         ${scoreErr ? `<div class="gu-fail" style="margin-bottom:12px"><b>The Secure Score could not be read.</b><span class="why">${esc(scoreErr)}</span></div>` : ""}
         ${score && score.empty ? `<p class="mini" style="margin:0 0 12px"><b>This tenant has no Secure Score readings.</b> The read succeeded and returned an empty collection — Secure Score starts producing readings once the tenant has the licensed services it measures. There is nothing to correlate, and nothing is wrong.</p>` : ""}
         <button class="btn primary" type="button" data-epscore="1">📊 Read the Secure Score</button>
@@ -1598,9 +1634,10 @@ const EndpointPostureTool = (() => {
         <h4 style="margin:0 0 4px">📊 Secure Score gaps — policy against the estate</h4>
         <div style="flex:1"></div>
         <button class="btn" type="button" data-epscoremd="1">👁 Read this as a report</button>
-        <button class="btn" type="button" data-epscore="1">↻ Re-read</button>
+        <button class="btn" type="button" data-epscore="force">↻ Read it again</button>
       </div>
-      <p class="mini" style="margin:0 0 6px"><b>${s.currentScore} of ${s.maxScore} points — ${p}%</b>, read ${esc(String(s.taken).slice(0, 10))}. <b>${corr.pointsOpen} points</b> still open across the endpoint controls below.</p>
+      <p class="mini" style="margin:0 0 6px"><b>${s.currentScore} of ${s.maxScore} points — ${p}%</b>, Microsoft's reading of ${esc(String(s.taken).slice(0, 10))}. <b>${corr.pointsOpen} points</b> still open across the endpoint controls below.</p>
+      <p class="mini muted" style="margin:0 0 6px">Fetched from the tenant <b>${esc(agoWords(score.readAt))}</b>${score.readAt ? ` (${esc(new Date(score.readAt).toLocaleTimeString())})` : ""} and shared with 📊 Secure Score visualizer — one read per session, not one per screen. <b>↻ Read it again</b> takes a fresh one.</p>
       <p class="mini muted" style="margin:0">Pairs are matched on Microsoft's own control id or published title, and <b>every pair shows both names</b> — the check's and the control's — so a wrong match is visible rather than load-bearing. A control that matches nothing is listed under Microsoft's title instead of being dropped, so a miss can only ever under-correlate, never mis-correlate. ${corr.agreed} check${corr.agreed === 1 ? "" : "s"} agreed clean on both readings and ${corr.agreed === 1 ? "is" : "are"} not listed.${score.profileError ? ` <b>The control catalogue could not be read (${esc(score.profileError)})</b> — controls show raw ids and no remediation.` : ""}</p>
     </div>`);
 
@@ -1719,7 +1756,7 @@ const EndpointPostureTool = (() => {
       const rb = e.target.closest("[data-epbrief]");
       if (rb) { openBrief(); return; }
       const sc = e.target.closest("[data-epscore]");
-      if (sc) { readScore(); return; }
+      if (sc) { readScore(sc.getAttribute("data-epscore") === "force"); return; }
       const sm = e.target.closest("[data-epscoremd]");
       if (sm) {
         TunoReport.show("📊 Secure Score gaps", "Endpoint-secure-score-gaps.md",
@@ -1729,7 +1766,18 @@ const EndpointPostureTool = (() => {
       const vb = e.target.closest("[data-epview]");
       if (vb) { const k = vb.getAttribute("data-epview"); if (k !== view) { view = k; render(); } return; }
       const nn = e.target.closest("[data-epnode]");
-      if (nn) { const k = nn.getAttribute("data-epnode"); if (k !== node) { node = k; search = ""; render(); } return; }
+      if (nn) {
+        const k = nn.getAttribute("data-epnode");
+        if (k !== node) {
+          node = k; search = "";
+          // Opening the Secure Score node takes whatever reading this
+          // session already holds, so the common case costs no click,
+          // no round trip and no consent prompt.
+          if (k === "score") adoptScore();
+          render();
+        }
+        return;
+      }
       const c = e.target.closest("[data-epopen]");
       if (c) openPolicy(c.getAttribute("data-epopen"));
     });
