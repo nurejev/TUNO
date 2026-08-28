@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10503, date: "2026-08-28", title: "Every category bar is a filter",
+    items: [
+      { kind: "new", tool: "T21", text: "THE CATEGORY BARS ARE FILTERS. A bar answers \"how is Apps doing\" and the only next question anybody has is \"which Apps controls\" — a number you cannot click is a number you then have to go and find somewhere else on the page. Click one and the screen goes to that category's improvement actions with ITS OWN SCORE above them: points, gaps, and Microsoft's two comparison figures for that category rather than for the tenant. The rule is the Policy overview's, whose surface stat cards are its filters; this is the same idea on a bar." },
+      { kind: "new", tool: "T21", text: "A chip row on the improvement-actions tab carries the same filter, so it is visible and clearable without going back to the Score tab for it — and the list's Category cell narrows too, checked before the row's own open handler so that clicking the category filters while clicking anywhere else on the row opens the control. One piece of state behind all three, because three controls for one filter is how a screen starts disagreeing with itself." },
+      { kind: "improved", tool: "T21", text: "Clicking an active filter clears it. A filter you cannot undo where you set it is a trap, and the trap has a second door: a filter carried into a view that empties it — Data has gaps but nothing achieved — names the category that emptied the list and offers the way out inline, because by then its own chip is gone from the row. Chips exist only for categories actually present in the current view; \"Data (0)\" under the achieved list is a control that leads nowhere." },
+      { kind: "improved", tool: "T21", text: "The exports stay whole-tenant, and the filtered card says so. A file called Secure Score that quietly held only the Apps category would be the kind of surprise that outlives the session it was downloaded in — so the filter narrows the screen and not the download." },
+    ],
+  },
+  {
     build: 10502, date: "2026-08-27", title: "The catalogue text is HTML, and the cards said so out loud",
     items: [
       { kind: "fixed", tool: "T21", text: "MICROSOFT'S CONTROL TEXT IS HTML AND NOTHING DOCUMENTS IT. description, remediation and remediationImpact come back carrying line-break, bold, paragraph and list tags, anchor links, and curly-quote entities — frequently malformed, with an entity opening inside a tag it does not close. 10500 escaped the string and printed it, which put a run of literal angle brackets and entity codes on the card where a sentence should be. Rendering it as HTML was never the alternative: that hands a third party's markup an injection point in a page holding a tenant token." },

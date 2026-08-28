@@ -2326,7 +2326,18 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 .sc-track{position:relative;height:9px;background:var(--soft);border:1px solid var(--border);border-radius:5px}
 .sc-fill{height:100%;border-radius:4px;background:var(--accent2)}
 
-.sc-cat{margin-bottom:16px}
+/* The category bars are FILTERS (10503) — T19's rule, its surface stat
+   cards being its filters. Button chrome is stripped the way
+   button.au-card-btn strips it, so a bar reads as a bar and behaves as a
+   control; the active one is outlined rather than recoloured, because the
+   fill is already carrying a number. */
+.sc-cat{margin-bottom:16px;width:100%;display:block;text-align:left}
+button.sc-cat-btn{background:none;border:1px solid transparent;border-radius:10px;padding:8px 10px;margin:0 -10px 8px;font:inherit;color:inherit;cursor:pointer;width:calc(100% + 20px)}
+button.sc-cat-btn:hover{background:var(--soft)}
+button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
+.sc-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.sc-catlink{border:0;background:none;font:inherit;color:var(--accent2);cursor:pointer;padding:0;text-align:left;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.sc-catlink:hover{text-decoration-style:solid}
 .sc-cat-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
 .sc-cat-h span{font-weight:700;color:var(--accent2)}
 .sc-cat .sc-track{overflow:visible}

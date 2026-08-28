@@ -621,6 +621,10 @@ const SecureScoreTool = (() => {
   // a fixed table column cannot hold it; the list is for the tenant with
   // fifty-six of these, where scanning beats reading.
   let face = "cards";
+  // The category filter, shared by the Score tab's bars, the chip row and
+  // the list's Category cell — one piece of state, so the three cannot
+  // disagree about what the screen is showing. null means every category.
+  let cat = null;
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -660,7 +664,7 @@ const SecureScoreTool = (() => {
       prog("Checking permissions…");
       await Graph.ensureScopes(SecureScore.SCOPE);
       const r = await SecureScore.collect({ onStatus: prog });
-      res = r; uploaded = []; search = ""; view = "value"; face = "cards";
+      res = r; uploaded = []; search = ""; view = "value"; face = "cards"; cat = null;
       rebuild();
       prog("");
       if (r.empty) {
@@ -770,7 +774,16 @@ const SecureScoreTool = (() => {
       ? bar(label, Math.round(c.value * 10) / 10, colour)
       : bar(label + (c ? " (reported in points, not a percentage — not comparable to the bar above)" : ""), null, colour);
     const cats = SecureScore.categoryRows(l, m.controls);
-    const catBar = (c) => `<div class="sc-cat">
+    // THE BARS DOUBLE AS FILTERS — T19's rule (its surface stat cards are
+    // its filters), and the reason is the same here: a category bar
+    // answers "how is Apps doing" and the only next question anybody has
+    // is "which Apps controls". A number you cannot click is a number you
+    // have to go and look for somewhere else on the page.
+    //
+    // A category with NO gaps is deliberately still clickable: filtering
+    // to it is how you see the achieved controls, which is a real question
+    // ("prove Device is done") rather than an empty screen.
+    const catBar = (c) => `<button type="button" class="sc-cat sc-cat-btn${cat === c.category ? " active" : ""}" data-sccat="${esc(c.category)}">
       <div class="sc-cat-h"><b>${esc(c.category)}</b><span>${c.pct == null ? "—" : `${c.pct}%`}</span></div>
       <div class="sc-track">
         <div class="sc-fill" style="width:${c.pct == null ? 0 : c.pct}%"></div>
@@ -778,7 +791,7 @@ const SecureScoreTool = (() => {
         ${c.similar == null ? "" : `<i class="sc-mark similar" style="left:${c.similar}%" title="Similar tenants: ${c.similar}%"></i>`}
       </div>
       <div class="mini muted">${c.score} / ${c.max} points · ${c.gaps} of ${c.controls} controls still have points left${c.global == null && c.similar == null ? " · Microsoft reported no comparison for this category" : ""}</div>
-    </div>`;
+    </button>`;
 
     return `<div class="list-card">
       <h4 style="margin:0 0 4px">📊 Microsoft Secure Score</h4>
@@ -793,7 +806,9 @@ const SecureScoreTool = (() => {
       </div>
       <p class="mini muted" style="margin:12px 0 0"><b>These are Microsoft's numbers, not TUNO's.</b> Secure Score measures the tenant's actual state as Microsoft observes it — a control can be configured in a policy and still score zero, because the score reads the estate rather than the intent. That difference is the whole point of the 🧭 Endpoint security posture tool's Secure Score node.${res.profileError ? ` <b>The control catalogue could not be read (${esc(res.profileError)})</b> — controls below show their raw ids, and remediation text is missing.` : ""}${res.betaFilled ? ` ${res.betaFilled} control title${res.betaFilled === 1 ? "" : "s"} came from the beta catalogue, where the Defender for Endpoint controls are titled; beta is a preview surface and may change.` : ""}</p>
     </div>
-    ${cats.length ? `<div class="list-card"><h4 style="margin:0 0 10px">By category</h4>${cats.map(catBar).join("")}
+    ${cats.length ? `<div class="list-card"><h4 style="margin:0 0 4px">By category</h4>
+      <p class="mini muted" style="margin:0 0 12px"><b>Every bar is a filter.</b> Click one to see only that category's improvement actions, with its own score above them.</p>
+      ${cats.map(catBar).join("")}
       <p class="mini muted" style="margin:8px 0 0">The two ticks on each bar are Microsoft's comparison figures — <span class="sc-key global"></span> all tenants, <span class="sc-key similar"></span> tenants of a similar size. A category Microsoft reported no comparison for simply has no ticks rather than a zero.</p></div>` : ""}`;
   }
 
@@ -828,8 +843,28 @@ const SecureScoreTool = (() => {
       : view === "points" ? SecureScore.gaps(m.controls).slice().sort((a, b) => b.points - a.points || a.rank - b.rank)
       : view === "rank" ? SecureScore.gaps(m.controls).slice().sort((a, b) => a.rank - b.rank)
       : m.controls.slice().filter((c) => !c.deprecated && c.points != null && c.points <= 0.05).sort((a, b) => a.title.localeCompare(b.title));
-    const rows = all.filter((c) => !q || c.title.toLowerCase().includes(q) || String(c.id).toLowerCase().includes(q) || (c.category || "").toLowerCase().includes(q) || (c.remediation || "").toLowerCase().includes(q));
+    const matches = (c) => !q || c.title.toLowerCase().includes(q) || String(c.id).toLowerCase().includes(q) || (c.category || "").toLowerCase().includes(q) || (c.remediation || "").toLowerCase().includes(q);
+    // The category filter is applied AFTER the search so the chip counts
+    // describe what the search left, not the whole tenant — a chip saying
+    // "Apps (35)" over a list of three is a chip that is lying about the
+    // screen it sits on.
+    const searched = all.filter(matches);
+    const rows = searched.filter((c) => !cat || c.category === cat);
     const un = SecureScore.unreadable(m.controls);
+
+    // The chips: the same filter as the bars on the Score tab, reachable
+    // without going back for it, and the only way to clear one.
+    const catCounts = {};
+    searched.forEach((c) => { const k = c.category || "uncategorised"; catCounts[k] = (catCounts[k] || 0) + 1; });
+    const chips = [`<button class="fchip${cat === null ? " active" : ""}" data-sccat="">All (${searched.length})</button>`]
+      .concat(SecureScore.CATEGORIES.filter((k) => catCounts[k])
+        .map((k) => `<button class="fchip${cat === k ? " active" : ""}" data-sccat="${esc(k)}">${esc(k)} (${catCounts[k]})</button>`))
+      .join("");
+
+    // A filtered view shows THAT CATEGORY'S score, not the tenant's — the
+    // whole point of narrowing to it. Read from the same categoryRows the
+    // bars are drawn from, so the two can never disagree.
+    const catRow = cat ? SecureScore.categoryRows(m.latest, m.controls).find((r) => r.category === cat) : null;
 
     // "Unknown" is Microsoft's own word on a great many controls, and it
     // is not the same as a field they left empty — so it is printed as
@@ -856,9 +891,13 @@ const SecureScoreTool = (() => {
     // and a row click opening the same popout a card click does. T19 and
     // T20 wear this seg; a third spelling of one control is how two
     // screens start disagreeing about what a face is.
+    // The Category cell is a filter too — it is the one place in the list
+    // where the eye is already asking "just these, please". It is checked
+    // BEFORE the row's own open handler, so clicking the category narrows
+    // and clicking anywhere else on the row opens.
     const row = (c) => `<tr class="sc-row" data-scopen="${esc(c.id)}">
       <td><b>${esc(c.title)}</b></td>
-      <td>${esc(c.category || "—")}</td>
+      <td>${c.category ? `<button class="sc-catlink" data-sccat="${esc(c.category)}">${esc(c.category)}</button>` : "—"}</td>
       <td>${c.points != null ? c.points : "—"}</td>
       <td class="mini">${c.score} / ${c.maxScore}</td>
       <td class="mini">${esc(c.userImpact || "not stated")}</td>
@@ -879,13 +918,27 @@ const SecureScoreTool = (() => {
       </div>
       <input id="scSearch" type="search" placeholder="Filter by title, control id, category or remediation…" value="${esc(search)}">
       <span class="mini muted">${rows.length} shown</span></div>
+    <div class="list-card sc-chips">${chips}</div>
+    ${catRow ? `<div class="list-card">
+      <div class="sc-cat-h" style="margin-bottom:6px"><b>${esc(catRow.category)}</b><span>${catRow.pct == null ? "—" : `${catRow.pct}%`}</span></div>
+      <div class="sc-track">
+        <div class="sc-fill" style="width:${catRow.pct == null ? 0 : catRow.pct}%"></div>
+        ${catRow.global == null ? "" : `<i class="sc-mark global" style="left:${catRow.global}%" title="All tenants: ${catRow.global}%"></i>`}
+        ${catRow.similar == null ? "" : `<i class="sc-mark similar" style="left:${catRow.similar}%" title="Similar tenants: ${catRow.similar}%"></i>`}
+      </div>
+      <p class="mini muted" style="margin:6px 0 0"><b>${catRow.score} of ${catRow.max} points</b> — this is <b>${esc(catRow.category)}'s own score</b>, not the tenant's. ${catRow.gaps} of ${catRow.controls} controls still have points left${catRow.global == null && catRow.similar == null ? " · Microsoft reported no comparison for this category" : ` · all tenants ${catRow.global == null ? "—" : `${catRow.global}%`}, tenants of a similar size ${catRow.similar == null ? "—" : `${catRow.similar}%`}`}. <b>The exports above stay whole-tenant</b> — a file called Secure Score holding only ${esc(catRow.category)} is a trap, so the filter narrows the screen and not the download.</p>
+    </div>` : ""}
     ${view === "value" ? `<div class="list-card"><p class="mini muted" style="margin:0"><b>This ordering is TUNO's, not Microsoft's.</b> Points still available, weighted down by the user impact and implementation cost Microsoft publishes on the control. Microsoft answers <i>Unknown</i> on a great many of them; an unknown level is weighed as <b>moderate</b>, never as low, because calling an unstated impact low is how a "quick win" becomes the change that breaks sign-in on Monday. 🏅 Microsoft rank is Microsoft's own stack ranking, unchanged.</p></div>` : ""}
     ${un.length && view !== "done" ? `<div class="list-card"><p class="mini muted" style="margin:0">${un.length} control${un.length === 1 ? "" : "s"} could not be scored — no readable score or no ceiling in the catalogue — and ${un.length === 1 ? "is" : "are"} counted as neither achieved nor a gap: ${esc(un.slice(0, 5).map((c) => c.title).join("; "))}${un.length > 5 ? `, and ${un.length - 5} more` : ""}.</p></div>` : ""}
     ${rows.length
       ? (face === "list"
         ? `<div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Improvement action</th><th>Category</th><th>Points left</th><th>Score</th><th>User impact</th><th>Cost</th><th>MS rank</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`
         : `<div class="sc-ctrls">${rows.map(card).join("")}</div>`)
-      : `<div class="list-card"><p class="mini muted" style="margin:0">${q ? "Nothing matches that filter." : view === "done" ? "No control is fully achieved yet." : "No gaps — every scored control is at its maximum."}</p></div>`}`;
+      : `<div class="list-card"><p class="mini muted" style="margin:0">${
+        cat ? `Nothing in <b>${esc(cat)}</b> matches this view${q ? " and that search" : ""} — ${view === "done" ? "no control in this category is fully achieved" : "every scored control in this category is at its maximum"}. <button class="fchip" data-sccat="">Show every category</button>`
+        : q ? "Nothing matches that filter."
+        : view === "done" ? "No control is fully achieved yet."
+        : "No gaps — every scored control is at its maximum."}</p></div>`}`;
   }
 
   // ------------------------------------------------------------- popout --
@@ -970,6 +1023,21 @@ const SecureScoreTool = (() => {
       if (v) { const k = v.getAttribute("data-scview"); if (k !== view) { view = k; render(); } return; }
       const f = e.target.closest("[data-scface]");
       if (f) { const k = f.getAttribute("data-scface"); if (k !== face) { face = k; render(); } return; }
+      // BEFORE the row's open handler: the Category cell sits inside a row
+      // that opens on click, and narrowing is what a click on the category
+      // means. Clicking the same one again clears it — a filter you cannot
+      // undo where you set it is a trap.
+      const k = e.target.closest("[data-sccat]");
+      if (k) {
+        const want = k.getAttribute("data-sccat") || null;
+        cat = (want && want === cat) ? null : want;
+        // A bar on the Score tab is asking to SEE those controls, so the
+        // filter takes you to them; a chip on the actions tab is already
+        // there and stays put.
+        if (tab !== "actions") { tab = "actions"; }
+        render();
+        return;
+      }
       const o = e.target.closest("[data-scopen]");
       if (o) openControl(o.getAttribute("data-scopen"));
     });
@@ -989,7 +1057,7 @@ const SecureScoreTool = (() => {
   return {
     init, run, readFor,
     // seams for the headless suite — the real res is set by run()
-    _setForTest: (r, ups) => { res = r; uploaded = ups || []; tab = "score"; search = ""; view = "value"; face = "cards"; rebuild(); render(); },
-    _state: () => ({ tab, view, search, uploaded: uploaded.length, merged }),
+    _setForTest: (r, ups) => { res = r; uploaded = ups || []; tab = "score"; search = ""; view = "value"; face = "cards"; cat = null; rebuild(); render(); },
+    _state: () => ({ tab, view, face, search, cat, uploaded: uploaded.length, merged }),
   };
 })();
