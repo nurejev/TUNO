@@ -81,6 +81,35 @@ const PROMOTE = {
 
   items: [
     {
+      n: 116,
+      title: "Reach becomes a number \u2014 the filter count, the member count, and a brief that stops overclaiming",
+      tools: ["T20", "T05", "T19", "T14"],
+      builds: [10505],
+      files: ["js/endpointposture.js", "js/document.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html", "CLAUDE.md"],
+      // The queue's vocabulary is high / medium / low and this is a medium
+      // by the definition at the top of this file — nothing in production is
+      // broken until it lands. It is the sharpest medium in the queue, and
+      // `why` carries the edges rather than inventing a fourth level (item
+      // 113 already did that and fails pq-tests for it).
+      risk: "medium",
+      what: "THE FILTER COUNT REACHES THE ARITHMETIC. EndpointPosture.widePredicate() turns a filtered TENANT-WIDE target into a measurement: include mode is exactly the devices FilterRules matches, exclude mode is exactly the fleet minus them. T20's fleet read swaps $select=id for FilterRules.SELECT so one read answers both questions. deviceReach gains exact/atLeast/evaluated/wideWhy beside the existing cap, and every line that states reach picks its verb from them \u2014 an exact number gets NO hedging verb at all. A GROUP plus a filter deliberately stays a bound (the intersection needs membership nobody read), and a filtered wide target alongside groups becomes a FLOOR rather than a measurement. A rule outside the grammar falls back to the old ceiling and NAMES what stopped it. Also fixed: an unfiltered wide target was capped by a filter on a DIFFERENT target of the same policy, so a policy genuinely reaching the whole fleet reported \"at most\" the whole fleet. GROUP MEMBER COUNTS MOVE INTO Docs.collect() \u2014 pooled once beside the group names, stamped on every assignment, printed by assignmentText, so T05, T19 and T20 all show \"SG-Pilot (Included) \u00b7 27 members\" from one implementation and T20 stops pooling them itself; an empty group says 0 members on purpose, an unreadable one says nothing. The filter read gains `rule`. THE BRIEF SAYS PARTLY ENFORCED: verdictWord/enforcedLine head a statement reaching less than the fleet with \"partly enforced\", spell the fraction out, and the at-rollout line says STILL PARTIAL when the destination is partial too. T20's default face becomes the LIST (reversing 10477 on live-tenant evidence). And TOOL_VERSIONS gains a rule: production is 1.0.x, beta-only is 0.x \u2014 eighteen production tools renumbered 0.N to 1.0.N with the counter carried, T20 corrected DOWNWARDS from 1.3 to 0.13, and which tools are in production read from `git show main:index.html` rather than remembered. Written into js/version.js's header and CLAUDE.md.",
+      why: "MEDIUM, and the sharpest one in this queue: it changes NUMBERS THAT WERE ALREADY BEING TRUSTED, in the direction of claiming more precision. Three things to watch. First, the evaluated count is only as right as FilterRules \u2014 it is the same evaluator T14 has shipped since 10498, but T14 shows it beside a rule somebody can read, whereas here it lands inside a sentence about how many machines are protected. Verify one filtered All-devices policy against the portal's own device list before trusting the rest. Second, the fleet read is bigger: eight fields per device instead of one, on tenants with ten thousand devices. Third, Docs.collect now pools a member-count read for EVERY group in the collection, so T05 and T19 got slower in exchange for the counts \u2014 on a tenant with hundreds of groups that is hundreds of pooled requests, bounded at six concurrent. The version renumber touches eighteen entries and is cosmetic, but it is the kind of cosmetic that a promotion script could read.",
+      test: [
+        "A policy targeting All devices with an INCLUDE filter: T20's reach must state a NUMBER with no 'at most', and that number must match the device list the portal shows for that filter.",
+        "The same with an EXCLUDE filter: the number must be the fleet total minus the matched set, and must also carry no 'at most'.",
+        "A policy targeting All devices with a filter whose rule uses deviceOwnership or isRooted: it must still say 'at most' and must NAME why the rule could not be evaluated.",
+        "A policy with an unfiltered All devices target AND a filtered group target: it must claim the WHOLE fleet exactly \u2014 before this build it said 'at most'.",
+        "A policy targeting one group with a filter: it must still be a bound, not a count. The intersection is not computable and must not be claimed.",
+        "The impact brief on a policy reaching one small group: the statement must lead with 'partly enforced' and carry the percentage, in the pane, the Markdown AND the Word export.",
+        "A policy reaching the whole fleet must still say 'enforced now' and must NOT say partly.",
+        "Every group chip in T05's popout, T19's popout and T20's must show a member count; an empty group must show '0 members' and a group the account cannot read must show no count rather than 0.",
+        "Deny GroupMember.Read.All: the counts must be absent everywhere rather than zero, and the reach lines must say the sum is a floor.",
+        "Time a T05 run on the largest tenant to hand, before and after \u2014 the member-count pool is new cost on that tool.",
+        "T20 opens on the LIST face; the Cards button must still work and the choice must survive switching nodes.",
+        "Help \u2192 the tool list: every tool on main must read 1.0.x and the three beta-only tools 0.x. If any tool disagrees, the renumber missed it."
+      ],
+    },
+    {
       n: 115,
       title: "R02 \u2014 the Secure Score, and the gap between policy and the estate",
       tools: ["T21", "T20"],

@@ -406,6 +406,46 @@ const Docs = (() => {
       } catch (e) { out.nameError = short((e && e.message) || e, 160); }
     }
 
+    // GROUP MEMBER COUNTS, ONCE FOR THE WHOLE COLLECTION (10505).
+    //
+    // Every tool that names a group gets asked the same next question —
+    // "and how many machines is that?" — and until now only T20 could
+    // answer it, because only T20 had pooled the counts itself. That is the
+    // T05 rule pointing the other way: the read belongs here, beside the
+    // names, so the documenter, the policy overview and the posture tool
+    // all print the same number and none of them reads it twice.
+    //
+    // ABSENT IS UNKNOWN, NEVER ZERO. A group the signed-in admin cannot
+    // read comes back null and is counted in countError; assignmentText
+    // then prints no count rather than "0 members", because a confident
+    // zero about a group nobody could read is the 10483 failure again.
+    out.groupCounts = {};
+    out.countError = 0;
+    if (out.groupIds.size && !o.skipNames && !o.skipCounts) {
+      const gids = [...out.groupIds];
+      let done = 0;
+      status(`Counting members of ${gids.length} group${gids.length === 1 ? "" : "s"}…`);
+      try {
+        const rs = await Graph.pool(gids, async (id) => {
+          status(`Counting group members — ${++done}/${gids.length}…`);
+          try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
+        }, 6);
+        gids.forEach((id, i) => {
+          const r = rs[i];
+          const raw = (r && typeof r === "object" && "error" in r) ? undefined
+            : (r && typeof r === "object" && "value" in r) ? r.value : r;
+          const v = (raw === null || raw === undefined || raw === "") ? NaN : Number(raw);
+          out.groupCounts[id] = Number.isFinite(v) ? v : null;
+          if (!Number.isFinite(v)) out.countError++;
+        });
+        for (const s3 of out.sections) for (const it of s3.items) {
+          it.assignments = it.assignments.map((a) => (a.groupId
+            ? Object.assign({}, a, { memberCount: out.groupCounts[lc(a.groupId)] ?? null })
+            : a));
+        }
+      } catch (e) { out.countReadError = short((e && e.message) || e, 160); }
+    }
+
     // ASSIGNMENT FILTERS, NAMED ONCE — the group-name pattern exactly, for
     // the same reason: one read for the whole collection rather than one per
     // section, and a failure that is SAID rather than silently rendering
@@ -416,7 +456,11 @@ const Docs = (() => {
     if (out.filterIds.size && !o.skipNames) {
       status(`Naming ${out.filterIds.size} assignment filter${out.filterIds.size === 1 ? "" : "s"}…`);
       try {
-        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType", S().config);
+        // `rule` joins the $select at 10505: T14 can evaluate a filter rule
+        // against the inventory (R32), and the reach arithmetic in T20 needs
+        // the rule itself to stop saying "at most" about a tenant-wide
+        // target it could count exactly. One read, one more field.
+        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType,rule", S().config);
         const by = new Map((list || []).map((f) => [lc(f.id), f]));
         out.filters = by;
         for (const s2 of out.sections) for (const it of s2.items) {
@@ -426,6 +470,8 @@ const Docs = (() => {
             return Object.assign({}, a, {
               filterName: (f && f.displayName) || "",
               filterKind: (f && f.assignmentFilterManagementType) || "",
+              filterRule: (f && f.rule) || "",
+              filterPlatform: (f && f.platform) || "",
             });
           });
         }
@@ -509,8 +555,14 @@ const Docs = (() => {
     if (!a) return "";
     const name = a.name || a.kind || "unknown";
     const kind = (a.kind && a.kind !== a.name) ? ` (${a.kind})` : "";
+    // The member count, where the collection read one (10505). Printed
+    // only when it is a NUMBER: a group whose count could not be read
+    // shows nothing rather than a zero, and an empty group says "0
+    // members" on purpose — that is 🩺 Assignment health's whole finding,
+    // and it belongs on the chip where somebody is looking at the target.
+    const n = (a.groupId && typeof a.memberCount === "number") ? ` · ${a.memberCount} member${a.memberCount === 1 ? "" : "s"}` : "";
     const f = a.filterId ? ` — ⚑ ${filterLabel(a)}` : "";
-    return `${name}${kind}${f}`;
+    return `${name}${kind}${n}${f}`;
   }
 
   // Every distinct filter on the non-excluded targets of one policy.

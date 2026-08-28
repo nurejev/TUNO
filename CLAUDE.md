@@ -153,6 +153,21 @@ rest — and strips the chips from screen headers and roadmap cards outright.
 chip other than `tag.new`>NEW or `tag.upd`>UPDATED, and a home page with no
 status chips at all (a strip is not a translation).
 
+## Tool versions say which channel, not how finished
+
+`TOOL_VERSIONS` in `js/version.js`: **a tool in production is 1.0.x, a
+beta-only tool is 0.x.** The number reports the channel a tool has reached,
+not how good it feels — so a 1.x on `beta` for a tool that is not on `main`
+is a bookkeeping bug. The iteration counter carries across the promotion
+rather than resetting (T01 went 0.27 → 1.0.27), so every note stays filed
+under the version it describes; a tool promoted with no beta history starts
+at 1.0.0.
+
+**Which tools are in production is read, never remembered:** the tiles in
+`git show main:index.html`. Eighteen were renumbered from that list at
+10505, and T20 was corrected *downwards* from 1.3 to 0.13 — it had been
+carrying a 1.x since 10486 while still beta-only.
+
 ## The other standing rules, in one breath
 
 Work lands on `beta`, never on `main`; every commit is a build with its

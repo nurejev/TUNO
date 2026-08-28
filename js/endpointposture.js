@@ -157,15 +157,53 @@ const EndpointPosture = (() => {
   // "assigned" is what is enforced NOW, "planned" is the staged policy that
   // is not assigned yet — the same sum over a different half of the same
   // list, so today and the destination cannot drift into two arithmetics.
+  // A TENANT-WIDE TARGET'S FILTER, EVALUATED (10505).
+  //
+  // "All devices with an include filter" is not "the whole fleet, at most" —
+  // it is exactly the devices the rule matches, and R32's parser can count
+  // them. "All devices with an exclude filter" is exactly the fleet minus
+  // that set. Both are measurements, not bounds, and the house has been
+  // rendering them as "at most all 9964" since filters were understood.
+  //
+  // A GROUP target is different and stays a bound: the filter narrows the
+  // group, and the intersection needs the group's MEMBERSHIP, which nobody
+  // here has read — only its size. Widening this to groups would mean
+  // guessing an overlap, which is the one thing this file never does.
+  //
+  // Returns one of:
+  //   null                — no tenant-wide target
+  //   { all: true }       — an unfiltered wide target: everyone, exactly
+  //   { ok: true, test }  — every wide filter parsed; test(device) is the union
+  //   { ok: false, why }  — a rule the grammar cannot fully read, named
+  function widePredicate(assignments) {
+    const wides = (assignments || []).filter((a) => a.kind === "All devices" || a.kind === "All users");
+    if (!wides.length) return null;
+    if (typeof FilterRules === "undefined") return { ok: false, why: "the filter-rule evaluator is not loaded" };
+    const preds = [];
+    for (const a of wides) {
+      // An unfiltered tenant-wide target reaches everybody, and the union
+      // with anything else is still everybody — so it short-circuits.
+      if (!a.filterId) return { all: true };
+      if (!a.filterRule) return { ok: false, why: "the filter's rule was not read" };
+      const p = FilterRules.parse(a.filterRule);
+      if (!p.ok) return { ok: false, why: p.why || "the rule is outside the grammar this tool evaluates" };
+      const inc = String(a.filterType || "include").toLowerCase() !== "exclude";
+      preds.push((d) => (inc ? FilterRules.match(p.ast, d) : !FilterRules.match(p.ast, d)));
+    }
+    return { ok: true, test: (d) => preds.some((f) => f(d)) };
+  }
+
   function deviceReach(docs, counts, deviceCount, opts) {
     const want = (opts && opts.state) || "assigned";
+    const devices = (opts && opts.devices) || null;
     const live = (docs || []).filter((d) => (want === "planned" ? stateOf(d) !== "assigned" : stateOf(d) === "assigned"));
-    const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0 };
+    const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0, exact: false, atLeast: false, evaluated: false, wideWhy: null };
     if (!live.length) { out.missing = deviceCount == null ? null : deviceCount; return out; }
     const ids = new Set();
     const fnames = new Map();
+    const wideAssignments = [];
     for (const d of live) for (const a of (d.assignments || [])) {
-      if (a.kind === "All devices" || a.kind === "All users") out.wide = true;
+      if (a.kind === "All devices" || a.kind === "All users") { out.wide = true; wideAssignments.push(a); }
       else if (a.kind === "Included" && a.groupId) ids.add(String(a.groupId).toLowerCase());
       else if (a.kind === "Excluded") out.excludes++;
       if (a.filterId && a.kind !== "Excluded") {
@@ -178,13 +216,41 @@ const EndpointPosture = (() => {
     out.filterNames = [...fnames.values()];
     // A FILTER ONLY EVER NARROWS. Include mode keeps the devices the rule
     // matches and drops the rest; exclude mode drops the ones it matches.
-    // Either way the number a browser can compute is a CEILING, never the
-    // reach — the service evaluates the rule against inventory this tab
-    // cannot see. So a filtered target stops claiming a count and starts
-    // claiming a bound, and the missing side flips with it: at most this
-    // many reached means at least that many missed.
+    // Where the rule cannot be evaluated the number a browser can compute
+    // is a CEILING, never the reach — so a filtered target claims a bound,
+    // and the missing side flips with it: at most this many reached means
+    // at least that many missed. Where the rule CAN be evaluated (10505),
+    // there is no bound to claim: there is a number.
     out.cap = out.filtered;
+
     if (out.wide) {
+      const wp = widePredicate(wideAssignments);
+      if (wp && wp.all) {
+        // An unfiltered tenant-wide target: everyone, and no group can add
+        // to that. Exact, and it always was — this branch just stops
+        // calling it a bound when some OTHER target carried a filter.
+        out.reached = deviceCount == null ? null : deviceCount;
+        out.missing = deviceCount == null ? null : 0;
+        out.cap = false;
+        out.exact = deviceCount != null;
+        return out;
+      }
+      if (wp && wp.ok && Array.isArray(devices)) {
+        const n = devices.filter(wp.test).length;
+        out.reached = n;
+        out.missing = deviceCount == null ? null : Math.max(0, deviceCount - n);
+        out.cap = false;
+        out.evaluated = true;
+        // Group targets alongside a filtered wide one can only ADD devices,
+        // and by how many is the intersection nobody has read — so the
+        // measurement becomes a floor rather than pretending to be whole.
+        if (ids.size) { out.atLeast = true; out.exact = false; }
+        else { out.exact = true; }
+        return out;
+      }
+      // The rule could not be read: the old answer, with the reason named
+      // rather than left as a bare "at most".
+      out.wideWhy = wp && wp.why ? wp.why : (devices ? null : "the device inventory was not read");
       out.reached = deviceCount == null ? null : deviceCount;
       out.missing = deviceCount == null ? null : 0;
       return out;
@@ -247,7 +313,8 @@ const EndpointPosture = (() => {
     // bound larger than the thing it bounds is not a bound.
     if (r.reached != null && deviceCount != null && r.reached > deviceCount) caveats.push(`the sum exceeds the ${deviceCount}-device fleet — overlapping groups, or groups of users rather than devices, are counted once each`);
     if (r.excludes) caveats.push(`${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} not subtracted`);
-    if (r.filtered) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows this — the service evaluates the rule against inventory a browser cannot see`);
+    if (r.evaluated) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the assignment filter"} was EVALUATED against today's inventory — the service evaluates it at assignment time, against inventory that moves`);
+    else if (r.filtered) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows this${r.wideWhy ? ` and could not be evaluated (${r.wideWhy})` : ""} — the service evaluates the rule against inventory a browser cannot see`);
     const cav = caveats.length ? ` (${caveats.join("; ")})` : "";
     if (!r.live || (r.reached === 0 && !r.unknownGroups)) {
       return D == null
@@ -270,8 +337,11 @@ const EndpointPosture = (() => {
     if (r.cap && r.unknownGroups) {
       return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted of a ${D}-device fleet — bounded on neither side: ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low, and the filter puts it high. How many devices this reaches is not computable here${cav}`;
     }
-    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
-    const missing = `${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing}`;
+    // FOUR VERBS NOW. An EXACT number needs none — the filter rule was
+    // evaluated, or there is no filter at all — and dressing a measurement
+    // in "~" is as dishonest in one direction as "at most" is in the other.
+    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
+    const missing = `${r.cap ? "at least " : (r.atLeast || r.unknownGroups) ? "at most " : ""}${r.missing}`;
     return `${verb}${r.reached} of ${D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
   }
 
@@ -392,18 +462,43 @@ const EndpointPosture = (() => {
   // The device sentence a LIVE brief statement wears (10480, Mihai's ask):
   // the target-group count against the whole fleet — the same arithmetic
   // as the findings' line, one implementation, spoken shorter.
-  function impactReachLine(item, counts, deviceCount) {
+  function impactReachLine(item, counts, deviceCount, devices) {
     if (!item.liveNow) return null;
-    const r = deviceReach(item.docs || [], counts, deviceCount);
-    const nar = r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller and a browser cannot compute it` : "";
-    if (r.wide) {
+    const r = deviceReach(item.docs || [], counts, deviceCount, { devices });
+    return enforcedLine(r, deviceCount);
+  }
+
+  // ENFORCED, OR PARTLY ENFORCED — the word carries it (10505, Mihai's
+  // pick). A statement whose policies reach one 27-device group was being
+  // headed "enforced now", with the 27 two lines below where a skim-reader
+  // never gets to. "Enforced" and "enforced on 0.3% of the fleet" are
+  // different facts about a rollout, and the leading word is the only part
+  // of a brief statement everybody actually reads.
+  //
+  // PARTIAL IS A CLAIM ABOUT THE FLEET, so it is only made when the fleet
+  // size is known. Where it is not, the line says reach without pretending
+  // to a fraction it cannot compute.
+  const HALF = "partly enforced";
+  const FULL = "enforced now";
+  function verdictWord(reached, deviceCount) {
+    if (deviceCount == null || reached == null) return FULL;
+    return reached >= deviceCount ? FULL : HALF;
+  }
+
+  function enforcedLine(r, deviceCount) {
+    const nar = r.evaluated
+      ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the filter"} was evaluated against today's inventory, so this is a count and not a ceiling`
+      : r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller and a browser cannot compute it` : "";
+    if (r.wide && !r.evaluated) {
+      // An unfiltered tenant-wide target, or one whose rule could not be
+      // read: the fleet, exactly or at most.
       return deviceCount == null
-        ? `enforced now tenant-wide (device count unreadable)${nar}`
-        : `enforced now on ${r.cap ? "at most all" : "all"} ${deviceCount} enrolled Windows devices${nar}`;
+        ? `${FULL} tenant-wide (device count unreadable)${nar}`
+        : `${r.cap ? `${HALF} — at most all` : `${FULL} on all`} ${deviceCount} enrolled Windows devices${nar}`;
     }
     if (r.reached == null) {
       return r.groups
-        ? `enforced now on ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
+        ? `${FULL} on ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
         : null;
     }
     // Bounded on NEITHER side when a filter caps a sum that is already
@@ -414,28 +509,33 @@ const EndpointPosture = (() => {
       return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted${deviceCount == null ? "" : ` of a ${deviceCount}-device fleet`} — ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low and the filter puts it high, so how many devices this reaches is not computable here${nar}`;
     }
     const D = deviceCount == null ? "an unknown number of" : deviceCount;
-    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
-    const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} not yet targeted`;
+    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
+    const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : (r.atLeast || r.unknownGroups) ? "at most " : ""}${r.missing} not yet targeted`;
     const floor = r.unknownGroups && !r.cap ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
-    return `enforced now on ${verb}${r.reached} of ${D} enrolled Windows devices${miss} — targets, not check-ins${floor}${nar}`;
+    const pctBit = (deviceCount && r.reached != null && r.reached < deviceCount)
+      ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : "";
+    return `${verdictWord(r.reached, deviceCount)} on ${verb}${r.reached} of ${D} enrolled Windows devices${pctBit}${miss} — targets, not check-ins${floor}${nar}`;
   }
 
-  // WHERE THIS IS GOING — the other half of the brief's device sentence
-  // (10486, Mihai's ask): "enforced now on N" answers today, and says
-  // nothing about the destination, which is the only number a rollout
-  // communication is actually about. Read off the statement's own
-  // not-yet-assigned policies, so the plan is the tenant's plan and not an
-  // assumption that everything ends up fleet-wide. A staged policy with no
-  // assignment at all says exactly that, because "all 9969 at rollout" is a
-  // guess wearing a number.
-  function rolloutLine(item, counts, deviceCount) {
-    const r = deviceReach(item.docs || [], counts, deviceCount, { state: "planned" });
+  function rolloutLine(item, counts, deviceCount, devices) {
+    const r = deviceReach(item.docs || [], counts, deviceCount, { state: "planned", devices });
     if (!r.live) return null;
-    const nar = r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller` : "";
+    const nar = r.evaluated
+      ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the filter"} was evaluated against today's inventory`
+      : r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller` : "";
     if (r.wide) {
+      // A FILTERED TENANT-WIDE TARGET IS NOT THE WHOLE FLEET (10505). Where
+      // the rule evaluates, the destination is a number and the line says
+      // it — and says PARTIAL, because "targets All devices" over a filter
+      // matching a tenth of them is the worst sentence a rollout mail can
+      // carry: technically true, and read as everybody.
+      if (r.evaluated && deviceCount != null) {
+        const part = r.reached < deviceCount;
+        return `at rollout: ${part ? "STILL PARTIAL — " : ""}targets All devices, ${r.reached} of ${deviceCount} enrolled Windows devices${part ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}`;
+      }
       return deviceCount == null
         ? `at rollout: targets All devices (the fleet size could not be read)${nar}`
-        : `at rollout: targets All devices — all ${deviceCount} enrolled Windows devices in total${nar}`;
+        : `at rollout: targets All devices — ${r.cap ? "at most " : ""}all ${deviceCount} enrolled Windows devices in total${nar}`;
     }
     if (!r.groups) {
       // EXCLUDED-ONLY IS NOT UNASSIGNED — T09's distinction, and the whole
@@ -464,8 +564,12 @@ const EndpointPosture = (() => {
     if (r.cap && r.unknownGroups) {
       return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — an unreadable member count puts the sum low and the filter puts it high, so the destination size is not computable here${nar}`;
     }
-    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
-    return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${nar}`;
+    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
+    // The DESTINATION is partial too, and that is worth saying twice: a
+    // rollout ending at 312 of 9964 devices is a pilot, and "at rollout:
+    // targets 2 groups" lets a reader assume otherwise.
+    const part = deviceCount != null && r.reached != null && r.reached < deviceCount;
+    return `at rollout: ${part ? "STILL PARTIAL — " : ""}targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${part ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}`;
   }
 
   // THE IT APPENDIX (R02). The brief above is END-USER language — it is
@@ -477,7 +581,7 @@ const EndpointPosture = (() => {
   // an empty section implying nothing was found.
   const SCORE_CUT = `Everything below this line is for IT. Cut it before the brief is sent — it is administrator detail about the tenant's Microsoft Secure Score, not something to tell a person about their laptop.`;
 
-  function briefMd(items, { tenantName, deviceCount = null, counts = null, corr = null, score = null } = {}) {
+  function briefMd(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
     out.push(`# Endpoint security — what you will notice on your device`);
@@ -490,8 +594,8 @@ const EndpointPosture = (() => {
     if (live.length) {
       out.push(`## Already enforced today`);
       for (const i of live) {
-        const reach = impactReachLine(i, counts, deviceCount);
-        const roll = rolloutLine(i, counts, deviceCount);
+        const reach = impactReachLine(i, counts, deviceCount, devices);
+        const roll = rolloutLine(i, counts, deviceCount, devices);
         const marks = [];
         if (i.transition) marks.push(`today through an interim policy — at rollout the staged replacement takes over`);
         if (i.filtered) marks.push(`scoped by ⚑ ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
@@ -503,7 +607,7 @@ const EndpointPosture = (() => {
       out.push(`## What changes at rollout`);
       out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`);
       for (const i of later) {
-        const roll = rolloutLine(i, counts, deviceCount);
+        const roll = rolloutLine(i, counts, deviceCount, devices);
         out.push(`- ${i.icon} **${i.title}** — ${i.text}${roll ? `\n  - 🎯 ${roll}` : ""}`);
       }
       out.push(``);
@@ -582,7 +686,7 @@ const EndpointPosture = (() => {
     return b;
   }
 
-  function briefDocx(items, { tenantName, deviceCount = null, counts = null, corr = null, score = null } = {}) {
+  function briefDocx(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null } = {}) {
     if (typeof JSZip === "undefined") throw new Error("JSZip not loaded");
     const d = new Date().toISOString().slice(0, 10);
     const body = [];
@@ -594,13 +698,13 @@ const EndpointPosture = (() => {
     if (live.length) {
       body.push(P(`Already enforced today`, { h: 2 }));
       for (const i of live) {
-        const reach = impactReachLine(i, counts, deviceCount);
+        const reach = impactReachLine(i, counts, deviceCount, devices);
         const marks = [];
         if (i.transition) marks.push("today through an interim policy — at rollout the staged replacement takes over");
         if (i.filtered) marks.push(`scoped by ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (marks.length ? ` (${marks.join("; ")})` : ""), {}]]));
         if (reach) body.push(P([[`   ${reach}`, { i: true }]]));
-        const roll = rolloutLine(i, counts, deviceCount);
+        const roll = rolloutLine(i, counts, deviceCount, devices);
         if (roll) body.push(P([[`   ${roll}`, { i: true }]]));
       }
     }
@@ -609,7 +713,7 @@ const EndpointPosture = (() => {
       body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`));
       for (const i of later) {
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
-        const roll = rolloutLine(i, counts, deviceCount);
+        const roll = rolloutLine(i, counts, deviceCount, devices);
         if (roll) body.push(P([[`   ${roll}`, { i: true }]]));
       }
     }
@@ -965,7 +1069,7 @@ ${body.join("\n")}
   const findings = (checks) => checks.filter((c) => BAD.has(c.status))
     .sort((a, b) => SEV_ORDER[a.sev] - SEV_ORDER[b.sev] || a.title.localeCompare(b.title));
 
-  function checksMd(checks, { tenantName, deviceCount = null, counts = null } = {}) {
+  function checksMd(checks, { tenantName, deviceCount = null, counts = null, devices = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
     out.push(`# Endpoint security — best-practice analysis`);
@@ -979,7 +1083,7 @@ ${body.join("\n")}
       out.push(`## ${word[c.status]} · ${c.sev} — ${c.title}`);
       out.push(`- **Recommendation:** ${c.req}`);
       out.push(`- **This tenant:** ${c.detail}`);
-      out.push(`- **Devices:** ${reachLine(deviceReach(c.docs || [], counts, deviceCount), deviceCount)}`);
+      out.push(`- **Devices:** ${reachLine(deviceReach(c.docs || [], counts, deviceCount, { devices }), deviceCount)}`);
       if (c.status !== "pass") out.push(`- **Remediation:** ${c.fix}`);
       out.push(`- **Source:** ${c.doc}`);
       out.push(``);
@@ -1175,9 +1279,9 @@ ${body.join("\n")}
   return {
     NODES, countsFrom, nodeById, classify, intentNode,
     RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
-    isInterim, stateWordOf, appctlMode,
+    isInterim, stateWordOf, appctlMode, enforcedLine, verdictWord,
     CHECKS, runChecks, findings, checksMd,
-    deviceReach, reachLine,
+    deviceReach, reachLine, widePredicate,
     STATE_WORD, stateOf,
     // Secure Score correlation (R02)
     SS_MAP, correlate, scoreMd,
@@ -1200,12 +1304,14 @@ const EndpointPostureTool = (() => {
   // costs no new scope, and the tile keeps saying so honestly. Set by the
   // 📊 node's button; null until somebody asks for it.
   let score = null, corr = null, scoreErr = null, scoring = false;
-  // Cards is the default — Mihai's call after seeing both: the card reads
-  // better. The list is the same policies as one table row each, for the
-  // long-node case (an Antivirus with seventeen policies scrolls as a
-  // table, scans as a wall of cards). The choice sticks across nodes for
-  // the session; a re-read resets it like every other filter.
-  let view = "cards";
+  // THE LIST IS THE DEFAULT (10505, Mihai's call on the live tenant, and a
+  // reversal of 10477's). Cards read better for one policy and this is not
+  // a one-policy tool on a real tenant: Account protection came back with
+  // 33, Attack surface reduction with 23, Edge-in-catalog with 23. A wall
+  // of thirty-three cards is a scroll; thirty-three rows is a screen. The
+  // card face is one click away and unchanged. The choice sticks across
+  // nodes for the session; a re-read resets it like every other filter.
+  let view = "list";
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -1257,11 +1363,19 @@ const EndpointPostureTool = (() => {
         }));
       } catch (e) { intentsError = String((e && e.message) || e).slice(0, 200); }
 
-      prog("Counting Windows devices…");
-      let deviceCount = null, deviceCountError = null;
+      // THE FLEET, WITH THE FIELDS A FILTER RULE READS (10505). This was a
+      // $select=id count; it now asks for T14's own FilterRules.SELECT, so
+      // the same one read answers "how many Windows devices" AND "how many
+      // of them does this filter's rule match". No extra round trip, a
+      // slightly bigger response, and the difference between a reach line
+      // that says "at most 9964" and one that says "4312".
+      prog("Reading the Windows fleet…");
+      let deviceCount = null, deviceCountError = null, devices = null;
       try {
-        deviceCount = (await Graph.readAll(`${Graph.BETA}/deviceManagement/managedDevices?$filter=operatingSystem eq 'Windows'&$select=id&$top=999`, { scopes: Graph.SCOPES.devices, retry: true })).length;
-      } catch (e) { deviceCountError = String((e && e.message) || e).slice(0, 200); }
+        const sel = (typeof FilterRules !== "undefined" && FilterRules.SELECT) ? FilterRules.SELECT : "id";
+        devices = await Graph.readAll(`${Graph.BETA}/deviceManagement/managedDevices?$filter=operatingSystem eq 'Windows'&$select=${sel}&$top=999`, { scopes: Graph.SCOPES.devices, retry: true });
+        deviceCount = devices.length;
+      } catch (e) { deviceCountError = String((e && e.message) || e).slice(0, 200); devices = null; }
 
       prog("Classifying…");
       const byNode = {}; EndpointPosture.NODES.forEach((n) => { byNode[n.id] = []; });
@@ -1275,38 +1389,27 @@ const EndpointPostureTool = (() => {
       }
       const ctx = { docs, byNode, intents };
 
-      // Group member counts for the device-reach lines (build 10479) —
-      // Graph.memberCount, the AppLocker deploy's own seam, pooled the
-      // documenter's way. A count that cannot be read is null: unknown,
-      // not zero, and the reach line says the sum is a floor.
-      const gids = [...new Set(docs.flatMap((d) => (d.assignments || [])
-        .filter((a) => a.kind === "Included" && a.groupId)
-        .map((a) => String(a.groupId).toLowerCase())))];
-      const groupCounts = {};
-      let groupCountErrors = 0;
-      if (gids.length) {
-        let done = 0;
-        const rs = await Graph.pool(gids, async (id) => {
-          prog(`Counting group members — ${++done}/${gids.length}…`);
-          try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
-        }, 6);
-        const c = EndpointPosture.countsFrom(gids, rs);
-        Object.assign(groupCounts, c.counts);
-        groupCountErrors = c.errors;
-      }
+      // GROUP MEMBER COUNTS ARE THE DOCUMENTER'S NOW (10505). T20 pooled
+      // them itself from 10479; the same question was being asked of every
+      // tool that names a group and answered by only one of them, so the
+      // read moved into Docs.collect beside the group NAMES — one reader,
+      // one number, and every chip in the house carries it. countsFrom
+      // stays as the seam the headless suite tests the unwrap through.
+      const groupCounts = col.groupCounts || {};
+      const groupCountErrors = col.countError || 0;
       // A fresh posture read invalidates the correlation: the checks it
       // was computed against no longer exist. Cleared rather than kept —
       // a matrix pairing new checks with an old score is a wrong screen.
       score = null; corr = null; scoreErr = null;
       res = {
         sec, docs, byNode, intents, intentsError, templatesError,
-        deviceCount, deviceCountError, groupCounts, groupCountErrors,
+        deviceCount, deviceCountError, devices, groupCounts, groupCountErrors,
         partial: col.partial || [], nameError: col.nameError || null, filterError: col.filterError || null,
         impact: EndpointPosture.analyzeImpact(docs),
         checks: EndpointPosture.runChecks(ctx),
         when: Date.now(),
       };
-      node = "overview"; search = ""; view = "cards";
+      node = "overview"; search = ""; view = "list";
       prog("");
       ["epBriefMd", "epBriefDocx", "epChecksMd"].forEach((id) => { $(id).style.display = ""; });
       render();
@@ -1395,7 +1498,7 @@ const EndpointPostureTool = (() => {
   // arithmetic, one policy at a time.
   function deviceBit(it) {
     if (!res || EndpointPosture.stateOf(it) !== "assigned") return "";
-    const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount);
+    const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount, { devices: res.devices });
     const D = res.deviceCount;
     if (r.wide) return D == null ? "" : ` · ${r.cap ? `at most all ${D}` : `all ${D}`} devices`;
     if (r.reached == null) return r.groups ? ` · member counts unreadable — reach unknown` : "";
@@ -1492,13 +1595,13 @@ const EndpointPostureTool = (() => {
     const live = items.filter((i) => i.liveNow), later = items.filter((i) => !i.liveNow);
     const stops = items.filter((i) => i.goesAway);
     const item = (i) => {
-      const reach = i.liveNow ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount) : null;
+      const reach = i.liveNow ? EndpointPosture.impactReachLine(i, res.groupCounts, res.deviceCount, res.devices) : null;
       // TODAY AND THE DESTINATION, SIDE BY SIDE (10486). A live statement
       // that also has a staged policy behind it wears both lines: what is
       // enforced now, and what the rollout targets. A not-yet-live one
       // wears only the second — which is read off the staged policy's own
       // assignment rather than assumed to be the whole fleet.
-      const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount);
+      const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount, res.devices);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
       <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — some devices, not all</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>
@@ -1527,7 +1630,7 @@ const EndpointPostureTool = (() => {
     const bad = EndpointPosture.findings(res.checks);
     const pass = res.checks.filter((c) => c.status === "pass");
     const item = (c) => {
-      const r = EndpointPosture.deviceReach(c.docs || [], res.groupCounts, res.deviceCount);
+      const r = EndpointPosture.deviceReach(c.docs || [], res.groupCounts, res.deviceCount, { devices: res.devices });
       const bad = c.status !== "pass" && (r.missing === null || r.missing > 0 || r.reached === 0);
       return `<div class="ep-check">
       <div class="ep-check-h"><span class="state ${cls[c.status]}">${word[c.status]}</span> <span class="ep-sev ${c.sev}">${c.sev}</span> <b>${esc(c.title)}</b></div>
@@ -1727,7 +1830,7 @@ const EndpointPostureTool = (() => {
   // the Word export and the on-screen report cannot drift into three
   // slightly different documents. `corr` is null until somebody reads the
   // Secure Score, and a null correlation writes no section at all.
-  const briefOpts = () => ({ tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, corr, score });
+  const briefOpts = () => ({ tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, devices: res.devices, corr, score });
 
   async function exportBriefDocx() {
     try {
@@ -1751,7 +1854,7 @@ const EndpointPostureTool = (() => {
     $("epRun").addEventListener("click", run);
     $("epBriefMd").addEventListener("click", () => download("Endpoint-impact-brief.md", EndpointPosture.briefMd(res.impact, briefOpts()), "text/markdown"));
     $("epBriefDocx").addEventListener("click", exportBriefDocx);
-    $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts }), "text/markdown"));
+    $("epChecksMd").addEventListener("click", () => download("Endpoint-best-practice.md", EndpointPosture.checksMd(res.checks, { tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, devices: res.devices }), "text/markdown"));
     $("epBody").addEventListener("click", (e) => {
       const rb = e.target.closest("[data-epbrief]");
       if (rb) { openBrief(); return; }
@@ -1787,7 +1890,7 @@ const EndpointPostureTool = (() => {
     init, run,
     // for the headless tests only — the real res is set by run()
     _setForTest: (r, sc) => {
-      res = r; node = "overview"; search = ""; view = "cards";
+      res = r; node = "overview"; search = ""; view = "list";
       score = (sc && sc.score) || null;
       corr = (sc && sc.score && !sc.score.empty) ? EndpointPosture.correlate(r.checks, sc.score.controls) : null;
       scoreErr = null; scoring = false;
