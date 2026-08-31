@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10508, date: "2026-08-31", title: "The permission the unit read actually needed, and a member type it stopped guessing",
+    items: [
+      { kind: "fixed", tool: "T22", text: "THE ADMINISTRATIVE-UNIT READ ASKED FOR THE WRONG PERMISSION. It was handed the app's shared \"directory\" scope constant, which is named for the directory but holds the user and group read permissions rather than the directory-wide one — so the tenant refused it with \"Insufficient privileges to complete the operation\". Administrative units now carry their own least-privileged read permission, listed alongside the write one because Entra consents by name and a token asked for the read is refused unless the read itself was granted." },
+      { kind: "fixed", tool: "T22", text: "AND THE SCREEN BLAMED THE WRONG CALL. Both reads sat in one error handler, so a refusal on the administrative units printed \"Could not read the groups\" — a message about the call that had just succeeded, which sent the first real diagnosis to the wrong half of the tool. The two reads now report separately and each names the permission it wanted." },
+      { kind: "improved", tool: "T22", text: "A failed unit read no longer takes the group list with it. The list is still correct and still worth having, so it renders under a warning card that says plainly that nothing can be migrated until the read works — without it the tool cannot tell whether a group is already inside a restricted unit, which is the frozen case where nobody at all can change the members." },
+      { kind: "fixed", tool: "T22", text: "MEMBER TYPING ASKS THE DIRECTORY INSTEAD OF INFERRING IT. The member split read a type property off a response that Microsoft's own documented example returns without one, and treated its absence as \"this is a user\". A service principal is allowed in a role-assignable group, so one would have been counted as a user and quietly not copied — a clean-looking migration that lost a member. The tool now asks the directory which members are users and compares that against the total; any difference is refused, naming the object id to move by hand." },
+      { kind: "new", tool: "TUNO", text: "FIVE DELEGATED PERMISSIONS ADDED TO THE APP REGISTRATION SCRIPT, in the open, with the tool that needs them — three of which write to the directory rather than to Intune, which is a wider blast radius than anything before them. Each buys exactly one step of the migration and the script says which. They need an administrator to consent once per tenant before the tool can run." },
+    ],
+  },
+  {
     build: 10507, date: "2026-08-31", title: "Administrative units live under /directory on v1.0",
     items: [
       { kind: "fixed", tool: "T22", text: "THE TOOL COULD NOT READ ANYTHING. Every administrative-unit call came back \"Resource not found for the segment 'administrativeUnits'\" on the first real tenant it met — before it could list a single group. The sister tool it was ported from talks to the beta endpoint, where an administrative unit is a top-level collection; TUNO talks to v1.0, where the resource is nested under the directory. The port carried the path across along with the reasoning." },

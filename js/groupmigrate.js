@@ -67,6 +67,21 @@ const GroupMigrate = (() => {
     // holds one cannot be migrated at all, so this is a refusal check, and a
     // refusal check that needed a write scope would be absurd.
     rolesRead: ["RoleManagement.Read.Directory"],
+    // READING an administrative unit. Its own scope, and NOT
+    // Graph.SCOPES.directory — which is named `directory` but is
+    // ["User.Read.All", "Group.Read.All"], the user-and-group directory
+    // reads, not Directory.Read.All. Build 10507 handed those two to
+    // /directory/administrativeUnits and the tenant answered "Insufficient
+    // privileges to complete the operation", which is exactly right: the
+    // least-privileged permission for that collection is this one.
+    //
+    // Listed separately from auWrite even though ReadWrite.All would cover
+    // every read, for the reason New-TunoAppRegistration.ps1 already gives
+    // about the Intune scopes: ENTRA CONSENTS BY NAME. A token requested
+    // for Read.All is refused unless Read.All itself is consented — and
+    // asking for the write scope to satisfy a read would mean a screen that
+    // only lists units holding the right to create and delete them.
+    auRead: ["AdministrativeUnit.Read.All"],
     // create the unit and put the group in it
     auWrite: ["AdministrativeUnit.ReadWrite.All"],
     // grant a scoped administrator on a unit THIS TOOL created. Asked for
@@ -77,7 +92,12 @@ const GroupMigrate = (() => {
   // Everything a migration that creates its own unit needs. A migration into
   // an existing unit is the same list minus roleWrite; plan() reports which.
   const ALL_SCOPES = [...new Set([
-    ...SCOPES.groupWrite, ...SCOPES.rolesRead, ...SCOPES.auWrite, ...SCOPES.roleWrite,
+    ...SCOPES.groupWrite, ...SCOPES.rolesRead, ...SCOPES.auRead,
+    ...SCOPES.auWrite, ...SCOPES.roleWrite,
+  ])];
+  // What the tool asks for BEFORE it can write anything — the read pass.
+  const READ_SCOPES = () => [...new Set([
+    ...Graph.SCOPES.groups, ...Graph.SCOPES.groupMembers, ...SCOPES.auRead,
   ])];
 
   // ---------------------------------------------- where AUs actually live ---
@@ -212,7 +232,7 @@ const GroupMigrate = (() => {
   async function restrictedUnits() {
     const aus = await Graph.readAll(
       `${AU}?$select=id,displayName,description,isMemberManagementRestricted&$top=999`,
-      { scopes: Graph.SCOPES.directory, retry: true });
+      { scopes: SCOPES.auRead, retry: true });
     return {
       restricted: aus.filter((a) => a.isMemberManagementRestricted === true)
         .map((a) => ({ id: a.id, name: a.displayName || a.id, description: a.description || "" }))
@@ -231,7 +251,7 @@ const GroupMigrate = (() => {
       // bare cast that works on /transitiveMembers elsewhere in TUNO.
       const aus = await Graph.readAll(
         `/groups/${encodeURIComponent(groupId)}/memberOf/$/microsoft.graph.administrativeUnit?$select=id,displayName,isMemberManagementRestricted`,
-        { scopes: Graph.SCOPES.directory, retry: true });
+        { scopes: SCOPES.auRead, retry: true });
       return { ok: true, units: aus.filter((a) => a.isMemberManagementRestricted === true)
         .map((a) => ({ id: a.id, name: a.displayName || a.id })) };
     } catch (e) {
@@ -340,22 +360,42 @@ const GroupMigrate = (() => {
     return out;
   }
 
+  // ASK THE DIRECTORY WHICH MEMBERS ARE USERS. DO NOT INFER IT.
+  //
+  // This used to read /members with a $select and split on `@odata.type`,
+  // treating an ABSENT type as "user". Microsoft's own documented example
+  // for that exact call returns objects with no `@odata.type` at all —
+  // $select drops it — so the split was reading a property that may never
+  // arrive, and the "user" branch was the default. A service principal CAN
+  // be a member of a role-assignable group, so the refusal that exists to
+  // stop this tool half-copying a group could simply never have fired: the
+  // service principal would be counted as a user, silently not copied
+  // (a POST of its id would fail, or worse, succeed as an unexpected
+  // member), and the migration would report a clean run.
+  //
+  // The cast asks the directory the question instead of inferring the
+  // answer, and the uncast id list says how many members there are in
+  // total. Any difference is a non-user member. Nothing depends on a
+  // property that may not be returned.
+  //
+  // A FAILURE HERE IS THROWN, never softened into an empty list: plan()
+  // refuses a group whose members could not be read, because copying the
+  // members you could see is the failure mode this whole file is arranged
+  // against.
   async function memberIds(groupId) {
-    // Users only. A role-assignable group cannot contain a group (Entra
-    // forbids nesting into one), and a device or service principal in one is
-    // not something this tool has ever seen — but it reads the member list
-    // by TYPE rather than assuming, so an unexpected member type is carried
-    // into the plan as a refusal instead of being dropped in silence.
-    const all = await Graph.readAll(
-      `/groups/${encodeURIComponent(groupId)}/members?$select=id,displayName,userPrincipalName&$top=999`,
+    const id = encodeURIComponent(groupId);
+    const users = await Graph.readAll(
+      `/groups/${id}/members/microsoft.graph.user?$select=id,displayName,userPrincipalName&$top=999`,
       { scopes: Graph.SCOPES.groupMembers, retry: true });
-    const users = [], others = [];
-    for (const m of all) {
-      const t = lc(m["@odata.type"]);
-      if (!t || t.includes("user")) users.push({ id: m.id, name: m.displayName || m.id, upn: m.userPrincipalName || "" });
-      else others.push({ id: m.id, name: m.displayName || m.id, type: t.replace("#microsoft.graph.", "") });
-    }
-    return { users, others };
+    const all = await Graph.readAll(`/groups/${id}/members?$select=id&$top=999`,
+      { scopes: Graph.SCOPES.groupMembers, retry: true });
+    const userIds = new Set(users.map((u) => lc(u.id)));
+    const others = all.filter((m) => !userIds.has(lc(m.id))).map((m) => ({ id: m.id, name: m.id, type: "not a user" }));
+    return {
+      users: users.map((u) => ({ id: u.id, name: u.displayName || u.id, upn: u.userPrincipalName || "" })),
+      others,
+      total: all.length,
+    };
   }
 
   // ------------------------------------------------------------- plan ------
@@ -406,9 +446,13 @@ const GroupMigrate = (() => {
         reason: `This group holds a directory role (${names}). A plain group cannot carry a role, so migrating it would break that assignment. Deal with the role first — that is what role-assignable is actually for, and this group is using it.` };
     }
     if (members.others.length) {
-      const kinds = [...new Set(members.others.map((m) => m.type))].join(", ");
+      const n = members.others.length;
+      // `total` comes from the uncast read. A caller that built `members` by
+      // hand may not carry it, and a refusal that says "undefined members" is
+      // a refusal nobody trusts.
+      const total = members.total != null ? members.total : members.users.length + n;
       return { ...base, ok: false,
-        reason: `This group contains ${members.others.length} member${members.others.length === 1 ? "" : "s"} that ${members.others.length === 1 ? "is" : "are"} not a user (${kinds}). This tool copies users; anything else would be silently left behind. Move them by hand first.` };
+        reason: `This group has ${total} member${total === 1 ? "" : "s"} but only ${members.users.length} of them ${members.users.length === 1 ? "is a user" : "are users"} — ${n} ${n === 1 ? "is" : "are"} not (a service principal, most likely; Entra allows one in a role-assignable group). This tool copies users, so ${n === 1 ? "it" : "they"} would be left behind without appearing anywhere in the report. Move ${n === 1 ? "it" : "them"} by hand first. Object id${n === 1 ? "" : "s"}: ${members.others.map((o) => o.id).join(", ")}.` };
     }
     if (refs.readError) {
       return { ...base, ok: false,
@@ -763,7 +807,7 @@ const GroupMigrate = (() => {
   }
 
   return {
-    SCOPES, ALL_SCOPES, UNIT_PREFIX, AU, ARCHIVE_SUFFIX, MIGRATED_TAG,
+    SCOPES, ALL_SCOPES, READ_SCOPES, UNIT_PREFIX, AU, ARCHIVE_SUFFIX, MIGRATED_TAG,
     GROUPS_ADMIN_TEMPLATE,
     segments, tenantPrefix, unitNameFor, migratedName, mailNickname,
     candidates, restrictedUnits, unitsHolding, heldRoles, references, memberIds,
@@ -810,6 +854,7 @@ const GroupMigrateTool = (() => {
   let pickedUnitId = null;        // the chosen existing unit, likewise
   let unitNameIn = "";            // the typed unit name — seeded from the suggestion
   let adminIn = "";               // the typed scoped administrator
+  let unitsError = "";            // the unit read failed; the group list still stands
 
   const prog = (m, n, of) => TunoProgress.show("gmBody", "gmProg", m, n, of);
 
@@ -835,19 +880,48 @@ const GroupMigrateTool = (() => {
     if (busy) return;
     busy = true; chosen = null; plan = null; result = null;
     $("gmBody").innerHTML = "";
+    unitsError = "";
+    // TWO READS, REPORTED SEPARATELY. They were in one try/catch, so a 403
+    // on the ADMINISTRATIVE UNITS printed "Could not read the groups" — a
+    // message about the call that had already succeeded. That sent the
+    // first real diagnosis at the wrong half of the tool. Each read now
+    // names itself, and the unit read is allowed to fail without taking
+    // the group list down with it: the tool is still worth something as a
+    // list of what is role-assignable, and plan() already refuses to
+    // migrate a group whose unit membership could not be read.
     try {
       prog("Reading role-assignable groups…");
-      await Graph.ensureScopes([...Graph.SCOPES.groups, ...Graph.SCOPES.directory]);
+      await Graph.ensureScopes([...Graph.SCOPES.groups]);
       list = await GroupMigrate.candidates((m) => prog(m));
-      prog("Reading restricted administrative units…");
-      units = await GroupMigrate.restrictedUnits();
-      prog("");
-      renderList();
     } catch (e) {
-      prog("");
-      $("gmBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
-        <b>Could not read the groups.</b> ${esc(GroupUse.shortErr(e, 400))}</p></div>`;
-    } finally { busy = false; }
+      prog(""); busy = false;
+      $("gmBody").innerHTML = failCard("Could not read the role-assignable groups", e,
+        `Needs <code>Group.Read.All</code>. The query also uses an advanced filter, which the tenant refuses outright rather than answering with an empty list.`);
+      return;
+    }
+    try {
+      prog("Reading restricted administrative units…");
+      await Graph.ensureScopes(GroupMigrate.SCOPES.auRead);
+      units = await GroupMigrate.restrictedUnits();
+    } catch (e) {
+      units = { restricted: [], unrestricted: [] };
+      unitsError = GroupUse.shortErr(e, 400);
+    }
+    prog("");
+    renderList();
+    busy = false;
+  }
+
+  // A refusal that names the permission it wanted is the difference between
+  // a bug report and a five-second fix. GroupUse.whyFailed does this for
+  // T02's sources; this is the same idea, said per call.
+  function failCard(title, e, needs) {
+    const m = GroupUse.shortErr(e, 400);
+    const denied = /\b(401|403)\b|Authorization_RequestDenied|Insufficient privileges|Forbidden/i.test(m);
+    return `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
+      <b>${esc(title)}.</b> ${esc(m)}</p>
+      ${denied ? `<p class="mini muted" style="margin:8px 0 0">${needs}
+        A permission the tenant has never consented cannot be acquired by asking again — an administrator has to grant it once for the app.</p>` : ""}</div>`;
   }
 
   function renderList() {
@@ -866,7 +940,17 @@ const GroupMigrateTool = (() => {
       <td class="mini">${esc(g.suggestedUnit || "—")}</td>
       <td class="mini"><button class="btn sm primary" data-gmpick="${esc(g.id)}">Examine</button></td>
     </tr>`).join("");
-    $("gmBody").innerHTML = `
+    // The units could not be read. Say so ONCE, at the top, in the terms the
+    // rest of the screen will now behave in — rather than letting every group
+    // discover it again as a refusal.
+    const unitsWarn = unitsError ? `<div class="list-card" style="border-color:var(--off);margin-bottom:14px">
+      <p class="mini" style="margin:0;color:var(--off)"><b>The administrative units could not be read.</b> ${esc(unitsError)}</p>
+      <p class="mini muted" style="margin:8px 0 0">Needs <code>AdministrativeUnit.Read.All</code>, which this app must have consented by an administrator.
+        The groups below are still correct. <b>Nothing can be migrated until this read works</b>: without it the tool cannot tell whether a
+        group is already inside a restricted unit — the 🧊 frozen case, where a role-assignable group in a restricted unit has members
+        nobody at all can change — and migrating on that assumption is exactly the mistake this tool exists to avoid.</p>
+    </div>` : "";
+    $("gmBody").innerHTML = unitsWarn + `
       <div class="list-card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
           <span class="gu-stat"><b>${live.length}</b> role-assignable</span>
@@ -906,8 +990,8 @@ const GroupMigrateTool = (() => {
     try {
       prog(`Reading “${chosen.name}”…`);
       await Graph.ensureScopes([...new Set([
-        ...Graph.SCOPES.groupMembers, ...Graph.SCOPES.directory,
-        ...GroupMigrate.SCOPES.rolesRead,
+        ...Graph.SCOPES.groupMembers,
+        ...GroupMigrate.SCOPES.rolesRead, ...GroupMigrate.SCOPES.auRead,
         ...GroupUse.scopesFor(GroupUse.allSourceIds()),
         ...AssignEdit.READ(),
       ])]);
@@ -1130,7 +1214,7 @@ const GroupMigrateTool = (() => {
     const reset = $("gmReset");
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
-      unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = "";
+      unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; unitsError = "";
       $("gmBody").innerHTML = ""; $("gmProg").innerHTML = "";
     });
 

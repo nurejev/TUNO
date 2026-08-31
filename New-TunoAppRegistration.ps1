@@ -195,7 +195,54 @@ param(
     # must not carry the larger one's scope. Note Graph ALSO gates the
     # endpoint on the caller's directory role (Intune Administrator among
     # them): consent alone does not open it, and T18's screen says so.
-    "DeviceLocalCredential.ReadBasic.All"
+    "DeviceLocalCredential.ReadBasic.All",
+    # --- T22 Group migration (R33) — builds 10506-10508 -------------------
+    #
+    # FIVE SCOPES, AND THEY ARE THE BIGGEST ASK IN THIS FILE. Three of them
+    # write to the DIRECTORY rather than to Intune, which is a different
+    # blast radius from everything above: the tools before this one could
+    # change what lands on a device, and these can change who is in a group
+    # and who may administer it.
+    #
+    # The tool is one act in five steps and each scope buys exactly one:
+    #
+    #   Group.ReadWrite.All            rename the original aside, create the
+    #                                  replacement, copy the members
+    #   AdministrativeUnit.Read.All    LIST the restricted units and answer
+    #                                  "is this group already inside one?"
+    #   AdministrativeUnit.ReadWrite.All  create the unit, put the group in it
+    #   RoleManagement.Read.Directory  "does this group CARRY a directory
+    #                                  role?" — the refusal check. A group
+    #                                  that holds one cannot be migrated, and
+    #                                  a refusal check has no business
+    #                                  needing a write scope
+    #   RoleManagement.ReadWrite.Directory  grant Groups Administrator SCOPED
+    #                                  TO A UNIT THIS TOOL CREATED. Asked for
+    #                                  on that path alone — filing a group
+    #                                  into an existing unit never requests
+    #                                  it. It exists because a restricted
+    #                                  unit with nobody scoped to it is a
+    #                                  vault nobody can open
+    #
+    # Read.All is listed BESIDE ReadWrite.All for both administrative units
+    # and role management, for the reason the Intune block above already
+    # gives: Entra consents by NAME, so a token requested for Read.All is
+    # refused unless Read.All itself is consented. Build 10507 proved the
+    # other half of that rule the hard way — it handed the tool's unit read
+    # the app's `directory` scope constant, which is User.Read.All plus
+    # Group.Read.All and NOT Directory.Read.All, and the tenant answered
+    # "Insufficient privileges to complete the operation".
+    #
+    # NOTE THE TENANT ALSO GATES THESE ON THE CALLER'S ROLE. Consent is not
+    # enough: creating a restricted management administrative unit, adding
+    # members to one, and changing the membership of a role-assignable group
+    # all require Global Administrator or Privileged Role Administrator. The
+    # tool's screen says so rather than printing a bare 403.
+    "Group.ReadWrite.All",
+    "AdministrativeUnit.Read.All",
+    "AdministrativeUnit.ReadWrite.All",
+    "RoleManagement.Read.Directory",
+    "RoleManagement.ReadWrite.Directory"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent
