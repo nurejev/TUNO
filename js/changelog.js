@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10513, date: "2026-08-31", title: "The reach line belongs to the statement it measures",
+    items: [
+      { kind: "fixed", tool: "T20", text: "IN THE IMPACT BRIEF, \"partly enforced\" FLOATED BETWEEN TWO STATEMENTS as though it were a third protection, when it is a qualification of the one above it. The brief has always written it as a child of that statement; the report viewer was flattening it, because its list matcher swallowed the indentation and turned every child bullet into a sibling. The relationship was in the text all along and the renderer was losing it." },
+      { kind: "improved", tool: "TUNO", text: "THE REPORT VIEWER NOW RENDERS NESTED LISTS, to any depth, for every tool — one viewer, so one fix. Ordered lists nest inside unordered ones and the other way round; a heading or a table closes whatever is open." },
+      { kind: "fixed", tool: "TUNO", text: "A table written straight after a list, with no blank line between them, was being emitted INSIDE the list. Every other kind of block closed the list first and this one did not. Found by the new tests rather than by a reader, because the result looked merely cramped." },
+    ],
+  },
+  {
     build: 10512, date: "2026-08-31", title: "T23 Restricted AUs — the vaults, and who may open them",
     items: [
       { kind: "new", tool: "T23", text: "RESTRICTED AUs, ported from the sister tool's own version. A restricted management administrative unit is the only place in Entra where membership can be put out of reach of every tenant-wide role: inside one, only a principal holding a role scoped to that unit may change the members, and Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. This is where Group migration files a migrated group, and this is where those units are now created and managed — list, create, rename, delete, members, scoped administrators." },

@@ -81,6 +81,22 @@ const PROMOTE = {
 
   items: [
     {
+      n: 119,
+      title: "Nested lists in the report viewer — the reach line belongs to its statement",
+      tools: ["T20", "TUNO"],
+      builds: [10513],
+      files: ["js/report.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      risk: "low",
+      what: "TunoReport.mdToHtml gains real list nesting. Its matcher was /^\\s*[-*]\\s+/ — the \\s* swallowed the indent — so a child bullet was emitted as a sibling and T20's impact brief showed \"partly enforced\" floating between two statements rather than qualifying the one above it. The Markdown was always correct; the viewer lost the relationship. Replaced with an indent-aware stack: each open list remembers its indent and whether its <li> is still open, because the child <ul> must be emitted INSIDE the parent's <li>. Any depth, ol inside ul and the reverse, and a heading, rule, quote or table closes what is open. Also fixed while there: a table written straight after a list with no blank line was emitted INSIDE the list — every other block closed it first and this one did not.",
+      why: "LOW. One function, one file, and the change is additive: a flat list renders exactly as it did — the suite pins that. The risk worth naming is REACH rather than depth: every tool's Markdown goes through this viewer, so any report that happens to indent a bullet will now nest it where before it did not. That is the intended behaviour and it is what to look at.",
+      test: [
+        "T20 → 🗣 What people will notice → Read the full brief: the 📟 reach line and the 🎯 rollout line must sit UNDER the statement they belong to, indented, not between statements.",
+        "Skim one report from each of T02, T05, T07 and T19 for lists that have grown an unexpected indent level — a bullet that was flat and now nests means that report's Markdown was indenting where it did not mean to.",
+        "A report with a table immediately after a list: the table must be full width, not inset inside the list.",
+        "Download the same brief as Markdown and open it in another viewer: the file is unchanged by this build, so it must look the way the in-app view now does."
+      ],
+    },
+    {
       n: 118,
       title: "T23 🛡 Restricted AUs — the vaults, and who may open them (R34)",
       tools: ["T23", "T22"],

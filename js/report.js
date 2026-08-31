@@ -34,16 +34,67 @@ const TunoReport = (() => {
       .replace(/✅|✓/g, (m) => `<span class="md-ok">${m}</span>`);
     const lines = String(md || "").split("\n");
     const out = [];
-    let list = null, table = null;
-    const closeList = () => { if (list) { out.push(list === "ol" ? "</ol>" : "</ul>"); list = null; } };
+    let table = null;
     const closeTable = () => { if (table) { out.push("</tbody></table>"); table = null; } };
+
+    // ---- NESTED LISTS (build 10513) ----------------------------------------
+    // The list matcher was /^\s*[-*]\s+/ — the \s* SWALLOWED THE INDENT, so
+    // every child bullet came out as a sibling of its parent. T20's impact
+    // brief emits the reach line as a child of the statement it measures
+    //
+    //   - 🌐 **Dangerous websites are blocked** — …
+    //     - 📟 partly enforced — at most all 9947 devices …
+    //
+    // and the reader got a flat list in which "partly enforced" floated
+    // between two statements, reading as a third protection rather than as
+    // a qualification of the one above it. The Markdown was right; the
+    // renderer was the thing that lost the relationship. Every tool's
+    // report is fixed by fixing it here, which is why this is one viewer.
+    //
+    // A stack of open lists, each remembering its indent and whether its
+    // <li> is still open — the child <ul> has to be emitted INSIDE the
+    // parent's <li>, so an li is left open until its sibling or its
+    // grandparent closes it.
+    const stack = [];
+    const tag = (t, close) => (close ? (t === "ol" ? "</ol>" : "</ul>") : (t === "ol" ? "<ol>" : "<ul>"));
+    const closeTop = () => {
+      const top = stack.pop();
+      if (top.liOpen) out.push("</li>");
+      out.push(tag(top.type, true));
+    };
+    const closeList = () => { while (stack.length) closeTop(); };
+    const indentOf = (s) => (s.match(/^[ \t]*/)[0].replace(/\t/g, "    ")).length;
+    function pushItem(ind, type, content) {
+      while (stack.length && stack[stack.length - 1].indent > ind) closeTop();
+      const top = stack[stack.length - 1];
+      if (!top || top.indent < ind) {
+        // Deeper than anything open: nest inside the <li> above, which is
+        // exactly why that li was left open.
+        out.push(tag(type, false));
+        stack.push({ type, indent: ind, liOpen: false });
+      } else if (top.type !== type) {
+        closeTop();
+        out.push(tag(type, false));
+        stack.push({ type, indent: ind, liOpen: false });
+      } else if (top.liOpen) {
+        out.push("</li>");
+        top.liOpen = false;
+      }
+      out.push(`<li>${content}`);
+      stack[stack.length - 1].liOpen = true;
+    }
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i];
       const row = /^\s*\|(.+)\|\s*$/.exec(ln);
       if (row) {
         const cells = row[1].split("|").map((c) => c.trim());
         if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;
-        if (!table) { out.push(`<table><thead><tr>${cells.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>`); table = true; continue; }
+        // A table opening while a list is still open used to be emitted
+        // INSIDE the list — every other block closes it and this one did
+        // not. Found by the nested-list suite at 10513, not by a reader,
+        // because a report that puts a table after a list without a blank
+        // line between them is rare and looked merely cramped.
+        if (!table) { closeList(); out.push(`<table><thead><tr>${cells.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>`); table = true; continue; }
         out.push(`<tr>${cells.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`);
         continue;
       }
@@ -54,10 +105,10 @@ const TunoReport = (() => {
       const q = /^\s*>\s?(.*)$/.exec(ln);
       if (q) { closeList(); out.push(`<p class="md-quote">${inline(q[1])}</p>`); continue; }
       if (/^\s*(-{3,}|\*{3,})\s*$/.test(ln)) { closeList(); out.push("<hr>"); continue; }
-      const li = /^\s*[-*]\s+(.*)$/.exec(ln);
-      if (li) { if (list !== "ul") { closeList(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(li[1])}</li>`); continue; }
-      const oli = /^\s*\d+\.\s+(.*)$/.exec(ln);
-      if (oli) { if (list !== "ol") { closeList(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(oli[1])}</li>`); continue; }
+      const li = /^([ \t]*)[-*]\s+(.*)$/.exec(ln);
+      if (li) { pushItem(indentOf(li[1]), "ul", inline(li[2])); continue; }
+      const oli = /^([ \t]*)\d+\.\s+(.*)$/.exec(ln);
+      if (oli) { pushItem(indentOf(oli[1]), "ol", inline(oli[2])); continue; }
       closeList();
       if (ln.trim()) out.push(`<p>${inline(ln)}</p>`);
     }
