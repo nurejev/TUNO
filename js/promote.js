@@ -81,6 +81,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 120,
+      title: "T19 🗂 Policy overview takes T20's rail layout (mockup Option A)",
+      tools: ["T19"],
+      builds: [10514],
+      files: ["js/overview.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      risk: "low",
+      what: "The thirteen surfaces move from a horizontal .ov-surfs grid above the list into T20's sticky left rail — Option A of a two-option mockup round. index.html gains an .ep-wrap / .ep-rail#ovRail / .ep-main#ovMain split and the toolbar, chips and grid move inside the main pane; renderSurfs() emits .ep-node rows instead of .ov-surf cards. THE COUNTS SURVIVED: each row carries assigned/configured as a pair with a legend under the All surfaces row. The unreadable surface keeps BOTH homes — a red rail row plus the existing note above the list — and is still not a filter. The rail wears T20's own classes rather than a second rail that drifts. Nothing else moved: the cards/list seg, the verdict chips, the search and Docs.popoutHtml() are untouched, and the rail click handler is the old ov-surf one unchanged. Option B (a chip strip of counts above the list, rail carrying names only) is recorded in the module header, and .ov-surf* is left in the stylesheet because it is what Option B would put back.",
+      why: "LOW — one tool, presentation only, no read or write path touched. Two things to look at rather than risks: on a tenant with FEW policies the rail is now taller than the list, which is the trade Option A makes; and the surface counts are small right-aligned numbers where they used to be cards, which is exactly the concern Option B exists to answer. Judge both on a real tenant before promoting — if the numbers read too quietly, the fix is the parked option, not a revert.",
+      test: [
+        "Read a real tenant: the rail lists every surface with an assigned/configured pair, and the pairs match what the cards used to say.",
+        "Click a surface: the list narrows and the row goes active. Click it again: everything comes back.",
+        "A tenant (or role) where a surface 403s: it must appear in the rail as a red 'unread' row, must NOT be clickable as a filter, and the note above the list must still name it.",
+        "Switch cards ↔ list and search while a surface is selected: the selection and the face both survive.",
+        "Open a policy popout from both faces — unchanged, and still the same popout T05 opens.",
+        "On a SMALL tenant (under 20 policies): judge whether the rail dominates. That is Option A's cost and the moment to say if Option B is wanted.",
+        "Narrow the window below 1240px: .ep-wrap already stacks, so the rail should sit above the list rather than squeezing it."
+      ],
+    },
+    {
       n: 119,
       title: "Nested lists in the report viewer — the reach line belongs to its statement",
       tools: ["T20", "TUNO"],

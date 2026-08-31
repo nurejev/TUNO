@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10514, date: "2026-08-31", title: "Policy overview takes the posture tool's layout",
+    items: [
+      { kind: "improved", tool: "T19", text: "THE THIRTEEN SURFACES MOVE INTO A STICKY LEFT RAIL, the shape the endpoint posture tool already uses — chosen from a two-option mockup. They arrived as a horizontal grid of cards above the list, which reads well and costs the top third of every screen; in a rail they have a permanent home and the whole width of the pane becomes the answer." },
+      { kind: "improved", tool: "T19", text: "THE COUNTS SURVIVED THE MOVE rather than being traded for the space: every row carries its pair — how many of that surface's objects reach somebody, over how many exist — with a legend under the All surfaces row saying which number is which." },
+      { kind: "improved", tool: "T19", text: "A surface that could not be read keeps BOTH of its homes: a red row in the rail and the note above the list. It is still not a filter, because filtering to a surface nobody read would be an empty grid pretending to be an answer — and one red line is easier to skim past than the dashed card it replaced, which is why it kept the second home." },
+      { kind: "improved", tool: "T19", text: "The rail uses the posture tool's own classes rather than a second rail that drifts away from it. Two tools showing the same kind of thing should not slowly stop looking alike." },
+      { kind: "improved", tool: "T19", text: "Nothing else changed: the cards and list faces, the verdict chips, the search and the shared policy popout all behave exactly as before. The other layout option — a strip of count chips above the list, with the rail carrying names only — is recorded in the code rather than discarded, in case the numbers read too quietly in their new home." },
+    ],
+  },
+  {
     build: 10513, date: "2026-08-31", title: "The reach line belongs to the statement it measures",
     items: [
       { kind: "fixed", tool: "T20", text: "IN THE IMPACT BRIEF, \"partly enforced\" FLOATED BETWEEN TWO STATEMENTS as though it were a third protection, when it is a qualification of the one above it. The brief has always written it as a child of that statement; the report viewer was flattening it, because its list matcher swallowed the indentation and turned every child bullet into a sibling. The relationship was in the text all along and the renderer was losing it." },

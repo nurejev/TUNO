@@ -1,8 +1,22 @@
 // ======================================================================
 // T19 — 🗂 Policy overview (R30). ENCA's list-policies view, Intune-side-out:
-// every configured object in the tenant as clickable cards, in ONE flat grid,
-// with the thirteen surfaces as stat cards on top that double as filters —
-// Option B of the two-option mockup round, Mihai's pick.
+// every configured object in the tenant, in ONE flat set, with the thirteen
+// surfaces as the filter.
+//
+// THE SURFACES LIVE IN A STICKY LEFT RAIL (build 10514) — T20's shape, Option
+// A of a two-option mockup round. They shipped at 10458 as a horizontal grid
+// of stat cards above the list, which read well and cost the top third of
+// every screen; the rail gives them a permanent home and hands the full width
+// to the answer. The rail wears T20's own .ep-rail / .ep-node classes rather
+// than a second rail that drifts away from it — the TunoProgress argument,
+// applied to a layout.
+//
+// OPTION B IS PARKED, NOT REJECTED: it kept a chip strip of counts above the
+// list and let the rail carry names only, on the grounds that a rail row is a
+// thin line of text and these counts are the tenant's shape at a glance. If
+// the numbers read too quietly here, that strip is the change to make, and
+// the rail stays either way. (.ov-surf* is left in the stylesheet: it is what
+// Option B would put back.)
 //
 // THE READ IS T05's collect(), whole — the T12 rule, again: a second copy of
 // thirteen-surface reading is how two tools start disagreeing about one
@@ -25,10 +39,12 @@
 // evaluate from a tab, the second is 🩺 Assignment health's finding,
 // pointed at rather than half-repeated.
 //
-// A surface that could not be read renders as its own ⚠ card — named as
-// unreadable, never silently absent, never zero — and it is not a filter,
-// because filtering to a surface nobody read would be an empty grid
-// pretending to be an answer.
+// A surface that could not be read renders as a ⚠ rail row AND stays in the
+// note above the list — named as unreadable, never silently absent, never
+// zero — and it is not a filter, because filtering to a surface nobody read
+// would be an empty grid pretending to be an answer. It keeps both homes
+// deliberately: one red line in a rail is easier to skim past than the
+// dashed card it replaced, and this is a finding rather than a decoration.
 //
 // ENCA's card classes (.scard, .state, .fchip) have lived unused in TUNO's
 // stylesheet since the scaffold; this tool is the one that wears them.
@@ -150,25 +166,44 @@ const OverviewTool = (() => {
   }
 
   // ------------------------------------------------------------- render --
+  // THE SURFACES AS A RAIL (build 10514, Option A of a two-option mockup
+  // round). They were a horizontal grid of cards above the list, which read
+  // well and cost the top third of the screen on every tenant. T20 put its
+  // nodes in a sticky left rail and the full width became the answer; this
+  // is that, with T20's own classes rather than a second rail that drifts.
+  //
+  // OPTION B IS PARKED, NOT REJECTED. It kept a chip strip of counts above
+  // the list and let the rail carry names only, because a rail row is a thin
+  // line of text and these counts are the only at-a-glance read of the
+  // tenant's shape. If the numbers turn out too quiet here, that strip is
+  // the change — the rail stays either way.
+  //
+  // The unreadable surface keeps BOTH homes: a red rail row and the note
+  // above the list. A surface that 403s must never read as empty, and one
+  // red line in a rail is easier to skim past than a dashed card was.
   function renderSurfs() {
     const all = flat();
-    const surf = res.sections.map((s) => {
-      const reach = s.items.filter((i) => verdictOf(i) === "assigned").length;
-      const nobody = s.items.length - reach;
-      return `<div class="ov-surf${surfFilter === s.id ? " active" : ""}" data-surf="${esc(s.id)}" role="button" tabindex="0">
-        <div class="ov-surf-ic">${s.icon || "🗂"}</div>
-        <div><b>${esc(s.label)}</b><div class="mini">${s.items.length}${s.items.length ? ` · <span class="ov-on">${reach} assigned</span>${nobody ? ` · <span class="ov-off">${nobody} nobody</span>` : ""}` : ""}</div></div>
+    const node = (id, icon, label, n, reach, extra) => {
+      const nobody = n - reach;
+      return `<div class="ep-node${surfFilter === id ? " active" : ""}" data-surf="${esc(id)}" role="button" tabindex="0"${extra || ""}>
+        <span>${icon} ${esc(label)}</span>
+        <span class="mini" style="margin-left:auto;white-space:nowrap">${n
+          ? `<span class="ov-on">${reach}</span><span class="muted"> / ${n}</span>`
+          : '<span class="muted">0</span>'}</span>
       </div>`;
-    }).join("");
-    const failed = res.failed.map((f) => `<div class="ov-surf ov-fail" title="${esc(f.error)}">
-        <div class="ov-surf-ic">⚠</div>
-        <div><b>${esc(f.label)}</b><div class="mini">could not be read — unknown, not zero</div></div>
-      </div>`).join("");
+    };
     const allReach = all.filter((r) => r.v === "assigned").length;
-    $("ovSurfs").innerHTML = `<div class="ov-surf${surfFilter === "all" ? " active" : ""}" data-surf="all" role="button" tabindex="0">
-        <div class="ov-surf-ic">🗂</div>
-        <div><b>All surfaces</b><div class="mini">${all.length} · <span class="ov-on">${allReach} assigned</span>${all.length - allReach ? ` · <span class="ov-off">${all.length - allReach} nobody</span>` : ""}</div></div>
-      </div>${surf}${failed}`;
+    const surf = res.sections.map((s) =>
+      node(s.id, s.icon || "🗂", s.label, s.items.length,
+        s.items.filter((i) => verdictOf(i) === "assigned").length)).join("");
+    const failed = res.failed.map((f) => `<div class="ep-node" style="color:var(--off);cursor:default" title="${esc(f.error)}">
+        <span>⚠ ${esc(f.label)}</span>
+        <span class="mini" style="margin-left:auto">unread</span>
+      </div>`).join("");
+    $("ovRail").innerHTML =
+      node("all", "🗂", "All surfaces", all.length, allReach)
+      + '<p class="mini muted" style="margin:2px 10px 6px">assigned / configured</p><hr>'
+      + surf + (failed ? "<hr>" + failed : "");
   }
   function renderChips(q) {
     const set = surfed(q);
@@ -230,7 +265,7 @@ const OverviewTool = (() => {
   async function run() {
     if (running) return;
     running = true; $("ovRun").disabled = true;
-    $("ovToolbar").style.display = "none"; $("ovSurfs").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = ""; $("ovBody").innerHTML = "";
+    $("ovWrap").style.display = "none"; $("ovRail").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = ""; $("ovBody").innerHTML = "";
     // The one way a read looks while it runs — TunoProgress, like every
     // other tool; 10458 shipped a hand-rolled text line, which is exactly
     // the divergence the shared implementation exists to prevent. The card
@@ -255,7 +290,7 @@ const OverviewTool = (() => {
       if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
       if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
       $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
-      $("ovToolbar").style.display = "";
+      $("ovWrap").style.display = "";
       prog("");
       render();
     } catch (e) {
@@ -287,7 +322,7 @@ const OverviewTool = (() => {
       view = k;
       renderView(); renderCards(lc($("ovSearch").value.trim()));
     });
-    $("ovSurfs").addEventListener("click", (e) => {
+    $("ovRail").addEventListener("click", (e) => {
       const c = e.target.closest("[data-surf]"); if (!c) return;
       const k = c.getAttribute("data-surf");
       surfFilter = (surfFilter === k && k !== "all") ? "all" : k;         // click again for everything
