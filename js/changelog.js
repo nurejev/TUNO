@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10516, date: "2026-08-31", title: "A default field look that can actually be overridden",
+    items: [
+      { kind: "fixed", tool: "T01", text: "THE VERSION TOKEN BOX WAS THE WIDTH OF THE PAGE. In the Get it into Intune step it is an inline field in the middle of a sentence — the profile name, then the version, then the grouping — and it had been stretching to the full width and wrapping that sentence into three lines around itself." },
+      { kind: "fixed", tool: "TUNO", text: "THE CAUSE WAS THE APP-WIDE FIELD LOOK, not the tool. Build 10466 made every text field look like a text field, which was right, and wrote the rule with five exclusions for tick boxes and sliders. Five exclusions weigh as much as five class names in the cascade, so the \"default\" outranked every field rule in the app and its full-width setting could not be argued with by anything. A default that cannot be overridden is not a default." },
+      { kind: "improved", tool: "TUNO", text: "The exclusions are now written so they carry no weight of their own. They still mean exactly what they meant — tick boxes, radios, file, colour and range pickers keep their own treatment — but a field that asks for its own width now gets it. Measured against the deployed beta before and after: the version box goes from 981 pixels to 72." },
+      { kind: "improved", tool: "T01", text: "Two smaller shifts come with it, both restoring what those rules already asked for: the AppLocker form fields and the deploy row fields get back the padding they declare, and an input styled as a button gets button padding rather than field padding." },
+    ],
+  },
+  {
     build: 10515, date: "2026-08-31", title: "The examine popout leaves the tab bar reachable",
     items: [
       { kind: "fixed", tool: "T22", text: "THE POPOUT COVERED THE TAB BAR, so reaching another tool meant closing it first — the opposite of what moving the detail into a popout was for. It is a working pane you leave open while you think, not a dialogue that has to be answered. It now starts below the tab bar and sits underneath it, so the tabs, the ＋ menu and the home button all stay live while it is up. It still covers the work it is acting on, and still closes by its button, the backdrop or Escape." },

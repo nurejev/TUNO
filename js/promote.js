@@ -81,6 +81,24 @@ const PROMOTE = {
 
   items: [
     {
+      n: 121,
+      title: "The default field look becomes overridable — T01's version token is 72px again",
+      tools: ["TUNO", "T01"],
+      builds: [10516],
+      files: ["css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      risk: "medium",
+      what: "One selector. Build 10466's app-wide field look is `main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]), main select, main textarea, .wi-f input, .wi-f select` and sets width:100%. FIVE :not() CLAUSES WEIGH AS MUCH AS FIVE CLASSES, so the rule its own comment calls the default outranked every field rule in the app — .al-dep-ver's width:72px among them, which is why T01's inline version token has rendered 981px wide since 10466, wrapping its sentence into three lines. The :not() chain is wrapped in :where(), which contributes zero specificity: the selector drops to main+input (0,0,2), the exclusions mean exactly what they meant, and any single-class field rule now wins. Verified by measuring the LIVE deployed beta with the patched selector: 981px → 72px, height and padding correct.",
+      why: "MEDIUM, and only because of reach: this rule matches every text field, select and textarea in the app, so lowering its weight lets other rules win that previously lost. The blast radius was measured against the live DOM rather than guessed, and it is three things, all of them rules getting back what they already declare: .al-f input/select and .al-dep-in recover their own padding (both T01), and an input wearing .btn gets button padding instead of field padding. The * reset still loses (0,0,0 < 0,0,2) and the checkbox/radio opt-outs still win, so no tick box inflates into a 38px square. Nothing else in the stylesheet sets width, height or padding on a field through a single class.",
+      test: [
+        "T01 → §5 Get it into Intune → D · Let TUNO do it: the version box must be a small inline field inside the sentence, not a full-width box with the sentence wrapped around it.",
+        "Type in it: the name above must still update, and the grouping must NOT change — that is the whole point of the field.",
+        "Every tick box in the app (T02 tenant-wide toggle, T19 empty-roles, T22 the unit modes): still a tick box, not a 38px bordered square.",
+        "T01's own forms and the deploy rows: fields keep a sensible height; slightly more vertical padding than before is the intended restoration.",
+        "Walk one form in each of T08, T11, T14 and T23 looking for a field that has changed width or height. Any that has, has a rule of its own that was being overridden — decide whether that rule or the default is right, rather than reverting this.",
+        "The sign-in card is outside main and must be untouched."
+      ],
+    },
+    {
       n: 120,
       title: "T19 🗂 Policy overview takes T20's rail layout (mockup Option A)",
       tools: ["T19"],

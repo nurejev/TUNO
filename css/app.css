@@ -732,7 +732,24 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
    default is what stops the tenth.
    Scoped to main so the sign-in card keeps its own treatment, and the tick
    boxes and sliders opt OUT below rather than every text field opting in. */
-main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]),
+/* :where() ON THE EXCLUSIONS (build 10516) — A DEFAULT THAT CAN BE
+   OVERRIDDEN IS THE ONLY KIND OF DEFAULT.
+   The comment above calls this the default field look, and it was written
+   as one. It did not behave as one: five :not() clauses give the selector
+   the weight of five classes, so no ordinary single-class field rule could
+   beat it — width:100% in particular reached every text field in the app
+   and could not be argued with.
+   T01's version token is where that showed. It is a 72px inline box in the
+   middle of a sentence ("… - R27.1 - V[4.0.2], grouping …") and it had been
+   rendering 981px wide since 10466, wrapping the sentence into three lines
+   around it. Measured on the deployed beta before and after: 981px → 72px.
+   :where() contributes ZERO specificity, so the whole selector drops to
+   main+input and any field rule with a class now wins — which is what a
+   default is for. The exclusions still mean exactly what they meant.
+   The rest of the blast radius, measured against the live DOM rather than
+   guessed: .al-f and .al-dep-in get back the padding they declare, and an
+   input wearing .btn gets button padding instead of field padding. */
+main input:where(:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range])),
 main select,
 main textarea,
 .wi-f input,.wi-f select{height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
