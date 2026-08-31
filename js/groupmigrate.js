@@ -100,6 +100,52 @@ const GroupMigrate = (() => {
     ...Graph.SCOPES.groups, ...Graph.SCOPES.groupMembers, ...SCOPES.auRead,
   ])];
 
+  // ------------------------------------------------ the permission plan -----
+  // WHAT THIS TOOL WILL EVER ASK FOR, in one list, so it can be granted in
+  // ONE prompt instead of four spread across a run — and so the person
+  // granting can read what each one buys before agreeing to it rather than
+  // afterwards.
+  //
+  // This does NOT replace asking at the click. Read still requests only the
+  // read scopes and Migrate still requests the write ones, so a read-only
+  // visit to the screen still leaves the session holding no write scope. The
+  // button is the other option, taken deliberately: consent to the whole
+  // tool up front. Both routes end at the same place; only the number of
+  // Microsoft prompts differs.
+  //
+  // The Intune read scopes are read from the tools that own them rather than
+  // copied — T22 borrows T11's reader and T02's, and a second list here
+  // would drift from theirs the first time either gained a surface.
+  function permissionPlan() {
+    const intune = [...new Set([
+      ...(typeof AssignEdit !== "undefined" ? AssignEdit.READ() : []),
+      ...(typeof GroupUse !== "undefined" ? GroupUse.scopesFor(GroupUse.allSourceIds()) : []),
+    ])].map((s) => ({ s, why: "read the assignments that name this group, so the report can say which ones move and which do not" }));
+    return [
+      {
+        key: "read", label: "Read — the groups and the directory",
+        scopes: [
+          { s: Graph.SCOPES.groups[0], why: "list every role-assignable security group in the tenant" },
+          { s: Graph.SCOPES.groupMembers[0], why: "read a group's members before copying them across" },
+          { s: SCOPES.auRead[0], why: "list the restricted units, and answer whether a group is already inside one — the 🧊 frozen case" },
+          { s: SCOPES.rolesRead[0], why: "check whether a group CARRIES a directory role; a group that does cannot be migrated at all" },
+        ],
+      },
+      { key: "intune", label: "Read — what Intune points at the group", scopes: intune },
+      {
+        key: "write", label: "Write — the migration itself", warn: true,
+        scopes: [
+          { s: SCOPES.groupWrite[0], why: "rename the original aside, create the replacement, copy the members" },
+          { s: (typeof AssignEdit !== "undefined" ? AssignEdit.WRITE()[0] : "DeviceManagementConfiguration.ReadWrite.All"),
+            why: "repoint the four Intune assignment surfaces TUNO is permitted to write" },
+          { s: SCOPES.auWrite[0], why: "create the restricted administrative unit and put the new group in it" },
+          { s: SCOPES.roleWrite[0], why: "grant Groups Administrator scoped to a unit this tool creates — without it the unit is a vault nobody can open" },
+        ],
+      },
+    ];
+  }
+  const allPermissions = () => [...new Set(permissionPlan().flatMap((g) => g.scopes.map((x) => x.s)))];
+
   // ---------------------------------------------- where AUs actually live ---
   // ENCA talks to /beta everywhere, where an administrative unit is a
   // top-level `/administrativeUnits`. TUNO talks to v1.0, where it is NOT:
@@ -358,6 +404,105 @@ const GroupMigrate = (() => {
     }
     out.other.sort((a, b) => String(a.sourceLabel).localeCompare(String(b.sourceLabel)) || String(a.name).localeCompare(String(b.name)));
     return out;
+  }
+
+  // ---------------------------------------------- many groups, one read ----
+  // The archived-group cleanup asks the same question as references() but of
+  // several groups at once, and asking it once per group would read thirteen
+  // surfaces N times over. One pass, matched against the whole id set — the
+  // shape T02's sweep already uses for exactly this reason.
+  //
+  // Returns Map(lowercased id -> { repointable[], other[], total }). A group
+  // absent from the map was not asked about; a group present with total 0 is
+  // referenced by nothing, and those two are not the same answer.
+  async function referencesMany(groupIds, onStatus) {
+    const ids = new Set((groupIds || []).map(lc));
+    const byId = new Map([...ids].map((id) => [id, { repointable: [], other: [], total: 0 }]));
+    const failed = [];
+
+    onStatus && onStatus("Reading the assignments TUNO can rewrite…");
+    try {
+      const r = await AssignEdit.readPolicies(null, (m) => onStatus && onStatus(m));
+      (r.failed || []).forEach((f) => failed.push(f));
+      for (const p of r.policies) {
+        for (const a of p.assignments || []) {
+          const gid = lc((a.target || {}).groupId);
+          if (!ids.has(gid)) continue;
+          const e = byId.get(gid);
+          e.repointable.push({ surfaceLabel: p.surfaceLabel, name: p.name, id: p.id });
+          e.total++;
+        }
+      }
+    } catch (e) { failed.push({ id: "writable", label: "the writable surfaces", error: GroupUse.shortErr(e) }); }
+
+    onStatus && onStatus("Reading everything else Intune points at them…");
+    try {
+      const res = await GroupUse.analyze({
+        ids, sourceIds: GroupUse.allSourceIds(), tenantWide: false,
+        via: new Map([...ids].map((id) => [id, "the group itself"])),
+        onStatus: (m) => onStatus && onStatus(m),
+      });
+      for (const h of res.rows || []) {
+        const e = byId.get(lc(h.pid));
+        if (!e) continue;
+        if (e.repointable.some((x) => lc(x.id) === lc(h.id))) continue;
+        e.other.push({ sourceLabel: h.sourceLabel, name: h.name, id: h.id });
+        e.total++;
+      }
+      (res.failed || []).forEach((f) => failed.push({ id: f.id, label: f.label, error: f.error || "" }));
+    } catch (e) { failed.push({ id: "sources", label: "the Intune sources", error: GroupUse.shortErr(e) }); }
+
+    return { byId, failed };
+  }
+
+  // ------------------------------------------------- delete an archive -----
+  // THE ARCHIVED GROUP IS THE ROLLBACK. Deleting one is the last step of a
+  // migration and the only irreversible thing this tool does — so it is
+  // guarded by the same sentence the report ends with: not until nothing
+  // points at it any more.
+  //
+  // Two things make this less frightening than it reads, and both are worth
+  // saying on the screen rather than knowing:
+  //   * Entra SOFT-deletes a group. It goes to deleted items and can be
+  //     restored for 30 days, so a mistake here has a window rather than
+  //     being final.
+  //   * A group with references is REFUSED, not warned about. The caller
+  //     passes the reference count it read; a group whose references could
+  //     not be read is refused too, because unknown is not zero.
+  function deletePlan(rows, refs) {
+    const items = (rows || []).map((row) => {
+      const e = refs && refs.byId ? refs.byId.get(lc(row.id)) : null;
+      if (!ARCHIVE_SUFFIX.test(row.name || "")) {
+        return { ...row, ok: false, reason: "Not an archived group. This only ever deletes the leftovers of an earlier migration — a live group is never in this list." };
+      }
+      if (!e) return { ...row, ok: false, reason: "Its references were not read. Unknown is not the same as none, and a rollback is not deleted on an assumption." };
+      if (e.total) {
+        // The two halves label their surface differently — repointable rows
+        // come from AssignEdit (surfaceLabel), the rest from GroupUse
+        // (sourceLabel). Naming the wrong one printed "undefined: P".
+        const what = [...e.repointable, ...e.other]
+          .slice(0, 4).map((x) => `${x.surfaceLabel || x.sourceLabel}: ${x.name}`).join("; ");
+        return { ...row, ok: false, refs: e,
+          reason: `Still referenced by ${e.total} Intune object${e.total === 1 ? "" : "s"} — ${what}${e.total > 4 ? "; …" : ""}. Repoint ${e.total === 1 ? "it" : "them"} first: while anything still names this group, it is not a leftover, it is in use.` };
+      }
+      return { ...row, ok: true, refs: e };
+    });
+    return { items, deletable: items.filter((x) => x.ok), refused: items.filter((x) => !x.ok) };
+  }
+
+  async function deleteArchived(plan, opts = {}) {
+    const status = opts.onStatus || (() => {});
+    const results = [];
+    for (const g of plan.deletable) {
+      status(`Deleting ${g.name}…`);
+      try {
+        await Graph.del(`/groups/${encodeURIComponent(g.id)}`, { scopes: SCOPES.groupWrite });
+        results.push({ id: g.id, name: g.name, ok: true });
+      } catch (e) {
+        results.push({ id: g.id, name: g.name, ok: false, error: GroupUse.shortErr(e, 300) });
+      }
+    }
+    return results;
   }
 
   // ASK THE DIRECTORY WHICH MEMBERS ARE USERS. DO NOT INFER IT.
@@ -810,7 +955,9 @@ const GroupMigrate = (() => {
     SCOPES, ALL_SCOPES, READ_SCOPES, UNIT_PREFIX, AU, ARCHIVE_SUFFIX, MIGRATED_TAG,
     GROUPS_ADMIN_TEMPLATE,
     segments, tenantPrefix, unitNameFor, migratedName, mailNickname,
-    candidates, restrictedUnits, unitsHolding, heldRoles, references, memberIds,
+    permissionPlan, allPermissions,
+    candidates, restrictedUnits, unitsHolding, heldRoles, references, referencesMany, memberIds,
+    deletePlan, deleteArchived,
     plan, apply, repoint, report,
     grantScopedAdmin, groupsAdminRoleId,
     esc, lc,
@@ -855,6 +1002,9 @@ const GroupMigrateTool = (() => {
   let unitNameIn = "";            // the typed unit name — seeded from the suggestion
   let adminIn = "";               // the typed scoped administrator
   let unitsError = "";            // the unit read failed; the group list still stands
+  let search = "";                // the group filter — local, over the list in hand
+  const archSel = new Set();      // archived groups ticked for cleanup
+  let archRefs = null;            // referencesMany() for the ticked set, or null
 
   const prog = (m, n, of) => TunoProgress.show("gmBody", "gmProg", m, n, of);
 
@@ -874,6 +1024,64 @@ const GroupMigrateTool = (() => {
       return (o && o.displayName) || (window.TunoTenant && TunoTenant.domain && TunoTenant.domain()) || "";
     } catch { return ""; }
   };
+
+  // ------------------------------------------------------- permissions ----
+  // WHAT THE CHIPS MEAN, said on the screen rather than assumed: `granted`
+  // is filled from the tokens this SESSION has actually acquired, so a scope
+  // the tenant consented long ago still reads as not-held until something
+  // asks for it. That is the honest statement — "this session holds it" —
+  // and it is not the same claim as "the tenant has consented", which a
+  // browser cannot make.
+  function renderPerms() {
+    const el = $("gmPerms");
+    if (!el) return;
+    const groups = GroupMigrate.permissionPlan();
+    el.innerHTML = groups.map((g) => {
+      const rows = g.scopes.map((x) => {
+        const held = Graph.hasScopes([x.s]);
+        return `<tr>
+          <td style="width:22px;vertical-align:top" class="mini">${held ? '<span style="color:var(--on)">✓</span>' : '<span class="muted">○</span>'}</td>
+          <td style="vertical-align:top"><code class="mini">${esc(x.s)}</code>
+            <div class="mini muted">${esc(x.why)}</div></td>
+        </tr>`;
+      }).join("");
+      return `<div style="margin-bottom:10px">
+        <p class="mini" style="margin:0 0 4px"><b>${esc(g.label)}</b>${g.warn ? ' <span class="tag block">writes to the tenant</span>' : ""}</p>
+        ${g.warn ? '<p class="mini muted" style="margin:0 0 6px">Three of these write to the <b>directory</b>, not to Intune: they can change who is in a group and who may administer it. Granting them is a decision worth taking on its own terms.</p>' : ""}
+        <table class="plist"><tbody>${rows}</tbody></table>
+      </div>`;
+    }).join("")
+      + `<p class="mini muted" style="margin:6px 0 0">✓ means <b>this browser session</b> has a token carrying it. A permission the tenant consented earlier still shows ○ until something asks for it — a page cannot see the tenant's consent, only the tokens it holds.</p>`;
+  }
+
+  async function grantAll() {
+    if (busy) return;
+    busy = true;
+    const msg = $("gmGrantMsg");
+    const say = (html) => { if (msg) msg.innerHTML = html; };
+    say('<span class="muted">Asking Microsoft…</span>');
+    try {
+      await Graph.ensureScopes(GroupMigrate.allPermissions());
+      renderPerms();
+      say('<span style="color:var(--on)">✓ Granted. Nothing else in this tool will ask again this session.</span>');
+    } catch (e) {
+      const m = GroupUse.shortErr(e, 400);
+      renderPerms();
+      // The three refusals worth telling apart, because the next move
+      // differs: an admin has to act, a popup has to be allowed, or the
+      // person simply said no.
+      if (/consent|AADSTS65001|admin/i.test(m)) {
+        say(`<span style="color:var(--off)">Needs an administrator.</span>
+          <span class="muted">${esc(m)}</span>
+          <br><a href="${esc(Graph.adminConsentUrl())}" target="_blank" rel="noopener">Grant admin consent for ${esc(BRANDING.name)} →</a>
+          <span class="muted">— opens Microsoft's consent page for the whole application, not just this tool.</span>`);
+      } else if (Graph.isPopupBlocked && Graph.isPopupBlocked(e)) {
+        say('<span style="color:var(--off)">The consent window was blocked by the browser.</span> <span class="muted">Allow popups for this site and press the button again.</span>');
+      } else {
+        say(`<span style="color:var(--off)">Not granted.</span> <span class="muted">${esc(m)}</span>`);
+      }
+    } finally { busy = false; }
+  }
 
   // ------------------------------------------------------------ step 1 ----
   async function readGroups() {
@@ -934,7 +1142,14 @@ const GroupMigrateTool = (() => {
         “only Global Administrator or Privileged Role Administrator may touch it”.</p></div>`;
       return;
     }
-    const rows = live.map((g) => `<tr>
+    // The search is LOCAL, over the list already in hand — no keystroke goes
+    // to the tenant. A tenant-backed typeahead here would be a second read of
+    // groups this screen has already read, and it would suggest groups that
+    // are not role-assignable, which is every group this tool cannot act on.
+    // Name and object id both match: an id is what a report hands you.
+    const q = GroupMigrate.lc(search.trim());
+    const shown = q ? live.filter((g) => GroupMigrate.lc(g.name).includes(q) || GroupMigrate.lc(g.id).includes(q)) : live;
+    const rows = shown.map((g) => `<tr>
       <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div>
         ${g.dynamic ? '<div class="mini" style="color:var(--report)">⚠ carries a membership rule — Entra forbids dynamic membership on a role-assignable group, so this group is in a state worth checking</div>' : ""}</td>
       <td class="mini">${esc(g.suggestedUnit || "—")}</td>
@@ -963,18 +1178,118 @@ const GroupMigrateTool = (() => {
           shorten. The suggested unit below follows the <code>${esc(GroupMigrate.UNIT_PREFIX)}</code> convention${list.prefix
             ? ` with <b>${esc(list.prefix.toUpperCase())}-</b> stripped as this tenant's own prefix` : ""}; it is a
           <b>default</b> and can be changed per group before anything is applied.</p>
+        <input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="width:100%;max-width:420px;margin-bottom:10px">
+        ${q ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${live.length} shown.</p>` : ""}
         <div style="overflow-x:auto"><table class="plist">
           <thead><tr><th>Group</th><th style="width:250px">Suggested unit</th><th style="width:110px"></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="3" class="mini">Every role-assignable group in this tenant is the archived half of an earlier migration.</td></tr>'}</tbody>
+          <tbody>${rows || `<tr><td colspan="3" class="mini">${q ? "No role-assignable group matches that." : "Every role-assignable group in this tenant is the archived half of an earlier migration."}</td></tr>`}</tbody>
         </table></div>
       </div>
-      ${archived.length ? `<div class="list-card" style="margin-top:14px">
-        <h4 style="margin:0 0 6px;font-size:13.5px">🧹 Archived by an earlier migration <span class="tag">${archived.length}</span></h4>
-        <p class="mini muted" style="margin:0 0 8px">These are rollbacks, not live groups — they keep their members and stay
-          role-assignable, and nothing should still be assigned to them. Delete one once
-          <a href="#tool:toolGroupUse">T02 Group Analyzer</a> comes back empty on it. This tool will not migrate them.</p>
-        ${archived.map((g) => `<p class="mini" style="margin:0">• ${esc(g.name)} <span class="muted">${esc(g.id)}</span></p>`).join("")}
-      </div>` : ""}`;
+      ${archived.length ? renderArchived(archived) : ""}`;
+  }
+
+  // ------------------------------------------------- archived cleanup ------
+  // The leftovers of earlier migrations, and the one place this tool DELETES.
+  // The report that created them ends with "delete these once you are
+  // satisfied", so the tool that wrote that sentence should be able to
+  // finish it — but on its own terms: the reference check runs first and a
+  // group anything still points at is REFUSED, not warned about. A rollback
+  // that something still uses is not a leftover.
+  function renderArchived(archived) {
+    const rows = archived.map((g) => {
+      const r = archRefs ? archRefs.byId.get(GroupMigrate.lc(g.id)) : null;
+      const state = !archRefs ? '<span class="muted">not checked</span>'
+        : !r ? '<span class="muted">not checked</span>'
+        : r.total ? `<span style="color:var(--off)">${r.total} reference${r.total === 1 ? "" : "s"}</span>`
+        : '<span style="color:var(--on)">nothing points at it</span>';
+      return `<tr>
+        <td style="width:34px"><input type="checkbox" data-gmarch="${esc(g.id)}" ${archSel.has(g.id) ? "checked" : ""}></td>
+        <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div></td>
+        <td class="mini" style="width:190px">${state}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="list-card" style="margin-top:14px">
+      <h4 style="margin:0 0 6px;font-size:13.5px">🧹 Archived by an earlier migration <span class="tag">${archived.length}</span></h4>
+      <p class="mini muted" style="margin:0 0 8px">These are <b>rollbacks</b>, not live groups — they keep their members, stay
+        role-assignable, and nothing should still be assigned to them. This tool will not migrate them; it will delete them once
+        it has checked that nothing points at them any more.</p>
+      <p class="mini muted" style="margin:0 0 10px"><b>Entra soft-deletes a group:</b> it goes to deleted items and can be restored
+        for 30 days. That is a window, not a licence — a restored group comes back with the same object id, but anything you
+        rebuilt in the meantime will not know that.</p>
+      <div style="overflow-x:auto"><table class="plist">
+        <thead><tr><th style="width:34px"></th><th>Group</th><th style="width:190px">References</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="tb-actions" style="margin-top:12px">
+        <button class="btn" id="gmArchCheck" ${archSel.size ? "" : "disabled"}>🔍 Check what still points at ${archSel.size || "them"}</button>
+        <button class="btn" id="gmArchDelete" ${archSel.size && archRefs ? "" : "disabled"}>🗑 Delete the selected</button>
+      </div>
+      <div id="gmArchMsg" class="mini" style="margin-top:10px">${archRefs ? "" : '<span class="muted">Deleting is locked until the reference check has run — an unchecked group is an unknown one, and unknown is not the same as unused.</span>'}</div>
+    </div>`;
+  }
+
+  async function archCheck() {
+    if (busy || !archSel.size) return;
+    busy = true;
+    const msg = $("gmArchMsg");
+    try {
+      await Graph.ensureScopes([...new Set([
+        ...GroupUse.scopesFor(GroupUse.allSourceIds()), ...AssignEdit.READ(),
+      ])]);
+      if (msg) msg.innerHTML = '<span class="muted">Reading…</span>';
+      archRefs = await GroupMigrate.referencesMany([...archSel], (m) => { if (msg) msg.innerHTML = `<span class="muted">${esc(m)}</span>`; });
+      renderList();
+      const el = $("gmArchMsg");
+      if (el && archRefs.failed.length) {
+        el.innerHTML = `<span style="color:var(--report)">⚠ ${archRefs.failed.length} surface(s) could not be read
+          (${esc(archRefs.failed.map((f) => f.label).join(", "))}) — references there are unknown, so a group showing
+          “nothing points at it” is only as complete as this read.</span>`;
+      }
+    } catch (e) {
+      if (msg) msg.innerHTML = `<span style="color:var(--off)">The check failed: ${esc(GroupUse.shortErr(e, 300))}</span>`;
+    } finally { busy = false; }
+  }
+
+  async function archDelete() {
+    if (busy || !archSel.size || !archRefs) return;
+    const rows = list.groups.filter((g) => archSel.has(g.id));
+    const p = GroupMigrate.deletePlan(rows, archRefs);
+    const msg = $("gmArchMsg");
+    if (!p.deletable.length) {
+      if (msg) msg.innerHTML = `<span style="color:var(--off)">Nothing can be deleted.</span><br>`
+        + p.refused.map((r) => `<span class="mini">• <b>${esc(r.name)}</b> — ${esc(r.reason)}</span>`).join("<br>");
+      return;
+    }
+    const names = p.deletable.map((d) => d.name).join("\n");
+    // The browser's own confirm, deliberately: this is the one irreversible
+    // act in the tool and it should interrupt, not sit inside the page it is
+    // acting on. The refused ones are named in the prompt too, so nobody
+    // agrees to "delete 4" and gets 2.
+    const okToGo = window.confirm(
+      `Delete ${p.deletable.length} archived group${p.deletable.length === 1 ? "" : "s"}?\n\n${names}\n\n`
+      + (p.refused.length ? `${p.refused.length} selected group${p.refused.length === 1 ? " is" : "s are"} NOT included — something still points at ${p.refused.length === 1 ? "it" : "them"}.\n\n` : "")
+      + "Entra soft-deletes: they can be restored for 30 days.");
+    if (!okToGo) return;
+    busy = true;
+    try {
+      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
+      if (msg) msg.innerHTML = '<span class="muted">Deleting…</span>';
+      const res = await GroupMigrate.deleteArchived(p, { onStatus: (m) => { if (msg) msg.innerHTML = `<span class="muted">${esc(m)}</span>`; } });
+      const gone = new Set(res.filter((r) => r.ok).map((r) => r.id));
+      list.groups = list.groups.filter((g) => !gone.has(g.id));
+      gone.forEach((id) => archSel.delete(id));
+      archRefs = null;
+      renderList();
+      const el = $("gmArchMsg");
+      if (el) {
+        const bad = res.filter((r) => !r.ok);
+        el.innerHTML = `<span style="color:var(--on)">Deleted ${gone.size}.</span>`
+          + (bad.length ? ` <span style="color:var(--off)">${bad.length} failed: ${esc(bad.map((b) => `${b.name} — ${b.error}`).join("; "))}</span>` : "")
+          + (p.refused.length ? `<br><span class="mini muted">${p.refused.length} left alone — still referenced.</span>` : "");
+      }
+    } catch (e) {
+      if (msg) msg.innerHTML = `<span style="color:var(--off)">${esc(GroupUse.shortErr(e, 300))}</span>`;
+    } finally { busy = false; }
   }
 
   // ------------------------------------------------------------ step 2 ----
@@ -1037,7 +1352,20 @@ const GroupMigrateTool = (() => {
     return { toUnit: true, unitId: hit ? hit.id : null, unitName: name };
   }
 
+  // Suggest.pick() writes straight into input.value and dispatches NOTHING —
+  // no `input`, no `change` — so a listener would never see an autofilled
+  // administrator, and the plan would go on refusing for want of one that is
+  // sitting on the screen. The fields are therefore SYNCED before use rather
+  // than subscribed to. This is not the state-in-the-DOM mistake the unit
+  // mode made: the module still owns the value across re-renders, and the
+  // live element is only read while it exists.
+  function syncFields() {
+    const u = $("gmUnitName"); if (u) unitNameIn = u.value;
+    const a = $("gmAdmin"); if (a) adminIn = a.value;
+  }
+
   function rebuildPlan() {
+    syncFields();
     plan = GroupMigrate.plan(chosen, {
       ...destination(),
       roles: chosen.roles, holding: chosen.holding,
@@ -1049,8 +1377,11 @@ const GroupMigrateTool = (() => {
 
   function renderPlan() {
     const g = chosen;
-    const d = destination();
+    // rebuildPlan() FIRST: it syncs the live fields, and destination() reads
+    // what that sync wrote. The other order re-rendered the form from values
+    // one keystroke stale.
     const p = rebuildPlan();
+    const d = destination();
     const unitOpts = (units.restricted || []).map((u) =>
       `<option value="${esc(u.id)}"${u.id === d.unitId ? " selected" : ""}>${esc(u.name)}</option>`).join("");
 
@@ -1107,6 +1438,17 @@ const GroupMigrateTool = (() => {
     </div>`;
 
     $("gmBody").innerHTML = head + form + body;
+    // Tenant-backed autofill on the scoped administrator, through the app's
+    // ONE typeahead rather than a second one. Attached after each render
+    // because this form is rebuilt, not mutated — Suggest.init() registers
+    // static ids at boot and this field does not exist then.
+    //
+    // It fills the UPN, which is what grantScopedAdmin() resolves, and which
+    // is the right half of the pair: two people can share a display name.
+    // Typing an object id by hand keeps working, and so does typing a UPN
+    // the suggestions never offered — the field is not a picker.
+    const admin = $("gmAdmin");
+    if (admin && typeof Suggest !== "undefined") Suggest.attach(admin, { kind: "user" });
   }
 
   function renderOkPlan(p) {
@@ -1211,16 +1553,33 @@ const GroupMigrateTool = (() => {
     const run1 = $("gmRun");
     if (!run1) return;
     run1.addEventListener("click", readGroups);
+    renderPerms();
+    const grant = $("gmGrant");
+    if (grant) grant.addEventListener("click", grantAll);
     const reset = $("gmReset");
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
       unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; unitsError = "";
+      search = ""; archSel.clear(); archRefs = null;
       $("gmBody").innerHTML = ""; $("gmProg").innerHTML = "";
     });
 
     $("gmBody").addEventListener("click", (e) => {
       const pick = e.target.closest("[data-gmpick]");
       if (pick) { examine(pick.dataset.gmpick); return; }
+      const arch = e.target.closest("[data-gmarch]");
+      if (arch) {
+        const id = arch.dataset.gmarch;
+        if (arch.checked) archSel.add(id); else archSel.delete(id);
+        // The reference check belongs to the SET it was run against. Changing
+        // the set invalidates it, and re-enabling delete on a stale check
+        // would be the one place this tool lied about what it knew.
+        archRefs = null;
+        renderList();
+        return;
+      }
+      if (e.target.closest("#gmArchCheck")) { archCheck(); return; }
+      if (e.target.closest("#gmArchDelete")) { archDelete(); return; }
       if (e.target.closest("[data-gmback]")) { chosen = null; plan = null; result = null; renderList(); return; }
       const mode = e.target.closest("[data-gmmode]");
       if (mode) { if (!mode.disabled) { unitMode = mode.dataset.gmmode; renderPlan(); } return; }
@@ -1241,6 +1600,11 @@ const GroupMigrateTool = (() => {
     // destination re-plans — a plan computed against a unit the operator has
     // since changed is a plan describing something that will not happen.
     $("gmBody").addEventListener("input", (e) => {
+      if (e.target.id === "gmSearch") {
+        search = e.target.value;
+        renderPlanKeepingFocus("gmSearch", renderList);
+        return;
+      }
       if (e.target.id === "gmConfirm") {
         const btn = $("gmApply");
         if (btn && plan) btn.disabled = e.target.value.trim() !== plan.name;
@@ -1268,11 +1632,11 @@ const GroupMigrateTool = (() => {
   // Re-render without stealing the caret: the destination fields are typed
   // into, and a re-render that blurs them makes the field unusable (T15's
   // search box lesson, same fix).
-  function renderPlanKeepingFocus(id) {
+  function renderPlanKeepingFocus(id, render) {
     const el = $(id);
     const v = el ? el.value : "";
     const pos = el && el.selectionStart != null ? el.selectionStart : null;
-    renderPlan();
+    (render || renderPlan)();
     const back = $(id);
     if (back) {
       back.value = v;

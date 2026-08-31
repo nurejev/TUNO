@@ -26,6 +26,17 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10509, date: "2026-08-31", title: "Grant it once, find it faster, and finish the cleanup the report asks for",
+    items: [
+      { kind: "new", tool: "T22", text: "ONE BUTTON FOR EVERY PERMISSION THE TOOL NEEDS. Asking at each step is the app's model and it stays — reading costs read permissions, the write permissions are requested at the migrate click — but for this tool that is up to four Microsoft prompts in a single run. The permissions card lists every scope with what it buys, marks the three that write to the DIRECTORY rather than to Intune, and grants the lot in one go for anyone who would rather agree once with the whole list in front of them. Pressing Read without it behaves exactly as before." },
+      { kind: "improved", tool: "T22", text: "The permission ticks say THIS SESSION HOLDS IT, in those words, rather than implying the tenant has consented. A page can see the tokens it holds and cannot see a tenant's grants, and a chip that blurred the two would be the one place in the app where a permission screen guessed." },
+      { kind: "new", tool: "T22", text: "A SEARCH BOX over the role-assignable groups, matching the name or the object id — an id is what a report hands you. It filters the list already read rather than querying the tenant on every keystroke: a directory typeahead here would re-read groups this screen has just read, and would suggest groups that are not role-assignable, which is every group the tool cannot act on." },
+      { kind: "new", tool: "T22", text: "THE SCOPED ADMINISTRATOR FIELD AUTOFILLS FROM THE TENANT, through the app's existing suggestion component rather than a second one. It fills the user principal name, because two people can share a display name; typing an object id or a name the suggestions never offered keeps working, since the field is not a picker." },
+      { kind: "new", tool: "T22", text: "ARCHIVED GROUPS CAN NOW BE SELECTED AND DELETED — the last step the migration report asks for, finished by the tool that wrote it. The guard is that report's own sentence made mechanical: the reference check runs first, a group anything still points at is REFUSED rather than warned about, changing the selection invalidates the check, and deleting stays locked until a check has run — an unchecked group is an unknown one, and unknown is not unused. The screen also says plainly that a deleted group is recoverable for thirty days." },
+      { kind: "improved", tool: "T22", text: "The reference check for a whole selection is ONE read pass matched against every ticked group, not one pass per group. Asking thirteen surfaces the same question four times over is how a cleanup becomes something nobody runs." },
+    ],
+  },
+  {
     build: 10508, date: "2026-08-31", title: "The permission the unit read actually needed, and a member type it stopped guessing",
     items: [
       { kind: "fixed", tool: "T22", text: "THE ADMINISTRATIVE-UNIT READ ASKED FOR THE WRONG PERMISSION. It was handed the app's shared \"directory\" scope constant, which is named for the directory but holds the user and group read permissions rather than the directory-wide one — so the tenant refused it with \"Insufficient privileges to complete the operation\". Administrative units now carry their own least-privileged read permission, listed alongside the write one because Entra consents by name and a token asked for the read is refused unless the read itself was granted." },
