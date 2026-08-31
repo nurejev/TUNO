@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10515, date: "2026-08-31", title: "The examine popout leaves the tab bar reachable",
+    items: [
+      { kind: "fixed", tool: "T22", text: "THE POPOUT COVERED THE TAB BAR, so reaching another tool meant closing it first — the opposite of what moving the detail into a popout was for. It is a working pane you leave open while you think, not a dialogue that has to be answered. It now starts below the tab bar and sits underneath it, so the tabs, the ＋ menu and the home button all stay live while it is up. It still covers the work it is acting on, and still closes by its button, the backdrop or Escape." },
+      { kind: "improved", tool: "T23", text: "Deliberately not applied to the create, edit and delete dialogues: those ask a question that has to be answered before anything else happens, and blocking is what they are for." },
+    ],
+  },
+  {
     build: 10514, date: "2026-08-31", title: "Policy overview takes the posture tool's layout",
     items: [
       { kind: "improved", tool: "T19", text: "THE THIRTEEN SURFACES MOVE INTO A STICKY LEFT RAIL, the shape the endpoint posture tool already uses — chosen from a two-option mockup. They arrived as a horizontal grid of cards above the list, which reads well and costs the top third of every screen; in a rail they have a permanent home and the whole width of the pane becomes the answer." },
