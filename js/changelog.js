@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10510, date: "2026-08-31", title: "The permissions card is a button",
+    items: [
+      { kind: "improved", tool: "T22", text: "THE PERMISSION LIST COMES OFF THE PAGE AND ONTO THE BUTTON. Yesterday's build put the whole inventory on screen — three tables of scopes, taller than the tool they were serving — and a permission inventory is something you consult once, not something that sits above the work. It is now a single Grant permissions button in the same row as Read, carrying the full list on its tooltip: every scope, what each one buys, and the warning that three of them write to the directory rather than to Intune. Microsoft's own consent screen lists them again at the moment it matters, so the shrink hides nothing." },
+      { kind: "improved", tool: "T22", text: "The per-scope ticks went with the card rather than being squeezed into the tooltip. They reported what the current session had acquired, which is not the same as what the tenant has consented — and two states that look alike but mean different things are worse in a tooltip than in a table. The button says what it will do instead." },
+    ],
+  },
+  {
     build: 10509, date: "2026-08-31", title: "Grant it once, find it faster, and finish the cleanup the report asks for",
     items: [
       { kind: "new", tool: "T22", text: "ONE BUTTON FOR EVERY PERMISSION THE TOOL NEEDS. Asking at each step is the app's model and it stays — reading costs read permissions, the write permissions are requested at the migrate click — but for this tool that is up to four Microsoft prompts in a single run. The permissions card lists every scope with what it buys, marks the three that write to the DIRECTORY rather than to Intune, and grants the lot in one go for anyone who would rather agree once with the whole list in front of them. Pressing Read without it behaves exactly as before." },

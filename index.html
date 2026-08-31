@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10509"></script>
+<script src="js/popup-guard.js?v=10510"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10509">
+<link rel="stylesheet" href="css/app.css?v=10510">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10509"></script>
+<script src="js/selfhost-boot.js?v=10510"></script>
 </head>
 <body>
 
@@ -1013,28 +1013,22 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <p class="mini muted" style="margin:8px 0 0"><b>And everything outside Intune is invisible here</b> — Conditional Access, group-based licensing, Azure RBAC, app role assignments all address a group by object id. TUNO does not read them and will not pretend to. <b>The original is renamed aside, never deleted</b>: it keeps its members, stays role-assignable, and is your rollback until you have checked them.</p>
     </div>
 
-    <!-- Permissions, up front and optional. TUNO's model is incremental —
-         each step asks for what it needs at the click — which for this tool
-         means up to four Microsoft prompts across one run. This grants the
-         lot in one, for people who would rather agree once and read the
-         list while doing it. Pressing Read without it still works and still
-         asks only for the read scopes. -->
-    <div class="list-card wi-form" id="gmPermCard">
-      <h3 style="margin:0 0 6px;font-size:15px">🔐 Permissions</h3>
-      <p class="mini muted" style="margin:0 0 10px">This tool asks for what it needs <b>at each step</b> — reading costs read permissions, and the write permissions are requested at the migrate click, never before. That is up to four consent prompts in one run. Grant them all here instead if you would rather agree once, with the whole list in front of you.</p>
-      <div id="gmPerms"></div>
-      <div class="tb-actions" style="margin-top:12px">
-        <button class="btn" id="gmGrant">🔐 Grant every permission this tool needs</button>
-      </div>
-      <div id="gmGrantMsg" class="mini" style="margin-top:10px"></div>
-    </div>
-
     <div class="list-card wi-form">
       <p class="mini muted" style="margin:0 0 4px">Reads every role-assignable security group in the tenant — <code>Group.Read.All</code>, plus <code>AdministrativeUnit.Read.All</code> for the restricted units. Nothing is written until a plan has been read and the group's name has been typed.</p>
+      <!-- Permissions are asked for AT EACH STEP, which for this tool is up
+           to four consent prompts in one run. The button grants the lot in
+           one, for anyone who would rather agree once — its tooltip carries
+           the full list with what each scope buys, because a button that
+           silently asks for three directory writes would be worse than the
+           four prompts it saves. It is a BUTTON and not a card: the list
+           belongs on hover and in the consent screen Microsoft shows, not
+           filling the page above the tool it serves. -->
       <div class="tb-actions" style="margin-top:14px">
         <button class="btn primary" id="gmRun">🔄 Read the role-assignable groups</button>
+        <button class="btn" id="gmGrant">🔐 Grant permissions</button>
         <button class="btn" id="gmReset">Reset</button>
       </div>
+      <div id="gmGrantMsg" class="mini" style="margin-top:10px"></div>
       <div id="gmProg" class="mini muted" style="margin-top:10px"></div>
     </div>
 
@@ -1321,7 +1315,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Two things the card did not promise.</b> <b>Graph keeps about ninety days</b>, so "what changed since last month" runs out at a quarter — the tool exports a versioned <b>snapshot</b> carrying the readings <i>and the catalogue they were read under</i>, and uploads them back, so the timeline reaches as far back as somebody kept files. Uploaded points are drawn as their own marks, a same-day clash resolves to the live reading and says how many it dropped, and a snapshot from a different tenant is <b>refused by tenant id</b> rather than merged with a caveat. And <b>🧭 T20 correlates against it</b>: Secure Score reads the estate, the posture checks read policy, and a check that passes while Microsoft still holds the points is the finding neither tool could produce alone.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R33</span> 🔄 Group migration <span class="tag grant">live · beta 10509</span> <span class="tag new">BETA</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R33</span> 🔄 Group migration <span class="tag grant">live · beta 10510</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">The sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s ⑦ Migrate, Intune-side-out. A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the costs role-assignable carries: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined, because a restricted unit blocks exactly the two roles a role-assignable group admits, so a group that is both is a group whose members <b>nobody</b> can edit.</p>
             <p class="mini" style="margin:6px 0 0"><b>The new group has a new object id, and the tool can only move half the references.</b> <code>isAssignableToRole</code> is immutable, so this is a recreate rather than a patch. The four surfaces <span class="rm-ref">R13</span>'s assignment editor already writes are repointed with that tool's own engine — the fresh-read drift check and the verify read-back come along rather than being written a second time. Applications, scripts, app protection and configuration, enrolment restrictions, Autopilot and update rings are <b>read and named</b>, never moved: each would need a write scope this registration does not declare, and adding one is a decision taken in the open rather than a side effect of a feature.</p>
             <p class="mini" style="margin:6px 0 0"><b>And the sentence the tool says out loud rather than leaving to be discovered:</b> everything outside Intune is invisible to it. Conditional Access, group-based licensing, Azure RBAC and app role assignments all address a group by object id. The original is renamed aside and never deleted — it keeps its members, stays role-assignable, and is the rollback until those have been checked.</p>
@@ -1833,42 +1827,42 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10509"></script>
-<script src="js/selfhost.js?v=10509"></script>
-<script src="js/version.js?v=10509"></script>
-<script src="js/promote.js?v=10509"></script>
-<script src="js/authConfig.js?v=10509"></script>
-<script src="js/changelog.js?v=10509"></script>
-<script src="js/msappcatalog.js?v=10509"></script>
-<script src="js/demo.js?v=10509"></script>
-<script src="js/graph.js?v=10509"></script>
-<script src="js/suggest.js?v=10509"></script>
-<script src="js/progress.js?v=10509"></script>
-<script src="js/groupuse.js?v=10509"></script>
-<script src="js/audit.js?v=10509"></script>
-<script src="js/backup.js?v=10509"></script>
-<script src="js/document.js?v=10509"></script>
-<script src="js/overview.js?v=10509"></script>
-<script src="js/devicewhy.js?v=10509"></script>
-<script src="js/whatif.js?v=10509"></script>
-<script src="js/health.js?v=10509"></script>
-<script src="js/settingsearch.js?v=10509"></script>
-<script src="js/conflict.js?v=10509"></script>
-<script src="js/compliance.js?v=10509"></script>
-<script src="js/filterrules.js?v=10509"></script>
-<script src="js/filters.js?v=10509"></script>
-<script src="js/restore.js?v=10509"></script>
-<script src="js/assignedit.js?v=10509"></script>
-<script src="js/groupmigrate.js?v=10509"></script>
-<script src="js/roles.js?v=10509"></script>
-<script src="js/defender.js?v=10509"></script>
-<script src="js/endpointsec.js?v=10509"></script>
-<script src="js/report.js?v=10509"></script>
-<script src="js/securescore.js?v=10509"></script>
-<script src="js/endpointposture.js?v=10509"></script>
-<script src="js/maa.js?v=10509"></script>
-<script src="js/laps.js?v=10509"></script>
-<script src="js/applocker.js?v=10509"></script>
-<script src="js/app.js?v=10509"></script>
+<script src="js/branding.js?v=10510"></script>
+<script src="js/selfhost.js?v=10510"></script>
+<script src="js/version.js?v=10510"></script>
+<script src="js/promote.js?v=10510"></script>
+<script src="js/authConfig.js?v=10510"></script>
+<script src="js/changelog.js?v=10510"></script>
+<script src="js/msappcatalog.js?v=10510"></script>
+<script src="js/demo.js?v=10510"></script>
+<script src="js/graph.js?v=10510"></script>
+<script src="js/suggest.js?v=10510"></script>
+<script src="js/progress.js?v=10510"></script>
+<script src="js/groupuse.js?v=10510"></script>
+<script src="js/audit.js?v=10510"></script>
+<script src="js/backup.js?v=10510"></script>
+<script src="js/document.js?v=10510"></script>
+<script src="js/overview.js?v=10510"></script>
+<script src="js/devicewhy.js?v=10510"></script>
+<script src="js/whatif.js?v=10510"></script>
+<script src="js/health.js?v=10510"></script>
+<script src="js/settingsearch.js?v=10510"></script>
+<script src="js/conflict.js?v=10510"></script>
+<script src="js/compliance.js?v=10510"></script>
+<script src="js/filterrules.js?v=10510"></script>
+<script src="js/filters.js?v=10510"></script>
+<script src="js/restore.js?v=10510"></script>
+<script src="js/assignedit.js?v=10510"></script>
+<script src="js/groupmigrate.js?v=10510"></script>
+<script src="js/roles.js?v=10510"></script>
+<script src="js/defender.js?v=10510"></script>
+<script src="js/endpointsec.js?v=10510"></script>
+<script src="js/report.js?v=10510"></script>
+<script src="js/securescore.js?v=10510"></script>
+<script src="js/endpointposture.js?v=10510"></script>
+<script src="js/maa.js?v=10510"></script>
+<script src="js/laps.js?v=10510"></script>
+<script src="js/applocker.js?v=10510"></script>
+<script src="js/app.js?v=10510"></script>
 </body>
 </html>

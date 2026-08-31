@@ -1026,32 +1026,30 @@ const GroupMigrateTool = (() => {
   };
 
   // ------------------------------------------------------- permissions ----
-  // WHAT THE CHIPS MEAN, said on the screen rather than assumed: `granted`
-  // is filled from the tokens this SESSION has actually acquired, so a scope
-  // the tenant consented long ago still reads as not-held until something
-  // asks for it. That is the honest statement — "this session holds it" —
-  // and it is not the same claim as "the tenant has consented", which a
-  // browser cannot make.
-  function renderPerms() {
-    const el = $("gmPerms");
-    if (!el) return;
-    const groups = GroupMigrate.permissionPlan();
-    el.innerHTML = groups.map((g) => {
-      const rows = g.scopes.map((x) => {
-        const held = Graph.hasScopes([x.s]);
-        return `<tr>
-          <td style="width:22px;vertical-align:top" class="mini">${held ? '<span style="color:var(--on)">✓</span>' : '<span class="muted">○</span>'}</td>
-          <td style="vertical-align:top"><code class="mini">${esc(x.s)}</code>
-            <div class="mini muted">${esc(x.why)}</div></td>
-        </tr>`;
-      }).join("");
-      return `<div style="margin-bottom:10px">
-        <p class="mini" style="margin:0 0 4px"><b>${esc(g.label)}</b>${g.warn ? ' <span class="tag block">writes to the tenant</span>' : ""}</p>
-        ${g.warn ? '<p class="mini muted" style="margin:0 0 6px">Three of these write to the <b>directory</b>, not to Intune: they can change who is in a group and who may administer it. Granting them is a decision worth taking on its own terms.</p>' : ""}
-        <table class="plist"><tbody>${rows}</tbody></table>
-      </div>`;
-    }).join("")
-      + `<p class="mini muted" style="margin:6px 0 0">✓ means <b>this browser session</b> has a token carrying it. A permission the tenant consented earlier still shows ○ until something asks for it — a page cannot see the tenant's consent, only the tokens it holds.</p>`;
+  // THE LIST LIVES ON THE BUTTON, not on the page. It was a full card of
+  // three tables and it dwarfed the tool it was serving — a permissions
+  // inventory is something you consult once, not something that sits above
+  // the work. The tooltip carries every scope and what it buys, and the
+  // consent screen Microsoft shows carries them again at the moment it
+  // matters; neither costs a pixel here.
+  //
+  // ✓/○ is deliberately gone with the card rather than shrunk. It reported
+  // what THIS SESSION had acquired, which is not the same as what the
+  // tenant has consented — a page can see its own tokens and nothing else.
+  // Two states that look alike and mean different things are worse in a
+  // tooltip than in a table, so the button states what it will DO instead.
+  function grantTitle() {
+    const L = ["Ask for every permission this tool needs, in one prompt instead of four.", ""];
+    for (const g of GroupMigrate.permissionPlan()) {
+      L.push(g.label.toUpperCase() + (g.warn ? "  — WRITES TO THE TENANT" : ""));
+      for (const x of g.scopes) L.push(`  • ${x.s}\n      ${x.why}`);
+      L.push("");
+    }
+    L.push("Three of these write to the DIRECTORY rather than to Intune: they can",
+      "change who is in a group and who may administer it.", "",
+      "Reading works without this — press Read and it asks only for what reading",
+      "costs. Nothing is written until a plan has been read and confirmed.");
+    return L.join("\n");
   }
 
   async function grantAll() {
@@ -1062,11 +1060,9 @@ const GroupMigrateTool = (() => {
     say('<span class="muted">Asking Microsoft…</span>');
     try {
       await Graph.ensureScopes(GroupMigrate.allPermissions());
-      renderPerms();
-      say('<span style="color:var(--on)">✓ Granted. Nothing else in this tool will ask again this session.</span>');
+      say('<span style="color:var(--on)">✓ Granted — nothing else in this tool will ask again this session.</span>');
     } catch (e) {
       const m = GroupUse.shortErr(e, 400);
-      renderPerms();
       // The three refusals worth telling apart, because the next move
       // differs: an admin has to act, a popup has to be allowed, or the
       // person simply said no.
@@ -1553,9 +1549,11 @@ const GroupMigrateTool = (() => {
     const run1 = $("gmRun");
     if (!run1) return;
     run1.addEventListener("click", readGroups);
-    renderPerms();
     const grant = $("gmGrant");
-    if (grant) grant.addEventListener("click", grantAll);
+    if (grant) {
+      grant.title = grantTitle();
+      grant.addEventListener("click", grantAll);
+    }
     const reset = $("gmReset");
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
