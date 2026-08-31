@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10512, date: "2026-08-31", title: "T23 Restricted AUs — the vaults, and who may open them",
+    items: [
+      { kind: "new", tool: "T23", text: "RESTRICTED AUs, ported from the sister tool's own version. A restricted management administrative unit is the only place in Entra where membership can be put out of reach of every tenant-wide role: inside one, only a principal holding a role scoped to that unit may change the members, and Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. This is where Group migration files a migrated group, and this is where those units are now created and managed — list, create, rename, delete, members, scoped administrators." },
+      { kind: "new", tool: "T23", text: "THE FLAG IS IMMUTABLE AND THE EDITOR SAYS SO. Restricted management is set when a unit is created and can never be added or removed afterwards, so there is no convert: the editor changes the name and the description, and a unit under the right name without the flag has to be renamed aside and replaced." },
+      { kind: "new", tool: "T23", text: "A UNIT WITH NO SCOPED ADMINISTRATOR IS A VAULT NOBODY CAN OPEN, so creating a restricted one without naming a keyholder is refused rather than warned about — tenant-wide roles are blocked by design and the members would be unmanageable by everyone. The field arrives prefilled with the signed-in account: whoever creates the unit is its administrator unless they say otherwise." },
+      { kind: "new", tool: "T23", text: "FROZEN MEMBERS ARE FLAGGED. A role-assignable group inside a restricted unit admits only Global Administrator or Privileged Role Administrator while the unit blocks exactly those two — so nobody at all can change its members. The tag says so and names Group migration as the way out." },
+      { kind: "new", tool: "T23", text: "Deleting a unit does not delete its members; they lose the shield and become manageable tenant-wide again, all of them at once. That is why the confirmation is typed rather than clicked." },
+      { kind: "improved", tool: "T23", text: "Directory writes are not read-your-writes: a re-read straight after adding a member faithfully reports the old state, so an added row would vanish in front of you and reappear a minute later. Changes are held optimistically and re-checked with a backoff, and the tool says plainly when the directory has not caught up rather than pretending the change failed." },
+      { kind: "improved", tool: "T23", text: "None of the sister tool's Conditional Access baseline came across — no persona vaults, no policy-number routing, no group-to-persona map. That machinery answers a question TUNO does not ask, and importing it would have meant a vocabulary this tool cannot honour." },
+    ],
+  },
+  {
     build: 10511, date: "2026-08-31", title: "Examine opens over the list, and the chips filter it",
     items: [
       { kind: "improved", tool: "T22", text: "EXAMINE IS A POPUP NOW, NOT A SCREEN SWAP. Deciding a migration means comparing one group against the others, and replacing the list with the detail made that a matter of memory. The detail opens in the same modal the Group Analyzer and the RBAC tool use, with the list still underneath it. It opens before the read finishes and holds its own progress, because nine surfaces take a while and a blank screen for the duration was the reason this moved. Backdrop and Escape close it." },

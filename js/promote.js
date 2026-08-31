@@ -81,6 +81,29 @@ const PROMOTE = {
 
   items: [
     {
+      n: 118,
+      title: "T23 🛡 Restricted AUs — the vaults, and who may open them (R34)",
+      tools: ["T23", "T22"],
+      builds: [10512],
+      files: ["js/restrictedau.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      risk: "high",
+      what: "A NEW TOOL, ported from ENCA's T27 and deliberately narrower. js/restrictedau.js carries the engine (RestrictedAu) and the screen (RestrictedAuTool) in the T11 split. Create and manage RESTRICTED MANAGEMENT ADMINISTRATIVE UNITS: list with a restricted/all chip filter and a search, per-unit members and scoped role members read LAZILY on open, create, rename, delete, add/remove members, grant/revoke scoped grants over four role templates. THREE ENTRA RULES SHAPE IT: the isMemberManagementRestricted flag is IMMUTABLE, so buildPayload() sends it only at creation and the editor says there is no convert; a restricted unit with NO scoped administrator is a vault nobody can open, so creating one without naming a keyholder is REFUSED by buildPayload() and the field is prefilled from #tenantUser — whoever creates the unit is its administrator by default, and the grant happens as part of the create rather than as a follow-up somebody forgets; and a role-assignable group inside a restricted unit is 🧊 FROZEN, flagged with T22 named as the exit. Members are typed by the OData CAST (both /members/microsoft.graph.user and /microsoft.graph.group) rather than by @odata.type — T22's 10508 lesson — which is also the only way to read isAssignableToRole. All paths are v1.0's /directory/administrativeUnits. ENCA's settle() came across intact for Entra's eventual consistency: optimistic apply, 500/1200/2500ms backoff, honest report when the directory never agrees. NO NEW SCOPES: the five taken at 10508 cover it. WHAT DID NOT COME ACROSS, on purpose: the CA baseline checklist, persona vaults named from CA numbers, the group-to-persona map, the CAB-SEC/CAD-SEC prefix scans, CA policy reference counts.",
+      why: "HIGH, and for a different reason from item 117. This tool's whole subject is WHO CAN ADMINISTER WHAT, and its two irreversible-ish acts are deleting a unit — which strips the restricted shield from every member at once, and does NOT delete the members, so it reads as gentler than it is — and revoking the last scoped administrator, which leaves a unit nobody can manage. Both are guarded (typed DELETE; a plain warning when the last grant goes) but both are one click from a tenant that behaves differently. It also ACTIVATES DIRECTORY ROLES: granting a scoped administrator for a role never used in the tenant POSTs /directoryRoles to activate it first, which is a directory write most people would not expect from a grant. And it shares its AU path constant and role-grant machinery with T22, so a change here reaches both.",
+      test: [
+        "Read the units on a tenant with a mix: restricted ones sort FIRST and the chip defaults to restricted only. Switch to all units and confirm the ordinary ones appear.",
+        "Open a unit that contains a ROLE-ASSIGNABLE group: it must be tagged 🧊 frozen. That is the state T22 exists to get out of and it must be visible here.",
+        "Create a restricted unit leaving the scoped administrator blank: it must be REFUSED, naming the vault-nobody-can-open reason, and nothing may be created.",
+        "Create one with the prefilled account: afterwards the unit must list you as a scoped Groups Administrator. If the unit exists and the grant did not, the screen must say so — that half-outcome is the one worth catching.",
+        "Create a restricted unit for a role NEVER used in the tenant (pick User Administrator on a fresh tenant): confirm the role is activated and the grant lands, and that the activation is visible in the Entra audit log as a directory change.",
+        "Edit an existing unit: only name and description may change, there must be no restricted checkbox, and the dialog must say the flag is immutable.",
+        "Add a member, then IMMEDIATELY re-open the unit: the member must still be there. This is the eventual-consistency path — before settle() it would vanish and return a minute later.",
+        "Remove the LAST scoped administrator from a restricted unit: the screen must say plainly that nobody can now change its members.",
+        "Delete a unit with members, in a TEST tenant: the unit goes, the members survive, and they are manageable tenant-wide again. Confirm the second half in the portal — it is the part the wording promises.",
+        "As an account with AdministrativeUnit.Read.All but no directory role: the read must fail with the role explained, not a bare 403.",
+        "Export Markdown: every unit is read first, a frozen member is called frozen, and a unit with no scoped administrator is stated as a finding rather than left blank."
+      ],
+    },
+    {
       n: 117,
       title: "T22 🔄 Group migration — off role-assignable, into a restricted unit (R33)",
       tools: ["T22", "T11", "T02"],

@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10511"></script>
+<script src="js/popup-guard.js?v=10512"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10511">
+<link rel="stylesheet" href="css/app.css?v=10512">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10511"></script>
+<script src="js/selfhost-boot.js?v=10512"></script>
 </head>
 <body>
 
@@ -211,6 +211,10 @@
       <div class="tool" id="toolMaa">
         <div class="tool-ic">🤝</div><h3>Multi-admin approval</h3>
         <p>Whether multi-admin approval is protecting anything: every approval policy and what its type gates, the requests of a chosen window — pending, approved, rejected, and how long approval actually takes — and coverage computed the way MAA works: a gate applies to its operation type <b>tenant-wide</b>, and a category with no policy has no gate at all. A policy whose approver groups hold nobody is flagged as <b>a gate nobody can open</b>. The admins-without-approval-rights list carries the Intune-RBAC-only warning, because the Entra directory admins who can change the most are not in it. Reads only, no new permission. Export as Markdown or CSV.</p>
+      </div>
+      <div class="tool" id="toolRestrictedAu">
+        <div class="tool-ic">🛡</div><h3>Restricted AUs <span class="tag new">NEW</span></h3>
+        <p>Create and manage <b>restricted management administrative units</b> — the only place in Entra where membership can be put out of reach of every tenant-wide role. Inside one, only a principal holding a role <b>scoped to that unit</b> may change the members; Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. List every unit with its members and its scoped administrators, create one (the creator becomes its administrator by default, because a unit nobody is scoped to is a vault nobody can open), rename it, delete it, and add or remove members and grants. <b>🧊 Frozen members are flagged</b>: a role-assignable group inside a restricted unit has members nobody at all can change. Ported from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27 without its Conditional Access baseline. <b>Writes to the tenant.</b></p>
       </div>
       <div class="tool" id="toolGroupMigrate">
         <div class="tool-ic">🔄</div><h3>Group migration <span class="tag new">NEW</span></h3>
@@ -1052,6 +1056,61 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     </div>
   </section>
 
+  <!-- ============ RESTRICTED AUs (T23, R34) ============
+       ENCA's T27, ported without its Conditional Access baseline: no
+       persona vaults, no CA-number routing, no group→persona map. List,
+       create, edit, delete, members, scoped administrators. -->
+  <section id="screen-restrictedau" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🛡 Restricted AUs <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">A <b>restricted management administrative unit</b> takes its members out of reach of every tenant-wide role. Only a principal holding a role <b>scoped to that unit</b> can change them; Global Administrator and Privileged Role Administrator can manage the unit itself but not the objects inside it. This is where <a href="#tool:toolGroupMigrate">🔄 Group migration</a> files a migrated group, and this is where those units are created and managed. Ported from the sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27, without its Conditional Access baseline.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The flag is immutable.</b> <code>isMemberManagementRestricted</code> is set when a unit is created and can never be added to or removed from an existing one — so there is no "convert": the editor changes the name and the description, and a unit under the right name without the flag has to be renamed aside and replaced.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>A unit with no scoped administrator is a vault nobody can open.</b> Tenant-wide roles are blocked by design, so somebody must hold a role scoped to it or its members are unmanageable by everyone. New units therefore get one at creation, defaulted to <b>you</b> — whoever creates the unit is its administrator unless you say otherwise.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>🧊 Frozen members are flagged.</b> A role-assignable group inside a restricted unit admits only GA/PRA while the unit blocks exactly those two, so nobody at all can change its members. 🔄 Group migration is the way out.</p>
+    </div>
+
+    <div class="list-card wi-form">
+      <p class="mini muted" style="margin:0 0 4px">Reads every administrative unit in the tenant — <code>AdministrativeUnit.Read.All</code>. Members and administrators are read per unit, when you open one. Graph gates these on your <b>directory role</b> as well as on consent: <b>Privileged Role Administrator</b> is the least privileged role that can manage restricted units.</p>
+      <div class="tb-actions" style="margin-top:14px">
+        <button class="btn primary" id="raRun">🛡 Read the administrative units</button>
+        <button class="btn" id="raNew">＋ New restricted AU</button>
+        <button class="btn" id="raMd">⭳ Markdown</button>
+      </div>
+      <div id="raProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="raBody" style="margin-top:14px"></div>
+
+    <div class="modal-bg" id="raEditModal">
+      <div class="modal" style="max-width:560px">
+        <h3 id="raEditTitle">New restricted administrative unit</h3>
+        <label style="display:block;margin:12px 0 10px"><span class="mini">Display name</span>
+          <input id="raName" maxlength="256" autocomplete="off" spellcheck="false" style="width:100%"></label>
+        <label style="display:block;margin-bottom:10px"><span class="mini">Description</span>
+          <textarea id="raDesc" rows="2" spellcheck="false" style="width:100%"></textarea></label>
+        <div id="raEditFlag"></div>
+        <div id="raEditWarn" style="margin-top:12px"></div>
+        <div class="tb-actions" style="margin-top:14px">
+          <button class="btn primary" id="raEditSave">Save</button>
+          <button class="btn" id="raEditCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="raDelModal">
+      <div class="modal" style="max-width:520px">
+        <h3 style="margin:0 0 8px">Delete administrative unit</h3>
+        <p class="mini" id="raDelDesc" style="margin:0 0 10px"></p>
+        <p class="mini muted" style="margin:0 0 10px">Deleting the unit does <b>not</b> delete its members — they lose the restricted shield and become manageable tenant-wide again. That is the change worth pausing over: it happens to every member at once. Type <b>DELETE</b> to confirm.</p>
+        <input id="raDelConfirm" autocomplete="off" spellcheck="false" placeholder="DELETE" style="width:100%">
+        <div class="tb-actions" style="margin-top:14px">
+          <button class="btn" id="raDelGo" disabled>Delete</button>
+          <button class="btn" id="raDelCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ ASSIGNMENT WHAT-IF (T08) ============
        The question asked while a change is still cheap to reverse. The
        endpoint list is GroupUse.SOURCES — never a second copy. -->
@@ -1330,6 +1389,12 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R02</span> 📊 Secure Score visualizer <span class="tag grant">live · beta 10500</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">The tenant's Microsoft Secure Score over Graph — <code>security/secureScores</code> and the control profiles — as the card promised: score over time, per-category breakdown with Microsoft's own comparison figures as ticks on each bar, what changed across the window, and <b>the improvement actions that buy the most points for the least user pain</b>. That last ordering is <b>TUNO's, not Microsoft's</b>, and says so wherever it renders: points still available weighted down by the <code>userImpact</code> and <code>implementationCost</code> Microsoft publishes, with a control declaring neither treated as <i>moderate</i> — calling an unstated impact low is how a quick win becomes Monday's incident. Markdown for the monthly report, CSV for the controls and the history. <code>SecurityEvents.Read.All</code> on the click, reads only.</p>
             <p class="mini" style="margin:6px 0 0"><b>Two things the card did not promise.</b> <b>Graph keeps about ninety days</b>, so "what changed since last month" runs out at a quarter — the tool exports a versioned <b>snapshot</b> carrying the readings <i>and the catalogue they were read under</i>, and uploads them back, so the timeline reaches as far back as somebody kept files. Uploaded points are drawn as their own marks, a same-day clash resolves to the live reading and says how many it dropped, and a snapshot from a different tenant is <b>refused by tenant id</b> rather than merged with a caveat. And <b>🧭 T20 correlates against it</b>: Secure Score reads the estate, the posture checks read policy, and a check that passes while Microsoft still holds the points is the finding neither tool could produce alone.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R34</span> 🛡 Restricted AUs <span class="tag grant">live · beta 10512</span> <span class="tag new">BETA</span></h4>
+            <p class="mini" style="margin:0">The other half of <span class="rm-ref">R33</span>. A <b>restricted management administrative unit</b> is the only place in Entra where membership can be put out of reach of every tenant-wide role — inside one, only a principal holding a role <b>scoped to that unit</b> may change the members, and Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. <span class="rm-ref">R33</span> files migrated groups into these; this creates and manages them. List, create, rename, delete, members, scoped administrators.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Three of Entra's rules, not ours, shape the screen.</b> The restricted flag is <b>immutable</b>, so there is no convert and the editor says so. A unit with <b>no scoped administrator is a vault nobody can open</b> — creating one without naming a keyholder is refused, and the field is prefilled with you, because whoever creates the unit is its administrator by default. And a <b>role-assignable group inside a restricted unit is 🧊 frozen</b>: it admits only GA/PRA, the unit blocks exactly those two, and nobody at all can change its members — <span class="rm-ref">R33</span> is the way out.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Ported from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27 and deliberately narrower.</b> ENCA's version is wound through its Conditional Access baseline — persona vaults named from CA numbers, a baseline checklist, a group-to-persona map, prefix scans over its own naming. None of that came across: it answers a question TUNO does not ask, and importing it would have meant a vocabulary this tool cannot honour.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R33</span> 🔄 Group migration <span class="tag grant">live · beta 10511</span> <span class="tag new">BETA</span></h4>
@@ -1844,42 +1909,43 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10511"></script>
-<script src="js/selfhost.js?v=10511"></script>
-<script src="js/version.js?v=10511"></script>
-<script src="js/promote.js?v=10511"></script>
-<script src="js/authConfig.js?v=10511"></script>
-<script src="js/changelog.js?v=10511"></script>
-<script src="js/msappcatalog.js?v=10511"></script>
-<script src="js/demo.js?v=10511"></script>
-<script src="js/graph.js?v=10511"></script>
-<script src="js/suggest.js?v=10511"></script>
-<script src="js/progress.js?v=10511"></script>
-<script src="js/groupuse.js?v=10511"></script>
-<script src="js/audit.js?v=10511"></script>
-<script src="js/backup.js?v=10511"></script>
-<script src="js/document.js?v=10511"></script>
-<script src="js/overview.js?v=10511"></script>
-<script src="js/devicewhy.js?v=10511"></script>
-<script src="js/whatif.js?v=10511"></script>
-<script src="js/health.js?v=10511"></script>
-<script src="js/settingsearch.js?v=10511"></script>
-<script src="js/conflict.js?v=10511"></script>
-<script src="js/compliance.js?v=10511"></script>
-<script src="js/filterrules.js?v=10511"></script>
-<script src="js/filters.js?v=10511"></script>
-<script src="js/restore.js?v=10511"></script>
-<script src="js/assignedit.js?v=10511"></script>
-<script src="js/groupmigrate.js?v=10511"></script>
-<script src="js/roles.js?v=10511"></script>
-<script src="js/defender.js?v=10511"></script>
-<script src="js/endpointsec.js?v=10511"></script>
-<script src="js/report.js?v=10511"></script>
-<script src="js/securescore.js?v=10511"></script>
-<script src="js/endpointposture.js?v=10511"></script>
-<script src="js/maa.js?v=10511"></script>
-<script src="js/laps.js?v=10511"></script>
-<script src="js/applocker.js?v=10511"></script>
-<script src="js/app.js?v=10511"></script>
+<script src="js/branding.js?v=10512"></script>
+<script src="js/selfhost.js?v=10512"></script>
+<script src="js/version.js?v=10512"></script>
+<script src="js/promote.js?v=10512"></script>
+<script src="js/authConfig.js?v=10512"></script>
+<script src="js/changelog.js?v=10512"></script>
+<script src="js/msappcatalog.js?v=10512"></script>
+<script src="js/demo.js?v=10512"></script>
+<script src="js/graph.js?v=10512"></script>
+<script src="js/suggest.js?v=10512"></script>
+<script src="js/progress.js?v=10512"></script>
+<script src="js/groupuse.js?v=10512"></script>
+<script src="js/audit.js?v=10512"></script>
+<script src="js/backup.js?v=10512"></script>
+<script src="js/document.js?v=10512"></script>
+<script src="js/overview.js?v=10512"></script>
+<script src="js/devicewhy.js?v=10512"></script>
+<script src="js/whatif.js?v=10512"></script>
+<script src="js/health.js?v=10512"></script>
+<script src="js/settingsearch.js?v=10512"></script>
+<script src="js/conflict.js?v=10512"></script>
+<script src="js/compliance.js?v=10512"></script>
+<script src="js/filterrules.js?v=10512"></script>
+<script src="js/filters.js?v=10512"></script>
+<script src="js/restore.js?v=10512"></script>
+<script src="js/assignedit.js?v=10512"></script>
+<script src="js/restrictedau.js?v=10512"></script>
+<script src="js/groupmigrate.js?v=10512"></script>
+<script src="js/roles.js?v=10512"></script>
+<script src="js/defender.js?v=10512"></script>
+<script src="js/endpointsec.js?v=10512"></script>
+<script src="js/report.js?v=10512"></script>
+<script src="js/securescore.js?v=10512"></script>
+<script src="js/endpointposture.js?v=10512"></script>
+<script src="js/maa.js?v=10512"></script>
+<script src="js/laps.js?v=10512"></script>
+<script src="js/applocker.js?v=10512"></script>
+<script src="js/app.js?v=10512"></script>
 </body>
 </html>
