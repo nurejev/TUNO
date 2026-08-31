@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10507, date: "2026-08-31", title: "Administrative units live under /directory on v1.0",
+    items: [
+      { kind: "fixed", tool: "T22", text: "THE TOOL COULD NOT READ ANYTHING. Every administrative-unit call came back \"Resource not found for the segment 'administrativeUnits'\" on the first real tenant it met — before it could list a single group. The sister tool it was ported from talks to the beta endpoint, where an administrative unit is a top-level collection; TUNO talks to v1.0, where the resource is nested under the directory. The port carried the path across along with the reasoning." },
+      { kind: "fixed", tool: "T22", text: "FIXED BY USING THE RIGHT PATH, NOT BY MOVING TO BETA. Everything about the resource is generally available on v1.0 — including the restricted-management flag that is set at creation and can never be changed — so a directory WRITE had no business reaching for a preview endpoint. One constant now carries the path for the unit list, the unit create, the member reference and the scoped-role grant, so there is a single place to be wrong. The membership read also takes the cast form v1.0 documents, which is not the one that works elsewhere in the app." },
+      { kind: "improved", tool: "T22", text: "The headless suite now REFUSES the old path the way the tenant did, and asserts every administrative-unit call the tool makes. A fake that answers a path which does not exist is how this shipped in the first place." },
+    ],
+  },
+  {
     build: 10506, date: "2026-08-28", title: "T22 Group migration — off role-assignable, into a restricted unit",
     items: [
       { kind: "new", tool: "T22", text: "GROUP MIGRATION, ported from the sister tool ENCA's seventh CA-groups step. A role-assignable security group becomes a plain one inside a restricted management administrative unit. Role-assignable was only ever a way to keep membership away from tenant-wide group administrators — a restricted unit does that and lets you NAME who may manage the group, without the 500-per-tenant cap, the ban on dynamic membership, or the loss of nesting control." },

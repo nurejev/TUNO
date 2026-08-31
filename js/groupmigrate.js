@@ -80,6 +80,23 @@ const GroupMigrate = (() => {
     ...SCOPES.groupWrite, ...SCOPES.rolesRead, ...SCOPES.auWrite, ...SCOPES.roleWrite,
   ])];
 
+  // ---------------------------------------------- where AUs actually live ---
+  // ENCA talks to /beta everywhere, where an administrative unit is a
+  // top-level `/administrativeUnits`. TUNO talks to v1.0, where it is NOT:
+  // the resource is nested under `/directory`, and the flat path answers
+  //
+  //   Resource not found for the segment 'administrativeUnits'
+  //
+  // which is what beta 10506 did on a real tenant the moment the tool read
+  // the units. Everything else about the resource is GA on v1.0 —
+  // isMemberManagementRestricted included, immutable and settable at
+  // creation — so the fix is the right path, not a jump to beta for a
+  // directory write. One constant, so there is one place to be wrong.
+  //   list/create   /directory/administrativeUnits
+  //   add member    /directory/administrativeUnits/{id}/members/$ref
+  //   scoped role   /directory/administrativeUnits/{id}/scopedRoleMembers
+  const AU = "/directory/administrativeUnits";
+
   // Groups Administrator, scoped to the unit. The only template offered:
   // this tool creates a unit to hold GROUPS, and the role that manages group
   // membership at unit scope is this one. Anything else is a decision for
@@ -194,7 +211,7 @@ const GroupMigrate = (() => {
   // would leave the group unprotected while looking done.
   async function restrictedUnits() {
     const aus = await Graph.readAll(
-      "/administrativeUnits?$select=id,displayName,description,isMemberManagementRestricted&$top=999",
+      `${AU}?$select=id,displayName,description,isMemberManagementRestricted&$top=999`,
       { scopes: Graph.SCOPES.directory, retry: true });
     return {
       restricted: aus.filter((a) => a.isMemberManagementRestricted === true)
@@ -210,8 +227,10 @@ const GroupMigrate = (() => {
   // change its members. A read failure is REPORTED, never taken as "no".
   async function unitsHolding(groupId) {
     try {
+      // The `$/` cast is the form v1.0 documents for memberOf — unlike the
+      // bare cast that works on /transitiveMembers elsewhere in TUNO.
       const aus = await Graph.readAll(
-        `/groups/${encodeURIComponent(groupId)}/memberOf/microsoft.graph.administrativeUnit?$select=id,displayName,isMemberManagementRestricted`,
+        `/groups/${encodeURIComponent(groupId)}/memberOf/$/microsoft.graph.administrativeUnit?$select=id,displayName,isMemberManagementRestricted`,
         { scopes: Graph.SCOPES.directory, retry: true });
       return { ok: true, units: aus.filter((a) => a.isMemberManagementRestricted === true)
         .map((a) => ({ id: a.id, name: a.displayName || a.id })) };
@@ -556,7 +575,7 @@ const GroupMigrate = (() => {
         let unitId = p.unitId;
         if (!unitId) {
           status(`Creating the restricted unit “${p.unitName}”…`);
-          const au = await Graph.post("/administrativeUnits", {
+          const au = await Graph.post(AU, {
             displayName: p.unitName,
             description: `Restricted management administrative unit created by ${(typeof BRANDING !== "undefined" && BRANDING.name) || "TUNO"} to hold the migrated group “${p.name}”. Membership changes require a role scoped to this administrative unit.`,
             isMemberManagementRestricted: true,
@@ -578,7 +597,7 @@ const GroupMigrate = (() => {
         }
         result.unitId = unitId;
         status(`Adding “${p.name}” to “${p.unitName}”…`);
-        await Graph.post(`/administrativeUnits/${encodeURIComponent(unitId)}/members/$ref`,
+        await Graph.post(`${AU}/${encodeURIComponent(unitId)}/members/$ref`,
           { "@odata.id": `https://graph.microsoft.com/v1.0/groups/${created.id}` },
           { scopes: SCOPES.auWrite });
         result.inUnit = true;
@@ -629,7 +648,7 @@ const GroupMigrate = (() => {
       : await Graph.get(`/users/${encodeURIComponent(who)}?$select=id,displayName,userPrincipalName`, { scopes: Graph.SCOPES.directory });
     if (!user || !user.id) throw new Error(`No user matches “${who}”.`);
     const roleId = await groupsAdminRoleId();
-    return Graph.post(`/administrativeUnits/${encodeURIComponent(unitId)}/scopedRoleMembers`, {
+    return Graph.post(`${AU}/${encodeURIComponent(unitId)}/scopedRoleMembers`, {
       roleId,
       roleMemberInfo: { id: user.id },
     }, { scopes: SCOPES.roleWrite });
@@ -744,7 +763,7 @@ const GroupMigrate = (() => {
   }
 
   return {
-    SCOPES, ALL_SCOPES, UNIT_PREFIX, ARCHIVE_SUFFIX, MIGRATED_TAG,
+    SCOPES, ALL_SCOPES, UNIT_PREFIX, AU, ARCHIVE_SUFFIX, MIGRATED_TAG,
     GROUPS_ADMIN_TEMPLATE,
     segments, tenantPrefix, unitNameFor, migratedName, mailNickname,
     candidates, restrictedUnits, unitsHolding, heldRoles, references, memberIds,
