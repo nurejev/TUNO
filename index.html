@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10516"></script>
+<script src="js/popup-guard.js?v=10517"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10516">
+<link rel="stylesheet" href="css/app.css?v=10517">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10516"></script>
+<script src="js/selfhost-boot.js?v=10517"></script>
 </head>
 <body>
 
@@ -138,7 +138,7 @@
       </div>
       <div class="tool" id="toolPosture">
         <div class="tool-ic">🧭</div><h3>Endpoint security posture <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
-        <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
+        <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed, and a statement that only <b>partly</b> reaches the fleet says what happens to the rest: the remaining devices counted against the fleet, or <b>nothing is staged to widen this</b> where that is the truth; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
@@ -1918,43 +1918,43 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10516"></script>
-<script src="js/selfhost.js?v=10516"></script>
-<script src="js/version.js?v=10516"></script>
-<script src="js/promote.js?v=10516"></script>
-<script src="js/authConfig.js?v=10516"></script>
-<script src="js/changelog.js?v=10516"></script>
-<script src="js/msappcatalog.js?v=10516"></script>
-<script src="js/demo.js?v=10516"></script>
-<script src="js/graph.js?v=10516"></script>
-<script src="js/suggest.js?v=10516"></script>
-<script src="js/progress.js?v=10516"></script>
-<script src="js/groupuse.js?v=10516"></script>
-<script src="js/audit.js?v=10516"></script>
-<script src="js/backup.js?v=10516"></script>
-<script src="js/document.js?v=10516"></script>
-<script src="js/overview.js?v=10516"></script>
-<script src="js/devicewhy.js?v=10516"></script>
-<script src="js/whatif.js?v=10516"></script>
-<script src="js/health.js?v=10516"></script>
-<script src="js/settingsearch.js?v=10516"></script>
-<script src="js/conflict.js?v=10516"></script>
-<script src="js/compliance.js?v=10516"></script>
-<script src="js/filterrules.js?v=10516"></script>
-<script src="js/filters.js?v=10516"></script>
-<script src="js/restore.js?v=10516"></script>
-<script src="js/assignedit.js?v=10516"></script>
-<script src="js/restrictedau.js?v=10516"></script>
-<script src="js/groupmigrate.js?v=10516"></script>
-<script src="js/roles.js?v=10516"></script>
-<script src="js/defender.js?v=10516"></script>
-<script src="js/endpointsec.js?v=10516"></script>
-<script src="js/report.js?v=10516"></script>
-<script src="js/securescore.js?v=10516"></script>
-<script src="js/endpointposture.js?v=10516"></script>
-<script src="js/maa.js?v=10516"></script>
-<script src="js/laps.js?v=10516"></script>
-<script src="js/applocker.js?v=10516"></script>
-<script src="js/app.js?v=10516"></script>
+<script src="js/branding.js?v=10517"></script>
+<script src="js/selfhost.js?v=10517"></script>
+<script src="js/version.js?v=10517"></script>
+<script src="js/promote.js?v=10517"></script>
+<script src="js/authConfig.js?v=10517"></script>
+<script src="js/changelog.js?v=10517"></script>
+<script src="js/msappcatalog.js?v=10517"></script>
+<script src="js/demo.js?v=10517"></script>
+<script src="js/graph.js?v=10517"></script>
+<script src="js/suggest.js?v=10517"></script>
+<script src="js/progress.js?v=10517"></script>
+<script src="js/groupuse.js?v=10517"></script>
+<script src="js/audit.js?v=10517"></script>
+<script src="js/backup.js?v=10517"></script>
+<script src="js/document.js?v=10517"></script>
+<script src="js/overview.js?v=10517"></script>
+<script src="js/devicewhy.js?v=10517"></script>
+<script src="js/whatif.js?v=10517"></script>
+<script src="js/health.js?v=10517"></script>
+<script src="js/settingsearch.js?v=10517"></script>
+<script src="js/conflict.js?v=10517"></script>
+<script src="js/compliance.js?v=10517"></script>
+<script src="js/filterrules.js?v=10517"></script>
+<script src="js/filters.js?v=10517"></script>
+<script src="js/restore.js?v=10517"></script>
+<script src="js/assignedit.js?v=10517"></script>
+<script src="js/restrictedau.js?v=10517"></script>
+<script src="js/groupmigrate.js?v=10517"></script>
+<script src="js/roles.js?v=10517"></script>
+<script src="js/defender.js?v=10517"></script>
+<script src="js/endpointsec.js?v=10517"></script>
+<script src="js/report.js?v=10517"></script>
+<script src="js/securescore.js?v=10517"></script>
+<script src="js/endpointposture.js?v=10517"></script>
+<script src="js/maa.js?v=10517"></script>
+<script src="js/laps.js?v=10517"></script>
+<script src="js/applocker.js?v=10517"></script>
+<script src="js/app.js?v=10517"></script>
 </body>
 </html>

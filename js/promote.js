@@ -81,6 +81,25 @@ const PROMOTE = {
 
   items: [
     {
+      n: 122,
+      title: "A partly-enforced brief statement says what happens to the rest of the fleet",
+      tools: ["TUNO", "T20"],
+      builds: [10517],
+      files: ["js/endpointposture.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      risk: "medium",
+      what: "rolloutLine() computed its reach over the STAGED half of a statement's policies and returned null when that half was empty. So a statement headed \"partly enforced on ~38 of 9947 (0.4% of the fleet) · 9909 not yet targeted\" carried no at-rollout line at all, and the brief reported a hole without reporting its plan. Four changes, all inside the DOM-free engine. (1) partlyEnforced(reach, deviceCount) is extracted as the ONE predicate for the claim: a fraction needs a denominator, so no fleet size means no claim; a filtered tenant-wide target whose rule could not be evaluated is partial (\"at most all N\" is not all N); an unreadable member count is unknown, not partial. (2) verdictWord() now takes the reach OBJECT instead of a bare number and reads that predicate — which also fixes a filter-capped sum at or above the fleet being headed \"enforced now\". (3) widenLine() writes the missing sentence in three shapes: a countable remainder quotes it against the fleet, a filter-narrowed statement names the FILTER as the cause and refuses to quote a remainder a browser cannot compute, and an unreadable reach says so. (4) afterRolloutClause() fixes the number a live partial WITH a staged policy was being given: the destination line stated the staged policy's own target, but the reader's question is coverage AFTER rollout, which is the union of two sets whose membership nobody read — so it is a range (at least the larger, at most the sum, capped at the fleet) and is refused outright when either side is a filter ceiling or a floored sum. Option A of a three-option round, Mihai's pick: the line lands IN PLACE under Already enforced today rather than repeating the statement in the rollout section or splitting a third heading.",
+      why: "MEDIUM. Nothing is removed and no existing sentence changes wording, but this writes a NEW claim into a communications draft that goes to end users, and the claim is a negative one — \"nothing is staged for the remaining 9852\" is a statement about the rollout plan, not about a policy, and it is read by people who will act on it. The three shapes exist so the sentence is never quoting a number the arithmetic cannot support: the filter case in particular must not print a remainder, because a filter that could not be evaluated leaves out an uncountable set. The verdictWord() signature change is internal to the file and the only caller is enforcedLine(); both are exported for the suite and neither is used by another tool. One implementation still: the Markdown, the Word export and the pane all read the same rolloutLine(), so the three renderers cannot drift.",
+      test: [
+        "T20 → read → 🗣 Impact brief. Every statement under Already enforced today that is headed \"partly enforced\" must now also carry a 🎯 line. A statement headed \"enforced now\" with nothing staged must carry NONE — there is nothing to say.",
+        "A partial statement whose reach came from GROUPS: the 🎯 line quotes the same remainder the 📟 line does (9852 of 9947 under 9852 not yet targeted). If the two numbers disagree, stop — they read the same deviceReach call and must not.",
+        "A partial statement narrowed by an assignment FILTER: the line must name the filter, say the filter is what narrows it rather than the assignment, and quote NO remainder count.",
+        "A partial statement that DOES have a staged policy: it keeps its old destination sentence (\"the fleet total is the intention, not a reading\", or the group target) and must NOT get the NO CHANGE line.",
+        "Where the staged policy targets groups rather than the fleet, the line ends with a range — \"with the 38 enforced today that is 400–438 of 9947 after rollout\". Check the range brackets the two numbers rather than adding them blindly past the fleet size.",
+        "Export the Markdown and the Word brief: the same 🎯 lines, in the same section, in both.",
+        "Demo mode: the demo tenant has no partly-enforced statement with an unstaged remainder, so it does NOT exercise this. Verify on a real tenant — or stage a demo fixture in a separate build, not this one.",
+      ],
+    },
+    {
       n: 121,
       title: "The default field look becomes overridable — T01's version token is 72px again",
       tools: ["TUNO", "T01"],

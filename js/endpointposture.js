@@ -478,11 +478,28 @@ const EndpointPosture = (() => {
   // PARTIAL IS A CLAIM ABOUT THE FLEET, so it is only made when the fleet
   // size is known. Where it is not, the line says reach without pretending
   // to a fraction it cannot compute.
+  //
+  // ONE PREDICATE, NOT TWO (10517). The heading word and the at-rollout
+  // line have to agree about what "partly" means, or a statement heads
+  // itself "partly enforced" and then says nothing about the rest of the
+  // fleet — which is the whole complaint. partlyEnforced() is the single
+  // answer; verdictWord() picks a word from it and widenLine() writes the
+  // rollout sentence from the same call.
   const HALF = "partly enforced";
   const FULL = "enforced now";
-  function verdictWord(reached, deviceCount) {
-    if (deviceCount == null || reached == null) return FULL;
-    return reached >= deviceCount ? FULL : HALF;
+  function partlyEnforced(r, deviceCount) {
+    if (!r || !r.live) return false;
+    // A FRACTION NEEDS A DENOMINATOR. Without the fleet size there is no
+    // claim to make, so none is made — same rule as everywhere else here.
+    if (deviceCount == null) return false;
+    // A filtered wide target: "at most all N" is not all N.
+    if (r.wide && !r.evaluated) return !!r.cap;
+    // Nothing measured is unknown, not partial.
+    if (r.reached == null) return false;
+    return !!r.cap || r.reached < deviceCount;
+  }
+  function verdictWord(r, deviceCount) {
+    return partlyEnforced(r, deviceCount) ? HALF : FULL;
   }
 
   function enforcedLine(r, deviceCount) {
@@ -514,12 +531,57 @@ const EndpointPosture = (() => {
     const floor = r.unknownGroups && !r.cap ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
     const pctBit = (deviceCount && r.reached != null && r.reached < deviceCount)
       ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : "";
-    return `${verdictWord(r.reached, deviceCount)} on ${verb}${r.reached} of ${D} enrolled Windows devices${pctBit}${miss} — targets, not check-ins${floor}${nar}`;
+    return `${verdictWord(r, deviceCount)} on ${verb}${r.reached} of ${D} enrolled Windows devices${pctBit}${miss} — targets, not check-ins${floor}${nar}`;
+  }
+
+  // COVERAGE AFTER ROLLOUT, BOUNDED ON BOTH SIDES (10517). Where a live
+  // statement is only partly enforced AND its staged policy is itself
+  // partial, the destination number answers the wrong question: the
+  // reader wants what the fleet looks like AFTER, which is the union of
+  // today's devices and the staged target. Nobody here has read either
+  // membership, so the union is a RANGE — at least the larger of the two,
+  // at most their sum — and it is stated as one rather than resolved in
+  // the flattering direction. A bound built on a bound is refused
+  // outright: if either side is a filter ceiling or an unread count,
+  // there is no range to state.
+  function afterRolloutClause(today, plan, deviceCount) {
+    if (deviceCount == null || !today || !plan) return "";
+    if (today.reached == null || plan.reached == null) return "";
+    if (today.cap || plan.cap || today.unknownGroups || plan.unknownGroups) return "";
+    if (plan.reached >= deviceCount) return "";      // the destination is the fleet — nothing to add
+    const lo = Math.max(plan.reached, today.reached);
+    const hi = Math.min(deviceCount, plan.reached + today.reached);
+    if (lo >= hi) return "";
+    return ` · with the ${today.reached} enforced today that is ${lo}–${hi} of ${deviceCount} after rollout — the two sets may overlap and no membership was read`;
+  }
+
+  // NOTHING STAGED IS ALSO AN ANSWER (10517, Mihai's ask). A statement
+  // headed "partly enforced on 0.4% of the fleet · 9909 not yet targeted"
+  // used to go silent about those 9909, because rolloutLine returned null
+  // when no policy was staged behind it. A rollout brief that reports a
+  // hole and not its plan is worse than one that reports neither — so the
+  // line is written, and it says what is true: nothing widens this.
+  function widenLine(r, deviceCount) {
+    const f = (r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter";
+    // A FILTER-NARROWED STATEMENT HAS NO REMAINDER TO QUOTE. The devices
+    // it leaves out are the ones the rule does not match, and a browser
+    // that could not evaluate the rule cannot count them either.
+    if (r.cap) return `at rollout: NO CHANGE — ⚑ ${f} is what narrows this, not the assignment, and nothing is staged to widen it; how many devices it leaves out cannot be computed here`;
+    if (r.missing != null && r.missing > 0) {
+      return `at rollout: NO CHANGE — nothing is staged for the remaining ${r.missing} of ${deviceCount} enrolled Windows devices${r.unknownGroups ? " (some group member counts could not be read, so that remainder is an upper bound)" : ""}, so this reaches the same machines after rollout as it does today`;
+    }
+    return `at rollout: NO CHANGE — nothing is staged to widen this, and how many devices it leaves out could not be read`;
   }
 
   function rolloutLine(item, counts, deviceCount, devices) {
     const r = deviceReach(item.docs || [], counts, deviceCount, { state: "planned", devices });
-    if (!r.live) return null;
+    const today = item.liveNow ? deviceReach(item.docs || [], counts, deviceCount, { devices }) : null;
+    const partToday = partlyEnforced(today, deviceCount);
+    // Nothing staged: a partial statement still owes the reader a
+    // sentence about the rest of the fleet. A statement already enforced
+    // everywhere owes nothing, and says nothing.
+    if (!r.live) return partToday ? widenLine(today, deviceCount) : null;
+    const after = partToday ? afterRolloutClause(today, r, deviceCount) : "";
     const nar = r.evaluated
       ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the filter"} was evaluated against today's inventory`
       : r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller` : "";
@@ -530,8 +592,8 @@ const EndpointPosture = (() => {
       // matching a tenth of them is the worst sentence a rollout mail can
       // carry: technically true, and read as everybody.
       if (r.evaluated && deviceCount != null) {
-        const part = r.reached < deviceCount;
-        return `at rollout: ${part ? "STILL PARTIAL — " : ""}targets All devices, ${r.reached} of ${deviceCount} enrolled Windows devices${part ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}`;
+        const partialDest = r.reached < deviceCount;
+        return `at rollout: ${partialDest ? "STILL PARTIAL — " : ""}targets All devices, ${r.reached} of ${deviceCount} enrolled Windows devices${partialDest ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}${after}`;
       }
       return deviceCount == null
         ? `at rollout: targets All devices (the fleet size could not be read)${nar}`
@@ -568,8 +630,8 @@ const EndpointPosture = (() => {
     // The DESTINATION is partial too, and that is worth saying twice: a
     // rollout ending at 312 of 9964 devices is a pilot, and "at rollout:
     // targets 2 groups" lets a reader assume otherwise.
-    const part = deviceCount != null && r.reached != null && r.reached < deviceCount;
-    return `at rollout: ${part ? "STILL PARTIAL — " : ""}targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${part ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}`;
+    const partialDest = deviceCount != null && r.reached != null && r.reached < deviceCount;
+    return `at rollout: ${partialDest ? "STILL PARTIAL — " : ""}targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${partialDest ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}${after}`;
   }
 
   // THE IT APPENDIX (R02). The brief above is END-USER language — it is
@@ -1280,6 +1342,7 @@ ${body.join("\n")}
     NODES, countsFrom, nodeById, classify, intentNode,
     RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
     isInterim, stateWordOf, appctlMode, enforcedLine, verdictWord,
+    partlyEnforced, widenLine, afterRolloutClause,
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine, widePredicate,
     STATE_WORD, stateOf,
@@ -1615,7 +1678,7 @@ const EndpointPostureTool = (() => {
       <div style="display:flex;gap:10px;align-items:flex-start"><h4 style="margin:0 0 4px">🗣 What people will notice on their device</h4>
         <div class="spacer" style="flex:1"></div>
         <button class="btn" type="button" data-epbrief="1">👁 Read the full brief</button></div>
-      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
+      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. 📟 is what is enforced today and 🎯 is what changes at rollout — a statement reaching only part of the fleet carries both, and says plainly when nothing is staged to widen it. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
       ${live.length ? `<h4 class="ep-h">Already enforced today</h4>${live.map(item).join("")}` : ""}
       ${later.length ? `<h4 class="ep-h">At rollout — these reach nobody yet</h4>${later.map(item).join("")}` : ""}
       ${stops.length ? `<h4 class="ep-h" style="color:var(--off)">Stops at rollout — interim only, no staged replacement</h4>

@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10517, date: "2026-08-31", title: "A partly-enforced protection now says what happens to everyone else",
+    items: [
+      { kind: "fixed", tool: "T20", text: "THE IMPACT BRIEF WENT SILENT ABOUT THE REST OF THE FLEET. A statement headed \"partly enforced on ~38 of 9947 devices · 9909 not yet targeted\" then said nothing at all about those 9909, because the at-rollout line was only written when a policy was staged behind the statement. A rollout communication that reports a hole and not its plan is worse than one that reports neither." },
+      { kind: "improved", tool: "T20", text: "Every partly-enforced statement now carries an at-rollout line, in place under Already enforced today. Where the remainder can be counted it is quoted against the fleet: nothing is staged for the remaining 9852 of 9947, so this reaches the same machines after rollout as it does today." },
+      { kind: "improved", tool: "T20", text: "Where an assignment FILTER is what narrows the statement, the line says so — the filter is the cause, not the assignment, and nothing is staged to widen it — and deliberately quotes no remainder, because a filter rule that could not be evaluated leaves out a set nobody can count from a browser." },
+      { kind: "fixed", tool: "T20", text: "Coverage AFTER rollout is now a range rather than the wrong number. A partly-enforced statement whose staged policy is itself partial was being given the staged policy's own target, which answers a different question — the union of today's devices and the destination is a set whose membership nobody read, so the line states at least the larger and at most the sum, and refuses to state a range at all when either side is a filter ceiling or an unreadable count." },
+      { kind: "improved", tool: "T20", text: "The heading word and the new line now read one predicate, so they cannot disagree about what partly means. A side effect worth naming: a filter-capped sum that happened to land at or above the fleet size used to be headed enforced now, and no longer is." },
+    ],
+  },
+  {
     build: 10516, date: "2026-08-31", title: "A default field look that can actually be overridden",
     items: [
       { kind: "fixed", tool: "T01", text: "THE VERSION TOKEN BOX WAS THE WIDTH OF THE PAGE. In the Get it into Intune step it is an inline field in the middle of a sentence — the profile name, then the version, then the grouping — and it had been stretching to the full width and wrapping that sentence into three lines around itself." },
