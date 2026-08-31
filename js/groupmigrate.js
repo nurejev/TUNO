@@ -1003,10 +1003,15 @@ const GroupMigrateTool = (() => {
   let adminIn = "";               // the typed scoped administrator
   let unitsError = "";            // the unit read failed; the group list still stands
   let search = "";                // the group filter — local, over the list in hand
+  let filter = "all";             // which chip is in force
   const archSel = new Set();      // archived groups ticked for cleanup
   let archRefs = null;            // referencesMany() for the ticked set, or null
 
   const prog = (m, n, of) => TunoProgress.show("gmBody", "gmProg", m, n, of);
+  // Inside the modal there is no separate progress line and no results to
+  // avoid covering — the body IS the one thing being replaced — so it writes
+  // straight in rather than going through TunoProgress's empty-body rule.
+  const mprog = (m) => { const b = $("gmModalBody"); if (b) b.innerHTML = `<p class="mini muted" style="margin:0">${esc(m)}</p>`; };
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -1128,8 +1133,37 @@ const GroupMigrateTool = (() => {
         A permission the tenant has never consented cannot be acquired by asking again — an administrator has to grant it once for the app.</p>` : ""}</div>`;
   }
 
+  // ---- the chips, and which of them are FILTERS ---------------------------
+  // A chip that can narrow the list is a button; a chip that is only a count
+  // is not. T19's cards double as filters and that is the pattern here — but
+  // only where a filter is possible from what the LIST read knows. The
+  // restricted-unit count and the detected prefix are facts about the
+  // tenant, not properties of a group, and dressing them as filters would
+  // promise a narrowing that cannot happen.
+  const FILTERS = {
+    all: { label: "role-assignable", of: (live) => live },
+    dynamic: { label: "⚠ carries a membership rule", of: (live) => live.filter((g) => g.dynamic) },
+    nodest: { label: "no destination worked out", of: (live) => live.filter((g) => !g.suggestedUnit) },
+  };
+  function chipsHtml(live, archived) {
+    const out = [];
+    for (const [k, f] of Object.entries(FILTERS)) {
+      const n = f.of(live).length;
+      // A filter that would empty the list is shown only when it is the one
+      // in force — an always-visible "0 dynamic" chip is a button that does
+      // nothing, and the list is long enough without them.
+      if (!n && filter !== k) continue;
+      out.push(`<button class="gu-stat act ${filter === k ? "on" : ""} ${n ? "" : "zero"}" data-gmf="${k}"><b>${n}</b> ${esc(f.label)}</button>`);
+    }
+    out.push(`<span class="gu-stat ${units.restricted.length ? "" : "zero"}"><b>${units.restricted.length}</b> restricted unit${units.restricted.length === 1 ? "" : "s"}</span>`);
+    if (archived.length) out.push(`<span class="gu-stat"><b>${archived.length}</b> archived by an earlier run</span>`);
+    if (list.prefix) out.push(`<span class="gu-stat">prefix <b>${esc(list.prefix.toUpperCase())}</b> detected</span>`);
+    return out.join("");
+  }
+
   function renderList() {
-    const live = list.groups.filter((g) => !g.archived);
+    const all = list.groups.filter((g) => !g.archived);
+    const live = (FILTERS[filter] || FILTERS.all).of(all);
     const archived = list.groups.filter((g) => g.archived);
     if (!list.groups.length) {
       $("gmBody").innerHTML = `<div class="list-card"><p class="mini" style="margin:0">
@@ -1164,10 +1198,7 @@ const GroupMigrateTool = (() => {
     $("gmBody").innerHTML = unitsWarn + `
       <div class="list-card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <span class="gu-stat"><b>${live.length}</b> role-assignable</span>
-          <span class="gu-stat ${units.restricted.length ? "" : "zero"}"><b>${units.restricted.length}</b> restricted unit${units.restricted.length === 1 ? "" : "s"}</span>
-          ${archived.length ? `<span class="gu-stat"><b>${archived.length}</b> archived by an earlier run</span>` : ""}
-          ${list.prefix ? `<span class="gu-stat">prefix <b>${esc(list.prefix.toUpperCase())}</b> detected</span>` : ""}
+          ${chipsHtml(all, archived)}
         </div>
         <p class="mini muted" style="margin:0 0 12px">Entra caps a tenant at <b>500</b> role-assignable groups, and every
           one of them can only be managed by Global Administrator or Privileged Role Administrator — a list you cannot
@@ -1175,7 +1206,7 @@ const GroupMigrateTool = (() => {
             ? ` with <b>${esc(list.prefix.toUpperCase())}-</b> stripped as this tenant's own prefix` : ""}; it is a
           <b>default</b> and can be changed per group before anything is applied.</p>
         <input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="width:100%;max-width:420px;margin-bottom:10px">
-        ${q ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${live.length} shown.</p>` : ""}
+        ${q || filter !== "all" ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${all.length} shown${filter !== "all" ? ` · <b>${esc(FILTERS[filter].label)}</b>` : ""}${q ? ` · matching “${esc(search.trim())}”` : ""}.</p>` : ""}
         <div style="overflow-x:auto"><table class="plist">
           <thead><tr><th>Group</th><th style="width:250px">Suggested unit</th><th style="width:110px"></th></tr></thead>
           <tbody>${rows || `<tr><td colspan="3" class="mini">${q ? "No role-assignable group matches that." : "Every role-assignable group in this tenant is the archived half of an earlier migration."}</td></tr>`}</tbody>
@@ -1297,23 +1328,24 @@ const GroupMigrateTool = (() => {
     busy = true; plan = null; result = null;
     chosen = list.groups.find((g) => GroupMigrate.lc(g.id) === GroupMigrate.lc(id)) || null;
     if (!chosen) { busy = false; return; }
-    $("gmBody").innerHTML = "";
+    // The modal opens FIRST, holding its own progress — the list stays put
+    // underneath. Nine surfaces take a while and an examine that blanked the
+    // screen while it read was the reason this moved.
+    openModal(chosen.name, chosen.id, '<p class="mini muted" style="margin:0">Reading…</p>');
     try {
-      prog(`Reading “${chosen.name}”…`);
       await Graph.ensureScopes([...new Set([
         ...Graph.SCOPES.groupMembers,
         ...GroupMigrate.SCOPES.rolesRead, ...GroupMigrate.SCOPES.auRead,
         ...GroupUse.scopesFor(GroupUse.allSourceIds()),
         ...AssignEdit.READ(),
       ])]);
-      prog("Checking whether the group holds a directory role…");
+      mprog("Checking whether the group holds a directory role…");
       const roles = await GroupMigrate.heldRoles(chosen.id);
-      prog("Checking which administrative units already hold it…");
+      mprog("Checking which administrative units already hold it…");
       const holding = await GroupMigrate.unitsHolding(chosen.id);
-      prog("Reading members…");
+      mprog("Reading members…");
       const members = await GroupMigrate.memberIds(chosen.id);
-      const refs = await GroupMigrate.references(chosen.id, (m) => prog(m));
-      prog("");
+      const refs = await GroupMigrate.references(chosen.id, (m) => mprog(m));
       chosen = { ...chosen, roleAssignable: true, roles, holding, members, refs };
       // Seed the destination fields for THIS group. The suggestion is a
       // default the operator can overwrite; it is re-seeded per group so a
@@ -1321,14 +1353,35 @@ const GroupMigrateTool = (() => {
       unitMode = "new";
       pickedUnitId = (units.restricted[0] || {}).id || null;
       unitNameIn = chosen.suggestedUnit || "";
-      adminIn = "";
+      // WHOEVER CREATES THE UNIT IS ITS ADMINISTRATOR BY DEFAULT. A restricted
+      // unit blocks every tenant-wide role, so the person standing up a vault
+      // and not naming a keyholder has locked themselves out of it — and the
+      // signed-in account is very nearly always the answer. Prefilled rather
+      // than forced: it is a text field and it can be changed to anyone.
+      adminIn = signedInUpn();
       renderPlan();
     } catch (e) {
-      prog("");
-      $("gmBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
-        <b>Could not read “${esc(chosen.name)}”.</b> ${esc(GroupUse.shortErr(e, 400))}</p>
-        <div class="tb-actions" style="margin-top:12px"><button class="btn" data-gmback>‹ Back to the list</button></div></div>`;
+      $("gmModalBody").innerHTML = `<p class="mini" style="color:var(--off);margin:0">
+        <b>Could not read “${esc(chosen.name)}”.</b> ${esc(GroupUse.shortErr(e, 400))}</p>`;
     } finally { busy = false; }
+  }
+
+  // ---- the modal -----------------------------------------------------------
+  const signedInUpn = () => {
+    const el = document.getElementById("tenantUser");
+    const v = el ? String(el.textContent || "").trim() : "";
+    return /@/.test(v) ? v : "";
+  };
+  function openModal(title, sub, body) {
+    $("gmModalTitle").textContent = title;
+    $("gmModalSub").innerHTML = `<code>${esc(sub)}</code>`;
+    $("gmModalBody").innerHTML = body || "";
+    $("gmModal").classList.add("open");
+  }
+  function closeModal() {
+    const m = $("gmModal");
+    if (m) m.classList.remove("open");
+    chosen = null; plan = null; result = null;
   }
 
   // The destination as the form currently states it. Read fresh on every
@@ -1382,7 +1435,6 @@ const GroupMigrateTool = (() => {
       `<option value="${esc(u.id)}"${u.id === d.unitId ? " selected" : ""}>${esc(u.name)}</option>`).join("");
 
     const head = `<div class="list-card">
-      <div class="tb-actions" style="margin:0 0 10px"><button class="btn" data-gmback>‹ All role-assignable groups</button></div>
       <h3 style="margin:0 0 4px">${esc(g.name)}</h3>
       <p class="mini muted" style="margin:0 0 12px">role-assignable · ${g.members.users.length} member${g.members.users.length === 1 ? "" : "s"} ·
         ${g.refs.repointable.length + g.refs.other.length} Intune assignment${(g.refs.repointable.length + g.refs.other.length) === 1 ? "" : "s"} ·
@@ -1433,7 +1485,7 @@ const GroupMigrateTool = (() => {
       <p class="mini" style="margin:0">${esc(p.reason)}</p>
     </div>`;
 
-    $("gmBody").innerHTML = head + form + body;
+    $("gmModalBody").innerHTML = head + form + body;
     // Tenant-backed autofill on the scoped administrator, through the app's
     // ONE typeahead rather than a second one. Attached after each render
     // because this form is rebuilt, not mutated — Suggest.init() registers
@@ -1504,29 +1556,26 @@ const GroupMigrateTool = (() => {
     busy = true;
     const p = rebuildPlan();
     if (!p.ok) { busy = false; renderPlan(); return; }
-    $("gmBody").innerHTML = "";
+    mprog("Migrating…");
     try {
       // The write scopes, at the click — never at sign-in. A read-only visit
       // to this screen must not leave the session holding Group.ReadWrite.All.
       const want = [...GroupMigrate.SCOPES.groupWrite, ...GroupMigrate.SCOPES.auWrite, ...AssignEdit.WRITE()];
       if (p.createsUnit) want.push(...GroupMigrate.SCOPES.roleWrite);
       await Graph.ensureScopes([...new Set(want)]);
-      prog("Migrating…");
-      result = await GroupMigrate.apply(p, { onStatus: (m) => prog(m) });
-      prog("");
+      result = await GroupMigrate.apply(p, { onStatus: (m) => mprog(m) });
       renderResult();
     } catch (e) {
-      prog("");
-      $("gmBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
+      $("gmModalBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
         <b>The migration did not start.</b> ${esc(GroupUse.shortErr(e, 400))}</p>
-        <div class="tb-actions" style="margin-top:12px"><button class="btn" data-gmback>‹ Back to the list</button></div></div>`;
+        </div>`;
     } finally { busy = false; }
   }
 
   function renderResult() {
     const r = result;
     const lines = r.log.map((l) => `<p class="mini" style="margin:0 0 3px">${l.ok ? "✅" : "❌"} ${esc(l.text)}${l.detail ? ` <span class="muted">— ${esc(l.detail)}</span>` : ""}</p>`).join("");
-    $("gmBody").innerHTML = `<div class="list-card">
+    $("gmModalBody").innerHTML = `<div class="list-card">
       <h3 style="margin:0 0 6px">${r.ok ? "✅" : "❌"} ${esc(r.name)}</h3>
       <p class="mini muted" style="margin:0 0 12px">${r.ok ? "Migrated" : "Failed"} ·
         new id <code>${esc(r.newId || "—")}</code> · archived as <b>${esc(r.archiveName)}</b> ·
@@ -1539,7 +1588,6 @@ const GroupMigrateTool = (() => {
         <a href="#tool:toolGroupUse">T02 Group Analyzer</a> comes back empty on it.</p></div>` : ""}
       <div class="tb-actions" style="margin-top:14px">
         <button class="btn primary" id="gmReportMd">⭳ Report as Markdown</button>
-        <button class="btn" data-gmback>‹ Back to the list</button>
       </div>
     </div>`;
   }
@@ -1558,11 +1606,24 @@ const GroupMigrateTool = (() => {
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
       unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; unitsError = "";
-      search = ""; archSel.clear(); archRefs = null;
+      search = ""; filter = "all"; archSel.clear(); archRefs = null; closeModal();
       $("gmBody").innerHTML = ""; $("gmProg").innerHTML = "";
     });
 
-    $("gmBody").addEventListener("click", (e) => {
+    // ONE handler bound to BOTH hosts. The list lives in #gmBody and the
+    // detail in #gmModalBody, which is outside it — a listener on the body
+    // alone would leave every control in the modal dead. Binding the same
+    // function twice is cheaper than deciding, per control, which host it
+    // belongs to and being wrong about one of them later.
+    const onClick = (e) => {
+      const chip = e.target.closest("[data-gmf]");
+      if (chip) {
+        // Clicking the chip in force clears it — the same toggle T19's
+        // stat cards use, so a filter is never a state you cannot leave.
+        filter = filter === chip.dataset.gmf ? "all" : chip.dataset.gmf;
+        renderList();
+        return;
+      }
       const pick = e.target.closest("[data-gmpick]");
       if (pick) { examine(pick.dataset.gmpick); return; }
       const arch = e.target.closest("[data-gmarch]");
@@ -1578,7 +1639,7 @@ const GroupMigrateTool = (() => {
       }
       if (e.target.closest("#gmArchCheck")) { archCheck(); return; }
       if (e.target.closest("#gmArchDelete")) { archDelete(); return; }
-      if (e.target.closest("[data-gmback]")) { chosen = null; plan = null; result = null; renderList(); return; }
+      if (e.target.closest("[data-gmback]")) { closeModal(); return; }
       const mode = e.target.closest("[data-gmmode]");
       if (mode) { if (!mode.disabled) { unitMode = mode.dataset.gmmode; renderPlan(); } return; }
       if (e.target.closest("#gmApply")) { run(); return; }
@@ -1592,12 +1653,22 @@ const GroupMigrateTool = (() => {
           GroupMigrate.report(plan, result, { tenant: tenantName(), build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : "") }),
           "text/markdown");
       }
+    };
+    $("gmBody").addEventListener("click", onClick);
+    $("gmModalBody").addEventListener("click", onClick);
+    $("gmModalClose").addEventListener("click", closeModal);
+    // Backdrop and Escape close it too — the gu-modal contract everywhere
+    // else in the app, and a modal that only closes by its own button is one
+    // people learn to distrust.
+    $("gmModal").addEventListener("click", (e) => { if (e.target.id === "gmModal") closeModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && $("gmModal") && $("gmModal").classList.contains("open")) closeModal();
     });
 
     // The confirm gate. Typed name unlocks apply, and ANY change to the
     // destination re-plans — a plan computed against a unit the operator has
     // since changed is a plan describing something that will not happen.
-    $("gmBody").addEventListener("input", (e) => {
+    const onInput = (e) => {
       if (e.target.id === "gmSearch") {
         search = e.target.value;
         renderPlanKeepingFocus("gmSearch", renderList);
@@ -1621,10 +1692,14 @@ const GroupMigrateTool = (() => {
         // irritating when it did not.
         if (was !== plan.ok) renderPlanKeepingFocus(e.target.id);
       }
-    });
-    $("gmBody").addEventListener("change", (e) => {
+    };
+    $("gmBody").addEventListener("input", onInput);
+    $("gmModalBody").addEventListener("input", onInput);
+    const onChange = (e) => {
       if (e.target.id === "gmUnitPick") { pickedUnitId = e.target.value; renderPlan(); }
-    });
+    };
+    $("gmBody").addEventListener("change", onChange);
+    $("gmModalBody").addEventListener("change", onChange);
   }
 
   // Re-render without stealing the caret: the destination fields are typed

@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10511, date: "2026-08-31", title: "Examine opens over the list, and the chips filter it",
+    items: [
+      { kind: "improved", tool: "T22", text: "EXAMINE IS A POPUP NOW, NOT A SCREEN SWAP. Deciding a migration means comparing one group against the others, and replacing the list with the detail made that a matter of memory. The detail opens in the same modal the Group Analyzer and the RBAC tool use, with the list still underneath it. It opens before the read finishes and holds its own progress, because nine surfaces take a while and a blank screen for the duration was the reason this moved. Backdrop and Escape close it." },
+      { kind: "new", tool: "T22", text: "THE CHIPS ARE FILTERS — all, carries a membership rule, no destination worked out. Clicking the one in force clears it, so a filter is never a state you cannot leave, and a filter that would empty the list stays hidden until it is the one in force." },
+      { kind: "improved", tool: "T22", text: "Only the chips that CAN filter became buttons. The restricted-unit count and the detected naming prefix are facts about the tenant rather than properties of a group; dressing them as filters would promise a narrowing that cannot happen." },
+      { kind: "new", tool: "T22", text: "WHOEVER CREATES THE UNIT IS ITS ADMINISTRATOR BY DEFAULT. The scoped-administrator field arrives prefilled with the signed-in account — a restricted unit blocks every tenant-wide role, so someone standing one up without naming a keyholder has locked themselves out of the vault they just built. Prefilled, not forced: it is a text field and it takes anyone." },
+    ],
+  },
+  {
     build: 10510, date: "2026-08-31", title: "The permissions card is a button",
     items: [
       { kind: "improved", tool: "T22", text: "THE PERMISSION LIST COMES OFF THE PAGE AND ONTO THE BUTTON. Yesterday's build put the whole inventory on screen — three tables of scopes, taller than the tool they were serving — and a permission inventory is something you consult once, not something that sits above the work. It is now a single Grant permissions button in the same row as Read, carrying the full list on its tooltip: every scope, what each one buys, and the warning that three of them write to the directory rather than to Intune. Microsoft's own consent screen lists them again at the moment it matters, so the shrink hides nothing." },
