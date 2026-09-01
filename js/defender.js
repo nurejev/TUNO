@@ -490,6 +490,10 @@ const DefenderTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let rep = null, running = false, bucketFilter = null, baseRunning = false;
+  // THE RAIL (10545, the layout round — Option A): Fleet | Rollup |
+  // Baseline as panes, so the 🧱 match's two tables stop standing between
+  // the bucket cards and the device list.
+  let dfPane = "fleet";
   // The live search term — a FILTER over the read fleet, with the dropdown
   // as a convenience on top of it. Cleared on every new read.
   let searchTerm = "";
@@ -508,7 +512,7 @@ const DefenderTool = (() => {
 
   async function run() {
     if (running || baseRunning) return;
-    running = true; $("dfRun").disabled = true; showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null;
+    running = true; $("dfRun").disabled = true; showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null; dfPane = "fleet";
     searchTerm = ""; if ($("dfSearch")) { $("dfSearch").value = ""; } if ($("dfSearchWrap")) $("dfSearchWrap").style.display = "none"; closeSuggest();
     try {
       await Graph.ensureScopes(Graph.SCOPES.devices);
@@ -542,6 +546,7 @@ const DefenderTool = (() => {
       }
       const pols = await Defender.baselineRead(prog);
       rep.baseline = Defender.baselineMatch(pols, rep.devices || []);
+      dfPane = "baseline";   // the click asked for the match — land on it
       prog("");
       render();
       showExports(!rep.deviceError);
@@ -564,12 +569,13 @@ const DefenderTool = (() => {
       return;
     }
 
+    const fleet = [], roll = [], base = [];
     // Cards double as bucket filters — the T09 pattern: click to narrow,
     // click again for everything.
     const t = rep.totals;
     const card = (id, label, n, sub, cls) => `<button class="au-card au-card-btn ${bucketFilter === id ? "active" : ""}" data-dfbucket="${id}" type="button">
       <div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></button>`;
-    parts.push(`<div class="au-cards">
+    fleet.push(`<div class="au-cards">
       ${card("healthy", "Healthy", t.healthy, `of ${t.windows} Windows devices`, t.healthy ? "ok" : "")}
       ${card("issues", "With findings", t.issues, "worst first below", t.issues ? "bad" : "ok")}
       ${card("nostate", "No state", t.nostate, "never reported or unreadable — unknown, not healthy", t.nostate ? "bad" : "ok")}
@@ -577,16 +583,17 @@ const DefenderTool = (() => {
 
     if (rep.overview) {
       const o = rep.overview;
-      parts.push(`<div class="list-card">
+      roll.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Graph's own rollup</h4>
         <p class="mini muted" style="margin:0 0 8px">Refreshed on Graph's schedule, not this page's — it <b>can disagree</b> with the per-device counts above, and neither is quietly reconciled to the other.</p>
         <p class="mini" style="margin:0">${o.totalReportedDeviceCount ?? "—"} reporting · ${o.cleanDeviceCount ?? "—"} clean · ${o.criticalFailuresDeviceCount ?? "—"} critical failures · ${o.pendingSignatureUpdateDeviceCount ?? "—"} pending signature update · ${o.pendingRestartDeviceCount ?? "—"} pending restart · ${o.inactiveThreatAgentDeviceCount ?? "—"} inactive agent</p>
       </div>`);
     } else if (rep.overviewError) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>The tenant rollup could not be read.</b><span class="why">${esc(rep.overviewError)} — the per-device answer below stands on its own.</span></div></div>`);
+      roll.push(`<div class="list-card"><div class="gu-fail"><b>The tenant rollup could not be read.</b><span class="why">${esc(rep.overviewError)} — the per-device answer below stands on its own.</span></div></div>`);
     }
 
-    if (rep.baseline) parts.push(baselineCard(rep.baseline));
+    if (rep.baseline) base.push(baselineCard(rep.baseline));
+    else base.push(`<div class="list-card"><p class="mini muted" style="margin:0">The 🧱 MDE baseline match has not run — the button above runs it. The policy read joins the permission ask at that click.</p></div>`);
 
     const q = searchTerm.trim().toLowerCase();
     const shown = (rep.devices || []).filter((r) =>
@@ -624,7 +631,7 @@ const DefenderTool = (() => {
       return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-dffold="${esc(r.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
     }).join("");
 
-    parts.push(`<div class="list-card">
+    fleet.push(`<div class="list-card">
       <h4 style="margin:0 0 4px">Devices (${shown.length}${(bucketFilter || searchTerm) ? ` of ${rep.totals.windows}` : ""})</h4>
       ${searchTerm ? `<p class="mini muted" style="margin:0 0 6px">Filtered by search “${esc(searchTerm)}” — clear the box for the whole fleet.</p>` : ""}
       <p class="mini muted" style="margin:0 0 10px">Worst first — click a device for its full protection state. A flag the device did not report reads <i>not reported</i>, never <i>off</i>: they are different answers.</p>
@@ -632,7 +639,21 @@ const DefenderTool = (() => {
       ${shown.length > CAP ? `<p class="mini muted" style="margin:8px 0 0">Showing the worst ${CAP} of ${shown.length} — the CSV export carries all of them.</p>` : ""}
     </div>`);
 
-    $("dfBody").innerHTML = parts.join("");
+    // ---- the rail ----
+    const b0 = rep.baseline;
+    const bBad = b0 ? (b0.counts.checks.deviate + b0.counts.checks.conflict + b0.counts.asr.deviate + b0.counts.asr.conflict + b0.device.deviating.length) : 0;
+    const node = (id, icon, label, right, bad) => `<div class="ep-node${dfPane === id ? " active" : ""}" data-dfpane="${id}" role="button" tabindex="0">
+      <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const rail = node("fleet", "🦠", "Fleet", `${t.issues ? `<b>${t.issues}</b>/` : ""}${t.windows}`, t.issues > 0 || t.nostate > 0)
+      + node("rollup", "📊", "Graph's rollup", rep.overview ? (rep.overview.totalReportedDeviceCount ?? "—") : "unread", !rep.overview)
+      + node("baseline", "🧱", "MDE baseline", b0 ? (bBad ? `${bBad} findings` : "matches") : "not run", b0 ? bBad > 0 : false);
+    const paneHtml = { fleet, rollup: roll, baseline: base }[dfPane].join("")
+      || `<div class="list-card"><p class="mini muted" style="margin:0">Nothing to show here.</p></div>`;
+    $("dfBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
+    $("dfBody").querySelectorAll("[data-dfpane]").forEach((n) => n.addEventListener("click", () => {
+      dfPane = n.dataset.dfpane;
+      render();
+    }));
 
     $("dfBody").querySelectorAll("[data-dfbucket]").forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.dfbucket;

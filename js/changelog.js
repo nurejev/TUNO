@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10545, date: "2026-09-01", title: "Defender status gets the rail",
+    items: [
+      { kind: "improved", tool: "Defender status", text: "Fleet, Graph's rollup and the MDE baseline match become rail panes \u2014 the match's tables stop standing between the bucket cards and the device list, the baseline node wears its finding count in red, and running the match lands on its pane." },
+    ],
+  },
+  {
     build: 10544, date: "2026-09-01", title: "The Group Analyzer and the Device analyzer get the surface rail",
     items: [
       { kind: "improved", tool: "All tools", text: "Both analyzers' thirteen-surface reports gain a sticky rail \u2014 All surfaces stays the default skim view, one node per surface jumps straight to its table, and a surface that could not be read sits on the rail in red, so unknown never reads as empty." },
