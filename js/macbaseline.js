@@ -312,6 +312,63 @@ const MacBaseline = (() => {
     return { policies, skipped, seenOther };
   }
 
+  // ---- the per-policy diff, VALUE-AWARE (build 10529) ------------------
+  // Identity matching stays on id sets, but "covered" must mean covered:
+  // the same setting id carrying a DIFFERENT VALUE is a change, and a
+  // changelog that missed it would bless drift. Values are compared as
+  // normalised JSON of the settingInstance (template references stripped —
+  // two tenants legitimately differ there); compliance properties compare
+  // directly. Display values are extracted where the shape allows and fall
+  // back to a JSON snippet — a snippet is honest, a guess is not.
+  const stripTemplateRefs = (o) => {
+    if (Array.isArray(o)) return o.map(stripTemplateRefs);
+    if (o && typeof o === "object") {
+      const out = {};
+      for (const k of Object.keys(o).sort()) {
+        if (k === "settingInstanceTemplateReference" || k === "settingValueTemplateReference" || k === "id") continue;
+        out[k] = stripTemplateRefs(o[k]);
+      }
+      return out;
+    }
+    return o;
+  };
+  const displayValue = (inst) => {
+    const i = inst || {};
+    if (i.simpleSettingValue && i.simpleSettingValue.value !== undefined) return String(i.simpleSettingValue.value);
+    if (i.choiceSettingValue && i.choiceSettingValue.value !== undefined) return String(i.choiceSettingValue.value).split("_").pop();
+    const j = JSON.stringify(stripTemplateRefs(i));
+    return j.length > 80 ? j.slice(0, 77) + "…" : j;
+  };
+  function diffPolicies(kind, upBody, ourBody) {
+    const added = [], removed = [], changed = [];
+    if (kind === "settingsCatalog") {
+      const instOf = (body) => {
+        const m = new Map();
+        for (const s of body.settings || []) {
+          const i = s.settingInstance || s;
+          if (i && i.settingDefinitionId) m.set(i.settingDefinitionId, i);
+        }
+        return m;
+      };
+      const up = instOf(upBody), ours = instOf(ourBody);
+      for (const [id, i] of up) {
+        if (!ours.has(id)) { added.push({ id, theirs: displayValue(i) }); continue; }
+        if (JSON.stringify(stripTemplateRefs(i)) !== JSON.stringify(stripTemplateRefs(ours.get(id)))) {
+          changed.push({ id, ours: displayValue(ours.get(id)), theirs: displayValue(i) });
+        }
+      }
+      for (const [id, i] of ours) if (!up.has(id)) removed.push({ id, ours: displayValue(i) });
+    } else {
+      const upIds = defIdsOf("compliance", upBody), ourIds = defIdsOf("compliance", ourBody);
+      for (const k of upIds) {
+        if (!ourIds.has(k)) { added.push({ id: k, theirs: JSON.stringify(upBody[k]) }); continue; }
+        if (JSON.stringify(upBody[k]) !== JSON.stringify(ourBody[k])) changed.push({ id: k, ours: JSON.stringify(ourBody[k]), theirs: JSON.stringify(upBody[k]) });
+      }
+      for (const k of ourIds) if (!upIds.has(k)) removed.push({ id: k, ours: JSON.stringify(ourBody[k]) });
+    }
+    return { added, removed, changed };
+  }
+
   const overlap = (A, B) => {
     if (!A.size || !B.size) return 0;
     let hit = 0;
@@ -335,10 +392,10 @@ const MacBaseline = (() => {
         if (s > bestScore) { best = o; bestScore = s; }
       }
       if (!best || bestScore < UPSTREAM_MIN_OVERLAP) return { up: u, status: "new", match: null, score: 0 };
-      const theirsOnly = [...uIds].filter((x) => !best.ids.has(x));
-      const oursOnly = [...best.ids].filter((x) => !uIds.has(x));
-      const status = theirsOnly.length || oursOnly.length ? "differs" : "same";
-      return { up: u, status, match: best.p, score: bestScore, theirsOnly, oursOnly };
+      const diff = diffPolicies(u.kind, u.body, best.p.body || {});
+      const status = diff.added.length || diff.removed.length || diff.changed.length ? "differs" : "same";
+      return { up: u, status, match: best.p, score: bestScore, diff,
+        theirsOnly: diff.added.map((x) => x.id), oursOnly: diff.removed.map((x) => x.id) };
     });
   }
 
@@ -379,10 +436,36 @@ const MacBaseline = (() => {
     return { area, entry: { area, name: newName, obj, sourceId: obj.id || "" }, newName };
   }
 
+  // The upstream changelog: what is new, per policy — the same diff the
+  // screen shows, written down for the record and the release notes.
+  function upstreamMarkdown(rows, meta) {
+    const L = [];
+    L.push("# intune-my-macs vs the CloudFellows macOS baseline", "");
+    L.push(`Generated ${new Date().toISOString().replace("T", " ").replace(/\..*/, " UTC")} by TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}${meta && meta.catalog ? ` · catalog ${meta.catalog}` : ""}`, "");
+    const n = { same: 0, differs: 0, new: 0 };
+    rows.forEach((r) => { n[r.status]++; });
+    L.push(`${n.new} new to the baseline · ${n.differs} matched with differences · ${n.same} covered.`, "");
+    const cell = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+    for (const r of rows.filter((x) => x.status === "new")) {
+      L.push(`## NEW — ${cell(r.up.name)}`, "");
+      L.push(`${r.up.kind === "compliance" ? "Compliance policy" : "Settings catalog policy"} · ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"} — the whole policy is new to the baseline.`, "");
+    }
+    for (const r of rows.filter((x) => x.status === "differs")) {
+      L.push(`## CHANGED — ${cell(r.up.name)}`, "");
+      L.push(`Matches **${cell(r.match.name)}** (${Math.round(r.score * 100)}% by content).`, "");
+      if (r.diff.added.length) { L.push(`**They set, we do not:**`); r.diff.added.forEach((d) => L.push(`- \`${cell(d.id)}\` = ${cell(d.theirs)}`)); L.push(""); }
+      if (r.diff.changed.length) { L.push(`**Different values:**`); r.diff.changed.forEach((d) => L.push(`- \`${cell(d.id)}\`: ours ${cell(d.ours)} → theirs ${cell(d.theirs)}`)); L.push(""); }
+      if (r.diff.removed.length) { L.push(`**We set, they do not:**`); r.diff.removed.forEach((d) => L.push(`- \`${cell(d.id)}\` = ${cell(d.ours)}`)); L.push(""); }
+    }
+    if (n.same) L.push(`## Covered`, "", rows.filter((x) => x.status === "same").map((r) => `- ${cell(r.up.name)} = **${cell(r.match.name)}**`).join("\n"), "");
+    return L.join("\n");
+  }
+
   return {
     releaseOf, normRel, relCmp, currentRelease, versionOf, looksBaseline, keyOf, relLabel, cmpVersion, cmpRelVer,
     STATUS, bundled, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
     UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, parseUpstream, matchUpstream, proposeName, upstreamEntry,
+    diffPolicies, upstreamMarkdown,
   };
 })();
 
@@ -608,41 +691,61 @@ const MacBaselineTool = (() => {
     const order = { new: 0, differs: 1, same: 2 };
     const rows = [...upstream.rows].sort((a, b) => order[a.status] - order[b.status] || String(a.up.name).localeCompare(String(b.up.name)));
     const idShort = (x) => String(x).split("_").pop();
+    // THE SUMMARY SPEAKS THE TOOL'S OWN LANGUAGE (build 10529, "fix this
+    // layout"): the same au-cards the Compare tab uses, not a strip of
+    // chips this tool uses nowhere else.
+    const card = (label, num, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${num}</div><div class="au-card-s">${sub}</div></div>`;
+    const cards = `<div class="au-cards">
+      ${card("＋ New to us", n.new, "controls the baseline lacks", n.new ? "bad" : "")}
+      ${card("≠ Matched, differs", n.differs, "same control, different settings or values", n.differs ? "warn" : "")}
+      ${card("✓ Covered", n.same, "setting for setting, value for value", "ok")}
+      ${card("Seen, not comparable", upstream.seenOther || 0, "scripts and profiles — no policy body to diff")}
+    </div>`;
+    // the per-policy what's new: a native fold, open only when asked
+    const whatsNew = (r) => {
+      if (r.status === "same") return r.match ? `<div class="mini muted" style="margin-top:4px">= <b>${esc(r.match.name)}</b></div>` : "";
+      if (r.status === "new") return `<div class="mini muted" style="margin-top:4px">every one of its ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"} is new to the baseline</div>`;
+      const d = r.diff;
+      const li = (x, tail) => `<li><code title="${esc(x.id)}">${esc(idShort(x.id))}</code>${tail}</li>`;
+      return `<details class="mini" style="margin-top:4px"><summary style="cursor:pointer">what's new — ${d.added.length} added · ${d.changed.length} changed · ${d.removed.length} only ours (matches <b>${esc(r.match.name)}</b>, ${Math.round(r.score * 100)}% by content)</summary>
+        <ul style="margin:6px 0 0">
+          ${d.added.map((x) => li(x, ` — they set ${esc(x.theirs)}`)).join("")}
+          ${d.changed.map((x) => li(x, ` — ours ${esc(x.ours)} → theirs ${esc(x.theirs)}`)).join("")}
+          ${d.removed.map((x) => li(x, ` — only in the baseline (${esc(x.ours)})`)).join("")}
+        </ul></details>`;
+    };
     const row = (r, i) => {
       const act = r.status !== "same";
-      const badge = r.status === "new" ? `<span class="gu-how exc">new — not in the baseline</span>`
-        : r.status === "differs" ? `<span class="gu-how">differs (${Math.round(r.score * 100)}% match)</span>`
-          : `<span class="gu-how inc">✓ covered</span>`;
-      const diff = r.status === "differs"
-        ? `<div class="mini muted" style="margin-top:4px">${r.theirsOnly.length ? `theirs only: ${r.theirsOnly.slice(0, 4).map((x) => `<code title="${esc(x)}">${esc(idShort(x))}</code>`).join(" ")}${r.theirsOnly.length > 4 ? ` +${r.theirsOnly.length - 4}` : ""}` : ""}
-           ${r.oursOnly.length ? ` · ours only: ${r.oursOnly.slice(0, 4).map((x) => `<code title="${esc(x)}">${esc(idShort(x))}</code>`).join(" ")}${r.oursOnly.length > 4 ? ` +${r.oursOnly.length - 4}` : ""}` : ""}
-           ${r.match ? ` · matches <b>${esc(r.match.name)}</b>` : ""}</div>`
-        : r.match ? `<div class="mini muted" style="margin-top:4px">matches <b>${esc(r.match.name)}</b></div>` : "";
+      const badge = r.status === "new" ? `<span class="gu-how exc">new</span>`
+        : r.status === "differs" ? `<span class="gu-how">differs</span>`
+          : `<span class="gu-how inc">✓</span>`;
       return `<tr>
         <td style="width:30px">${act ? `<input type="checkbox" data-uptick="${i}" ${r.status === "new" ? "checked" : ""}>` : ""}</td>
-        <td class="mini"><b>${esc(r.up.name)}</b> <span class="muted">(${esc(r.up.kind === "compliance" ? "compliance" : "settings catalog")} · ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"})</span>${badge ? " " + badge : ""}${diff}</td>
+        <td class="mini"><b>${esc(r.up.name)}</b> ${badge}<div class="mini muted">${esc(r.up.kind === "compliance" ? "compliance" : "settings catalog")} · ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"}</div>${whatsNew(r)}</td>
         <td>${act ? `<input data-upname="${i}" value="${esc(MacBaseline.proposeName(r))}" style="width:100%">` : ""}</td>
       </tr>`;
     };
     $("mbUpstream").innerHTML = `<div class="list-card">
       <h4 style="margin:0 0 6px">🍏 intune-my-macs vs the baseline <span class="mini muted">— loaded ${esc(upstream.when)}</span></h4>
-      <div class="gu-sum" style="margin:0 0 8px">
-        <span class="gu-stat ${n.new ? "" : "zero"}" ${n.new ? 'style="border-color:var(--off)"' : ""}><b>${n.new}</b> new to us</span>
-        <span class="gu-stat ${n.differs ? "" : "zero"}"><b>${n.differs}</b> matched, differs</span>
-        <span class="gu-stat"><b>${n.same}</b> covered</span>
-        ${upstream.seenOther ? `<span class="gu-stat zero"><b>${upstream.seenOther}</b> scripts/profiles seen, not comparable</span>` : ""}
-      </div>
-      <p class="mini muted" style="margin:0 0 8px">Tick what belongs in the baseline and curate the canonical name — the proposal stamps <b>${esc(MacBaseline.relLabel(MacBaseline.currentRelease()))}</b> (this year, this month) and increases the version; the middle words are yours. Created here, unassigned, create-only; then 🧬 re-export the baseline and it becomes the new reference.</p>
-      ${upstream.skipped.length ? `<p class="mini muted" style="margin:0 0 8px">${upstream.skipped.length} file(s) skipped: ${esc(upstream.skipped.map((s) => s.path.split("/").pop()).slice(0, 3).join(", "))}${upstream.skipped.length > 3 ? "…" : ""}</p>` : ""}
-      <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:52%"><col></colgroup>
-        <thead><tr><th></th><th>Upstream policy</th><th>Canonical name (edit before creating)</th></tr></thead>
+      ${cards}
+      <p class="mini muted" style="margin:10px 0 8px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(MacBaseline.relLabel(MacBaseline.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.${upstream.skipped.length ? ` · ${upstream.skipped.length} file(s) skipped (${esc(upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 2).join(", "))}${upstream.skipped.length > 2 ? "…" : ""})` : ""}</p>
+      <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
+        <thead><tr><th></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
         <tbody>${rows.map(row).join("")}</tbody></table></div>
-      <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mbUpDry">🔍 Dry run the ticked</button></div>
+      <div class="tb-actions" style="margin-top:10px">
+        <button class="btn primary" id="mbUpDry">🔍 Dry run the ticked</button>
+        <button class="btn" id="mbUpMd" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
+      </div>
       <div id="mbUpPlan" style="margin-top:10px"></div>
     </div>`;
     // stable index → row mapping for the dry run
     $("mbUpstream").dataset.order = JSON.stringify(rows.map((r) => upstream.rows.indexOf(r)));
     $("mbUpDry").addEventListener("click", upDryRun);
+    $("mbUpMd").addEventListener("click", () => {
+      const c = activeCatalog();
+      download(`intune-my-macs-vs-baseline-${new Date().toISOString().slice(0, 10)}.md`,
+        MacBaseline.upstreamMarkdown(rows, { catalog: c ? `${c.release || "R26"} (${c.policies.length} policies)` : "" }), "text/markdown");
+    });
   }
 
   let upPlanned = null;

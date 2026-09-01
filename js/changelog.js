@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10529, date: "2026-09-01", title: "The upstream watch gets its changelog — and stops missing value changes",
+    items: [
+      { kind: "fixed", tool: "macOS baseline", text: "Covered now means covered: an upstream policy setting the same options as ours but to different values used to read as covered, and now reads as changed — with both values shown, ours and theirs. A comparison that blessed value drift was the one lie this tool could still tell." },
+      { kind: "new", tool: "macOS baseline", text: "Every changed policy folds open to its what's-new: which settings they added, which values differ (ours and theirs side by side), which settings only our baseline carries. And the whole comparison exports as Markdown — what is new, per policy — the release notes a baseline re-cut deserves." },
+      { kind: "improved", tool: "macOS baseline", text: "The upstream summary now speaks the tool's own language: the same stat cards the compare tab uses, with the how-to collapsed to a single line above the table." },
+    ],
+  },
+  {
     build: 10528, date: "2026-09-01", title: "The baseline tool's four acts become four tabs",
     items: [
       { kind: "improved", tool: "macOS baseline", text: "Compare, export, import and the upstream watch are now four tabs at the top of the tool — one act on screen at a time instead of one long scroll. Read the tenant stays above them, since every act is cut from the read. On any tenant but the baseline one, the tabs offer compare and import alone — the acts that would be refused are not offered. Half-finished curation on the upstream tab survives switching away and back." },
