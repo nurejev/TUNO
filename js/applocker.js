@@ -2156,6 +2156,13 @@ const AppLockerTool = (() => {
   function render() {
     $("alEmpty").style.display = policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
+    // The jump strip follows the body (10547) — visible only when there is
+    // something to jump to, and the scan chip only when the scan card shows.
+    if ($("alJump")) {
+      $("alJump").style.display = policy ? "" : "none";
+      const scanChip = $("alJump").querySelector('[data-aljumpopt]');
+      if (scanChip) scanChip.style.display = ($("alScan") && $("alScan").style.display !== "none") ? "" : "none";
+    }
     renderCodePane();
     renderDeploy();
     renderScanCard();
@@ -2593,7 +2600,19 @@ const AppLockerTool = (() => {
     catch { flash(btn, "✗ Blocked — use Download"); }
   }
 
+  function wireJump() {
+    const j = $("alJump");
+    if (!j) return;
+    j.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-aljump]");
+      if (!b) return;
+      const el = $(b.dataset.aljump);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function init() {
+    wireJump();
     $("alFile").addEventListener("change", async (e) => {
       const f = e.target.files[0];
       if (!f) return;

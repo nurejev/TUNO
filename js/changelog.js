@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10547, date: "2026-09-01", title: "The AppLocker screen gets a jump strip",
+    items: [
+      { kind: "improved", tool: "AppLocker builder & validator", text: "A sticky chip bar jumps straight to any of the screen's ten panels \u2014 Summary, Enforcement, Add rule, the device scan, Findings, Coverage, Rules, the XML panel, Deploy \u2014 so building a policy no longer means scrolling the whole audit to reach one card. The two-column workflow layout itself is untouched." },
+    ],
+  },
+  {
     build: 10546, date: "2026-09-01", title: "Backup, Restore and Verify become tabs",
     items: [
       { kind: "improved", tool: "Backup configuration", text: "The three tool-halves \u2014 Backup, Restore, Verify & import \u2014 become mode tabs, one on screen at a time, instead of three stacked forms. Nothing about any half's behaviour changes, and switching tabs never loses a loaded archive or plan." },
