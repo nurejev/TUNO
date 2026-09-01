@@ -398,6 +398,9 @@ const MacBaselineTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null;            // the collect result (cache-served or fresh)
+  // The four acts are four TABS (build 10528, Mihai's layout): compare and
+  // import everywhere; export and upstream only on the baseline tenant.
+  let mode = "compare";
   let cat = null;            // the active catalog (bundled or loaded)
   let catSource = "";        // "bundled" | "file"
   let cmp = null;            // compare() result
@@ -438,58 +441,85 @@ const MacBaselineTool = (() => {
     render(sourceNote);
   }
 
+  function renderSeg() {
+    const el = $("mbSeg");
+    if (!el) return;
+    const tabs = [["compare", "🍎 Compare"], ...(isCfdev() ? [["export", "🧬 Export"]] : []),
+      ["import", "📥 Import"], ...(isCfdev() ? [["upstream", "🍏 Upstream"]] : [])];
+    el.innerHTML = tabs.map(([k, l]) => `<button type="button" data-mbmode="${k}" class="${mode === k ? "active" : ""}">${l}</button>`).join("");
+  }
+
   function render(sourceNote) {
+    if (sourceNote) lastSource = sourceNote;
+    renderSeg();
     const c = activeCatalog();
     const parts = [];
-    if (sourceNote) parts.push(`<p class="mini muted" style="margin:0 0 8px">${sourceNote}</p>`);
+    if (lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${lastSource}</p>`);
 
+    // the catalog line rides every tab — which baseline this screen speaks for
     if (c) {
       parts.push(`<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "R26")}</b> · ${c.policies.length} policies · ${catSource === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`);
     } else {
-      parts.push(`<div class="list-card"><p class="mini" style="margin:0"><b>No catalog is bundled with this build.</b> Load a baseline file below — or, on the baseline tenant, export one. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.</p></div>`);
+      parts.push(`<div class="list-card"><p class="mini" style="margin:0"><b>No catalog is bundled with this build.</b> Load a baseline file under 📥 Import — or, on the baseline tenant, 🧬 export one. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.</p></div>`);
     }
 
-    if (cmp) {
-      const card = (k) => {
-        const s = MacBaseline.STATUS[k], n = cmp.counts[k] || 0;
-        if (!n && !["missing", "outdated", "ok"].includes(k)) return "";
-        return `<div class="au-card"><div class="au-card-l">${s.icon} ${esc(s.label)}</div><div class="au-card-n ${n ? s.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : ""}</div></div>`;
-      };
-      parts.push(`<div class="au-cards">${["missing", "outdated", "ok", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
-      const relver = (rel, ver) => `${esc(MacBaseline.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
-      const row = (r) => {
-        const s = MacBaseline.STATUS[r.status];
-        return `<tr>
-          <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}</td>
-          <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}</td>
-          <td class="mini">${r.baseline ? relver(r.bRel, r.bVer) : "—"}</td>
-          <td class="mini">${r.tenant ? relver(r.tRel, r.tVer) : "—"}</td>
-          <td><span class="gu-how ${s.cls === "bad" ? "exc" : s.cls === "ok" ? "inc" : ""}">${s.icon} ${esc(s.label)}</span></td>
-        </tr>`;
-      };
-      parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">The baseline, line by line (${cmp.covered} of ${cmp.baselineTotal} covered)</h4>
-        <p class="mini muted" style="margin:0 0 8px">The identity is the NAME with the release tag and version stripped; releases compare first, versions break the tie. Worst first.</p>
-        <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
-        <tbody>${cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
-    } else if (res && !c) {
-      const worn = vms().filter((v) => MacBaseline.looksBaseline(v.name));
-      parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">Policies wearing the convention (${worn.length})</h4>
-        ${worn.length ? `<ul class="mini" style="margin:6px 0 0">${worn.map((w) => `<li>${esc(w.name)} <span class="muted">(${esc(MacBaseline.relLabel(MacBaseline.releaseOf(w.name)))}${MacBaseline.versionOf(w.name) ? ` · v${esc(MacBaseline.versionOf(w.name))}` : " · no version in the name"})</span></li>`).join("")}</ul>` : `<p class="mini muted" style="margin:0">None — no policy name starts with MACOS and carries an R26.x release tag.</p>`}</div>`);
+    if (mode === "compare") {
+      if (cmp) {
+        const card = (k) => {
+          const st = MacBaseline.STATUS[k], n = cmp.counts[k] || 0;
+          if (!n && !["missing", "outdated", "ok"].includes(k)) return "";
+          return `<div class="au-card"><div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : ""}</div></div>`;
+        };
+        parts.push(`<div class="au-cards">${["missing", "outdated", "ok", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
+        const relver = (rel, ver) => `${esc(MacBaseline.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
+        const row = (r) => {
+          const st = MacBaseline.STATUS[r.status];
+          return `<tr>
+            <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}</td>
+            <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}</td>
+            <td class="mini">${r.baseline ? relver(r.bRel, r.bVer) : "—"}</td>
+            <td class="mini">${r.tenant ? relver(r.tRel, r.tVer) : "—"}</td>
+            <td><span class="gu-how ${st.cls === "bad" ? "exc" : st.cls === "ok" ? "inc" : ""}">${st.icon} ${esc(st.label)}</span></td>
+          </tr>`;
+        };
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">The baseline, line by line (${cmp.covered} of ${cmp.baselineTotal} covered)</h4>
+          <p class="mini muted" style="margin:0 0 8px">The identity is the NAME with the release tag and version stripped; releases compare first — R26.6 is June 2026, the year then the month — and versions break the tie. Worst first.</p>
+          <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
+          <tbody>${cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
+      } else if (res && !c) {
+        const worn = vms().filter((v) => MacBaseline.looksBaseline(v.name));
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">Policies wearing the convention (${worn.length})</h4>
+          ${worn.length ? `<ul class="mini" style="margin:6px 0 0">${worn.map((w) => `<li>${esc(w.name)} <span class="muted">(${esc(MacBaseline.relLabel(MacBaseline.releaseOf(w.name)))}${MacBaseline.versionOf(w.name) ? ` · v${esc(MacBaseline.versionOf(w.name))}` : " · no version in the name"})</span></li>`).join("")}</ul>` : `<p class="mini muted" style="margin:0">None — no policy name starts with MACOS and carries an Ryy.m release tag.</p>`}</div>`);
+      } else if (!res) {
+        parts.push(`<p class="mini muted" style="margin:0">🍎 Read the tenant to compare it against the catalog.</p>`);
+      }
+      if (res && res.failed && res.failed.length) {
+        parts.push(`<div class="gu-fail"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read</b><span class="why">${res.failed.map((f) => esc(f.label)).join(", ")} — a baseline policy living there would read as missing, so these rows are floors, not verdicts.</span></div>`);
+      }
     }
 
-    if (res && res.failed && res.failed.length) {
-      parts.push(`<div class="gu-fail"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read</b><span class="why">${res.failed.map((f) => esc(f.label)).join(", ")} — a baseline policy living there would read as missing, so these rows are floors, not verdicts.</span></div>`);
-    }
-
-    // ---- the baseline tenant's act: export (cfdev convention) ----
-    if (isCfdev() && res) {
+    if (mode === "export") {
+      // reachable only on the baseline tenant — the tab does not render elsewhere
       parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧬 Export the baseline <span class="mini muted">— this IS the baseline tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px">Writes the catalog file from this tenant's MACOS policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. Bundle it into the build as js/macbaselineData.js when it is the new reference.</p>
-        <button class="btn primary" id="mbExport">⬇ Export the baseline file</button>
+        ${res ? `<button class="btn primary" id="mbExport">⬇ Export the baseline file</button>` : `<p class="mini muted" style="margin:0">🍎 Read the tenant first — the export is cut from the read.</p>`}
         <span class="mini muted" id="mbExportNote"></span></div>`);
-      // ---- the upstream watch (build 10527, cfdev too — it authors) ----
+    }
+
+    if (mode === "import") {
+      const importReady = c && c.policies.some((p) => p.body && p.importable !== false);
+      parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📥 Import the baseline <span class="tag block">writes to the tenant</span></h4>
+        <p class="mini muted" style="margin:0 0 8px">Create-only, two proven pipelines: policies through the Backup tool's restore (dry run, collision stop per name, read-back verify) and assignment filters through 🧩 T14's own create. Everything arrives <b>unassigned</b> — reach is ✏️ the editor's act, taken deliberately afterwards. Created policies keep their <b>canonical baseline names</b>, no prefix — the name is the identity this screen matches on. Scripts are identified but not importable from the catalog: the reference read carries no script bodies, and a script without its body cannot be put back.</p>
+        <div class="tb-actions">
+          <label class="btn">📄 Load a baseline file<input type="file" id="mbFile" accept=".json" style="display:none"></label>
+          <button class="btn" id="mbDry" ${importReady ? "" : "disabled title=\"The active catalog carries nothing importable — load a baseline export file.\""}>🔍 Dry run — create what is missing</button>
+        </div>
+        <div id="mbPlan" style="margin-top:10px"></div></div>`);
+    }
+
+    if (mode === "upstream") {
       parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🍏 Upstream — Microsoft's intune-my-macs <span class="tag block">writes to the tenant</span></h4>
-        <p class="mini muted" style="margin:0 0 8px">Watch <code>github.com/microsoft/intune-my-macs</code> for controls our baseline lacks. The app never fetches it — the content-security policy allows Graph and nothing else, and that rule does not bend for a read-only repo: <b>download the zip yourself</b> (the link is plain navigation), then load it here. Matching is by <b>content, never name</b>: a settings-catalog policy is its set of setting definition ids, a compliance policy the properties it configures — identical sets are <b>same</b>, a half-or-better overlap is a <b>match with its diff shown</b>, anything else is <b>new</b>. New and changed controls get an editable canonical name and can be created in THIS tenant — curate, then re-export the baseline.</p>
+        <p class="mini muted" style="margin:0 0 8px">Watch <code>github.com/microsoft/intune-my-macs</code> for controls our baseline lacks. The app never fetches it — the content-security policy allows Graph and nothing else, and that rule does not bend for a read-only repo: <b>download the zip yourself</b> (the link is plain navigation), then load it here. Matching is by <b>content, never name</b>: a settings-catalog policy is its set of setting definition ids, a compliance policy the properties it configures — identical sets are <b>same</b>, a half-or-better overlap is a <b>match with its diff shown</b>, anything else is <b>new</b>. New and changed controls get an editable canonical name and can be created in THIS tenant — curate, then 🧬 re-export the baseline.</p>
         <div class="tb-actions">
           <a class="btn" href="${esc(MacBaseline.UPSTREAM_ZIP_URL)}" target="_blank" rel="noopener">⬇ Get the latest (zip, from GitHub)</a>
           <label class="btn">📄 Load the intune-my-macs zip<input type="file" id="mbUpZip" accept=".zip" style="display:none"></label>
@@ -497,17 +527,12 @@ const MacBaselineTool = (() => {
         <p class="mini muted" id="mbUpNote" style="margin:8px 0 0"></p></div>`);
     }
 
-    // ---- import ----
-    const importReady = c && c.policies.some((p) => p.body && p.importable !== false);
-    parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📥 Import the baseline <span class="tag block">writes to the tenant</span></h4>
-      <p class="mini muted" style="margin:0 0 8px">Create-only, two proven pipelines: policies through the Backup tool's restore (dry run, collision stop per name, read-back verify) and assignment filters through 🧩 T14's own create. Everything arrives <b>unassigned</b> — reach is ✏️ the editor's act, taken deliberately afterwards. Created policies keep their <b>canonical baseline names</b>, no prefix — the name is the identity this screen matches on. Scripts are identified but not importable from the catalog: the reference read carries no script bodies, and a script without its body cannot be put back.</p>
-      <div class="tb-actions">
-        <label class="btn">📄 Load a baseline file<input type="file" id="mbFile" accept=".json" style="display:none"></label>
-        <button class="btn" id="mbDry" ${importReady ? "" : "disabled title=\"The active catalog carries nothing importable — load a baseline export file.\""}>🔍 Dry run — create what is missing</button>
-      </div>
-      <div id="mbPlan" style="margin-top:10px"></div></div>`);
-
     $("mbBody").innerHTML = parts.join("");
+    // The upstream RESULTS live in their own host and are only shown on
+    // their tab — hidden, not destroyed, so ticks and edited names survive
+    // switching tabs (the restore picker's rule, applied to tabs).
+    const up = $("mbUpstream");
+    if (up) up.style.display = mode === "upstream" ? "" : "none";
     wire();
   }
 
@@ -548,6 +573,7 @@ const MacBaselineTool = (() => {
   // and edited names are DOM state, and mbBody re-renders would silently
   // drop them — the restore picker's rule.
   let upstream = null;   // { rows, skipped, seenOther, when }
+  let lastSource = "";   // the source note rides re-renders and tab switches
 
   async function loadUpstreamZip(file) {
     const c = activeCatalog();
@@ -793,7 +819,15 @@ const MacBaselineTool = (() => {
     if (!$("mbRun")) return;
     (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-macbaseline"] = onShow;
     $("mbRun").addEventListener("click", () => run(false));
+    // the tabs — a seg, the house switcher
+    $("mbSeg").addEventListener("click", (e) => {
+      const b2 = e.target.closest("[data-mbmode]");
+      if (!b2 || b2.dataset.mbmode === mode) return;
+      mode = b2.dataset.mbmode;
+      render();
+    });
+    renderSeg();
   }
 
-  return { init, _setForTest: (r, c) => { cat = c || null; catSource = c ? "file" : ""; land(r, ""); } };
+  return { init, _setForTest: (r, c, m) => { cat = c || null; catSource = c ? "file" : ""; mode = m || "compare"; land(r, ""); } };
 })();

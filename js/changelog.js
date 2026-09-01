@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10528, date: "2026-09-01", title: "The baseline tool's four acts become four tabs",
+    items: [
+      { kind: "improved", tool: "macOS baseline", text: "Compare, export, import and the upstream watch are now four tabs at the top of the tool — one act on screen at a time instead of one long scroll. Read the tenant stays above them, since every act is cut from the read. On any tenant but the baseline one, the tabs offer compare and import alone — the acts that would be refused are not offered. Half-finished curation on the upstream tab survives switching away and back." },
+    ],
+  },
+  {
     build: 10527, date: "2026-09-01", title: "The baseline watches Microsoft's macOS repo",
     items: [
       { kind: "new", tool: "macOS baseline", text: "On the baseline tenant, the tool now watches Microsoft's intune-my-macs repository: download the repo zip (one click, your browser does the fetching — the app itself talks to nothing but Graph), load it, and every upstream policy is matched against our baseline by content, never by name — a settings-catalog policy is its set of setting ids, a compliance policy the properties it sets. Covered, differs (with the exact difference, both directions), or new to us." },
