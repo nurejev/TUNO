@@ -1195,17 +1195,15 @@ const GroupMigrateTool = (() => {
         group is already inside a restricted unit — the 🧊 frozen case, where a role-assignable group in a restricted unit has members
         nobody at all can change — and migrating on that assumption is exactly the mistake this tool exists to avoid.</p>
     </div>` : "";
+    // The chips and the search pin (10543, the layout round — T19's rule).
     $("gmBody").innerHTML = unitsWarn + `
+      <div class="toolbar">${chipsHtml(all, archived)}<input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="flex:1;min-width:200px"></div>
       <div class="list-card">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          ${chipsHtml(all, archived)}
-        </div>
         <p class="mini muted" style="margin:0 0 12px">Entra caps a tenant at <b>500</b> role-assignable groups, and every
           one of them can only be managed by Global Administrator or Privileged Role Administrator — a list you cannot
           shorten. The suggested unit below follows the <code>${esc(GroupMigrate.UNIT_PREFIX)}</code> convention${list.prefix
             ? ` with <b>${esc(list.prefix.toUpperCase())}-</b> stripped as this tenant's own prefix` : ""}; it is a
           <b>default</b> and can be changed per group before anything is applied.</p>
-        <input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="width:100%;max-width:420px;margin-bottom:10px">
         ${q || filter !== "all" ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${all.length} shown${filter !== "all" ? ` · <b>${esc(FILTERS[filter].label)}</b>` : ""}${q ? ` · matching “${esc(search.trim())}”` : ""}.</p>` : ""}
         <div style="overflow-x:auto"><table class="plist">
           <thead><tr><th>Group</th><th style="width:250px">Suggested unit</th><th style="width:110px"></th></tr></thead>

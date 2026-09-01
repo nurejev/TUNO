@@ -407,12 +407,14 @@ const RestrictedAuTool = (() => {
     const known = restricted.filter((a) => detail[a.id] && !detail[a.id].scopedError);
     const naked = known.filter((a) => !detail[a.id].scoped.length);
 
+    // The chips and the search pin (10543, the layout round — T19's rule):
+    // .toolbar is sticky by the shared CSS, so re-filtering after a long
+    // unit list never means scrolling back.
     $("raBody").innerHTML = `
+      <div class="toolbar">${chips}<input type="text" id="raSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="flex:1;min-width:200px"></div>
       <div class="list-card">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${chips}</div>
         ${naked.length ? `<p class="mini" style="margin:0 0 10px;color:var(--off)">⚠ <b>${naked.length} restricted unit${naked.length === 1 ? " has" : "s have"} no scoped administrator</b>
           — ${esc(naked.map((a) => a.displayName).join(", "))}. Tenant-wide roles are blocked by design, so nobody can change what is inside ${naked.length === 1 ? "it" : "them"}.</p>` : ""}
-        <input type="text" id="raSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="width:100%;max-width:420px;margin-bottom:10px">
         ${shown.length ? shown.map(card).join("") : '<p class="mini muted" style="margin:0">Nothing matches.</p>'}
       </div>`;
   }

@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10543, date: "2026-09-01", title: "Three more bars pin — assignment filters, group migration, restricted AUs",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The assignment-filters bar (view, search, platform), the group-migration chips and the restricted-AU chips all pin to the top while their lists scroll \u2014 the same one-filter-two-faces treatment the last build gave the conflict scan, health and LAPS." },
+    ],
+  },
+  {
     build: 10542, date: "2026-09-01", title: "Sticky filter chips — conflict scan, assignment health, LAPS",
     items: [
       { kind: "improved", tool: "All tools", text: "Three tools with long finding lists gain a pinned chip bar \u2014 the same filter their cards already speak, in a compact face that never scrolls away: the conflict scan's verdict chips (with the platform select moving up beside them), assignment health's kind chips, and the LAPS audit's bucket chips. Re-filtering after two hundred rows is a click where you already are, not a scroll back to the top." },
