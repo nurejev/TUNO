@@ -85,13 +85,33 @@ const PROMOTE = {
   // items. Numbers exist to be permanent precisely so that cannot happen;
   // the numbers stay as history wrote them, and the next item takes 123.
   //
-  // THE QUEUE IS EMPTY. Every tool on this channel is also in production;
-  // the only differences left are the two permanent ones in staying[]. An
-  // empty queue is a state worth returning to: it means "beta and main
-  // match", and the next item added is the whole of the next promotion.
+  // The queue emptied at 10518 — the state worth returning to — and item
+  // 123 is the first of the next promotion. Per the ledger above, 123 is
+  // deliberately the next number: 100-102's reuse is history, not licence.
   productionBuild: "v1.0.12",
 
-  items: [],
+  items: [
+    {
+      n: 123,
+      title: "T11's policy names open the documenter's popout",
+      tools: ["T11", "T05"],
+      builds: [10519],
+      files: ["js/assignedit.js", "js/document.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "low",
+      what: "A policy name in T11's list opens the policy — Docs.popoutHtml, the one template T05, T19 and T20 already share, in T11's own modal (T19's shell, Close foot). The name wears .pname, the existing hover affordance; the tick box beside it stays the selection, and the two cannot collide because the checkbox is its own cell. THE READ IS Docs.collect() NARROWED TO ONE POLICY: collect() takes `only` (an id) and filters the section's items right after the list read, so the detail N+1, the group naming, the member counts and the filter naming all run for exactly one policy — the alternative was a second single-policy mapper, the T12 drift. T11's four surfaces map to four of T05's thirteen sections by lookup. Directory read is ensured at the click (T19's union) for the group names. Popouts are cached per policy for the session's read and the cache clears on a fresh read, because a popout served from before the last read would show assignments the apply step just changed. A policy deleted between the list read and the click is an error card naming the possibility, not an empty popout.",
+      why: "LOW. Reads only — the popout path cannot reach a write; the one shared-code change is an additive option in collect() that no existing caller passes, and the suite drives collect() with and without it. The modal is new DOM in T11's own screen, wired the way T19's is (backdrop, Escape, Close). What real eyes should check: the popout over a long list scrolls correctly, and the settings-catalog detail read on a click feels fast enough on a real tenant.",
+      test: [
+        "T11 → Read the policies → click a settings-catalog policy NAME: the documenter's popout opens with the full settings table, redacted values italic; open the SAME policy in T05 — identical head and body.",
+        "Click the name again after closing: no second read (watch the network) — the popout is cached until the next Read the policies.",
+        "Tick the checkbox beside a name: the selection changes and NO popout opens; click the name: the popout opens and the tick does not change.",
+        "An ADMX policy and a compliance policy: rows render (definition values / compliance settings), platform and type in the head are the documenter's own words.",
+        "A policy with a filtered assignment: the chip names the filter and its mode, exactly as T05 prints it.",
+        "Apply an assignment change to a policy, then Read the policies and open that policy: the popout shows the NEW assignments (the cache cleared with the read).",
+        "Escape, backdrop and Close all close it; clicking inside does not.",
+        "Demo mode: open a policy from each of the four surfaces — the demo tenant answers collect() like every other tool.",
+      ],
+    },
+  ],
 
   staying: [
     {

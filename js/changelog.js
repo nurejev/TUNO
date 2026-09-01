@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10519, date: "2026-09-01", title: "The Assignment editor's policies open for reading",
+    items: [
+      { kind: "improved", tool: "Assignment editor", text: "A policy name in the list now opens the policy itself — the Configuration documenter's own popout, settings, named groups with member counts, named filters and all. Before assigning something to a policy called Baseline v3 you can now see what Baseline v3 actually does, without leaving the tool or trusting the name. The tick box beside the name is still the selection; the name is the look inside." },
+      { kind: "improved", tool: "Configuration documenter", text: "The documenter's read can now answer for a single policy instead of a whole tenant, which is what the Assignment editor's popout asks it for. Same read, same redaction, same naming — one implementation, so the popout cannot drift from the document." },
+    ],
+  },
+  {
     build: 10518, date: "2026-09-01", title: "Seventh promotion — the whole queue ships as build 12",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 12 and takes all twenty-four queue items with it — beta builds 10458 through 10517: the Policy overview, Endpoint security posture with the impact brief and the best-practice checks, the Secure Score visualizer, and the two directory writers, Group migration and Restricted AUs, with their five new scopes in the registration script. The tool-header stamps, the overridable field default, the one assignment-filter phrase, the counted filter rules, the Device analyzer's user lookup and one-row verdicts, and the RBAC popouts all ship with it. The queue is empty again, the In-beta-today era stands empty on both channels saying truthfully that they match, and the five promoted tools take their 1.0.x numbers with counters carried." },

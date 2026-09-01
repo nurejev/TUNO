@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10518"></script>
+<script src="js/popup-guard.js?v=10519"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10518">
+<link rel="stylesheet" href="css/app.css?v=10519">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10518"></script>
+<script src="js/selfhost-boot.js?v=10519"></script>
 </head>
 <body>
 
@@ -156,7 +156,7 @@
         <p>The assignments that exist and reach nobody, in one place — every finding the same shape of problem: <b>something that looks configured and is not</b>. Policies assigned to <b>empty groups</b>, which have never applied and never will; assignments naming <b>deleted groups</b>, which target nobody silently; <b>unassigned policies</b>; policies whose every assignment is an <b>exclusion</b>, so there is nothing to exclude from; a group both included and excluded on one policy, where the exclusion wins and the include reads as reach. Optionally, the deployments Graph reports as <b>failing</b> — for the surfaces that keep a cheap status, with the ones that do not named as unchecked rather than passed off as healthy.</p>
       </div>
       <div class="tool" id="toolAssignEdit">
-        <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag block">writes to the tenant</span></h3>
+        <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag upd">UPDATED</span> <span class="tag block">writes to the tenant</span></h3>
         <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance and administrative templates; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
       </div>
       <div class="tool" id="toolFilters">
@@ -179,7 +179,7 @@
         <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back. And now the other direction: <b>restore from an archive</b> — create only, an editable [Restored] prefix on everything, a collision stop checked fresh before each create, administrative-template child writes included in the dry run, everything arriving unassigned by design. <b>Widened at beta 10426 (R15):</b> twenty-four areas, a SHA-256 per file with the manifest written last, an offline verify that names modified, missing and untracked files — and assignments that export to <code>assignments.json</code> and import back, same tenant only, through the assignment editor's own write discipline.</p>
       </div>
       <div class="tool" id="toolDocs">
-        <div class="tool-ic">📄</div><h3>Configuration documenter</h3>
+        <div class="tool-ic">📄</div><h3>Configuration documenter <span class="tag upd">UPDATED</span></h3>
         <p>Every policy in the tenant, in one list you can filter and read — settings expanded underneath, assignments resolved to group names. Then write it down: Markdown for a wiki, a standalone HTML page, or a Word document for the auditor who will edit it. <b>Secrets are redacted and that cannot be switched off</b> — a script body or a certificate in a document somebody emails is a disclosure you cannot recall. A section that could not be read is named as unreadable rather than left out silently.</p>
       </div>
       <div class="tool" id="toolSetSearch">
@@ -1383,6 +1383,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       </div>
       <div id="aeResults"></div>
     </div>
+    <!-- The policy popout (build 10519): the 📄 documenter's own template,
+         opened from a policy name. Same modal shell as T19's. -->
+    <div class="modal-bg" id="aeModal">
+      <div class="modal gu-modal" id="aeModalBody"></div>
+    </div>
   </section>
 
   <!-- ============ ROADMAP ============ -->
@@ -1918,43 +1923,43 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10518"></script>
-<script src="js/selfhost.js?v=10518"></script>
-<script src="js/version.js?v=10518"></script>
-<script src="js/promote.js?v=10518"></script>
-<script src="js/authConfig.js?v=10518"></script>
-<script src="js/changelog.js?v=10518"></script>
-<script src="js/msappcatalog.js?v=10518"></script>
-<script src="js/demo.js?v=10518"></script>
-<script src="js/graph.js?v=10518"></script>
-<script src="js/suggest.js?v=10518"></script>
-<script src="js/progress.js?v=10518"></script>
-<script src="js/groupuse.js?v=10518"></script>
-<script src="js/audit.js?v=10518"></script>
-<script src="js/backup.js?v=10518"></script>
-<script src="js/document.js?v=10518"></script>
-<script src="js/overview.js?v=10518"></script>
-<script src="js/devicewhy.js?v=10518"></script>
-<script src="js/whatif.js?v=10518"></script>
-<script src="js/health.js?v=10518"></script>
-<script src="js/settingsearch.js?v=10518"></script>
-<script src="js/conflict.js?v=10518"></script>
-<script src="js/compliance.js?v=10518"></script>
-<script src="js/filterrules.js?v=10518"></script>
-<script src="js/filters.js?v=10518"></script>
-<script src="js/restore.js?v=10518"></script>
-<script src="js/assignedit.js?v=10518"></script>
-<script src="js/restrictedau.js?v=10518"></script>
-<script src="js/groupmigrate.js?v=10518"></script>
-<script src="js/roles.js?v=10518"></script>
-<script src="js/defender.js?v=10518"></script>
-<script src="js/endpointsec.js?v=10518"></script>
-<script src="js/report.js?v=10518"></script>
-<script src="js/securescore.js?v=10518"></script>
-<script src="js/endpointposture.js?v=10518"></script>
-<script src="js/maa.js?v=10518"></script>
-<script src="js/laps.js?v=10518"></script>
-<script src="js/applocker.js?v=10518"></script>
-<script src="js/app.js?v=10518"></script>
+<script src="js/branding.js?v=10519"></script>
+<script src="js/selfhost.js?v=10519"></script>
+<script src="js/version.js?v=10519"></script>
+<script src="js/promote.js?v=10519"></script>
+<script src="js/authConfig.js?v=10519"></script>
+<script src="js/changelog.js?v=10519"></script>
+<script src="js/msappcatalog.js?v=10519"></script>
+<script src="js/demo.js?v=10519"></script>
+<script src="js/graph.js?v=10519"></script>
+<script src="js/suggest.js?v=10519"></script>
+<script src="js/progress.js?v=10519"></script>
+<script src="js/groupuse.js?v=10519"></script>
+<script src="js/audit.js?v=10519"></script>
+<script src="js/backup.js?v=10519"></script>
+<script src="js/document.js?v=10519"></script>
+<script src="js/overview.js?v=10519"></script>
+<script src="js/devicewhy.js?v=10519"></script>
+<script src="js/whatif.js?v=10519"></script>
+<script src="js/health.js?v=10519"></script>
+<script src="js/settingsearch.js?v=10519"></script>
+<script src="js/conflict.js?v=10519"></script>
+<script src="js/compliance.js?v=10519"></script>
+<script src="js/filterrules.js?v=10519"></script>
+<script src="js/filters.js?v=10519"></script>
+<script src="js/restore.js?v=10519"></script>
+<script src="js/assignedit.js?v=10519"></script>
+<script src="js/restrictedau.js?v=10519"></script>
+<script src="js/groupmigrate.js?v=10519"></script>
+<script src="js/roles.js?v=10519"></script>
+<script src="js/defender.js?v=10519"></script>
+<script src="js/endpointsec.js?v=10519"></script>
+<script src="js/report.js?v=10519"></script>
+<script src="js/securescore.js?v=10519"></script>
+<script src="js/endpointposture.js?v=10519"></script>
+<script src="js/maa.js?v=10519"></script>
+<script src="js/laps.js?v=10519"></script>
+<script src="js/applocker.js?v=10519"></script>
+<script src="js/app.js?v=10519"></script>
 </body>
 </html>

@@ -341,6 +341,15 @@ const Docs = (() => {
       }
       if (notes.length) out.partial.push({ id, label: sec.label, notes });
 
+      // ONE POLICY, THE WHOLE MACHINERY (build 10519, for T11's popout).
+      // `only` narrows a section's items to a single id right after the
+      // list read, so the detail N+1, the group and filter naming and the
+      // member counts below all run for exactly one policy. The
+      // alternative was a second single-policy mapper beside this one —
+      // which is how two tools start disagreeing about one tenant (the
+      // T12 rule, the reason collect() exists at all).
+      if (o.only) items = items.filter((x) => lc(x.id) === lc(o.only));
+
       // the N+1, bounded — settings catalog and ADMX only
       if (sec.detail && items.length) {
         let done = 0;
