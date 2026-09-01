@@ -29,7 +29,11 @@
 // assigned intent is credited with the caveat on the row.
 //
 // Reads only, no new scope: the policy reads ride the config read, the
-// device count rides the device read, names ride the directory read.
+// device count rides the device read, names ride the directory read, and
+// (10535) the group member counts ride the group read — "configured on
+// how many devices" answered as group MEMBERSHIP, T20's arithmetic worn
+// on every row: overlaps not deduplicated, exclusions not subtracted,
+// filters cap at may, an unreadable count makes the sum a floor.
 // ======================================================================
 const EndpointSec = (() => {
   "use strict";
@@ -72,15 +76,20 @@ const EndpointSec = (() => {
   // claim, before anybody evaluates a filter or counts a member?
   function reachOf(assignments) {
     const a = assignments || [];
-    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false, filteredExclusion: false };
-    let includes = 0, excludes = 0, tenantWide = false;
+    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, allDevices: false, allUsers: false, filtered: false, filteredExclusion: false };
+    let includes = 0, excludes = 0, tenantWide = false, allDevices = false, allUsers = false;
     const fr = Docs.filterReachOf(a);
     const filtered = fr.capped, filteredExclusion = fr.onExclusion;
     for (const x of a) {
       const t = (x.target && x.target["@odata.type"]) || "";
       if (/exclusionGroupAssignmentTarget/.test(t)) excludes++;
       else if (/groupAssignmentTarget/.test(t)) includes++;
-      else if (/allDevicesAssignmentTarget|allLicensedUsersAssignmentTarget/.test(t)) { tenantWide = true; }
+      // ALL-DEVICES AND ALL-USERS ARE SPLIT (10535) because the member-count
+      // question answers differently for each: all devices IS the fleet
+      // denominator this tool already reads, while all users is a number no
+      // group holds — their devices follow them.
+      else if (/allDevicesAssignmentTarget/.test(t)) { tenantWide = true; allDevices = true; }
+      else if (/allLicensedUsersAssignmentTarget/.test(t)) { tenantWide = true; allUsers = true; }
       // FILTERED MEANS "REACH IS CAPPED" (10490). This had counted a filter
       // on an EXCLUSION too, where the filter narrows what is excluded
       // rather than what is reached — the "may reach, not does" caveat this
@@ -88,7 +97,7 @@ const EndpointSec = (() => {
       // is the one reader; a filter on an exclusion is its own fact.
     }
     const kind = (includes || tenantWide) ? "reaches" : excludes ? "excludedOnly" : "unassigned";
-    return { kind, includes, excludes, tenantWide, filtered, filteredExclusion };
+    return { kind, includes, excludes, tenantWide, allDevices, allUsers, filtered, filteredExclusion };
   }
 
   function groupIdsOf(assignments) {
@@ -99,12 +108,62 @@ const EndpointSec = (() => {
     }
     return ids;
   }
+  // Only INCLUDE groups feed the member sum — counting an exclusion group's
+  // members toward "configured on" would add exactly the machines the
+  // assignment keeps out.
+  function includeGroupIdsOf(assignments) {
+    const ids = [];
+    for (const x of assignments || []) {
+      const t = (x.target && x.target["@odata.type"]) || "";
+      const id = x.target && x.target.groupId;
+      if (id && !/exclusionGroupAssignmentTarget/.test(t)) ids.push(id);
+    }
+    return [...new Set(ids)];
+  }
+
+  // ---- "configured on how many devices" (10535, Mihai's ask) -------------
+  // Answered as GROUP MEMBERSHIP — the only count a browser can give without
+  // walking the fleet, and the arithmetic T20 already wears: sums across
+  // groups may double-count overlapping members, exclusions are NOT
+  // subtracted, a filter caps reach at "may", and a count that could not be
+  // read makes the sum a floor, never a silent zero. Membership is targets,
+  // not check-ins — per-device applicability is still not evaluated.
+  function targetCountOf(row, groupCounts, deviceCount) {
+    if (row.source === "Legacy intent") return { kind: "legacy" };
+    const r = row.reach;
+    if (r.kind !== "reaches") return { kind: "none" };
+    if (r.allDevices) return { kind: "fleet", n: (typeof deviceCount === "number") ? deviceCount : null };
+    if (r.allUsers) return { kind: "allUsers" };
+    const ids = row.includeGroupIds || [];
+    if (!ids.length) return { kind: "none" };
+    let n = 0, unread = 0;
+    for (const id of ids) {
+      const c = groupCounts ? groupCounts[id] : undefined;
+      if (typeof c === "number" && Number.isFinite(c)) n += c; else unread++;
+    }
+    if (unread === ids.length) return { kind: "unknown", groups: ids.length };
+    return { kind: "members", n, unread, groups: ids.length, floor: unread > 0 };
+  }
+  // One phrase for one count — screen, Markdown and CSV all speak it, so
+  // they cannot disagree about the same number.
+  function targetPhrase(t) {
+    if (!t || t.kind === "legacy" || t.kind === "none") return "";
+    if (t.kind === "fleet") return t.n === null ? "all devices — the fleet count could not be read, so the number is unknown, not zero"
+      : `all devices — ${t.n} Windows enrolled`;
+    if (t.kind === "allUsers") return "all users — their devices follow them; a device number no group holds";
+    if (t.kind === "unknown") return `member count unreadable (${t.groups} group${t.groups === 1 ? "" : "s"}) — unknown, not zero`;
+    const base = `≈${t.n} member${t.n === 1 ? "" : "s"}`;
+    const floor = t.floor ? ` at least — ${t.unread} group count${t.unread === 1 ? "" : "s"} unreadable` : "";
+    const overlap = t.groups > 1 ? ` across ${t.groups} groups, overlaps not deduplicated` : "";
+    return base + floor + overlap;
+  }
 
   async function report(opts) {
     const o = opts || {};
     const onStatus = o.onStatus || (() => {});
     const out = { policies: null, policyError: null, intents: [], intentsError: null,
-      templatesError: null, deviceCount: null, deviceCountError: null, disciplines: null, names: {}, nameError: null };
+      templatesError: null, deviceCount: null, deviceCountError: null, disciplines: null, names: {}, nameError: null,
+      groupCounts: {}, groupCountUnread: 0 };
 
     onStatus("Reading settings catalog policies…");
     let all;
@@ -152,6 +211,7 @@ const EndpointSec = (() => {
         assignments: (p.assignments || []).length,
         reach,
         groupIds: groupIdsOf(p.assignments),
+        includeGroupIds: includeGroupIdsOf(p.assignments),
         counts: reach.kind === "reaches",
         caveat: reach.kind === "excludedOnly" ? "every assignment is an exclusion — reaches nobody by construction"
           : reach.kind === "unassigned" ? "no assignments — configures nothing"
@@ -169,8 +229,9 @@ const EndpointSec = (() => {
         template: tplName || (out.templatesError ? "template could not be read" : it.templateId || ""),
         platforms: "",
         assignments: null,   // the legacy surface does not say
-        reach: { kind: it.isAssigned ? "reaches" : "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false },
+        reach: { kind: it.isAssigned ? "reaches" : "unassigned", includes: 0, excludes: 0, tenantWide: false, allDevices: false, allUsers: false, filtered: false },
         groupIds: [],
+        includeGroupIds: [],
         counts: !!it.isAssigned && !!disc,
         caveat: !disc ? (out.templatesError ? "unclassified — the template read failed, so this counts toward nothing" : "unclassified — counts toward nothing, said rather than guessed")
           : "legacy surface — Graph says only assigned or not, no assignment detail",
@@ -185,6 +246,22 @@ const EndpointSec = (() => {
       // screen says "names unresolved" instead of showing bare GUIDs silently.
       out.names = await Graph.resolveNames(allIds, { types: ["group"] });
       out.nameError = out.names.error ? String(out.names.error).slice(0, 200) : null;
+    }
+
+    // Member counts for the INCLUDE groups — Graph.memberCount, the seam the
+    // AppLocker deploy and T20 already use. Pooled, and a refusal lands as
+    // null on that group (a floor in the sum), never as a zero.
+    const incIds = [...new Set(rows.flatMap((r) => r.includeGroupIds || []))];
+    if (incIds.length) {
+      onStatus("Counting group members…");
+      const counted = await Graph.pool(incIds, (id) => Graph.memberCount(id), 6);
+      for (const c of counted) {
+        // c is { item, value } or { item, error } — the 10483 lesson: read
+        // the wrapper, never the wrapper AS the count.
+        const n = c.error ? NaN : Number(c.value);
+        out.groupCounts[c.item] = Number.isFinite(n) ? n : null;
+        if (!Number.isFinite(n)) out.groupCountUnread++;
+      }
     }
 
     // ---- per-discipline verdicts ----
@@ -237,28 +314,30 @@ const EndpointSec = (() => {
     if (extras.length) {
       L.push(`Also present: ${extras.map(([d, v]) => `${d} (${v.covering}/${v.policies} covering)`).join(", ")}.`, "");
     }
-    L.push(`## Every endpoint security policy`, "", `| Policy | Discipline | Source | Reach | Note |`, `|---|---|---|---|---|`);
+    L.push(`## Every endpoint security policy`, "", `| Policy | Discipline | Source | Reach | Configured on | Note |`, `|---|---|---|---|---|---|`);
     for (const r of rep.policies) {
       const reach = r.counts ? (r.reach.tenantWide ? "tenant-wide" : `${r.reach.includes} include${r.reach.includes === 1 ? "" : "s"}${r.reach.excludes ? `, ${r.reach.excludes} exclusions` : ""}`)
         : r.reach.kind === "excludedOnly" ? "**reaches nobody — exclusions only**" : "**not assigned**";
-      L.push(`| ${mdCell(r.name)} | ${mdCell(r.discipline)} | ${r.source} | ${reach} | ${mdCell(r.caveat)} |`);
+      const tp = targetPhrase(targetCountOf(r, rep.groupCounts, rep.deviceCount));
+      L.push(`| ${mdCell(r.name)} | ${mdCell(r.discipline)} | ${r.source} | ${reach} | ${mdCell(tp) || "—"} | ${mdCell(r.caveat)} |`);
     }
     L.push("", `---`,
-      `Coverage means at least one policy that is assigned AND reaches somebody by construction — no include and no tenant-wide target is nobody, exclusions only is nobody. Per-device applicability is not evaluated: a filter caps reach at "may", and whether an included group is empty is the 🩺 Assignment health tool's finding.`);
+      `Coverage means at least one policy that is assigned AND reaches somebody by construction — no include and no tenant-wide target is nobody, exclusions only is nobody. "Configured on" is group MEMBERSHIP, not per-device applicability: sums across groups may double-count, exclusions are not subtracted, a filter caps reach at "may", and whether an included group is empty is the 🩺 Assignment health tool's finding.`);
     return L.join("\n");
   }
   function csv(rep) {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const L = ["policy,discipline,source,template,platforms,assignments,reachKind,includes,exclusions,tenantWide,filtered,countsAsCoverage,note"];
+    const L = ["policy,discipline,source,template,platforms,assignments,reachKind,includes,exclusions,tenantWide,filtered,countsAsCoverage,configuredOn,note"];
     for (const r of rep.policies || []) {
+      const tp = targetPhrase(targetCountOf(r, rep.groupCounts, rep.deviceCount));
       L.push([q(r.name), q(r.discipline), q(r.source), q(r.template), q(r.platforms),
         r.assignments === null ? "" : r.assignments, r.reach.kind, r.reach.includes, r.reach.excludes,
-        String(r.reach.tenantWide), String(r.reach.filtered), String(r.counts), q(r.caveat)].join(","));
+        String(r.reach.tenantWide), String(r.reach.filtered), String(r.counts), q(tp), q(r.caveat)].join(","));
     }
     return L.join("\n");
   }
 
-  return { CORE, disciplineOf, disciplineOfTemplateName, reachOf, report, markdown, csv, meta };
+  return { CORE, disciplineOf, disciplineOfTemplateName, reachOf, includeGroupIdsOf, targetCountOf, targetPhrase, report, markdown, csv, meta };
 })();
 
 
@@ -286,7 +365,9 @@ const EndpointSecTool = (() => {
     if (running) return;
     running = true; $("fwRun").disabled = true; showExports(false); $("fwBody").innerHTML = ""; open.clear(); discFilter = null;
     try {
-      await Graph.ensureScopes([...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])]);
+      // groups joined at 10535: the member counts ride Graph.memberCount
+      // (Group.Read.All) — asked here, at the click, never at sign-in.
+      await Graph.ensureScopes([...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices, ...Graph.SCOPES.groups])]);
       rep = await EndpointSec.report({ onStatus: prog });
       prog("");
       render();
@@ -341,8 +422,13 @@ const EndpointSecTool = (() => {
       const badge = r.counts ? `<span class="au-op create">${r.reach.tenantWide ? "tenant-wide" : "assigned"}</span>`
         : r.reach.kind === "excludedOnly" ? `<span class="au-op delete">reaches nobody</span>`
         : `<span class="au-op delete">not assigned</span>`;
+      // The number Mihai asked for, worn on the row: on how many devices is
+      // this configured — as group membership, with its limits in the fold.
+      const tgt = EndpointSec.targetCountOf(r, rep.groupCounts, rep.deviceCount);
+      const tp = EndpointSec.targetPhrase(tgt);
+      const tgtChip = tp ? ` <span class="gu-how ok" title="Group membership, not per-device applicability — open the row for the arithmetic's limits">${esc(tgt.kind === "fleet" && tgt.n !== null ? `${tgt.n} devices` : tgt.kind === "members" ? `≈${tgt.n}${tgt.floor ? "+" : ""} members` : tgt.kind === "allUsers" ? "all users" : "count unknown")}</span>` : "";
       const head = `<div class="au-ev-h">
-          <b>${esc(r.name)}</b> ${badge}
+          <b>${esc(r.name)}</b> ${badge}${tgtChip}
           ${r.source === "Legacy intent" ? `<span class="gu-how exc">legacy intent</span>` : ""}
           ${r.reach.filtered ? `<span class="gu-how priv" title="An assignment filter is in the way — reach is may, not is">filtered</span>` : ""}
           ${r.reach.filteredExclusion ? `<span class="gu-how priv" title="A filter narrows an EXCLUSION on this policy — fewer devices are kept out than the exclusion suggests. It does not cap reach, which is why it is its own chip">filtered exclusion</span>` : ""}
@@ -351,7 +437,13 @@ const EndpointSecTool = (() => {
         <div class="mini muted au-ev-m">${esc(r.template)}${r.caveat ? ` · ${esc(r.caveat)}` : ""} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
       const groups = r.groupIds.map((id) => {
         const e = look && look.entry(id);
-        return e ? esc(e.name) : `<code>${esc(id)}</code>`;
+        const name = e ? esc(e.name) : `<code>${esc(id)}</code>`;
+        const c = rep.groupCounts ? rep.groupCounts[id] : undefined;
+        // Only include groups were counted; an exclusion group carries no
+        // number here on purpose. A 0 prints — an empty include group is
+        // T09's finding, worth seeing where the target is named.
+        return typeof c === "number" ? `${name} <span class="muted">· ${c} member${c === 1 ? "" : "s"}</span>`
+          : c === null ? `${name} <span class="muted">· count unreadable</span>` : name;
       });
       const detail = !isOpen ? "" : `<div class="au-detail">
         <div class="au-detail-grid mini">
@@ -362,6 +454,7 @@ const EndpointSecTool = (() => {
             ? "the legacy surface says only assigned or not — no assignment detail"
             : `${r.reach.includes} include${r.reach.includes === 1 ? "" : "s"} · ${r.reach.excludes} exclusion${r.reach.excludes === 1 ? "" : "s"}${r.reach.tenantWide ? " · tenant-wide" : ""}${r.reach.filtered ? " · filtered (may, not is)" : ""}${r.reach.filteredExclusion ? " · a filter narrows an exclusion" : ""}`}</span>
           ${groups.length ? `<span class="muted">Groups</span><span>${groups.join(", ")}${rep.nameError ? ` <span class="muted">(names unresolved — ${esc(rep.nameError)})</span>` : ""}</span>` : ""}
+          ${tp ? `<span class="muted">Configured on</span><span>${esc(tp)} <span class="muted">— group membership, not per-device applicability: exclusions are not subtracted${r.reach.filtered ? ", and the assignment filter caps this at may" : ""}</span></span>` : ""}
         </div>
       </div>`;
       const cls = r.counts ? "ok" : "bad";

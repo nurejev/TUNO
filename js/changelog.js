@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10535, date: "2026-09-01", title: "The coverage tool says on how many devices",
+    items: [
+      { kind: "improved", tool: "Firewall & ASR coverage", text: "Every covering policy now wears the number its assignments claim — \u201cconfigured on\u201d as group membership: include groups summed by their member counts, all-devices speaking the fleet denominator the tool already reads, all-users saying honestly that their devices follow them. The arithmetic wears its limits where the number is printed: overlaps are not deduplicated, exclusions are not subtracted, a filter caps the claim at may, an unreadable count makes the sum a floor, and unknown is never zero. The fold's group chips carry per-group counts, and the Markdown and CSV exports speak the same phrase as the screen." },
+    ],
+  },
+  {
     build: 10534, date: "2026-09-01", title: "Eighth promotion — the whole queue ships as build 13",
     items: [
       { kind: "improved", tool: "All tools", text: "Production moves to build 13 and takes all nine queue items with it — beta builds 10519 through 10533: the macOS baseline with its catalog and the upstream watch, the Entra device cleanup with the registration's first directory-device write permission, the sign-in prefetch across four tools, the policy popouts and action rows, the platform filter in seven lists, and the tenant-read stamp on every cached export. The queue is empty again, the In-beta-today era stands empty on both channels saying truthfully that they match, and the two promoted tools take their 1.0.x numbers with counters carried." },
