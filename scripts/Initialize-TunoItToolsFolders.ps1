@@ -63,7 +63,7 @@ param(
 # Same discipline as the other scripts: ScriptVersion is this file's history,
 # TunoBuild the site build that served it, held to js/version.js by the guard.
 $script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10532
+$script:TunoBuild = 10533
 
 $ErrorActionPreference = 'Stop'
 

@@ -255,21 +255,27 @@ const DeviceCleanupTool = (() => {
       <div class="list-card" style="margin-top:12px">
         <h4 style="margin:0 0 6px">① Disable — ${b.stale.length} stale and still enabled <span class="tag block">writes to the tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px">Reversible — a disabled device can be re-enabled in the portal. Every 90-day-plus device that is still enabled sits HERE, not in delete: delete follows disable, never replaces it.</p>
+        <div class="tb-actions" style="margin:0 0 8px">
+          <button class="btn" id="dcuAllD">☑ Select all</button><button class="btn" id="dcuNoneD">☐ Select none</button>
+          <span class="mini muted" id="dcuCountD"></span>
+        </div>
         ${table(b.stale, "dcud", "dcuMasterD", "Device")}
         <div class="tb-actions" style="margin-top:8px">
           <button class="btn primary" id="dcuDisableBtn">🌙 Disable the ticked <span class="tag block">writes</span></button>
-          <button class="btn" id="dcuAllD">☑ Select all</button><button class="btn" id="dcuNoneD">☐ Select none</button>
         </div>
       </div>
 
       <div class="list-card" style="margin-top:12px">
         <h4 style="margin:0 0 6px">② Delete — ${b.deletable.length} disabled and silent past ${b.thresholds.deleteDays} days <span class="tag block">writes to the tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px"><b>Not reversible.</b> The BitLocker recovery keys go with the object. Each delete re-checks the device first: re-enabled since the plan → refused (somebody wants it back); signed in since → refused (it woke up).</p>
+        <div class="tb-actions" style="margin:0 0 8px">
+          <button class="btn" id="dcuAllX">☑ Select all</button><button class="btn" id="dcuNoneX">☐ Select none</button>
+          <span class="mini muted" id="dcuCountX"></span>
+        </div>
         ${table(b.deletable, "dcux", "dcuMasterX", "Device")}
         <div class="tb-actions" style="margin-top:8px">
           <label class="mini" style="display:inline-flex;align-items:center;gap:6px">Type <b>DELETE</b> to arm: <input id="dcuConfirm" style="width:110px" autocomplete="off"></label>
           <button class="btn primary" id="dcuDeleteBtn" disabled>🗑 Delete the ticked <span class="tag block">writes</span></button>
-          <button class="btn" id="dcuAllX">☑ Select all</button><button class="btn" id="dcuNoneX">☐ Select none</button>
         </div>
       </div>
 
@@ -279,10 +285,15 @@ const DeviceCleanupTool = (() => {
       <div id="dcuResults" style="margin-top:10px"></div>`;
 
     // the 10531 selection pattern, twice — three faces, one selection each
-    const wireSel = (tickAttr, masterId, allId, noneId) => {
+    const wireSel = (tickAttr, masterId, allId, noneId, countId) => {
       const ticks = () => [...$("dcuBody").querySelectorAll(`[data-${tickAttr}]`)];
       const master = $(masterId);
-      const sync = () => { const t = ticks(), on = t.filter((c) => c.checked).length; master.checked = on > 0 && on === t.length; master.indeterminate = on > 0 && on < t.length; };
+      const sync = () => {
+        const t = ticks(), on = t.filter((c) => c.checked).length;
+        master.checked = on > 0 && on === t.length;
+        master.indeterminate = on > 0 && on < t.length;
+        const c2 = $(countId); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+      };
       const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
       master.addEventListener("change", () => setAll(master.checked));
       $(allId).addEventListener("click", () => setAll(true));
@@ -290,8 +301,8 @@ const DeviceCleanupTool = (() => {
       ticks().forEach((c) => c.addEventListener("change", sync));
       sync();
     };
-    wireSel("dcud", "dcuMasterD", "dcuAllD", "dcuNoneD");
-    wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX");
+    wireSel("dcud", "dcuMasterD", "dcuAllD", "dcuNoneD", "dcuCountD");
+    wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX", "dcuCountX");
     $("dcuConfirm").addEventListener("input", () => { $("dcuDeleteBtn").disabled = $("dcuConfirm").value.trim() !== "DELETE"; });
     $("dcuDisableBtn").addEventListener("click", () => act("disable"));
     $("dcuDeleteBtn").addEventListener("click", () => act("delete"));

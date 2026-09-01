@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10533, date: "2026-09-01", title: "The cleanup's selection controls surface",
+    items: [
+      { kind: "fixed", tool: "Entra device cleanup", text: "Select all and select none moved above each table — they existed, but below a twenty-one-row list, which is where controls go to be undiscovered. A live ticked count now sits beside them, and the master checkbox in the table header stays." },
+    ],
+  },
+  {
     build: 10532, date: "2026-09-01", title: "Entra device cleanup — stale machines leave in two steps",
     items: [
       { kind: "new", tool: "TUNO", text: "A new tool: Entra device cleanup. Devices silent for 30 days can be disabled; devices disabled and silent for 90 can be deleted — and only what is already disabled can be deleted, because the gap between the two steps is where somebody notices the laptop in the drawer still matters. A device that never reported a sign-in is unknown, not stale, and gets no action offered." },
