@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10537, date: "2026-09-01", title: "Compliance evidence — a new tool",
+    items: [
+      { kind: "new", tool: "Compliance evidence", text: "\ud83d\udccb The technical evidence an auditor asks for, read from the tenant's own policies: 21 platform capabilities \u2014 disk encryption, host firewall, malware protection, device lock, update discipline and friends across Windows, macOS, iOS/iPadOS and Android \u2014 detected by setting identity, every hit an evidence row naming the policy, the setting, the observed value and the reach. The capabilities are laid against ISO/IEC 27001:2022, NIST SP 800-53 r5 and NIST CSF 2.0 controls, with summaries written for this mapping. Evidence in a policy reaching nobody is not enforcement; a compliance policy marks rather than enforces; absence of evidence is not evidence of absence; a platform with no policies is set aside rather than counted against a control; and there is deliberately no score \u2014 evidence, not certification, with the disclaimer on every export. Reads through the shared policy read \u2014 warm when the session already holds it \u2014 and no new permission." },
+    ],
+  },
+  {
     build: 10536, date: "2026-09-01", title: "Defender status matches the MDE-Active baseline",
     items: [
       { kind: "new", tool: "Defender status", text: "\ud83e\uddf1 One click matches the tenant against the CloudFellows MDE-Active baseline in two layers. The policy layer reads the AV and ASR settings-catalog policies with their settings and matches 13 settings and all 19 ASR rules \u2014 a setting that lives only in a policy reaching nobody reads reaches-nobody, never compliant; two reaching policies that disagree are a conflict, pointed at the Setting conflict scan; and eleven baseline settings the catalog cannot express one-for-one are listed as not checked rather than guessed. The device layer checks the three flags machines actually report \u2014 real-time, malware and network inspection \u2014 with no-state devices counted unknown, never compliant. There is deliberately no single score: a conflict and a gap are not the same finding. The match rides the Markdown export as its own section." },
