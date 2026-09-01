@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10538, date: "2026-09-01", title: "The layout round begins — Compliance evidence gets the rail",
+    items: [
+      { kind: "improved", tool: "Compliance evidence", text: "Mihai's layout round, Option A off the mockup: the long tools adopt the posture tool's left rail so a section is a click, not a scroll. First adopter — the three framework control tables stop stacking under the capability list; a sticky rail holds Capabilities plus one node per framework, each wearing its evidence count with findings in red, and the disclaimer travels onto every framework pane." },
+    ],
+  },
+  {
     build: 10537, date: "2026-09-01", title: "Compliance evidence — a new tool",
     items: [
       { kind: "new", tool: "Compliance evidence", text: "\ud83d\udccb The technical evidence an auditor asks for, read from the tenant's own policies: 21 platform capabilities \u2014 disk encryption, host firewall, malware protection, device lock, update discipline and friends across Windows, macOS, iOS/iPadOS and Android \u2014 detected by setting identity, every hit an evidence row naming the policy, the setting, the observed value and the reach. The capabilities are laid against ISO/IEC 27001:2022, NIST SP 800-53 r5 and NIST CSF 2.0 controls, with summaries written for this mapping. Evidence in a policy reaching nobody is not enforcement; a compliance policy marks rather than enforces; absence of evidence is not evidence of absence; a platform with no policies is set aside rather than counted against a control; and there is deliberately no score \u2014 evidence, not certification, with the disclaimer on every export. Reads through the shared policy read \u2014 warm when the session already holds it \u2014 and no new permission." },

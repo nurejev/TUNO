@@ -431,6 +431,11 @@ const CompEvTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let res = null, assessment = null, running = false, statusFilter = null;
+  // THE RAIL (10538, Mihai's layout round — Option A, T20's shape): one
+  // pane at a time — capabilities, then one node per framework — so the
+  // three control tables stop stacking under the capability list and the
+  // jump to a section is a click, not a scroll. State survives re-renders.
+  let pane = "caps";
   const open = new Set();   // fold state on capability ids — the T03 rule
 
   function prog(msg) { TunoProgress.show("ceBody", "ceProg", msg); }
@@ -447,7 +452,7 @@ const CompEvTool = (() => {
   async function run(attach) {
     if (running) return;
     running = true; $("ceRun").disabled = true;
-    if (!attach) { showExports(false); $("ceBody").innerHTML = ""; open.clear(); statusFilter = null; }
+    if (!attach) { showExports(false); $("ceBody").innerHTML = ""; open.clear(); statusFilter = null; pane = "caps"; }
     try {
       if (attach && window.PolicyCache && PolicyCache.reading()) {
         res = await PolicyCache.read(prog);
@@ -484,6 +489,22 @@ const CompEvTool = (() => {
 
   function render() {
     const a = assessment;
+    if (pane !== "caps" && !a.frameworks.some((f) => f.id === pane)) pane = "caps";
+
+    // ---- the rail: capabilities + one node per framework ----
+    const railNode = (id, icon, label, right, active) => `<div class="ep-node${active ? " active" : ""}" data-cepane="${esc(id)}" role="button" tabindex="0">
+      <span>${icon} ${esc(label)}</span><span class="mini" style="margin-left:auto;white-space:nowrap">${right}</span></div>`;
+    const capBad = a.counts.unreaching + a.counts.disabled;
+    const rail = [
+      railNode("caps", "🧩", "Capabilities",
+        `<span class="ov-on">${a.counts.enforced}</span><span class="muted">/${a.results.length}</span>${capBad ? ` <span style="color:var(--off)">·${capBad}</span>` : ""}`,
+        pane === "caps"),
+      '<p class="mini muted" style="margin:2px 10px 6px">enforced / all · findings</p><hr>',
+      ...a.frameworks.map((fw) => railNode(fw.id, "📐", fw.name,
+        `<span class="ov-on">${fw.summary.evidence}</span><span class="muted">/${fw.controls.length}</span>${fw.summary.partial ? ` <span style="color:var(--off)">·${fw.summary.partial}</span>` : ""}`,
+        pane === fw.id)),
+    ].join("");
+
     const parts = [];
     const c = a.counts;
     const card = (id, label, n, sub, cls) => `<button class="au-card au-card-btn ${statusFilter === id ? "active" : ""}" data-cestat="${id}" type="button">
@@ -515,21 +536,31 @@ const CompEvTool = (() => {
       ${rows || `<p class="mini muted" style="margin:0">Nothing with this status.</p>`}
     </div>`);
 
-    for (const fw of a.frameworks) {
+    // ---- one pane at a time: capabilities, or one framework's table ----
+    let paneHtml;
+    if (pane === "caps") {
+      paneHtml = parts.join("");
+    } else {
+      const fw = a.frameworks.find((f) => f.id === pane);
       const rowsF = fw.controls.map((ctl) => {
         const chip = ctl.status === "evidence" ? `<span class="au-op create">evidence found</span>`
           : ctl.status === "partial" ? `<span class="gu-how priv">partial</span>` : `<span class="gu-how exc">no evidence</span>`;
         const caps = ctl.caps.map((x) => `${esc(x.name)} <span class="muted">(${esc(x.platform)})</span>`).join(", ") || `<span class="muted">no managed capability maps here</span>`;
         return `<tr><td style="white-space:nowrap"><b>${esc(ctl.id)}</b></td><td>${esc(ctl.summary)}</td><td>${chip}</td><td>${caps}</td></tr>`;
       }).join("");
-      parts.push(`<div class="list-card">
+      paneHtml = `<div class="list-card" style="margin-top:0">
         <h4 style="margin:0 0 4px">${esc(fw.name)} <span class="mini muted">${esc(fw.version)}</span></h4>
         <p class="mini muted" style="margin:0 0 8px">${esc(fw.note)} ${fw.summary.evidence} with evidence · ${fw.summary.partial} partial · ${fw.summary.none} without.</p>
         <div style="overflow-x:auto"><table class="cg-table mini"><tr><th>Control</th><th></th><th>Status</th><th>Capabilities</th></tr>${rowsF}</table></div>
-      </div>`);
+        <p class="mini muted" style="margin:8px 0 0">${esc(CompEv.DISCLAIMER)}</p>
+      </div>`;
     }
 
-    $("ceBody").innerHTML = parts.join("");
+    $("ceBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
+    $("ceBody").querySelectorAll("[data-cepane]").forEach((n) => n.addEventListener("click", () => {
+      pane = n.dataset.cepane;
+      render();
+    }));
     $("ceBody").querySelectorAll("[data-cestat]").forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.cestat;
       statusFilter = statusFilter === k ? null : k;
@@ -558,5 +589,5 @@ const CompEvTool = (() => {
     (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-compev"] = onShow;
   }
 
-  return { init, _setForTest: (r, a) => { res = r; assessment = a; } };
+  return { init, _setForTest: (r, a, doRender) => { res = r; assessment = a; if (doRender) render(); } };
 })();
