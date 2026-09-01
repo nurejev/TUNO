@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10524, date: "2026-09-01", title: "The platform filter reaches every list that can carry one",
+    items: [
+      { kind: "improved", tool: "Assignment filters", text: "The filter list filters on platform — a filter's own property, declared at creation and fixed for life, so no reading between the lines. Only platforms your filters actually use are offered, with counts, and it composes with the search and the references chip." },
+      { kind: "improved", tool: "Compliance report", text: "The policy list narrows to one platform — the same platform words the coverage section speaks, so the two cannot disagree. The estate cards, the coverage findings and the stale table keep counting the whole tenant; the header says n of N while you are narrowed." },
+      { kind: "improved", tool: "Setting conflict scan", text: "The conflict list narrows to one platform's policies. The verdict cards keep counting the whole scan — the filter helps you read the list, it does not shrink the finding." },
+      { kind: "improved", tool: "Backup configuration", text: "The restore picker filters on platform — restore only the macOS profiles from an archive without hunting for them. The filter only hides rows: your ticks and edited names survive it, a hidden ticked row still restores, and the control says exactly that." },
+      { kind: "improved", tool: "TUNO", text: "Where the filter did not land, that is a decision: the settings search had one already; Defender status and the LAPS audit are Windows by construction; the audit log, group, device and what-if tools answer questions that have no platform. Seven lists now filter on platform, all speaking the same platform words." },
+    ],
+  },
+  {
     build: 10523, date: "2026-09-01", title: "The sign-in read reaches the documenter and the conflict scan",
     items: [
       { kind: "improved", tool: "Configuration documenter", text: "Opening the documenter shows the tenant when the sign-in read holds it: the browse face ready, everything selected, exports live — and every export now names the read it describes, printing the tenant-read time beside the generation time whenever the two differ. A generated-now stamp must not launder an earlier read into a fresh-looking file. Read the tenant stays the fresh read of the sections you tick." },

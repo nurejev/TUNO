@@ -191,6 +191,7 @@ const ConflictTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let scan = null, collectRes = null, running = false;
+  let cfPlat = "all";   // the conflict list's platform filter (build 10524)
   // Open conflict folds, keyed on section|setting — stable across renders,
   // reset on a new scan.
   const open = new Set();
@@ -226,6 +227,7 @@ const ConflictTool = (() => {
   function landRes(r) {
     collectRes = r;
     scan = Conflict.detect(collectRes);
+    cfPlat = "all";   // a fresh scan is a fresh question
     render();
     showExports(true);
   }
@@ -287,8 +289,25 @@ const ConflictTool = (() => {
       return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-cffold="${esc(key)}"><div class="au-ev-card">${head}${detail}</div></div>`;
     };
 
+    // The platform filter (build 10524): a conflict wears the platforms of
+    // the POLICIES in it — the documenter's platform strings, carried on
+    // each compared policy since the scan was born. Narrows the LIST; the
+    // verdict cards keep counting the whole scan, said in the title.
+    const platsOfConflict = (c) => [...new Set(c.policies.flatMap((p) =>
+      String(p.platform || "").split(",").map((x) => x.trim()).filter(Boolean)))];
+    const platsHere = [...new Set(scan.conflicts.flatMap(platsOfConflict))].sort();
+    const platCount = (p) => scan.conflicts.filter((c) => platsOfConflict(c).includes(p)).length;
+    const shownConflicts = scan.conflicts.filter((c) => cfPlat === "all" || platsOfConflict(c).includes(cfPlat));
+    const platSelHtml = platsHere.length > 1
+      ? `<label class="sel-filter" style="margin:0 0 8px" title="Narrows the conflict list to one platform's policies. The verdict cards above keep counting the whole scan.">
+          <span>Platform</span>
+          <select id="cfPlatform">${[["all", `All platforms (${scan.conflicts.length})`]].concat(platsHere.map((p) => [p, `${p} (${platCount(p)})`]))
+            .map(([v, l]) => `<option value="${esc(v)}"${v === cfPlat ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>
+        </label>` : "";
+
     const body = scan.conflicts.length
-      ? scan.conflicts.map(fold).join("")
+      ? (shownConflicts.map(fold).join("")
+        || `<p class="mini" style="margin-top:10px">No ${esc(cfPlat)} conflicts — clear the platform filter and the list comes back.</p>`)
       : `<p class="mini" style="margin-top:10px"><b>No setting is configured to different values by overlapping policies</b> — across ${scan.comparedSettings} settings that more than one policy configures${collectRes.failed.length ? ", on the surfaces that could be read" : ""}.</p>`;
 
     // Where the collection came from is part of the answer (10523): a scan
@@ -299,7 +318,7 @@ const ConflictTool = (() => {
       src = `<p class="mini muted" style="margin:0 0 8px">Scanned over ${collectRes.fromWarm ? "the sign-in read" : "the shared read"} at ${esc(t)} — ⚔️ Scan the tenant re-reads.</p>`;
     }
     $("cfBody").innerHTML = src + cards + `<div class="list-card">${notes.join("")}
-      ${scan.conflicts.length ? `<p class="mini muted" style="margin:8px 0 0">Click a conflict for the side-by-side comparison — every policy's value and reach.</p>` : ""}
+      ${scan.conflicts.length ? `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px">${platSelHtml}<p class="mini muted" style="margin:0">Click a conflict for the side-by-side comparison — every policy's value and reach.</p></div>` : ""}
       <div style="margin-top:10px">${body}</div></div>`;
 
     $("cfBody").querySelectorAll("[data-cffold]").forEach((el) => el.addEventListener("click", (e) => {
@@ -321,6 +340,11 @@ const ConflictTool = (() => {
     // the warm start (build 10523) — registered, so app.js stays ignorant of tools
     (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-conflict"] = onShow;
     $("cfRun").addEventListener("click", run);
+    // Delegated from the static host — cfBody is rebuilt on every render.
+    $("cfBody").addEventListener("change", (e) => {
+      const ps = e.target.closest("#cfPlatform");
+      if (ps) { cfPlat = ps.value; render(); }
+    });
     $("cfMd").addEventListener("click", () => exportAs("md"));
     $("cfCsv").addEventListener("click", () => exportAs("csv"));
   }

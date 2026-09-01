@@ -262,6 +262,8 @@ const FiltersTool = (() => {
   // rest being to open the edit form. On a card it just sits there.
   let view = "cards";
   let search = "";
+  let platSel = "all";   // the platform filter (build 10524) — a filter's OWN
+                         // platform enum, not a derivation: filters declare it
   let devs = null;          // the inventory, once counted; null = not read
   let devErr = null;
 
@@ -406,10 +408,16 @@ const FiltersTool = (() => {
     // question a tenant with fourteen of these actually gets asked.
     const q = search.trim().toLowerCase();
     const shown = filters.filter((f) => (!usedOnly || refs(f).length)
+      && (platSel === "all" || f.platform === platSel)
       && (!q || String(f.displayName).toLowerCase().includes(q)
         || String(f.description || "").toLowerCase().includes(q)
         || String(f.rule || "").toLowerCase().includes(q)
         || String(Filters.platformLabel(f.platform)).toLowerCase().includes(q)));
+    // Only platforms the tenant's filters actually use, plus All — the
+    // 10522 rule; counts over the whole list, unaffected by the search.
+    const platCount = (p) => filters.filter((f) => f.platform === p).length;
+    const platOpts = [[`all`, `All platforms (${filters.length})`]]
+      .concat(Filters.PLATFORMS.filter(([v]) => platCount(v)).map(([v, l]) => [v, `${l} (${platCount(v)})`]));
     const rows = shown.map((f) => {
       const u = refs(f);
       const open = openUse.has(f.id) && u.length;
@@ -440,6 +448,10 @@ const FiltersTool = (() => {
     <div class="list-card af-bar">
       <div class="seg" id="afViewSeg"><button type="button" data-afview="cards" class="${view === "cards" ? "active" : ""}">🗂 Cards</button><button type="button" data-afview="list" class="${view === "list" ? "active" : ""}">☰ List</button></div>
       <input id="afSearch" type="search" placeholder="🔎 Filter by name, rule or platform…" value="${esc(search)}">
+      <label class="sel-filter" title="Narrows to the filters declaring this platform — a filter's own property, fixed at creation.">
+        <span>Platform</span>
+        <select id="afPlatform">${platOpts.map(([v, l]) => `<option value="${esc(v)}"${v === platSel ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>
+      </label>
       <span class="mini muted">${shown.length} shown</span>
     </div>
     <div class="list-card">
@@ -556,6 +568,10 @@ const FiltersTool = (() => {
     $("afMd").addEventListener("click", () => download("Intune-assignment-filters.md", Filters.markdown(filters, use), "text/markdown"));
     // Delegated from the static host, because afBody is rebuilt on every
     // render and a listener bound to its children would not survive one.
+    $("afBody").addEventListener("change", (e) => {
+      const ps = e.target.closest("#afPlatform");
+      if (ps) { platSel = ps.value; render(); }
+    });
     $("afBody").addEventListener("input", (e) => {
       if (!e.target.closest("#afSearch")) return;
       search = e.target.value;

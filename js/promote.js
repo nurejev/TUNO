@@ -92,6 +92,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 128,
+      title: "The platform-filter survey — T14, T13, T12 and the restore picker join",
+      tools: ["T14", "T13", "T12", "T04"],
+      builds: [10524],
+      files: ["js/filters.js", "js/compliance.js", "js/conflict.js", "js/restore.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "low",
+      what: "Mihai's instruction: go tool by tool and add the 10522 platform filter wherever a list can honestly carry one. FOUR JOIN, each on its own platform truth rather than a forced common one: T14 filters on the assignment filter's OWN platform property (declared at creation, fixed for life — no derivation); T13's policy list uses platformOfPolicyType, the vocabulary its coverage section already speaks, and the header reads 'n of N' while narrowed — the estate cards, coverage and stale table keep counting the whole tenant; T12's conflicts wear the platforms of the policies IN them (the documenter's strings, on every compared policy since birth) and the verdict cards keep counting the whole scan; T04's RESTORE PICKER reads the archived raw objects through Docs.platformsOf and — the one mechanical departure — toggles row VISIBILITY instead of re-rendering, because the ticks and edited names in that table are DOM state a re-render would silently drop; a hidden ticked row still restores and the control's title says so; an area with every object hidden folds its header away. All selects follow the 10522 rules: static-control-options-rebuilt, present-platforms-only, counts over the whole collection. THE NO-LIST IS THE OTHER HALF: T10 already had one; T15 and T18 are Windows by construction (the Defender read literally filters operatingSystem eq 'Windows'); T03's audit events, T02/T06/T08/T09's per-object questions, T17's approvals and T21's score carry no platform identity; T16/T20 are single-discipline endpoint blades with their own rails. Recorded here so absence reads as a decision.",
+      why: "LOW. Presentation-side filtering in all four; no read, no write, no scope. The two edges worth eyes: the restore picker's hidden-ticked-row semantics (a deliberate trade, stated on the control — the alternative, unticking on hide, would CHANGE a restore selection as a side effect of browsing); and T12's multi-platform conflicts (a Windows+macOS conflict appears under both platforms, which is what wearing both means).",
+      test: [
+        "T14 → a tenant with Windows and macOS filters: the select offers exactly those with counts; picking one narrows cards AND list faces; the search still composes.",
+        "T13 → Platform: Windows — only Windows compliance policies fold; the header reads 'n of N'; the estate cards and coverage rows do not move.",
+        "T12 → a scan with conflicts on two platforms: picking one narrows the folds; the verdict cards keep the whole scan's numbers; open folds stay open across the change.",
+        "T04 → load an archive with mixed platforms → tick a Windows profile, edit its target name → filter to macOS: the row hides; back to All — the tick AND the edited name are exactly as left.",
+        "T04 → filter to macOS, run the dry run: the hidden ticked Windows profile IS in the plan (the control's title says a hidden ticked row still restores).",
+        "T04 → an archive of only scripts and filters: everything files under Not platform-specific; an area emptied by the filter loses its header row too.",
+        "One-platform tenants: T13's and T12's selects do not render at all — a filter with one answer is furniture.",
+        "Demo mode: the demo tenant's mixed platforms exercise T13's and T12's selects.",
+      ],
+    },
+    {
       n: 127,
       title: "The shared read reaches every tool it can honestly serve — T05 and T12 join",
       tools: ["T05", "T12", "TUNO"],

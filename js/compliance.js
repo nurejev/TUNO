@@ -337,6 +337,7 @@ const ComplianceTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let rep = null, running = false;
+  let cpPlat = "all";   // the policy list's platform filter (build 10524)
   // Which policy rows are unfolded — keyed on POLICY IDS, the T03 rule, so a
   // re-render keeps them open.
   const open = new Set();
@@ -352,7 +353,7 @@ const ComplianceTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear();
+    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear(); cpPlat = "all";
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.devices, ...Graph.SCOPES.config])]);
       rep = await Compliance.report({ staleDays: $("cpStaleDays").value, onStatus: prog });
@@ -423,7 +424,17 @@ const ComplianceTool = (() => {
     }
 
     if (rep.policies) {
-      const rows = rep.policies.map((p) => {
+      // The platform filter (build 10524): a compliance policy's OData type
+      // names its platform 1:1 — platformOfPolicyType, the vocabulary the
+      // coverage section already speaks, so the list and coverage cannot
+      // disagree. Narrows the LIST; the open set and every count above are
+      // untouched. Only platforms the tenant has, plus All (the 10522 rule).
+      const platCount = (p) => rep.policies.filter((x) => x.platform === p).length;
+      const platsHere = [...new Set(rep.policies.map((x) => x.platform).filter(Boolean))].sort();
+      const platOpts = [["all", `All platforms (${rep.policies.length})`]]
+        .concat(platsHere.map((p) => [p, `${p} (${platCount(p)})`]));
+      const shownPolicies = rep.policies.filter((p) => cpPlat === "all" || p.platform === cpPlat);
+      const rows = shownPolicies.map((p) => {
         const o = p.overview;
         const gap = p.overviewError || p.settingsError;
         const failN = (p.failingSettings || []).length;
@@ -452,9 +463,15 @@ const ComplianceTool = (() => {
         return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-cppol="${esc(p.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
       }).join("");
       parts.push(`<div class="list-card">
-        <h4 style="margin:0 0 4px">Policies (${rep.policies.length})</h4>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <h4 style="margin:0 0 4px">Policies (${cpPlat === "all" ? rep.policies.length : `${shownPolicies.length} of ${rep.policies.length}`})</h4>
+          ${platsHere.length > 1 ? `<label class="sel-filter" title="Narrows this list to one platform's policies — the same platform words the coverage section speaks. The cards and coverage above keep counting the whole estate.">
+            <span>Platform</span>
+            <select id="cpPlatform">${platOpts.map(([v, l]) => `<option value="${esc(v)}"${v === cpPlat ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>
+          </label>` : ""}
+        </div>
         <p class="mini muted" style="margin:0 0 10px">Worst first — click a policy for its full rollup and the settings failing under it. The numbers are Graph's cheap per-policy rollup, refreshed on Intune's schedule rather than live. A policy whose statuses could not be read is listed with the gap stated: <b>unknown is not clean</b>.</p>
-        ${rows}
+        ${rows || `<p class="mini muted">No ${esc(cpPlat)} compliance policies — clear the platform filter and the list comes back.</p>`}
       </div>`);
     } else if (rep.policyError) {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>Compliance policies could not be read.</b><span class="why">${esc(rep.policyError)}</span></div></div>`);
@@ -485,6 +502,11 @@ const ComplianceTool = (() => {
   function init() {
     if (!$("cpRun")) return;
     $("cpRun").addEventListener("click", run);
+    // Delegated from the static host — cpBody is rebuilt on every render.
+    $("cpBody").addEventListener("change", (e) => {
+      const ps = e.target.closest("#cpPlatform");
+      if (ps) { cpPlat = ps.value; render(); }
+    });
     $("cpMd").addEventListener("click", () => exportAs("md"));
     $("cpCsv").addEventListener("click", () => exportAs("csv"));
     $("cpStale").addEventListener("click", () => exportAs("stale"));
