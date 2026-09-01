@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10520, date: "2026-09-01", title: "TUNO reads the tenant at sign-in — tools open already knowing it",
+    items: [
+      { kind: "new", tool: "TUNO", text: "Sign in, and TUNO starts reading the tenant's policies in the background — so the Policy overview and the Assignment editor open showing the tenant instead of a Read button. The read is the documenter's own thirteen-surface read, held once and shared; each tool says where its list came from and when, and its Read button becomes the refresh. Nothing about consent changed: the prefetch runs only when the read permission was already granted, so a first-time tenant sees no new prompt at sign-in and its tools ask at the click exactly as before — and that click now warms every other tool too." },
+      { kind: "improved", tool: "Assignment editor", text: "The list can arrive warm, but a plan is never cut from a warm list without saying so — the line above the list names the read it came from, Read the policies still re-reads the tenant before you plan, and every write still re-reads each policy at the moment of writing. After an apply, the shared read is dropped: it described the tenant before your change." },
+      { kind: "improved", tool: "TUNO", text: "Signing out drops the shared read entirely. The cache belongs to the account that read it, and the next sign-in may be a different tenant." },
+    ],
+  },
+  {
     build: 10519, date: "2026-09-01", title: "The Assignment editor's policies open for reading",
     items: [
       { kind: "improved", tool: "Assignment editor", text: "A policy name in the list now opens the policy itself — the Configuration documenter's own popout, settings, named groups with member counts, named filters and all. Before assigning something to a policy called Baseline v3 you can now see what Baseline v3 actually does, without leaving the tool or trusting the name. The tick box beside the name is still the selection; the name is the look inside." },

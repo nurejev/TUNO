@@ -165,6 +165,11 @@ const Fs = (() => {
       (window.requestAnimationFrame || setTimeout)(() => window.scrollTo(0, y));
     }
     shownScreen = id;
+    // Screen hooks (build 10520): a tool may warm-start from the shared
+    // policy cache the moment its screen opens. Registered by the tool, not
+    // hard-coded here, and a hook must never break navigation.
+    const hook = window.TunoScreenHooks && window.TunoScreenHooks[id];
+    if (hook) { try { hook(); } catch { /* the screen still shows */ } }
     if (navSuppress || !HISTORY_SCREENS.has(id)) return;
     if (history.state && history.state.screen === id) return;
     try { history.pushState({ screen: id }, "", location.pathname + location.search); }
@@ -726,6 +731,9 @@ const Fs = (() => {
     $("sideNav").style.display = "";
     document.body.classList.add("with-side");
     show("screen-home");
+    // Demo signs in like any tenant, so it warms like any tenant — the
+    // demo Graph answers the prefetch and the warm-start is showable.
+    if (typeof PolicyCache !== "undefined") PolicyCache.warm();
   }
 
   // ---------- tenant identity at sign-in (ENCA's org read, ported) ----------
@@ -794,6 +802,12 @@ const Fs = (() => {
     show("screen-home");
     openWhatsNewOverlay();
     readOrgAtSignIn();
+    // The sign-in prefetch (build 10520) — fire-and-forget, and SILENT by
+    // contract: PolicyCache.warm() reads the tenant only when the consent
+    // already exists, so a first-time tenant sees no prompt it did not ask
+    // for. Nothing on this path awaits it; the tools adopt the result when
+    // their screens open.
+    if (typeof PolicyCache !== "undefined") PolicyCache.warm();
   }
   // Dismiss marks it seen; "Read the full list" hands over to the page, which
   // marks it seen itself. Escape and the backdrop close WITHOUT marking, so a
@@ -816,6 +830,9 @@ const Fs = (() => {
     const acc = account;
     account = null; signedIn = false;
     tenantDomain = ""; tenantName = ""; orgInfo = null;
+    // The cache holds tenant data and the next sign-in may be a different
+    // tenant — it does not survive the account that read it.
+    if (typeof PolicyCache !== "undefined") PolicyCache.clear();
     $("cfdevBadge").style.display = "none";
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";

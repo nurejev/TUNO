@@ -262,7 +262,34 @@ const OverviewTool = (() => {
   function onEsc(e) { if (e.key === "Escape") closePolicy(); }
 
   // ---------------------------------------------------------------- run --
-  async function run() {
+  // The result lands the same way whatever fetched it — a click, the
+  // sign-in prefetch, or attaching to a prefetch still running. The one
+  // parameter is where the data came from, because staleness must be SAID:
+  // a cached answer prints its read time and where it was read.
+  function showRes(r, sourceNote) {
+    res = r;
+    surfFilter = "all"; verdictFilter = "all"; view = "cards"; $("ovSearch").value = "";
+    const sum = Docs.summarize(res);
+    const notes = [];
+    if (sourceNote) notes.push(sourceNote);
+    notes.push(`${sum.total} object${sum.total === 1 ? "" : "s"} across ${sum.sections} surface${sum.sections === 1 ? "" : "s"}.`);
+    if (res.failed.length) notes.push(`${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — shown as unreadable below, never as zero.`);
+    if (res.partial.length) notes.push(`Partly read: ${res.partial.map((p) => esc(p.label)).join(", ")}.`);
+    if (res.nameError) notes.push(`Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.`);
+    if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
+    if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
+    $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
+    $("ovWrap").style.display = "";
+    render();
+  }
+
+  const cacheNote = () =>
+    `From ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — 🗂 Read the tenant re-reads.`;
+
+  // `attach` rides a read that is already running (the sign-in prefetch);
+  // a plain run() is the refresh — a deliberately fresh read, through the
+  // cache so every other tool warms from it too.
+  async function run(attach) {
     if (running) return;
     running = true; $("ovRun").disabled = true;
     $("ovWrap").style.display = "none"; $("ovRail").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = ""; $("ovBody").innerHTML = "";
@@ -274,35 +301,44 @@ const OverviewTool = (() => {
     // progress card.
     const prog = (m) => TunoProgress.show("ovBody", "ovProg", m);   // ENCA-style centred card (10397)
     try {
-      prog("Checking permissions…");
-      // The same union T05's own run asks: every surface's read scope plus
-      // the directory read that names the groups. One consent moment for one
-      // read of the whole tenant.
-      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Docs.allSectionIds()), ...Graph.SCOPES.directory])]);
-      res = await Docs.collect({ onStatus: prog });
-      surfFilter = "all"; verdictFilter = "all"; view = "cards"; $("ovSearch").value = "";
-      const sum = Docs.summarize(res);
-      const notes = [];
-      notes.push(`${sum.total} object${sum.total === 1 ? "" : "s"} across ${sum.sections} surface${sum.sections === 1 ? "" : "s"}.`);
-      if (res.failed.length) notes.push(`${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — shown as unreadable below, never as zero.`);
-      if (res.partial.length) notes.push(`Partly read: ${res.partial.map((p) => esc(p.label)).join(", ")}.`);
-      if (res.nameError) notes.push(`Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.`);
-      if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
-      if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
-      $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
-      $("ovWrap").style.display = "";
+      let r;
+      if (attach && PolicyCache.reading()) {
+        prog("Reading the tenant…");                       // the sign-in read, joined
+        r = await PolicyCache.read(prog);
+      } else {
+        prog("Checking permissions…");
+        // The same union T05's own run asks: every surface's read scope plus
+        // the directory read that names the groups. One consent moment for
+        // one read of the whole tenant. The read itself goes THROUGH the
+        // cache, so T11 and the next tool warm from this click.
+        await Graph.ensureScopes(PolicyCache.scopesNeeded());
+        r = await PolicyCache.refresh(prog);
+      }
       prog("");
-      render();
+      showRes(r, attach ? cacheNote() : "");
     } catch (e) {
       prog("");
       $("ovNotes").innerHTML = `<div class="gu-fail" style="margin-top:12px"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;
     } finally { running = false; $("ovRun").disabled = false; }
   }
 
+  // The warm start (build 10520): opening the screen shows the tenant when
+  // the shared cache has it, and joins the sign-in read when one is still
+  // running. A cold cache changes nothing — the intro and its Read button
+  // are yesterday's behaviour exactly.
+  function onShow() {
+    if (res || running) return;
+    const c = PolicyCache.get();
+    if (c) { showRes(c, cacheNote()); return; }
+    if (PolicyCache.reading()) run(true);
+  }
+
   // --------------------------------------------------------------- init --
   function init() {
     if (!$("ovRun")) return;
-    $("ovRun").addEventListener("click", run);
+    $("ovRun").addEventListener("click", () => run(false));
+    // the warm start — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-overview"] = onShow;
     // The search box lives in the STATIC toolbar and is never re-rendered —
     // typing must survive the list redrawing under it, T15's lesson.
     $("ovSearch").addEventListener("input", () => { const q = lc($("ovSearch").value.trim()); renderChips(q); renderCards(q); });

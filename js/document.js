@@ -400,7 +400,14 @@ const Docs = (() => {
         };
       }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
-      out.sections.push({ id, label: sec.label, icon: sec.icon, endpoint: sec.endpoint, items: docs });
+      // `keepRaw` (build 10520, for the shared policy cache): the raw Graph
+      // objects ride along beside the mapped items, because T11's write
+      // pipeline works on raw assignment targets (cleanAssignments, sig)
+      // and a cache that only held the mapped shape could never feed it.
+      // Memory only — nothing renders or exports the raw copies.
+      out.sections.push(Object.assign(
+        { id, label: sec.label, icon: sec.icon, endpoint: sec.endpoint, items: docs },
+        o.keepRaw ? { raw: items } : null));
     }
 
     // Group ids resolved once for the whole document rather than per section.

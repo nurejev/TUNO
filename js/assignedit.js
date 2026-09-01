@@ -374,7 +374,12 @@ const AssignEditTool = (() => {
         <td><b class="pname" data-aeopen="${esc(keyOf(p))}" title="Open the policy — the 📄 documenter's popout, settings included. The tick box beside it is the selection; this is the look inside.">${esc(p.name)}</b></td><td>${esc(p.icon)} ${esc(p.surfaceLabel)}</td>
         <td>${p.assignments.length} assignment${p.assignments.length === 1 ? "" : "s"}</td></tr>`).join("");
     const picks = sel.size ? `<p class="mini ae-picks" style="margin:8px 0 0"><b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.</p>` : "";
-    $("aeList").innerHTML = `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
+    // Where the list came from is part of the list (build 10520): a cached
+    // answer says so and says when, in the render so it survives re-renders.
+    const src = read && read.fromCache
+      ? `<p class="mini muted ae-cache-note" style="margin:8px 6px 0">${read.policies.length} policies from ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — ✏️ Read the policies re-reads the tenant before you plan.</p>`
+      : "";
+    $("aeList").innerHTML = `${src}<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
     renderSurfaces();
     syncSelbar();
     $("aePlanWrap").style.display = "";
@@ -405,6 +410,45 @@ const AssignEditTool = (() => {
   // served from before the last read would show assignments the apply
   // step just changed.
   const popCache = new Map();
+
+  // ------------------------------------------------------- warm start --
+  // The shared policy cache (build 10520) covers T11's four surfaces —
+  // they are four of T05's thirteen, and collect() keeps the RAW objects
+  // (keepRaw) precisely so this pipeline can consume untouched assignment
+  // targets. Opening the screen shows the list; ✏️ Read the policies stays
+  // the fresh read, because a plan should be cut from the newest list the
+  // tenant will give — and every WRITE path re-reads per policy anyway
+  // (drift check), so a stale row can never become a stale write.
+  function policiesFromCache(c) {
+    const out = [], failed = [];
+    for (const [sfId, secId] of Object.entries(SEC_OF)) {
+      const sf = AssignEdit.surfaceById(sfId);
+      const sec = c.sections.find((s) => s.id === secId);
+      if (!sec || !sec.raw) {
+        const f = c.failed.find((x) => x.id === secId);
+        failed.push({ id: sfId, label: sf.label, error: f ? f.error : "not in the shared read" });
+        continue;
+      }
+      for (const it of sec.raw) {
+        out.push({
+          surface: sfId, surfaceLabel: sf.label, icon: sf.icon,
+          id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
+          assignments: it.assignments || [],
+        });
+      }
+    }
+    out.sort((a, b) => a.surfaceLabel.localeCompare(b.surfaceLabel) || a.name.localeCompare(b.name));
+    return { policies: out, failed, fromCache: true };
+  }
+
+  function onShow() {
+    if (read || busy) return;
+    const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
+    if (!c) return;
+    read = policiesFromCache(c);
+    sel.clear(); surfView = "all"; popCache.clear();
+    renderPolicies();
+  }
 
   const popFoot = `<div class="gu-m-foot"><div class="spacer"></div><button class="btn primary" id="aeModalClose">Close</button></div>`;
   function wirePopClose() {
@@ -571,6 +615,10 @@ const AssignEditTool = (() => {
         <p class="mini muted" style="margin:8px 0 0">Every “verified” is the tenant's own read-back, not the write's status code. The backup file from step ① is the way back for all of it.</p></div>`;
       // A used plan is a spent plan — the tenant has moved, by us.
       plan = null; backupTaken = false; $("aeApplyWrap").style.display = "none"; $("aePlanOut").innerHTML = "";
+      // And the shared cache now describes the tenant BEFORE this apply —
+      // said so by dropping it, and the popout cache with it (build 10520).
+      if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
+      popCache.clear();
     } catch (e) { prog(""); $("aeResults").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`; }
     finally { busy = false; }
   }
@@ -607,6 +655,8 @@ const AssignEditTool = (() => {
   function init() {
     if (!$("aeRead")) return;
     $("aeRead").addEventListener("click", readAll);
+    // the warm start (build 10520) — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-assignedit"] = onShow;
     $("aeFilter").addEventListener("input", () => read && renderPolicies());
     // the surface rail and the tick-set (both build 10390)
     $("aeSurfSide").addEventListener("click", (e) => {

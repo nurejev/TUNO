@@ -85,12 +85,33 @@ const PROMOTE = {
   // items. Numbers exist to be permanent precisely so that cannot happen;
   // the numbers stay as history wrote them, and the next item takes 123.
   //
-  // The queue emptied at 10518 — the state worth returning to — and item
-  // 123 is the first of the next promotion. Per the ledger above, 123 is
+  // The queue emptied at 10518 — the state worth returning to — and items
+  // 123 up are the next promotion. Per the ledger above, 123 was
   // deliberately the next number: 100-102's reuse is history, not licence.
   productionBuild: "v1.0.12",
 
   items: [
+    {
+      n: 124,
+      title: "The sign-in prefetch and the shared policy cache — tools open warm",
+      tools: ["TUNO", "T19", "T11", "T05"],
+      builds: [10520],
+      files: ["js/policycache.js", "js/overview.js", "js/assignedit.js", "js/document.js", "js/graph.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "medium",
+      what: "NEW FILE js/policycache.js: a holder and deduper around Docs.collect() — it adds no reading of its own (the T12 rule). At sign-in (real and demo) app.js fires PolicyCache.warm(), which reads the tenant ONLY when Graph.silentScopes says the consent already exists — silentScopes is new in graph.js: acquireTokenSilent, never interaction, false means 'not consented yet' and is not an error. T19 registers a screen hook (window.TunoScreenHooks, invoked by app.js show()) and opening it adopts the cache — or joins a prefetch still running, progress card and all; its Read the tenant becomes a fresh read THROUGH the cache, so a click in T19 warms T11. T11 adopts the cache for its list (collect() gains keepRaw so the raw assignment targets survive for the write pipeline), keeps Read the policies as its own fresh read, and invalidates the cache after an apply. Staleness is said everywhere: both tools print which read the data came from and when. Sign-out clears the cache; a generation counter stops a read that started before an invalidation from repopulating it with pre-write data.",
+      why: "MEDIUM, for two reasons. (1) The sign-in path gains a background read — fire-and-forget, failure is a cold start, but it runs where nothing ran before, on every consented tenant. (2) Tools now render tenant data that may be minutes old, which is why every warm surface names its read time and keeps a one-click fresh read, and why the write tool treats the cache as a list to look at, never a list to write from: plans want Read the policies first, and the per-policy drift check re-reads at the moment of writing regardless. The consent rule is deliberately untouched — silent-only was the choice, over asking at sign-in — so the feature is invisible to a tenant that never consented. T05's own document flow is deliberately NOT cache-served: a document is a deliverable and should be cut from a read the person just watched happen; its collect() only carries keepRaw for the others.",
+      test: [
+        "A consented tenant: sign in, wait a moment, open T19 WITHOUT clicking anything — the tenant is there, and the notes line says 'From the sign-in read at HH:MM'.",
+        "Open T11 next: the list is there with the same read named above it; tick boxes, surfaces and search all work on the warm list.",
+        "A FIRST-TIME tenant (or a fresh browser profile): sign in — NO consent prompt beyond sign-in itself appears. T19 shows its Read button; clicking it asks for the read scopes as always. Then open T11: warm, from T19's click.",
+        "Open T19 while the sign-in read is still running: the progress card appears mid-read and the screen fills when it lands — one read, not two (watch the network).",
+        "T19 → Read the tenant on a warm screen: a fresh read runs and the 'From the …' line disappears — the data is now this click's.",
+        "T11 → apply an assignment change → open T19: it does NOT show the pre-apply assignments from the cache (the apply invalidated it; T19 offers its Read button or re-reads).",
+        "Sign out, sign in as a DIFFERENT tenant: nothing from the first tenant appears anywhere before the new tenant's own read.",
+        "Demo mode: sign into the demo — tools open warm from the demo prefetch, which is the feature's showcase.",
+        "A tenant where one of T11's four surfaces 403s in the shared read: T11's warm list names that surface as unreadable (not listed, not editable), same as its own read would.",
+      ],
+    },
     {
       n: 123,
       title: "T11's policy names open the documenter's popout",
