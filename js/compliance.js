@@ -338,6 +338,10 @@ const ComplianceTool = (() => {
 
   let rep = null, running = false;
   let cpPlat = "all";   // the policy list's platform filter (build 10524)
+  // THE RAIL (10539, the layout round — Option A): four panes — Estate,
+  // Coverage, Policies, Stale — one on screen at a time, so the coverage
+  // table and every policy no longer stand between you and the stale list.
+  let pane = "estate";
   // Which policy rows are unfolded — keyed on POLICY IDS, the T03 rule, so a
   // re-render keeps them open.
   const open = new Set();
@@ -353,7 +357,7 @@ const ComplianceTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear(); cpPlat = "all";
+    running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear(); cpPlat = "all"; pane = "estate";
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.devices, ...Graph.SCOPES.config])]);
       rep = await Compliance.report({ staleDays: $("cpStaleDays").value, onStatus: prog });
@@ -371,13 +375,15 @@ const ComplianceTool = (() => {
   // failing settings and the full rollup. The open set is keyed on policy
   // ids, so a re-render keeps your cards open — the T03 rule.
   function render() {
-    const parts = [];
+    // Four panes, one on screen (10539) — each block below fills its own
+    // array; the rail at the bottom picks which one renders.
+    const est = [], cov = [], pol = [], stale = [];
 
     if (rep.devices) {
       const t = rep.devices.totals;
       const pct = (n) => (t.total ? Math.round((n / t.total) * 100) : 0);
       const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
-      parts.push(`<div class="au-cards">
+      est.push(`<div class="au-cards">
         ${card("Compliant", t.compliant, `of ${t.total} · ${pct(t.compliant)}%`, "ok")}
         ${card("Non-compliant", t.noncompliant, `${pct(t.noncompliant)}%`, t.noncompliant ? "bad" : "")}
         ${card("In grace", t.grace, `${pct(t.grace)}%`)}
@@ -385,10 +391,10 @@ const ComplianceTool = (() => {
         ${card("Unknown / other", t.unknown + t.other, t.other ? `${t.other} configManager or similar` : "not clean — not counted as anything")}
       </div>`);
       if (t.staleCompliant) {
-        parts.push(`<div class="list-card"><div class="gu-fail"><b>${t.staleCompliant} devices count as compliant AND are stale.</b><span class="why">A compliance verdict is as old as the check-in that produced it. These machines are in both cards above, deliberately — resolving the tension quietly in either direction would be a lie in that direction.</span></div></div>`);
+        est.push(`<div class="list-card"><div class="gu-fail"><b>${t.staleCompliant} devices count as compliant AND are stale.</b><span class="why">A compliance verdict is as old as the check-in that produced it. These machines are in both cards above, deliberately — resolving the tension quietly in either direction would be a lie in that direction.</span></div></div>`);
       }
     } else {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>The device estate could not be read.</b><span class="why">${esc(rep.deviceError || "")} — every estate number is unknown, not zero.</span></div></div>`);
+      est.push(`<div class="list-card"><div class="gu-fail"><b>The device estate could not be read.</b><span class="why">${esc(rep.deviceError || "")} — every estate number is unknown, not zero.</span></div></div>`);
     }
 
     // Coverage — R28. The gap the rest of the report cannot show, because
@@ -411,16 +417,16 @@ const ComplianceTool = (() => {
           <td class="mini">${c.covering.length ? esc(c.covering.join(", ")) : "—"}${c.inert.length ? `<span class="muted"> · inert: ${esc(c.inert.map((i) => `${i.name} (${i.why})`).join(", "))}</span>` : ""}</td>
         </tr>`;
       }).join("");
-      parts.push(`<div class="list-card">
+      cov.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Coverage — the platforms nothing evaluates</h4>
         ${lean}
         <div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:130px">Platform</th><th style="width:170px">Devices</th><th style="width:170px">Verdict</th><th>Policies</th></tr></thead><tbody>${covRows}</tbody></table></div>
         <p class="mini muted" style="margin:8px 0 0">Covered means at least one policy for the platform that is assigned <b>and reaches somebody by construction</b> — exclusions-only and unassigned cover nothing. Group scoping <i>within</i> a platform is not evaluated, and a filter caps the claim at <i>may</i>. After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-compliance-policy-coverage.ps1" target="_blank" rel="noopener">Get Compliance Policy Coverage</a> (MIT), on the reads this report already does.</p>
       </div>`);
     } else if (rep.devices && !rep.policies) {
-      parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the policy half could not be read, so every platform is unknown, not uncovered.</p></div>`);
+      cov.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the policy half could not be read, so every platform is unknown, not uncovered.</p></div>`);
     } else if (!rep.devices && rep.policies) {
-      parts.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the device estate could not be read, so there is no denominator and no platform list.</p></div>`);
+      cov.push(`<div class="list-card"><p class="mini muted" style="margin:0">Coverage cannot be computed — the device estate could not be read, so there is no denominator and no platform list.</p></div>`);
     }
 
     if (rep.policies) {
@@ -462,7 +468,7 @@ const ComplianceTool = (() => {
         </div>`;
         return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-cppol="${esc(p.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
       }).join("");
-      parts.push(`<div class="list-card">
+      pol.push(`<div class="list-card">
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <h4 style="margin:0 0 4px">Policies (${cpPlat === "all" ? rep.policies.length : `${shownPolicies.length} of ${rep.policies.length}`})</h4>
           ${platsHere.length > 1 ? `<label class="sel-filter" title="Narrows this list to one platform's policies — the same platform words the coverage section speaks. The cards and coverage above keep counting the whole estate.">
@@ -474,12 +480,12 @@ const ComplianceTool = (() => {
         ${rows || `<p class="mini muted">No ${esc(cpPlat)} compliance policies — clear the platform filter and the list comes back.</p>`}
       </div>`);
     } else if (rep.policyError) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>Compliance policies could not be read.</b><span class="why">${esc(rep.policyError)}</span></div></div>`);
+      pol.push(`<div class="list-card"><div class="gu-fail"><b>Compliance policies could not be read.</b><span class="why">${esc(rep.policyError)}</span></div></div>`);
     }
 
     if (rep.devices && rep.devices.staleList.length) {
       const sl = rep.devices.staleList;
-      parts.push(`<div class="list-card">
+      stale.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Stale devices (${sl.length})</h4>
         <p class="mini muted" style="margin:0 0 10px">No check-in for more than ${rep.staleDays} days — oldest first. Whatever these report, they reported it then.</p>
         <div class="gu-tw"><table class="cg-table"><thead><tr><th>Device</th><th style="width:110px">OS</th><th>User</th><th style="width:120px">State</th><th style="width:170px">Last check-in</th></tr></thead>
@@ -488,7 +494,30 @@ const ComplianceTool = (() => {
       </div>`);
     }
 
-    $("cpBody").innerHTML = parts.join("");
+    // an empty stale pane still says why — absence must read as an answer
+    if (!stale.length) stale.push(`<div class="list-card"><p class="mini muted" style="margin:0">${rep.devices ? `No device has been silent for more than ${rep.staleDays} days — nothing stale to list.` : "The device estate could not be read — staleness is unknown, not zero."}</p></div>`);
+
+    // ---- the rail: Estate | Coverage | Policies | Stale ----
+    const t = rep.devices && rep.devices.totals;
+    const gaps = rep.coverage ? rep.coverage.filter((x) => x.verdict === "gap").length : null;
+    const failingPolicies = rep.policies ? rep.policies.filter((x) => x.overview && (x.overview.noncompliant + x.overview.error + x.overview.conflict) > 0).length : null;
+    const staleN = rep.devices ? rep.devices.staleList.length : null;
+    const node = (id, icon, label, right, bad) => `<div class="ep-node${pane === id ? " active" : ""}" data-cppane="${id}" role="button" tabindex="0">
+      <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const rail =
+      node("estate", "📊", "Estate", t ? `${t.total}` : "unread", !t)
+      + node("coverage", "🗺", "Coverage", gaps === null ? "unknown" : gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "covered", gaps === null || gaps > 0)
+      + node("policies", "📈", "Policies", rep.policies ? `${failingPolicies ? `<b>${failingPolicies}</b>/` : ""}${rep.policies.length}` : "unread", failingPolicies > 0 || !rep.policies)
+      + node("stale", "🕓", "Stale", staleN === null ? "unknown" : staleN, staleN === null || staleN > 0)
+      + '<p class="mini muted" style="margin:6px 10px 2px">failing / all — red is a finding</p>';
+
+    const paneHtml = { estate: est, coverage: cov, policies: pol, stale }[pane].join("")
+      || `<div class="list-card"><p class="mini muted" style="margin:0">Nothing to show here.</p></div>`;
+    $("cpBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
+    $("cpBody").querySelectorAll("[data-cppane]").forEach((n) => n.addEventListener("click", () => {
+      pane = n.dataset.cppane;
+      render();
+    }));
   }
 
   function exportAs(fmt) {

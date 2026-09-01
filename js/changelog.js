@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10539, date: "2026-09-01", title: "The compliance report gets the rail",
+    items: [
+      { kind: "improved", tool: "Compliance report", text: "Estate, Coverage, Policies and Stale become rail panes \u2014 one on screen at a time, the findings worn on the rail nodes in red, so jumping from the policy list back to the stale devices is a click instead of a scroll past everything in between. An empty stale pane now says why it is empty: nothing silent and estate-unread are different answers." },
+    ],
+  },
+  {
     build: 10538, date: "2026-09-01", title: "The layout round begins — Compliance evidence gets the rail",
     items: [
       { kind: "improved", tool: "Compliance evidence", text: "Mihai's layout round, Option A off the mockup: the long tools adopt the posture tool's left rail so a section is a click, not a scroll. First adopter — the three framework control tables stop stacking under the capability list; a sticky rail holds Capabilities plus one node per framework, each wearing its evidence count with findings in red, and the disclaimer travels onto every framework pane." },
