@@ -92,6 +92,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 127,
+      title: "The shared read reaches every tool it can honestly serve — T05 and T12 join",
+      tools: ["T05", "T12", "TUNO"],
+      builds: [10523],
+      files: ["js/document.js", "js/conflict.js", "js/policycache.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "medium",
+      what: "The 10520 warm start, extended to the two remaining tools whose data the cache genuinely holds. THE SURVEY CAME FIRST and its no-list matters as much: T20 and T16 read intents, templates and device inventories beside the catalog and would need a gestureless consent to auto-run (their extra scopes are not in the silent union) — they stay cold; T15/T17/T18/T21/T03/T13's statuses, T06/T02/T08/T09's per-object questions and T10's definitions are reads the cache does not hold; T14's list read carries payloads the cache's filter read deliberately lacks. A half-warm answer would have to lie about its other half, so those tools keep their click-time reads, and the changelog says so in one sentence. WHAT SHIPPED: T05's browse face adopts the cache on open (landRes — one landing for both fetch paths), with the source line above the list; T12 adopts and RUNS on open, because detection is local arithmetic over the collection — a warm open costs zero reads — taking its three surfaces of the whole collection with resolver, filter names and counts by reference. AND THE EXPORTS STOP LAUNDERING: PolicyCache stamps res.readAt/fromWarm; Docs.meta gains `read` and all three document renderers print 'tenant read …' beside 'generated' whenever the moments differ; T12's Markdown does the same. T19's single-policy Documentation download inherits the stamp for free.",
+      why: "MEDIUM, one notch above 10522, for one reason: DOCUMENTS. The documenter's exports are deliverables people file, and this build lets one be cut from a read minutes old — the mitigation is the 'tenant read' stamp in every header (screen, Markdown, HTML, Word) plus the source line on the screen, and Read the tenant one click away. The T12 half is lower: a scan over cached data with the source said is strictly more honest than the same scan run twice. The survey's exclusions are deliberate and recorded so 'why is my Defender status not instant' has a written answer.",
+      test: [
+        "Sign in consented, open T05 without clicking: the browse face is there, everything selected, the source line names the sign-in read.",
+        "Export Markdown, HTML and Word from that warm face: every header carries BOTH stamps — generated now, tenant read earlier. Then Read the tenant and export again: the 'tenant read' clause disappears (the moments coincide).",
+        "Open T12 without clicking: cards, strip and folds are there; the line above the cards names the read; the Markdown export carries the same stamp.",
+        "T12 warm open then ⚔️ Scan the tenant: a fresh read runs, the source line disappears.",
+        "T11 apply → open T05 and T12: neither shows pre-apply data (the invalidation reaches all four warm tools).",
+        "Unconsented tenant: all four tools open exactly as before — intro and button, no read, no prompt.",
+        "T19 popout → 📄 Documentation from a warm session: the downloaded file names the tenant-read time.",
+        "Demo mode: all four tools open warm from the demo prefetch.",
+      ],
+    },
+    {
       n: 126,
       title: "The platform filter — T05's select, in T11 and T19",
       tools: ["T11", "T19", "T05"],

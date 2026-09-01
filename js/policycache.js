@@ -54,7 +54,13 @@ const PolicyCache = (() => {
           inflight = null; statusFns.clear();
           // A read that started before an invalidation is PRE-WRITE data
           // wearing a fresh timestamp — it must not become the cache.
-          if (g === gen) { res = r; at = Date.now(); }
+          if (g === gen) {
+            res = r; at = Date.now();
+            // The result describes itself (build 10523): a tool holding the
+            // res can say when the tenant was read without asking the cache,
+            // and a document exported from it can print the read time.
+            r.readAt = at;
+          }
           return r;
         })
         .catch((e) => { inflight = null; statusFns.clear(); throw e; });
@@ -71,7 +77,7 @@ const PolicyCache = (() => {
     let okScopes = false;
     try { okScopes = await Graph.silentScopes(scopesNeeded()); } catch { okScopes = false; }
     if (!okScopes) return;
-    try { await read(); warmed = true; } catch { /* cold start */ }
+    try { await read(); warmed = true; if (res) res.fromWarm = true; } catch { /* cold start */ }
   }
 
   // Refresh: a deliberate fresh read. An inflight read is already the

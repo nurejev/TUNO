@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10523, date: "2026-09-01", title: "The sign-in read reaches the documenter and the conflict scan",
+    items: [
+      { kind: "improved", tool: "Configuration documenter", text: "Opening the documenter shows the tenant when the sign-in read holds it: the browse face ready, everything selected, exports live — and every export now names the read it describes, printing the tenant-read time beside the generation time whenever the two differ. A generated-now stamp must not launder an earlier read into a fresh-looking file. Read the tenant stays the fresh read of the sections you tick." },
+      { kind: "improved", tool: "Setting conflict scan", text: "The scan runs the moment you open it when the sign-in read is there — the detection is arithmetic over data already in hand, so a warm open asks the tenant for nothing. The answer says which read it scanned, the Markdown export carries the same stamp, and Scan the tenant re-reads." },
+      { kind: "improved", tool: "TUNO", text: "Four tools now open warm from one shared read — the overview, the editor, the documenter and the conflict scan. The tools that stay cold stay for a reason: their questions need reads the shared one does not hold — device inventories, sign-in logs, credentials, scores, per-group sweeps — and a half-warm answer would have to lie about the other half." },
+    ],
+  },
+  {
     build: 10522, date: "2026-09-01", title: "The policy lists filter on platform",
     items: [
       { kind: "improved", tool: "Assignment editor", text: "A platform filter joins the text filter: Windows, macOS, iOS/iPadOS, Android, Linux, or the policies that declare no platform at all — each option carrying its count, and a platform the tenant has none of is not offered. The filter narrows the list only: your ticks survive it, exactly as they survive the text filter, and the surface rail keeps counting the whole tenant. The platform words are the documenter's own, so the two tools cannot disagree about the same policy." },

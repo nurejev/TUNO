@@ -787,6 +787,11 @@ const Docs = (() => {
     const shown = (o.sections || res.sections).reduce((n, s) => n + s.items.length, 0);
     return {
       when: new Date().toISOString().replace(/\..*/, "").replace("T", " ") + " UTC",
+      // When the TENANT was read, where that differs from when the document
+      // was generated (build 10523): a document cut from the shared cache
+      // must say which moment it describes, or "generated now" quietly
+      // launders a stale read into a fresh-looking file.
+      read: res.readAt ? new Date(res.readAt).toISOString().replace(/\..*/, "").replace("T", " ") + " UTC" : "",
       date: new Date().toISOString().slice(0, 10),
       build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
       tenant: o.tenant || "",
@@ -823,7 +828,7 @@ const Docs = (() => {
     const L = [];
     L.push(`# ${m.title}`, "");
     if (m.tenant) L.push(`**${m.tenant}**`, "");
-    L.push(`Generated ${m.when} by TUNO ${m.build}`, "");
+    L.push(`Generated ${m.when} by TUNO ${m.build}${m.read ? ` · tenant read ${m.read}` : ""}`, "");
     L.push(`| | |`, `|---|---|`);
     L.push(`| Scope | ${mdCell(scopeLine(m))} |`);
     L.push(`| Sections | ${m.sectionsShown} of ${m.sectionsRead} read |`);
@@ -906,7 +911,7 @@ footer{padding:18px 26px;color:#6b7280;font-size:12px}footer a{color:#2b4c9b}
     const pill = (a) => `<span class="pill ${a.kind === "Excluded" ? "exc" : (a.groupId ? "inc" : "tw")}">${esc(assignmentText(a))}</span>`;
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(m.title)}${m.tenant ? ` — ${esc(m.tenant)}` : ""}</title><style>${REPORT_CSS}</style></head><body>
-<header><h1>${esc(m.title)}</h1><div class="meta">${m.tenant ? esc(m.tenant) + " · " : ""}generated ${esc(m.when)} by TUNO ${esc(m.build)}</div></header>
+<header><h1>${esc(m.title)}</h1><div class="meta">${m.tenant ? esc(m.tenant) + " · " : ""}generated ${esc(m.when)} by TUNO ${esc(m.build)}${m.read ? ` · tenant read ${esc(m.read)}` : ""}</div></header>
 <div class="cards">
   <div class="card"><div class="n">${m.shown}${m.filtered ? `<span style="font-size:13px;color:#6b7280"> / ${s.total}</span>` : ""}</div><div class="l">Objects</div></div>
   <div class="card"><div class="n">${m.sectionsShown}</div><div class="l">Sections</div></div>
@@ -958,7 +963,7 @@ ${rows.map(([k, v, red]) => `<w:tr><w:tc><w:tcPr><w:tcW w:w="42" w:type="pct"/><
     const body = [];
     body.push(P(m.title, { h: 1 }));
     if (m.tenant) body.push(P(m.tenant, { b: true }));
-    body.push(P(`Generated ${m.when} by TUNO ${m.build}.`, { i: true }));
+    body.push(P(`Generated ${m.when} by TUNO ${m.build}${m.read ? ` · tenant read ${m.read}` : ""}.`, { i: true }));
     body.push(P(scopeLine(m), { b: m.filtered, i: !m.filtered }));
     body.push(P(NOTE_REDACTED, { i: true }));
     body.push(P(NOTE_LIVE, { i: true }));
@@ -1099,24 +1104,42 @@ const DocsTool = (() => {
       // gesture behind it — a consent popup the browser blocks, blamed on
       // filter naming, after the tool has already said permissions were fine.
       await Graph.ensureScopes([...new Set([...Docs.scopesFor(secs), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.directory])]);
-      res = await Docs.collect({ sections: secs, onStatus: prog });
-      // Every platform, every time, each with how many were found. A zero is
-      // an answer — "Linux (0)" confirms there is no Linux estate, which an
-      // absent Linux entry never could.
-      const { counts, total } = Docs.platformCounts(res);
-      platformOpts = [{ value: "All", label: `All platforms (${total})` }]
-        .concat(Docs.platforms(res).map((p) => ({ value: p, label: `${p} (${counts[p]})` })));
-      platformFilter = "All";
-      setFiltersEnabled(true);
-      // Everything selected to begin with: the common case is "document the
-      // tenant", and starting at nothing would make the export buttons dead
-      // on arrival with no explanation.
-      selected = new Set();
-      selectAll(res.sections);
+      landRes(await Docs.collect({ sections: secs, onStatus: prog }));
       prog("");
-      render();
     } catch (e) { fail(e); }
     finally { running = false; $("dcRun").disabled = false; }
+  }
+
+  // The result lands the same way whatever fetched it — the Read click or
+  // the shared cache (build 10523). One landing, so the two paths cannot
+  // drift in what they reset.
+  function landRes(r) {
+    res = r;
+    // Every platform, every time, each with how many were found. A zero is
+    // an answer — "Linux (0)" confirms there is no Linux estate, which an
+    // absent Linux entry never could.
+    const { counts, total } = Docs.platformCounts(res);
+    platformOpts = [{ value: "All", label: `All platforms (${total})` }]
+      .concat(Docs.platforms(res).map((p) => ({ value: p, label: `${p} (${counts[p]})` })));
+    platformFilter = "All";
+    setFiltersEnabled(true);
+    // Everything selected to begin with: the common case is "document the
+    // tenant", and starting at nothing would make the export buttons dead
+    // on arrival with no explanation.
+    selected = new Set();
+    selectAll(res.sections);
+    render();
+  }
+
+  // The warm start (build 10523): opening the documenter shows the tenant
+  // when the shared cache holds it — the browse face ready, everything
+  // selected, exports live. The exports SAY which read they describe (the
+  // "tenant read" stamp in every header), and 📄 Read the tenant stays the
+  // fresh read of the chosen sections. A cold cache changes nothing.
+  function onShow() {
+    if (res || running) return;
+    const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
+    if (c) landRes(c);
   }
 
   const query = () => ({ text: $("dcSearch").value, platform: platformFilter, state: $("dcState").value });
@@ -1143,6 +1166,12 @@ const DocsTool = (() => {
       </div></div>`;
 
     const notes = [`<p class="mini muted"><b>Secrets are redacted, and that cannot be turned off.</b> ${esc(Docs.NOTE_REDACTED.replace(/^Secret-bearing values are redacted\. /, ""))}</p>`];
+    // Where the collection came from is part of the collection (10523):
+    // a cached read says so and says when — and the exports repeat it.
+    if (res.readAt) {
+      let t = ""; try { t = new Date(res.readAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }); } catch { t = ""; }
+      notes.unshift(`<p class="mini muted">From ${res.fromWarm ? "the sign-in read" : "the shared read"} at ${esc(t)} — 📄 Read the tenant re-reads the sections you have ticked, and every export names the read it describes.</p>`);
+    }
     if (res.failed.length) {
       notes.push(`<div class="gu-fail"><b>${res.failed.length} section${res.failed.length === 1 ? "" : "s"} could not be read.</b><span class="why">Absent from the document below and from every export — unknown, not empty. ${res.failed.map((f) => `${esc(f.label)}: ${esc(f.error)}`).join("; ")}</span></div>`);
     }
@@ -1320,6 +1349,8 @@ const DocsTool = (() => {
     if (!$("dcRun")) return;
     renderSections();
     setFiltersEnabled(false);
+    // the warm start (build 10523) — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-docs"] = onShow;
     $("dcRun").addEventListener("click", run);
     $("dcReset").addEventListener("click", () => {
       res = null; selected = new Set(); closePolicy(); $("dcBody").innerHTML = ""; prog(""); showExports(false);

@@ -140,15 +140,17 @@ const Conflict = (() => {
 
   // ---- exports ----
   const mdCell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-  function meta() {
+  function meta(collectRes) {
     return { when: new Date().toISOString().replace("T", " ").replace(/\..*/, " UTC"),
-      build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : "") };
+      build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+      // when the tenant was read, where that differs (the cache, 10523)
+      read: collectRes && collectRes.readAt ? new Date(collectRes.readAt).toISOString().replace("T", " ").replace(/\..*/, " UTC") : "" };
   }
   const V_LABEL = { can: "CAN collide", may: "may collide", cannot: "cannot collide" };
   function markdown(scan, collectRes, m) {
     const L = [];
     L.push("# Intune setting conflicts", "");
-    L.push(`Generated ${m.when} by TUNO ${m.build}`, "");
+    L.push(`Generated ${m.when} by TUNO ${m.build}${m.read ? ` · tenant read ${m.read}` : ""}`, "");
     L.push(`${scan.conflicts.length} conflicting settings across ${scan.comparedSettings} settings configured by more than one policy. Verdicts: ${scan.totals.can} can collide, ${scan.totals.may} may, ${scan.totals.cannot} cannot.`, "");
     L.push(`> **A verdict is about group targeting.** "Can collide" means overlapping reach as assigned; which value wins on a device is Intune's conflict resolution, not this report. "May" is may — filters and shared members cannot be evaluated in a browser. A collision spanning two surfaces (settings catalog vs a legacy device configuration on the same CSP) is not detected.`, "");
     if (scan.redactedSkipped) L.push(`> ${scan.redactedSkipped} redacted values (secrets) were not compared — two secrets are never known to be equal here.`, "");
@@ -211,16 +213,39 @@ const ConflictTool = (() => {
       // one filtered assignment triggers a gestureless consent popup in the
       // middle of a read the tool has already declared permitted.
       await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.groups])]);
-      collectRes = await Docs.collect({ sections: Conflict.SECTIONS, onStatus: prog });
-      prog("Comparing settings…");
-      scan = Conflict.detect(collectRes);
+      landRes(await Docs.collect({ sections: Conflict.SECTIONS, onStatus: prog }));
       prog("");
-      render();
-      showExports(true);
     } catch (e) {
       $("cfBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>`;
       prog("");
     } finally { running = false; $("cfRun").disabled = false; }
+  }
+
+  // One landing for both fetch paths (build 10523) — the click above and
+  // the shared cache below — so the two cannot drift in what they reset.
+  function landRes(r) {
+    collectRes = r;
+    scan = Conflict.detect(collectRes);
+    render();
+    showExports(true);
+  }
+
+  // The warm start (build 10523): opening the scan runs it over the shared
+  // cache when one is held — the DETECTION is local arithmetic, so a warm
+  // open costs no read at all. The cache is the WHOLE collection; this tool
+  // scans its three surfaces of it, and the subset keeps the resolver, the
+  // filter names and the group counts by reference (one collection, three
+  // views). ⚔️ Scan the tenant stays the fresh read. A cold cache changes
+  // nothing.
+  function onShow() {
+    if (scan || running) return;
+    const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
+    if (!c) return;
+    landRes(Object.assign({}, c, {
+      sections: c.sections.filter((s) => Conflict.SECTIONS.includes(s.id)),
+      failed: c.failed.filter((f) => Conflict.SECTIONS.includes(f.id)),
+      partial: c.partial.filter((p) => Conflict.SECTIONS.includes(p.id)),
+    }));
   }
 
   // The 10413 layout (build 10418, last of the four). Stat cards over the
@@ -266,7 +291,14 @@ const ConflictTool = (() => {
       ? scan.conflicts.map(fold).join("")
       : `<p class="mini" style="margin-top:10px"><b>No setting is configured to different values by overlapping policies</b> — across ${scan.comparedSettings} settings that more than one policy configures${collectRes.failed.length ? ", on the surfaces that could be read" : ""}.</p>`;
 
-    $("cfBody").innerHTML = cards + `<div class="list-card">${notes.join("")}
+    // Where the collection came from is part of the answer (10523): a scan
+    // over a cached read says so and says when.
+    let src = "";
+    if (collectRes.readAt) {
+      let t = ""; try { t = new Date(collectRes.readAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }); } catch { t = ""; }
+      src = `<p class="mini muted" style="margin:0 0 8px">Scanned over ${collectRes.fromWarm ? "the sign-in read" : "the shared read"} at ${esc(t)} — ⚔️ Scan the tenant re-reads.</p>`;
+    }
+    $("cfBody").innerHTML = src + cards + `<div class="list-card">${notes.join("")}
       ${scan.conflicts.length ? `<p class="mini muted" style="margin:8px 0 0">Click a conflict for the side-by-side comparison — every policy's value and reach.</p>` : ""}
       <div style="margin-top:10px">${body}</div></div>`;
 
@@ -279,13 +311,15 @@ const ConflictTool = (() => {
   }
 
   function exportAs(fmt) {
-    const m = Conflict.meta();
+    const m = Conflict.meta(collectRes);
     if (fmt === "md") return download("Intune-setting-conflicts.md", Conflict.markdown(scan, collectRes, m), "text/markdown");
     return download("Intune-setting-conflicts.csv", Conflict.csv(scan), "text/csv");
   }
 
   function init() {
     if (!$("cfRun")) return;
+    // the warm start (build 10523) — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-conflict"] = onShow;
     $("cfRun").addEventListener("click", run);
     $("cfMd").addEventListener("click", () => exportAs("md"));
     $("cfCsv").addEventListener("click", () => exportAs("csv"));
