@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10546, date: "2026-09-01", title: "Backup, Restore and Verify become tabs",
+    items: [
+      { kind: "improved", tool: "Backup configuration", text: "The three tool-halves \u2014 Backup, Restore, Verify & import \u2014 become mode tabs, one on screen at a time, instead of three stacked forms. Nothing about any half's behaviour changes, and switching tabs never loses a loaded archive or plan." },
+    ],
+  },
+  {
     build: 10545, date: "2026-09-01", title: "Defender status gets the rail",
     items: [
       { kind: "improved", tool: "Defender status", text: "Fleet, Graph's rollup and the MDE baseline match become rail panes \u2014 the match's tables stop standing between the bucket cards and the device list, the baseline node wears its finding count in red, and running the match lands on its pane." },

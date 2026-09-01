@@ -883,6 +883,17 @@ const BackupTool = (() => {
   function init() {
     if (!$("bkRun")) return;
     renderAreas();
+    // The mode seg (10546, the layout round — T24's tab pattern): one of
+    // the three tool-halves on screen at a time. Display only — every
+    // half's own state, handlers and results are untouched by a switch,
+    // so a loaded restore plan survives a peek at Verify.
+    if ($("bkModeSeg")) {
+      const MODES = { backup: "bkModeBackup", restore: "bkModeRestore", verify: "bkModeVerify" };
+      $("bkModeSeg").querySelectorAll("[data-bkmode]").forEach((b) => b.addEventListener("click", () => {
+        $("bkModeSeg").querySelectorAll("[data-bkmode]").forEach((x) => x.classList.toggle("active", x === b));
+        for (const [m, id] of Object.entries(MODES)) { const el = $(id); if (el) el.hidden = m !== b.dataset.bkmode; }
+      }));
+    }
     $("bkRun").addEventListener("click", run);
     $("bkDownload").addEventListener("click", download);
     if ($("vfFile")) {
