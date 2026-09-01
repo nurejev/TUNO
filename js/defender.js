@@ -73,7 +73,7 @@ const Defender = (() => {
         bucket: "nostate",
         reason: readError ? `could not be read — ${String(readError).slice(0, 140)}` : "never reported protection state",
         issues: [], unreported: [],
-        deviceState: "", realTime: null, tamper: null, malware: null,
+        deviceState: "", realTime: null, tamper: null, malware: null, nis: null,
         signatureVersion: "", signatureOverdue: null, engineVersion: "", antiMalwareVersion: "",
         lastReported: "",
       });
@@ -87,6 +87,9 @@ const Defender = (() => {
       realTime: st.realTimeProtectionEnabled === true ? true : st.realTimeProtectionEnabled === false ? false : null,
       tamper: st.tamperProtectionEnabled === true ? true : st.tamperProtectionEnabled === false ? false : null,
       malware: st.malwareProtectionEnabled === true ? true : st.malwareProtectionEnabled === false ? false : null,
+      // NIS rides along for the baseline layer (10536) — read, not a finding:
+      // the bucket semantics are unchanged, the baseline speaks it instead.
+      nis: st.networkInspectionSystemEnabled === true ? true : st.networkInspectionSystemEnabled === false ? false : null,
       signatureVersion: st.signatureVersion || "",
       signatureOverdue: st.signatureUpdateOverdue === true,
       engineVersion: st.engineVersion || "",
@@ -144,6 +147,225 @@ const Defender = (() => {
     return out;
   }
 
+  // ======================================================================
+  // THE MDE-ACTIVE BASELINE MATCH (build 10536, Mihai's ask). The baseline
+  // is the $baselineConfig embedded in Mihai's own Get-DefenderSettings.ps1
+  // v2.0 (CloudFellows, 2025-10-28), which carries it from
+  // Configure-MDEActive.ps1 — bundled here VERBATIM in meaning, the T24
+  // provenance rule: re-cut this table from the script when the script
+  // moves, never from memory.
+  //
+  // TWO LAYERS, because Graph splits the truth in two:
+  //   * THE DEVICE LAYER — what machines actually report. Per-device
+  //     windowsProtectionState answers only a few of the baseline's checks
+  //     (real-time, malware/AV active, NIS); the rest simply are not in
+  //     that surface, and a check Graph cannot see is NOT CHECKED, said
+  //     rather than guessed.
+  //   * THE POLICY LAYER — what the tenant intends. The AV and ASR
+  //     settings-catalog policies are read WITH their settings and matched
+  //     against the baseline's expected values — and a setting that sits
+  //     only in a policy REACHING NOBODY is not enforcement (T20's rule):
+  //     it reads "configured but reaches nobody", never "compliant".
+  //     Reach is judged by EndpointSec.reachOf — the one reader, at call
+  //     time, both files long loaded.
+  //
+  // HONESTY RULES the verdicts live by: not-configured and unreadable are
+  // different answers; two reaching policies that disagree are a CONFLICT
+  // (T12's territory, pointed at), not a coin toss; the baseline's own
+  // CloudBlockLevel ambiguity (it stores 6 for HighPlus while its own
+  // report calls 4 High+ and 6 zero tolerance) is carried as "4 or 6
+  // satisfies", with the ambiguity printed; and NO SINGLE SCORE — a
+  // compliance percentage flattens a conflict and a gap into the same
+  // arithmetic, so this screen counts verdicts instead.
+  // ======================================================================
+  const DEF_PREFIX = "device_vendor_msft_policy_config_defender_";
+  const ASR_PARENT = DEF_PREFIX + "attacksurfacereductionrules";
+  const ASR_ACTION_WORD = { 0: "off", 1: "block", 2: "audit", 6: "warn" };
+
+  const MDE_BASELINE = {
+    name: "MDE-Active",
+    source: "Get-DefenderSettings.ps1 v2.0 (CloudFellows, 2025-10-28)",
+    // [guid, settings-catalog slug, name, expected action]
+    asr: [
+      ["56a863a9-875e-4185-98a7-b882c64b5ce5", "blockabuseofexploitedvulnerablesigneddrivers", "Block abuse of exploited vulnerable signed drivers", "audit"],
+      ["7674ba52-37eb-4a4f-a9a1-f0f9a1619a2c", "blockadobereaderfromcreatingchildprocesses", "Block Adobe Reader from creating child processes", "block"],
+      ["d4f940ab-401b-4efc-aadc-ad5f3c50688a", "blockallofficeapplicationsfromcreatingchildprocesses", "Block all Office applications from creating child processes", "audit"],
+      ["9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2", "blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem", "Block credential stealing from LSASS", "block"],
+      ["be9ba2d9-53ea-4cdc-84e5-9b1eeee46550", "blockexecutablecontentfromemailclientandwebmail", "Block executable content from email client and webmail", "block"],
+      ["01443614-cd74-433a-b99e-2ecdc07bfc25", "blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion", "Block executables unless they meet prevalence, age or trusted-list criteria", "block"],
+      ["5beb7efe-fd9a-4556-801d-275e5ffc04cc", "blockexecutionofpotentiallyobfuscatedscripts", "Block execution of potentially obfuscated scripts", "audit"],
+      ["d3e037e1-3eb8-44c8-a917-57927947596d", "blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent", "Block JS/VBScript from launching downloaded executables", "audit"],
+      ["3b576869-a4ec-4529-8536-b80a7769e899", "blockofficeapplicationsfromcreatingexecutablecontent", "Block Office applications from creating executable content", "audit"],
+      ["75668c1f-73b5-4cf0-bb93-3ecf5cb7cc84", "blockofficeapplicationsfrominjectingcodeintootherprocesses", "Block Office applications from injecting code into other processes", "audit"],
+      ["26190899-1602-49e8-8b27-eb1d0a1ce869", "blockofficecommunicationappfromcreatingchildprocesses", "Block Office communication app from creating child processes", "block"],
+      ["e6db77e5-3df2-4cf1-b95a-636979351e5b", "blockpersistencethroughwmieventsubscription", "Block persistence through WMI event subscription", "block"],
+      ["d1e49aac-8f56-4280-b9ba-993a6d77406c", "blockprocesscreationsfrompsexecandwmicommands", "Block process creations from PSExec and WMI commands", "audit"],
+      ["b2b3f03d-6a65-4f7b-a9c7-1c7ef74a9ba4", "blockuntrustedunsignedprocessesthatrunfromusb", "Block untrusted/unsigned processes from USB", "block"],
+      ["92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b", "blockwin32apicallsfromofficemacros", "Block Win32 API calls from Office macros", "audit"],
+      ["c1db55ab-c21a-4637-bb3f-a12568109d35", "useadvancedprotectionagainstransomware", "Use advanced protection against ransomware", "block"],
+      ["33ddedf1-c6e0-47cb-833e-de6133960387", "blockrebootingmachineinsafemode", "Block rebooting machine in Safe Mode", "audit"],
+      ["c0033c00-d16d-4114-a5a0-dc9b3a7d2ceb", "blockuseofcopiedorimpersonatedsystemtools", "Block use of copied or impersonated system tools", "audit"],
+      ["a8f5898e-1dc8-49a9-9878-85004b8a61e6", "blockwebshellcreationforservers", "Block Webshell creation for Servers", "audit"],
+    ],
+    // [category, label, defId suffix under the Defender CSP, accepted tails, note]
+    checks: [
+      ["Core", "Real-time monitoring", "allowrealtimemonitoring", ["1"], ""],
+      ["Core", "Behavior monitoring", "allowbehaviormonitoring", ["1"], ""],
+      ["Core", "Intrusion prevention (NIS)", "allowintrusionpreventionsystem", ["1"], ""],
+      ["Core", "Cloud protection (MAPS)", "allowcloudprotection", ["1"], "the baseline's MAPSReporting=Advanced collapses to on/off in the CSP"],
+      ["Core", "Sample submission — send all", "submitsamplesconsent", ["3"], ""],
+      ["Core", "Cloud block level — high plus or stricter", "cloudblocklevel", ["4", "6"], "the source script is at odds with itself: it stores 6 for HighPlus while its own report calls 4 High+ and 6 zero tolerance — either satisfies"],
+      ["Network protection", "Network protection — block", "enablenetworkprotection", ["1"], ""],
+      ["Advanced", "Script scanning", "allowscriptscanning", ["1"], ""],
+      ["Advanced", "IOAV (downloaded file) protection", "allowioavprotection", ["1"], ""],
+      ["Advanced", "Removable drive scanning", "allowfullscanremovabledrivescanning", ["1"], ""],
+      ["Advanced", "Real-time scan direction — both", "realtimescandirection", ["0"], ""],
+      ["Signature update", "Check signatures before scan", "checkforsignaturesbeforerunningscan", ["1"], ""],
+      ["PUA", "PUA protection — block", "puaprotection", ["1"], ""],
+    ],
+    // Baseline settings with NO one-to-one settings-catalog setting — listed
+    // rather than guessed at, because a check that cannot be read is not a
+    // check that passed.
+    unmapped: [
+      "AllowDatagramProcessingOnWinServer", "AllowNetworkProtectionOnWinServer", "AllowNetworkProtectionDownLevel",
+      "DisableTlsParsing", "AllowSwitchToAsyncInspection", "EnableDnsSinkhole", "EnableFileHashComputation",
+      "UnknownThreatDefaultAction", "SignatureScheduleDay", "RandomizeScheduleTaskTime", "DisableBlockAtFirstSeen",
+    ],
+  };
+
+  // Walk a settings-catalog setting instance, calling cb(defIdLower, value)
+  // for every definition id that carries a value — choice, simple, and both
+  // collection shapes, group children recursed.
+  function walkInst(inst, cb) {
+    if (!inst || typeof inst !== "object") return;
+    const id = lc(inst.settingDefinitionId || "");
+    if (inst.simpleSettingValue && id) cb(id, inst.simpleSettingValue.value);
+    if (inst.choiceSettingValue) {
+      if (id) cb(id, inst.choiceSettingValue.value);
+      (inst.choiceSettingValue.children || []).forEach((c) => walkInst(c, cb));
+    }
+    if (Array.isArray(inst.groupSettingCollectionValue)) {
+      inst.groupSettingCollectionValue.forEach((g) => (g.children || []).forEach((c) => walkInst(c, cb)));
+    }
+    if (Array.isArray(inst.simpleSettingCollectionValue) && id) {
+      inst.simpleSettingCollectionValue.forEach((v) => cb(id, v && v.value));
+    }
+    if (Array.isArray(inst.choiceSettingCollectionValue)) {
+      inst.choiceSettingCollectionValue.forEach((v) => {
+        if (id && v) cb(id, v.value);
+        ((v && v.children) || []).forEach((c) => walkInst(c, cb));
+      });
+    }
+  }
+  // A choice value is "<defId>_<tail>" — the tail is the answer. A simple
+  // value is the answer itself.
+  function tailOf(defId, v) {
+    const s = lc(String(v ?? ""));
+    return s.startsWith(defId + "_") ? s.slice(defId.length + 1) : String(v ?? "");
+  }
+
+  // defIdLower -> [{ policy, reaches, tail }]
+  function settingsIndexOf(pols) {
+    const ix = {};
+    for (const P of pols) {
+      if (!P.settings) continue;
+      const reaches = P.reaches;
+      for (const row of P.settings) {
+        walkInst(row && row.settingInstance, (id, v) => {
+          (ix[id] = ix[id] || []).push({ policy: P.name, reaches, tail: tailOf(id, v) });
+        });
+      }
+    }
+    return ix;
+  }
+
+  // One verdict for one expected value. `want` is the list of accepted tails.
+  function evalEntries(entries, want) {
+    const e = entries || [];
+    if (!e.length) return { verdict: "notConfigured", found: [] };
+    const reaching = e.filter((x) => x.reaches);
+    if (!reaching.length) return { verdict: "unreachableOnly", found: e };
+    const tails = [...new Set(reaching.map((x) => lc(x.tail)))];
+    const hit = tails.some((t) => want.includes(t));
+    if (tails.length > 1) return { verdict: "conflict", found: reaching };
+    return { verdict: hit ? "match" : "deviate", found: reaching };
+  }
+
+  // The policy read behind the match: AV + ASR settings-catalog policies,
+  // assignments expanded (reach is part of the verdict), settings read per
+  // policy, pooled. Errors are per policy, never a lost report.
+  async function baselineRead(onStatus) {
+    onStatus && onStatus("Reading endpoint security policies…");
+    const all = await Graph.readAll(`${Graph.BETA}/deviceManagement/configurationPolicies?$expand=assignments`, { scopes: S().config, retry: true });
+    const rel = all.filter((p) => p.templateReference && /^endpointSecurity(Antivirus|AttackSurfaceReduction)/i.test(String(p.templateReference.templateFamily || "")));
+    onStatus && onStatus(`Reading settings — ${rel.length} polic${rel.length === 1 ? "y" : "ies"}…`);
+    const res = await Graph.pool(rel, (p) => Graph.readAll(`${Graph.BETA}/deviceManagement/configurationPolicies/${encodeURIComponent(p.id)}/settings?$top=1000`, { scopes: S().config, retry: true }), 4);
+    return res.map((r) => ({
+      name: (r.item && (r.item.name || r.item.id)) || "?",
+      family: String((r.item.templateReference || {}).templateFamily || ""),
+      reaches: EndpointSec.reachOf(r.item.assignments).kind === "reaches",
+      settings: r.error ? null : r.value,
+      error: r.error ? String((r.error && r.error.message) || r.error).slice(0, 160) : null,
+    }));
+  }
+
+  // The match itself — pure over what was read, for the headless suite.
+  function baselineMatch(pols, deviceRows) {
+    const ix = settingsIndexOf(pols);
+    const out = { baseline: MDE_BASELINE.name, source: MDE_BASELINE.source,
+      policies: pols.map((p) => ({ name: p.name, family: p.family, reaches: p.reaches, error: p.error })),
+      readErrors: pols.filter((p) => p.error).length,
+      checks: [], asr: [], unmapped: MDE_BASELINE.unmapped.slice(), device: null, counts: null };
+
+    for (const [category, label, suffix, want, note] of MDE_BASELINE.checks) {
+      const r = evalEntries(ix[DEF_PREFIX + suffix], want);
+      out.checks.push({ category, label, expected: want.join(" or "), note, verdict: r.verdict,
+        found: r.found.map((f) => ({ policy: f.policy, value: f.tail, reaches: f.reaches })) });
+    }
+
+    // ASR: the per-rule catalog child first; the legacy parent's
+    // "guid=action|guid=action" string as a second road to the same answer.
+    const legacy = [];
+    for (const e of ix[ASR_PARENT] || []) {
+      for (const pair of String(e.tail).split("|")) {
+        const m = /^\s*([0-9a-f-]{36})\s*=\s*(\d+)\s*$/i.exec(pair);
+        if (m) legacy.push({ guid: lc(m[1]), policy: e.policy, reaches: e.reaches, tail: ASR_ACTION_WORD[Number(m[2])] || m[2] });
+      }
+    }
+    for (const [guid, slug, name, expected] of MDE_BASELINE.asr) {
+      const entries = (ix[ASR_PARENT + "_" + slug] || []).concat(legacy.filter((x) => x.guid === lc(guid)));
+      const r = evalEntries(entries, [expected]);
+      out.asr.push({ guid, name, expected, verdict: r.verdict,
+        found: r.found.map((f) => ({ policy: f.policy, value: f.tail, reaches: f.reaches })) });
+    }
+
+    // The device layer — the three baseline expectations machines actually
+    // report. A flag not reported is unknown; no state is its own answer.
+    const flags = [["realTime", "real-time protection"], ["malware", "malware protection"], ["nis", "intrusion prevention (NIS)"]];
+    const dl = { checked: 0, ok: 0, deviating: [], nostate: 0, notReported: {} };
+    flags.forEach(([k]) => { dl.notReported[k] = 0; });
+    for (const r of deviceRows || []) {
+      if (r.bucket === "nostate") { dl.nostate++; continue; }
+      dl.checked++;
+      const bad = [];
+      for (const [k, lab] of flags) {
+        if (r[k] === false) bad.push(lab);
+        else if (r[k] !== true) dl.notReported[k]++;
+      }
+      if (bad.length) dl.deviating.push({ name: r.name, user: r.user, which: bad });
+      else dl.ok++;
+    }
+    out.device = dl;
+
+    const tally = (rows) => {
+      const c = { match: 0, deviate: 0, conflict: 0, notConfigured: 0, unreachableOnly: 0 };
+      rows.forEach((r) => { c[r.verdict] = (c[r.verdict] || 0) + 1; });
+      return c;
+    };
+    out.counts = { checks: tally(out.checks), asr: tally(out.asr) };
+    return out;
+  }
+
   // ---- exports ----
   const mdCell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   function meta() {
@@ -193,15 +415,40 @@ const Defender = (() => {
     if (unrep.length) {
       L.push(`> **${unrep.length} devices did not report every protection flag.** A flag the device did not report is listed as not reported, never counted as disabled — they are different answers.`, "");
     }
+    if (rep.baseline) {
+      const b = rep.baseline;
+      const V = { match: "matches", deviate: "**DEVIATES**", conflict: "**CONFLICT — reaching policies disagree**",
+        notConfigured: "not configured", unreachableOnly: "configured but **reaches nobody**" };
+      const foundOf = (r) => r.found.length ? r.found.map((f) => `${f.value} (${mdCell(f.policy)}${f.reaches ? "" : ", reaches nobody"})`).join("; ") : "—";
+      L.push(`## ${b.baseline} baseline match`, "");
+      L.push(`Baseline: ${mdCell(b.source)}. Two layers — what the tenant's AV/ASR policies intend, and what devices report. A setting in a policy reaching nobody is not enforcement; unknown is never compliant.`, "");
+      L.push(`### Policy layer — settings`, "", `| Category | Check | Expected | Verdict | Found |`, `|---|---|---|---|---|`);
+      for (const r of b.checks) L.push(`| ${r.category} | ${mdCell(r.label)} | ${r.expected} | ${V[r.verdict]} | ${foundOf(r)} |`);
+      L.push("", `### Policy layer — ASR rules`, "", `| Rule | Expected | Verdict | Found |`, `|---|---|---|---|`);
+      for (const r of b.asr) L.push(`| ${mdCell(r.name)} | ${r.expected} | ${V[r.verdict]} | ${foundOf(r)} |`);
+      const c = b.counts;
+      L.push("", `Settings: ${c.checks.match} match, ${c.checks.deviate} deviate, ${c.checks.conflict} conflict, ${c.checks.notConfigured} not configured, ${c.checks.unreachableOnly} reach nobody. ASR rules: ${c.asr.match} match, ${c.asr.deviate} deviate, ${c.asr.conflict} conflict, ${c.asr.notConfigured} not configured, ${c.asr.unreachableOnly} reach nobody. No single score on purpose — a conflict and a gap are not the same finding.`, "");
+      if (b.readErrors) L.push(`> ${b.readErrors} polic${b.readErrors === 1 ? "y's" : "ies'"} settings could not be read — their checks read from the rest, and absence there is unknown, not clean.`, "");
+      const d = b.device;
+      L.push(`### Device layer — what machines report`, "");
+      L.push(`Graph's per-device state answers only three of the baseline's checks: real-time protection, malware protection, NIS. The rest are not in that surface — **not checked**, said rather than guessed.`, "");
+      L.push(`${d.checked} devices checked: ${d.ok} match, ${d.deviating.length} deviate${d.nostate ? `, ${d.nostate} with no state (unknown, not compliant)` : ""}.`, "");
+      if (d.deviating.length) {
+        L.push(`| Device | User | Deviates on |`, `|---|---|---|`);
+        for (const r of d.deviating) L.push(`| ${mdCell(r.name)} | ${mdCell(r.user)} | ${mdCell(r.which.join(", "))} |`);
+        L.push("");
+      }
+      L.push(`Not checked (no one-to-one settings-catalog setting): ${b.unmapped.join(", ")}.`, "");
+    }
     L.push(`---`, `Reads only, per-device state over Graph's beta surface. Why a machine has the configuration it has is the 🖥 Device analyzer's job.`);
     return L.join("\n");
   }
 
   function csv(rep) {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const L = ["device,user,bucket,deviceState,realTimeProtection,tamperProtection,malwareProtection,signatureVersion,signatureOverdue,engineVersion,antiMalwareVersion,lastReported,lastIntuneSync,findings,reason"];
+    const L = ["device,user,bucket,deviceState,realTimeProtection,tamperProtection,malwareProtection,networkInspection,signatureVersion,signatureOverdue,engineVersion,antiMalwareVersion,lastReported,lastIntuneSync,findings,reason"];
     for (const r of rep.devices || []) {
-      L.push([q(r.name), q(r.user), r.bucket, q(r.deviceState), triState(r.realTime), triState(r.tamper), triState(r.malware),
+      L.push([q(r.name), q(r.user), r.bucket, q(r.deviceState), triState(r.realTime), triState(r.tamper), triState(r.malware), triState(r.nis),
         q(r.signatureVersion), r.signatureOverdue === null ? "" : String(!!r.signatureOverdue), q(r.engineVersion), q(r.antiMalwareVersion),
         q(fmtWhen(r.lastReported)), q(fmtWhen(r.lastSync)), q(r.issues.join("; ")), q(r.reason)].join(","));
     }
@@ -229,7 +476,8 @@ const Defender = (() => {
     return scored.slice(0, cap || 10).map((x) => x.r);
   }
 
-  return { findingsOf, rowOf, report, markdown, csv, meta, triState, searchDevices };
+  return { findingsOf, rowOf, report, markdown, csv, meta, triState, searchDevices,
+    MDE_BASELINE, walkInst, tailOf, settingsIndexOf, evalEntries, baselineRead, baselineMatch };
 })();
 
 
@@ -241,7 +489,7 @@ const DefenderTool = (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
-  let rep = null, running = false, bucketFilter = null;
+  let rep = null, running = false, bucketFilter = null, baseRunning = false;
   // The live search term — a FILTER over the read fleet, with the dropdown
   // as a convenience on top of it. Cleared on every new read.
   let searchTerm = "";
@@ -259,7 +507,7 @@ const DefenderTool = (() => {
   function showExports(on) { ["dfMd", "dfCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
 
   async function run() {
-    if (running) return;
+    if (running || baseRunning) return;
     running = true; $("dfRun").disabled = true; showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null;
     searchTerm = ""; if ($("dfSearch")) { $("dfSearch").value = ""; } if ($("dfSearchWrap")) $("dfSearchWrap").style.display = "none"; closeSuggest();
     try {
@@ -273,6 +521,35 @@ const DefenderTool = (() => {
       $("dfBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>`;
       prog("");
     } finally { running = false; $("dfRun").disabled = false; }
+  }
+
+  // ---- the MDE baseline match (10536) ----------------------------------
+  // One click does both halves: the fleet read if this session does not
+  // hold one yet (the device layer needs it), then the policy read. A
+  // fresh fleet read CLEARS the match rather than pairing new devices with
+  // old policy answers — T20's correlation rule.
+  async function runBaseline() {
+    if (running || baseRunning) return;
+    baseRunning = true; $("dfBase").disabled = true;
+    try {
+      // the policy read joins the ask at THIS click — config was never
+      // part of the plain fleet read and stays out of it
+      await Graph.ensureScopes([...new Set([...Graph.SCOPES.devices, ...Graph.SCOPES.config])]);
+      if (!rep || rep.deviceError) {
+        showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null;
+        searchTerm = ""; if ($("dfSearch")) $("dfSearch").value = ""; closeSuggest();
+        rep = await Defender.report({ onStatus: prog });
+      }
+      const pols = await Defender.baselineRead(prog);
+      rep.baseline = Defender.baselineMatch(pols, rep.devices || []);
+      prog("");
+      render();
+      showExports(!rep.deviceError);
+      if (!rep.deviceError && $("dfSearchWrap")) $("dfSearchWrap").style.display = "";
+    } catch (e) {
+      prog("");
+      $("dfBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>` + $("dfBody").innerHTML;
+    } finally { baseRunning = false; $("dfBase").disabled = false; }
   }
 
   const fmtWhen = (s) => esc(String(s || "").replace("T", " ").replace(/:\d\d(\.\d+)?Z$/, "Z"));
@@ -309,6 +586,8 @@ const DefenderTool = (() => {
       parts.push(`<div class="list-card"><div class="gu-fail"><b>The tenant rollup could not be read.</b><span class="why">${esc(rep.overviewError)} — the per-device answer below stands on its own.</span></div></div>`);
     }
 
+    if (rep.baseline) parts.push(baselineCard(rep.baseline));
+
     const q = searchTerm.trim().toLowerCase();
     const shown = (rep.devices || []).filter((r) =>
       (!bucketFilter || r.bucket === bucketFilter)
@@ -331,6 +610,7 @@ const DefenderTool = (() => {
           <span class="muted">Real-time protection</span><span>${tri(r.realTime)}</span>
           <span class="muted">Tamper protection</span><span>${tri(r.tamper)}</span>
           <span class="muted">Malware protection</span><span>${tri(r.malware)}</span>
+          <span class="muted">Network inspection (NIS)</span><span>${tri(r.nis)}</span>
           <span class="muted">Signatures</span><span>${esc(r.signatureVersion) || "—"}${r.signatureOverdue ? " · <b>update overdue</b>" : ""}</span>
           <span class="muted">Engine / platform</span><span>${esc(r.engineVersion) || "—"} / ${esc(r.antiMalwareVersion) || "—"}</span>
           <span class="muted">Last reported</span><span>${fmtWhen(r.lastReported) || "never"}</span>
@@ -359,6 +639,37 @@ const DefenderTool = (() => {
       bucketFilter = bucketFilter === k ? null : k;
       render();
     }));
+  }
+
+  // The baseline card — verdict chips per check, ASR folded into its own
+  // table, the device layer's three answers, and the not-checked list said
+  // out loud. No single score on purpose.
+  function baselineCard(b) {
+    const chip = (v) => v === "match" ? `<span class="au-op create">matches</span>`
+      : v === "deviate" ? `<span class="au-op delete">deviates</span>`
+      : v === "conflict" ? `<span class="au-op delete">conflict</span>`
+      : v === "unreachableOnly" ? `<span class="gu-how priv" title="The setting exists, but only in a policy reaching nobody — that is not enforcement">reaches nobody</span>`
+      : `<span class="gu-how exc">not configured</span>`;
+    const foundOf = (r) => r.found.length
+      ? r.found.map((f) => `${esc(f.value)} <span class="muted">(${esc(f.policy)}${f.reaches ? "" : " — reaches nobody"})</span>`).join("; ")
+      : `<span class="muted">—</span>`;
+    const rows = (list, label2) => list.map((r) => `<tr><td>${esc(r.category || "")}${r.category ? " · " : ""}${esc(r[label2])}${r.note ? ` <span class="gu-how exc" title="${esc(r.note)}">note</span>` : ""}</td><td>${esc(r.expected)}</td><td>${chip(r.verdict)}</td><td>${foundOf(r)}</td></tr>`).join("");
+    const c = b.counts;
+    const sum = (t) => `${t.match} match · ${t.deviate} deviate · ${t.conflict} conflict · ${t.notConfigured} not configured · ${t.unreachableOnly} reach nobody`;
+    const d = b.device;
+    const dev = d.deviating.slice(0, 20).map((x) => `<b>${esc(x.name)}</b> <span class="muted">(${esc(x.which.join(", "))})</span>`).join(", ");
+    return `<div class="list-card">
+      <h4 style="margin:0 0 4px">🧱 ${esc(b.baseline)} baseline match</h4>
+      <p class="mini muted" style="margin:0 0 10px">Baseline: ${esc(b.source)}. Two layers — what the tenant's AV/ASR policies <b>intend</b>, and what devices <b>report</b>. A setting that lives only in a policy reaching nobody is not enforcement; a check Graph cannot see is not checked, said rather than guessed; and there is no single score on purpose — a conflict and a gap are not the same finding.</p>
+      ${b.readErrors ? `<div class="gu-fail" style="margin:0 0 10px"><b>${b.readErrors} polic${b.readErrors === 1 ? "y's" : "ies'"} settings could not be read.</b><span class="why">Their checks read from the rest — absence there is unknown, not clean.</span></div>` : ""}
+      <p class="mini" style="margin:0 0 6px"><b>Settings</b> — ${sum(c.checks)}</p>
+      <div style="overflow-x:auto"><table class="cg-table mini"><tr><th>Check</th><th>Expected</th><th>Verdict</th><th>Found (policy)</th></tr>${rows(b.checks, "label")}</table></div>
+      <p class="mini" style="margin:12px 0 6px"><b>ASR rules</b> — ${sum(c.asr)}</p>
+      <div style="overflow-x:auto"><table class="cg-table mini"><tr><th>Rule</th><th>Expected</th><th>Verdict</th><th>Found (policy)</th></tr>${rows(b.asr, "name")}</table></div>
+      <p class="mini" style="margin:12px 0 4px"><b>Device layer</b> — ${d.checked} devices checked on the three flags Graph reports (real-time, malware, NIS): ${d.ok} match, ${d.deviating.length} deviate${d.nostate ? `, ${d.nostate} with no state — unknown, not compliant` : ""}.</p>
+      ${d.deviating.length ? `<p class="mini" style="margin:0 0 4px">${dev}${d.deviating.length > 20 ? ` <span class="muted">· +${d.deviating.length - 20} more — the MD export carries all of them</span>` : ""}</p>` : ""}
+      <p class="mini muted" style="margin:8px 0 0">Not checked — no one-to-one settings-catalog setting: ${esc(b.unmapped.join(", "))}.</p>
+    </div>`;
   }
 
   function exportAs(fmt) {
@@ -401,6 +712,7 @@ const DefenderTool = (() => {
   function init() {
     if (!$("dfRun")) return;
     $("dfRun").addEventListener("click", run);
+    if ($("dfBase")) $("dfBase").addEventListener("click", runBaseline);
     $("dfMd").addEventListener("click", () => exportAs("md"));
     $("dfCsv").addEventListener("click", () => exportAs("csv"));
     if ($("dfSearch")) {

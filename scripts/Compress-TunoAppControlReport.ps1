@@ -53,7 +53,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10535
+$script:TunoBuild = 10536
 
 $ErrorActionPreference = 'Stop'
 

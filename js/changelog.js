@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10536, date: "2026-09-01", title: "Defender status matches the MDE-Active baseline",
+    items: [
+      { kind: "new", tool: "Defender status", text: "\ud83e\uddf1 One click matches the tenant against the CloudFellows MDE-Active baseline in two layers. The policy layer reads the AV and ASR settings-catalog policies with their settings and matches 13 settings and all 19 ASR rules \u2014 a setting that lives only in a policy reaching nobody reads reaches-nobody, never compliant; two reaching policies that disagree are a conflict, pointed at the Setting conflict scan; and eleven baseline settings the catalog cannot express one-for-one are listed as not checked rather than guessed. The device layer checks the three flags machines actually report \u2014 real-time, malware and network inspection \u2014 with no-state devices counted unknown, never compliant. There is deliberately no single score: a conflict and a gap are not the same finding. The match rides the Markdown export as its own section." },
+    ],
+  },
+  {
     build: 10535, date: "2026-09-01", title: "The coverage tool says on how many devices",
     items: [
       { kind: "improved", tool: "Firewall & ASR coverage", text: "Every covering policy now wears the number its assignments claim — \u201cconfigured on\u201d as group membership: include groups summed by their member counts, all-devices speaking the fleet denominator the tool already reads, all-users saying honestly that their devices follow them. The arithmetic wears its limits where the number is printed: overlaps are not deduplicated, exclusions are not subtracted, a filter caps the claim at may, an unreadable count makes the sum a floor, and unknown is never zero. The fold's group chips carry per-group counts, and the Markdown and CSV exports speak the same phrase as the screen." },
