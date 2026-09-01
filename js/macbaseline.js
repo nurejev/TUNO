@@ -520,7 +520,9 @@ const MacBaselineTool = (() => {
   function land(r, sourceNote) {
     res = r;
     const c = activeCatalog();
-    cmp = c ? MacBaseline.compare(vms(), c) : null;
+    // a comparison needs both sides — a catalog alone renders as the
+    // baseline LIST, its tenant columns waiting, never as "missing"
+    cmp = (r && c) ? MacBaseline.compare(vms(), c) : null;
     render(sourceNote);
   }
 
@@ -569,12 +571,26 @@ const MacBaselineTool = (() => {
           <p class="mini muted" style="margin:0 0 8px">The identity is the NAME with the release tag and version stripped; releases compare first — R26.6 is June 2026, the year then the month — and versions break the tie. Worst first.</p>
           <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
           <tbody>${cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
+      } else if (c && !res) {
+        // THE BASELINE IS ALWAYS SHOWN (build 10530, Mihai's rule): the
+        // catalog is known before any read, so its rows render at once —
+        // and the tenant columns say NOT READ, never missing, because
+        // unknown is not a verdict in this house.
+        const relver = (rel, ver) => `${esc(MacBaseline.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">The baseline, line by line (${c.policies.length})</h4>
+          <p class="mini muted" style="margin:0 0 8px">🍎 Read the tenant fills the right-hand columns — until then this tenant's side is unknown, not missing.</p>
+          <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
+          <tbody>${c.policies.map((b2) => `<tr>
+            <td class="mini">${esc(b2.name)}</td>
+            <td class="mini muted">—</td>
+            <td class="mini">${relver(MacBaseline.normRel(b2.release, b2.name), b2.version || MacBaseline.versionOf(b2.name))}</td>
+            <td class="mini muted">—</td>
+            <td class="mini muted">not read</td>
+          </tr>`).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
       } else if (res && !c) {
         const worn = vms().filter((v) => MacBaseline.looksBaseline(v.name));
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">Policies wearing the convention (${worn.length})</h4>
           ${worn.length ? `<ul class="mini" style="margin:6px 0 0">${worn.map((w) => `<li>${esc(w.name)} <span class="muted">(${esc(MacBaseline.relLabel(MacBaseline.releaseOf(w.name)))}${MacBaseline.versionOf(w.name) ? ` · v${esc(MacBaseline.versionOf(w.name))}` : " · no version in the name"})</span></li>`).join("")}</ul>` : `<p class="mini muted" style="margin:0">None — no policy name starts with MACOS and carries an Ryy.m release tag.</p>`}</div>`);
-      } else if (!res) {
-        parts.push(`<p class="mini muted" style="margin:0">🍎 Read the tenant to compare it against the catalog.</p>`);
       }
       if (res && res.failed && res.failed.length) {
         parts.push(`<div class="gu-fail"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read</b><span class="why">${res.failed.map((f) => esc(f.label)).join(", ")} — a baseline policy living there would read as missing, so these rows are floors, not verdicts.</span></div>`);
@@ -915,7 +931,10 @@ const MacBaselineTool = (() => {
     if (res || running) return;
     const c = PolicyCache.get();
     if (c) { land(c, srcNote()); return; }
-    if (PolicyCache.reading()) run(true);
+    if (PolicyCache.reading()) { run(true); return; }
+    // no cache, no read running: the baseline still shows (10530) — the
+    // catalog is bundled knowledge, and the read only fills the tenant side
+    render();
   }
 
   function init() {

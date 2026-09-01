@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10530, date: "2026-09-01", title: "The baseline shows itself before any read",
+    items: [
+      { kind: "improved", tool: "macOS baseline", text: "Open the tool and the baseline is simply there — all 82 policies, releases and versions, before anything is read. Reading the tenant fills the right-hand columns. Until it does, this tenant's side says not read — never missing, because a verdict about a tenant nobody looked at would be a lie in the confident direction." },
+    ],
+  },
+  {
     build: 10529, date: "2026-09-01", title: "The upstream watch gets its changelog — and stops missing value changes",
     items: [
       { kind: "fixed", tool: "macOS baseline", text: "Covered now means covered: an upstream policy setting the same options as ours but to different values used to read as covered, and now reads as changed — with both values shown, ours and theirs. A comparison that blessed value drift was the one lie this tool could still tell." },
