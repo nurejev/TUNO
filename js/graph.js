@@ -111,6 +111,14 @@ const Graph = (() => {
     // policy" by walking exactly that. Added at build 10330 with the tool that
     // needs it — the registration script's rule, not an exception to it.
     deviceObjects: ["Device.Read.All"],
+    // write — T25 device cleanup (build 10532), TUNO's FIRST directory-
+    // device write: disable a stale device (accountEnabled=false, PATCH)
+    // and delete a disabled one (DELETE). Taken in the open per the R18
+    // rule — registration script and SECURITY.md move in the same commit —
+    // and Graph ALSO gates these writes on the signed-in user's directory
+    // role (Cloud Device Administrator / Intune Administrator among them):
+    // consent alone does not open them, and T25 says so before the run.
+    deviceObjectsWrite: ["Device.ReadWrite.All"],
     groups: ["Group.Read.All"],
     groupMembers: ["GroupMember.Read.All"],
     directory: ["User.Read.All", "Group.Read.All"],

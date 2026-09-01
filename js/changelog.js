@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10532, date: "2026-09-01", title: "Entra device cleanup — stale machines leave in two steps",
+    items: [
+      { kind: "new", tool: "TUNO", text: "A new tool: Entra device cleanup. Devices silent for 30 days can be disabled; devices disabled and silent for 90 can be deleted — and only what is already disabled can be deleted, because the gap between the two steps is where somebody notices the laptop in the drawer still matters. A device that never reported a sign-in is unknown, not stale, and gets no action offered." },
+      { kind: "new", tool: "Entra device cleanup", text: "Every write is checked twice: a fresh read before it — a device that signed in since the plan is refused because it woke up, one re-enabled since is refused because somebody wants it back — and a read-back after it. Deleting arms only after typing DELETE, because the BitLocker recovery keys go with the object. One Markdown report carries the estate, every action with its outcome, and everything deliberately not done with its reason." },
+      { kind: "new", tool: "Entra device cleanup", text: "This tool carries the registration's first directory-device write permission, taken in the open: every tenant pays one more admin-consent round trip, and Graph additionally requires the signed-in admin to hold a device-capable directory role — consent alone does not open these writes, and the tool says so before the run rather than printing a bare 403 after it." },
+    ],
+  },
+  {
     build: 10531, date: "2026-09-01", title: "Select all, select none",
     items: [
       { kind: "improved", tool: "macOS baseline", text: "The upstream curation table gains select all and select none — as a master checkbox in the table header and as two plain buttons beside the dry run. All three stay in step with the row ticks: the master shows mixed when the selection is mixed, and none of the controls can disagree with the rows." },
