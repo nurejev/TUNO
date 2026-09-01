@@ -697,6 +697,9 @@ const DeviceWhyTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let device = null, scope = null, states = null, result = null, found = null, running = false;
+  // THE SURFACE RAIL (10544, the layout round — Option A): null = all
+  // surfaces (the skim view); a node narrows to one surface's table.
+  let dvSurf = null;
   // The pick set when a search matched more than one device, and the
   // matched-on/notes it arrived with — kept apart from `found` so picking a
   // card can build a clean single-device `found` without losing the route.
@@ -1013,7 +1016,9 @@ const DeviceWhyTool = (() => {
     };
     const effClass = { applies: "inc", maybe: "priv", excluded: "exc", conflict: "priv" };
 
-    const sources = GroupUse.grouped(result.policyRows).map((grp) => `
+    const groupedAll = GroupUse.grouped(result.policyRows);
+    const shownGroups = dvSurf ? groupedAll.filter((grp) => grp.source.id === dvSurf) : groupedAll;
+    const sources = shownGroups.map((grp) => `
       <div class="gu-src">
         <h5>${esc(grp.source.icon)} ${esc(grp.source.label)} <span class="mini muted">${grp.rows.length}</span>
           <a href="${esc(grp.source.doc)}" target="_blank" rel="noopener">docs ↗</a></h5>
@@ -1042,10 +1047,21 @@ const DeviceWhyTool = (() => {
     const search = `<p class="mini muted">Matched on ${esc(found ? found.matchedOn : "")}.${(found && found.notes && found.notes.length) ? " " + found.notes.map(esc).join(" ") : ""}</p>`;
 
     const body = result.policyRows.length
-      ? `<div class="list-card">${sync}${search}${idTable}${notes}${sources}</div>`
+      ? `<div class="list-card">${sync}${search}${idTable}${notes}${sources || `<p class="mini muted" style="margin:0">Nothing on this surface reaches this device — pick another node, or All surfaces.</p>`}</div>`
       : `<div class="list-card">${sync}${search}${idTable}${notes}<p class="mini"><b>Nothing in Intune reaches this device</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.</p></div>`;
 
-    $("dvBody").innerHTML = head + body + failed;
+    // ---- the rail: All + one node per surface that answered, failures listed
+    const railNode = (id, icon, label, right, active) => `<div class="ep-node${active ? " active" : ""}" data-dvsurf="${esc(id)}" role="button" tabindex="0">
+      <span>${icon} ${esc(label)}</span><span class="mini" style="margin-left:auto;white-space:nowrap">${right}</span></div>`;
+    const rail = railNode("", "🗂", "All surfaces", result.policyRows.length, dvSurf === null)
+      + "<hr>"
+      + groupedAll.map((grp) => railNode(grp.source.id, grp.source.icon, grp.source.label, grp.rows.length, dvSurf === grp.source.id)).join("")
+      + (result.failed.length ? "<hr>" + result.failed.map((f) => `<div class="ep-node" style="color:var(--off);cursor:default" title="${esc(f.error)}"><span>⚠ ${esc(f.label)}</span><span class="mini" style="margin-left:auto">unread</span></div>`).join("") : "");
+    $("dvBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${head}${body}${dvSurf ? "" : failed}</div></div>`;
+    $("dvBody").querySelectorAll("[data-dvsurf]").forEach((n) => n.addEventListener("click", () => {
+      dvSurf = n.dataset.dvsurf || null;
+      render();
+    }));
   }
 
   function exportAs(fmt) {
@@ -1057,6 +1073,7 @@ const DeviceWhyTool = (() => {
 
   function reset() {
     device = scope = states = result = found = null;
+    dvSurf = null;
     picks = pickBase = null;
     if ($("dvTerm")) $("dvTerm").value = "";
     $("dvBody").innerHTML = "";

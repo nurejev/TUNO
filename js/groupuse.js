@@ -1054,6 +1054,7 @@ const GroupUseTool = (() => {
       scope = await GroupUse.buildScope(group, prog);
       members = await GroupUse.memberCount(group.id);
 
+      guSurf = null;   // a fresh subject is a fresh view (10544)
       result = await GroupUse.analyze({
         ids: scope.ids, via: scope.via, groupId: group.id,
         sourceIds: areas, tenantWide: tenantWide(),
@@ -1103,7 +1104,9 @@ const GroupUseTool = (() => {
       notes.push(`<p class="mini muted">Contains ${scope.children.length} nested group${scope.children.length === 1 ? "" : "s"} — everything here reaches their members too.</p>`);
     }
 
-    const sources = GroupUse.grouped(result.rows).map((grp) => `
+    const groupedAll = GroupUse.grouped(result.rows);
+    const shownGroups = guSurf ? groupedAll.filter((grp) => grp.source.id === guSurf) : groupedAll;
+    const sources = shownGroups.map((grp) => `
       <div class="gu-src">
         <h5>${esc(grp.source.icon)} ${esc(grp.source.label)} <span class="mini muted">${grp.rows.length}</span>
           <a href="${esc(grp.source.doc)}" target="_blank" rel="noopener">docs ↗</a></h5>
@@ -1139,10 +1142,24 @@ const GroupUseTool = (() => {
     </div>` : "";
 
     const body = result.rows.length
-      ? `<div class="list-card">${back}${notes.join("")}${sources}</div>`
+      ? `<div class="list-card">${back}${notes.join("")}${sources || `<p class="mini muted" style="margin:0">Nothing on this surface for this group — pick another node, or All surfaces.</p>`}</div>`
       : `<div class="list-card">${back}${notes.join("")}<p class="mini"><b>Nothing in Intune is assigned to this group</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.${!tenantWide() ? " Tenant-wide assignments were not included — its members may still be receiving policy through All Users or All Devices." : ""}</p></div>`;
 
-    $("guBody").innerHTML = head + body + partial + failed;
+    // ---- the rail: All + one node per surface that answered, failures red
+    const node = (id, icon, label, right, active, bad) => `<div class="ep-node${active ? " active" : ""}" data-gusurf="${esc(id)}" role="button" tabindex="0">
+      <span>${icon} ${esc(label)}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const rail = node("", "🗂", "All surfaces", result.rows.length, guSurf === null, false)
+      + "<hr>"
+      + groupedAll.map((grp) => node(grp.source.id, grp.source.icon, grp.source.label, grp.rows.length, guSurf === grp.source.id, false)).join("")
+      + (result.failed.length ? "<hr>" + result.failed.map((f) => `<div class="ep-node" style="color:var(--off);cursor:default" title="${esc(f.error)}"><span>⚠ ${esc(f.label)}</span><span class="mini" style="margin-left:auto">unread</span></div>`).join("") : "");
+
+    // The failed/partial cards ride the All view; a narrowed view keeps the
+    // failure count in the sticky strip, so unknown never reads as empty.
+    $("guBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${head}${body}${guSurf ? "" : partial + failed}</div></div>`;
+    $("guBody").querySelectorAll("[data-gusurf]").forEach((n) => n.addEventListener("click", () => {
+      guSurf = n.dataset.gusurf || null;
+      render();
+    }));
   }
 
   function renderSweep(o) {
@@ -1352,6 +1369,10 @@ const GroupUseTool = (() => {
   // charging somebody a second full scan for having been curious about one
   // group — which is what makes people not click.
   let parkedSweep = null;
+  // THE SURFACE RAIL (10544, the layout round — Option A): thirteen
+  // surface tables in one card was the survey's seventh-worst scroller.
+  // null = all surfaces (the skim view, unchanged); a node narrows to one.
+  let guSurf = null;
 
   function deepAnalyze(id) {
     closeGroupModal();

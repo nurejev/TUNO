@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10544, date: "2026-09-01", title: "The Group Analyzer and the Device analyzer get the surface rail",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Both analyzers' thirteen-surface reports gain a sticky rail \u2014 All surfaces stays the default skim view, one node per surface jumps straight to its table, and a surface that could not be read sits on the rail in red, so unknown never reads as empty." },
+    ],
+  },
+  {
     build: 10543, date: "2026-09-01", title: "Three more bars pin — assignment filters, group migration, restricted AUs",
     items: [
       { kind: "improved", tool: "All tools", text: "The assignment-filters bar (view, search, platform), the group-migration chips and the restricted-AU chips all pin to the top while their lists scroll \u2014 the same one-filter-two-faces treatment the last build gave the conflict scan, health and LAPS." },
