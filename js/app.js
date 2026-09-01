@@ -131,7 +131,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-devicecleanup", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -165,6 +165,11 @@ const Fs = (() => {
       (window.requestAnimationFrame || setTimeout)(() => window.scrollTo(0, y));
     }
     shownScreen = id;
+    // Screen hooks (build 10520): a tool may warm-start from the shared
+    // policy cache the moment its screen opens. Registered by the tool, not
+    // hard-coded here, and a hook must never break navigation.
+    const hook = window.TunoScreenHooks && window.TunoScreenHooks[id];
+    if (hook) { try { hook(); } catch { /* the screen still shows */ } }
     if (navSuppress || !HISTORY_SCREENS.has(id)) return;
     if (history.state && history.state.screen === id) return;
     try { history.pushState({ screen: id }, "", location.pathname + location.search); }
@@ -225,6 +230,8 @@ const Fs = (() => {
       "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
       "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
       "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
+      "screen-macbaseline": "toolMacBaseline",
+      "screen-devicecleanup": "toolDeviceCleanup",
       "screen-device": "toolDevice", "screen-filters": "toolFilters",
       "screen-roles": "toolRoles", "screen-maa": "toolMaa",
       "screen-groupmigrate": "toolGroupMigrate",
@@ -726,6 +733,9 @@ const Fs = (() => {
     $("sideNav").style.display = "";
     document.body.classList.add("with-side");
     show("screen-home");
+    // Demo signs in like any tenant, so it warms like any tenant — the
+    // demo Graph answers the prefetch and the warm-start is showable.
+    if (typeof PolicyCache !== "undefined") PolicyCache.warm();
   }
 
   // ---------- tenant identity at sign-in (ENCA's org read, ported) ----------
@@ -794,6 +804,12 @@ const Fs = (() => {
     show("screen-home");
     openWhatsNewOverlay();
     readOrgAtSignIn();
+    // The sign-in prefetch (build 10520) — fire-and-forget, and SILENT by
+    // contract: PolicyCache.warm() reads the tenant only when the consent
+    // already exists, so a first-time tenant sees no prompt it did not ask
+    // for. Nothing on this path awaits it; the tools adopt the result when
+    // their screens open.
+    if (typeof PolicyCache !== "undefined") PolicyCache.warm();
   }
   // Dismiss marks it seen; "Read the full list" hands over to the page, which
   // marks it seen itself. Escape and the backdrop close WITHOUT marking, so a
@@ -816,6 +832,9 @@ const Fs = (() => {
     const acc = account;
     account = null; signedIn = false;
     tenantDomain = ""; tenantName = ""; orgInfo = null;
+    // The cache holds tenant data and the next sign-in may be a different
+    // tenant — it does not survive the account that read it.
+    if (typeof PolicyCache !== "undefined") PolicyCache.clear();
     $("cfdevBadge").style.display = "none";
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";
@@ -871,6 +890,8 @@ const Fs = (() => {
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
+    ["toolMacBaseline", "🍎 macOS baseline"],
+    ["toolDeviceCleanup", "🧹 Entra device cleanup"],
     ["toolRoles", "🛡 Intune RBAC"],
     ["toolMaa", "🤝 Multi-admin approval"],
     ["toolRestrictedAu", "🛡 Restricted AUs"],
@@ -1074,6 +1095,8 @@ const Fs = (() => {
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
   $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
+  $("toolMacBaseline").addEventListener("click", () => { crumb("🍎 macOS baseline"); show("screen-macbaseline"); });
+  $("toolDeviceCleanup").addEventListener("click", () => { crumb("🧹 Entra device cleanup"); show("screen-devicecleanup"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
@@ -1318,6 +1341,8 @@ const Fs = (() => {
   if (typeof LapsTool !== "undefined") LapsTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
+  if (typeof MacBaselineTool !== "undefined") MacBaselineTool.init();
+  if (typeof DeviceCleanupTool !== "undefined") DeviceCleanupTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
   if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
   if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();

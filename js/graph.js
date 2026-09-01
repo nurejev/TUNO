@@ -111,6 +111,14 @@ const Graph = (() => {
     // policy" by walking exactly that. Added at build 10330 with the tool that
     // needs it — the registration script's rule, not an exception to it.
     deviceObjects: ["Device.Read.All"],
+    // write — T25 device cleanup (build 10532), TUNO's FIRST directory-
+    // device write: disable a stale device (accountEnabled=false, PATCH)
+    // and delete a disabled one (DELETE). Taken in the open per the R18
+    // rule — registration script and SECURITY.md move in the same commit —
+    // and Graph ALSO gates these writes on the signed-in user's directory
+    // role (Cloud Device Administrator / Intune Administrator among them):
+    // consent alone does not open them, and T25 says so before the run.
+    deviceObjectsWrite: ["Device.ReadWrite.All"],
     groups: ["Group.Read.All"],
     groupMembers: ["GroupMember.Read.All"],
     directory: ["User.Read.All", "Group.Read.All"],
@@ -276,6 +284,24 @@ const Graph = (() => {
     // than duplicating that here and getting it subtly different.
     await token(want);
     return true;
+  }
+
+  // SILENT-ONLY (build 10520, for the sign-in prefetch): answers whether the
+  // scopes are ALREADY consented, and never opens an interaction to change
+  // the answer. The standing rule is scopes AT THE CLICK — a background read
+  // has no click, so it may only ride consent that already exists. A `false`
+  // here is not an error; it is "the tenant has not consented yet", and the
+  // tools then ask at their click exactly as they always have.
+  async function silentScopes(scopes) {
+    if (demo) return true;
+    const want = [...new Set(scopes || [])];
+    if (!want.length || hasScopes(want)) return true;
+    if (!signedIn()) return false;
+    try {
+      const r = await app().acquireTokenSilent({ scopes: want, account: account() });
+      noteScopes(r.accessToken);
+      return hasScopes(want);
+    } catch { return false; }
   }
 
   // An access token is a bearer credential: whoever holds it is the admin.
@@ -687,7 +713,7 @@ const Graph = (() => {
     readOne, readAll, pool, batch, resolveNames,
     odata, isGuid, chunk, setThrottleHandler, safeGraphUrl,
     // consent (build 10322)
-    ensureScopes, hasScopes, needsInteraction, isPopupBlocked,
+    ensureScopes, hasScopes, silentScopes, needsInteraction, isPopupBlocked,
     // The permissions screen reads this to paint its chips. In demo mode it
     // answers with every scope the app can ask for, marked as granted — and
     // the screen says "simulated" beside them, because a permissions page

@@ -150,6 +150,10 @@ const AssignEdit = (() => {
             surface: sf.id, surfaceLabel: sf.label, icon: sf.icon,
             id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
             assignments: it.assignments || [],
+            // The raw object rides along (build 10522): the platform filter
+            // derives platforms from it through Docs.platformsOf — the one
+            // normaliser — rather than a second parse of @odata.type here.
+            raw: it,
           });
         }
       } catch (e) { failed.push({ id: sf.id, label: sf.label, error: GroupUse.shortErr(e) }); }
@@ -364,17 +368,52 @@ const AssignEditTool = (() => {
     if (split) split.classList.add("has-rail");
   }
 
+  // ---------------------------------------------------- platform filter --
+  // T05's platform filter, ported (build 10522). The platforms a policy
+  // declares come from Docs.platformsOf on the RAW object — the one
+  // normaliser, so this filter, T05's and T19's cannot disagree about the
+  // same policy. Memoised per row; the surface's section carries the
+  // platformField the settings catalog needs.
+  let platFilter = "All";
+  function platsOf(p) {
+    if (!p.platforms) p.platforms = (p.raw && typeof Docs !== "undefined")
+      ? Docs.platformsOf(p.raw, Docs.sectionById(SEC_OF[p.surface]))
+      : [];
+    return p.platforms;
+  }
+  const platMatch = (p) => platFilter === "All"
+    || (platFilter === Docs.NOT_SPECIFIC ? !platsOf(p).length : platsOf(p).includes(platFilter));
+  // Static select, rebuilt options only (the T15 rule); counts over the
+  // whole list, like the rail's, so the numbers answer "of the tenant".
+  function fillPlatformSelect() {
+    const el = $("aePlatform");
+    if (!el || !read) return;
+    const count = (p) => read.policies.filter((x) => (p === Docs.NOT_SPECIFIC ? !platsOf(x).length : platsOf(x).includes(p))).length;
+    const opts = [{ value: "All", label: `All platforms (${read.policies.length})` }]
+      .concat(Docs.PLATFORM_ORDER.map((p) => ({ value: p, label: `${p} (${count(p)})`, n: count(p) })))
+      .concat([{ value: Docs.NOT_SPECIFIC, label: `${Docs.NOT_SPECIFIC} (${count(Docs.NOT_SPECIFIC)})`, n: count(Docs.NOT_SPECIFIC) }])
+      .filter((o) => o.value === "All" || o.n > 0);   // a platform the list has none of is not an option
+    el.innerHTML = opts.map((o) => `<option value="${esc(o.value)}"${o.value === platFilter ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+  }
+
   function renderPolicies() {
     const q = lcq($("aeFilter").value);
     const list = read.policies
       .filter((p) => surfView === "all" || p.surface === surfView)
-      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q));
+      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q))
+      .filter(platMatch);
+    fillPlatformSelect();
     const rows = list.map((p) => `<tr>
         <td style="width:34px"><input type="checkbox" data-aepol="${esc(keyOf(p))}" ${sel.has(keyOf(p)) ? "checked" : ""}></td>
-        <td><b>${esc(p.name)}</b></td><td>${esc(p.icon)} ${esc(p.surfaceLabel)}</td>
+        <td><b class="pname" data-aeopen="${esc(keyOf(p))}" title="Open the policy — the 📄 documenter's popout, settings included. The tick box beside it is the selection; this is the look inside.">${esc(p.name)}</b></td><td>${esc(p.icon)} ${esc(p.surfaceLabel)}</td>
         <td>${p.assignments.length} assignment${p.assignments.length === 1 ? "" : "s"}</td></tr>`).join("");
     const picks = sel.size ? `<p class="mini ae-picks" style="margin:8px 0 0"><b>${sel.size} selected</b> across all surfaces — the selection survives filtering and switching surfaces.</p>` : "";
-    $("aeList").innerHTML = `<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
+    // Where the list came from is part of the list (build 10520): a cached
+    // answer says so and says when, in the render so it survives re-renders.
+    const src = read && read.fromCache
+      ? `<p class="mini muted ae-cache-note" style="margin:8px 6px 0">${read.policies.length} policies from ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — ✏️ Read the policies re-reads the tenant before you plan.</p>`
+      : "";
+    $("aeList").innerHTML = `${src}<div style="overflow-x:auto"><table class="plist"><thead><tr><th></th><th>Policy</th><th>Surface</th><th>Assigned</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="mini">Nothing on this surface matches the filter.</td></tr>`}</tbody></table></div>${picks}`;
     renderSurfaces();
     syncSelbar();
     $("aePlanWrap").style.display = "";
@@ -384,6 +423,147 @@ const AssignEditTool = (() => {
   function invalidatePlan() {
     plan = null; groupMeta = null; backupTaken = false;
     $("aePlanOut").innerHTML = ""; $("aeApplyWrap").style.display = "none"; $("aeResults").innerHTML = "";
+  }
+
+  // ------------------------------------------------------------- popout --
+  // A policy NAME opens the 📄 documenter's popout — Docs.popoutHtml, the
+  // one template T05, T19 and T20 already share, with T19's foot (Close).
+  // The read is Docs.collect() narrowed to the one policy (`only`, added
+  // for this in the same build), so the settings, the named groups with
+  // member counts and the named filters are EXACTLY what the documenter
+  // would print — not a summary that could drift from it. The tick box
+  // beside the name stays the selection; the name is the look inside.
+  //
+  // T11's four surfaces are four of T05's thirteen, by construction (both
+  // are the write scope's read side), so the mapping is a lookup, not a
+  // guess.
+  const SEC_OF = { deviceConfig: "deviceConfigurations", settingsCatalog: "settingsCatalog", compliance: "compliance", admx: "admx" };
+
+  // Cached per read: opening the same policy twice must not re-ask the
+  // tenant, but a FRESH read is a fresh tenant and clears it — a popout
+  // served from before the last read would show assignments the apply
+  // step just changed.
+  const popCache = new Map();
+
+  // ------------------------------------------------------- warm start --
+  // The shared policy cache (build 10520) covers T11's four surfaces —
+  // they are four of T05's thirteen, and collect() keeps the RAW objects
+  // (keepRaw) precisely so this pipeline can consume untouched assignment
+  // targets. Opening the screen shows the list; ✏️ Read the policies stays
+  // the fresh read, because a plan should be cut from the newest list the
+  // tenant will give — and every WRITE path re-reads per policy anyway
+  // (drift check), so a stale row can never become a stale write.
+  function policiesFromCache(c) {
+    const out = [], failed = [];
+    for (const [sfId, secId] of Object.entries(SEC_OF)) {
+      const sf = AssignEdit.surfaceById(sfId);
+      const sec = c.sections.find((s) => s.id === secId);
+      if (!sec || !sec.raw) {
+        const f = c.failed.find((x) => x.id === secId);
+        failed.push({ id: sfId, label: sf.label, error: f ? f.error : "not in the shared read" });
+        continue;
+      }
+      for (const it of sec.raw) {
+        out.push({
+          surface: sfId, surfaceLabel: sf.label, icon: sf.icon,
+          id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
+          assignments: it.assignments || [],
+          raw: it,   // for the platform filter — same field the fresh read carries
+        });
+      }
+    }
+    out.sort((a, b) => a.surfaceLabel.localeCompare(b.surfaceLabel) || a.name.localeCompare(b.name));
+    return { policies: out, failed, fromCache: true };
+  }
+
+  function onShow() {
+    if (read || busy) { applyPending(); return; }
+    const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
+    if (!c) return;
+    read = policiesFromCache(c);
+    sel.clear(); surfView = "all"; platFilter = "All"; popCache.clear();
+    renderPolicies();
+    applyPending();
+  }
+
+  // ------------------------------------------------------- the handoff --
+  // ENCA's per-policy action, Intune-side-out (build 10521): another tool
+  // hands a policy over and the editor opens WITH IT SELECTED — through
+  // the tile's own handler, the 10398 click-through rule, so crumb, tab
+  // and sidebar all follow. The section→surface mapping lives HERE, its
+  // one home, next to SEC_OF (the same table read the other way).
+  const SURFACE_OF_SEC = Object.fromEntries(Object.entries(SEC_OF).map(([sf, sec]) => [sec, sf]));
+  const canEdit = (secId) => !!SURFACE_OF_SEC[secId];
+  // A handoff into a cold list waits for the list: consumed by onShow (the
+  // warm start) and readAll (the fresh read), whichever builds it first.
+  let pendingSelect = null;
+  function applyPending() {
+    if (!pendingSelect || !read) return;
+    const key = pendingSelect; pendingSelect = null;
+    if (!read.policies.some((p) => keyOf(p) === key)) return;   // gone since the other tool read — the tick would lie
+    sel.add(key);
+    renderPolicies();
+    const cb = [...$("aeList").querySelectorAll("[data-aepol]")].find((c) => c.dataset.aepol === key);
+    if (cb && cb.scrollIntoView) cb.scrollIntoView({ block: "center" });
+  }
+  function openWith(secId, id) {
+    const sfId = SURFACE_OF_SEC[secId];
+    if (!sfId) return false;                    // not one of the four editable surfaces
+    pendingSelect = `${sfId}|${id}`;
+    const tile = $("toolAssignEdit");
+    if (tile) tile.click();                     // show() runs the screen hook, which applies the pending tick
+    applyPending();                             // and a list that already existed applies it now
+    return true;
+  }
+
+  const popFoot = `<div class="gu-m-foot"><div class="spacer"></div><button class="btn primary" id="aeModalClose">Close</button></div>`;
+  function wirePopClose() {
+    $("aeModalClose").addEventListener("click", closePolicy);
+    // Backdrop closes; clicking INSIDE must not — T05's rule, same reason.
+    $("aeModal").onclick = (e) => { if (e.target === $("aeModal")) closePolicy(); };
+  }
+  function closePolicy() {
+    $("aeModal").classList.remove("open");
+    document.removeEventListener("keydown", onPopEsc);
+  }
+  function onPopEsc(e) { if (e.key === "Escape") closePolicy(); }
+
+  async function openPolicy(key) {
+    const p = read && read.policies.find((x) => keyOf(x) === key);
+    if (!p) return;
+    $("aeModalBody").innerHTML = `
+      <div class="gu-m-head"><h3>${esc(p.name)}</h3>
+        <p class="mini muted" id="aePopStatus" style="margin:8px 0 0">Reading the policy…</p></div>
+      ${popFoot}`;
+    $("aeModal").classList.add("open");
+    wirePopClose();
+    document.addEventListener("keydown", onPopEsc);
+    try {
+      let hit = popCache.get(key);
+      if (!hit) {
+        // Directory read rides along for the group names in the assignment
+        // chips — the same union T19 asks at its click, asked at this one.
+        await Graph.ensureScopes([...new Set([...AssignEdit.READ(), ...Graph.SCOPES.directory])]);
+        const res = await Docs.collect({
+          sections: [SEC_OF[p.surface]], only: p.id,
+          onStatus: (m) => { const el = $("aePopStatus"); if (el) el.textContent = m; },
+        });
+        const sec = res.sections[0];
+        const it = sec && sec.items.find((x) => lcq(x.id) === lcq(p.id));
+        if (!it) throw new Error((res.failed[0] && res.failed[0].error)
+          || "The policy was not in the surface's answer — it may be gone since the list was read. Read the policies again.");
+        hit = { sec, it };
+        popCache.set(key, hit);
+      }
+      $("aeModalBody").innerHTML = `${Docs.popoutHtml(hit.sec, hit.it)}${popFoot}`;
+      wirePopClose();
+    } catch (e) {
+      $("aeModalBody").innerHTML = `
+        <div class="gu-m-head"><h3>${esc(p.name)}</h3></div>
+        <div class="gu-m-body"><div class="gu-fail"><b>The policy could not be read.</b><span class="why">${esc(GroupUse.shortErr(e, 300))} — the list row is unaffected; this is only the look inside.</span></div></div>
+        ${popFoot}`;
+      wirePopClose();
+    }
   }
 
   async function dryRun() {
@@ -501,6 +681,10 @@ const AssignEditTool = (() => {
         <p class="mini muted" style="margin:8px 0 0">Every “verified” is the tenant's own read-back, not the write's status code. The backup file from step ① is the way back for all of it.</p></div>`;
       // A used plan is a spent plan — the tenant has moved, by us.
       plan = null; backupTaken = false; $("aeApplyWrap").style.display = "none"; $("aePlanOut").innerHTML = "";
+      // And the shared cache now describes the tenant BEFORE this apply —
+      // said so by dropping it, and the popout cache with it (build 10520).
+      if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
+      popCache.clear();
     } catch (e) { prog(""); $("aeResults").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`; }
     finally { busy = false; }
   }
@@ -515,9 +699,11 @@ const AssignEditTool = (() => {
       // dry run.
       await Graph.ensureScopes([...new Set([...AssignEdit.READ(), ...Graph.SCOPES.groups])]);
       read = await AssignEdit.readPolicies(null, prog);
-      sel.clear(); surfView = "all";   // a fresh read is a fresh decision
+      sel.clear(); surfView = "all"; platFilter = "All";   // a fresh read is a fresh decision
+      popCache.clear();                // and a fresh tenant for the popout
       prog(`${read.policies.length} policies read.`);
       renderPolicies();
+      applyPending();                  // a handoff that arrived before the list did
       // T14's own filter list fills the dropdown — same read scope, one
       // request, and a tenant without filters simply keeps "No filter".
       try {
@@ -536,11 +722,20 @@ const AssignEditTool = (() => {
   function init() {
     if (!$("aeRead")) return;
     $("aeRead").addEventListener("click", readAll);
+    // the warm start (build 10520) — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-assignedit"] = onShow;
     $("aeFilter").addEventListener("input", () => read && renderPolicies());
+    if ($("aePlatform")) $("aePlatform").addEventListener("change", (e) => { platFilter = e.target.value; if (read) renderPolicies(); });
     // the surface rail and the tick-set (both build 10390)
     $("aeSurfSide").addEventListener("click", (e) => {
       const b = e.target.closest("[data-aesurf]");
       if (b && read) { surfView = b.dataset.aesurf; renderPolicies(); }
+    });
+    // The name opens the popout; the checkbox beside it stays the
+    // selection. Click, not change: a <b> fires no change event.
+    $("aeList").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-aeopen]");
+      if (b) openPolicy(b.dataset.aeopen);
     });
     $("aeList").addEventListener("change", (e) => {
       const c = e.target.closest("[data-aepol]");
@@ -595,5 +790,5 @@ const AssignEditTool = (() => {
     $("aeApplyBtn").addEventListener("click", apply);
   }
 
-  return { init };
+  return { init, canEdit, openWith };
 })();

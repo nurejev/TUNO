@@ -187,6 +187,15 @@ param(
     "User.Read.All",
     # R03 device analyzer — build 10330
     "Device.Read.All",
+    # T25 Entra device cleanup (R36) — build 10532. The FIRST directory-
+    # device WRITE: disable a stale device object and delete a disabled one.
+    # Two-stage by construction (30 days silent -> disable; 90 -> delete,
+    # and only what is already disabled). Graph additionally gates these
+    # writes on the signed-in user's directory role (Cloud Device
+    # Administrator / Intune Administrator among the allowed), so consent
+    # alone does not open them — the tool explains that gate before the
+    # run. One more admin-consent round trip per tenant, said here.
+    "Device.ReadWrite.All",
     # T18 Windows LAPS audit — build 10429. ReadBasic DELIBERATELY: escrow
     # metadata only (device name, backup time); Graph cannot return a
     # password value through it. The full Read.All, which can, would belong

@@ -57,7 +57,7 @@
 // cannot know what the other channel runs.
 // ======================================================================
 const PROMOTE = {
-  // Verified against `git show main:js/version.js` — main is at build 12.
+  // Verified against `git show main:js/version.js` — main is at build 13.
   // Promotions: items 1-13 (beta 10301-10317) as build 3, items 14-19
   // (10318-10323) as build 4, items 20-29 (10324-10336) as build 5, items
   // 30-35 (10342, 10344-10348) as build 6, items 36-40 plus 45-52 and
@@ -85,11 +85,17 @@ const PROMOTE = {
   // items. Numbers exist to be permanent precisely so that cannot happen;
   // the numbers stay as history wrote them, and the next item takes 123.
   //
+  // Items 123-131 (beta 10519-10533) went as build 13 — the third
+  // full-queue promotion, ordered by the exported file. Two tools reached
+  // production (T24 macOS baseline, T25 device cleanup), the sign-in
+  // prefetch went app-wide, and the registration gained its first
+  // directory-device write scope (Device.ReadWrite.All, item 131).
+  //
   // THE QUEUE IS EMPTY. Every tool on this channel is also in production;
   // the only differences left are the two permanent ones in staying[]. An
   // empty queue is a state worth returning to: it means "beta and main
   // match", and the next item added is the whole of the next promotion.
-  productionBuild: "v1.0.12",
+  productionBuild: "v1.0.13",
 
   items: [],
 

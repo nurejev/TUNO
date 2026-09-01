@@ -58,6 +58,7 @@ const OverviewTool = (() => {
 
   let res = null, running = false;
   let surfFilter = "all", verdictFilter = "all";
+  let platFilter = "All";     // T05's platform filter, same words (build 10522)
   // Cards or list — T20's own seg (10477), ported rather than reinvented,
   // because two tools showing the same policies must offer the same two
   // faces or the eye has to relearn the screen. Cards default: the tenant
@@ -95,8 +96,14 @@ const OverviewTool = (() => {
       || lc(it.platform).includes(q) || lc(sec.label).includes(q)
       || it.assignments.some((a) => lc(a.name).includes(q));
   };
-  // Surface + search first (the chips count THIS set), verdict last.
-  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && matches(r, q));
+  // The platform claim is T05's, verbatim: a policy matches the platform it
+  // declares; "Not platform-specific" matches one that declares none. The
+  // words come from Docs.platformsOf — the one normaliser — so this filter
+  // and the documenter's cannot disagree about the same policy.
+  const platMatch = (r) => platFilter === "All"
+    || (platFilter === Docs.NOT_SPECIFIC ? !r.it.platforms.length : r.it.platforms.includes(platFilter));
+  // Surface + search + platform first (the chips count THIS set), verdict last.
+  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && matches(r, q) && platMatch(r));
   const shown = (q) => surfed(q).filter((r) => verdictFilter === "all" || r.v === verdictFilter);
 
   // -------------------------------------------------------------- cards --
@@ -238,19 +245,65 @@ const OverviewTool = (() => {
   }
 
   // ------------------------------------------------------------- popout --
+  // The foot is the tool's own claim (the popoutHtml rule), and since build
+  // 10521 T19's claim is ENCA's: a policy you are looking at offers the
+  // acts you would take on it — the pcard-actions row from ENCA's policy
+  // detail, ported Intune-side-out and narrowed to the acts TUNO has.
+  // ✏️ hands over to the Assignment editor with the policy selected (only
+  // for the four surfaces T11 edits — an act that would be refused is not
+  // offered). 📄 downloads the documenter's own single-policy Markdown —
+  // the same Docs.markdown T05's popout copies, one implementation. 🗄
+  // downloads the policy as Graph returned it (the raw object the shared
+  // cache keeps), FOR THE RECORD: restoring is deliberately not claimed —
+  // ENCA's backup restores because ENCA has a restore path for it; TUNO's
+  // restore story is T04's, and a button that implied otherwise would be
+  // a promise the app cannot keep. What-if flow and Policy state were NOT
+  // ported: the first is T08's job by group, the second a write T19 has
+  // no business doing from a read-only screen.
+  const download = (name, text, type) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+  const slug = (s) => String(s || "policy").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "policy";
+  const tenantName = () => { const n = $("tenantName"); return (n && n.textContent) || ""; };
+
   function openPolicy(key) {
     const [secId, itemId] = String(key).split("|");
     const sec = res && res.sections.find((s) => s.id === secId);
     const it = sec && sec.items.find((x) => x.id === itemId);
     if (!it) return;
+    const raw = sec.raw && sec.raw.find((r) => lc(r.id) === lc(itemId));
+    const editable = typeof AssignEditTool !== "undefined" && AssignEditTool.canEdit && AssignEditTool.canEdit(secId);
     $("ovModalBody").innerHTML = `
       ${Docs.popoutHtml(sec, it)}
       <div class="gu-m-foot">
+        ${editable ? `<button class="btn" id="ovActEdit" title="Open ✏️ the Assignment editor with this policy selected — the operation bar takes it from there">✏️ Assignment editor</button>` : ""}
+        <button class="btn" id="ovActDoc" title="Download this policy as the 📄 documenter's Markdown — same settings, same redaction, one implementation">📄 Documentation</button>
+        ${raw ? `<button class="btn" id="ovActBackup" title="Download the policy exactly as Graph returned it — a record of this moment, not a restore file">🗄 Backup</button>` : ""}
         <div class="spacer"></div>
         <button class="btn primary" id="ovModalClose">Close</button>
       </div>`;
     $("ovModal").classList.add("open");
     $("ovModalClose").addEventListener("click", closePolicy);
+    if (editable) $("ovActEdit").addEventListener("click", () => { closePolicy(); AssignEditTool.openWith(secId, it.id); });
+    $("ovActDoc").addEventListener("click", () => {
+      const one = [{ ...sec, items: [it] }];
+      const md = Docs.markdown(one, res, Docs.meta(res, { tenant: tenantName(), sections: one, single: true }));
+      download(`TUNO-policy-${slug(it.name)}-${new Date().toISOString().slice(0, 10)}.md`, md, "text/markdown");
+    });
+    if (raw) $("ovActBackup").addEventListener("click", () => {
+      const out = {
+        tuno: {
+          kind: "single-policy-record", build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+          exported: new Date().toISOString(), source: sec.endpoint, tenant: tenantName(),
+          note: "The policy as Graph returned it at the read named above. A record, not a restore file — restore stays 📦 T04's job.",
+        },
+        policy: raw,
+      };
+      download(`tuno-policy-record-${slug(it.name)}-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 2), "application/json");
+    });
     // Backdrop closes; clicking INSIDE must not — T05's rule, same reason.
     $("ovModal").onclick = (e) => { if (e.target === $("ovModal")) closePolicy(); };
     document.addEventListener("keydown", onEsc);
@@ -262,7 +315,50 @@ const OverviewTool = (() => {
   function onEsc(e) { if (e.key === "Escape") closePolicy(); }
 
   // ---------------------------------------------------------------- run --
-  async function run() {
+  // The result lands the same way whatever fetched it — a click, the
+  // sign-in prefetch, or attaching to a prefetch still running. The one
+  // parameter is where the data came from, because staleness must be SAID:
+  // a cached answer prints its read time and where it was read.
+  // The select is a static toolbar control (the T15 rule — never re-rendered
+  // out from under a click); only its OPTIONS are rebuilt, with counts over
+  // the whole collection so the numbers answer "of the tenant", like the rail.
+  function fillPlatformSelect() {
+    const el = $("ovPlatform");
+    if (!el) return;
+    const rows = flat();
+    const count = (p) => rows.filter((r) => (p === Docs.NOT_SPECIFIC ? !r.it.platforms.length : r.it.platforms.includes(p))).length;
+    const opts = [{ value: "All", label: `All platforms (${rows.length})` }]
+      .concat(Docs.PLATFORM_ORDER.map((p) => ({ value: p, label: `${p} (${count(p)})`, n: count(p) })))
+      .concat([{ value: Docs.NOT_SPECIFIC, label: `${Docs.NOT_SPECIFIC} (${count(Docs.NOT_SPECIFIC)})`, n: count(Docs.NOT_SPECIFIC) }])
+      .filter((o) => o.value === "All" || o.n > 0);   // a platform the tenant has none of is not an option
+    el.innerHTML = opts.map((o) => `<option value="${esc(o.value)}"${o.value === platFilter ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+  }
+
+  function showRes(r, sourceNote) {
+    res = r;
+    surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; $("ovSearch").value = "";
+    fillPlatformSelect();
+    const sum = Docs.summarize(res);
+    const notes = [];
+    if (sourceNote) notes.push(sourceNote);
+    notes.push(`${sum.total} object${sum.total === 1 ? "" : "s"} across ${sum.sections} surface${sum.sections === 1 ? "" : "s"}.`);
+    if (res.failed.length) notes.push(`${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — shown as unreadable below, never as zero.`);
+    if (res.partial.length) notes.push(`Partly read: ${res.partial.map((p) => esc(p.label)).join(", ")}.`);
+    if (res.nameError) notes.push(`Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.`);
+    if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
+    if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
+    $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
+    $("ovWrap").style.display = "";
+    render();
+  }
+
+  const cacheNote = () =>
+    `From ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — 🗂 Read the tenant re-reads.`;
+
+  // `attach` rides a read that is already running (the sign-in prefetch);
+  // a plain run() is the refresh — a deliberately fresh read, through the
+  // cache so every other tool warms from it too.
+  async function run(attach) {
     if (running) return;
     running = true; $("ovRun").disabled = true;
     $("ovWrap").style.display = "none"; $("ovRail").innerHTML = ""; $("ovCards").innerHTML = ""; $("ovNotes").innerHTML = ""; $("ovBody").innerHTML = "";
@@ -274,38 +370,48 @@ const OverviewTool = (() => {
     // progress card.
     const prog = (m) => TunoProgress.show("ovBody", "ovProg", m);   // ENCA-style centred card (10397)
     try {
-      prog("Checking permissions…");
-      // The same union T05's own run asks: every surface's read scope plus
-      // the directory read that names the groups. One consent moment for one
-      // read of the whole tenant.
-      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Docs.allSectionIds()), ...Graph.SCOPES.directory])]);
-      res = await Docs.collect({ onStatus: prog });
-      surfFilter = "all"; verdictFilter = "all"; view = "cards"; $("ovSearch").value = "";
-      const sum = Docs.summarize(res);
-      const notes = [];
-      notes.push(`${sum.total} object${sum.total === 1 ? "" : "s"} across ${sum.sections} surface${sum.sections === 1 ? "" : "s"}.`);
-      if (res.failed.length) notes.push(`${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — shown as unreadable below, never as zero.`);
-      if (res.partial.length) notes.push(`Partly read: ${res.partial.map((p) => esc(p.label)).join(", ")}.`);
-      if (res.nameError) notes.push(`Group names could not be resolved (${esc(res.nameError)}) — assignments show GUIDs.`);
-      if (res.filterError) notes.push(`Assignment filter names could not be read (${esc(res.filterError)}) — a filtered assignment says it is filtered and shows the id, never nothing.`);
-      if (sum.noSettings) notes.push(`${sum.noSettings} listed without readable settings — said on the card, not omitted.`);
-      $("ovNotes").innerHTML = `<p class="mini muted" style="margin:10px 0 0">${notes.join(" ")}</p>`;
-      $("ovWrap").style.display = "";
+      let r;
+      if (attach && PolicyCache.reading()) {
+        prog("Reading the tenant…");                       // the sign-in read, joined
+        r = await PolicyCache.read(prog);
+      } else {
+        prog("Checking permissions…");
+        // The same union T05's own run asks: every surface's read scope plus
+        // the directory read that names the groups. One consent moment for
+        // one read of the whole tenant. The read itself goes THROUGH the
+        // cache, so T11 and the next tool warm from this click.
+        await Graph.ensureScopes(PolicyCache.scopesNeeded());
+        r = await PolicyCache.refresh(prog);
+      }
       prog("");
-      render();
+      showRes(r, attach ? cacheNote() : "");
     } catch (e) {
       prog("");
       $("ovNotes").innerHTML = `<div class="gu-fail" style="margin-top:12px"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;
     } finally { running = false; $("ovRun").disabled = false; }
   }
 
+  // The warm start (build 10520): opening the screen shows the tenant when
+  // the shared cache has it, and joins the sign-in read when one is still
+  // running. A cold cache changes nothing — the intro and its Read button
+  // are yesterday's behaviour exactly.
+  function onShow() {
+    if (res || running) return;
+    const c = PolicyCache.get();
+    if (c) { showRes(c, cacheNote()); return; }
+    if (PolicyCache.reading()) run(true);
+  }
+
   // --------------------------------------------------------------- init --
   function init() {
     if (!$("ovRun")) return;
-    $("ovRun").addEventListener("click", run);
+    $("ovRun").addEventListener("click", () => run(false));
+    // the warm start — registered, so app.js stays ignorant of tools
+    (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-overview"] = onShow;
     // The search box lives in the STATIC toolbar and is never re-rendered —
     // typing must survive the list redrawing under it, T15's lesson.
     $("ovSearch").addEventListener("input", () => { const q = lc($("ovSearch").value.trim()); renderChips(q); renderCards(q); });
+    if ($("ovPlatform")) $("ovPlatform").addEventListener("change", (e) => { platFilter = e.target.value; render(); });
     $("ovChips").addEventListener("click", (e) => {
       const b = e.target.closest("[data-verdict]"); if (!b) return;
       const k = b.getAttribute("data-verdict");
@@ -340,7 +446,7 @@ const OverviewTool = (() => {
     verdictOf, filterMay,
     _view: () => view,
     // for the headless tests only — the real res is set by run()
-    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; view = "cards"; render(); },   // mirrors run()'s reset
-    _state: () => ({ surfFilter, verdictFilter }),
+    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; fillPlatformSelect(); render(); },   // mirrors run()'s reset
+    _state: () => ({ surfFilter, verdictFilter, platFilter }),
   };
 })();

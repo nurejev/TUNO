@@ -276,14 +276,32 @@ const RestoreTool = (() => {
       : `<p class="mini muted" style="margin:0 0 8px"><b>The archive names no source tenant</b> (an original-script backup, or an older TUNO one). Be sure you know where it came from.</p>`;
     const byArea = {};
     objects.forEach((o) => { (byArea[o.area] = byArea[o.area] || []).push(o); });
+    // The platform filter (build 10524) — the documenter's own platform
+    // reading over the archived RAW object ("restore only the macOS
+    // profiles"). The filter toggles row VISIBILITY, never re-renders: the
+    // ticks and the edited names in this table are DOM state, and a
+    // re-render would silently throw both away. An object declaring no
+    // platform files under "Not platform-specific" (scripts, filters, the
+    // non-policy areas).
+    const platsOfObj = (o) => (typeof Docs !== "undefined" ? Docs.platformsOf(o.obj || {}, { platformField: "platforms" }) : []);
+    const allPlats = [...new Set(objects.flatMap(platsOfObj))].sort();
+    const platCount = (p) => objects.filter((o) => (p === "none" ? !platsOfObj(o).length : platsOfObj(o).includes(p))).length;
+    const platBar = allPlats.length
+      ? `<label class="sel-filter" style="margin:0 0 8px" title="Narrows which archived objects are SHOWN — the ticks and edited names underneath survive, and a hidden ticked row still restores. Untick what you do not want; this only helps you find it.">
+          <span>Platform</span>
+          <select id="rsPlatform"><option value="all">All platforms (${objects.length})</option>
+            ${allPlats.map((p) => `<option value="${esc(p)}">${esc(p)} (${platCount(p)})</option>`).join("")}
+            ${platCount("none") ? `<option value="none">Not platform-specific (${platCount("none")})</option>` : ""}</select>
+        </label>` : "";
     const rows = Object.entries(byArea).map(([area, list]) => {
       const info = Restore.AREA_INFO[area];
-      return `<tr><td colspan="3" style="font-weight:700">${esc(info.icon)} ${esc(info.label)} <span class="mini muted">${list.length}</span></td></tr>` +
+      return `<tr data-rsarea="${esc(area)}"><td colspan="3" style="font-weight:700">${esc(info.icon)} ${esc(info.label)} <span class="mini muted">${list.length}</span></td></tr>` +
         list.map((o, i) => {
           const idx = objects.indexOf(o);
-          return `<tr>
+          const plats = platsOfObj(o);
+          return `<tr data-rsplat="${esc(plats.join("|") || "none")}">
           <td style="width:30px"><input type="checkbox" data-rsel="${idx}" ${o.restorable ? "checked" : "disabled"}></td>
-          <td><b>${esc(o.name)}</b>${o.settings != null ? ` <span class="mini muted">${o.settings} setting${o.settings === 1 ? "" : "s"}</span>` : ""}${o.restorable ? "" : ` <span class="gu-how exc" title="${esc(o.why)}">not restorable</span>`}</td>
+          <td><b>${esc(o.name)}</b>${plats.length ? ` <span class="mini muted">${esc(plats.join(", "))}</span>` : ""}${o.settings != null ? ` <span class="mini muted">${o.settings} setting${o.settings === 1 ? "" : "s"}</span>` : ""}${o.restorable ? "" : ` <span class="gu-how exc" title="${esc(o.why)}">not restorable</span>`}</td>
           <td><input data-rname="${idx}" value="${esc(Restore.DEFAULT_PREFIX + o.name)}" ${o.restorable ? "" : "disabled"} style="width:100%"></td>
         </tr>`;
         }).join("");
@@ -291,10 +309,26 @@ const RestoreTool = (() => {
     $("rsBody").innerHTML = `${tenantLine}
       ${problems.length ? `<div class="gu-fail"><b>${problems.length} file(s) could not be parsed</b> — ${problems.map((p) => esc(p.path)).join(", ")}</div>` : ""}
       <p class="mini muted" style="margin:0 0 8px"><b>Create only, prefixed, unassigned.</b> Nothing of yours is patched or deleted; every object arrives under the name in the right-hand column (edit it per row); assignments are not restored. Secrets did not survive the backup — anything encrypted arrives as a reference to re-enter by hand.</p>
-      <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:44%"><col></colgroup><tbody>${rows}</tbody></table></div>
+      ${platBar}
+      <div class="gu-tw"><table class="cg-table" id="rsTable" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:44%"><col></colgroup><tbody>${rows}</tbody></table></div>
       <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="rsDry">🔍 Dry run</button></div>
       <div id="rsPlan" style="margin-top:10px"></div>`;
     $("rsDry").addEventListener("click", dryRun);
+    const platSel = $("rsPlatform");
+    if (platSel) platSel.addEventListener("change", () => {
+      const v = platSel.value;
+      // visibility only — the DOM rows keep their ticks and edited names
+      $("rsTable").querySelectorAll("tr[data-rsplat]").forEach((tr) => {
+        const mine = String(tr.dataset.rsplat).split("|");
+        tr.style.display = (v === "all" || mine.includes(v)) ? "" : "none";
+      });
+      // an area whose every object is hidden folds its header away too
+      $("rsTable").querySelectorAll("tr[data-rsarea]").forEach((h) => {
+        let sib = h.nextElementSibling, any = false;
+        while (sib && !sib.dataset.rsarea) { if (sib.style.display !== "none") { any = true; break; } sib = sib.nextElementSibling; }
+        h.style.display = any ? "" : "none";
+      });
+    });
   }
 
   function selection() {
@@ -363,5 +397,9 @@ const RestoreTool = (() => {
     $("rsApply").addEventListener("click", applyPlan);
   }
 
-  return { init };
+  return {
+    init,
+    // for the headless tests only — the real parsed state is set by loadZip()
+    _setForTest: (p) => { parsed = p; planned = null; renderList(); },
+  };
 })();

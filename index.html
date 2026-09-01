@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=12"></script>
+<script src="js/popup-guard.js?v=13"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=12">
+<link rel="stylesheet" href="css/app.css?v=13">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=12"></script>
+<script src="js/selfhost-boot.js?v=13"></script>
 </head>
 <body>
 
@@ -117,7 +117,7 @@
     <div class="tool-sec"><h3>🖥 Endpoint security</h3><p>Application control and device security posture.</p></div>
     <div class="tools">
       <div class="tool" id="toolAppLocker">
-        <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator</h3>
         <p>Scan a device with the PowerShell this tool hands you, upload what it wrote, and audit the result with the AppLockerInspector check set — enforcement posture, broad principals, user-writable paths, risky wildcards, overly broad publisher rules — now backed by the directory permissions, signatures and blocked executions only a device can report. Verify the Microsoft apps a locked-down estate still needs (OneDrive first among them) are actually allowed, add the missing rules publisher-first, and export policy XML for a GPO or a ready-to-import Intune custom profile. Runs entirely in the browser.</p>
       </div>
       <div class="tool" id="toolDefender">
@@ -125,7 +125,7 @@
         <p>The machines where Defender is silently off or outdated, before they become incident tickets: every Windows device's protection state — real-time protection, tamper protection, malware protection, signature currency, overdue scans, pending reboots — read in batches of twenty rather than one device at a time, with the tenant's own rollup beside it. A device that never reported protection state is its own bucket, never healthy by omission; a flag the device did not report reads <b>not reported</b>, never <b>off</b> — they are different answers. Reads only, no new permission. Export as Markdown or CSV.</p>
       </div>
       <div class="tool" id="toolEndpointSec">
-        <div class="tool-ic">🧱</div><h3>Firewall &amp; ASR coverage <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🧱</div><h3>Firewall &amp; ASR coverage</h3>
         <p>Whether the Windows fleet actually has firewall and attack-surface-reduction enforcement, or just policy objects: every endpoint security policy — settings catalog and the legacy intents older tenants still carry — grouped into the portal's own disciplines, each with a verdict: covered, policies exist but none reaches anybody, or no policy at all. "Covered" is checked by construction — a policy with no include and no tenant-wide target, or whose every assignment is an exclusion, reaches nobody and does not count. The Windows device count is the denominator: a gap on firewall or ASR is that many machines on local defaults. Reads only, no new permission. Export as Markdown or CSV.</p>
       </div>
       <div class="tool" id="toolLaps">
@@ -133,26 +133,26 @@
         <p>Which Windows devices have an escrowed local administrator password, and how old it is — <b>not escrowed</b> and <b>stale</b> are the two shapes of one finding, a LAPS policy that is not applying, found before the day somebody needs the password that is not there. Escrow <b>metadata only</b>: device names and backup times, under a permission that cannot return password values — reading a password is a different act, and this tool does not have it. A device that cannot be matched to the escrow store is unknown, never counted as not escrowed; escrowed records for retired machines are listed, not ignored. Export as Markdown or CSV.</p>
       </div>
       <div class="tool" id="toolSecureScore">
-        <div class="tool-ic">📊</div><h3>Secure Score visualizer <span class="tag new">NEW</span></h3>
+        <div class="tool-ic">📊</div><h3>Secure Score visualizer</h3>
         <p>Microsoft's own measurement of this tenant, made explorable: the score with its gauge, how it sits against tenants of a similar size and against all tenants, the per-category breakdown with Microsoft's two comparison ticks on every bar, and the timeline of every reading Graph still holds. <b>The improvement actions, ordered by the cheapest points first</b> — points still available weighted down by the user impact and implementation cost Microsoft publishes, with Microsoft's own stack ranking beside it and the ordering openly labelled as ours, not theirs. <b>Graph remembers about ninety days</b>, which is why this exports a snapshot you can upload back next quarter: the timeline then reaches past what the tenant can still be asked, with uploaded points drawn as their own marks and a snapshot from a different tenant refused rather than merged. Markdown for the monthly report, CSV for the controls and for the history. Asks for <code>SecurityEvents.Read.All</code> on the click. <b>Reads only.</b></p>
       </div>
       <div class="tool" id="toolPosture">
-        <div class="tool-ic">🧭</div><h3>Endpoint security posture <span class="tag new">NEW</span></h3>
+        <div class="tool-ic">🧭</div><h3>Endpoint security posture</h3>
         <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed, and a statement that only <b>partly</b> reaches the fleet says what happens to the rest: the remaining devices counted against the fleet, or <b>nothing is staged to widen this</b> where that is the truth; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
     <div class="tools">
       <div class="tool" id="toolGroupUse">
-        <div class="tool-ic">🔗</div><h3>Group Analyzer <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🔗</div><h3>Group Analyzer</h3>
         <p>Name an Entra group and see everything Intune sends to its members: configuration profiles, compliance, scripts and remediations, applications, app protection and configuration, enrolment restrictions, Autopilot and update profiles. <b>Exclusions count as answers</b> — a policy that deliberately does not reach this group is shown alongside the ones that do. Assignments inherited from a parent group are included and say which parent they came through, and tenant-wide All Users / All Devices targets can be switched on to show the full effective surface. Or <b>sweep the whole tenant</b> — one read per surface matched against every group, so the cost barely grows with the group count — and get which groups receive what, which receive nothing, and which assignments point at groups that no longer exist. The sweep has two faces over the one read: a ranked table, and an <b>assignment matrix</b> — groups down the side, surfaces across the top, exclusions as their own red counts, with an opt-in check for groups that are empty. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
       <div class="tool" id="toolWhatIf">
-        <div class="tool-ic">🔮</div><h3>Assignment what-if <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🔮</div><h3>Assignment what-if</h3>
         <p><b>Before</b> you change a membership: pick a user or a device, name a group, and see the delta — policies gained, policies lost, applications that will install and applications that will be <b>uninstalled</b>. Joining brings the group's own parents with it; leaving only severs a direct edge, and a membership held through nesting says so instead of pretending it can be removed. An exclusion met by joining is shown as a <b>loss</b>, because joining a group can take policy away. Or put two to four groups side by side and see what each receives that the others do not. <b>A simulation, not a promise</b> — filtered assignments stay “may”, and reads only.</p>
       </div>
       <div class="tool" id="toolHealth">
-        <div class="tool-ic">🩺</div><h3>Assignment health <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🩺</div><h3>Assignment health</h3>
         <p>The assignments that exist and reach nobody, in one place — every finding the same shape of problem: <b>something that looks configured and is not</b>. Policies assigned to <b>empty groups</b>, which have never applied and never will; assignments naming <b>deleted groups</b>, which target nobody silently; <b>unassigned policies</b>; policies whose every assignment is an <b>exclusion</b>, so there is nothing to exclude from; a group both included and excluded on one policy, where the exclusion wins and the include reads as reach. Optionally, the deployments Graph reports as <b>failing</b> — for the surfaces that keep a cheap status, with the ones that do not named as unchecked rather than passed off as healthy.</p>
       </div>
       <div class="tool" id="toolAssignEdit">
@@ -164,18 +164,18 @@
         <p>Assignment filters are load-bearing and invisible: every “may reach it” in the Device analyzer is a filter in the way, and nothing in the portal shows <b>what breaks if you change one</b>. Every filter with its platform and rule, and — as its own optional read — <b>per-filter usage</b>: which assignments on which policies reference it, matched across the Group Analyzer's own surface table. Until that scan runs, the used-by column is absent, not zero. Then the write half, under the editor's rules: create, edit with a <b>drift stop</b> (a filter changed since you loaded it is refused, never overwritten), read-back after every write — and <b>delete refused while anything references it</b>, checked against the tenant at the moment of the click, because deleting a used filter silently widens every assignment that carried it.</p>
       </div>
       <div class="tool" id="toolDevice">
-        <div class="tool-ic">🖥</div><h3>Device analyzer <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🖥</div><h3>Device analyzer</h3>
         <p>The same assignment graph, walked backwards from one machine: <b>why did THIS device get that policy?</b> Find it by name, serial, either of its two GUIDs — <b>or by its primary user</b>, since the ticket names the person far more often than the serial: a UPN resolves to their devices, with a pick list when they have more than one. Then see which of its own groups, which of its primary user's groups, or which tenant-wide target put each policy there. <b>The last check-in sits at the top of the answer</b>, because everything else is what Intune intends and a policy assigned minutes ago has not landed yet. Where the device has reported back, intended and actual sit in adjacent columns; where it has not, the state is unknown rather than assumed. Filtered assignments say <i>may</i> reach it — a browser cannot evaluate a filter rule, and this one does not pretend to. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
     <div class="tool-sec"><h3>📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
     <div class="tools">
       <div class="tool" id="toolOverview">
-        <div class="tool-ic">🗂</div><h3>Policy overview <span class="tag new">NEW</span></h3>
+        <div class="tool-ic">🗂</div><h3>Policy overview <span class="tag upd">UPDATED</span></h3>
         <p>Every configured policy in the tenant as clickable cards — the sister tool ENCA's list-policies view, Intune-side-out. The thirteen surfaces sit on top as stat cards that <b>double as filters</b>: each says how many objects it holds and how many actually reach somebody, so "what does this tenant even have" is answered before any scrolling. One flat card grid below, filterable by verdict — <b>Assigned</b> means reaching somebody by construction, <b>excluded-only</b> is its own finding, and an assignment filter caps reach at <i>may</i>. A card click opens the full policy with its settings, through the documenter's own popout — same read, same redaction, one implementation. A surface that could not be read is a named ⚠ card, never a silent zero. <b>Reads only, no new permission.</b></p>
       </div>
       <div class="tool" id="toolBackup">
-        <div class="tool-ic">📦</div><h3>Backup configuration</h3>
+        <div class="tool-ic">📦</div><h3>Backup configuration <span class="tag upd">UPDATED</span></h3>
         <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back. And now the other direction: <b>restore from an archive</b> — create only, an editable [Restored] prefix on everything, a collision stop checked fresh before each create, administrative-template child writes included in the dry run, everything arriving unassigned by design. <b>Widened at beta 10426 (R15):</b> twenty-four areas, a SHA-256 per file with the manifest written last, an offline verify that names modified, missing and untracked files — and assignments that export to <code>assignments.json</code> and import back, same tenant only, through the assignment editor's own write discipline.</p>
       </div>
       <div class="tool" id="toolDocs">
@@ -185,6 +185,10 @@
       <div class="tool" id="toolSetSearch">
         <div class="tool-ic">🔦</div><h3>Settings search</h3>
         <p>“Which policies configure BitLocker, and to what value?” — answered from the <b>setting definitions</b> rather than the policy names. One read brings Microsoft's settings-catalog definition catalog, roughly seventeen thousand entries, searched as you type with ranked matching over names, keywords and descriptions. A second, separate read brings the tenant's own settings-catalog policies, so each result can say <b>who sets it and to what</b> — and until that read has run, the column says absent rather than empty. <b>Values pass the documenter's redaction gate</b>: a settings search is exactly the tool somebody uses to hunt for “password”, and it will not become a disclosure engine with a search box.</p>
+      </div>
+      <div class="tool" id="toolMacBaseline">
+        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag new">NEW</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Match the tenant's macOS policies against the CloudFellows baseline — MACOS R26.xx names, versions compared — export the catalog from the baseline tenant, import what is missing anywhere else.</p>
       </div>
       <div class="tool" id="toolConflict">
         <div class="tool-ic">⚔️</div><h3>Setting conflict scan <span class="tag upd">UPDATED</span></h3>
@@ -197,6 +201,10 @@
         <div class="tool-ic">📈</div><h3>Compliance report <span class="tag upd">UPDATED</span></h3>
         <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. And <b>coverage — the platforms nothing evaluates</b>: enrolled devices with no compliance policy that reaches anybody, with the tenant's compliant-by-default lean read and stated, because that setting decides whether an uncovered platform silently passes Conditional Access. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
       </div>
+      <div class="tool" id="toolDeviceCleanup">
+        <div class="tool-ic">🧹</div><h3>Entra device cleanup <span class="tag new">NEW</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Stale directory devices, staged out in two deliberate steps: <b>disable at 30 days</b> of silence, <b>delete at 90 — and only what is already disabled</b>. Last contact is the directory's own <code>approximateLastSignInDateTime</code>; a device that never reported one is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and followed by a read-back; deletes require the word typed, because the BitLocker recovery keys go with the object. One Markdown report carries the estate, every action taken, and everything deliberately not done. <b>Writes to the tenant</b> — and Graph gates these writes on your directory role, said before the run.</p>
+      </div>
       <div class="tool" id="toolAudit">
         <div class="tool-ic">🕓</div><h3>Change audit</h3>
         <p>Who changed which policy, profile, script, app assignment or enrolment setting — when, from where, and <b>what actually moved</b>, field by field, rather than two blobs of JSON printed side by side. Two views over one read: <b>policy changes</b> with a severity on each, and <b>all events</b> filtered by actor, activity, category and result. Incident windows down to the last hour, review windows out to thirty days — which is where Intune's audit retention ends, and the tool says so rather than offering a window that returns a confidently empty answer.</p>
@@ -205,7 +213,7 @@
     <div class="tool-sec"><h3>🛡 Access &amp; roles</h3><p>Who can change Intune, and how much of it.</p></div>
     <div class="tools">
       <div class="tool" id="toolRoles">
-        <div class="tool-ic">🛡</div><h3>Intune RBAC <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">🛡</div><h3>Intune RBAC</h3>
         <p>Every Intune role definition, built-in and custom, with each assignment under it, the users and groups in it <b>resolved to names</b>, the scope tags it is limited to and what it is scoped over — in one page rather than one blade per role. Roles with nobody in them are one toggle away, because an empty role is a fact worth seeing and it is one membership change from being live. Concentrations worth a second look are flagged as <b>observations, never a score</b>. And the line nothing else says: this is Intune RBAC only, so the Entra directory roles that also grant full Intune access are not in it. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
       <div class="tool" id="toolMaa">
@@ -213,11 +221,11 @@
         <p>Whether multi-admin approval is protecting anything: every approval policy and what its type gates, the requests of a chosen window — pending, approved, rejected, and how long approval actually takes — and coverage computed the way MAA works: a gate applies to its operation type <b>tenant-wide</b>, and a category with no policy has no gate at all. A policy whose approver groups hold nobody is flagged as <b>a gate nobody can open</b>. The admins-without-approval-rights list carries the Intune-RBAC-only warning, because the Entra directory admins who can change the most are not in it. Reads only, no new permission. Export as Markdown or CSV.</p>
       </div>
       <div class="tool" id="toolRestrictedAu">
-        <div class="tool-ic">🛡</div><h3>Restricted AUs <span class="tag new">NEW</span></h3>
+        <div class="tool-ic">🛡</div><h3>Restricted AUs</h3>
         <p>Create and manage <b>restricted management administrative units</b> — the only place in Entra where membership can be put out of reach of every tenant-wide role. Inside one, only a principal holding a role <b>scoped to that unit</b> may change the members; Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. List every unit with its members and its scoped administrators, create one (the creator becomes its administrator by default, because a unit nobody is scoped to is a vault nobody can open), rename it, delete it, and add or remove members and grants. <b>🧊 Frozen members are flagged</b>: a role-assignable group inside a restricted unit has members nobody at all can change. Ported from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27 without its Conditional Access baseline. <b>Writes to the tenant.</b></p>
       </div>
       <div class="tool" id="toolGroupMigrate">
-        <div class="tool-ic">🔄</div><h3>Group migration <span class="tag new">NEW</span></h3>
+        <div class="tool-ic">🔄</div><h3>Group migration</h3>
         <p>A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the role-assignable costs: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined; a group that is both is a group whose members <b>nobody</b> can edit. Because <code>isAssignableToRole</code> is immutable this is a <b>recreate</b>, so the new group has a new object id: the tool repoints the four Intune surfaces it is already permitted to write, <b>names every reference it cannot</b>, and says out loud that anything outside Intune is invisible to it. The original is renamed aside as your rollback, never deleted. <b>Writes to the tenant.</b></p>
       </div>
     </div>
@@ -742,6 +750,28 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="auBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ T25 · ENTRA DEVICE CLEANUP (R36) ============
+       Two-stage stale cleanup: disable at 30 days silent, delete at 90 —
+       and only what is already disabled. Unknown last-contact is its own
+       actionless bucket. First Device.ReadWrite.All in the app; Graph's
+       directory-role gate on device writes is named before the run. -->
+  <section id="screen-devicecleanup" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🧹 Entra device cleanup <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">Stale devices leave in <b>two deliberate steps</b>: no contact for 30 days → <b>disable</b> (reversible — the portal can re-enable); disabled AND silent for 90 → <b>delete</b>. A 90-day device that is still enabled is a <i>disable</i> candidate, never a delete — the gap between the steps is where somebody notices the laptop in the drawer still matters. Last contact is the directory's <code>approximateLastSignInDateTime</code>: the name says approximate, and a device that never reported one is <b>unknown, not stale</b> — no action is offered on a guess.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Every write is checked twice.</b> A fresh per-device read before it (signed in since the plan → refused, it woke up; re-enabled since → refused, somebody wants it back) and a read-back after it. <b>Deleting a device object deletes its BitLocker recovery keys</b> — the delete button arms only after typing DELETE — and an Autopilot-registered device is refused by the service until deregistered. Graph gates device writes on your <b>directory role</b> (Cloud Device Administrator or Intune Administrator among them): consent alone does not open them, and a refusal is explained as who you are, not what TUNO may do. 📝 One Markdown report carries the estate, the actions, and everything deliberately not done.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="dcuRun">🧹 Read the devices</button>
+        <label class="sel-filter"><span>Disable after</span><input id="dcuDisableDays" type="number" min="1" value="30" style="width:64px"> days</label>
+        <label class="sel-filter"><span>Delete after</span><input id="dcuDeleteDays" type="number" min="2" value="90" style="width:64px"> days</label>
+      </div>
+      <div id="dcuProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="dcuBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ BACKUP CONFIGURATION (T04) ============
        After Ugur Koc's backup-intune-configuration.ps1. The folder names are
        load-bearing: restore is driven by them, so renaming one breaks the
@@ -854,6 +884,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="toolbar" id="ovToolbar">
           <div class="seg" id="ovViewSeg"></div>
           <div class="search"><input id="ovSearch" type="search" placeholder="🔎 Filter by name, group, platform, surface…"></div>
+          <label class="sel-filter" title="Narrows to the policies declaring this platform — the documenter's own platform words. Not platform-specific means the policy declares none.">
+            <span>Platform</span>
+            <select id="ovPlatform"><option value="All">All platforms</option></select>
+          </label>
           <span id="ovChips"></span>
         </div>
         <div id="ovCards" class="cards" style="margin-top:14px"></div>
@@ -1267,6 +1301,37 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="cfBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ T24 · MACOS BASELINE (R35) ============
+       ENCA's Baseline Policies, Intune-side-out: identity is the MACOS
+       R26.xx name, the catalog is the cloudfellows.dev reference export
+       (bundled as js/macbaselineData.js when present, or loaded as a
+       file), import rides T04-restore's create pipeline with canonical
+       names. Export renders only on the baseline tenant — the cfdev
+       convention, said here where it lives. -->
+  <section id="screen-macbaseline" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🍎 macOS baseline <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">The tenant's macOS policies matched against the <b>CloudFellows macOS baseline</b>, the sister tool ENCA's baseline machinery Intune-side-out. <b>The name is the identity</b>: a baseline policy starts with <code>MACOS</code>, carries its permanent release number <code>R26.xx</code>, and ends with a version — the number is matched, the versions are compared segment-wise, and a number match the rest of the name contradicts is a clash, never silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The baseline is authored on the baseline tenant</b> (cloudfellows.dev), where this screen offers the export that writes the catalog file — names, numbers, versions and the raw policy bodies. Everywhere else the tool compares against the bundled catalog or a loaded file, and can <b>import what is missing</b>: create-only through the Backup tool's own restore pipeline, canonical names kept (the name is the identity), everything arriving unassigned — reach is ✏️ the Assignment editor's act.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="mbRun">🍎 Read the tenant</button>
+        <!-- The four acts, four options (build 10528, Mihai's layout):
+             Compare and Import everywhere; Export and Upstream only on
+             the baseline tenant — an act that would be refused is not
+             offered. -->
+        <div class="seg" id="mbSeg"></div>
+      </div>
+      <div id="mbProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="mbBody" style="margin-top:14px"></div>
+    <!-- The upstream watch renders HERE, its own host (build 10527): the
+         curation table's ticks and edited names are DOM state, and mbBody
+         re-renders would silently drop them — the restore picker's rule. -->
+    <div id="mbUpstream" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ASSIGNMENT FILTERS (T14) ============
        R21, after IntuneShade. Read half free-standing; write half under
        T11's rules, with the fresh association gate on delete. -->
@@ -1331,8 +1396,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <button class="btn primary" id="aeRead">① Read the policies</button>
       </div>
       <div id="aePlanWrap" style="display:none;margin-top:12px">
-        <label class="wi-f"><span>Filter the list</span>
-          <input id="aeFilter" placeholder="Narrow by policy or surface name…" autocomplete="off" spellcheck="false"></label>
+        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <label class="wi-f" style="flex:1;min-width:260px"><span>Filter the list</span>
+            <input id="aeFilter" placeholder="Narrow by policy or surface name…" autocomplete="off" spellcheck="false"></label>
+          <label class="sel-filter" style="margin-bottom:8px" title="Narrows to the policies declaring this platform — the documenter's own platform words. It does not change the selection; the ticks survive.">
+            <span>Platform</span>
+            <select id="aePlatform"><option value="All">All platforms</option></select>
+          </label>
+        </div>
       </div>
       <div id="aeProg" class="mini muted" style="margin-top:10px"></div>
       <!-- The Intune Toolkit's shape (build 10390): sections on the left,
@@ -1382,6 +1453,11 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <p id="aeGate" class="mini muted" style="margin:8px 0 0"></p>
       </div>
       <div id="aeResults"></div>
+    </div>
+    <!-- The policy popout (build 10519): the 📄 documenter's own template,
+         opened from a policy name. Same modal shell as T19's. -->
+    <div class="modal-bg" id="aeModal">
+      <div class="modal gu-modal" id="aeModalBody"></div>
     </div>
   </section>
 
@@ -1571,6 +1647,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">The other half of <span class="rm-ref">R33</span>. A <b>restricted management administrative unit</b> is the only place in Entra where membership can be put out of reach of every tenant-wide role — inside one, only a principal holding a role <b>scoped to that unit</b> may change the members, and Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. <span class="rm-ref">R33</span> files migrated groups into these; this creates and manages them. List, create, rename, delete, members, scoped administrators.</p>
             <p class="mini" style="margin:6px 0 0"><b>Three of Entra's rules, not ours, shape the screen.</b> The restricted flag is <b>immutable</b>, so there is no convert and the editor says so. A unit with <b>no scoped administrator is a vault nobody can open</b> — creating one without naming a keyholder is refused, and the field is prefilled with you, because whoever creates the unit is its administrator by default. And a <b>role-assignable group inside a restricted unit is 🧊 frozen</b>: it admits only GA/PRA, the unit blocks exactly those two, and nobody at all can change its members — <span class="rm-ref">R33</span> is the way out.</p>
             <p class="mini" style="margin:6px 0 0"><b>Ported from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27 and deliberately narrower.</b> ENCA's version is wound through its Conditional Access baseline — persona vaults named from CA numbers, a baseline checklist, a group-to-persona map, prefix scans over its own naming. None of that came across: it answers a question TUNO does not ask, and importing it would have meant a vocabulary this tool cannot honour.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R35</span> 🍎 macOS baseline <span class="tag grant">live · build 13</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · build 13</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">Stale directory devices staged out in two deliberate steps — <b>disable at 30 days</b> of silence, <b>delete at 90, and only what is already disabled</b>. A device with no recorded sign-in is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and verified by read-back; deletes arm only after typing the word, because the BitLocker recovery keys go with the object. Carries the registration's first directory-device write scope, <code>Device.ReadWrite.All</code>, taken in the open — and Graph's own directory-role gate on device writes is named before the run. One Markdown report: the estate, the actions, and everything deliberately not done.</p>
           </div>
         </div>
         
@@ -1918,43 +2002,47 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=12"></script>
-<script src="js/selfhost.js?v=12"></script>
-<script src="js/version.js?v=12"></script>
-<script src="js/promote.js?v=12"></script>
-<script src="js/authConfig.js?v=12"></script>
-<script src="js/changelog.js?v=12"></script>
-<script src="js/msappcatalog.js?v=12"></script>
-<script src="js/demo.js?v=12"></script>
-<script src="js/graph.js?v=12"></script>
-<script src="js/suggest.js?v=12"></script>
-<script src="js/progress.js?v=12"></script>
-<script src="js/groupuse.js?v=12"></script>
-<script src="js/audit.js?v=12"></script>
-<script src="js/backup.js?v=12"></script>
-<script src="js/document.js?v=12"></script>
-<script src="js/overview.js?v=12"></script>
-<script src="js/devicewhy.js?v=12"></script>
-<script src="js/whatif.js?v=12"></script>
-<script src="js/health.js?v=12"></script>
-<script src="js/settingsearch.js?v=12"></script>
-<script src="js/conflict.js?v=12"></script>
-<script src="js/compliance.js?v=12"></script>
-<script src="js/filterrules.js?v=12"></script>
-<script src="js/filters.js?v=12"></script>
-<script src="js/restore.js?v=12"></script>
-<script src="js/assignedit.js?v=12"></script>
-<script src="js/restrictedau.js?v=12"></script>
-<script src="js/groupmigrate.js?v=12"></script>
-<script src="js/roles.js?v=12"></script>
-<script src="js/defender.js?v=12"></script>
-<script src="js/endpointsec.js?v=12"></script>
-<script src="js/report.js?v=12"></script>
-<script src="js/securescore.js?v=12"></script>
-<script src="js/endpointposture.js?v=12"></script>
-<script src="js/maa.js?v=12"></script>
-<script src="js/laps.js?v=12"></script>
-<script src="js/applocker.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/branding.js?v=13"></script>
+<script src="js/selfhost.js?v=13"></script>
+<script src="js/version.js?v=13"></script>
+<script src="js/promote.js?v=13"></script>
+<script src="js/authConfig.js?v=13"></script>
+<script src="js/changelog.js?v=13"></script>
+<script src="js/msappcatalog.js?v=13"></script>
+<script src="js/demo.js?v=13"></script>
+<script src="js/graph.js?v=13"></script>
+<script src="js/suggest.js?v=13"></script>
+<script src="js/progress.js?v=13"></script>
+<script src="js/groupuse.js?v=13"></script>
+<script src="js/audit.js?v=13"></script>
+<script src="js/devicecleanup.js?v=13"></script>
+<script src="js/backup.js?v=13"></script>
+<script src="js/document.js?v=13"></script>
+<script src="js/policycache.js?v=13"></script>
+<script src="js/overview.js?v=13"></script>
+<script src="js/devicewhy.js?v=13"></script>
+<script src="js/whatif.js?v=13"></script>
+<script src="js/health.js?v=13"></script>
+<script src="js/settingsearch.js?v=13"></script>
+<script src="js/conflict.js?v=13"></script>
+<script src="js/compliance.js?v=13"></script>
+<script src="js/filterrules.js?v=13"></script>
+<script src="js/filters.js?v=13"></script>
+<script src="js/restore.js?v=13"></script>
+<script src="js/macbaselineData.js?v=13"></script>
+<script src="js/macbaseline.js?v=13"></script>
+<script src="js/assignedit.js?v=13"></script>
+<script src="js/restrictedau.js?v=13"></script>
+<script src="js/groupmigrate.js?v=13"></script>
+<script src="js/roles.js?v=13"></script>
+<script src="js/defender.js?v=13"></script>
+<script src="js/endpointsec.js?v=13"></script>
+<script src="js/report.js?v=13"></script>
+<script src="js/securescore.js?v=13"></script>
+<script src="js/endpointposture.js?v=13"></script>
+<script src="js/maa.js?v=13"></script>
+<script src="js/laps.js?v=13"></script>
+<script src="js/applocker.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>
