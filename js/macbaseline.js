@@ -746,10 +746,12 @@ const MacBaselineTool = (() => {
       ${cards}
       <p class="mini muted" style="margin:10px 0 8px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(MacBaseline.relLabel(MacBaseline.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.${upstream.skipped.length ? ` · ${upstream.skipped.length} file(s) skipped (${esc(upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 2).join(", "))}${upstream.skipped.length > 2 ? "…" : ""})` : ""}</p>
       <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
-        <thead><tr><th></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
+        <thead><tr><th><input type="checkbox" id="mbUpMaster" title="Select or deselect every row below"></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
         <tbody>${rows.map(row).join("")}</tbody></table></div>
       <div class="tb-actions" style="margin-top:10px">
         <button class="btn primary" id="mbUpDry">🔍 Dry run the ticked</button>
+        <button class="btn" id="mbUpAll">☑ Select all</button>
+        <button class="btn" id="mbUpNone">☐ Select none</button>
         <button class="btn" id="mbUpMd" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
       </div>
       <div id="mbUpPlan" style="margin-top:10px"></div>
@@ -757,6 +759,22 @@ const MacBaselineTool = (() => {
     // stable index → row mapping for the dry run
     $("mbUpstream").dataset.order = JSON.stringify(rows.map((r) => upstream.rows.indexOf(r)));
     $("mbUpDry").addEventListener("click", upDryRun);
+    // select all / none (Mihai's ask) — three faces of one selection: the
+    // header master checkbox, the two buttons, and the row ticks, kept in
+    // step so none of them can lie about the others
+    const ticks = () => [...$("mbUpstream").querySelectorAll("[data-uptick]")];
+    const master = $("mbUpMaster");
+    const syncMaster = () => {
+      const t = ticks(), on = t.filter((c) => c.checked).length;
+      master.checked = on > 0 && on === t.length;
+      master.indeterminate = on > 0 && on < t.length;
+    };
+    const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); syncMaster(); };
+    master.addEventListener("change", () => setAll(master.checked));
+    $("mbUpAll").addEventListener("click", () => setAll(true));
+    $("mbUpNone").addEventListener("click", () => setAll(false));
+    $("mbUpstream").addEventListener("change", (e) => { if (e.target.closest("[data-uptick]")) syncMaster(); });
+    syncMaster();
     $("mbUpMd").addEventListener("click", () => {
       const c = activeCatalog();
       download(`intune-my-macs-vs-baseline-${new Date().toISOString().slice(0, 10)}.md`,
