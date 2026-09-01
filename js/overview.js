@@ -238,19 +238,65 @@ const OverviewTool = (() => {
   }
 
   // ------------------------------------------------------------- popout --
+  // The foot is the tool's own claim (the popoutHtml rule), and since build
+  // 10521 T19's claim is ENCA's: a policy you are looking at offers the
+  // acts you would take on it — the pcard-actions row from ENCA's policy
+  // detail, ported Intune-side-out and narrowed to the acts TUNO has.
+  // ✏️ hands over to the Assignment editor with the policy selected (only
+  // for the four surfaces T11 edits — an act that would be refused is not
+  // offered). 📄 downloads the documenter's own single-policy Markdown —
+  // the same Docs.markdown T05's popout copies, one implementation. 🗄
+  // downloads the policy as Graph returned it (the raw object the shared
+  // cache keeps), FOR THE RECORD: restoring is deliberately not claimed —
+  // ENCA's backup restores because ENCA has a restore path for it; TUNO's
+  // restore story is T04's, and a button that implied otherwise would be
+  // a promise the app cannot keep. What-if flow and Policy state were NOT
+  // ported: the first is T08's job by group, the second a write T19 has
+  // no business doing from a read-only screen.
+  const download = (name, text, type) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+  const slug = (s) => String(s || "policy").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "policy";
+  const tenantName = () => { const n = $("tenantName"); return (n && n.textContent) || ""; };
+
   function openPolicy(key) {
     const [secId, itemId] = String(key).split("|");
     const sec = res && res.sections.find((s) => s.id === secId);
     const it = sec && sec.items.find((x) => x.id === itemId);
     if (!it) return;
+    const raw = sec.raw && sec.raw.find((r) => lc(r.id) === lc(itemId));
+    const editable = typeof AssignEditTool !== "undefined" && AssignEditTool.canEdit && AssignEditTool.canEdit(secId);
     $("ovModalBody").innerHTML = `
       ${Docs.popoutHtml(sec, it)}
       <div class="gu-m-foot">
+        ${editable ? `<button class="btn" id="ovActEdit" title="Open ✏️ the Assignment editor with this policy selected — the operation bar takes it from there">✏️ Assignment editor</button>` : ""}
+        <button class="btn" id="ovActDoc" title="Download this policy as the 📄 documenter's Markdown — same settings, same redaction, one implementation">📄 Documentation</button>
+        ${raw ? `<button class="btn" id="ovActBackup" title="Download the policy exactly as Graph returned it — a record of this moment, not a restore file">🗄 Backup</button>` : ""}
         <div class="spacer"></div>
         <button class="btn primary" id="ovModalClose">Close</button>
       </div>`;
     $("ovModal").classList.add("open");
     $("ovModalClose").addEventListener("click", closePolicy);
+    if (editable) $("ovActEdit").addEventListener("click", () => { closePolicy(); AssignEditTool.openWith(secId, it.id); });
+    $("ovActDoc").addEventListener("click", () => {
+      const one = [{ ...sec, items: [it] }];
+      const md = Docs.markdown(one, res, Docs.meta(res, { tenant: tenantName(), sections: one, single: true }));
+      download(`TUNO-policy-${slug(it.name)}-${new Date().toISOString().slice(0, 10)}.md`, md, "text/markdown");
+    });
+    if (raw) $("ovActBackup").addEventListener("click", () => {
+      const out = {
+        tuno: {
+          kind: "single-policy-record", build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+          exported: new Date().toISOString(), source: sec.endpoint, tenant: tenantName(),
+          note: "The policy as Graph returned it at the read named above. A record, not a restore file — restore stays 📦 T04's job.",
+        },
+        policy: raw,
+      };
+      download(`tuno-policy-record-${slug(it.name)}-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 2), "application/json");
+    });
     // Backdrop closes; clicking INSIDE must not — T05's rule, same reason.
     $("ovModal").onclick = (e) => { if (e.target === $("ovModal")) closePolicy(); };
     document.addEventListener("keydown", onEsc);

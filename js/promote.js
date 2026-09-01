@@ -92,6 +92,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 125,
+      title: "T19's popout offers the policy's acts — ENCA's pcard-actions, ported",
+      tools: ["T19", "T11"],
+      builds: [10521],
+      files: ["js/overview.js", "js/assignedit.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "low",
+      what: "ENCA's policy detail ends in a pcard-actions row — the acts you would take on the policy you are looking at. Ported into T19's popout FOOT (the foot is each tool's own claim, the popoutHtml rule) and narrowed to the acts TUNO has: ✏️ ASSIGNMENT EDITOR closes the popout and opens T11 with the policy selected — AssignEditTool.openWith(secId, id), new, through the tile's own handler (the 10398 click-through rule); a handoff into a cold list waits for the list via pendingSelect, consumed by whichever of the warm start or the fresh read builds it first; canEdit(secId) is the one home of the section→surface mapping and the button renders ONLY for T11's four surfaces — an act that would be refused is not offered. 📄 DOCUMENTATION downloads the single-policy Markdown via the same Docs.markdown call T05's popout copies (one implementation, sections=[{...sec,items:[it]}], single:true). 🗄 BACKUP downloads the raw Graph object the shared cache keeps (keepRaw), wrapped in a meta header that names the build, endpoint, tenant and time — and says IN THE FILE that it is a record, not a restore file. NOT PORTED, on purpose: What-if flow (T08's job, by group) and Policy state (a write; T19 is a read-only screen).",
+      why: "LOW. T19's half is presentation plus two downloads computed from data already on screen; no new read, no write reachable. T11's half is selection plumbing — openWith touches sel and the pending consume sites, and the suite drives handoff into a warm list, a cold list and a vanished policy. The one soft edge: the 🗄 file could be MISTAKEN for a restorable backup despite its name and note — the wording is the mitigation, and if that proves too subtle the fix is renaming the button, not removing the record.",
+      test: [
+        "T19 → open a settings-catalog policy → ✏️ Assignment editor: T11 opens (crumb, tab, sidebar all follow), the policy is ticked, the list has scrolled to it, the selection bar shows 1 selected.",
+        "The same from a policy on a surface T11 does NOT edit (an endpoint security intent): the ✏️ button is absent from the foot.",
+        "✏️ with a COLD T11 list (sign in unconsented, read only in T19): T11 opens on its intro; after Read the policies the policy is ticked — the handoff waited for the list.",
+        "📄 Documentation: the .md downloads and its content matches T05's popout ⧉ Copy as Markdown for the same policy, byte for byte.",
+        "🗄 Backup: the .json downloads; it carries the tuno meta block (kind single-policy-record, the endpoint, the tenant, the note) and the raw policy with its assignments as Graph returned them.",
+        "A policy in T19's list whose surface failed half-way (no raw in the cache — should not happen since 10520, but the guard exists): the 🗄 button is absent rather than downloading nothing.",
+        "Close, Escape and backdrop still close the popout; the action row does not break T05's or T11's own popout feet (theirs are unchanged).",
+        "Demo mode: all three acts from a demo policy — the handoff ticks, the two files download with demo content.",
+      ],
+    },
+    {
       n: 124,
       title: "The sign-in prefetch and the shared policy cache — tools open warm",
       tools: ["TUNO", "T19", "T11", "T05"],

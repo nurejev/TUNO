@@ -442,12 +442,43 @@ const AssignEditTool = (() => {
   }
 
   function onShow() {
-    if (read || busy) return;
+    if (read || busy) { applyPending(); return; }
     const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
     if (!c) return;
     read = policiesFromCache(c);
     sel.clear(); surfView = "all"; popCache.clear();
     renderPolicies();
+    applyPending();
+  }
+
+  // ------------------------------------------------------- the handoff --
+  // ENCA's per-policy action, Intune-side-out (build 10521): another tool
+  // hands a policy over and the editor opens WITH IT SELECTED — through
+  // the tile's own handler, the 10398 click-through rule, so crumb, tab
+  // and sidebar all follow. The section→surface mapping lives HERE, its
+  // one home, next to SEC_OF (the same table read the other way).
+  const SURFACE_OF_SEC = Object.fromEntries(Object.entries(SEC_OF).map(([sf, sec]) => [sec, sf]));
+  const canEdit = (secId) => !!SURFACE_OF_SEC[secId];
+  // A handoff into a cold list waits for the list: consumed by onShow (the
+  // warm start) and readAll (the fresh read), whichever builds it first.
+  let pendingSelect = null;
+  function applyPending() {
+    if (!pendingSelect || !read) return;
+    const key = pendingSelect; pendingSelect = null;
+    if (!read.policies.some((p) => keyOf(p) === key)) return;   // gone since the other tool read — the tick would lie
+    sel.add(key);
+    renderPolicies();
+    const cb = [...$("aeList").querySelectorAll("[data-aepol]")].find((c) => c.dataset.aepol === key);
+    if (cb && cb.scrollIntoView) cb.scrollIntoView({ block: "center" });
+  }
+  function openWith(secId, id) {
+    const sfId = SURFACE_OF_SEC[secId];
+    if (!sfId) return false;                    // not one of the four editable surfaces
+    pendingSelect = `${sfId}|${id}`;
+    const tile = $("toolAssignEdit");
+    if (tile) tile.click();                     // show() runs the screen hook, which applies the pending tick
+    applyPending();                             // and a list that already existed applies it now
+    return true;
   }
 
   const popFoot = `<div class="gu-m-foot"><div class="spacer"></div><button class="btn primary" id="aeModalClose">Close</button></div>`;
@@ -637,6 +668,7 @@ const AssignEditTool = (() => {
       popCache.clear();                // and a fresh tenant for the popout
       prog(`${read.policies.length} policies read.`);
       renderPolicies();
+      applyPending();                  // a handoff that arrived before the list did
       // T14's own filter list fills the dropdown — same read scope, one
       // request, and a tenant without filters simply keeps "No filter".
       try {
@@ -722,5 +754,5 @@ const AssignEditTool = (() => {
     $("aeApplyBtn").addEventListener("click", apply);
   }
 
-  return { init };
+  return { init, canEdit, openWith };
 })();

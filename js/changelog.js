@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10521, date: "2026-09-01", title: "A policy in the overview offers its acts",
+    items: [
+      { kind: "improved", tool: "Policy overview", text: "The policy popout now ends in what you would do next, the sister tool ENCA's pattern: open the Assignment editor with this policy already selected, download the policy's documentation as the documenter's own Markdown, or download the policy exactly as Graph returned it — deliberately called a record rather than a backup you could restore, because restoring is the Backup tool's job and a button should not promise what the app cannot do. The editor button appears only for the four surfaces the editor actually edits; an act that would be refused is not offered." },
+      { kind: "improved", tool: "Assignment editor", text: "The editor accepts a handoff: arriving from the overview, the policy is ticked, the list scrolls to it, and the operation bar is ready. A handoff that arrives before the list waits for the list, and a policy that vanished between the two tools' reads is not ticked — a tick would lie." },
+    ],
+  },
+  {
     build: 10520, date: "2026-09-01", title: "TUNO reads the tenant at sign-in — tools open already knowing it",
     items: [
       { kind: "new", tool: "TUNO", text: "Sign in, and TUNO starts reading the tenant's policies in the background — so the Policy overview and the Assignment editor open showing the tenant instead of a Read button. The read is the documenter's own thirteen-surface read, held once and shared; each tool says where its list came from and when, and its Read button becomes the refresh. Nothing about consent changed: the prefetch runs only when the read permission was already granted, so a first-time tenant sees no new prompt at sign-in and its tools ask at the click exactly as before — and that click now warms every other tool too." },
