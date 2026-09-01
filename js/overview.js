@@ -58,6 +58,7 @@ const OverviewTool = (() => {
 
   let res = null, running = false;
   let surfFilter = "all", verdictFilter = "all";
+  let platFilter = "All";     // T05's platform filter, same words (build 10522)
   // Cards or list — T20's own seg (10477), ported rather than reinvented,
   // because two tools showing the same policies must offer the same two
   // faces or the eye has to relearn the screen. Cards default: the tenant
@@ -95,8 +96,14 @@ const OverviewTool = (() => {
       || lc(it.platform).includes(q) || lc(sec.label).includes(q)
       || it.assignments.some((a) => lc(a.name).includes(q));
   };
-  // Surface + search first (the chips count THIS set), verdict last.
-  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && matches(r, q));
+  // The platform claim is T05's, verbatim: a policy matches the platform it
+  // declares; "Not platform-specific" matches one that declares none. The
+  // words come from Docs.platformsOf — the one normaliser — so this filter
+  // and the documenter's cannot disagree about the same policy.
+  const platMatch = (r) => platFilter === "All"
+    || (platFilter === Docs.NOT_SPECIFIC ? !r.it.platforms.length : r.it.platforms.includes(platFilter));
+  // Surface + search + platform first (the chips count THIS set), verdict last.
+  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && matches(r, q) && platMatch(r));
   const shown = (q) => surfed(q).filter((r) => verdictFilter === "all" || r.v === verdictFilter);
 
   // -------------------------------------------------------------- cards --
@@ -312,9 +319,25 @@ const OverviewTool = (() => {
   // sign-in prefetch, or attaching to a prefetch still running. The one
   // parameter is where the data came from, because staleness must be SAID:
   // a cached answer prints its read time and where it was read.
+  // The select is a static toolbar control (the T15 rule — never re-rendered
+  // out from under a click); only its OPTIONS are rebuilt, with counts over
+  // the whole collection so the numbers answer "of the tenant", like the rail.
+  function fillPlatformSelect() {
+    const el = $("ovPlatform");
+    if (!el) return;
+    const rows = flat();
+    const count = (p) => rows.filter((r) => (p === Docs.NOT_SPECIFIC ? !r.it.platforms.length : r.it.platforms.includes(p))).length;
+    const opts = [{ value: "All", label: `All platforms (${rows.length})` }]
+      .concat(Docs.PLATFORM_ORDER.map((p) => ({ value: p, label: `${p} (${count(p)})`, n: count(p) })))
+      .concat([{ value: Docs.NOT_SPECIFIC, label: `${Docs.NOT_SPECIFIC} (${count(Docs.NOT_SPECIFIC)})`, n: count(Docs.NOT_SPECIFIC) }])
+      .filter((o) => o.value === "All" || o.n > 0);   // a platform the tenant has none of is not an option
+    el.innerHTML = opts.map((o) => `<option value="${esc(o.value)}"${o.value === platFilter ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+  }
+
   function showRes(r, sourceNote) {
     res = r;
-    surfFilter = "all"; verdictFilter = "all"; view = "cards"; $("ovSearch").value = "";
+    surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; $("ovSearch").value = "";
+    fillPlatformSelect();
     const sum = Docs.summarize(res);
     const notes = [];
     if (sourceNote) notes.push(sourceNote);
@@ -388,6 +411,7 @@ const OverviewTool = (() => {
     // The search box lives in the STATIC toolbar and is never re-rendered —
     // typing must survive the list redrawing under it, T15's lesson.
     $("ovSearch").addEventListener("input", () => { const q = lc($("ovSearch").value.trim()); renderChips(q); renderCards(q); });
+    if ($("ovPlatform")) $("ovPlatform").addEventListener("change", (e) => { platFilter = e.target.value; render(); });
     $("ovChips").addEventListener("click", (e) => {
       const b = e.target.closest("[data-verdict]"); if (!b) return;
       const k = b.getAttribute("data-verdict");
@@ -422,7 +446,7 @@ const OverviewTool = (() => {
     verdictOf, filterMay,
     _view: () => view,
     // for the headless tests only — the real res is set by run()
-    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; view = "cards"; render(); },   // mirrors run()'s reset
-    _state: () => ({ surfFilter, verdictFilter }),
+    _setForTest: (r) => { res = r; surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; fillPlatformSelect(); render(); },   // mirrors run()'s reset
+    _state: () => ({ surfFilter, verdictFilter, platFilter }),
   };
 })();

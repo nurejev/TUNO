@@ -92,6 +92,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 126,
+      title: "The platform filter — T05's select, in T11 and T19",
+      tools: ["T11", "T19", "T05"],
+      builds: [10522],
+      files: ["js/assignedit.js", "js/overview.js", "js/document.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "low",
+      what: "T05's platform filter, ported to the two other policy lists. ONE NORMALISER: the platforms a policy declares come from Docs.platformsOf — T11 derives them from the RAW object (both its list paths now carry raw; memoised per row), T19 from the mapped item it already had — so the three tools cannot disagree about the same policy. And the normaliser itself got one claim righter: ADMX joins autopilot as Windows-by-definition ('not platform-specific' was the normaliser's gap, not the policy's claim — found when the new filter counted one Windows policy in a two-policy fixture), which files administrative templates under Windows in T05's filter too. The select is a static control whose OPTIONS are rebuilt with counts over the whole collection (the T15 rule: never re-rendered out from under a click); 'Not platform-specific' means the policy declares none (T05's words), and a platform the tenant has none of is not offered. In T19 the platform joins surface and search AHEAD of the verdict chips, so the chips keep answering 'of what you are looking at'. In T11 it narrows the LIST only — the tick-set lives outside the DOM (10390), so the selection survives the platform filter exactly as it survives the text filter, and the rail counts stay whole-tenant.",
+      why: "LOW. Presentation-side filtering over data both tools already hold; no read path, no write path, no scope touched. The one behaviour worth watching: T11's counts are computed lazily from raw objects, so a policy arriving through a future third list path without raw would count as declaring no platform — platsOf falls back to empty rather than throwing, and the suite pins the two real paths.",
+      test: [
+        "T11 → warm or fresh list → Platform: Windows — only Windows policies remain; the option label's count matches the rows shown with no other filter set.",
+        "Tick two Windows policies, filter to macOS: the rows disappear, the '2 selected' line and the rail's ✓ counts survive; back to All platforms — the ticks are still there.",
+        "Not platform-specific: settings-catalog policies with no platforms field and any surface's platform-neutral objects appear; nothing that declares a platform does.",
+        "The text filter and the platform filter compose — 'baseline' + Windows shows only Windows policies named baseline.",
+        "T19 → Platform: Android — the cards narrow, the verdict chips RECOUNT to the narrowed set, and clicking a verdict chip filters within Android.",
+        "T19's select offers only platforms the tenant has (plus All and Not platform-specific when non-empty); after Read the tenant the filter resets to All.",
+        "The same policy filtered in T05, T11 and T19: appears under the same platform in all three — the one-normaliser claim, checked by eye once.",
+        "Demo mode: the demo tenant's mixed platforms exercise every option.",
+      ],
+    },
+    {
       n: 125,
       title: "T19's popout offers the policy's acts — ENCA's pcard-actions, ported",
       tools: ["T19", "T11"],

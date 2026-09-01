@@ -640,7 +640,10 @@ const Docs = (() => {
       if (p) out.add(p);
     }
     // A few surfaces are single-platform by definition and say so nowhere.
-    if (!out.size && sec && sec.id === "autopilot") out.add("Windows");
+    // admx joined autopilot at 10522: an administrative template is Windows
+    // group policy, and "not platform-specific" was the normaliser's gap,
+    // not the policy's claim — found when T11's filter counted one.
+    if (!out.size && sec && (sec.id === "autopilot" || sec.id === "admx")) out.add("Windows");
     return [...out].sort((a, b) => PLATFORM_ORDER.indexOf(a) - PLATFORM_ORDER.indexOf(b));
   }
 

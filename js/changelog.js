@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10522, date: "2026-09-01", title: "The policy lists filter on platform",
+    items: [
+      { kind: "improved", tool: "Assignment editor", text: "A platform filter joins the text filter: Windows, macOS, iOS/iPadOS, Android, Linux, or the policies that declare no platform at all — each option carrying its count, and a platform the tenant has none of is not offered. The filter narrows the list only: your ticks survive it, exactly as they survive the text filter, and the surface rail keeps counting the whole tenant. The platform words are the documenter's own, so the two tools cannot disagree about the same policy." },
+      { kind: "improved", tool: "Policy overview", text: "The same platform filter, in the toolbar next to the search — and the verdict chips keep counting what you are actually looking at, platform included." },
+      { kind: "fixed", tool: "Configuration documenter", text: "Administrative templates now count as Windows in every platform filter. They are Windows group policy by definition, but the shared platform reading filed them under not-platform-specific — the gap was the reader's, not the policy's, and fixing it once fixed all three tools." },
+    ],
+  },
+  {
     build: 10521, date: "2026-09-01", title: "A policy in the overview offers its acts",
     items: [
       { kind: "improved", tool: "Policy overview", text: "The policy popout now ends in what you would do next, the sister tool ENCA's pattern: open the Assignment editor with this policy already selected, download the policy's documentation as the documenter's own Markdown, or download the policy exactly as Graph returned it — deliberately called a record rather than a backup you could restore, because restoring is the Backup tool's job and a button should not promise what the app cannot do. The editor button appears only for the four surfaces the editor actually edits; an act that would be refused is not offered." },

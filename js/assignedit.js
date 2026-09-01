@@ -150,6 +150,10 @@ const AssignEdit = (() => {
             surface: sf.id, surfaceLabel: sf.label, icon: sf.icon,
             id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
             assignments: it.assignments || [],
+            // The raw object rides along (build 10522): the platform filter
+            // derives platforms from it through Docs.platformsOf — the one
+            // normaliser — rather than a second parse of @odata.type here.
+            raw: it,
           });
         }
       } catch (e) { failed.push({ id: sf.id, label: sf.label, error: GroupUse.shortErr(e) }); }
@@ -364,11 +368,41 @@ const AssignEditTool = (() => {
     if (split) split.classList.add("has-rail");
   }
 
+  // ---------------------------------------------------- platform filter --
+  // T05's platform filter, ported (build 10522). The platforms a policy
+  // declares come from Docs.platformsOf on the RAW object — the one
+  // normaliser, so this filter, T05's and T19's cannot disagree about the
+  // same policy. Memoised per row; the surface's section carries the
+  // platformField the settings catalog needs.
+  let platFilter = "All";
+  function platsOf(p) {
+    if (!p.platforms) p.platforms = (p.raw && typeof Docs !== "undefined")
+      ? Docs.platformsOf(p.raw, Docs.sectionById(SEC_OF[p.surface]))
+      : [];
+    return p.platforms;
+  }
+  const platMatch = (p) => platFilter === "All"
+    || (platFilter === Docs.NOT_SPECIFIC ? !platsOf(p).length : platsOf(p).includes(platFilter));
+  // Static select, rebuilt options only (the T15 rule); counts over the
+  // whole list, like the rail's, so the numbers answer "of the tenant".
+  function fillPlatformSelect() {
+    const el = $("aePlatform");
+    if (!el || !read) return;
+    const count = (p) => read.policies.filter((x) => (p === Docs.NOT_SPECIFIC ? !platsOf(x).length : platsOf(x).includes(p))).length;
+    const opts = [{ value: "All", label: `All platforms (${read.policies.length})` }]
+      .concat(Docs.PLATFORM_ORDER.map((p) => ({ value: p, label: `${p} (${count(p)})`, n: count(p) })))
+      .concat([{ value: Docs.NOT_SPECIFIC, label: `${Docs.NOT_SPECIFIC} (${count(Docs.NOT_SPECIFIC)})`, n: count(Docs.NOT_SPECIFIC) }])
+      .filter((o) => o.value === "All" || o.n > 0);   // a platform the list has none of is not an option
+    el.innerHTML = opts.map((o) => `<option value="${esc(o.value)}"${o.value === platFilter ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+  }
+
   function renderPolicies() {
     const q = lcq($("aeFilter").value);
     const list = read.policies
       .filter((p) => surfView === "all" || p.surface === surfView)
-      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q));
+      .filter((p) => !q || lcq(p.name).includes(q) || lcq(p.surfaceLabel).includes(q))
+      .filter(platMatch);
+    fillPlatformSelect();
     const rows = list.map((p) => `<tr>
         <td style="width:34px"><input type="checkbox" data-aepol="${esc(keyOf(p))}" ${sel.has(keyOf(p)) ? "checked" : ""}></td>
         <td><b class="pname" data-aeopen="${esc(keyOf(p))}" title="Open the policy — the 📄 documenter's popout, settings included. The tick box beside it is the selection; this is the look inside.">${esc(p.name)}</b></td><td>${esc(p.icon)} ${esc(p.surfaceLabel)}</td>
@@ -434,6 +468,7 @@ const AssignEditTool = (() => {
           surface: sfId, surfaceLabel: sf.label, icon: sf.icon,
           id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
           assignments: it.assignments || [],
+          raw: it,   // for the platform filter — same field the fresh read carries
         });
       }
     }
@@ -446,7 +481,7 @@ const AssignEditTool = (() => {
     const c = typeof PolicyCache !== "undefined" && PolicyCache.get();
     if (!c) return;
     read = policiesFromCache(c);
-    sel.clear(); surfView = "all"; popCache.clear();
+    sel.clear(); surfView = "all"; platFilter = "All"; popCache.clear();
     renderPolicies();
     applyPending();
   }
@@ -664,7 +699,7 @@ const AssignEditTool = (() => {
       // dry run.
       await Graph.ensureScopes([...new Set([...AssignEdit.READ(), ...Graph.SCOPES.groups])]);
       read = await AssignEdit.readPolicies(null, prog);
-      sel.clear(); surfView = "all";   // a fresh read is a fresh decision
+      sel.clear(); surfView = "all"; platFilter = "All";   // a fresh read is a fresh decision
       popCache.clear();                // and a fresh tenant for the popout
       prog(`${read.policies.length} policies read.`);
       renderPolicies();
@@ -690,6 +725,7 @@ const AssignEditTool = (() => {
     // the warm start (build 10520) — registered, so app.js stays ignorant of tools
     (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-assignedit"] = onShow;
     $("aeFilter").addEventListener("input", () => read && renderPolicies());
+    if ($("aePlatform")) $("aePlatform").addEventListener("change", (e) => { platFilter = e.target.value; if (read) renderPolicies(); });
     // the surface rail and the tick-set (both build 10390)
     $("aeSurfSide").addEventListener("click", (e) => {
       const b = e.target.closest("[data-aesurf]");
