@@ -413,14 +413,19 @@ const HealthTool = (() => {
     const failed = res.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — not empty, UNKNOWN:</b> ${res.failed.map((f) => esc(f.label)).join(", ")}.</div>` : "";
     const clean = !all.length;
 
-    $("hlBody").innerHTML = `<div class="au-cards">${KINDS.map(card).join("")}</div><div class="list-card">
+    // THE STICKY CHIPS (10542, T19's fix): the kind filter, pinned — a
+    // compact second face of the cards above, reachable after 200 folds.
+    const chip = (id, label, n) => `<button class="fchip${kindFilter === id ? " active" : ""}" data-hlkind="${id || ""}" type="button">${label}${n === null ? "" : ` (${n})`}</button>`;
+    const chips = all.length ? `<div class="toolbar">${chip(null, "All", all.length)}${KINDS.map((k) => chip(k.id, `${k.icon} ${esc(k.label)}`, k.id === "failing" && !res.status ? null : byKind(k.id))).join("")}</div>` : "";
+    $("hlBody").innerHTML = chips + `<div class="au-cards">${KINDS.map(card).join("")}</div><div class="list-card">
       <p class="mini muted" style="margin:0">${res.policies} policies · ${res.ran.length} surfaces read${res.failed.length ? ` · <b>${res.failed.length} FAILED</b>` : ""}${kindFilter ? ` · showing only <b>${esc(kindOf(kindFilter).label)}</b> — click the card again for everything` : all.length ? " · click a card to filter to one kind" : ""}</p>
       ${clean ? `<p class="mini" style="margin-top:12px"><b>Nothing found.</b> Every assignment read reaches at least one member, every policy read is assigned, and ${res.status ? "no checked deployment reports failures" : "deployment status was not checked"}.${res.failed.length ? " <b>But " + res.failed.length + " surface(s) could not be read — this is not a clean bill for them.</b>" : ""}</p>` : `<div style="margin-top:10px">${folds || `<p class="mini" style="margin-top:8px">Nothing of this kind.</p>`}</div>`}
       ${notes.join("")}${failed}</div>`;
     ["hlMd", "hlCsv"].forEach((b) => { $(b).style.display = ""; });
 
     $("hlBody").querySelectorAll("[data-hlkind]").forEach((b) => b.addEventListener("click", () => {
-      kindFilter = kindFilter === b.dataset.hlkind ? null : b.dataset.hlkind;
+      const k = b.dataset.hlkind || null;
+      kindFilter = kindFilter === k ? null : k;
       render(result);
     }));
     $("hlBody").querySelectorAll("[data-hlfold]").forEach((el) => el.addEventListener("click", (e) => {

@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10542, date: "2026-09-01", title: "Sticky filter chips — conflict scan, assignment health, LAPS",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Three tools with long finding lists gain a pinned chip bar \u2014 the same filter their cards already speak, in a compact face that never scrolls away: the conflict scan's verdict chips (with the platform select moving up beside them), assignment health's kind chips, and the LAPS audit's bucket chips. Re-filtering after two hundred rows is a click where you already are, not a scroll back to the top." },
+    ],
+  },
+  {
     build: 10541, date: "2026-09-01", title: "Firewall & ASR coverage gets the rail",
     items: [
       { kind: "improved", tool: "Firewall & ASR coverage", text: "The discipline cards become a sticky rail beside the policy list \u2014 All, the six core disciplines and any extra the tenant has, each wearing covering-over-policies with a gap in red \u2014 so filtering to a discipline after scrolling the whole tenant's policies is a click, not a scroll back." },

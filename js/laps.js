@@ -247,6 +247,10 @@ const LapsTool = (() => {
       ${card("unmatchable", "Unmatchable", t.unmatchable, "no Entra device id — unknown, not 'not escrowed'", t.unmatchable ? "bad" : "ok")}
     </div>`);
 
+    // THE STICKY CHIPS (10542, T19's fix): the bucket filter, pinned above
+    // the 200 folds — a compact second face of the cards.
+    const chip = (id, label, n) => `<button class="fchip${bucketFilter === id ? " active" : ""}" data-lpbucket="${id || ""}" type="button">${label} (${n})</button>`;
+    parts.push(`<div class="toolbar">${chip(null, "All", (rep.rows || []).length)}${chip("healthy", "Healthy", t.healthy)}${chip("stale", "Stale", t.stale)}${chip("notEscrowed", "Not escrowed", t.notEscrowed)}${chip("noTimestamp", "Age unknown", t.noTimestamp)}${chip("unmatchable", "Unmatchable", t.unmatchable)}</div>`);
     const shown = (rep.rows || []).filter((r) => !bucketFilter || r.bucket === bucketFilter);
     const CAP = 200;
     const badgeOf = (r) => r.bucket === "healthy" ? `<span class="au-op create">healthy</span>`
@@ -291,7 +295,7 @@ const LapsTool = (() => {
 
     $("lpBody").innerHTML = parts.join("");
     $("lpBody").querySelectorAll("[data-lpbucket]").forEach((b) => b.addEventListener("click", () => {
-      const k = b.dataset.lpbucket;
+      const k = b.dataset.lpbucket || null;   // the All chip clears (10542)
       bucketFilter = bucketFilter === k ? null : k;
       render();
     }));

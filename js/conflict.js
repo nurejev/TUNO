@@ -192,6 +192,11 @@ const ConflictTool = (() => {
 
   let scan = null, collectRes = null, running = false;
   let cfPlat = "all";   // the conflict list's platform filter (build 10524)
+  // THE STICKY CHIPS (10542, the layout round, T19's fix): verdict chips +
+  // the platform select in a sticky .toolbar, so re-filtering after a long
+  // conflict list never means scrolling back. Chips and cards are two faces
+  // of one filter.
+  let cfVerdict = null;
   // Open conflict folds, keyed on section|setting — stable across renders,
   // reset on a new scan.
   const open = new Set();
@@ -228,6 +233,7 @@ const ConflictTool = (() => {
     collectRes = r;
     scan = Conflict.detect(collectRes);
     cfPlat = "all";   // a fresh scan is a fresh question
+    cfVerdict = null;
     render();
     showExports(true);
   }
@@ -297,7 +303,8 @@ const ConflictTool = (() => {
       String(p.platform || "").split(",").map((x) => x.trim()).filter(Boolean)))];
     const platsHere = [...new Set(scan.conflicts.flatMap(platsOfConflict))].sort();
     const platCount = (p) => scan.conflicts.filter((c) => platsOfConflict(c).includes(p)).length;
-    const shownConflicts = scan.conflicts.filter((c) => cfPlat === "all" || platsOfConflict(c).includes(cfPlat));
+    const shownConflicts = scan.conflicts.filter((c) => (cfPlat === "all" || platsOfConflict(c).includes(cfPlat))
+      && (!cfVerdict || c.verdict === cfVerdict));
     const platSelHtml = platsHere.length > 1
       ? `<label class="sel-filter" style="margin:0 0 8px" title="Narrows the conflict list to one platform's policies. The verdict cards above keep counting the whole scan.">
           <span>Platform</span>
@@ -317,9 +324,20 @@ const ConflictTool = (() => {
       let t = ""; try { t = new Date(collectRes.readAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }); } catch { t = ""; }
       src = `<p class="mini muted" style="margin:0 0 8px">Scanned over ${collectRes.fromWarm ? "the sign-in read" : "the shared read"} at ${esc(t)} — ⚔️ Scan the tenant re-reads.</p>`;
     }
-    $("cfBody").innerHTML = src + cards + `<div class="list-card">${notes.join("")}
-      ${scan.conflicts.length ? `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px">${platSelHtml}<p class="mini muted" style="margin:0">Click a conflict for the side-by-side comparison — every policy's value and reach.</p></div>` : ""}
+    const nOf = (v) => scan.conflicts.filter((c) => (cfPlat === "all" || platsOfConflict(c).includes(cfPlat)) && c.verdict === v).length;
+    const chip = (v, label) => `<button class="fchip${cfVerdict === v ? " active" : ""}" data-cfverdict="${v || ""}" type="button">${label} (${v ? nOf(v) : scan.conflicts.length})</button>`;
+    const toolbar = scan.conflicts.length ? `<div class="toolbar">
+      ${chip(null, "All")}${chip("can", "⚔️ Can collide")}${chip("may", "❓ May")}${chip("cannot", "✅ Cannot")}
+      ${platSelHtml.replace('style="margin:0 0 8px"', 'style="margin:0"')}
+    </div>` : "";
+    $("cfBody").innerHTML = src + cards + toolbar + `<div class="list-card">${notes.join("")}
+      ${scan.conflicts.length ? `<p class="mini muted" style="margin:8px 0 0">Click a conflict for the side-by-side comparison — every policy's value and reach. The chips stay put while the list scrolls.</p>` : ""}
       <div style="margin-top:10px">${body}</div></div>`;
+    $("cfBody").querySelectorAll("[data-cfverdict]").forEach((b) => b.addEventListener("click", () => {
+      const v = b.dataset.cfverdict || null;
+      cfVerdict = (cfVerdict === v) ? null : v;
+      render();
+    }));
 
     $("cfBody").querySelectorAll("[data-cffold]").forEach((el) => el.addEventListener("click", (e) => {
       if (e.target.closest("a,code")) return;
