@@ -742,7 +742,10 @@ const AuditTool = (() => {
     }).join("")}</div>`
       : `<p class="mini" style="margin-top:12px">Nothing matched in this window.</p>`;
 
-    $("auBody").innerHTML = cards + `<div class="list-card">${chips}${notes.join("")}${body}</div>`;
+    // The chips pin (10548, the layout round — T19's rule): the timeline is
+    // deliberately uncapped, so the type filter rides a sticky wrapper
+    // instead of scrolling away with the first card.
+    $("auBody").innerHTML = cards + (chips ? `<div class="toolbar">${chips}</div>` : "") + `<div class="list-card">${notes.join("")}${body}</div>`;
     $("auBody").querySelectorAll("[data-auev]").forEach((el) => el.addEventListener("click", (e) => {
       if (e.target.closest("a,code")) return;      // copying an id must not toggle
       const id = el.dataset.auev;

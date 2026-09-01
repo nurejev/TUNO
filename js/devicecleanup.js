@@ -230,7 +230,11 @@ const DeviceCleanupTool = (() => {
 
   function render() {
     const b = buckets;
-    const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    // Cards double as JUMP ANCHORS (10548, the layout round): the two-step
+    // story stays deliberately stacked — a pane hiding step ① while step ②
+    // arms would invite deleting before disabling — so a card click scrolls
+    // to its section instead of filtering it away.
+    const card = (label, n, sub, cls, jump) => `<div class="au-card${jump ? " au-card-btn" : ""}"${jump ? ` data-dcujump="${jump}" role="button" tabindex="0" title="Jump to the section"` : ""}><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
     const managedChip = (d) => d.isManaged ? ` <span class="gu-how priv" title="Enrolled in Intune — deleting the directory object does not unenrol it; prefer retiring it in Intune first">managed</span>` : "";
     const row = (r, i, tickAttr) => `<tr>
       <td style="width:30px"><input type="checkbox" data-${tickAttr}="${i}"></td>
@@ -245,14 +249,14 @@ const DeviceCleanupTool = (() => {
     $("dcuBody").innerHTML = `
       <div class="au-cards">
         ${card("Active", b.active.length, `contact within ${b.thresholds.disableDays}d`, "ok")}
-        ${card("Stale, enabled", b.stale.length, "disable candidates", b.stale.length ? "warn" : "")}
+        ${card("Stale, enabled", b.stale.length, "disable candidates — click to jump", b.stale.length ? "warn" : "", "dcuSecD")}
         ${card("Disabled, waiting", b.parked.length, `not yet ${b.thresholds.deleteDays}d silent`)}
-        ${card("Delete candidates", b.deletable.length, "disabled AND silent beyond the delete line", b.deletable.length ? "bad" : "")}
+        ${card("Delete candidates", b.deletable.length, "disabled AND silent beyond the delete line — click to jump", b.deletable.length ? "bad" : "", "dcuSecX")}
         ${card("Never seen", b.unknown.length, "unknown is not stale — no action offered")}
       </div>
       <p class="mini muted" style="margin:10px 0 0">Last contact is the directory's <code>approximateLastSignInDateTime</code> — its name says approximate, so a day either side is noise, not signal. <b>Deleting a device object deletes its BitLocker recovery keys with it</b>; Autopilot-registered devices are refused by the service until deregistered.</p>
 
-      <div class="list-card" style="margin-top:12px">
+      <div class="list-card" id="dcuSecD" style="margin-top:12px">
         <h4 style="margin:0 0 6px">① Disable — ${b.stale.length} stale and still enabled <span class="tag block">writes to the tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px">Reversible — a disabled device can be re-enabled in the portal. Every 90-day-plus device that is still enabled sits HERE, not in delete: delete follows disable, never replaces it.</p>
         <div class="tb-actions" style="margin:0 0 8px">
@@ -265,7 +269,7 @@ const DeviceCleanupTool = (() => {
         </div>
       </div>
 
-      <div class="list-card" style="margin-top:12px">
+      <div class="list-card" id="dcuSecX" style="margin-top:12px">
         <h4 style="margin:0 0 6px">② Delete — ${b.deletable.length} disabled and silent past ${b.thresholds.deleteDays} days <span class="tag block">writes to the tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px"><b>Not reversible.</b> The BitLocker recovery keys go with the object. Each delete re-checks the device first: re-enabled since the plan → refused (somebody wants it back); signed in since → refused (it woke up).</p>
         <div class="tb-actions" style="margin:0 0 8px">
@@ -301,6 +305,10 @@ const DeviceCleanupTool = (() => {
       ticks().forEach((c) => c.addEventListener("change", sync));
       sync();
     };
+    $("dcuBody").querySelectorAll("[data-dcujump]").forEach((c) => c.addEventListener("click", () => {
+      const el = $(c.dataset.dcujump);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
     wireSel("dcud", "dcuMasterD", "dcuAllD", "dcuNoneD", "dcuCountD");
     wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX", "dcuCountX");
     $("dcuConfirm").addEventListener("input", () => { $("dcuDeleteBtn").disabled = $("dcuConfirm").value.trim() !== "DELETE"; });

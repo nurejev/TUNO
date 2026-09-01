@@ -2221,6 +2221,7 @@ ul.au-diff li{margin:2px 0;overflow-wrap:anywhere}
    narrowing control, not a summary. The count stays legible when the chip is
    not picked, since the counts are the answer before anything is clicked. */
 .au-types{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.toolbar .au-types{margin:0}
 .au-type{font:inherit;font-size:12.5px;cursor:pointer;padding:5px 12px;border-radius:999px;
   border:1px solid var(--border);background:var(--surface);color:var(--muted);white-space:nowrap}
 .au-type b{font-weight:700;color:var(--ink);margin-left:2px}

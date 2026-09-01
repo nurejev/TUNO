@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10548, date: "2026-09-01", title: "The layout round closes — audit chips pin, cleanup cards jump",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The change audit's type chips pin above the uncapped timeline, and the device cleanup's finding cards jump to their sections \u2014 its two-step story stays deliberately stacked, because a layout that hides the disable step while the delete step arms would invite doing them in the wrong order. That closes the layout round: eleven builds, every tool from the survey either converted, pinned, or left alone on purpose with the reason written down." },
+    ],
+  },
+  {
     build: 10547, date: "2026-09-01", title: "The AppLocker screen gets a jump strip",
     items: [
       { kind: "improved", tool: "AppLocker builder & validator", text: "A sticky chip bar jumps straight to any of the screen's ten panels \u2014 Summary, Enforcement, Add rule, the device scan, Findings, Coverage, Rules, the XML panel, Deploy \u2014 so building a policy no longer means scrolling the whole audit to reach one card. The two-column workflow layout itself is untouched." },
