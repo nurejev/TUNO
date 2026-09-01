@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10526, date: "2026-09-01", title: "The macOS baseline catalog ships — and taught the tool its own convention",
+    items: [
+      { kind: "new", tool: "macOS baseline", text: "The CloudFellows reference catalog is now bundled: 82 policies exported from the baseline tenant itself — settings catalog, device configurations, compliance, the enrolment assignment filters, and the shell scripts. Open the tool on any tenant and the comparison is simply there." },
+      { kind: "fixed", tool: "macOS baseline", text: "The reference export corrected the tool the day it arrived. R26.x is the baseline's release, worn by every policy — not a per-policy number — so the identity is now the policy name itself, with the release tag and version stripped. Releases compare before versions: a policy still at R26.4 is outdated next to the R26.6 catalog whatever its version says." },
+      { kind: "improved", tool: "macOS baseline", text: "Assignment filters import through the filter tool's own create. Scripts are identified but not importable — the read that built the catalog carries no script bodies, and a script without its body cannot be put back; the screen says so instead of half-trying. And the comparison caught its first real finding: the baseline tenant carries one compliance policy twice — the catalog holds it once, and the duplicate shows as ×2 where it lives." },
+    ],
+  },
+  {
     build: 10525, date: "2026-09-01", title: "The macOS baseline — identified, exported, imported",
     items: [
       { kind: "new", tool: "TUNO", text: "A new tool: the macOS baseline. The tenant's macOS policies matched against the CloudFellows baseline the way the sister tool ENCA matches Conditional Access — the name is the identity: a baseline policy starts with MACOS, carries its permanent R26.xx release number and ends with a version. Numbers are matched, versions compared, and a number match the rest of the name contradicts is flagged as a clash rather than silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline." },
