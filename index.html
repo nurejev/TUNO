@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10533"></script>
+<script src="js/popup-guard.js?v=10534"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10533">
+<link rel="stylesheet" href="css/app.css?v=10534">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10533"></script>
+<script src="js/selfhost-boot.js?v=10534"></script>
 </head>
 <body>
 
@@ -156,7 +156,7 @@
         <p>The assignments that exist and reach nobody, in one place — every finding the same shape of problem: <b>something that looks configured and is not</b>. Policies assigned to <b>empty groups</b>, which have never applied and never will; assignments naming <b>deleted groups</b>, which target nobody silently; <b>unassigned policies</b>; policies whose every assignment is an <b>exclusion</b>, so there is nothing to exclude from; a group both included and excluded on one policy, where the exclusion wins and the include reads as reach. Optionally, the deployments Graph reports as <b>failing</b> — for the surfaces that keep a cheap status, with the ones that do not named as unchecked rather than passed off as healthy.</p>
       </div>
       <div class="tool" id="toolAssignEdit">
-        <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag upd">UPDATED</span> <span class="tag block">writes to the tenant</span></h3>
+        <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag block">writes to the tenant</span></h3>
         <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance and administrative templates; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
       </div>
       <div class="tool" id="toolFilters">
@@ -179,7 +179,7 @@
         <p>Read the configuration surface — device profiles, settings catalog with their settings, compliance with their scheduled actions, administrative templates with their definition values, and platform scripts with their bodies — and write one <code>.zip</code> in your browser. The folder layout matches the PowerShell original exactly, so the two are interchangeable. <b>Reads only</b>, one permission. The manifest indexes every file and records what the archive <i>cannot</i> restore, because Graph never returns secrets and a script without a body is a file you can read but not put back. And now the other direction: <b>restore from an archive</b> — create only, an editable [Restored] prefix on everything, a collision stop checked fresh before each create, administrative-template child writes included in the dry run, everything arriving unassigned by design. <b>Widened at beta 10426 (R15):</b> twenty-four areas, a SHA-256 per file with the manifest written last, an offline verify that names modified, missing and untracked files — and assignments that export to <code>assignments.json</code> and import back, same tenant only, through the assignment editor's own write discipline.</p>
       </div>
       <div class="tool" id="toolDocs">
-        <div class="tool-ic">📄</div><h3>Configuration documenter <span class="tag upd">UPDATED</span></h3>
+        <div class="tool-ic">📄</div><h3>Configuration documenter</h3>
         <p>Every policy in the tenant, in one list you can filter and read — settings expanded underneath, assignments resolved to group names. Then write it down: Markdown for a wiki, a standalone HTML page, or a Word document for the auditor who will edit it. <b>Secrets are redacted and that cannot be switched off</b> — a script body or a certificate in a document somebody emails is a disclosure you cannot recall. A section that could not be read is named as unreadable rather than left out silently.</p>
       </div>
       <div class="tool" id="toolSetSearch">
@@ -187,7 +187,7 @@
         <p>“Which policies configure BitLocker, and to what value?” — answered from the <b>setting definitions</b> rather than the policy names. One read brings Microsoft's settings-catalog definition catalog, roughly seventeen thousand entries, searched as you type with ranked matching over names, keywords and descriptions. A second, separate read brings the tenant's own settings-catalog policies, so each result can say <b>who sets it and to what</b> — and until that read has run, the column says absent rather than empty. <b>Values pass the documenter's redaction gate</b>: a settings search is exactly the tool somebody uses to hunt for “password”, and it will not become a disclosure engine with a search box.</p>
       </div>
       <div class="tool" id="toolMacBaseline">
-        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag block">writes to the tenant</span></h3>
         <p>Match the tenant's macOS policies against the CloudFellows baseline — MACOS R26.xx names, versions compared — export the catalog from the baseline tenant, import what is missing anywhere else.</p>
       </div>
       <div class="tool" id="toolConflict">
@@ -202,7 +202,7 @@
         <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. And <b>coverage — the platforms nothing evaluates</b>: enrolled devices with no compliance policy that reaches anybody, with the tenant's compliant-by-default lean read and stated, because that setting decides whether an uncovered platform silently passes Conditional Access. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
       </div>
       <div class="tool" id="toolDeviceCleanup">
-        <div class="tool-ic">🧹</div><h3>Entra device cleanup <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <div class="tool-ic">🧹</div><h3>Entra device cleanup <span class="tag block">writes to the tenant</span></h3>
         <p>Stale directory devices, staged out in two deliberate steps: <b>disable at 30 days</b> of silence, <b>delete at 90 — and only what is already disabled</b>. Last contact is the directory's own <code>approximateLastSignInDateTime</code>; a device that never reported one is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and followed by a read-back; deletes require the word typed, because the BitLocker recovery keys go with the object. One Markdown report carries the estate, every action taken, and everything deliberately not done. <b>Writes to the tenant</b> — and Graph gates these writes on your directory role, said before the run.</p>
       </div>
       <div class="tool" id="toolAudit">
@@ -1469,14 +1469,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="rm-tl">
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
-          <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · beta 10532</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
-            <p class="mini" style="margin:0">Stale directory devices staged out in two deliberate steps — <b>disable at 30 days</b> of silence, <b>delete at 90, and only what is already disabled</b>. A device with no recorded sign-in is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and verified by read-back; deletes arm only after typing the word, because the BitLocker recovery keys go with the object. Carries the registration's first directory-device write scope, <code>Device.ReadWrite.All</code>, taken in the open — and Graph's own directory-role gate on device writes is named before the run. One Markdown report: the estate, the actions, and everything deliberately not done.</p>
-          </div>
-          <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R35</span> 🍎 macOS baseline <span class="tag grant">live · beta 10525</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
-            <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
-          </div>
+          <p class="mini muted" style="margin:0">Nothing — this channel and production currently match. New work lands here first and sits in this era until it is promoted.</p>
         </div>
         <div class="rm-era now">
           <h3>Now <span class="rm-when">shipped &amp; shipping</span></h3>
@@ -1654,6 +1647,14 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">The other half of <span class="rm-ref">R33</span>. A <b>restricted management administrative unit</b> is the only place in Entra where membership can be put out of reach of every tenant-wide role — inside one, only a principal holding a role <b>scoped to that unit</b> may change the members, and Global Administrator and Privileged Role Administrator can manage the unit but not what is in it. <span class="rm-ref">R33</span> files migrated groups into these; this creates and manages them. List, create, rename, delete, members, scoped administrators.</p>
             <p class="mini" style="margin:6px 0 0"><b>Three of Entra's rules, not ours, shape the screen.</b> The restricted flag is <b>immutable</b>, so there is no convert and the editor says so. A unit with <b>no scoped administrator is a vault nobody can open</b> — creating one without naming a keyholder is refused, and the field is prefilled with you, because whoever creates the unit is its administrator by default. And a <b>role-assignable group inside a restricted unit is 🧊 frozen</b>: it admits only GA/PRA, the unit blocks exactly those two, and nobody at all can change its members — <span class="rm-ref">R33</span> is the way out.</p>
             <p class="mini" style="margin:6px 0 0"><b>Ported from <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s T27 and deliberately narrower.</b> ENCA's version is wound through its Conditional Access baseline — persona vaults named from CA numbers, a baseline checklist, a group-to-persona map, prefix scans over its own naming. None of that came across: it answers a question TUNO does not ask, and importing it would have meant a vocabulary this tool cannot honour.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R35</span> 🍎 macOS baseline <span class="tag grant">live · beta 10525 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · beta 10532 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">Stale directory devices staged out in two deliberate steps — <b>disable at 30 days</b> of silence, <b>delete at 90, and only what is already disabled</b>. A device with no recorded sign-in is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and verified by read-back; deletes arm only after typing the word, because the BitLocker recovery keys go with the object. Carries the registration's first directory-device write scope, <code>Device.ReadWrite.All</code>, taken in the open — and Graph's own directory-role gate on device writes is named before the run. One Markdown report: the estate, the actions, and everything deliberately not done.</p>
           </div>
         </div>
         
@@ -2001,47 +2002,47 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10533"></script>
-<script src="js/selfhost.js?v=10533"></script>
-<script src="js/version.js?v=10533"></script>
-<script src="js/promote.js?v=10533"></script>
-<script src="js/authConfig.js?v=10533"></script>
-<script src="js/changelog.js?v=10533"></script>
-<script src="js/msappcatalog.js?v=10533"></script>
-<script src="js/demo.js?v=10533"></script>
-<script src="js/graph.js?v=10533"></script>
-<script src="js/suggest.js?v=10533"></script>
-<script src="js/progress.js?v=10533"></script>
-<script src="js/groupuse.js?v=10533"></script>
-<script src="js/audit.js?v=10533"></script>
-<script src="js/devicecleanup.js?v=10533"></script>
-<script src="js/backup.js?v=10533"></script>
-<script src="js/document.js?v=10533"></script>
-<script src="js/policycache.js?v=10533"></script>
-<script src="js/overview.js?v=10533"></script>
-<script src="js/devicewhy.js?v=10533"></script>
-<script src="js/whatif.js?v=10533"></script>
-<script src="js/health.js?v=10533"></script>
-<script src="js/settingsearch.js?v=10533"></script>
-<script src="js/conflict.js?v=10533"></script>
-<script src="js/compliance.js?v=10533"></script>
-<script src="js/filterrules.js?v=10533"></script>
-<script src="js/filters.js?v=10533"></script>
-<script src="js/restore.js?v=10533"></script>
-<script src="js/macbaselineData.js?v=10533"></script>
-<script src="js/macbaseline.js?v=10533"></script>
-<script src="js/assignedit.js?v=10533"></script>
-<script src="js/restrictedau.js?v=10533"></script>
-<script src="js/groupmigrate.js?v=10533"></script>
-<script src="js/roles.js?v=10533"></script>
-<script src="js/defender.js?v=10533"></script>
-<script src="js/endpointsec.js?v=10533"></script>
-<script src="js/report.js?v=10533"></script>
-<script src="js/securescore.js?v=10533"></script>
-<script src="js/endpointposture.js?v=10533"></script>
-<script src="js/maa.js?v=10533"></script>
-<script src="js/laps.js?v=10533"></script>
-<script src="js/applocker.js?v=10533"></script>
-<script src="js/app.js?v=10533"></script>
+<script src="js/branding.js?v=10534"></script>
+<script src="js/selfhost.js?v=10534"></script>
+<script src="js/version.js?v=10534"></script>
+<script src="js/promote.js?v=10534"></script>
+<script src="js/authConfig.js?v=10534"></script>
+<script src="js/changelog.js?v=10534"></script>
+<script src="js/msappcatalog.js?v=10534"></script>
+<script src="js/demo.js?v=10534"></script>
+<script src="js/graph.js?v=10534"></script>
+<script src="js/suggest.js?v=10534"></script>
+<script src="js/progress.js?v=10534"></script>
+<script src="js/groupuse.js?v=10534"></script>
+<script src="js/audit.js?v=10534"></script>
+<script src="js/devicecleanup.js?v=10534"></script>
+<script src="js/backup.js?v=10534"></script>
+<script src="js/document.js?v=10534"></script>
+<script src="js/policycache.js?v=10534"></script>
+<script src="js/overview.js?v=10534"></script>
+<script src="js/devicewhy.js?v=10534"></script>
+<script src="js/whatif.js?v=10534"></script>
+<script src="js/health.js?v=10534"></script>
+<script src="js/settingsearch.js?v=10534"></script>
+<script src="js/conflict.js?v=10534"></script>
+<script src="js/compliance.js?v=10534"></script>
+<script src="js/filterrules.js?v=10534"></script>
+<script src="js/filters.js?v=10534"></script>
+<script src="js/restore.js?v=10534"></script>
+<script src="js/macbaselineData.js?v=10534"></script>
+<script src="js/macbaseline.js?v=10534"></script>
+<script src="js/assignedit.js?v=10534"></script>
+<script src="js/restrictedau.js?v=10534"></script>
+<script src="js/groupmigrate.js?v=10534"></script>
+<script src="js/roles.js?v=10534"></script>
+<script src="js/defender.js?v=10534"></script>
+<script src="js/endpointsec.js?v=10534"></script>
+<script src="js/report.js?v=10534"></script>
+<script src="js/securescore.js?v=10534"></script>
+<script src="js/endpointposture.js?v=10534"></script>
+<script src="js/maa.js?v=10534"></script>
+<script src="js/laps.js?v=10534"></script>
+<script src="js/applocker.js?v=10534"></script>
+<script src="js/app.js?v=10534"></script>
 </body>
 </html>

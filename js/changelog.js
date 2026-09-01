@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10534, date: "2026-09-01", title: "Eighth promotion — the whole queue ships as build 13",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 13 and takes all nine queue items with it — beta builds 10519 through 10533: the macOS baseline with its catalog and the upstream watch, the Entra device cleanup with the registration's first directory-device write permission, the sign-in prefetch across four tools, the policy popouts and action rows, the platform filter in seven lists, and the tenant-read stamp on every cached export. The queue is empty again, the In-beta-today era stands empty on both channels saying truthfully that they match, and the two promoted tools take their 1.0.x numbers with counters carried." },
+      { kind: "improved", tool: "All tools", text: "The third full-queue promotion ordered by the exported file, verified item by item against what main actually contained before anything moved. Production tenants need the new device-write permission consented before the device cleanup can act there — the tool says so itself until it is." },
+    ],
+  },
+  {
     build: 10533, date: "2026-09-01", title: "The cleanup's selection controls surface",
     items: [
       { kind: "fixed", tool: "Entra device cleanup", text: "Select all and select none moved above each table — they existed, but below a twenty-one-row list, which is where controls go to be undiscovered. A live ticked count now sits beside them, and the master checkbox in the table header stays." },
