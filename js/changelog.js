@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10541, date: "2026-09-01", title: "Firewall & ASR coverage gets the rail",
+    items: [
+      { kind: "improved", tool: "Firewall & ASR coverage", text: "The discipline cards become a sticky rail beside the policy list \u2014 All, the six core disciplines and any extra the tenant has, each wearing covering-over-policies with a gap in red \u2014 so filtering to a discipline after scrolling the whole tenant's policies is a click, not a scroll back." },
+    ],
+  },
+  {
     build: 10540, date: "2026-09-01", title: "Multi-admin approval and the what-if get the rail",
     items: [
       { kind: "improved", tool: "Multi-admin approval", text: "Overview, What is gated, Policies, Requests and Admins become rail panes \u2014 the gate nobody can open, the ungated categories and the pending requests worn on the rail nodes in red, one pane on screen at a time." },

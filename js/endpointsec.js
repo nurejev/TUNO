@@ -386,18 +386,27 @@ const EndpointSecTool = (() => {
       return;
     }
 
-    // One card per core discipline — the verdict is the card. Click filters.
-    const card = (d) => {
+    // THE RAIL (10541, the layout round — Option A): the discipline cards
+    // become the nav, exactly the survey's suggestion — this tool is
+    // literally T20's subject. One node per core discipline (plus any
+    // extra discipline the tenant actually has), verdict worn as the
+    // node's colour and title, the list beside it never buries the jump
+    // back. Same data-fwdisc contract; the All node clears.
+    const node = (d) => {
       const v = rep.disciplines[d] || { policies: 0, covering: 0, verdict: "none" };
       const label = v.verdict === "covered" ? (v.viaLegacy ? "covered — legacy intent only" : "covered")
-        : v.verdict === "unassigned" ? "GAP — none reaches anybody" : "GAP — no policy";
-      const cls = v.verdict === "covered" ? "ok" : "bad";
-      return `<button class="au-card au-card-btn ${discFilter === d ? "active" : ""}" data-fwdisc="${esc(d)}" type="button">
-        <div class="au-card-l">${esc(d)}</div>
-        <div class="au-card-n ${cls}">${v.covering}<span class="mini muted" style="font-size:13px;font-weight:normal">/${v.policies}</span></div>
-        <div class="au-card-s">${esc(label)}</div></button>`;
+        : v.verdict === "unassigned" ? "GAP — policies exist, none reaches anybody" : "GAP — no policy";
+      const bad = v.verdict !== "covered";
+      return `<div class="ep-node${discFilter === d ? " active" : ""}" data-fwdisc="${esc(d)}" role="button" tabindex="0" title="${esc(label)}">
+        <span>${esc(d)}</span>
+        <span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${bad && !v.policies ? "GAP" : `${v.covering}<span class="muted">/${v.policies}</span>`}</span></div>`;
     };
-    parts.push(`<div class="au-cards">${EndpointSec.CORE.map(card).join("")}</div>`);
+    const extras = Object.keys(rep.disciplines).filter((d) => !EndpointSec.CORE.includes(d) && rep.disciplines[d].policies);
+    const rail = `<div class="ep-node${discFilter === null ? " active" : ""}" data-fwdisc="" role="button" tabindex="0">
+        <span>🛡 All disciplines</span><span class="mini" style="margin-left:auto">${(rep.policies || []).length}</span></div>
+      <p class="mini muted" style="margin:2px 10px 6px">covering / policies — red is a gap</p><hr>`
+      + EndpointSec.CORE.map(node).join("")
+      + (extras.length ? "<hr>" + extras.map(node).join("") : "");
 
     const gaps = EndpointSec.CORE.filter((d) => (rep.disciplines[d] || {}).verdict !== "covered");
     if (gaps.includes("Firewall") || gaps.includes("Attack Surface Reduction")) {
@@ -467,10 +476,10 @@ const EndpointSecTool = (() => {
       ${rows || `<p class="mini muted" style="margin:0">No endpoint security policies${discFilter ? " in this discipline" : ""} — which is itself the finding.</p>`}
     </div>`);
 
-    $("fwBody").innerHTML = parts.join("");
+    $("fwBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${parts.join("")}</div></div>`;
     $("fwBody").querySelectorAll("[data-fwdisc]").forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.fwdisc;
-      discFilter = discFilter === k ? null : k;
+      discFilter = (!k || discFilter === k) ? null : k;
       render();
     }));
   }
