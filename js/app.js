@@ -131,7 +131,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -230,6 +230,7 @@ const Fs = (() => {
       "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
       "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
       "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
+      "screen-macbaseline": "toolMacBaseline",
       "screen-device": "toolDevice", "screen-filters": "toolFilters",
       "screen-roles": "toolRoles", "screen-maa": "toolMaa",
       "screen-groupmigrate": "toolGroupMigrate",
@@ -888,6 +889,7 @@ const Fs = (() => {
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
+    ["toolMacBaseline", "🍎 macOS baseline"],
     ["toolRoles", "🛡 Intune RBAC"],
     ["toolMaa", "🤝 Multi-admin approval"],
     ["toolRestrictedAu", "🛡 Restricted AUs"],
@@ -1091,6 +1093,7 @@ const Fs = (() => {
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
   $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
+  $("toolMacBaseline").addEventListener("click", () => { crumb("🍎 macOS baseline"); show("screen-macbaseline"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
   $("toolDevice").addEventListener("click", () => { crumb("🖥 Device analyzer"); show("screen-device"); });
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
@@ -1335,6 +1338,7 @@ const Fs = (() => {
   if (typeof LapsTool !== "undefined") LapsTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
+  if (typeof MacBaselineTool !== "undefined") MacBaselineTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
   if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
   if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();

@@ -92,6 +92,27 @@ const PROMOTE = {
 
   items: [
     {
+      n: 129,
+      title: "T24 🍎 macOS baseline — identify, export, import (R35)",
+      tools: ["T24"],
+      builds: [10525],
+      files: ["js/macbaseline.js", "js/app.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "high",
+      what: "New tool, ENCA's Baseline Policies ported Intune-side-out for the macOS baseline. IDENTITY IS THE NAME, ENCA's rule exactly: MACOS prefix + permanent R26.xx number + trailing version; matched by number, versions compared segment-wise (cmpVersion verbatim), corroborated by token similarity so a number clash is a finding (the CA personas did not come across — macOS names have none). Buckets verbatim: ok/outdated/ahead/present/unversioned/missing/conflict/extra, cards + a line-by-line table. THE CATALOG: authored on cloudfellows.dev only (the cfdev convention — TunoTenant.isCfdev gates the EXPORT section, said on screen); the export writes one JSON (kind tuno-macos-baseline) with names, numbers, versions AND raw bodies — settings-catalog settings and ADMX definitionValues normalised out of the detail read (__detail) into T04-restore's body shape — and flags duplicate numbers before Mihai bundles it as js/macbaselineData.js (BASELINE_MACOS; absent this build, and the screen says what that means). IMPORT: Restore.existingNames/plan/apply UNCHANGED — collision stop, fresh per-create name check, read-back verify, ADMX child rollback — with one departure said everywhere: CANONICAL names, no [Restored] prefix, because the name is the identity and a prefixed baseline reads as missing forever. Unassigned by construction. Reads ride the shared cache (warm start + source line); dry run needs only the read scope, the write scope is asked at the Apply click. Registered: tile (Configuration group), screen, tabs, history, sidebar, T24, R35 card in the beta era.",
+      why: "HIGH, for the same reason T22 was: this tool WRITES — it creates policies in customer tenants from a file. The containment is inherited rather than invented: the entire write path is T04-restore's shipped pipeline (the suite-covered plan/apply with its collision stops and read-backs), the bodies come from the same normalisation restore consumes, and create-only means the worst outcome is a duplicate-named policy the collision stop exists to prevent. Two soft edges named now: ADMX presentation binds in the cache's detail read may lack the presentation expansion the backup zip carries, so an ADMX baseline policy's import can fail per-policy (reported honestly, rolled back by restore's own rule) — if the macOS baseline ever carries ADMX (unlikely for macOS), revisit; and the catalog ships EMPTY this build — the tool says so and the reference export from cloudfellows.dev is the next act, Mihai's.",
+      test: [
+        "cloudfellows.dev: Read the tenant → the export section renders (it must NOT render on any other tenant, demo included). Export: the file carries every MACOS R26.xx policy with num, name, version and a body whose settings/definitionValues are populated for catalog/ADMX policies.",
+        "Name the same R26.xx number on two policies and export: the export note flags the duplicate number — fix the tenant, not the file.",
+        "A customer tenant, catalog loaded from that file: every bucket is exercised — rename a version down (outdated), up (ahead), delete one (missing), strip a version (unversioned), create a MACOS R26.99 the file lacks (extra), rename a matched policy's middle words entirely (number clash).",
+        "Import dry run on a tenant missing three: 3 to create, the present ones say skip; Apply asks for the write scope AT THE CLICK, creates them with EXACT canonical names, and the result says unassigned.",
+        "Re-run the compare after the import: the three read as up to date — the created names round-trip through the identity.",
+        "Import the same file twice: the second dry run is all skips — create-only held.",
+        "A tenant where a surface 403s: the missing rows say they are floors, not verdicts.",
+        "The warm start: open the tool after sign-in on a consented tenant — the compare is there from the shared read, source line shown.",
+        "T11 after an import: the created policies appear (the import invalidated the shared cache).",
+      ],
+    },
+    {
       n: 128,
       title: "The platform-filter survey — T14, T13, T12 and the restore picker join",
       tools: ["T14", "T13", "T12", "T04"],

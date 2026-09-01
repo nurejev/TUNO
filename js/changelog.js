@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10525, date: "2026-09-01", title: "The macOS baseline — identified, exported, imported",
+    items: [
+      { kind: "new", tool: "TUNO", text: "A new tool: the macOS baseline. The tenant's macOS policies matched against the CloudFellows baseline the way the sister tool ENCA matches Conditional Access — the name is the identity: a baseline policy starts with MACOS, carries its permanent R26.xx release number and ends with a version. Numbers are matched, versions compared, and a number match the rest of the name contradicts is flagged as a clash rather than silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline." },
+      { kind: "new", tool: "macOS baseline", text: "On the baseline tenant — and only there — the tool exports the catalog: one file carrying names, numbers, versions and the raw policy bodies. Every other tenant identifies against the bundled catalog or a loaded file, and can import what is missing: create-only through the Backup tool's own restore pipeline, a dry run first, a collision stop per name, canonical baseline names kept, and everything arriving unassigned — reaching devices is the Assignment editor's act, taken deliberately afterwards." },
+    ],
+  },
+  {
     build: 10524, date: "2026-09-01", title: "The platform filter reaches every list that can carry one",
     items: [
       { kind: "improved", tool: "Assignment filters", text: "The filter list filters on platform — a filter's own property, declared at creation and fixed for life, so no reading between the lines. Only platforms your filters actually use are offered, with counts, and it composes with the search and the references chip." },

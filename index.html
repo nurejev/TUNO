@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10524"></script>
+<script src="js/popup-guard.js?v=10525"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10524">
+<link rel="stylesheet" href="css/app.css?v=10525">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10524"></script>
+<script src="js/selfhost-boot.js?v=10525"></script>
 </head>
 <body>
 
@@ -185,6 +185,10 @@
       <div class="tool" id="toolSetSearch">
         <div class="tool-ic">🔦</div><h3>Settings search</h3>
         <p>“Which policies configure BitLocker, and to what value?” — answered from the <b>setting definitions</b> rather than the policy names. One read brings Microsoft's settings-catalog definition catalog, roughly seventeen thousand entries, searched as you type with ranked matching over names, keywords and descriptions. A second, separate read brings the tenant's own settings-catalog policies, so each result can say <b>who sets it and to what</b> — and until that read has run, the column says absent rather than empty. <b>Values pass the documenter's redaction gate</b>: a settings search is exactly the tool somebody uses to hunt for “password”, and it will not become a disclosure engine with a search box.</p>
+      </div>
+      <div class="tool" id="toolMacBaseline">
+        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Match the tenant's macOS policies against the CloudFellows baseline — MACOS R26.xx names, versions compared — export the catalog from the baseline tenant, import what is missing anywhere else.</p>
       </div>
       <div class="tool" id="toolConflict">
         <div class="tool-ic">⚔️</div><h3>Setting conflict scan</h3>
@@ -1271,6 +1275,28 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="cfBody" style="margin-top:14px"></div>
   </section>
 
+  <!-- ============ T24 · MACOS BASELINE (R35) ============
+       ENCA's Baseline Policies, Intune-side-out: identity is the MACOS
+       R26.xx name, the catalog is the cloudfellows.dev reference export
+       (bundled as js/macbaselineData.js when present, or loaded as a
+       file), import rides T04-restore's create pipeline with canonical
+       names. Export renders only on the baseline tenant — the cfdev
+       convention, said here where it lives. -->
+  <section id="screen-macbaseline" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🍎 macOS baseline <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">The tenant's macOS policies matched against the <b>CloudFellows macOS baseline</b>, the sister tool ENCA's baseline machinery Intune-side-out. <b>The name is the identity</b>: a baseline policy starts with <code>MACOS</code>, carries its permanent release number <code>R26.xx</code>, and ends with a version — the number is matched, the versions are compared segment-wise, and a number match the rest of the name contradicts is a clash, never silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The baseline is authored on the baseline tenant</b> (cloudfellows.dev), where this screen offers the export that writes the catalog file — names, numbers, versions and the raw policy bodies. Everywhere else the tool compares against the bundled catalog or a loaded file, and can <b>import what is missing</b>: create-only through the Backup tool's own restore pipeline, canonical names kept (the name is the identity), everything arriving unassigned — reach is ✏️ the Assignment editor's act.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="mbRun">🍎 Read the tenant</button>
+      </div>
+      <div id="mbProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="mbBody" style="margin-top:14px"></div>
+  </section>
+
   <!-- ============ ASSIGNMENT FILTERS (T14) ============
        R21, after IntuneShade. Read half free-standing; write half under
        T11's rules, with the fresh association gate on delete. -->
@@ -1408,7 +1434,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="rm-tl">
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
-          <p class="mini muted" style="margin:0">Nothing — this channel and production currently match. New work lands here first and sits in this era until it is promoted.</p>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R35</span> 🍎 macOS baseline <span class="tag grant">live · beta 10525</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
+          </div>
         </div>
         <div class="rm-era now">
           <h3>Now <span class="rm-when">shipped &amp; shipping</span></h3>
@@ -1933,44 +1962,45 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10524"></script>
-<script src="js/selfhost.js?v=10524"></script>
-<script src="js/version.js?v=10524"></script>
-<script src="js/promote.js?v=10524"></script>
-<script src="js/authConfig.js?v=10524"></script>
-<script src="js/changelog.js?v=10524"></script>
-<script src="js/msappcatalog.js?v=10524"></script>
-<script src="js/demo.js?v=10524"></script>
-<script src="js/graph.js?v=10524"></script>
-<script src="js/suggest.js?v=10524"></script>
-<script src="js/progress.js?v=10524"></script>
-<script src="js/groupuse.js?v=10524"></script>
-<script src="js/audit.js?v=10524"></script>
-<script src="js/backup.js?v=10524"></script>
-<script src="js/document.js?v=10524"></script>
-<script src="js/policycache.js?v=10524"></script>
-<script src="js/overview.js?v=10524"></script>
-<script src="js/devicewhy.js?v=10524"></script>
-<script src="js/whatif.js?v=10524"></script>
-<script src="js/health.js?v=10524"></script>
-<script src="js/settingsearch.js?v=10524"></script>
-<script src="js/conflict.js?v=10524"></script>
-<script src="js/compliance.js?v=10524"></script>
-<script src="js/filterrules.js?v=10524"></script>
-<script src="js/filters.js?v=10524"></script>
-<script src="js/restore.js?v=10524"></script>
-<script src="js/assignedit.js?v=10524"></script>
-<script src="js/restrictedau.js?v=10524"></script>
-<script src="js/groupmigrate.js?v=10524"></script>
-<script src="js/roles.js?v=10524"></script>
-<script src="js/defender.js?v=10524"></script>
-<script src="js/endpointsec.js?v=10524"></script>
-<script src="js/report.js?v=10524"></script>
-<script src="js/securescore.js?v=10524"></script>
-<script src="js/endpointposture.js?v=10524"></script>
-<script src="js/maa.js?v=10524"></script>
-<script src="js/laps.js?v=10524"></script>
-<script src="js/applocker.js?v=10524"></script>
-<script src="js/app.js?v=10524"></script>
+<script src="js/branding.js?v=10525"></script>
+<script src="js/selfhost.js?v=10525"></script>
+<script src="js/version.js?v=10525"></script>
+<script src="js/promote.js?v=10525"></script>
+<script src="js/authConfig.js?v=10525"></script>
+<script src="js/changelog.js?v=10525"></script>
+<script src="js/msappcatalog.js?v=10525"></script>
+<script src="js/demo.js?v=10525"></script>
+<script src="js/graph.js?v=10525"></script>
+<script src="js/suggest.js?v=10525"></script>
+<script src="js/progress.js?v=10525"></script>
+<script src="js/groupuse.js?v=10525"></script>
+<script src="js/audit.js?v=10525"></script>
+<script src="js/backup.js?v=10525"></script>
+<script src="js/document.js?v=10525"></script>
+<script src="js/policycache.js?v=10525"></script>
+<script src="js/overview.js?v=10525"></script>
+<script src="js/devicewhy.js?v=10525"></script>
+<script src="js/whatif.js?v=10525"></script>
+<script src="js/health.js?v=10525"></script>
+<script src="js/settingsearch.js?v=10525"></script>
+<script src="js/conflict.js?v=10525"></script>
+<script src="js/compliance.js?v=10525"></script>
+<script src="js/filterrules.js?v=10525"></script>
+<script src="js/filters.js?v=10525"></script>
+<script src="js/restore.js?v=10525"></script>
+<script src="js/macbaseline.js?v=10525"></script>
+<script src="js/assignedit.js?v=10525"></script>
+<script src="js/restrictedau.js?v=10525"></script>
+<script src="js/groupmigrate.js?v=10525"></script>
+<script src="js/roles.js?v=10525"></script>
+<script src="js/defender.js?v=10525"></script>
+<script src="js/endpointsec.js?v=10525"></script>
+<script src="js/report.js?v=10525"></script>
+<script src="js/securescore.js?v=10525"></script>
+<script src="js/endpointposture.js?v=10525"></script>
+<script src="js/maa.js?v=10525"></script>
+<script src="js/laps.js?v=10525"></script>
+<script src="js/applocker.js?v=10525"></script>
+<script src="js/app.js?v=10525"></script>
 </body>
 </html>
