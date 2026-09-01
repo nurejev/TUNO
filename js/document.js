@@ -137,6 +137,14 @@ const Docs = (() => {
   // name changes with the setting type.
   function catalogRows(settings) {
     const out = [];
+    // `audit: true` is stamped from the RAW value, BEFORE short() and the
+    // choice-tail shortening (build 10481): "_audit_mode" loses its word
+    // to the tail split ("mode"), and a WDAC policy XML's literal
+    // "Enabled:Audit Mode" sits past the 300-char display cap — both are
+    // exactly the evidence T20 needs to keep an audit-mode App Control
+    // policy from being reported as if it blocked anything. Additive:
+    // the key exists only when true, display rows are unchanged.
+    const auditOf = (raw) => /audit/i.test(String(raw ?? "")) || undefined;
     const walk = (inst, depth) => {
       if (!inst || depth > 6 || out.length > 300) return;
       const id = inst.settingDefinitionId || "";
@@ -144,15 +152,16 @@ const Docs = (() => {
       const pretty = name ? name.charAt(0).toUpperCase() + name.slice(1) : "(setting)";
       if (inst.choiceSettingValue) {
         const v = String(inst.choiceSettingValue.value || "");
-        out.push({ name: pretty, value: short(v.split("_").slice(-1)[0] || v), defId: id });
+        out.push({ name: pretty, value: short(v.split("_").slice(-1)[0] || v), defId: id, audit: auditOf(v) });
         (inst.choiceSettingValue.children || []).forEach((c) => walk(c, depth + 1));
       } else if (inst.simpleSettingValue) {
-        out.push({ name: pretty, value: short(redactValue(id, inst.simpleSettingValue.value)), defId: id });
+        out.push({ name: pretty, value: short(redactValue(id, inst.simpleSettingValue.value)), defId: id, audit: auditOf(inst.simpleSettingValue.value) });
       } else if (inst.simpleSettingCollectionValue) {
-        out.push({ name: pretty, value: short(inst.simpleSettingCollectionValue.map((x) => x.value).join(", ")), defId: id });
+        const joined = inst.simpleSettingCollectionValue.map((x) => x.value).join(", ");
+        out.push({ name: pretty, value: short(joined), defId: id, audit: auditOf(joined) });
       } else if (inst.choiceSettingCollectionValue) {
         inst.choiceSettingCollectionValue.forEach((c) => {
-          out.push({ name: pretty, value: short(String(c.value || "").split("_").slice(-1)[0]), defId: id });
+          out.push({ name: pretty, value: short(String(c.value || "").split("_").slice(-1)[0]), defId: id, audit: auditOf(c.value) });
           (c.children || []).forEach((x) => walk(x, depth + 1));
         });
       } else if (inst.groupSettingCollectionValue) {
@@ -276,7 +285,15 @@ const Docs = (() => {
       rowsFrom: (o) => flatten(o),
     },
     {
-      id: "filters", label: "Assignment filters", icon: "🔎", scopes: () => S().rbac,
+      // CONFIG, NOT RBAC (corrected 10490). learn.microsoft.com's "List
+      // deviceAndAppManagementAssignmentFilters" names
+      // DeviceManagementConfiguration.Read.All; this section had asked for
+      // DeviceManagementRBAC.Read.All since it was written, and 10482 built
+      // the filter-naming read on top of that mistake — so on a tenant that
+      // granted config and not RBAC the names 403'd, and 10488's changelog
+      // stated the wrong permission as the fix. filters.js had it right all
+      // along, which is how the two disagreed.
+      id: "filters", label: "Assignment filters", icon: "🔎", scopes: () => S().config,
       endpoint: "/deviceManagement/assignmentFilters",
       list: "/deviceManagement/assignmentFilters",
       rowsFrom: (o) => flatten(o),
@@ -299,7 +316,7 @@ const Docs = (() => {
     const o = opts || {};
     const ids = (o.sections && o.sections.length) ? o.sections : allSectionIds();
     const status = o.onStatus || (() => {});
-    const out = { sections: [], failed: [], partial: [], groupIds: new Set() };
+    const out = { sections: [], failed: [], partial: [], groupIds: new Set(), filterIds: new Set() };
 
     for (const id of ids) {
       const sec = sectionById(id);
@@ -348,6 +365,12 @@ const Docs = (() => {
         (it.assignments || []).forEach((a) => {
           const g = a.target && a.target.groupId;
           if (g) out.groupIds.add(lc(g));
+          // The filter id has ridden on the assignment since 10382 and has
+          // never been NAMED. An id in a reach line is not an answer: the
+          // portal shows PVM-DG-CORP-FILTER-AVD-ALL, the tool showed a GUID
+          // or, worse, nothing at all (Mihai, first live tenant).
+          const f = a.target && a.target.deviceAndAppManagementAssignmentFilterId;
+          if (f) out.filterIds.add(lc(f));
         });
         return {
           id: it.id,
@@ -356,6 +379,11 @@ const Docs = (() => {
           platforms: platformsOf(it, sec),
           platform: platformsOf(it, sec).join(", "),
           type: String(it["@odata.type"] || "").replace(/^#?microsoft\.graph\./, ""),
+          // Carried for T20 (build 10476): the template identity is how the
+          // endpoint security disciplines are told apart, and it is cheap —
+          // the object arrived with the list read either way.
+          templateFamily: (it.templateReference && it.templateReference.templateFamily) || "",
+          templateName: (it.templateReference && it.templateReference.templateDisplayName) || "",
           created: it.createdDateTime || "", modified: it.lastModifiedDateTime || "",
           assignments: (it.assignments || []).map((a) => assignmentOf(a)),
           rows: sec.rowsFrom(it) || [],
@@ -377,7 +405,175 @@ const Docs = (() => {
         }
       } catch (e) { out.nameError = short((e && e.message) || e, 160); }
     }
+
+    // GROUP MEMBER COUNTS, ONCE FOR THE WHOLE COLLECTION (10505).
+    //
+    // Every tool that names a group gets asked the same next question —
+    // "and how many machines is that?" — and until now only T20 could
+    // answer it, because only T20 had pooled the counts itself. That is the
+    // T05 rule pointing the other way: the read belongs here, beside the
+    // names, so the documenter, the policy overview and the posture tool
+    // all print the same number and none of them reads it twice.
+    //
+    // ABSENT IS UNKNOWN, NEVER ZERO. A group the signed-in admin cannot
+    // read comes back null and is counted in countError; assignmentText
+    // then prints no count rather than "0 members", because a confident
+    // zero about a group nobody could read is the 10483 failure again.
+    out.groupCounts = {};
+    out.countError = 0;
+    if (out.groupIds.size && !o.skipNames && !o.skipCounts) {
+      const gids = [...out.groupIds];
+      let done = 0;
+      status(`Counting members of ${gids.length} group${gids.length === 1 ? "" : "s"}…`);
+      try {
+        const rs = await Graph.pool(gids, async (id) => {
+          status(`Counting group members — ${++done}/${gids.length}…`);
+          try { return Number(await Graph.memberCount(id)); } catch (e) { return null; }
+        }, 6);
+        gids.forEach((id, i) => {
+          const r = rs[i];
+          const raw = (r && typeof r === "object" && "error" in r) ? undefined
+            : (r && typeof r === "object" && "value" in r) ? r.value : r;
+          const v = (raw === null || raw === undefined || raw === "") ? NaN : Number(raw);
+          out.groupCounts[id] = Number.isFinite(v) ? v : null;
+          if (!Number.isFinite(v)) out.countError++;
+        });
+        for (const s3 of out.sections) for (const it of s3.items) {
+          it.assignments = it.assignments.map((a) => (a.groupId
+            ? Object.assign({}, a, { memberCount: out.groupCounts[lc(a.groupId)] ?? null })
+            : a));
+        }
+      } catch (e) { out.countReadError = short((e && e.message) || e, 160); }
+    }
+
+    // ASSIGNMENT FILTERS, NAMED ONCE — the group-name pattern exactly, for
+    // the same reason: one read for the whole collection rather than one per
+    // section, and a failure that is SAID rather than silently rendering
+    // GUIDs as if they were names. The list is small (a tenant has tens of
+    // filters, not thousands), so it is read whole rather than by id.
+    // Unreadable is unknown, never absent: filterError is what the tools
+    // print, and the assignment keeps its id.
+    if (out.filterIds.size && !o.skipNames) {
+      status(`Naming ${out.filterIds.size} assignment filter${out.filterIds.size === 1 ? "" : "s"}…`);
+      try {
+        // `rule` joins the $select at 10505: T14 can evaluate a filter rule
+        // against the inventory (R32), and the reach arithmetic in T20 needs
+        // the rule itself to stop saying "at most" about a tenant-wide
+        // target it could count exactly. One read, one more field.
+        const list = await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform,assignmentFilterManagementType,rule", S().config);
+        const by = new Map((list || []).map((f) => [lc(f.id), f]));
+        out.filters = by;
+        for (const s2 of out.sections) for (const it of s2.items) {
+          it.assignments = it.assignments.map((a) => {
+            if (!a.filterId) return a;
+            const f = by.get(lc(a.filterId)) || null;
+            return Object.assign({}, a, {
+              filterName: (f && f.displayName) || "",
+              filterKind: (f && f.assignmentFilterManagementType) || "",
+              filterRule: (f && f.rule) || "",
+              filterPlatform: (f && f.platform) || "",
+            });
+          });
+        }
+      } catch (e) { out.filterError = short((e && e.message) || e, 160); }
+    }
     return out;
+  }
+
+  // ---------------------------------------------------- the filter, read --
+  //
+  // THE ONE READ OF AN ASSIGNMENT FILTER OFF A RAW GRAPH TARGET. There were
+  // five, and they disagreed with each other about the same tenant:
+  //
+  //   * groupuse.js keyed the whole thing off filterTYPE, so a target
+  //     carrying an id with a missing or "none" type had no filter at all in
+  //     T02, T06, T08, T09 and T14 — and a filter in T05, T12, T19 and T20.
+  //     Two tools describing one assignment differently is the exact failure
+  //     a single normaliser exists to prevent.
+  //   * compliance.js and endpointsec.js flagged a policy as filtered when
+  //     the filter sat on an EXCLUSION, where it narrows what is excluded
+  //     rather than capping what is reached — the "may reach, not does"
+  //     caveat those tools print does not describe that case at all.
+  //   * none of them read the mode, so include and exclude were the same
+  //     fact.
+  //
+  // KEYED ON THE ID, because the id is what makes a filter present. A mode
+  // that is absent is DEFAULTED to include and says so — `modeStated` is
+  // false — rather than being read as "no filter".
+  function filterOfTarget(target) {
+    const t = target || {};
+    const id = t.deviceAndAppManagementAssignmentFilterId || "";
+    if (!id) return null;
+    const raw = lc(t.deviceAndAppManagementAssignmentFilterType);
+    const stated = raw === "include" || raw === "exclude";
+    return { id: lc(id), mode: raw === "exclude" ? "exclude" : "include", modeStated: stated };
+  }
+
+  // The two questions every reach verdict actually asks, over RAW targets.
+  // `capped` is the one that means "this reaches fewer devices than the
+  // target suggests"; a filter on an exclusion is its own, opposite fact and
+  // is reported separately rather than folded into the caveat.
+  function filterReachOf(assignments) {
+    let capped = false, onExclusion = false;
+    for (const x of (assignments || [])) {
+      const f = filterOfTarget(x && x.target);
+      if (!f) continue;
+      if (/exclusionGroupAssignmentTarget/i.test((x.target && x.target["@odata.type"]) || "")) onExclusion = true;
+      else capped = true;
+    }
+    return { capped, onExclusion };
+  }
+
+  // ---------------------------------------------------------- filter word --
+  // The one way an assignment filter is written down, everywhere. A filter
+  // NARROWS a target — include mode keeps only matching devices, exclude
+  // mode drops them — so the mode is part of the name, never dropped: a
+  // reader who sees only the filter's name cannot tell which way it cut.
+  // An unnamed filter says so and keeps its id, because a blank is a claim
+  // that there is no filter and there is one.
+  function filterLabel(a) {
+    if (!a || !a.filterId) return "";
+    const mode = lc(a.filterType) === "exclude" ? "exclude" : "include";
+    const name = a.filterName || `filter ${String(a.filterId).slice(0, 8)}… (name unread)`;
+    return `${name} (${mode})`;
+  }
+  // ONE ASSIGNMENT, ONE SENTENCE — the four surfaces that write an
+  // assignment down (the popout, Markdown, the HTML report and Word) had
+  // four copies of `name (kind)`, and every one of them did the same two
+  // things wrong. It printed "All devices · All devices", because
+  // assignmentOf sets name === kind for a tenant-wide target and both were
+  // concatenated. And it DROPPED THE FILTER — on all four, including the
+  // Word export, so a policy targeted at All devices through
+  // PVM-DG-CORP-FILTER-AVD-ALL circulated as a claim of whole-fleet reach
+  // in the document an auditor reads. The filter had been resolved onto the
+  // assignment since 10482 and no writer read it.
+  //
+  // The kind is dropped when it merely repeats the name; the filter is
+  // appended when there is one. Returns plain text — each surface escapes
+  // it for its own medium.
+  function assignmentText(a) {
+    if (!a) return "";
+    const name = a.name || a.kind || "unknown";
+    const kind = (a.kind && a.kind !== a.name) ? ` (${a.kind})` : "";
+    // The member count, where the collection read one (10505). Printed
+    // only when it is a NUMBER: a group whose count could not be read
+    // shows nothing rather than a zero, and an empty group says "0
+    // members" on purpose — that is 🩺 Assignment health's whole finding,
+    // and it belongs on the chip where somebody is looking at the target.
+    const n = (a.groupId && typeof a.memberCount === "number") ? ` · ${a.memberCount} member${a.memberCount === 1 ? "" : "s"}` : "";
+    const f = a.filterId ? ` — ⚑ ${filterLabel(a)}` : "";
+    return `${name}${kind}${n}${f}`;
+  }
+
+  // Every distinct filter on the non-excluded targets of one policy.
+  function filtersOf(it) {
+    const seen = new Map();
+    for (const a of ((it && it.assignments) || [])) {
+      if (!a.filterId || a.kind === "Excluded") continue;
+      const k = `${lc(a.filterId)}|${lc(a.filterType)}`;
+      if (!seen.has(k)) seen.set(k, filterLabel(a));
+    }
+    return [...seen.values()];
   }
 
   // ---------------------------------------------------------- platforms --
@@ -436,6 +632,34 @@ const Docs = (() => {
   // string. platformsOf() is what the filter uses.
   function platformOf(it) { return platformsOf(it, null)[0] || ""; }
 
+  // ------------------------------------------------------------- popout --
+  // The head + body of the policy popout, as one function, because two tools
+  // show it now: T05's browse and T19's overview cards. The first time two
+  // copies of this template exist, one of them renders a policy differently —
+  // the redactValue lesson (T10), applied to markup. The FOOT is deliberately
+  // not here: what you can do with an open policy is each tool's own claim
+  // (T05 ticks it into the document; T19 just closes).
+  function popoutHtml(sec, it) {
+    return `
+      <div class="gu-m-head">
+        <h3>${esc(it.name)}</h3>
+        <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
+        ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
+        <div class="mini" style="margin-top:8px">${it.assignments.length
+          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}"${a.filterId ? ` title="An assignment filter narrows this target — the service evaluates it against inventory a browser cannot see"` : ""}>${esc(assignmentText(a))}</span>`).join(" ")
+          : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
+        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
+      </div>
+      <div class="gu-m-body">
+        ${it.detailError
+          ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
+          : it.rows.length
+            ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
+               <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
+            : `<p class="mini muted">No documentable settings.</p>`}
+      </div>`;
+  }
+
   function assignmentOf(a) {
     const t = (a && a.target) || {};
     const ty = lc(t["@odata.type"]);
@@ -444,8 +668,10 @@ const Docs = (() => {
     // and a conflict verdict that ignored it would say "can collide" about
     // two policies a filter keeps apart. Additive — nothing that renders
     // assignments changes.
-    const filterId = t.deviceAndAppManagementAssignmentFilterId || null;
-    const withF = (o) => (filterId ? Object.assign(o, { filterId, filterType: t.deviceAndAppManagementAssignmentFilterType || "" }) : o);
+    // Through the one reader (10496), so "Docs.filterOfTarget is the single
+    // parse of this field" is true of the file that says it.
+    const fx = filterOfTarget(t);
+    const withF = (o) => (fx ? Object.assign(o, { filterId: fx.id, filterType: fx.mode, filterModeStated: fx.modeStated }) : o);
     if (ty.includes("exclusiongroupassignmenttarget")) return withF({ kind: "Excluded", groupId: lc(t.groupId), name: lc(t.groupId) });
     if (ty.includes("groupassignmenttarget")) return withF({ kind: "Included", groupId: lc(t.groupId), name: lc(t.groupId) });
     if (ty.includes("alldevicesassignmenttarget")) return withF({ kind: "All devices", groupId: null, name: "All devices" });
@@ -477,7 +703,13 @@ const Docs = (() => {
         // matters: "macOSGeneralDeviceConfiguration" is how somebody searches
         // for a class of profile, and it is not in the settings rows because
         // @odata.type is filtered out as bookkeeping before they are built.
+        // …AND THE ASSIGNMENT (10492). "Which policies hit SG-Pilot" and
+        // "what does PVM-DG-CORP-FILTER-AVD-ALL touch" are the two questions
+        // this box was asked and could not answer — T19's search had reached
+        // group names since it shipped and T05's, on the same collection,
+        // had not.
         if (t && !lc(i.name).includes(t) && !lc(i.description).includes(t) && !lc(i.type).includes(t)
+          && !i.assignments.some((a) => lc(a.name).includes(t) || lc(a.kind).includes(t) || lc(a.filterName).includes(t))
           && !i.rows.some((r) => lc(r.name).includes(t) || lc(r.value).includes(t))) return false;
         if (plat && plat !== "All") {
           if (plat === NOT_SPECIFIC) { if (i.platforms.length) return false; }
@@ -604,7 +836,7 @@ const Docs = (() => {
         if (facts.length) L.push(facts.join(" · "), "");
         if (it.description) L.push(mdCell(it.description), "");
         L.push(`**Assignments** — ${it.assignments.length
-          ? it.assignments.map((a) => `${mdCell(a.name)} (${a.kind})`).join(", ")
+          ? it.assignments.map((a) => mdCell(assignmentText(a))).join(", ")
           : "_not assigned to anything_"}`, "");
         if (it.detailError) {
           L.push(`> The settings for this policy could not be read (${mdCell(it.detailError)}). It is listed because it exists; its configuration is unknown.`, "");
@@ -652,7 +884,7 @@ footer{padding:18px 26px;color:#6b7280;font-size:12px}footer a{color:#2b4c9b}
 
   function html(sections, res, m) {
     const s = summarize(res);
-    const pill = (a) => `<span class="pill ${a.kind === "Excluded" ? "exc" : (a.groupId ? "inc" : "tw")}">${esc(a.name)} · ${esc(a.kind)}</span>`;
+    const pill = (a) => `<span class="pill ${a.kind === "Excluded" ? "exc" : (a.groupId ? "inc" : "tw")}">${esc(assignmentText(a))}</span>`;
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(m.title)}${m.tenant ? ` — ${esc(m.tenant)}` : ""}</title><style>${REPORT_CSS}</style></head><body>
 <header><h1>${esc(m.title)}</h1><div class="meta">${m.tenant ? esc(m.tenant) + " · " : ""}generated ${esc(m.when)} by TUNO ${esc(m.build)}</div></header>
@@ -726,7 +958,7 @@ ${rows.map(([k, v, red]) => `<w:tr><w:tc><w:tcPr><w:tcW w:w="42" w:type="pct"/><
         if (facts) body.push(P(facts, { i: true, small: true, tight: true }));
         if (it.description) body.push(P(it.description, { tight: true }));
         body.push(P([["Assignments: ", { b: true }],
-          [it.assignments.length ? it.assignments.map((a) => `${a.name} (${a.kind})`).join(", ") : "not assigned to anything", {}]], { tight: true }));
+          [it.assignments.length ? it.assignments.map(assignmentText).join(", ") : "not assigned to anything", {}]], { tight: true }));
         if (it.detailError) body.push(P(`The settings for this policy could not be read (${it.detailError}). It is listed because it exists; its configuration is unknown.`, { i: true }));
         else if (it.rows.length) body.push(TBL(it.rows.map((r) => [r.name, r.value, r.redacted])));
         else body.push(P("No documentable settings.", { i: true, small: true }));
@@ -755,9 +987,10 @@ ${body.join("\n")}
   }
 
   return {
-    SECTIONS, sectionById, allSectionIds, scopesFor,
+    SECTIONS, sectionById, allSectionIds, scopesFor, filterLabel, filtersOf, assignmentText, filterOfTarget, filterReachOf,
     flatten, catalogRows, admxRows, label, redactValue, REDACTED, OMITTED, SECRET_KEY, words,
     collect, summarize, filterItems, platforms, platformCounts, assignmentOf, platformOf, platformsOf, normPlatform,
+    popoutHtml,
     PLATFORM_ORDER, NOT_SPECIFIC,
     meta, markdown, html, docx, NOTE_REDACTED, scopeLine, filterText,
   };
@@ -794,8 +1027,15 @@ const DocsTool = (() => {
   let platformFilter = "All";
   let platformOpts = [];
 
+  // A greyed box with its explanation in a paragraph underneath reads as a
+  // missing feature (Mihai, 10492 — "t05 missing a search"). The reason now
+  // lives IN the control, where the eye already is.
+  const SEARCH_PLACEHOLDER = "e.g. BitLocker, SG-Pilot, or a filter name";
+  const SEARCH_WAITING = "Read the configuration first — then search here";
   function setFiltersEnabled(on) {
     ["dcSearch", "dcState"].forEach((id) => { const el = $(id); if (el) el.disabled = !on; });
+    const se = $("dcSearch");
+    if (se) se.placeholder = on ? SEARCH_PLACEHOLDER : SEARCH_WAITING;
     const hint = $("dcFilterHint");
     if (hint) hint.style.display = on ? "none" : "";
   }
@@ -834,7 +1074,12 @@ const DocsTool = (() => {
     running = true; $("dcRun").disabled = true; showExports(false); $("dcBody").innerHTML = "";
     try {
       prog("Checking permissions…");
-      await Graph.ensureScopes([...Docs.scopesFor(secs), ...Graph.SCOPES.directory]);
+      // "filters" rides along because collect() NAMES assignment filters
+      // (10482) and that read is RBAC-scoped. Without it a collection with
+      // one filtered assignment reaches for a token mid-read, with no user
+      // gesture behind it — a consent popup the browser blocks, blamed on
+      // filter naming, after the tool has already said permissions were fine.
+      await Graph.ensureScopes([...new Set([...Docs.scopesFor(secs), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.directory])]);
       res = await Docs.collect({ sections: secs, onStatus: prog });
       // Every platform, every time, each with how many were found. A zero is
       // an answer — "Linux (0)" confirms there is no Linux estate, which an
@@ -905,7 +1150,7 @@ const DocsTool = (() => {
                 <input type="checkbox" data-pick="${esc(key)}"${selected.has(key) ? " checked" : ""}></label>
               <b data-open="${esc(key)}" style="cursor:pointer">${esc(it.name)}</b>
               ${it.platforms.length ? it.platforms.map((p) => `<span class="gu-how priv">${esc(p)}</span>`).join("") : ""}
-              ${it.assignments.length ? `<span class="gu-how inc">${it.assignments.length} assignment${it.assignments.length === 1 ? "" : "s"}</span>` : `<span class="gu-how exc">unassigned</span>`}
+              ${assignChips(it)}
               ${it.detailError ? `<span class="gu-how exc">settings unreadable</span>` : ""}
               <button class="btn sm" data-open="${esc(key)}" style="margin-left:auto">${it.rows.length} setting${it.rows.length === 1 ? "" : "s"} →</button>
             </div>
@@ -981,29 +1226,32 @@ const DocsTool = (() => {
   }
   function onEsc(e) { if (e.key === "Escape") closePolicy(); }
 
+  // THE ROW SAYS WHO, NOT HOW MANY (10492). It had shown "2 assignments" —
+  // a number, on a screen whose entire job is writing down what a tenant is
+  // configured to do, while collect() had already resolved every group name
+  // and every filter name onto the object. Two chips at most, then a +N, so
+  // a policy assigned to eleven groups does not eat the row; the popout has
+  // the full list and the tooltip carries it meanwhile.
+  const MAX_CHIPS = 2;
+  function assignChips(it) {
+    const a = it.assignments || [];
+    if (!a.length) return `<span class="gu-how exc">unassigned</span>`;
+    const all = a.map((x) => Docs.assignmentText(x));
+    const chips = a.slice(0, MAX_CHIPS).map((x, i) => {
+      const cls = x.kind === "Excluded" ? "exc" : "inc";
+      return `<span class="gu-how ${cls}" title="${esc(all[i])}">${esc(Docs.assignmentText(x))}</span>`;
+    });
+    if (a.length > MAX_CHIPS) chips.push(`<span class="gu-how" title="${esc(all.slice(MAX_CHIPS).join("; "))}">+${a.length - MAX_CHIPS}</span>`);
+    return chips.join(" ");
+  }
+
   function openPolicy(key) {
     const found = findItem(key);
     if (!found) return;
     const { sec, it } = found;
     const picked = selected.has(key);
     $("dcModalBody").innerHTML = `
-      <div class="gu-m-head">
-        <h3>${esc(it.name)}</h3>
-        <div class="mini muted">${[sec.label, it.platform, it.type, it.modified ? "modified " + String(it.modified).slice(0, 10) : ""].filter(Boolean).map(esc).join(" · ")}</div>
-        ${it.description ? `<p class="mini" style="margin:8px 0 0">${esc(it.description)}</p>` : ""}
-        <div class="mini" style="margin-top:8px">${it.assignments.length
-          ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}">${esc(a.name)} · ${esc(a.kind)}</span>`).join(" ")
-          : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
-        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
-      </div>
-      <div class="gu-m-body">
-        ${it.detailError
-          ? `<div class="gu-fail"><b>The settings could not be read.</b><span class="why">${esc(it.detailError)} — this policy is listed because it exists; its configuration is unknown.</span></div>`
-          : it.rows.length
-            ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:42%">Setting</th><th>Value</th></tr></thead>
-               <tbody>${it.rows.map((r) => `<tr><td class="mini">${esc(r.name)}</td><td class="mini"${r.redacted ? ' style="color:var(--off);font-style:italic"' : ""}>${esc(r.value)}</td></tr>`).join("")}</tbody></table></div>`
-            : `<p class="mini muted">No documentable settings.</p>`}
-      </div>
+      ${Docs.popoutHtml(sec, it)}
       <div class="gu-m-foot">
         <label class="chk" style="display:inline-flex;gap:8px;align-items:center;cursor:pointer">
           <input type="checkbox" id="dcModalPick"${picked ? " checked" : ""}> Include in the document</label>

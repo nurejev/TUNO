@@ -999,7 +999,99 @@ const TUNO_DEMO = (() => {
     [D(4)]: [],
   };
 
+  // ---------- Microsoft Secure Score (T21 · R02) ----------
+  //
+  // The fixture is built to exercise every branch T21 and T20's correlation
+  // have, not to flatter the demo tenant:
+  //
+  //   * a rising trend with ONE REGRESSION in it, so improved and regressed
+  //     both have something to say;
+  //   * controls across four categories, so the category bars draw;
+  //   * a DEPRECATED control, which must be excluded from the sums;
+  //   * a control with NO PROFILE, which must render under its raw id and
+  //     count as neither achieved nor a gap;
+  //   * and — the point of the whole build — a control MDATP_Onboarding
+  //     scoring near zero while the demo tenant's EDR policy is assigned
+  //     and correct, which is exactly the "configured here, unscored there"
+  //     bucket T20 leads its Secure Score node with.
+  const SS_PROFILES = [
+    { id: "mdatp_onboarding", title: "Onboard devices to Microsoft Defender for Endpoint", maxScore: 10, controlCategory: "Device", rank: 3, tier: "Core", userImpact: "low", implementationCost: "moderate", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["accountBreach", "maliciousInsider"], deprecated: false, actionUrl: "https://security.microsoft.com/securitysettings/endpoints/onboarding", remediation: "Onboard every eligible Windows device to Defender for Endpoint. A device with a policy but no sensor reports nothing, and nothing is what this control scores.", remediationImpact: "None for users — onboarding is silent." },
+    { id: "mdatp_tamperprotection", title: "Turn on tamper protection", maxScore: 8, controlCategory: "Device", rank: 5, tier: "Core", userImpact: "low", implementationCost: "low", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["maliciousInsider"], deprecated: false, actionUrl: "https://security.microsoft.com/preferences2/integration", remediation: "Enable tamper protection so Defender's own settings cannot be switched off locally.", remediationImpact: "None for users." },
+    { id: "mdatp_realtimeprotection", title: "Turn on real-time protection", maxScore: 8, controlCategory: "Device", rank: 4, tier: "Core", userImpact: "low", implementationCost: "low", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["accountBreach"], deprecated: false, actionUrl: "", remediation: "Set Allow Realtime Monitoring to Allowed in an antivirus policy.", remediationImpact: "None for users." },
+    { id: "mdatp_pua", title: "Block potentially unwanted applications", maxScore: 4, controlCategory: "Device", rank: 22, tier: "Defense in Depth", userImpact: "low", implementationCost: "low", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["dataSpillage"], deprecated: false, actionUrl: "", remediation: "Set PUA Protection to Block rather than Audit.", remediationImpact: "Some bundled installers stop running." },
+    { id: "mdatp_attacksurfacereductionrules", title: "Enable attack surface reduction rules", maxScore: 12, controlCategory: "Device", rank: 8, tier: "Defense in Depth", userImpact: "moderate", implementationCost: "moderate", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["accountBreach", "elevationOfPrivilege"], deprecated: false, actionUrl: "", remediation: "Move the standard protection rules from Audit into Block.", remediationImpact: "A small number of line-of-business macros and scripts may be blocked." },
+    { id: "mdatp_networkprotection", title: "Turn network protection on", maxScore: 6, controlCategory: "Device", rank: 14, tier: "Defense in Depth", userImpact: "moderate", implementationCost: "low", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["phishingOrWhaling"], deprecated: false, actionUrl: "", remediation: "Set Enable Network Protection to Block rather than Audit.", remediationImpact: "Users lose access to sites Microsoft rates as malicious." },
+    { id: "mdatp_diskencryption", title: "Require BitLocker on all Windows devices", maxScore: 8, controlCategory: "Device", rank: 11, tier: "Core", userImpact: "low", implementationCost: "moderate", actionType: "Config", service: "Microsoft Intune", threats: ["dataExfiltration"], deprecated: false, actionUrl: "", remediation: "Require device encryption in a disk encryption policy and confirm escrow.", remediationImpact: "First encryption pass costs battery on older hardware." },
+    { id: "defender_edrblockmode", title: "Turn on EDR in block mode", maxScore: 5, controlCategory: "Device", rank: 19, tier: "Advanced", userImpact: "low", implementationCost: "low", actionType: "Config", service: "Microsoft Defender for Endpoint", threats: ["accountBreach"], deprecated: false, actionUrl: "", remediation: "Enable EDR in block mode so behavioural detections are remediated rather than only reported.", remediationImpact: "None for users." },
+    { id: "edge_smartscreen", title: "Enable Microsoft Defender SmartScreen in Edge", maxScore: 5, controlCategory: "Apps", rank: 17, tier: "Core", userImpact: "low", implementationCost: "low", actionType: "Config", service: "Microsoft Edge", threats: ["phishingOrWhaling"], deprecated: false, actionUrl: "", remediation: "Turn SmartScreen on and prevent users from bypassing its prompts.", remediationImpact: "Users can no longer click through a SmartScreen warning." },
+    { id: "apps_thirdpartybrowserpolicy", title: "Manage third-party browser extensions", maxScore: 4, controlCategory: "Apps", rank: 41, tier: "Defense in Depth", userImpact: "moderate", implementationCost: "moderate", actionType: "Config", service: "Microsoft Edge", threats: ["dataExfiltration"], deprecated: false, actionUrl: "", remediation: "Publish an extension allow list rather than leaving installation open.", remediationImpact: "Users must ask for extensions that are not on the list." },
+    { id: "aad_mfa_admins", title: "Require MFA for administrative roles", maxScore: 10, controlCategory: "Identity", rank: 1, tier: "Core", userImpact: "moderate", implementationCost: "low", actionType: "Config", service: "Microsoft Entra ID", threats: ["accountBreach"], deprecated: false, actionUrl: "", remediation: "Require multifactor authentication for every privileged role.", remediationImpact: "Administrators are challenged at sign-in." },
+    { id: "aad_legacy_auth", title: "Block legacy authentication", maxScore: 8, controlCategory: "Identity", rank: 2, tier: "Core", userImpact: "moderate", implementationCost: "moderate", actionType: "Config", service: "Microsoft Entra ID", threats: ["accountBreach", "passwordCracking"], deprecated: false, actionUrl: "", remediation: "Block legacy authentication protocols with a Conditional Access policy.", remediationImpact: "Old mail clients stop connecting." },
+    { id: "dlp_policy_exists", title: "Create a data loss prevention policy", maxScore: 6, controlCategory: "Data", rank: 27, tier: "Defense in Depth", userImpact: "low", implementationCost: "high", actionType: "Config", service: "Microsoft Purview", threats: ["dataExfiltration"], deprecated: false, actionUrl: "", remediation: "Publish a DLP policy covering the sensitive information types the organisation actually holds.", remediationImpact: "Some sharing is blocked or warned on." },
+    // Deprecated: still on old readings, must be excluded from every sum.
+    { id: "legacy_retired_control", title: "A control Microsoft has retired", maxScore: 5, controlCategory: "Device", rank: 99, tier: "Defense in Depth", userImpact: "low", implementationCost: "low", actionType: "Review", service: "Microsoft 365", threats: [], deprecated: true, actionUrl: "", remediation: "Nothing — this control no longer counts.", remediationImpact: "" },
+  ];
+
+  // Per-control scores on the LATEST reading. The tenant is deliberately
+  // uneven: onboarding is the big miss, tamper and real-time are done, ASR
+  // is half-done, and one control carries no profile at all.
+  const SS_LATEST_CONTROLS = [
+    { controlName: "mdatp_onboarding", controlCategory: "Device", score: 1, description: "63 of 418 eligible Windows devices report a Defender for Endpoint sensor." },
+    { controlName: "mdatp_tamperprotection", controlCategory: "Device", score: 8, description: "Tamper protection is reported on by every device that checked in." },
+    { controlName: "mdatp_realtimeprotection", controlCategory: "Device", score: 8, description: "Real-time protection is on across the reporting estate." },
+    { controlName: "mdatp_pua", controlCategory: "Device", score: 0, description: "PUA protection is in audit on the devices that report it." },
+    { controlName: "mdatp_attacksurfacereductionrules", controlCategory: "Device", score: 5, description: "Some rules are in Block, the standard protection set is in Audit." },
+    { controlName: "mdatp_networkprotection", controlCategory: "Device", score: 0, description: "Network protection is not reported as enabled." },
+    { controlName: "mdatp_diskencryption", controlCategory: "Device", score: 6, description: "312 of 418 devices report an encrypted OS volume." },
+    { controlName: "defender_edrblockmode", controlCategory: "Device", score: 0, description: "EDR in block mode is off." },
+    { controlName: "edge_smartscreen", controlCategory: "Apps", score: 5, description: "SmartScreen is enforced and cannot be bypassed." },
+    { controlName: "apps_thirdpartybrowserpolicy", controlCategory: "Apps", score: 0, description: "No extension policy is published." },
+    { controlName: "aad_mfa_admins", controlCategory: "Identity", score: 7, description: "Two privileged accounts are still exempt." },
+    { controlName: "aad_legacy_auth", controlCategory: "Identity", score: 8, description: "Legacy authentication is blocked." },
+    { controlName: "dlp_policy_exists", controlCategory: "Data", score: 0, description: "No DLP policy is published." },
+    { controlName: "legacy_retired_control", controlCategory: "Device", score: 0, description: "Retired by Microsoft." },
+    // NO PROFILE ANYWHERE. Must render under its raw id and be counted as
+    // neither achieved nor a gap — the branch that is easy to get wrong.
+    { controlName: "unmapped_preview_control", controlCategory: "Device", score: 0, description: "A preview control the catalogue does not describe." },
+  ];
+
+  // Sixty daily readings, ending at the numbers above. The shape is a slow
+  // climb with a dip at day 38 (someone turned SmartScreen off for a week),
+  // so improved and regressed both have real entries across the window.
+  const SS_MAX = 89;
+  const SECURE_SCORES = (() => {
+    const out = [];
+    const latestTotal = SS_LATEST_CONTROLS.reduce((n, c) => n + c.score, 0);
+    for (let d = 59; d >= 0; d--) {
+      const dip = (d >= 18 && d <= 25) ? 5 : 0;      // the SmartScreen week
+      const climb = Math.round((59 - d) * 0.18);      // the slow improvement
+      const total = Math.max(0, latestTotal - 11 + climb - dip);
+      const scale = latestTotal ? total / latestTotal : 1;
+      out.push({
+        id: `demo-score-${d}`,
+        createdDateTime: ago(d * DAY),
+        currentScore: total,
+        maxScore: SS_MAX,
+        licensedUserCount: 512,
+        activeUserCount: 471,
+        enabledServices: ["HasExchange", "HasSharePoint", "HasIntune", "HasAADP2", "HasMDATP"],
+        averageComparativeScores: [
+          { basis: "AllTenants", averageScore: 46.7, deviceScore: 21, deviceScoreMax: 53, identityScore: 11, identityScoreMax: 18, appsScore: 4, appsScoreMax: 9, dataScore: 2, dataScoreMax: 6 },
+          { basis: "TotalSeats", averageScore: 52.4, deviceScore: 26, deviceScoreMax: 53, identityScore: 13, identityScoreMax: 18, appsScore: 5, appsScoreMax: 9, dataScore: 3, dataScoreMax: 6 },
+        ],
+        controlScores: SS_LATEST_CONTROLS.map((c) => {
+          if (d === 0) return Object.assign({}, c);
+          // SmartScreen is what dipped; everything else scales with the trend.
+          if (c.controlName === "edge_smartscreen" && dip) return Object.assign({}, c, { score: 0 });
+          return Object.assign({}, c, { score: Math.round(c.score * scale * 10) / 10 });
+        }),
+      });
+    }
+    return out.sort((a, b) => Date.parse(b.createdDateTime) - Date.parse(a.createdDateTime)); // newest first, as Graph answers
+  })();
+
   return { G, U, D, P, F, R, ago, MIN, HOUR, DAY,
+           SECURE_SCORES, SS_PROFILES,
            GROUPS, USERS, DEVICES, FILTERS, DELETED_GROUP,
            inc, exc, allDevices, allUsers,
            CONFIG_POLICIES, DEVICE_CONFIGS, COMPLIANCE_POLICIES, DEVICE_MANAGEMENT_SETTINGS,
@@ -1269,6 +1361,21 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // ---------- tenant ----------
   if (path === "/organization") return M.coll([{ id: "d0e1f2a3-4b5c-6d7e-8f90-abcdef012345", displayName: "Contoso B.V. (demo)" }]);
   if (path === "/deviceManagement/settings") return T.DEVICE_MANAGEMENT_SETTINGS;               // single object — no `value`
+
+  // ---------- Microsoft Secure Score (T21) ----------
+  //
+  // $top is honoured because T21 asks for 100 and the fixture holds sixty:
+  // a demo that silently returned more than was asked for would hide a
+  // paging bug rather than expose one. The catalogue answers identically on
+  // v1.0 and beta — the beta fill-in pass then finds nothing to fill, which
+  // is the correct demo outcome: the tenant's controls are all titled.
+  if (path === "/security/secureScores") {
+    const top = parseInt(qs.get("$top"), 10);
+    const rows = T.SECURE_SCORES;
+    return M.coll(Number.isFinite(top) ? rows.slice(0, top) : rows);
+  }
+  if (path === "/security/secureScoreControlProfiles") return M.coll(T.SS_PROFILES);
+
   if (path === "/deviceManagement/deviceProtectionOverview") return T.DEFENDER_OVERVIEW;        // single object
 
   // ---------- managed devices ----------

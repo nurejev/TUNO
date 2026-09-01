@@ -72,17 +72,23 @@ const EndpointSec = (() => {
   // claim, before anybody evaluates a filter or counts a member?
   function reachOf(assignments) {
     const a = assignments || [];
-    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false };
-    let includes = 0, excludes = 0, tenantWide = false, filtered = false;
+    if (!a.length) return { kind: "unassigned", includes: 0, excludes: 0, tenantWide: false, filtered: false, filteredExclusion: false };
+    let includes = 0, excludes = 0, tenantWide = false;
+    const fr = Docs.filterReachOf(a);
+    const filtered = fr.capped, filteredExclusion = fr.onExclusion;
     for (const x of a) {
       const t = (x.target && x.target["@odata.type"]) || "";
       if (/exclusionGroupAssignmentTarget/.test(t)) excludes++;
       else if (/groupAssignmentTarget/.test(t)) includes++;
       else if (/allDevicesAssignmentTarget|allLicensedUsersAssignmentTarget/.test(t)) { tenantWide = true; }
-      if (x.target && x.target.deviceAndAppManagementAssignmentFilterId) filtered = true;
+      // FILTERED MEANS "REACH IS CAPPED" (10490). This had counted a filter
+      // on an EXCLUSION too, where the filter narrows what is excluded
+      // rather than what is reached — the "may reach, not does" caveat this
+      // tool prints does not describe that case at all. Docs.filterReachOf
+      // is the one reader; a filter on an exclusion is its own fact.
     }
     const kind = (includes || tenantWide) ? "reaches" : excludes ? "excludedOnly" : "unassigned";
-    return { kind, includes, excludes, tenantWide, filtered };
+    return { kind, includes, excludes, tenantWide, filtered, filteredExclusion };
   }
 
   function groupIdsOf(assignments) {
@@ -339,6 +345,7 @@ const EndpointSecTool = (() => {
           <b>${esc(r.name)}</b> ${badge}
           ${r.source === "Legacy intent" ? `<span class="gu-how exc">legacy intent</span>` : ""}
           ${r.reach.filtered ? `<span class="gu-how priv" title="An assignment filter is in the way — reach is may, not is">filtered</span>` : ""}
+          ${r.reach.filteredExclusion ? `<span class="gu-how priv" title="A filter narrows an EXCLUSION on this policy — fewer devices are kept out than the exclusion suggests. It does not cap reach, which is why it is its own chip">filtered exclusion</span>` : ""}
           <span class="au-when mini muted">${esc(r.discipline)}</span>
         </div>
         <div class="mini muted au-ev-m">${esc(r.template)}${r.caveat ? ` · ${esc(r.caveat)}` : ""} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
@@ -353,7 +360,7 @@ const EndpointSecTool = (() => {
           ${r.platforms ? `<span class="muted">Platforms</span><span>${esc(r.platforms)}</span>` : ""}
           <span class="muted">Reach</span><span>${r.assignments === null
             ? "the legacy surface says only assigned or not — no assignment detail"
-            : `${r.reach.includes} include${r.reach.includes === 1 ? "" : "s"} · ${r.reach.excludes} exclusion${r.reach.excludes === 1 ? "" : "s"}${r.reach.tenantWide ? " · tenant-wide" : ""}${r.reach.filtered ? " · filtered (may, not is)" : ""}`}</span>
+            : `${r.reach.includes} include${r.reach.includes === 1 ? "" : "s"} · ${r.reach.excludes} exclusion${r.reach.excludes === 1 ? "" : "s"}${r.reach.tenantWide ? " · tenant-wide" : ""}${r.reach.filtered ? " · filtered (may, not is)" : ""}${r.reach.filteredExclusion ? " · a filter narrows an exclusion" : ""}`}</span>
           ${groups.length ? `<span class="muted">Groups</span><span>${groups.join(", ")}${rep.nameError ? ` <span class="muted">(names unresolved — ${esc(rep.nameError)})</span>` : ""}</span>` : ""}
         </div>
       </div>`;

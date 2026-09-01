@@ -54,6 +54,64 @@ const Roles = (() => {
   // Both are asked for once, on the click, before anything is read.
   const SCOPES = () => [...new Set([...S().rbac, ...S().directory])];
 
+  // Who is IN the group an assignment names — ENCA's CA-groups member read,
+  // ported (its loadMembers, one group at a time): transitiveMembers so
+  // nesting is flattened to the people who EFFECTIVELY hold the role, users
+  // only — a device or service principal in the group does not hold Intune
+  // RBAC and would only pad the count. Same 500 cap as ENCA and for the same
+  // reason: a 10k group would stall the view, and the total is honest about
+  // what the cap hid. Reads under the directory scopes this tool already
+  // asks for — no new permission.
+  const MEMBER_CAP = 500;
+  async function groupMembers(id) {
+    const ms = await Graph.readAll(`/groups/${encodeURIComponent(id)}/transitiveMembers/microsoft.graph.user`
+      + `?$select=id,displayName,userPrincipalName,accountEnabled&$top=999`, { scopes: S().directory, retry: true });
+    return {
+      total: ms.length,
+      capped: ms.length > MEMBER_CAP,
+      members: ms.slice(0, MEMBER_CAP).map((m) => ({
+        id: m.id, name: m.displayName || m.id, upn: m.userPrincipalName || "",
+        disabled: m.accountEnabled === false,
+      })),
+    };
+  }
+
+  // What the role ALLOWS — the permission grid the portal shows one blade at
+  // a time. The run's $select drops rolePermissions deliberately (they are
+  // large and most readers never ask), so ONE definition is re-read here, on
+  // the click, under the RBAC scope the run already asked. Actions arrive as
+  // "Microsoft.Intune_ManagedDevices_Read": the middle segment is the
+  // portal's category, the rest is the action, and the grouping below is
+  // exactly that split. INTUNE RBAC IS AN ALLOW LIST — anything not named is
+  // not granted — and the rare notAllowed entries are shown as denials
+  // rather than silently subtracted.
+  function parseActions(def) {
+    const allowed = new Set(), denied = new Set();
+    ((def && def.rolePermissions) || []).forEach((rp) => ((rp && rp.resourceActions) || []).forEach((ra) => {
+      ((ra && ra.allowedResourceActions) || []).forEach((a) => allowed.add(String(a)));
+      ((ra && ra.notAllowedResourceActions) || []).forEach((a) => denied.add(String(a)));
+    }));
+    const label = (s) => String(s || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+    const cats = new Map();
+    const add = (raw, ok) => {
+      const parts = String(raw).split("_");
+      const cat = parts.length > 1 ? label(parts[1]) : "Other";
+      const act = parts.length > 2 ? label(parts.slice(2).join(" ")) : (parts[1] ? label(parts[1]) : raw);
+      if (!cats.has(cat)) cats.set(cat, []);
+      cats.get(cat).push({ action: act, raw, allowed: ok });
+    };
+    allowed.forEach((a) => add(a, true));
+    denied.forEach((a) => add(a, false));
+    const groups = [...cats.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([category, actions]) => ({ category, actions: actions.sort((x, y) => x.action.localeCompare(y.action)) }));
+    return { groups, totalAllowed: allowed.size, totalDenied: denied.size };
+  }
+  async function roleSettings(id) {
+    const def = await Graph.readOne(`/deviceManagement/roleDefinitions/${encodeURIComponent(id)}?$select=id,displayName,rolePermissions`,
+      { scopes: S().rbac, beta: true });
+    return parseActions(def);
+  }
+
   const read = (path, scopes) => Graph.readAll(path, { scopes: scopes || S().rbac, beta: true, retry: true });
   const short = (e, max) => {
     const m = String((e && e.message) || e || "").split(" · ")[0];
@@ -491,6 +549,7 @@ footer a{color:#2b4c9b}`;
 
   return {
     SCOPES, HIGH_PRIVILEGE, MANY_MEMBERS, SCOPE_TYPE_LABEL, ENTRA_CAVEAT,
+    MEMBER_CAP, groupMembers, roleSettings, parseActions,
     run, observations, totals, shown, scopeLabel, caveats,
     meta, markdown, csv, html,
   };
@@ -507,6 +566,11 @@ const RolesTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let out = null, running = false;
+  // Group members read on demand, cached per group id so a second look is
+  // instant. A run or reset invalidates it — the tenant may have moved.
+  const groupCache = new Map();
+  // Same deal for role permission sets, keyed on the role definition id.
+  const permCache = new Map();
   // Open role folds, keyed on role ids — the T03 rule; survives re-renders
   // and the empty-roles toggle. Reset on a new read.
   const open = new Set();
@@ -552,6 +616,9 @@ const RolesTool = (() => {
       prog("Checking permissions…");
       await Graph.ensureScopes(Roles.SCOPES());
       open.clear();
+      groupCache.clear();
+      permCache.clear();
+      closeGroupModal();
       out = await Roles.run({ showEmpty: showEmpty(), onStatus: prog });
       prog("");
       render();
@@ -605,6 +672,7 @@ const RolesTool = (() => {
           <b>${esc(r.name)}</b>
           <span class="au-op ${r.unknownRole ? "other" : r.builtIn ? "action" : "create"}">${r.unknownRole ? "unknown" : r.builtIn ? "built-in" : "custom"}</span>
           ${empty ? `<span class="gu-how exc">empty</span>` : ""}
+          ${r.unknownRole ? "" : `<button class="btn sm" data-rbperm="${esc(r.id)}" data-rbpermname="${esc(r.name)}" title="What this role ALLOWS — the portal's permission grid on one page, read on the click. Intune RBAC is an allow list: anything not named is not granted.">⚙ permissions</button>`}
           <span class="au-when mini muted">${r.assignments.length} assignment${r.assignments.length === 1 ? "" : "s"}${memberCount ? ` · ${memberCount} member${memberCount === 1 ? "" : "s"}` : ""}</span>
         </div>
         <div class="mini muted au-ev-m">${esc(r.description || (empty ? "Nobody holds this role today." : ""))} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
@@ -614,7 +682,7 @@ const RolesTool = (() => {
             <div class="mini"><b>${esc(a.name)}</b> — scope: ${esc(Roles.scopeLabel(a))} · tags: ${a.tags.length ? a.tags.map((x) => `<span class="gu-stat zero">${esc(x.name)}</span>`).join(" ") : "none"}</div>
             ${a.memberObjects.length
     ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th>Member</th><th style="width:120px">Type</th><th style="width:280px">Sign-in / mail</th></tr></thead>
-         <tbody>${a.memberObjects.map((mm) => `<tr><td><b>${esc(mm.name)}</b></td><td class="mini">${esc(mm.type)}</td><td class="mini">${esc(mm.upn)}</td></tr>`).join("")}</tbody></table></div>`
+         <tbody>${a.memberObjects.map((mm) => `<tr><td><b>${esc(mm.name)}</b>${mm.type === "group" ? ` <button class="btn sm" data-rbgrp="${esc(mm.id)}" data-rbgrpname="${esc(mm.name)}" title="Who is in it — every user, nested groups flattened. Read on the click; the report stays as read.">👥 members</button>` : ""}</td><td class="mini">${esc(mm.type)}</td><td class="mini">${esc(mm.upn)}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="mini muted" style="margin:4px 0 0">No members. The assignment is live — adding one member to it grants this role.</p>`}
           </div>`).join("") : `<p class="mini muted" style="margin:0">No assignments. Nobody holds this role today — and it is one membership change from being a live grant.</p>`}
       </div>`;
@@ -633,11 +701,84 @@ const RolesTool = (() => {
       <p class="mini muted" style="margin:10px 0 0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (MIT). Member names are resolved through <code>directoryObjects/getByIds</code> in one batched call rather than probing <code>/users/{id}</code> then <code>/groups/{id}</code> per member, which is what the original does and costs up to two round trips each.</p></div>` + obs + failed;
 
     $("rbBody").querySelectorAll("[data-rbrole]").forEach((el) => el.addEventListener("click", (e) => {
-      if (e.target.closest("a,code")) return;
+      if (e.target.closest("a,code,button")) return;
       const id = el.dataset.rbrole;
       open.has(id) ? open.delete(id) : open.add(id);
       render();
     }));
+  }
+
+  // ---- who is in that group: ENCA's per-group scan, behind ENCA's modal ----
+  // The role report deliberately shows the assignment AS WRITTEN — a group
+  // member is a group, because whoever can change ITS membership can grant
+  // the role without holding it. The modal answers the next question, "and
+  // who is that today", read live on the click rather than during the run:
+  // most groups never get asked, and the ones that do deserve a live answer.
+  function memberList(got) {
+    const rows = got.members.map((m) => `<tr><td><b>${esc(m.name)}</b>${m.disabled ? ' <span class="tag block">disabled</span>' : ""}</td><td class="mini">${esc(m.upn)}</td></tr>`).join("");
+    return `${got.total ? `<div class="gu-tw"><table class="cg-table"><thead><tr><th>User</th><th style="width:300px">Sign-in</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : `<p class="mini muted" style="margin:0"><b>No users.</b> Transitive membership was read and no user is in it — the group may be empty, or hold only devices or service principals, which do not hold Intune RBAC and are not listed.</p>`}
+      ${got.capped ? `<p class="mini muted" style="margin:8px 0 0">Showing the first ${Roles.MEMBER_CAP} of ${got.total} — the total is the honest number, the list is capped so the view survives it.</p>` : ""}
+      <p class="mini muted" style="margin:8px 0 0">Every user who holds the role <b>through this group</b>, nested groups flattened. Whoever can change this group's membership can change this list — and they do not need to hold the role themselves.</p>`;
+  }
+
+  async function openGroupModal(id, name) {
+    $("rbModalTitle").textContent = `👥 ${name}`;
+    $("rbModalSub").innerHTML = `<code>${esc(id)}</code>`;
+    $("rbModal").classList.add("open");
+    const done = (got) => {
+      $("rbModalSub").innerHTML = `${got.total} user${got.total === 1 ? "" : "s"}, nested groups flattened · <code>${esc(id)}</code>`;
+      $("rbModalBody").innerHTML = memberList(got);
+    };
+    const cached = groupCache.get(id);
+    if (cached) { done(cached); return; }
+    $("rbModalBody").innerHTML = `<p class="mini muted" style="margin:0">Reading the transitive members…</p>`;
+    try {
+      const got = await Roles.groupMembers(id);
+      groupCache.set(id, got);
+      // The person may have closed the modal or opened another group while
+      // the read ran — only paint if this group is still the one asked for.
+      if ($("rbModal").classList.contains("open") && $("rbModalSub").innerHTML.includes(id)) done(got);
+    } catch (e) {
+      if ($("rbModal").classList.contains("open") && $("rbModalSub").innerHTML.includes(id))
+        $("rbModalBody").innerHTML = `<div class="gu-fail"><b>The members could not be read.</b><span class="why">${esc(String((e && e.message) || e).slice(0, 300))}</span></div>`;
+    }
+  }
+
+  const closeGroupModal = () => $("rbModal").classList.remove("open");
+
+  // ---- what the role allows: the permission grid, one modal instead of a
+  // portal blade per category. Same shape as the members peek: read on the
+  // click, cached per role per run, the report untouched.
+  function permList(got) {
+    if (!got.groups.length) return `<p class="mini muted" style="margin:0"><b>No actions.</b> The definition carries no permissions — a member of this role can do nothing through it.</p>`;
+    const chip = (a) => `<span class="gu-how ${a.allowed ? "inc" : "exc"}" title="${esc(a.raw)}">${esc(a.action)}${a.allowed ? "" : " — denied"}</span>`;
+    return got.groups.map((g) => `<div class="gu-src">
+        <h5>${esc(g.category)} <span class="mini muted">${g.actions.length}</span></h5>
+        <p class="mini" style="margin:0;display:flex;flex-wrap:wrap;gap:6px">${g.actions.map(chip).join(" ")}</p>
+      </div>`).join("")
+      + `<p class="mini muted" style="margin:12px 0 0"><b>Intune RBAC is an allow list.</b> Anything not named here is not granted — there is no implicit read behind these actions. Hover an action for the raw name Graph uses.</p>`;
+  }
+
+  async function openPermModal(id, name) {
+    $("rbModalTitle").textContent = `⚙ ${name}`;
+    $("rbModalSub").innerHTML = `<code>${esc(id)}</code>`;
+    $("rbModal").classList.add("open");
+    const done = (got) => {
+      $("rbModalSub").innerHTML = `${got.totalAllowed} allowed action${got.totalAllowed === 1 ? "" : "s"}${got.totalDenied ? ` · ${got.totalDenied} denied` : ""} · <code>${esc(id)}</code>`;
+      $("rbModalBody").innerHTML = permList(got);
+    };
+    const cached = permCache.get(id);
+    if (cached) { done(cached); return; }
+    $("rbModalBody").innerHTML = `<p class="mini muted" style="margin:0">Reading the role definition…</p>`;
+    try {
+      const got = await Roles.roleSettings(id);
+      permCache.set(id, got);
+      if ($("rbModal").classList.contains("open") && $("rbModalSub").innerHTML.includes(id)) done(got);
+    } catch (e) {
+      if ($("rbModal").classList.contains("open") && $("rbModalSub").innerHTML.includes(id))
+        $("rbModalBody").innerHTML = `<div class="gu-fail"><b>The permissions could not be read.</b><span class="why">${esc(String((e && e.message) || e).slice(0, 300))}</span></div>`;
+    }
   }
 
   function exportAs(fmt) {
@@ -648,6 +789,9 @@ const RolesTool = (() => {
 
   function reset() {
     out = null;
+    groupCache.clear();
+    permCache.clear();
+    closeGroupModal();
     $("rbBody").innerHTML = "";
     prog("");
     showExports(false);
@@ -664,7 +808,17 @@ const RolesTool = (() => {
     $("rbMd").addEventListener("click", () => exportAs("md"));
     $("rbCsv").addEventListener("click", () => exportAs("csv"));
     $("rbHtml").addEventListener("click", () => exportAs("html"));
+    // Delegated: the member tables are rebuilt on every render, the handler
+    // is not — the guModal wiring, same shape.
+    $("rbBody").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-rbgrp]");
+      if (b) { openGroupModal(b.dataset.rbgrp, b.dataset.rbgrpname || b.dataset.rbgrp); return; }
+      const p = e.target.closest("[data-rbperm]");
+      if (p) openPermModal(p.dataset.rbperm, p.dataset.rbpermname || p.dataset.rbperm);
+    });
+    $("rbModalClose").addEventListener("click", closeGroupModal);
+    $("rbModal").addEventListener("click", (e) => { if (e.target.id === "rbModal") closeGroupModal(); });
   }
 
-  return { init, run, reset, render, exportAs, showEmpty };
+  return { init, run, reset, render, exportAs, showEmpty, openGroupModal, openPermModal };
 })();

@@ -105,13 +105,19 @@ const GroupUse = (() => {
       // almost nothing, or the reverse. Naming the mode without the filter is
       // half an answer, but the id is all the assignment carries — the filter
       // names are resolved once, later, for the whole run.
-      const fmode = t.deviceAndAppManagementAssignmentFilterType;
-      if (fmode && lc(fmode) !== "none") bits.push(`filter: ${fmode}`);
+      // KEYED ON THE ID (10490), via the house's one reader. This had keyed
+      // off the TYPE, so an assignment carrying a filter id with a missing
+      // or "none" type showed no filter here while T05, T12, T19 and T20 all
+      // showed one — five tools on this side of the split, four on the
+      // other, describing the same assignment.
+      const fx = Docs.filterOfTarget(t);
+      if (fx) bits.push(`filter: ${fx.mode}${fx.modeStated ? "" : " (mode not stated — assumed include)"}`);
       if (o.extra) bits.push(o.extra(item));
       out.push({
         pid, name, id: item.id, how,
-        filterId: t.deviceAndAppManagementAssignmentFilterId || "",
-        filterMode: fmode && lc(fmode) !== "none" ? String(fmode) : "",
+        filterId: fx ? fx.id : "",
+        filterMode: fx ? fx.mode : "",
+        filterModeStated: fx ? fx.modeStated : false,
         detail: bits.filter(Boolean).join(" · "),
       });
     }
@@ -713,10 +719,16 @@ tr.miss td{background:#fdeceb}</style></head><body>
     const names = {};
     try {
       (await read("/deviceManagement/assignmentFilters?$select=id,displayName,platform", S().config))
-        .forEach((f) => { names[f.id] = f.displayName || f.id; });
+        .forEach((f) => { names[String(f.id).toLowerCase()] = f.displayName || f.id; });
     } catch { return rows; }
-    return rows.map((r) => (r.filterId && names[r.filterId]
-      ? { ...r, filterName: names[r.filterId], detail: r.detail.replace(/filter: (\w+)/, `filter: $1 “${names[r.filterId]}”`) }
+    // The splice used to hunt for "filter: <word>" in the detail string and
+    // do nothing when it was not there — which was exactly the case a
+    // missing mode created. Built from the parts instead.
+    return rows.map((r) => (r.filterId && names[String(r.filterId).toLowerCase()]
+      ? { ...r, filterName: names[String(r.filterId).toLowerCase()],
+          detail: r.detail.includes("filter: ")
+            ? r.detail.replace(/filter: (\w+)/, `filter: $1 “${names[String(r.filterId).toLowerCase()]}”`)
+            : [r.detail, `filter: ${r.filterMode || "include"} “${names[String(r.filterId).toLowerCase()]}”`].filter(Boolean).join(" · ") }
       : r));
   }
 

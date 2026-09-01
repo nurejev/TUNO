@@ -85,11 +85,14 @@ const DeviceWhy = (() => {
 
   // ------------------------------------------------------------- finding --
   //
-  // A device is looked up three ways because an admin has three things to
-  // hand: the name in the portal, the serial on the sticker, and a GUID out of
-  // a support ticket. The GUID is the interesting one — there are TWO of them
-  // for every machine (the Intune managedDevice id and the Entra device id)
-  // and they are not interchangeable. Both are tried.
+  // A device is looked up four ways because an admin has four things to
+  // hand: the name in the portal, the serial on the sticker, a GUID out of
+  // a support ticket — and, most often of all, THE USER the ticket is about.
+  // The enrolment record names its primary user, so a UPN, a display name or
+  // the user's object id resolves to their devices with no /users call and no
+  // new scope. The GUIDs stay interesting — every machine has TWO (the Intune
+  // managedDevice id and the Entra device id), they are not interchangeable,
+  // and the user's object id makes a third — so all three are tried.
   //
   // $filter SUPPORT ON managedDevices IS NOT DOCUMENTED PER PROPERTY and
   // tenants differ, so every server-side filter is attempted and its failure
@@ -123,17 +126,25 @@ const DeviceWhy = (() => {
     return { matches, scanned, truncated };
   }
 
+  // MORE THAN ONE MATCH IS AN ANSWER, NOT AN ERROR. A user with a laptop AND
+  // a phone is the normal case for the primary-user route, not a collision —
+  // so every multi-match here returns `{ devices }` for the screen to offer
+  // as a pick, and the old dead end ("use the Intune device id") is gone from
+  // the name and serial routes as a side effect: the admin who typed a
+  // colliding name gets the colliding devices, not homework.
   async function findDevice(term, onStatus) {
     term = String(term || "").trim();
-    if (!term) throw new Error("Enter a device name, serial number or object ID");
+    if (!term) throw new Error("Enter a device name, serial number, primary user or object ID");
     const notes = [];
     const t = lc(term);
+    const one = (device, matchedOn) => ({ device, matchedOn, notes });
+    const many = (devices, matchedOn) => ({ devices, matchedOn, notes });
 
     if (Graph.isGuid(term)) {
       onStatus && onStatus("Looking the device up by id…");
       try {
         const d = await Graph.readOne(`/deviceManagement/managedDevices/${encodeURIComponent(term)}`, { scopes: S().devices, beta: true });
-        if (d && d.id) return { device: d, matchedOn: "the Intune device id", notes };
+        if (d && d.id) return one(d, "the Intune device id");
       } catch (e) {
         // Only a 404 means "try the other GUID". A 403 here is a permission
         // problem, and treating it as a miss would report a device that is
@@ -142,34 +153,45 @@ const DeviceWhy = (() => {
       }
       const byAad = await tryFilter(Graph.odata`/deviceManagement/managedDevices?$filter=azureADDeviceId eq '${term}'` + `&$select=${LIST_SELECT}`, S().devices);
       if (byAad.fatal) throw byAad.fatal;
-      if (byAad.ok && byAad.items.length === 1) return { device: byAad.items[0], matchedOn: "the Entra device id", notes };
-      if (byAad.ok && byAad.items.length > 1) throw new Error(`${byAad.items.length} devices carry that Entra device id — use the Intune device id instead`);
+      if (byAad.ok && byAad.items.length === 1) return one(byAad.items[0], "the Entra device id");
+      if (byAad.ok && byAad.items.length > 1) return many(byAad.items, "the Entra device id");
       if (!byAad.ok) notes.push(`This tenant would not filter on azureADDeviceId (${byAad.error}).`);
+      // The THIRD GUID a ticket carries: the user's object id. The enrolment
+      // record names its user, so this needs no /users call and no new scope.
+      const byUid = await tryFilter(Graph.odata`/deviceManagement/managedDevices?$filter=userId eq '${term}'` + `&$select=${LIST_SELECT}`, S().devices);
+      if (byUid.fatal) throw byUid.fatal;
+      if (byUid.ok && byUid.items.length === 1) return one(byUid.items[0], "the primary user's object id");
+      if (byUid.ok && byUid.items.length > 1) return many(byUid.items, "the primary user's object id");
+      if (!byUid.ok) notes.push(`This tenant would not filter on userId (${byUid.error}).`);
     }
 
+    // A term with an @ in it is a UPN before it is anything else — no device
+    // name or serial carries one — so the primary-user filter goes first.
+    // Display names have no such marker; those are the scan's job below.
     const filters = [
-      ["deviceName", Graph.odata`/deviceManagement/managedDevices?$filter=deviceName eq '${term}'` + `&$select=${LIST_SELECT}`],
-      ["serialNumber", Graph.odata`/deviceManagement/managedDevices?$filter=serialNumber eq '${term}'` + `&$select=${LIST_SELECT}`],
+      ["deviceName", "the device name", Graph.odata`/deviceManagement/managedDevices?$filter=deviceName eq '${term}'` + `&$select=${LIST_SELECT}`],
+      ["serialNumber", "the serial number", Graph.odata`/deviceManagement/managedDevices?$filter=serialNumber eq '${term}'` + `&$select=${LIST_SELECT}`],
     ];
-    for (const [field, path] of filters) {
+    if (term.includes("@")) filters.unshift(
+      ["userPrincipalName", "the primary user", Graph.odata`/deviceManagement/managedDevices?$filter=userPrincipalName eq '${term}'` + `&$select=${LIST_SELECT}`]);
+    for (const [field, label, path] of filters) {
       onStatus && onStatus(`Looking for ${field} “${term}”…`);
       const r = await tryFilter(path, S().devices);
       if (r.fatal) throw r.fatal;
       if (!r.ok) { notes.push(`This tenant would not filter on ${field} (${r.error}).`); continue; }
-      if (r.items.length === 1) return { device: r.items[0], matchedOn: field === "deviceName" ? "the device name" : "the serial number", notes };
-      if (r.items.length > 1) throw new Error(`“${term}” matches ${r.items.length} devices by ${field} — use the Intune device id`);
+      if (r.items.length === 1) return one(r.items[0], label);
+      if (r.items.length > 1) return many(r.items, label);
     }
 
     // Nothing filtered, or nothing matched. List and match here.
     onStatus && onStatus("Listing the inventory…");
     const scan = await scanDevices((d) => lc(d.deviceName) === t || lc(d.serialNumber) === t
-      || lc(d.managedDeviceName) === t || lc(d.azureADDeviceId) === t || lc(d.id) === t, onStatus);
+      || lc(d.managedDeviceName) === t || lc(d.azureADDeviceId) === t || lc(d.id) === t
+      || lc(d.userPrincipalName) === t || lc(d.userDisplayName) === t, onStatus);
     notes.push(`Matched by listing the inventory — ${scan.scanned} device${scan.scanned === 1 ? "" : "s"} read.${scan.truncated ? ` Stopped after ${SCAN_PAGES} pages; a device further down the list would have been missed.` : ""}`);
-    if (scan.matches.length === 1) return { device: scan.matches[0], matchedOn: "name or serial, matched locally", notes, scanned: scan.scanned };
-    if (scan.matches.length > 1) {
-      throw new Error(`“${term}” matches ${scan.matches.length} devices (${scan.matches.slice(0, 5).map((d) => d.deviceName || d.id).join(", ")}${scan.matches.length > 5 ? "…" : ""}) — use the Intune device id`);
-    }
-    throw new Error(`No device matches “${term}”${scan.truncated ? `, in the first ${scan.scanned} of the inventory` : ""}. Names, serials and ids are matched exactly.`);
+    if (scan.matches.length === 1) return { device: scan.matches[0], matchedOn: "name, serial, id or primary user, matched locally", notes, scanned: scan.scanned };
+    if (scan.matches.length > 1) return { devices: scan.matches, matchedOn: "name, serial, id or primary user, matched locally", notes, scanned: scan.scanned };
+    throw new Error(`No device matches “${term}”${scan.truncated ? `, in the first ${scan.scanned} of the inventory` : ""}. Names, serials, ids and primary users (UPN or display name) are matched exactly.`);
   }
 
   // ------------------------------------------------------------ check-in --
@@ -415,7 +437,55 @@ const DeviceWhy = (() => {
     res.rows.forEach((r) => { r.reported = stateFor(r, idx); });
     res.verdicts = verdicts(res.rows, scope);
     res.stateIndex = { count: idx.count, ambiguous: idx.dupeNames.size };
+
+    // ONE DISPLAY ROW PER POLICY. res.rows stays one row per (policy,
+    // relationship) — that is the evidence, and the CSV keeps it — but the
+    // human views showed it raw, so a policy included by All Devices and
+    // excluded through a group rendered TWICE, each row telling half the
+    // story and both wearing the whole verdict. The verdict is per policy;
+    // the table now is too, with every relationship stacked in the Why cell
+    // and the rule that decided them said once.
+    const seen = new Map();
+    res.policyRows = [];
+    for (const r of res.rows) {
+      const k = policyKey(r);
+      let p = seen.get(k);
+      if (!p) {
+        const v = res.verdicts.get(k);
+        p = {
+          source: r.source, sourceLabel: r.sourceLabel, sub: r.sub, id: r.id, name: r.name,
+          effect: v.effect, mixedKind: v.mixedKind, included: v.included, excluded: v.excluded,
+          reported: r.reported, vias: [],
+        };
+        seen.set(k, p);
+        res.policyRows.push(p);
+      }
+      p.vias.push({
+        label: r.viaLabel, excluded: r.how === "excluded",
+        filterMode: r.filterMode || "", filterName: r.filterName || "",
+        tenantWide: r.pid === GroupUse.TENANT_WIDE,
+      });
+    }
+    // When the verdict IS the exclusion, the exclusion leads — the screenshot
+    // that forced this read "Excluded | All Devices, including this one",
+    // which is the story backwards.
+    res.policyRows.forEach((p) => {
+      if (p.effect === "excluded" || p.effect === "conflict")
+        p.vias.sort((a, b) => (b.excluded ? 1 : 0) - (a.excluded ? 1 : 0));
+    });
     return res;
+  }
+
+  // The Why cell's lines, shared by the screen and both text exports so the
+  // three cannot drift: every relationship on its own line, exclusions named
+  // as such, per-via filters carried, and the deciding rule said once.
+  function viaLines(p) {
+    const L = p.vias.map((v) => `${v.excluded ? "excluded " : ""}${v.label}${v.filterMode ? ` (filter: ${v.filterName || v.filterMode})` : ""}`);
+    if (p.effect === "excluded" && p.included)
+      L.push(`An exclusion beats an inclusion — the include${p.included === 1 ? "" : "s"} above ${p.included === 1 ? "does" : "do"} not land.`);
+    if (p.effect === "conflict")
+      L.push(`The include and the exclusion arrive through different kinds of group — device against user — and whether the exclusion applies depends on how the policy is targeted. The assignment does not say; this is left to the portal.`);
+    return L;
   }
 
   // --------------------------------------------------------------- totals --
@@ -497,7 +567,7 @@ const DeviceWhy = (() => {
     L.push("");
     caveats(m, res).forEach((c) => L.push(`> ${mdCell(c)}`, ""));
 
-    for (const g of GroupUse.grouped(res.rows)) {
+    for (const g of GroupUse.grouped(res.policyRows)) {
       L.push(`## ${g.source.icon} ${g.source.label} (${g.rows.length})`, "");
       L.push(`| Name | Kind | Effect | Why it reaches this device | Reported by the device |`, `|---|---|---|---|---|`);
       for (const r of g.rows) {
@@ -506,11 +576,11 @@ const DeviceWhy = (() => {
           : (r.reported.state === "unknown"
             ? `unknown (${mdCell(r.reported.matchedBy === "none" ? "the device has not reported this policy" : r.reported.matchedBy)})`
             : stateLabel(r.reported.state));
-        L.push(`| ${mdCell(r.name)} | ${mdCell(r.sub || "")} | ${EFFECT_LABEL[r.effect] || r.effect}${r.filterMode ? ` (filter: ${mdCell(r.filterName || r.filterMode)})` : ""} | ${mdCell(r.viaLabel)} | ${st} |`);
+        L.push(`| ${mdCell(r.name)} | ${mdCell(r.sub || "")} | ${EFFECT_LABEL[r.effect] || r.effect} | ${viaLines(r).map(mdCell).join("; ")} | ${st} |`);
       }
       L.push("");
     }
-    if (!res.rows.length) L.push("_Nothing in Intune reaches this device across the surfaces that were read._", "");
+    if (!res.policyRows.length) L.push("_Nothing in Intune reaches this device across the surfaces that were read._", "");
 
     if (res.failed.length) {
       L.push(`## Could not be read`, "");
@@ -580,13 +650,13 @@ footer a{color:#2b4c9b}`;
       return `<span class="st">${esc(stateLabel(r.reported.state))}</span>`;
     };
     const notes = caveats(m, res).map((c, i) => `<p class="note${(i === 0 || /could not|NEITHER/.test(c)) ? " bad" : ""}">${esc(c)}</p>`).join("");
-    const areas = GroupUse.grouped(res.rows).map((g) => `
+    const areas = GroupUse.grouped(res.policyRows).map((g) => `
       <section class="area"><h2>${esc(g.source.icon)} ${esc(g.source.label)} <span>${g.rows.length}</span></h2>
         <table><thead><tr><th>Policy</th><th style="width:150px">Kind</th><th style="width:170px">Effect</th><th style="width:280px">Why it reaches this device</th><th style="width:200px">Reported by the device</th></tr></thead>
         <tbody>${g.rows.map((r) => `<tr>
           <td><b>${esc(r.name)}</b></td><td>${esc(r.sub || "")}</td>
-          <td>${pill(r.effect)}${r.filterMode ? `<div class="via">filter: ${esc(r.filterName || r.filterMode)}</div>` : ""}</td>
-          <td class="via">${esc(r.viaLabel)}</td><td>${stCell(r)}</td></tr>`).join("")}</tbody></table>
+          <td>${pill(r.effect)}</td>
+          <td class="via">${viaLines(r).map(esc).join("<br>")}</td><td>${stCell(r)}</td></tr>`).join("")}</tbody></table>
       </section>`).join("");
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -611,7 +681,7 @@ footer a{color:#2b4c9b}`;
   return {
     scopesFor, findDevice, scanDevices, freshness, landedNote, buildScope,
     readStates, indexStates, stateFor, stateLabel, STATEFUL,
-    verdicts, EFFECT_LABEL, analyze, totals, caveats,
+    verdicts, EFFECT_LABEL, analyze, viaLines, totals, caveats,
     meta, markdown, csv, html, LIST_SELECT, SCAN_PAGES,
   };
 })();
@@ -627,6 +697,10 @@ const DeviceWhyTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let device = null, scope = null, states = null, result = null, found = null, running = false;
+  // The pick set when a search matched more than one device, and the
+  // matched-on/notes it arrived with — kept apart from `found` so picking a
+  // card can build a clean single-device `found` without losing the route.
+  let picks = null, pickBase = null;
 
   // ---- opening a policy to see what is actually in it ----
   // The table answers "does this reach the device". The next question is
@@ -671,9 +745,17 @@ const DeviceWhyTool = (() => {
     openRows.set(key, { state: "loading" });
     render();
     try {
-      const got = await Graph.get(d.url, { scopes: Graph.SCOPES.config });
-      const rows = d.kind === "catalog" ? Docs.catalogRows(got && got.value ? got.value : got)
-        : d.kind === "admx" ? Docs.admxRows(got && got.value ? got.value : got)
+      // THE SAME GRAPH VERSION AS THE LIST. Settings catalog and ADMX exist
+      // only on beta — Graph.get has no beta switch, so this call was going
+      // to v1.0 and 404ing with "Resource not found for the segment" while
+      // the policy it was about sat right there, read from beta by T05's
+      // collect. readAll also pages, so a catalog policy with hundreds of
+      // settings arrives whole; the single-object kinds read with readOne.
+      const got = d.kind === "object"
+        ? await Graph.readOne(d.url, { scopes: Graph.SCOPES.config, beta: true, retry: true })
+        : await Graph.readAll(d.url, { scopes: Graph.SCOPES.config, beta: true, retry: true });
+      const rows = d.kind === "catalog" ? Docs.catalogRows(got)
+        : d.kind === "admx" ? Docs.admxRows(got)
           : Docs.flatten(got);
       openRows.set(key, { state: "ok", rows: rows || [] });
     } catch (e) {
@@ -752,10 +834,85 @@ const DeviceWhyTool = (() => {
     prog("");
   }
 
+  // ---- more than one device matched: the pick, Option A of the mockup ----
+  // The search can legitimately answer with several machines — a primary
+  // user with a laptop and a phone is the everyday case — so the matches
+  // render as the same clickable cards T19 taught the eye, and a click runs
+  // the analysis on that device. The check-in is ON the card, because
+  // "which of these is the live one" is usually the whole question.
+  const PICK_MAX = 24;
+
+  function pickCard(d, i) {
+    const os = String(d.operatingSystem || "");
+    const ic = /ios|ipad|android/i.test(os) ? "📱" : "💻";
+    const comp = String(d.complianceState || "").toLowerCase();
+    const chip = `<span class="state ${comp === "compliant" ? "on" : "report"}">${esc(d.complianceState || "unknown")}</span>`;
+    return `<div class="scard dw-pick" data-i="${i}" role="button" tabindex="0">
+      <div class="scard-top"><div class="scard-ic">${ic}</div>
+        <div class="scard-title"><h3>${esc(d.deviceName || d.id)}</h3>
+          <div class="mini">${esc([os, d.osVersion].filter(Boolean).join(" ") || "platform unknown")} · ${d.serialNumber ? esc(d.serialNumber) : "no serial reported"} · ${esc(d.managedDeviceOwnerType || "ownership unknown")}</div></div>
+        <div class="scard-right">${chip}</div></div>
+      <div class="scard-grid">
+        <div><label>Primary user</label><b>${esc(d.userDisplayName || d.userPrincipalName || "none")}</b></div>
+        <div><label>Last check-in</label><b>${esc(DeviceWhy.freshness(d).label)}</b></div>
+        <div><label>Model</label><b>${esc([d.manufacturer, d.model].filter(Boolean).join(" ") || "unknown")}</b></div>
+        <div><label>Enrolled</label><b>${esc((d.enrolledDateTime || "").slice(0, 10) || "unknown")}</b></div>
+      </div>
+      <div class="scard-foot">Intune device id: <code>${esc(d.id)}</code> — click to analyze</div>
+    </div>`;
+  }
+
+  function renderPicker(term) {
+    const shown = picks.slice(0, PICK_MAX);
+    $("dvBody").innerHTML = `<div class="list-card" style="padding:14px 18px">
+      <p class="mini" style="margin:0">“${esc(term)}” matched <b>${picks.length} devices</b> by ${esc(pickBase.matchedOn)} — pick the one to analyze.${picks.length > PICK_MAX ? ` Showing the first ${PICK_MAX}; narrow the search to reach the rest.` : ""}</p>
+      ${(pickBase.notes || []).map((n) => `<p class="mini muted" style="margin:6px 0 0">${esc(n)}</p>`).join("")}
+    </div>
+    <div class="cards" style="margin-top:14px">${shown.map(pickCard).join("")}</div>`;
+  }
+
+  function pickDevice(d) {
+    found = {
+      device: d, matchedOn: pickBase.matchedOn,
+      notes: [...(pickBase.notes || []), `Picked from ${picks.length} matching devices.`],
+    };
+    analyzeDevice(d);
+  }
+
+  async function analyzeDevice(dev) {
+    if (running) return;
+    const areas = chosen();
+    if (!areas.length) { fail("Pick at least one place to look."); return; }
+    running = true;
+    $("dvRun").disabled = true;
+    showExports(false);
+    try {
+      // Idempotent when run() already asked; load-bearing when the pick sat
+      // while the surface boxes changed underneath it.
+      await Graph.ensureScopes(DeviceWhy.scopesFor(areas));
+      device = dev;
+      scope = await DeviceWhy.buildScope(device, prog);
+      states = await DeviceWhy.readStates(device, prog);
+      result = await DeviceWhy.analyze({
+        device, scope, states,
+        sourceIds: areas, tenantWide: tenantWide(),
+        onStatus: prog,
+      });
+      prog("");
+      render();
+      showExports(true);
+    } catch (e) {
+      fail(e);
+    } finally {
+      running = false;
+      $("dvRun").disabled = false;
+    }
+  }
+
   async function run() {
     if (running) return;
     const term = (($("dvTerm") && $("dvTerm").value) || "").trim();
-    if (!term) { fail("Enter a device name, serial number or object ID."); return; }
+    if (!term) { fail("Enter a device name, serial number, primary user or object ID."); return; }
     const areas = chosen();
     if (!areas.length) { fail("Pick at least one place to look."); return; }
 
@@ -763,12 +920,20 @@ const DeviceWhyTool = (() => {
     $("dvRun").disabled = true;
     showExports(false);
     $("dvBody").innerHTML = "";
+    picks = null; pickBase = null;
     try {
       const want = DeviceWhy.scopesFor(areas);
       prog(`Checking permissions — ${want.length} scope${want.length === 1 ? "" : "s"}…`);
       await Graph.ensureScopes(want);
 
       found = await DeviceWhy.findDevice(term, prog);
+      if (found.devices) {
+        picks = found.devices;
+        pickBase = { matchedOn: found.matchedOn, notes: found.notes || [] };
+        prog("");
+        renderPicker(term);
+        return;
+      }
       device = found.device;
       scope = await DeviceWhy.buildScope(device, prog);
       states = await DeviceWhy.readStates(device, prog);
@@ -848,7 +1013,7 @@ const DeviceWhyTool = (() => {
     };
     const effClass = { applies: "inc", maybe: "priv", excluded: "exc", conflict: "priv" };
 
-    const sources = GroupUse.grouped(result.rows).map((grp) => `
+    const sources = GroupUse.grouped(result.policyRows).map((grp) => `
       <div class="gu-src">
         <h5>${esc(grp.source.icon)} ${esc(grp.source.label)} <span class="mini muted">${grp.rows.length}</span>
           <a href="${esc(grp.source.doc)}" target="_blank" rel="noopener">docs ↗</a></h5>
@@ -861,8 +1026,8 @@ const DeviceWhyTool = (() => {
             <td><button class="dw-open${open ? " on" : ""}" data-src="${esc(grp.source.id)}" data-ri="${ri}"
                   title="Show what this policy actually sets">${esc(r.name)}</button></td>
             <td class="mini">${esc(r.sub || "")}</td>
-            <td><span class="gu-how ${effClass[r.effect] || "inc"}">${esc(DeviceWhy.EFFECT_LABEL[r.effect] || r.effect)}</span>${r.filterMode ? `<div class="mini muted">filter: ${esc(r.filterName || r.filterMode)}</div>` : ""}</td>
-            <td class="gu-via${r.pid === GroupUse.TENANT_WIDE ? " parent" : ""}">${esc(r.viaLabel)}</td>
+            <td><span class="gu-how ${effClass[r.effect] || "inc"}">${esc(DeviceWhy.EFFECT_LABEL[r.effect] || r.effect)}</span></td>
+            <td class="gu-via${r.vias.some((v) => v.tenantWide) ? " parent" : ""}">${DeviceWhy.viaLines(r).map((l, li) => `<div${li >= r.vias.length ? ' class="mini muted"' : ""}>${esc(l)}</div>`).join("")}</td>
             <td>${stCell(r)}</td>
           </tr>` + settingsRow(r, 5);
           }).join("")}</tbody></table></div>
@@ -876,7 +1041,7 @@ const DeviceWhyTool = (() => {
 
     const search = `<p class="mini muted">Matched on ${esc(found ? found.matchedOn : "")}.${(found && found.notes && found.notes.length) ? " " + found.notes.map(esc).join(" ") : ""}</p>`;
 
-    const body = result.rows.length
+    const body = result.policyRows.length
       ? `<div class="list-card">${sync}${search}${idTable}${notes}${sources}</div>`
       : `<div class="list-card">${sync}${search}${idTable}${notes}<p class="mini"><b>Nothing in Intune reaches this device</b> across the ${result.ran.length} surface${result.ran.length === 1 ? "" : "s"} that were read.</p></div>`;
 
@@ -892,6 +1057,7 @@ const DeviceWhyTool = (() => {
 
   function reset() {
     device = scope = states = result = found = null;
+    picks = pickBase = null;
     if ($("dvTerm")) $("dvTerm").value = "";
     $("dvBody").innerHTML = "";
     prog("");
@@ -909,11 +1075,19 @@ const DeviceWhyTool = (() => {
     // the body. The row is found through the same grouping the table was
     // drawn from, so the click and the markup cannot drift apart.
     $("dvBody").addEventListener("click", (e) => {
+      const p = e.target.closest && e.target.closest(".dw-pick");
+      if (p && picks) { const d = picks[+p.dataset.i]; if (d) pickDevice(d); return; }
       const b = e.target.closest && e.target.closest(".dw-open");
       if (!b || !result) return;
-      const grp = GroupUse.grouped(result.rows).find((g) => g.source.id === b.dataset.src);
+      const grp = GroupUse.grouped(result.policyRows).find((g) => g.source.id === b.dataset.src);
       const r = grp && grp.rows[+b.dataset.ri];
       if (r) openPolicy(r);
+    });
+    // The cards are role=button; Enter and Space must do what a click does.
+    $("dvBody").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const p = e.target.closest && e.target.closest(".dw-pick");
+      if (p && picks) { e.preventDefault(); const d = picks[+p.dataset.i]; if (d) pickDevice(d); }
     });
     $("dvRun").addEventListener("click", run);
     $("dvReset").addEventListener("click", reset);
@@ -923,5 +1097,5 @@ const DeviceWhyTool = (() => {
     $("dvHtml").addEventListener("click", () => exportAs("html"));
   }
 
-  return { init, run, reset, render, renderAreas, chosen, tenantWide, exportAs };
+  return { init, run, reset, render, renderAreas, chosen, tenantWide, exportAs, analyzeDevice };
 })();

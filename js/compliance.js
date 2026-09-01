@@ -70,15 +70,21 @@ const Compliance = (() => {
   // caps the claim at "may", noted rather than evaluated.
   function reachOf(assignments) {
     const a = assignments || [];
-    let includes = 0, excludes = 0, tenantWide = false, filtered = false;
+    let includes = 0, excludes = 0, tenantWide = false;
+    const fr = Docs.filterReachOf(a);
+    const filtered = fr.capped, filteredExclusion = fr.onExclusion;
     for (const x of a) {
       const t = (x.target && x.target["@odata.type"]) || "";
       if (/exclusionGroupAssignmentTarget/.test(t)) excludes++;
       else if (/groupAssignmentTarget/.test(t)) includes++;
       else if (/allDevicesAssignmentTarget|allLicensedUsersAssignmentTarget/.test(t)) tenantWide = true;
-      if (x.target && x.target.deviceAndAppManagementAssignmentFilterId) filtered = true;
+      // FILTERED MEANS "REACH IS CAPPED" (10490). This had counted a filter
+      // on an EXCLUSION too, where the filter narrows what is excluded
+      // rather than what is reached — the "may reach, not does" caveat this
+      // tool prints does not describe that case at all. Docs.filterReachOf
+      // is the one reader; a filter on an exclusion is its own fact.
     }
-    return { covers: includes > 0 || tenantWide, includes, excludes, tenantWide, filtered,
+    return { covers: includes > 0 || tenantWide, includes, excludes, tenantWide, filtered, filteredExclusion,
       kind: (includes || tenantWide) ? "reaches" : excludes ? "excludedOnly" : "unassigned" };
   }
 
@@ -395,7 +401,7 @@ const ComplianceTool = (() => {
           : `<p class="mini muted" style="margin:0 0 10px">The "Mark devices with no compliance policy assigned as" setting <b>could not be read</b>${rep.settingError ? ` — ${esc(rep.settingError)}` : ""}. Check it under Devices → Compliance → Compliance settings: if it says Compliant, an uncovered platform silently passes Conditional Access.</p>`;
       const covRows = rep.coverage.map((c) => {
         const verdict = c.verdict === "gap" ? `<span class="au-op delete">NOT COVERED</span>`
-          : c.verdict === "covered" ? `<span class="au-op create">covered</span>${c.filtered ? ` <span class="gu-how priv" title="A covering policy carries an assignment filter — reach is may, not is">filtered</span>` : ""}`
+          : c.verdict === "covered" ? `<span class="au-op create">covered</span>${c.filtered ? ` <span class="gu-how priv" title="A covering policy carries an assignment filter — reach is may, not is">filtered</span>` : ""}${c.filteredExclusion ? ` <span class="gu-how priv" title="A filter narrows an EXCLUSION on a covering policy — fewer devices are kept out than the exclusion suggests. It does not cap coverage, which is why it is its own chip">filtered exclusion</span>` : ""}`
           : `<span class="gu-how exc">no devices</span>`;
         return `<tr>
           <td><b>${esc(c.platform)}</b></td>

@@ -60,7 +60,11 @@ const Conflict = (() => {
     const inc = new Set(), exc = new Set();
     let tenantWide = false, filtered = false;
     for (const a of item.assignments || []) {
-      if (a.filterId) filtered = true;
+      // A filter on an EXCLUSION does not cap what this policy reaches
+      // (10490) — it narrows what is kept out. The "can collide, may not"
+      // verdict this tool prints is about capped reach, so only a filter on
+      // a non-excluded target sets it. Same rule as Docs.filterReachOf.
+      if (a.filterId && a.kind !== "Excluded") filtered = true;
       if (a.kind === "Included" && a.groupId) inc.add(a.groupId);
       else if (a.kind === "Excluded" && a.groupId) exc.add(a.groupId);
       else if (a.kind === "All devices" || a.kind === "All users") tenantWide = true;
@@ -202,7 +206,11 @@ const ConflictTool = (() => {
     if (running) return;
     running = true; $("cfRun").disabled = true; showExports(false); $("cfBody").innerHTML = ""; open.clear();
     try {
-      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Graph.SCOPES.groups])]);
+      // "filters" joins the union at 10488: collect() names assignment
+      // filters and that read is RBAC-scoped, so without it a tenant with
+      // one filtered assignment triggers a gestureless consent popup in the
+      // middle of a read the tool has already declared permitted.
+      await Graph.ensureScopes([...new Set([...Docs.scopesFor(Conflict.SECTIONS), ...Docs.scopesFor(["filters"]), ...Graph.SCOPES.groups])]);
       collectRes = await Docs.collect({ sections: Conflict.SECTIONS, onStatus: prog });
       prog("Comparing settings…");
       scan = Conflict.detect(collectRes);

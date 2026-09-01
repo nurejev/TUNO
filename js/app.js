@@ -131,7 +131,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -207,6 +207,48 @@ const Fs = (() => {
         tile.appendChild(tag);
       }
     }
+    // The version badge is on the home tile; it belongs on the tool's own
+    // header too, which is where somebody actually is when they wonder what
+    // changed — ENCA's stampHeadVersion, ported. The .tool-ver-head class has
+    // sat in the stylesheet since the scaffold waiting for exactly this.
+    // TUNO's header cards are static markup today, but heads MAY be
+    // re-rendered by their tools, so observe rather than stamp once — the
+    // stamped-already check is also what stops the observer looping.
+    // ENCA maps head-element ids; TUNO's screens carry no head ids, so the
+    // map is screen id -> tool id and the head is the first list-card's
+    // heading — verified present for all nineteen at the time of the port.
+    const SCREEN_TOOL = {
+      "screen-applocker": "toolAppLocker", "screen-defender": "toolDefender",
+      "screen-endpointsec": "toolEndpointSec", "screen-laps": "toolLaps",
+      "screen-posture": "toolPosture", "screen-securescore": "toolSecureScore",
+      "screen-groupuse": "toolGroupUse", "screen-audit": "toolAudit",
+      "screen-compliance": "toolCompliance", "screen-whatif": "toolWhatIf",
+      "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
+      "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
+      "screen-device": "toolDevice", "screen-filters": "toolFilters",
+      "screen-roles": "toolRoles", "screen-maa": "toolMaa",
+      "screen-groupmigrate": "toolGroupMigrate",
+      "screen-restrictedau": "toolRestrictedAu",
+      "screen-backup": "toolBackup", "screen-overview": "toolOverview",
+      "screen-docs": "toolDocs",
+    };
+    function stampHeadVersion(card, toolId) {
+      const t = (typeof TOOL_VERSIONS !== "undefined" && TOOL_VERSIONS[toolId]) || null;
+      if (!t || !t.v) return;
+      const h = card.querySelector("h2, h3");
+      if (!h || h.querySelector(".tool-ver-head")) return;   // also stops the observer looping
+      const s = document.createElement("span");
+      s.className = "tool-ver-head";
+      s.textContent = `${toolNo(t)}${toolNo(t) ? " · " : ""}v${t.v}`;
+      s.title = `${toolNo(t) ? `${toolNo(t)} — this tool's permanent number. It never changes and is never reused, so it means one thing across both channels, every build and any future language.\n\n` : ""}${t.note || ""}`.trim();
+      h.appendChild(s);
+    }
+    Object.entries(SCREEN_TOOL).forEach(([sid, toolId]) => {
+      const card = document.querySelector(`#${sid} .list-card`);
+      if (!card) return;
+      stampHeadVersion(card, toolId);
+      new MutationObserver(() => stampHeadVersion(card, toolId)).observe(card, { childList: true, subtree: true });
+    });
     console.info(`${BRANDING.name} ${APP_BUILD.full}`);
   })();
 
@@ -814,6 +856,8 @@ const Fs = (() => {
     ["toolDefender", "🦠 Defender status"],
     ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
     ["toolLaps", "🔑 Windows LAPS audit"],
+    ["toolPosture", "🧭 Endpoint security posture"],
+    ["toolSecureScore", "📊 Secure Score visualizer"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
     ["toolHealth", "🩺 Assignment health"],
@@ -822,12 +866,15 @@ const Fs = (() => {
     ["toolDevice", "🖥 Device analyzer"],
     ["toolCompliance", "📈 Compliance report"],
     ["toolAudit", "🕓 Change audit"],
+    ["toolOverview", "🗂 Policy overview"],
     ["toolBackup", "📦 Backup configuration"],
     ["toolDocs", "📄 Configuration documenter"],
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolRoles", "🛡 Intune RBAC"],
     ["toolMaa", "🤝 Multi-admin approval"],
+    ["toolRestrictedAu", "🛡 Restricted AUs"],
+    ["toolGroupMigrate", "🔄 Group migration"],
   ];
   // The app's own pages are tools too, but always sit last (after the +).
   TOOL_TABS.push(["toolChangelog", "📋 What's new"]);
@@ -1018,6 +1065,8 @@ const Fs = (() => {
   $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
   $("toolLaps").addEventListener("click", () => { crumb("🔑 Windows LAPS audit"); show("screen-laps"); });
+  $("toolPosture").addEventListener("click", () => { crumb("🧭 Endpoint security posture"); show("screen-posture"); });
+  $("toolSecureScore").addEventListener("click", () => { crumb("📊 Secure Score visualizer"); show("screen-securescore"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
@@ -1030,7 +1079,10 @@ const Fs = (() => {
   $("toolFilters").addEventListener("click", () => { crumb("🧩 Assignment filters"); show("screen-filters"); });
   $("toolRoles").addEventListener("click", () => { crumb("🛡 Intune RBAC"); show("screen-roles"); });
   $("toolMaa").addEventListener("click", () => { crumb("🤝 Multi-admin approval"); show("screen-maa"); });
+  $("toolRestrictedAu").addEventListener("click", () => { crumb("🛡 Restricted AUs"); show("screen-restrictedau"); });
+  $("toolGroupMigrate").addEventListener("click", () => { crumb("🔄 Group migration"); show("screen-groupmigrate"); });
   $("toolBackup").addEventListener("click", () => { crumb("📦 Backup configuration"); show("screen-backup"); });
+  $("toolOverview").addEventListener("click", () => { crumb("🗂 Policy overview"); show("screen-overview"); });
   $("toolDocs").addEventListener("click", () => { crumb("📄 Configuration documenter"); show("screen-docs"); });
   $("toolChangelog").addEventListener("click", () => openChangelog());
   $("toolRoadmap").addEventListener("click", () => { crumb("🗺 Roadmap"); show("screen-roadmap"); });
@@ -1258,9 +1310,15 @@ const Fs = (() => {
   if (typeof RolesTool !== "undefined") RolesTool.init();
   if (typeof DefenderTool !== "undefined") DefenderTool.init();
   if (typeof EndpointSecTool !== "undefined") EndpointSecTool.init();
+  if (typeof EndpointPostureTool !== "undefined") EndpointPostureTool.init();
+  if (typeof SecureScoreTool !== "undefined") SecureScoreTool.init();
+  if (typeof TunoReport !== "undefined") TunoReport.init();
+  if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof LapsTool !== "undefined") LapsTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
+  if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
+  if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();
 })();

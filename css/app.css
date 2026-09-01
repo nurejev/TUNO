@@ -725,9 +725,39 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
 .wi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .wi-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .wi-f .req{color:var(--off)}
+/* THE FIELD LOOK IS THE DEFAULT, not something a call site opts into.
+   It used to live only under .wi-f, so any control written outside that
+   wrapper rendered as a raw browser field — nine of them had, across four
+   tools, and T15's device search is the one that got noticed. Making it the
+   default is what stops the tenth.
+   Scoped to main so the sign-in card keeps its own treatment, and the tick
+   boxes and sliders opt OUT below rather than every text field opting in. */
+/* :where() ON THE EXCLUSIONS (build 10516) — A DEFAULT THAT CAN BE
+   OVERRIDDEN IS THE ONLY KIND OF DEFAULT.
+   The comment above calls this the default field look, and it was written
+   as one. It did not behave as one: five :not() clauses give the selector
+   the weight of five classes, so no ordinary single-class field rule could
+   beat it — width:100% in particular reached every text field in the app
+   and could not be argued with.
+   T01's version token is where that showed. It is a 72px inline box in the
+   middle of a sentence ("… - R27.1 - V[4.0.2], grouping …") and it had been
+   rendering 981px wide since 10466, wrapping the sentence into three lines
+   around it. Measured on the deployed beta before and after: 981px → 72px.
+   :where() contributes ZERO specificity, so the whole selector drops to
+   main+input and any field rule with a class now wins — which is what a
+   default is for. The exclusions still mean exactly what they meant.
+   The rest of the blast radius, measured against the live DOM rather than
+   guessed: .al-f and .al-dep-in get back the padding they declare, and an
+   input wearing .btn gets button padding instead of field padding. */
+main input:where(:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range])),
+main select,
+main textarea,
 .wi-f input,.wi-f select{height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface);color:var(--ink);font:inherit;font-size:13px;width:100%}
+main textarea{height:auto;padding:8px 10px;line-height:1.5}
+main input:focus,main select:focus,main textarea:focus,
 .wi-f input:focus,.wi-f select:focus{outline:none;border-color:var(--green)}
+main input[type=checkbox],main input[type=radio]{height:auto;width:auto;padding:0;border:0;border-radius:0}
 /* …but not the tick boxes: the rule above is meant for text fields and selects,
    and it was inflating a checkbox into a 38px bordered square. */
 .wi-f input[type=checkbox],.wi-f input[type=radio]{width:16px;height:16px;padding:0;border:0;border-radius:0}
@@ -827,6 +857,18 @@ tr.detail>td{background:var(--hover);padding:12px 18px}
    inspector 320 (opened FROM a modal) < toast 400 */
 .modal-bg{display:none;position:fixed;inset:0;background:color-mix(in srgb, var(--green-deep) 55%, transparent);z-index:300;align-items:center;justify-content:center;padding:24px}
 .modal-bg.open{display:flex}
+/* ---- A WORKING PANE, NOT A DIALOGUE (build 10515) ----
+   T22's examine popout is something you leave OPEN while you think — and a
+   full-screen backdrop over the header and the tab bar meant you had to
+   close it to reach another tool, which is the opposite of what putting it
+   in a modal was for. This variant starts BELOW the sticky nav and sits
+   under both bars in the stacking order (header 50, .toolnav 45), so the
+   tabs, the ＋ menu and the home button all stay live while it is up.
+   It still covers the content it is acting on, and still closes by button,
+   backdrop or Escape.
+   NOT for the edit/delete dialogues: those ask a question that must be
+   answered before anything else happens, and they should block. */
+.modal-bg.keep-nav{top:var(--sticky-nav,106px);z-index:44;padding:18px 24px}
 .modal{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);max-width:520px;width:100%;padding:30px;max-height:calc(100vh - 40px);overflow-y:auto}
 .modal h3{margin-bottom:6px}
 .modal p{color:var(--muted);margin-bottom:20px;line-height:1.5}
@@ -1273,14 +1315,19 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    two result containers that do not follow the *Body convention. */
 main [id$="Body"] > .list-card,
 #aePlanOut > .list-card,
-#rsPlan > .list-card{padding:16px 18px}
+#rsPlan > .list-card,
+.ep-main > .list-card{padding:16px 18px}   /* T20's rail pane (10479): one level deeper than *Body, same convention — its cards shipped flush against the border, the 10395 disease repeating in a new container shape */
 /* …and stacked cards SEPARATE (build 10396). A run of cards with no gap
    reads as one long surface — the conflict scan's findings merged into a
    wall. Convention again, not a list: any tool body that stacks cards
    gets the gap. */
 main [id$="Body"] > .list-card + .list-card,
 #aePlanOut > .list-card + .list-card,
-#rsPlan > .list-card + .list-card{margin-top:14px}
+#rsPlan > .list-card + .list-card,
+.ep-main > .list-card + .list-card,
+.ep-main > .au-cards + .list-card,
+.ep-main > .cg-tablewrap + .list-card,
+.ep-main > .ep-cards + .list-card{margin-top:14px}
 
 /* ---- TunoProgress (build 10397): ENCA's read, in the middle ---- */
 main [id$="Body"] > .prog-card,.prog-card{max-width:480px;margin:26px auto;text-align:center;padding:28px 26px}
@@ -1701,6 +1748,14 @@ body.with-side.side-min .toolnav-inner{padding-left:max(76px, calc((100vw - 1444
    sizes itself to the longest cell and scrolls. table-layout:fixed makes
    the declared widths real, and overflow-wrap:anywhere lets a rule wrap at
    any character rather than pushing the actions column off the card. */
+.af-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.af-bar #afSearch{flex:1;min-width:200px}
+.af-cards{margin-top:12px}
+.af-card .af-rule{display:block;background:var(--soft);border-radius:8px;padding:8px 10px;font-size:12px;overflow-wrap:anywhere;margin:0 0 10px}
+.af-card .scard-grid{grid-template-columns:1fr 1fr}
+.af-uses{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.af-foot{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.af-unknown{color:var(--muted);font-style:italic}
 .af-table{table-layout:fixed;width:100%}
 .af-table code{overflow-wrap:anywhere}
 .af-acts{width:132px;white-space:nowrap;text-align:right}
@@ -2224,3 +2279,136 @@ body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 .al-dl-more[open]>summary{margin-bottom:8px}
 .al-dl-more[open]>summary .muted{transform:rotate(180deg);display:inline-block}
 .al-dl-more>.al-dl-row{margin-bottom:8px}
+
+/* ---------- T19 Policy overview: surface cards that double as filters ----- */
+.ov-surfs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:14px 0 4px}
+.ov-surf{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;cursor:pointer;box-shadow:var(--shadow)}
+.ov-surf b{font-size:13px}
+.ov-surf .mini{font-size:11px;color:var(--muted)}
+.ov-surf.active{background:var(--soft);border-color:var(--accent2);outline:2px solid var(--accent2)}
+.ov-surf.ov-fail{cursor:help;border-style:dashed}
+.ov-surf-ic{font-size:18px;flex:none}
+.ov-on{color:var(--on)}
+.ov-off{color:var(--off)}
+
+/* ---- T20 🧭 Endpoint security posture (build 10476) ------------------
+   The portal rail: the blade's nodes down the left, the answer on the
+   right. Same tokens as everything else; the rail collapses under 900px
+   so the cards keep their width on a laptop split-screen. */
+.ep-wrap{display:flex;gap:16px;align-items:flex-start}
+.ep-rail{flex:0 0 232px;position:sticky;top:calc(var(--sticky-nav,106px) + 8px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px;font-size:13px}
+.ep-rail hr{border:none;border-top:1px solid var(--border);margin:6px 4px}
+.ep-node{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;user-select:none}
+.ep-node:hover{background:var(--soft)}
+.ep-node.active{background:var(--soft);font-weight:700;color:var(--green)}
+.ep-n{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+.ep-n.gap{color:var(--off)}
+.ep-main{flex:1;min-width:0}
+.ep-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ep-h{margin:16px 0 8px;font-size:13px}
+.ep-brief{border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:0 10px 10px 0;background:var(--surface);padding:10px 14px;margin:8px 0}
+.ep-brief.later{border-left-color:var(--report)}
+.ep-check{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:12px 14px;margin:8px 0}
+.ep-check-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ep-sev{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em;background:var(--soft);color:var(--muted)}
+.ep-sev.critical{background:var(--bad-bg);color:var(--off)}
+.ep-sev.high{background:var(--bad-bg);color:var(--off);opacity:.8}
+.ep-sev.medium{background:var(--warn-bg);color:var(--report)}
+@media (max-width:900px){
+  .ep-wrap{flex-direction:column}
+  .ep-rail{position:static;flex:none;width:100%;display:flex;flex-wrap:wrap;gap:2px}
+  .ep-rail hr{display:none}
+  .ep-node{padding:6px 10px}
+  .ep-n{margin-left:6px}
+}
+
+/* T20 build 10477: the pane toolbar is a card; cards|list toggle */
+.ep-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}   /* padding comes from the .ep-main > .list-card convention — one source */
+.ep-bar input{flex:0 1 320px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);padding:7px 10px;font:inherit}
+.ep-row,.ov-row{cursor:pointer}
+.ep-row:hover td,.ov-row:hover td{background:var(--soft)}
+
+/* build 10478: the report viewer's blockquote callout */
+.md-view .md-quote{border-left:3px solid var(--accent2);padding:6px 12px;background:var(--soft);border-radius:0 8px 8px 0;color:var(--muted)}
+
+/* ---- T21 📊 Secure Score visualizer (R02) ---------------------------
+   The gauge, the comparison bars, the category bars with Microsoft's two
+   comparison ticks, the timeline and the control cards. House tokens
+   throughout — no new colours, because a chart that invents its own
+   palette stops matching the tool it sits in. The bars are plain divs and
+   the charts are inline SVG with a viewBox, so both scale with the card
+   rather than needing a redraw on resize. */
+.sc-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.sc-tabs label.btn{cursor:pointer}
+.sc-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.sc-bar input{flex:0 1 340px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);padding:7px 10px;font:inherit}
+
+.sc-hero{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.sc-hero-r{flex:1;min-width:260px}
+.sc-gauge{width:220px;height:134px;flex:none}
+.sc-gauge-n{font-size:34px;font-weight:800;fill:var(--ink)}
+
+.sc-cmp{margin-bottom:10px}
+.sc-cmp-l{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:5px}
+.sc-cmp-l span{color:var(--muted)}
+.sc-cmp-l b{color:var(--ink)}
+.sc-track{position:relative;height:9px;background:var(--soft);border:1px solid var(--border);border-radius:5px}
+.sc-fill{height:100%;border-radius:4px;background:var(--accent2)}
+
+/* The category bars are FILTERS (10503) — T19's rule, its surface stat
+   cards being its filters. Button chrome is stripped the way
+   button.au-card-btn strips it, so a bar reads as a bar and behaves as a
+   control; the active one is outlined rather than recoloured, because the
+   fill is already carrying a number. */
+.sc-cat{margin-bottom:16px;width:100%;display:block;text-align:left}
+button.sc-cat-btn{background:none;border:1px solid transparent;border-radius:10px;padding:8px 10px;margin:0 -10px 8px;font:inherit;color:inherit;cursor:pointer;width:calc(100% + 20px)}
+button.sc-cat-btn:hover{background:var(--soft)}
+button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
+.sc-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.sc-catlink{border:0;background:none;font:inherit;color:var(--accent2);cursor:pointer;padding:0;text-align:left;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.sc-catlink:hover{text-decoration-style:solid}
+.sc-cat-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+.sc-cat-h span{font-weight:700;color:var(--accent2)}
+.sc-cat .sc-track{overflow:visible}
+.sc-mark{position:absolute;top:-4px;width:2px;height:15px;border-radius:1px;transform:translateX(-1px)}
+.sc-mark.global{background:var(--muted)}
+.sc-mark.similar{background:var(--report)}
+.sc-key{display:inline-block;width:9px;height:3px;border-radius:2px;vertical-align:middle;margin:0 3px}
+.sc-key.global{background:var(--muted)}
+.sc-key.similar{background:var(--report)}
+
+.sc-chart{width:100%;height:auto}
+.sc-ax{font-size:11px;fill:var(--muted)}
+
+.sc-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.sc-chg{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.sc-chg i{font-style:normal}
+
+/* THE 10502 OVERFLOW. A grid item's default min-width is min-content, and
+   Microsoft's remediation text carries portal URLs eighty characters long
+   with nothing to break on — so one card's min-content pushed its track
+   past 340px, the row past the container, and the whole PAGE grew a
+   horizontal scrollbar with the left column sliding under the sidebar.
+   min-width:0 lets the track shrink to its share; overflow-wrap lets the
+   URL break inside it. Both are needed: either alone still overflows. */
+.sc-ctrls{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
+.sc-ctrl{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:12px 14px;min-width:0;overflow-wrap:anywhere;cursor:pointer}
+.sc-ctrl:hover{border-color:var(--accent2)}
+.sc-ctrl-h{display:flex;gap:10px;align-items:baseline;justify-content:space-between;min-width:0}
+.sc-ctrl-h b{min-width:0;overflow-wrap:anywhere}
+.sc-meta{margin:2px 0 8px}
+.sc-def{opacity:.75;font-style:italic}
+/* Microsoft's text keeps the line breaks plain() gave it. */
+.sc-text{white-space:pre-line;overflow-wrap:anywhere;margin:0 0 6px}
+/* The card shows the shape of the text and the popout shows all of it —
+   a remediation can run to a dozen numbered steps, and a wall of them on
+   every one of fifty-six cards is a page nobody scans. */
+.sc-clamp{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;line-clamp:5;overflow:hidden}
+.sc-more{margin:6px 0 0;font-size:11.5px}
+.sc-row{cursor:pointer}
+.sc-row:hover td{background:var(--soft)}
+.sc-pts{font-size:11px;font-weight:800;white-space:nowrap;padding:2px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-fg)}
+@media (max-width:700px){
+  .sc-hero{gap:12px}
+  .sc-gauge{width:180px;height:110px}
+}

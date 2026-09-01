@@ -233,8 +233,8 @@ const Health = (() => {
     if (g.empty.length) {
       L.push(`## Assignments into empty groups (${g.empty.length})`, "");
       L.push(`The group exists and holds nobody — transitively. The policy has never applied through it.`, "");
-      L.push(`| Policy | Surface | Kind | Group | Assignment |`, `|---|---|---|---|---|`);
-      g.empty.forEach((r) => L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${mdCell(r.group)} | ${r.how} |`));
+      L.push(`| Policy | Surface | Kind | Group | Assignment | Filter |`, `|---|---|---|---|---|---|`);
+      g.empty.forEach((r) => L.push(`| ${mdCell(r.name)} | ${mdCell(r.sourceLabel)} | ${mdCell(r.sub)} | ${mdCell(r.group)} | ${r.how} | ${mdCell(r.filterId ? `${r.filterName || r.filterId} (${r.filterMode || "include"})` : "—")} |`));
       L.push("");
     }
     if (g.dangling.length) {
@@ -289,13 +289,13 @@ const Health = (() => {
 
   function csv(res) {
     const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const L = [["Finding", "Policy", "PolicyId", "Surface", "Kind", "Group", "GroupId", "Detail"].map(q).join(",")];
-    res.groups.empty.forEach((r) => L.push(["empty-group", r.name, r.id, r.sourceLabel, r.sub, r.group, r.groupId, r.how].map(q).join(",")));
-    res.groups.dangling.forEach((r) => L.push(["dangling", r.name, r.id, r.sourceLabel, r.sub, "", r.groupId, r.how].map(q).join(",")));
-    res.structural.unassigned.forEach((r) => L.push(["unassigned", r.name, r.id, r.sourceLabel, r.sub || "", "", "", ""].map(q).join(",")));
-    res.structural.excludedOnly.forEach((p) => L.push(["excluded-only", p.name, p.id, p.sourceLabel, p.sub, "", "", `${p.excluded} exclusions, no include`].map(q).join(",")));
-    res.structural.contradictions.forEach((p) => L.push(["include+exclude", p.name, p.id, p.sourceLabel, p.sub, "", p.groups.join(";"), "exclusion wins"].map(q).join(",")));
-    if (res.status) res.status.failing.forEach((t) => L.push(["failing", t.name, t.id, t.sf.label, t.sub, "", "", `failed ${t.counts.failed}, conflict ${t.counts.conflict}`].map(q).join(",")));
+    const L = [["Finding", "Policy", "PolicyId", "Surface", "Kind", "Group", "GroupId", "Filter", "FilterMode", "Detail"].map(q).join(",")];
+    res.groups.empty.forEach((r) => L.push(["empty-group", r.name, r.id, r.sourceLabel, r.sub, r.group, r.groupId, r.filterName || r.filterId || "", r.filterId ? (r.filterMode || "include") : "", r.how].map(q).join(",")));
+    res.groups.dangling.forEach((r) => L.push(["dangling", r.name, r.id, r.sourceLabel, r.sub, "", r.groupId, r.filterName || r.filterId || "", r.filterId ? (r.filterMode || "include") : "", r.how].map(q).join(",")));
+    res.structural.unassigned.forEach((r) => L.push(["unassigned", r.name, r.id, r.sourceLabel, r.sub || "", "", "", "", "", ""].map(q).join(",")));
+    res.structural.excludedOnly.forEach((p) => L.push(["excluded-only", p.name, p.id, p.sourceLabel, p.sub, "", "", "", "", `${p.excluded} exclusions, no include`].map(q).join(",")));
+    res.structural.contradictions.forEach((p) => L.push(["include+exclude", p.name, p.id, p.sourceLabel, p.sub, "", p.groups.join(";"), "", "", "exclusion wins"].map(q).join(",")));
+    if (res.status) res.status.failing.forEach((t) => L.push(["failing", t.name, t.id, t.sf.label, t.sub, "", "", "", "", `failed ${t.counts.failed}, conflict ${t.counts.conflict}`].map(q).join(",")));
     return L.join("\n");
   }
 
@@ -345,13 +345,20 @@ const HealthTool = (() => {
     { id: "contradiction", label: "Include+exclude", icon: "⚔️", cls: "warn", hint: "The exclusion wins; the include reads as reach and delivers none." },
     { id: "failing", label: "Failing", icon: "💥", cls: "bad", hint: "Counts from the per-policy status Graph keeps for these surfaces." },
   ];
+  // resolveFilters() runs over these rows and nothing read the answer
+  // (10493): an empty-group finding on a FILTERED assignment describes reach
+  // the filter may already have removed, and said nothing about it.
+  const fbit = (r) => (r && r.filterId
+    ? ` · ⚑ ${r.filterName || `filter ${String(r.filterId).slice(0, 8)}…`} (${r.filterMode || "include"})`
+    : "");
+
   function findings(res) {
     const g = res.groups, s = res.structural, out = [];
     g.empty.forEach((r) => out.push({ kind: "empty", key: `e|${r.id}|${r.groupId}`, name: r.name, sub: `${r.sourceLabel}${r.sub ? " · " + r.sub : ""}`,
-      line: `assigned (${r.how}) to “${r.group}” — 0 transitive members`,
+      line: `assigned (${r.how}) to “${r.group}” — 0 transitive members${fbit(r)}`,
       detail: `The assignment reaches “${esc(r.group)}” (<code>${esc(r.groupId)}</code>) and that group holds nobody, checked transitively at read time. Distinct from deleted: the group exists. Whether it is a mistake or a landing zone prepared for next quarter is yours to judge — the tool reports the fact.` }));
     g.dangling.forEach((r) => out.push({ kind: "dangling", key: `d|${r.id}|${r.groupId}`, name: r.name, sub: r.sourceLabel,
-      line: `assignment names a deleted group`,
+      line: `assignment names a deleted group${fbit(r)}`,
       detail: `The target <code>${esc(r.groupId)}</code> no longer resolves in the directory. The assignment still exists and will keep targeting nobody until it is removed — nothing in the portal will say so.` }));
     s.unassigned.forEach((r) => out.push({ kind: "unassigned", key: `u|${r.id}`, name: r.name, sub: `${r.sourceLabel}${r.sub ? " · " + r.sub : ""}`,
       line: `no assignments at all`,
