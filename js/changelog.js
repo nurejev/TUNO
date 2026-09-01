@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10527, date: "2026-09-01", title: "The baseline watches Microsoft's macOS repo",
+    items: [
+      { kind: "new", tool: "macOS baseline", text: "On the baseline tenant, the tool now watches Microsoft's intune-my-macs repository: download the repo zip (one click, your browser does the fetching — the app itself talks to nothing but Graph), load it, and every upstream policy is matched against our baseline by content, never by name — a settings-catalog policy is its set of setting ids, a compliance policy the properties it sets. Covered, differs (with the exact difference, both directions), or new to us." },
+      { kind: "new", tool: "macOS baseline", text: "New and changed controls get a proposed canonical name — stamped with this month's release and an increased version, editable before anything happens — and can be created in the baseline tenant with one dry-run-then-apply. Curate them, re-export, and the export is the new baseline for every tenant." },
+      { kind: "improved", tool: "macOS baseline", text: "The release tag now means what it always meant: R26.6 is June 2026 — the year, then the month. Releases compare as dates, so December's R26.12 comes after June's R26.6 and next January's R27.1 after both, which a decimal compare would have gotten exactly wrong." },
+    ],
+  },
+  {
     build: 10526, date: "2026-09-01", title: "The macOS baseline catalog ships — and taught the tool its own convention",
     items: [
       { kind: "new", tool: "macOS baseline", text: "The CloudFellows reference catalog is now bundled: 82 policies exported from the baseline tenant itself — settings catalog, device configurations, compliance, the enrolment assignment filters, and the shell scripts. Open the tool on any tenant and the comparison is simply there." },

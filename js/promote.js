@@ -92,6 +92,26 @@ const PROMOTE = {
 
   items: [
     {
+      n: 130,
+      title: "T24 watches intune-my-macs — diff by content, rename, include (and Ryy.m is a date)",
+      tools: ["T24"],
+      builds: [10527],
+      files: ["js/macbaseline.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+      risk: "medium",
+      what: "TWO THINGS, one build. (1) THE RELEASE TAG LEARNS ITS MEANING: Ryy.m is a DATE — 26 the year, the x the month (Mihai's rule, mid-build) — so releases compare YEAR-FIRST (R27.1 after R26.12, which a decimal compare gets exactly wrong); normRel() is the one reader and the bundled catalog's bare-month shorthand flows through it. (2) THE UPSTREAM WATCH, cfdev-gated beside export: microsoft/intune-my-macs is NEVER fetched — the CSP allows Graph and nothing else and does not bend for a read-only repo; the browser downloads the zip (a link is navigation, not a page request) and the tool loads it JSZip-style. Upstream files are Graph-shaped (settings-catalog exports carrying a UTF-8 BOM — found by parsing the real repo, stripped by rule — and compliance policies); MATCHING IS BY CONTENT: settingDefinitionId sets for catalog policies, configured-property sets for compliance — identical = same, ≥50% overlap = a match with its diff shown both directions, else NEW. New/differing rows get a tick and an EDITABLE canonical name (proposal: this month's release stamp + increased version — v1.0 for new, matched identity with minor bumped for differs; the differs proposal keeps the same KEY, so the upgrade reads as the same policy). looksBaseline() gates the dry run — a non-convention name would be invisible to the comparison the whole tool is. Creates ride Restore.existingNames/plan/apply unchanged; the curation table renders into its own host so ticks and edited names survive re-renders (the restore picker's rule); scripts and mobileconfigs in the zip are counted as seen-not-comparable.",
+      why: "MEDIUM. The writes are the same create-only Restore pipeline item 129 already carries, and the whole section renders only on the baseline tenant — a customer tenant cannot reach it. The genuinely new risk is EDITORIAL, not technical: a careless rename could claim an upstream control as a baseline identity it is not — mitigated by the proposal being a starting point, the convention gate, and the fact that nothing becomes baseline until Mihai re-exports and bundles. The 50% content threshold is stated in the header and pinned in the suite; if real upstream drops produce false matches, the number is one constant.",
+      test: [
+        "cloudfellows.dev → T24 → the upstream card renders (and must NOT on any other tenant). Get the latest: the link opens GitHub's zip download in a new tab.",
+        "Load the real intune-my-macs zip: the summary counts same/differs/new, scripts and mobileconfigs counted as seen-not-comparable, no JSON parse failures (the BOM).",
+        "A differs row: the diff names ids in both directions and the matched baseline policy; its proposed name is the MATCHED name with this month's release and the minor version bumped.",
+        "A new row: proposed MACOS - DCP - <folder> - D - <name> - R26.9 - v1.0; edit the middle words, tick, dry run — the plan shows the edited name.",
+        "Break a name (drop the release tag), dry run: refused, naming the convention — nothing read, nothing written.",
+        "Apply: created unassigned in the dev tenant; 🍎 Read the tenant shows them as extra (not yet in the catalog); 🧬 re-export → the file carries them; bundle it and every tenant sees the new baseline lines.",
+        "Load a zip that is not the repo (any random zip): 'no comparable policies', not a crash.",
+        "January 2027 sanity: a policy renamed to R27.1 must read AHEAD of an R26.12 catalog entry, not behind it.",
+      ],
+    },
+    {
       n: 129,
       title: "T24 🍎 macOS baseline — identify, export, import (R35)",
       tools: ["T24"],
