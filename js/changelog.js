@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10518, date: "2026-09-01", title: "Seventh promotion — the whole queue ships as build 12",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Production moves to build 12 and takes all twenty-four queue items with it — beta builds 10458 through 10517: the Policy overview, Endpoint security posture with the impact brief and the best-practice checks, the Secure Score visualizer, and the two directory writers, Group migration and Restricted AUs, with their five new scopes in the registration script. The tool-header stamps, the overridable field default, the one assignment-filter phrase, the counted filter rules, the Device analyzer's user lookup and one-row verdicts, and the RBAC popouts all ship with it. The queue is empty again, the In-beta-today era stands empty on both channels saying truthfully that they match, and the five promoted tools take their 1.0.x numbers with counters carried." },
+      { kind: "improved", tool: "All tools", text: "The second full-queue promotion ordered by the exported file, verified item by item against what main actually contained before anything moved. One thing the verification surfaced is recorded in the queue ledger rather than repaired: numbers 100 to 102 were handed out twice — once to work build 11 shipped, once to new work after it — so the ledger now names both, and the next item takes 123." },
+    ],
+  },
+  {
     build: 10517, date: "2026-08-31", title: "A partly-enforced protection now says what happens to everyone else",
     items: [
       { kind: "fixed", tool: "T20", text: "THE IMPACT BRIEF WENT SILENT ABOUT THE REST OF THE FLEET. A statement headed \"partly enforced on ~38 of 9947 devices · 9909 not yet targeted\" then said nothing at all about those 9909, because the at-rollout line was only written when a policy was staged behind the statement. A rollout communication that reports a hole and not its plan is worse than one that reports neither." },
