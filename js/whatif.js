@@ -397,6 +397,7 @@ const WhatIfTool = (() => {
 
   let mode = "sim", subjectKind = "user", direction = "join";
   let result = null, cmpResult = null, running = false;
+  let simPane = "gained";   // the rail's pane (10540)
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -444,13 +445,31 @@ const WhatIfTool = (() => {
         <td>${stateCell(r.before)}</td><td>${stateCell(r.after)}</td>
         <td class="mini">${esc(note(r))}</td></tr>`).join("")}</tbody></table></div>` : "";
     const failed = res.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read — not empty, UNKNOWN:</b> ${res.failed.map((f) => esc(f.label)).join(", ")}. The delta is missing whatever they hold.</div>` : "";
-    $("wfBody").innerHTML = `<div class="list-card">${strip}${notes}
-      ${table("⬇ Gained", d.gained, (r) => r.uninstall ? "intent is UNINSTALL — applying REMOVES the software" : r.maybe ? `may apply — ⚑ ${(r.filters || []).join("; ") || "filtered"}` : "will apply")}
-      ${table("⬆ Lost", d.lost, (r) => [r.becameExcluded ? "an exclusion on this group takes it away" : "no remaining assignment reaches the subject", r.maybe ? `the loss is conditional — ⚑ ${(r.filters || []).join("; ") || "an assignment filter"} decides` : ""].filter(Boolean).join("; "))}
-      ${table("🛡 Pre-excluded — no change today", d.shielded, () => "cannot apply later while the exclusion stands")}
-      ${table("· Unchanged", d.unchanged, () => "")}
+    // THE RAIL (10540, the layout round — Option A): one delta table at a
+    // time, so the Unchanged table — routinely the longest and the least
+    // asked-for — stops burying Gained, Lost and Pre-excluded. The strip,
+    // the notes and the failed-surfaces line stay on every pane: they are
+    // the claims the table below stands on.
+    const PANES = [
+      ["gained", "⬇ Gained", d.gained, (r) => r.uninstall ? "intent is UNINSTALL — applying REMOVES the software" : r.maybe ? `may apply — ⚑ ${(r.filters || []).join("; ") || "filtered"}` : "will apply"],
+      ["lost", "⬆ Lost", d.lost, (r) => [r.becameExcluded ? "an exclusion on this group takes it away" : "no remaining assignment reaches the subject", r.maybe ? `the loss is conditional — ⚑ ${(r.filters || []).join("; ") || "an assignment filter"} decides` : ""].filter(Boolean).join("; ")],
+      ["shielded", "🛡 Pre-excluded — no change today", d.shielded, () => "cannot apply later while the exclusion stands"],
+      ["unchanged", "· Unchanged", d.unchanged, () => ""],
+    ];
+    if (!PANES.some(([id]) => id === simPane)) simPane = "gained";
+    const node = ([id, title, rows]) => `<div class="ep-node${simPane === id ? " active" : ""}" data-wfpane="${id}" role="button" tabindex="0">
+      <span>${title.split(" — ")[0]}</span><span class="mini" style="margin-left:auto${(id === "gained" || id === "lost") && rows.length ? ";color:var(--off)" : ""}">${rows.length}</span></div>`;
+    const sel = PANES.find(([id]) => id === simPane);
+    const paneTable = sel[2].length ? table(sel[1], sel[2], sel[3])
+      : `<p class="mini muted" style="margin-top:12px">Nothing ${sel[0] === "shielded" ? "pre-excluded" : sel[0]} — an answer, not an omission.</p>`;
+    $("wfBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${PANES.map(node).join("")}</div><div class="ep-main"><div class="list-card" style="margin-top:0">${strip}${notes}
+      ${paneTable}
       ${!d.gained.length && !d.lost.length && !d.shielded.length ? `<p class="mini" style="margin-top:12px"><b>No policy changes hands.</b>${res.impossible ? "" : " The group carries no assignments the subject does not already have."}</p>` : ""}
-      ${failed}</div>`;
+      ${failed}</div></div></div>`;
+    $("wfBody").querySelectorAll("[data-wfpane]").forEach((n) => n.addEventListener("click", () => {
+      simPane = n.dataset.wfpane;
+      renderSim(res);
+    }));
     ["wfMd", "wfCsv"].forEach((b) => { $(b).style.display = ""; });
   }
 
@@ -476,7 +495,7 @@ const WhatIfTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; result = null; cmpResult = null;
+    running = true; result = null; cmpResult = null; simPane = "gained";
     ["wfMd", "wfCsv"].forEach((b) => { $(b).style.display = "none"; });
     $("wfBody").innerHTML = "";
     try {

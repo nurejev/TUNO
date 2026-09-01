@@ -323,6 +323,7 @@ const MaaTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let rep = null, running = false;
+  let pane = "overview";   // the rail's pane (10540)
   const open = new Set();   // fold state keyed on policy ids — the T03 rule
 
   function prog(msg) { TunoProgress.show("maBody", "maProg", msg); }
@@ -338,7 +339,7 @@ const MaaTool = (() => {
 
   async function run() {
     if (running) return;
-    running = true; $("maRun").disabled = true; showExports(false); $("maBody").innerHTML = ""; open.clear();
+    running = true; $("maRun").disabled = true; showExports(false); $("maBody").innerHTML = ""; open.clear(); pane = "overview";
     try {
       const G = Graph.SCOPES;
       await Graph.ensureScopes([...new Set([...G.rbac, ...G.config, ...G.apps, ...G.scripts, ...G.groupMembers, ...G.directory])]);
@@ -353,12 +354,15 @@ const MaaTool = (() => {
   }
 
   function render() {
-    const parts = [];
     if (rep.policyError) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>The approval policies could not be read.</b><span class="why">${esc(rep.policyError)} — everything on this page is unknown, not zero.</span></div></div>`);
-      $("maBody").innerHTML = parts.join("");
+      $("maBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>The approval policies could not be read.</b><span class="why">${esc(rep.policyError)} — everything on this page is unknown, not zero.</span></div></div>`;
       return;
     }
+    // THE RAIL (10540, the layout round — Option A): Overview | Gated |
+    // Policies | Requests | Admins, one pane at a time; each block below
+    // fills its own array and the rail picks which renders.
+    const ov = [], gated = [], pol = [], req = [], adm = [];
+    const parts = ov;
 
     const s = rep.stats;
     const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
@@ -377,7 +381,7 @@ const MaaTool = (() => {
     }
 
     // coverage
-    parts.push(`<div class="list-card">
+    gated.push(`<div class="list-card">
       <h4 style="margin:0 0 4px">What is gated</h4>
       <p class="mini muted" style="margin:0 0 10px">A gate applies to its operation type <b>tenant-wide</b> — one approval policy of type app protects every app. The inventory is context, and one that could not be read is <b>unknown, not zero</b>; the gate verdict stands on the policy list either way.</p>
       <div class="gu-tw"><table class="cg-table"><thead><tr><th>Category</th><th style="width:220px">Gate</th><th style="width:180px">Inventory</th></tr></thead><tbody>
@@ -416,7 +420,7 @@ const MaaTool = (() => {
         const cls = n === 0 ? "bad" : n === null ? "warn" : "ok";
         return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-mafold="${esc(id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
       }).join("");
-      parts.push(`<div class="list-card">
+      pol.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Approval policies (${rep.policies.length})</h4>
         <p class="mini muted" style="margin:0 0 10px">Click a policy for its approvers. A policy whose approver groups hold nobody is flagged, because every operation it gates will wait forever.</p>
         ${rows}
@@ -427,20 +431,20 @@ const MaaTool = (() => {
 
     // requests
     if (s) {
-      parts.push(`<div class="list-card">
+      req.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Requests — last ${rep.days} days (${s.total})</h4>
         <p class="mini" style="margin:0 0 6px">${s.byStatus.pending} pending · ${s.byStatus.approved} approved · ${s.byStatus.rejected} rejected · ${s.byStatus.cancelled} cancelled · ${s.byStatus.completed} completed${s.byStatus.expired ? ` · ${s.byStatus.expired} expired` : ""}</p>
         ${s.avgHours !== null ? `<p class="mini muted" style="margin:0">Time to approval over ${s.timedCount} timed requests: average ${s.avgHours}h · median ${s.medianHours}h · fastest ${s.fastestHours}h · slowest ${s.slowestHours}h.${s.untimedCount ? ` ${s.untimedCount} approved request${s.untimedCount === 1 ? " carries" : "s carry"} no usable timestamps — outside these numbers, not inside them.` : ""}</p>` : `<p class="mini muted" style="margin:0">No timed approvals in the window${s.untimedCount ? ` — ${s.untimedCount} approved without usable timestamps` : ""}.</p>`}
       </div>`);
     } else if (rep.requestsError) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>The requests could not be read.</b><span class="why">${esc(rep.requestsError)} — the request half is unknown, not quiet.</span></div></div>`);
+      req.push(`<div class="list-card"><div class="gu-fail"><b>The requests could not be read.</b><span class="why">${esc(rep.requestsError)} — the request half is unknown, not quiet.</span></div></div>`);
     }
 
     // admins
     if (rep.admins) {
       const a = rep.admins;
       const CAP = 100;
-      parts.push(`<div class="list-card">
+      adm.push(`<div class="list-card">
         <h4 style="margin:0 0 4px">Administrators — Intune RBAC (${a.users.length})</h4>
         <div class="gu-fail" style="margin:0 0 10px"><b>This is Intune RBAC only.</b><span class="why">Global Administrator and Intune Administrator are Entra directory roles, they grant full access to Intune, and they do not appear in <code>deviceManagement/roleAssignments</code> — the accounts with the most access are not in this list. The 🛡 Intune RBAC tool carries the same sentence.</span></div>
         <p class="mini" style="margin:0 0 8px">${a.approvers} of ${a.users.length} can approve MAA requests · ${a.withoutMaa} cannot${a.unreadGroups.length ? ` · ${a.unreadGroups.length} assignment group(s) unread — this list is a floor, not a census` : ""}</p>
@@ -450,10 +454,30 @@ const MaaTool = (() => {
         ${a.users.length > CAP ? `<p class="mini muted" style="margin:8px 0 0">Showing ${CAP} of ${a.users.length} — the CSV export carries all of them.</p>` : ""}
       </div>`);
     } else if (rep.adminsError) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>The role assignments could not be read.</b><span class="why">${esc(rep.adminsError)} — the admins half is unknown.</span></div></div>`);
+      adm.push(`<div class="list-card"><div class="gu-fail"><b>The role assignments could not be read.</b><span class="why">${esc(rep.adminsError)} — the admins half is unknown.</span></div></div>`);
     }
 
-    $("maBody").innerHTML = parts.join("");
+    if (!pol.length) pol.push(`<div class="list-card"><p class="mini muted" style="margin:0">No approval policies — nothing in this tenant requires a second administrator, which is the Overview pane's finding.</p></div>`);
+
+    // ---- the rail ----
+    const gatedN = rep.coverage.filter((c) => c.gated).length;
+    const badPol = rep.policies.filter((p) => p.__approverCount === 0).length;
+    const node = (id, icon, label, right, bad) => `<div class="ep-node${pane === id ? " active" : ""}" data-mapane="${id}" role="button" tabindex="0">
+      <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const rail =
+      node("overview", "🤝", "Overview", rep.policies.length || "none", !rep.policies.length)
+      + node("gated", "🚪", "What is gated", `${gatedN}/${rep.coverage.length}`, !gatedN)
+      + node("policies", "📜", "Policies", badPol ? `<b>${badPol}</b>/${rep.policies.length}` : rep.policies.length, badPol > 0)
+      + node("requests", "⏳", "Requests", s ? s.total : "unread", !s || (s && s.byStatus.pending > 0))
+      + node("admins", "🛡", "Admins", rep.admins ? rep.admins.users.length : "unread", !rep.admins);
+
+    const paneHtml = { overview: ov, gated, policies: pol, requests: req, admins: adm }[pane].join("")
+      || `<div class="list-card"><p class="mini muted" style="margin:0">Nothing to show here.</p></div>`;
+    $("maBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
+    $("maBody").querySelectorAll("[data-mapane]").forEach((n) => n.addEventListener("click", () => {
+      pane = n.dataset.mapane;
+      render();
+    }));
   }
 
   function exportAs(fmt) {

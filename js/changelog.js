@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10540, date: "2026-09-01", title: "Multi-admin approval and the what-if get the rail",
+    items: [
+      { kind: "improved", tool: "Multi-admin approval", text: "Overview, What is gated, Policies, Requests and Admins become rail panes \u2014 the gate nobody can open, the ungated categories and the pending requests worn on the rail nodes in red, one pane on screen at a time." },
+      { kind: "improved", tool: "Assignment what-if", text: "The four delta tables become rail panes, so Unchanged \u2014 routinely the longest and the least asked for \u2014 stops burying Gained, Lost and Pre-excluded. The summary strip and the simulation-not-a-promise caveat stay on every pane." },
+    ],
+  },
+  {
     build: 10539, date: "2026-09-01", title: "The compliance report gets the rail",
     items: [
       { kind: "improved", tool: "Compliance report", text: "Estate, Coverage, Policies and Stale become rail panes \u2014 one on screen at a time, the findings worn on the rail nodes in red, so jumping from the policy list back to the stale devices is a click instead of a scroll past everything in between. An empty stale pane now says why it is empty: nothing silent and estate-unread are different answers." },
