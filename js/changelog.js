@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10555, date: "2026-09-02", title: "The AppLocker scanner runs again on Windows PowerShell 5.1",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Invoke-TunoAppLockerScan.ps1 v1.9.0 stopped after the writable-directory walk on Windows PowerShell 5.1 with \"Argument types do not match\" and no script line. The cause is a 5.1 binder fault: an array subexpression written around a generic List that New-Object created can throw from inside PowerShell itself, and it did on the (empty) writable-files list. Every such site now calls the list's own ToArray(), which never touches the binder. Script v1.9.1." },
+      { kind: "improved", tool: "AppLocker", text: "A terminating error in the scanner now prints its message and the script's own stack, so the failing line is on screen instead of \"At line:1 char:1\" and a follow-up question." },
+    ],
+  },
+  {
     build: 10554, date: "2026-09-02", title: "Multi-admin approval counts one thing, nine ways",
     items: [
       { kind: "fixed", tool: "Multi-admin approval", text: "The overview said \"1 approval policy\" beside \"0/4 categories gated, plus 1 action gate\", and the rail said \"Policies 1/1\" in red with no explanation \u2014 a tenant whose one policy gated device wipes read as if the policy were missing. The tool counted only four operation types; Intune's access policies can protect nine today (apps, scripts, settings catalog, compliance policies, roles, device wipe, device retire, device delete, tenant configuration), and now all nine are the list. A device-wipe policy is a row like any other. The cards, the rail and the panes count the same things: policies, operation types gated (1 of 9, naming which), and gates nobody can open. The overview names every policy with what it gates; the Policies node reads \"1 \u00b7 \u26a0 1\" with a tooltip saying the approver groups hold nobody; policy rows say \"gates the wipe action on every device\" instead of the raw deviceWipe token." },

@@ -201,7 +201,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.9.0
+Version    : 1.9.1
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -272,6 +272,18 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# A terminating error names its own line. Without this, a .NET exception that
+# escapes the script reports "At line:1 char:1 .\Invoke-TunoAppLockerScan.ps1"
+# - the caller's line, not the script's - and the only way to find where it
+# broke is to know to ask $Error[0].ScriptStackTrace afterwards. (1.9.1: the
+# 5.1 binder failure at what was line 2114 took a round trip to locate.)
+trap {
+    Write-Host ''
+    Write-Host ("  [fail] {0}" -f $_.Exception.Message) -ForegroundColor Red
+    Write-Host ("  {0}" -f (($_.ScriptStackTrace -split "`r?`n" | Where-Object { $_ }) -join "`n  ")) -ForegroundColor DarkGray
+    break
+}
+
 # TWO NUMBERS, ON PURPOSE.
 #
 # ScriptVersion is this file's own history, for somebody holding a copy that has
@@ -280,8 +292,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.9.0'
-$script:TunoBuild = 10553
+$script:ScriptVersion = '1.9.1'
+$script:TunoBuild = 10555
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1649,7 +1661,7 @@ function Resolve-LolBinExceptions {
         }
     }
 
-    [pscustomobject]@{ exceptions = @($out); records = @($records) }
+    [pscustomobject]@{ exceptions = $out.ToArray(); records = $records.ToArray() }
 }
 
 function New-PublisherRule {
@@ -2111,7 +2123,12 @@ foreach ($root in $roots) {
 }
 
 $writablePaths = @($writable | ForEach-Object { $_.path })
-$writableFiles = @($script:WritableFiles)
+# .ToArray(), NOT @(...): Windows PowerShell 5.1's array subexpression over a
+# generic List that New-Object handed back (PSObject-wrapped) can throw
+# "Argument types do not match" from deep in the binder - it did, here, on
+# 5.1.26100 with the list empty. ToArray() never enters the binder. The same
+# rule is applied to every @(List) in this file.
+$writableFiles = $script:WritableFiles.ToArray()
 if ($writableFiles.Count -gt 0) {
     Add-ScanWarning ("{0} executable file(s) inside admin-only directories are writable by a standard user. The directory rule allows them and the directory walk cannot see them - each is excepted from the default allow by its exact path and inventoried for its own rule. The real fix is the ACL: a user who can overwrite a file the policy allows can run anything." -f $writableFiles.Count)
     foreach ($wf in $writableFiles | Select-Object -First 10) {
@@ -2137,7 +2154,7 @@ foreach ($pr in $profileRoots) {
 # the artifact inventory walks the same subtree twice. Non-profile directories go
 # FIRST so that Windows and Program Files are inventoried before any -MaxArtifacts
 # cap can be spent on profile contents.
-$unsafeDirectories = @(Compress-PathList -Paths (@($writablePaths) + @($extraPaths))) + @($profileRoots)
+$unsafeDirectories = @(Compress-PathList -Paths (@($writablePaths) + @($extraPaths))) + $profileRoots.ToArray()
 
 Write-Ok ("$($writablePaths.Count) user-writable director$(if ($writablePaths.Count -eq 1) { 'y' } else { 'ies' }) found" +
     $(if ($profileRoots.Count) { ", plus $($profileRoots.Count) user profile(s) taken as writable without walking" } else { '' }))
@@ -2448,7 +2465,7 @@ $bundle = [pscustomobject]@{
     events    = $events
     effectivePolicy = $effective
     generatedPolicy = $generated
-    warnings  = @($script:Warnings)
+    warnings  = $script:Warnings.ToArray()
 }
 
 $bundlePath = Join-Path $OutputPath ("TunoAppLockerScan-{0}-{1}.json" -f $machine.name, $stamp)
