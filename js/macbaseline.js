@@ -771,10 +771,12 @@ const MacBaselineTool = (() => {
     </div>
     <div class="ae-selbar" id="mbUpBar"><b id="mbUpBarCount"></b>
       <button class="btn primary" id="mbUpDry">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
+      <button class="btn primary" id="mbUpApply" style="display:none">✍ Create in THIS tenant <span class="tag block">writes to the tenant</span></button>
       <button class="ae-selbar-x" id="mbUpBarX" title="Clear the selection">✕</button></div>`;
     // stable index → row mapping for the dry run
     $("mbUpstream").dataset.order = JSON.stringify(rows.map((r) => upstream.rows.indexOf(r)));
     $("mbUpDry").addEventListener("click", upDryRun);
+    $("mbUpApply").addEventListener("click", upApply);
     // select all / none (Mihai's ask) — three faces of one selection: the
     // header master checkbox, the two buttons, and the row ticks, kept in
     // step so none of them can lie about the others
@@ -792,15 +794,38 @@ const MacBaselineTool = (() => {
       const bar = $("mbUpBar");
       if (bar) {
         bar.classList.toggle("visible", on > 0);
-        const bc = $("mbUpBarCount"); if (bc) bc.textContent = `${on} polic${on === 1 ? "y" : "ies"} ticked`;
+        // THE BAR CARRIES THE WHOLE ACT (10556, Mihai): tick → dry run →
+        // create, all in the one floating bar, so the create never sits at
+        // the bottom of a seventeen-row plan a scroll below the bar that
+        // planned it. A plan is only offered for the selection it was made
+        // for: any tick or name change after the dry run invalidates it and
+        // the bar drops back to the dry run.
+        const live = upPlanned && upPlanKey === upSelectionKey();
+        const nCreate = live ? upPlanned.filter((p) => !p.collided).length : 0;
+        const bc = $("mbUpBarCount");
+        if (bc) bc.textContent = live ? `${on} ticked · ${nCreate} to create` : `${on} polic${on === 1 ? "y" : "ies"} ticked`;
+        const dry = $("mbUpDry"), ap = $("mbUpApply");
+        if (dry) {
+          dry.classList.toggle("primary", !live);
+          dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans writes</span>`;
+        }
+        if (ap) {
+          ap.style.display = live && nCreate ? "" : "none";
+          ap.innerHTML = `✍ Create ${nCreate} in THIS tenant <span class="tag block">writes to the tenant</span>`;
+        }
+        const stale = $("mbUpStale");
+        if (stale) stale.style.display = upPlanned && !live ? "" : "none";
       }
     };
+    syncUpBar = syncMaster;
     const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); syncMaster(); };
     master.addEventListener("change", () => setAll(master.checked));
     $("mbUpAll").addEventListener("click", () => setAll(true));
     $("mbUpNone").addEventListener("click", () => setAll(false));
     $("mbUpBarX").addEventListener("click", () => setAll(false));
     $("mbUpstream").addEventListener("change", (e) => { if (e.target.closest("[data-uptick]")) syncMaster(); });
+    // a name edit changes what would be created — the plan is stale from the first keystroke
+    $("mbUpstream").addEventListener("input", (e) => { if (e.target.closest("[data-upname]")) syncMaster(); });
     syncMaster();
     $("mbUpMd").addEventListener("click", () => {
       const c = activeCatalog();
@@ -810,9 +835,26 @@ const MacBaselineTool = (() => {
   }
 
   let upPlanned = null;
+  let upPlanKey = null;          // the selection the plan was made for
+  let syncUpBar = () => {};      // renderUpstream's bar sync, reachable from the acts
+  // What the dry run would read: every ticked row with the name it would be
+  // created under. Two selections that differ in either are two plans.
+  function upSelectionKey() {
+    const host = $("mbUpstream");
+    if (!host) return "";
+    const parts = [];
+    host.querySelectorAll("[data-uptick]").forEach((cb) => {
+      if (!cb.checked) return;
+      const i = cb.dataset.uptick;
+      const nameEl = host.querySelector(`[data-upname="${i}"]`);
+      parts.push(`${i}=${((nameEl && nameEl.value) || "").trim()}`);
+    });
+    return parts.join("\n");
+  }
   async function upDryRun() {
     if (running || !upstream) return;
     running = true; $("mbUpDry").disabled = true; $("mbUpPlan").innerHTML = "";
+    upPlanned = null; upPlanKey = null; syncUpBar();
     try {
       const order = JSON.parse($("mbUpstream").dataset.order || "[]");
       const picked = [], badNames = [];
@@ -836,24 +878,28 @@ const MacBaselineTool = (() => {
       await Graph.ensureScopes(Graph.SCOPES.config);
       const names = await Restore.existingNames([...new Set(picked.map((x) => x.area))], (m) => prog(m));
       upPlanned = Restore.plan(picked, names);
+      upPlanKey = upSelectionKey();
       prog("");
       const nCreate = upPlanned.filter((p) => !p.collided).length;
+      // The create button lives in the floating bar (10556), not here — the
+      // plan is the evidence, the bar is the act.
       $("mbUpPlan").innerHTML = `
-        <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${upPlanned.length - nCreate} already present (the collision stop)</p>
+        <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${upPlanned.length - nCreate} already present (the collision stop)${nCreate ? ` — <b>✍ Create ${nCreate} in THIS tenant</b> is in the bar below` : ""}</p>
+        <p class="mini" id="mbUpStale" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before creating.</p>
         <div class="gu-tw"><table class="cg-table"><thead><tr><th>Will be created as</th><th style="width:180px">Surface</th><th style="width:200px">Operation</th></tr></thead>
         <tbody>${upPlanned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`).join("")}</tbody></table></div>
-        ${nCreate ? `<div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mbUpApply">✍ Create ${nCreate} in THIS tenant <span class="tag block">writes to the tenant</span></button></div>` : ""}
         <div id="mbUpResult" style="margin-top:10px"></div>`;
-      const ap = $("mbUpApply");
-      if (ap) ap.addEventListener("click", upApply);
     } catch (e) {
       prog("");
       $("mbUpPlan").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-    } finally { running = false; const d = $("mbUpDry"); if (d) d.disabled = false; }
+    } finally { running = false; const d = $("mbUpDry"); if (d) d.disabled = false; syncUpBar(); }
   }
 
   async function upApply() {
     if (running || !upPlanned) return;
+    // the bar offers the plan only for the selection it was made for; a
+    // stale click through a race is refused rather than half-honoured
+    if (upPlanKey !== upSelectionKey()) { syncUpBar(); return; }
     running = true; $("mbUpApply").disabled = true;
     try {
       await Graph.ensureScopes(Graph.SCOPES.profiles);
@@ -865,12 +911,11 @@ const MacBaselineTool = (() => {
         <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — unassigned, in this tenant only. Now 🍎 Read the tenant, judge them in the comparison, and 🧬 re-export: the export becomes the new baseline, versions increased, wearing this month's release.</p>
         ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")}`;
       if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-      upPlanned = null;
+      upPlanned = null; upPlanKey = null;
     } catch (e) {
       prog("");
       $("mbUpResult").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-      const ap = $("mbUpApply"); if (ap) ap.disabled = false;
-    } finally { running = false; }
+    } finally { running = false; const ap = $("mbUpApply"); if (ap) ap.disabled = false; syncUpBar(); }
   }
 
   async function dryRun() {

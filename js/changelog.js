@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10556, date: "2026-09-02", title: "macOS baseline: the bar that plans also creates",
+    items: [
+      { kind: "improved", tool: "macOS baseline", text: "On the Upstream pane the floating bar now carries the whole act. After a dry run it reads \"17 ticked · 17 to create\" and offers \"Create 17 in THIS tenant\" right there, with \"Dry run again\" beside it, instead of leaving the create button at the foot of a seventeen-row plan a scroll below the bar that planned it. The plan belongs to the selection it was made for: change a tick or a name and the create disappears, the plan says it is stale, and the dry run comes back; put the selection back exactly and so does the plan." },
+    ],
+  },
+  {
     build: 10555, date: "2026-09-02", title: "The AppLocker scanner runs again on Windows PowerShell 5.1",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Invoke-TunoAppLockerScan.ps1 v1.9.0 stopped after the writable-directory walk on Windows PowerShell 5.1 with \"Argument types do not match\" and no script line. The cause is a 5.1 binder fault: an array subexpression written around a generic List that New-Object created can throw from inside PowerShell itself, and it did on the (empty) writable-files list. Every such site now calls the list's own ToArray(), which never touches the binder. Script v1.9.1." },
