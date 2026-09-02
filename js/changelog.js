@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10560, date: "2026-09-02", title: "AppLocker: compare the deployed profile with what you are about to deploy",
+    items: [
+      { kind: "new", tool: "AppLocker", text: "Beside every AppLocker profile the tenant check finds there is now a Compare button. It holds the deployed profile up against the profile TUNO would write — same serialiser, same mode, so it compares what the deploy actually sends, not the raw draft — and lists only what differs: enforcement mode changes, rules added, rules removed, rules changed (action, principal, condition with was/now, exceptions) and rules merely renamed. A rule is matched by Id, or by name and condition when the other side re-minted Ids, so a portal export never reads as everything removed and everything added. Identical is one line: no differences, updating would change nothing. The differences can be taken away as Markdown, and any edit to the draft clears the compare." },
+    ],
+  },
+  {
     build: 10559, date: "2026-09-02", title: "Firewall & ASR coverage says what each policy configures",
     items: [
       { kind: "new", tool: "Firewall & ASR coverage", text: "Open a policy and, under its assignments, it now lists what it configures — read at the click with the catalog's own display names and option labels, so a firewall policy reads \"Enable Domain Network Firewall — True\" rather than a slug and a 1. An Attack Surface Reduction policy leads with its rules: all nineteen, each Block, Audit, Warn, Off or not set, per-rule exclusions on their rule. One button reads them all; the Markdown export carries every policy read. A read that fails says so on that policy; a legacy intent says it has no settings-catalog body." },

@@ -745,12 +745,96 @@ const AppLockerTool = (() => {
   const APPLOCKER_OMA_RE = /\/applocker\/applicationlaunchrestrictions\/([^/]+)\//i;
   const appLockerProfilesOf = (profiles) => profiles.filter((p) => (p.omaSettings || []).some((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || ""))));
 
-  function adoptTenantProfile(p) {
+  // The policy a custom profile carries, rebuilt from its RuleCollection
+  // values. Shared by adopt (which REPLACES the draft with it) and by the
+  // compare (which holds it up beside the draft) — one reader, one answer.
+  function policyOfProfile(p) {
     const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
     const values = settings.map((s) => String(s.value || "")).filter((v) => /<RuleCollection/i.test(v));
     if (!values.length) throw new Error("That profile's AppLocker settings carry no readable RuleCollection values — Graph may have withheld them. Export the policy from the portal instead.");
     const xml = `<AppLockerPolicy Version="1">\n${values.join("\n")}\n</AppLockerPolicy>`;
-    policy = parsePolicy(xml, p.displayName || "tenant profile");
+    return parsePolicy(xml, p.displayName || "tenant profile");
+  }
+
+  // ================================================================
+  // COMPARE — the deployed profile against what TUNO would write (10560,
+  // Mihai: "compare Intune policies vs to-be-deployed, only show the
+  // differences"). The to-be-deployed side is NOT the draft as edited: it
+  // is the Intune profile the deploy would send — same serialiser, same
+  // mode, Dll omitted — parsed back the way a tenant profile is. Comparing
+  // the draft itself would report differences the deploy never makes (the
+  // Dll collection, an EnforcementMode the deploy overrides).
+  //
+  // A rule is the same rule when its Id matches; a rule whose Id the other
+  // side lacks is matched by name + condition, because an export from the
+  // portal re-mints Ids and the same rule must not read as a removal plus
+  // an addition. What is compared is what AppLocker enforces: action,
+  // principal, conditions, exceptions. A name or description change alone
+  // is reported as a rename, never as a rule change.
+  // ================================================================
+  const condSig = (c) => !c ? "" : c.kind === "path" ? `path:${String(c.path || "").toLowerCase()}`
+    : c.kind === "publisher" ? `pub:${[c.publisher, c.product, c.binary, c.low, c.high].map((x) => String(x || "*").toLowerCase()).join("|")}`
+    : c.kind === "hash" ? `hash:${(c.hashes || []).map((h) => String(h.data || "").toLowerCase()).sort().join(",")}` : "?";
+  const ruleSig = (r) => [r.action, r.sid, (r.conditions || []).map(condSig).sort().join(";"), (r.exceptions || []).map(condSig).sort().join(";")].join("#");
+  const condText = (c) => !c ? "" : c.kind === "path" ? c.path
+    : c.kind === "publisher" ? `${c.publisher} · ${c.product} · ${c.binary} [${c.low},${c.high}]`
+    : c.kind === "hash" ? `${(c.hashes || []).length} hash(es)${(c.hashes || [])[0] && c.hashes[0].file ? ` — ${c.hashes[0].file}` : ""}` : "";
+  function diffPolicies(deployed, draft) {
+    const types = [...new Set([...(deployed.collections || []).map((c) => c.type), ...(draft.collections || []).map((c) => c.type)])];
+    const out = { collections: [], added: 0, removed: 0, changed: 0, renamed: 0, modeChanges: 0 };
+    for (const t of types) {
+      const a = (deployed.collections || []).find((c) => c.type === t) || null;
+      const b = (draft.collections || []).find((c) => c.type === t) || null;
+      const col = { type: t, modeFrom: a ? a.mode : null, modeTo: b ? b.mode : null, added: [], removed: [], changed: [], renamed: [] };
+      const ar = a ? a.rules.slice() : [], br = b ? b.rules.slice() : [];
+      const usedB = new Set();
+      for (const ra of ar) {
+        let rb = br.find((x) => !usedB.has(x) && x.id && ra.id && x.id.toLowerCase() === ra.id.toLowerCase());
+        if (!rb) rb = br.find((x) => !usedB.has(x) && x.name === ra.name && ruleSig(x) === ruleSig(ra));
+        if (!rb) rb = br.find((x) => !usedB.has(x) && ruleSig(x) === ruleSig(ra) && x.nodeName === ra.nodeName);
+        if (!rb) { col.removed.push(ra); continue; }
+        usedB.add(rb);
+        const what = [];
+        if (ra.action !== rb.action) what.push(`action ${ra.action} → ${rb.action}`);
+        if (ra.sid !== rb.sid) what.push(`principal ${sidName(ra.sid)} → ${sidName(rb.sid)}`);
+        const ca = (ra.conditions || []).map(condSig).sort().join(";"), cb = (rb.conditions || []).map(condSig).sort().join(";");
+        if (ca !== cb) what.push("condition");
+        const ea = (ra.exceptions || []).map(condSig).sort().join(";"), eb = (rb.exceptions || []).map(condSig).sort().join(";");
+        if (ea !== eb) what.push(`exceptions ${(ra.exceptions || []).length} → ${(rb.exceptions || []).length}`);
+        if (what.length) col.changed.push({ before: ra, after: rb, what });
+        else if (ra.name !== rb.name) col.renamed.push({ before: ra, after: rb });
+      }
+      for (const rb of br) if (!usedB.has(rb)) col.added.push(rb);
+      const modeDiff = (a ? a.mode : "absent") !== (b ? b.mode : "absent");
+      col.modeDiff = modeDiff;
+      if (modeDiff || col.added.length || col.removed.length || col.changed.length || col.renamed.length) out.collections.push(col);
+      out.added += col.added.length; out.removed += col.removed.length; out.changed += col.changed.length; out.renamed += col.renamed.length;
+      if (modeDiff) out.modeChanges++;
+    }
+    out.same = !out.collections.length;
+    return out;
+  }
+  // What the deploy would write, parsed back the way a tenant profile is —
+  // so both sides of the compare went through the same reader.
+  function toBeDeployedPolicy(mode) {
+    return policyOfProfile(intuneProfile(mode));
+  }
+  function diffMarkdown(d, profileName, mode) {
+    const L = [`# AppLocker — what would change in ${profileName}`, "", `_${d.same ? "No differences" : `${d.added} added · ${d.removed} removed · ${d.changed} changed · ${d.renamed} renamed · ${d.modeChanges} enforcement mode change(s)`} — deployed profile vs the ${mode} profile ${BRANDING.name} would write. Only differences are listed._`, ""];
+    for (const c of d.collections) {
+      L.push(`## ${COLLECTION_LABEL[c.type] || c.type}`, "");
+      if (c.modeDiff) L.push(`- Enforcement mode: **${c.modeFrom || "absent"} → ${c.modeTo || "absent"}**`);
+      c.added.forEach((r) => L.push(`- **+ added** ${r.name} — ${r.action} for ${sidName(r.sid)} — ${(r.conditions || []).map(condText).join("; ")}`));
+      c.removed.forEach((r) => L.push(`- **− removed** ${r.name} — ${r.action} for ${sidName(r.sid)} — ${(r.conditions || []).map(condText).join("; ")}`));
+      c.changed.forEach((x) => L.push(`- **~ changed** ${x.after.name} — ${x.what.join(", ")}${x.what.includes("condition") ? ` — was: ${(x.before.conditions || []).map(condText).join("; ")} — now: ${(x.after.conditions || []).map(condText).join("; ")}` : ""}`));
+      c.renamed.forEach((x) => L.push(`- renamed: ${x.before.name} → ${x.after.name}`));
+      L.push("");
+    }
+    return L.join("\n");
+  }
+
+  function adoptTenantProfile(p) {
+    policy = policyOfProfile(p);
     scan = null; scanSource = "";
     importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
     // Adopt the profile's identity so the export EDITS rather than duplicates.
@@ -1524,6 +1608,9 @@ const AppLockerTool = (() => {
     undoState = { snapshot: before, label };
     justApplied = label;
     editsSinceLoad++;
+    // a compare describes the draft it was made against; an edit makes it
+    // stale, and a stale diff before an update in place is a lie
+    deployState.diff = null;
     // Guarded: one headless harness evaluates this file in a bare VM context
     // without timers, and a notice that never fades is better than a crash.
     if (justAppliedTimer && typeof clearTimeout === "function") clearTimeout(justAppliedTimer);
@@ -1551,6 +1638,7 @@ const AppLockerTool = (() => {
     undoState = null; fixOpen = null;
     deployState = Object.assign({}, deployState, {
       busy: "", checked: null, groups: null, picked: null, error: null, note: "",
+      diff: null,   // a compare belongs to the draft it was made against (10560)
     });
   }
 
@@ -2898,6 +2986,7 @@ const AppLockerTool = (() => {
     picked: null,         // { id, displayName, count }
     updating: null,       // { id, name } — the in-place update awaiting its confirm
     updated: null,        // the profile updated in place THIS session
+    diff: null,           // { id, name, mode, result, when } — the last compare (10560)
     error: null,          // last GraphError, shown verbatim
     note: "",
     // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
@@ -3242,18 +3331,19 @@ const AppLockerTool = (() => {
       <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
       <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
       ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length
-        ? `The grouping on screen matches the deployed profile${d.checked.tenantAppLocker[0] && d.checked.tenantAppLocker[0].id ? ` — <button class="btn sm al-dep-upd" data-id="${escq(d.checked.tenantAppLocker[0].id)}" data-name="${escq(d.checked.tenantAppLocker[0].displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> writes the adjusted rules and the new version name into it, assignments untouched` : " — the export edits it in place"}.`
+        ? `The grouping on screen matches the deployed profile${d.checked.tenantAppLocker[0] && d.checked.tenantAppLocker[0].id ? ` — <button class="btn sm al-dep-cmp" data-id="${escq(d.checked.tenantAppLocker[0].id)}" ${d.busy ? "disabled" : ""}>${d.busy === "compare" ? "Comparing…" : "⇄ Compare — differences only"}</button> <button class="btn sm al-dep-upd" data-id="${escq(d.checked.tenantAppLocker[0].id)}" data-name="${escq(d.checked.tenantAppLocker[0].displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> writes the adjusted rules and the new version name into it, assignments untouched` : " — the export edits it in place"}.`
         : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
+      ${d.diff ? diffHtml(d.diff) : ""}
       ${(() => {
         const tap = tenantOtherGroupings();
         return tap.length ? `<div class="al-dep-ok" style="margin-top:8px"><b>This tenant already runs AppLocker under a different grouping.</b>
           <div class="mini" style="margin-top:4px">Iterating on ${tap.length === 1 ? "that profile" : "one of them"}? Adopt its name and grouping — your ADJUSTED draft stays exactly as it is on screen, only the address and name change, and the export becomes an edit-in-place of the deployed profile.</div>
-          <ul class="mini al-list" style="margin-top:6px">${tap.map((p, i) => `<li><button class="btn sm al-dep-adopt-id" data-i="${i}">⤓ Adopt identity</button> <b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : "";
+          <ul class="mini al-list" style="margin-top:6px">${tap.map((p, i) => `<li><button class="btn sm al-dep-adopt-id" data-i="${i}">⤓ Adopt identity</button> ${p.id ? `<button class="btn sm al-dep-cmp" data-id="${escq(p.id)}" ${d.busy ? "disabled" : ""}>⇄ Compare</button> ` : ""}<b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : "";
       })()}
 
       ${coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has ${coll.length} profile${coll.length === 1 ? "" : "s"} in the way.</b>
         <div class="mini" style="margin-top:4px">TUNO will not create a twin beside ${coll.length === 1 ? "it" : "them"}, and never overwrites anything without being told to.</div>
-        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li>${c.id ? `<button class="btn sm al-dep-upd" data-id="${escq(c.id)}" data-name="${escq(c.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        <ul class="mini al-list" style="margin-top:6px">${coll.map((c) => `<li>${c.id ? `<button class="btn sm al-dep-cmp" data-id="${escq(c.id)}" ${d.busy ? "disabled" : ""}>⇄ Compare</button> <button class="btn sm al-dep-upd" data-id="${escq(c.id)}" data-name="${escq(c.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(c.displayName)}</b> — ${escq(c.why)}${c.modified ? ` · last changed ${escq(String(c.modified).slice(0, 10))}` : ""}</li>`).join("")}</ul>
         <div class="mini" style="margin-top:6px"><b>Iterating on it deliberately?</b> Then this stop is the system working. <b>Update it in place</b> writes the adjusted rules and the new version name into the deployed profile — same grouping, same profile, its assignments never move. Or do the same by hand: paste the <b>Intune profile</b> tab's values into the existing profile's OMA-URIs in the portal.</div></div>` : ""}
       ${d.updating ? `<div class="al-dep-confirm" style="margin-top:8px">
           <b>Update ${escq(d.updating.name)} in place?</b>
@@ -3301,6 +3391,29 @@ const AppLockerTool = (() => {
     </div>`;
 
     wireDeploy();
+  }
+
+  // The diff card — only what differs, per collection; the same-rules case
+  // says so in one line, because "nothing" is the answer that matters most
+  // before an update in place.
+  function diffHtml(df) {
+    const r = df.result;
+    const ruleLine = (rule) => `<b>${escq(rule.name)}</b> <span class="muted">— ${escq(rule.action)} for ${escq(sidName(rule.sid))}</span><div class="mini muted" style="overflow-wrap:anywhere">${(rule.conditions || []).map((c) => escq(condText(c))).join("; ")}${(rule.exceptions || []).length ? ` · ${rule.exceptions.length} exception${rule.exceptions.length === 1 ? "" : "s"}` : ""}</div>`;
+    const head = `<div class="al-dep-h" style="margin-top:10px"><b>⇄ ${escq(df.name)} vs the ${escq(df.mode)} profile TUNO would write</b> <span class="mini muted">differences only · compared ${escq(df.when.replace("T", " ").slice(0, 16))} UTC</span></div>`;
+    if (r.same) return `<div class="al-dep-ok">${head}<div class="mini" style="margin-top:4px"><b>No differences.</b> Every collection, mode, rule, condition and exception matches — updating this profile would change nothing on any device.</div></div>`;
+    const cols = r.collections.map((c) => `<div style="margin-top:8px"><b class="mini">${escq(COLLECTION_LABEL[c.type] || c.type)}</b>
+      ${c.modeDiff ? `<div class="mini" style="margin-top:2px">Enforcement mode: <b>${escq(c.modeFrom || "absent")} → ${escq(c.modeTo || "absent")}</b>${c.modeTo === null ? " — the collection is not in the profile TUNO writes" : c.modeFrom === null ? " — the collection is new to the tenant" : ""}</div>` : ""}
+      <ul class="mini al-list" style="margin-top:4px">
+        ${c.added.map((x) => `<li><span class="tag grant">+ added</span> ${ruleLine(x)}</li>`).join("")}
+        ${c.removed.map((x) => `<li><span class="tag block">− removed</span> ${ruleLine(x)}</li>`).join("")}
+        ${c.changed.map((x) => `<li><span class="tag new">~ changed</span> <b>${escq(x.after.name)}</b> <span class="muted">— ${escq(x.what.join(", "))}</span>${x.what.includes("condition") ? `<div class="mini muted" style="overflow-wrap:anywhere">was: ${(x.before.conditions || []).map((k) => escq(condText(k))).join("; ")}<br>now: ${(x.after.conditions || []).map((k) => escq(condText(k))).join("; ")}</div>` : ""}</li>`).join("")}
+        ${c.renamed.map((x) => `<li><span class="tag">renamed</span> <span class="muted">${escq(x.before.name)} →</span> <b>${escq(x.after.name)}</b> <span class="muted">— same rule, new name</span></li>`).join("")}
+      </ul></div>`).join("");
+    return `<div class="al-dep-sub" id="alDepDiff">${head}
+      <p class="mini" style="margin:4px 0 0"><b>${r.added} added</b> · <b>${r.removed} removed</b> · <b>${r.changed} changed</b>${r.renamed ? ` · ${r.renamed} renamed` : ""}${r.modeChanges ? ` · ${r.modeChanges} enforcement mode change${r.modeChanges === 1 ? "" : "s"}` : ""} — everything not listed is identical.</p>
+      ${cols}
+      <div class="al-dep-row" style="margin-top:8px"><button class="btn sm" id="alDepDiffMd">⭳ Differences as Markdown</button></div>
+    </div>`;
   }
 
   function depFail(e) {
@@ -3354,6 +3467,27 @@ const AppLockerTool = (() => {
   // The grouping check stands alone: the adopt-identity offer must be
   // reachable BEFORE the deploy button is — a draft with open findings has
   // its deploy disabled, and that is exactly when someone is iterating.
+  // COMPARE (10560): hold the deployed profile up against what the deploy
+  // would write, and show only what differs. Re-reads the profile at the
+  // click — the tenant may have moved since the grouping check.
+  async function compareWithTenant(profileId) {
+    const d = deployState;
+    d.error = null; d.diff = null;
+    d.busy = "compare";
+    renderDeploy();
+    try {
+      const existing = await Graph.customProfiles();
+      const target = existing.find((p) => p.id === profileId);
+      if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check.");
+      const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
+      const deployed = policyOfProfile(target);
+      const mine = toBeDeployedPolicy(mode);
+      d.diff = { id: target.id, name: target.displayName || "(unnamed)", mode, result: diffPolicies(deployed, mine), when: new Date().toISOString() };
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
   async function checkTenantGrouping() {
     const d = deployState;
     d.error = null;
@@ -3418,6 +3552,14 @@ const AppLockerTool = (() => {
   function wireDeploy() {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepCheckGroup", "click", checkTenantGrouping);
+    document.querySelectorAll(".al-dep-cmp").forEach((b) => b.addEventListener("click", () => compareWithTenant(b.dataset.id)));
+    on("alDepDiffMd", "click", () => {
+      const df = deployState.diff; if (!df) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([diffMarkdown(df.result, df.name, df.mode)], { type: "text/markdown" }));
+      a.download = `applocker-diff-${String(df.name).replace(/[^\w.-]+/g, "_")}.md`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    });
     // The version token is editable where the name is shown: committing a
     // value moves it in the NAME only (the grouping never follows a version).
     const ver = $("alDepVer");
@@ -3479,5 +3621,8 @@ const AppLockerTool = (() => {
     });
   }
 
-  return { init };
+  return { init,
+    // the compare engine, for the headless suite (10560)
+    _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
+  };
 })();
