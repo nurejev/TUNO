@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10562, date: "2026-09-02", title: "AppLocker: the adopted profile stays on the panel",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "In a tenant running more than one AppLocker profile, adopting one's identity made it disappear from the deploy panel — the 'matches the deployed profile' line only rendered when no other grouping existed — and Compare and Update in place went with it. The matched profile now has its own line whatever else the tenant runs, with Compare and Update in place beside it; the other groupings keep their list below." },
+    ],
+  },
+  {
     build: 10561, date: "2026-09-02", title: "macOS baseline: Upstream stays on the baseline tenant",
     items: [
       { kind: "fixed", tool: "macOS baseline", text: "Export and Upstream — the two acts that author the baseline — exist on cloudfellows.dev only. The rail already withheld them elsewhere, but a session that left Upstream open there and then signed into another tenant kept showing the Upstream card under a rail that no longer offered it. The pane now follows the rail: off the baseline tenant it falls back to Compare, and the card itself says it is cloudfellows.dev only." },

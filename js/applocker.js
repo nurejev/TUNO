@@ -3330,9 +3330,22 @@ const AppLockerTool = (() => {
       </div>
       <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
       <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
-      ${d.checked && d.checked.tenantAppLocker && !tenantOtherGroupings().length ? `<p class="mini" style="margin:4px 0 0">✓ ${d.checked.tenantAppLocker.length
-        ? `The grouping on screen matches the deployed profile${d.checked.tenantAppLocker[0] && d.checked.tenantAppLocker[0].id ? ` — <button class="btn sm al-dep-cmp" data-id="${escq(d.checked.tenantAppLocker[0].id)}" ${d.busy ? "disabled" : ""}>${d.busy === "compare" ? "Comparing…" : "⇄ Compare — differences only"}</button> <button class="btn sm al-dep-upd" data-id="${escq(d.checked.tenantAppLocker[0].id)}" data-name="${escq(d.checked.tenantAppLocker[0].displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> writes the adjusted rules and the new version name into it, assignments untouched` : " — the export edits it in place"}.`
-        : "No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment."}</p>` : ""}
+      ${(() => {
+        // THE MATCHED PROFILE HAS ITS OWN LINE, whatever else the tenant
+        // runs (10562). This used to render only when NO other grouping
+        // existed, so a tenant with three AppLocker profiles never showed
+        // the matched one at all: adopt an identity and the profile you had
+        // just adopted vanished from the panel, Compare with it. Mihai's
+        // report — "once selected, compare is not possible any more".
+        if (!d.checked || !d.checked.tenantAppLocker) return "";
+        const match = tenantMatchingGrouping();
+        if (match.length) {
+          return `<p class="mini" style="margin:4px 0 0">✓ The grouping on screen matches the deployed profile${match.length > 1 ? `s (${match.length})` : ""}:</p>
+            <ul class="mini al-list" style="margin-top:4px">${match.map((p) => `<li>${p.id ? `<button class="btn sm al-dep-cmp" data-id="${escq(p.id)}" ${d.busy ? "disabled" : ""}>${d.busy === "compare" && d.comparing === p.id ? "Comparing…" : "⇄ Compare — differences only"}</button> <button class="btn sm al-dep-upd" data-id="${escq(p.id)}" data-name="${escq(p.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}${p.id ? ` <span class="muted">— update writes the adjusted rules and the new version name into it, assignments untouched</span>` : ""}</li>`).join("")}</ul>`;
+        }
+        if (!d.checked.tenantAppLocker.length) return `<p class="mini" style="margin:4px 0 0">✓ No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment.</p>`;
+        return "";
+      })()}
       ${d.diff ? diffHtml(d.diff) : ""}
       ${(() => {
         const tap = tenantOtherGroupings();
@@ -3455,6 +3468,16 @@ const AppLockerTool = (() => {
   // The tenant's AppLocker profiles under a DIFFERENT grouping than the one
   // on screen — the ones the adopt-identity offer is about. One filter,
   // used by the panel template and its wiring alike.
+  // The deployed profiles whose grouping IS the one on screen — the ones an
+  // update in place would edit and a compare speaks about.
+  function tenantMatchingGrouping() {
+    const g = String(intuneGrouping() || "").toLowerCase();
+    return (deployState.checked && deployState.checked.tenantAppLocker || []).filter((p) => {
+      const st = (p.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
+      return m && m[1] && m[1].toLowerCase() === g;
+    });
+  }
   function tenantOtherGroupings() {
     const g = String(intuneGrouping() || "").toLowerCase();
     return (deployState.checked && deployState.checked.tenantAppLocker || []).filter((p) => {
@@ -3473,7 +3496,7 @@ const AppLockerTool = (() => {
   async function compareWithTenant(profileId) {
     const d = deployState;
     d.error = null; d.diff = null;
-    d.busy = "compare";
+    d.busy = "compare"; d.comparing = profileId;
     renderDeploy();
     try {
       const existing = await Graph.customProfiles();
