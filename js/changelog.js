@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10565, date: "2026-09-02", title: "Entra device cleanup takes the way back",
+    items: [
+      { kind: "new", tool: "Entra device cleanup", text: "A Re-enable pane, beside Disable and Delete: every disabled device the read found, tick the ones somebody wants back, and the floating bar re-enables them with the same fresh read, write and read-back the disable step uses. No threshold applies — a disabled device cannot sign in. The buckets now follow every verified outcome: a device disabled in step one appears on Re-enable at once, one re-enabled there leaves the delete list, and a failed write moves nothing. The report gains a Re-enabled section." },
+    ],
+  },
+  {
     build: 10564, date: "2026-09-02", title: "Encrypted OMA-URI values, the whole road — and a file as the second road",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The previous build fetched the plain text but asked the profile list for the secret reference, which the list never carries — that field is only on the single-profile read — so the compare still came back empty. The profile is now re-read by id first, then each value fetched. When Graph still refuses, the refusal explains how else the deployed policy can come in — the scan bundle's effective policy from a device that has the profile, Get-AppLockerPolicy -Effective -Xml, or the portal's OMA-URI values — and offers Upload it and compare: the file becomes the deployed side and the differences render as before." },

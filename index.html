@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10564"></script>
+<script src="js/popup-guard.js?v=10565"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10564">
+<link rel="stylesheet" href="css/app.css?v=10565">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10564"></script>
+<script src="js/selfhost-boot.js?v=10565"></script>
 </head>
 <body>
 
@@ -1718,7 +1718,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · beta 10532 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · beta 10565 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
             <p class="mini" style="margin:0">Stale directory devices staged out in two deliberate steps — <b>disable at 30 days</b> of silence, <b>delete at 90, and only what is already disabled</b>. A device with no recorded sign-in is <b>unknown, not stale</b>, and gets no action offered. Every write is preceded by a fresh per-device read (a device that woke up or was re-enabled is refused, not overruled) and verified by read-back; deletes arm only after typing the word, because the BitLocker recovery keys go with the object. Carries the registration's first directory-device write scope, <code>Device.ReadWrite.All</code>, taken in the open — and Graph's own directory-role gate on device writes is named before the run. One Markdown report: the estate, the actions, and everything deliberately not done.</p>
           </div>
         </div>
@@ -2072,48 +2072,48 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10564"></script>
-<script src="js/selfhost.js?v=10564"></script>
-<script src="js/version.js?v=10564"></script>
-<script src="js/promote.js?v=10564"></script>
-<script src="js/authConfig.js?v=10564"></script>
-<script src="js/changelog.js?v=10564"></script>
-<script src="js/msappcatalog.js?v=10564"></script>
-<script src="js/demo.js?v=10564"></script>
-<script src="js/graph.js?v=10564"></script>
-<script src="js/suggest.js?v=10564"></script>
-<script src="js/progress.js?v=10564"></script>
-<script src="js/groupuse.js?v=10564"></script>
-<script src="js/audit.js?v=10564"></script>
-<script src="js/devicecleanup.js?v=10564"></script>
-<script src="js/backup.js?v=10564"></script>
-<script src="js/document.js?v=10564"></script>
-<script src="js/policycache.js?v=10564"></script>
-<script src="js/overview.js?v=10564"></script>
-<script src="js/devicewhy.js?v=10564"></script>
-<script src="js/whatif.js?v=10564"></script>
-<script src="js/health.js?v=10564"></script>
-<script src="js/settingsearch.js?v=10564"></script>
-<script src="js/conflict.js?v=10564"></script>
-<script src="js/compliance.js?v=10564"></script>
-<script src="js/filterrules.js?v=10564"></script>
-<script src="js/filters.js?v=10564"></script>
-<script src="js/restore.js?v=10564"></script>
-<script src="js/macbaselineData.js?v=10564"></script>
-<script src="js/complianceevidence.js?v=10564"></script>
-<script src="js/macbaseline.js?v=10564"></script>
-<script src="js/assignedit.js?v=10564"></script>
-<script src="js/restrictedau.js?v=10564"></script>
-<script src="js/groupmigrate.js?v=10564"></script>
-<script src="js/roles.js?v=10564"></script>
-<script src="js/defender.js?v=10564"></script>
-<script src="js/endpointsec.js?v=10564"></script>
-<script src="js/report.js?v=10564"></script>
-<script src="js/securescore.js?v=10564"></script>
-<script src="js/endpointposture.js?v=10564"></script>
-<script src="js/maa.js?v=10564"></script>
-<script src="js/laps.js?v=10564"></script>
-<script src="js/applocker.js?v=10564"></script>
-<script src="js/app.js?v=10564"></script>
+<script src="js/branding.js?v=10565"></script>
+<script src="js/selfhost.js?v=10565"></script>
+<script src="js/version.js?v=10565"></script>
+<script src="js/promote.js?v=10565"></script>
+<script src="js/authConfig.js?v=10565"></script>
+<script src="js/changelog.js?v=10565"></script>
+<script src="js/msappcatalog.js?v=10565"></script>
+<script src="js/demo.js?v=10565"></script>
+<script src="js/graph.js?v=10565"></script>
+<script src="js/suggest.js?v=10565"></script>
+<script src="js/progress.js?v=10565"></script>
+<script src="js/groupuse.js?v=10565"></script>
+<script src="js/audit.js?v=10565"></script>
+<script src="js/devicecleanup.js?v=10565"></script>
+<script src="js/backup.js?v=10565"></script>
+<script src="js/document.js?v=10565"></script>
+<script src="js/policycache.js?v=10565"></script>
+<script src="js/overview.js?v=10565"></script>
+<script src="js/devicewhy.js?v=10565"></script>
+<script src="js/whatif.js?v=10565"></script>
+<script src="js/health.js?v=10565"></script>
+<script src="js/settingsearch.js?v=10565"></script>
+<script src="js/conflict.js?v=10565"></script>
+<script src="js/compliance.js?v=10565"></script>
+<script src="js/filterrules.js?v=10565"></script>
+<script src="js/filters.js?v=10565"></script>
+<script src="js/restore.js?v=10565"></script>
+<script src="js/macbaselineData.js?v=10565"></script>
+<script src="js/complianceevidence.js?v=10565"></script>
+<script src="js/macbaseline.js?v=10565"></script>
+<script src="js/assignedit.js?v=10565"></script>
+<script src="js/restrictedau.js?v=10565"></script>
+<script src="js/groupmigrate.js?v=10565"></script>
+<script src="js/roles.js?v=10565"></script>
+<script src="js/defender.js?v=10565"></script>
+<script src="js/endpointsec.js?v=10565"></script>
+<script src="js/report.js?v=10565"></script>
+<script src="js/securescore.js?v=10565"></script>
+<script src="js/endpointposture.js?v=10565"></script>
+<script src="js/maa.js?v=10565"></script>
+<script src="js/laps.js?v=10565"></script>
+<script src="js/applocker.js?v=10565"></script>
+<script src="js/app.js?v=10565"></script>
 </body>
 </html>

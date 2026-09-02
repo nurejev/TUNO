@@ -100,6 +100,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 141, title: "\ud83e\uddf9 T25 re-enables \u2014 the way back for the disable step, buckets following the read-backs",
+      tools: ["T25 Entra device cleanup"], builds: [10565], risk: "low",
+      why: "Production's cleanup can disable and delete but not undo a disable; the way back was the portal (Mihai, 2026-09-02: 'should have an option to enable disabled devices'). Missing capability, nothing broken; the write is the same PATCH the disable step already makes, with the value flipped, behind the same fresh read and read-back. It graduates when a live tenant round-trips disable \u2192 re-enable on a test device with the portal agreeing at each step.",
+      test: [
+        "Read a tenant with disabled devices: the rail carries \u21a9 Re-enable with the disabled count; the pane lists every disabled device (waiting, delete candidates, and any disabled outside the buckets), longest silence first; the Disabled-waiting card opens it.",
+        "Tick one, Re-enable the ticked (test tenant): the Results pane reports 1 re-enabled with 'verified by read-back'; the portal shows the device enabled; the rail's Re-enable count drops by one, \u2461 Delete no longer lists it, \u2460 Disable lists it if it is past the threshold.",
+        "Disable a device in \u2460, then open Re-enable without reading again: it is listed there.",
+        "Tick a device somebody enabled in the portal meanwhile: it is skipped as 'already enabled', nothing written.",
+        "With a signed-in account lacking the directory role: the row reports Graph's refusal as 'who you are, not what TUNO may do'.",
+        "The Markdown report carries a Re-enabled section and the re-enable candidate list.",
+        "Suite: _to_delete/devicecleanup-tests.js 53/53 (13 new).",
+      ],
+      files: ["js/devicecleanup.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 140, title: "\ud83e\uddf1 T16 says what each policy configures \u2014 ASR rules with their modes, every setting by name",
       tools: ["T16 Firewall & ASR coverage"], builds: [10559], risk: "low",
       why: "Production's T16 says whether a policy reaches anybody, never what it does when it does; Mihai (2026-09-02): 'this should show which rules are enabled within that policy'. Missing capability, nothing broken, reads only. It graduates when a live tenant's ASR fold matches the portal's rule editor mode for mode, and an AV and a firewall fold show the portal's labels.",

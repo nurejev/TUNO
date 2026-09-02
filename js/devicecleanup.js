@@ -47,6 +47,14 @@
 // Autopilot-registered devices are refused by Graph itself; the row
 // reports the refusal in the tenant's words.
 //
+// RE-ENABLE (10565, Mihai's ask): the way back for the disable step,
+// in the tool that took it. Every disabled device the read found — the
+// parked ones, the delete candidates, and any disabled device outside
+// the staleness buckets — is listed on its own pane and can be
+// re-enabled with the same fresh-read → write → read-back discipline.
+// No wake-up check applies: a disabled device cannot sign in, and the
+// point of re-enabling is that somebody wants it back.
+//
 // THE REPORT (Mihai's ask): 📝 one Markdown file — the estate summary,
 // every action taken with its outcome, the candidates that remain, and
 // the unknowns — written from the same state the screen renders.
@@ -87,11 +95,13 @@ const DeviceCleanup = (() => {
     }
     const byDays = (a, b) => (b.days ?? -1) - (a.days ?? -1);
     out.stale.sort(byDays); out.deletable.sort(byDays); out.parked.sort(byDays);
+    // every disabled device, whatever bucket it fell in — the re-enable list
+    out.disabled = [...out.active, ...out.parked, ...out.deletable, ...out.unknown].filter((r) => r.d.accountEnabled === false).sort(byDays);
     return out;
   }
 
   // ---- apply: fresh per-device read, then the write, then the read-back --
-  // ops: [{ kind: "disable"|"delete", d, days }]
+  // ops: [{ kind: "disable"|"delete"|"enable", d, days }]
   async function apply(ops, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
@@ -103,6 +113,17 @@ const DeviceCleanup = (() => {
         o.onStatus && o.onStatus(`${name} — fresh read…`);
         const fresh = await Graph.readOne(`/devices/${op.d.id}?$select=id,accountEnabled,approximateLastSignInDateTime`, { scopes: Graph.SCOPES.deviceObjects });
         if (!fresh) { results.push({ op, outcome: "skipped", detail: "gone from the directory since the plan" }); continue; }
+        if (op.kind === "enable") {
+          // the way back: no wake-up check — a disabled device cannot sign
+          // in, and wanting it back is the whole reason for the click
+          if (fresh.accountEnabled !== false) { results.push({ op, outcome: "skipped", detail: "already enabled" }); continue; }
+          o.onStatus && o.onStatus(`${name} — re-enabling…`);
+          await Graph.patch(`/devices/${op.d.id}`, { accountEnabled: true }, { scopes: Graph.SCOPES.deviceObjectsWrite });
+          const back = await Graph.readOne(`/devices/${op.d.id}?$select=accountEnabled`, { scopes: Graph.SCOPES.deviceObjects });
+          if (!back || back.accountEnabled !== true) throw new Error("the write went through but the read-back does not say enabled — check the portal");
+          results.push({ op, outcome: "enabled", detail: "verified by read-back" });
+          continue;
+        }
         const freshDays = daysSince(fresh.approximateLastSignInDateTime, now);
         // it WOKE UP: a sign-in since the plan withdraws every claim
         if (freshDays !== null && freshDays < disableDays) {
@@ -163,6 +184,7 @@ const DeviceCleanup = (() => {
       };
       L.push(`## Actions taken`, "");
       done("disabled", "Disabled");
+      done("enabled", "Re-enabled");
       done("deleted", "Deleted");
       const nope = s.results.filter((r) => r.outcome === "skipped" || r.outcome === "refused" || r.outcome === "failed");
       if (nope.length) {
@@ -180,6 +202,7 @@ const DeviceCleanup = (() => {
     section(b.stale, "Stale and still enabled — disable candidates", "Enabled, no contact beyond the disable threshold. The 90-day-plus rows here are STILL only disable candidates — delete follows disable, never replaces it.");
     section(b.deletable, "Disabled and silent beyond the delete threshold — delete candidates", "**Deleting a device object deletes its BitLocker recovery keys with it.** An Autopilot-registered device is refused by the service until it is deregistered from Autopilot.");
     section(b.parked, "Disabled, waiting out the delete threshold", null);
+    section(b.disabled, "Every disabled device — re-enable candidates", "Disabling is reversible, and this tool takes the way back too: any of these can be re-enabled, with a fresh read and a read-back, no threshold applied.");
     section(b.unknown, "Never seen / unknown — no action offered", "The directory returned no last sign-in. Unknown is not stale: acting on these would be a guess, so this tool does not.");
     return L.join("\n");
   }
@@ -207,7 +230,7 @@ const DeviceCleanupTool = (() => {
   let dcuPane = "overview";
   // Ticks survive a pane switch: selection is STATE keyed on device ids,
   // the DOM checkboxes are one face of it (the 10531 rule, made durable).
-  const selD = new Set(), selX = new Set();
+  const selD = new Set(), selX = new Set(), selE = new Set();
   let resultsHtml = "";
   const prog = (m) => TunoProgress.show("dcuBody", "dcuProg", m);
   const download = (name, text, type) => {
@@ -230,7 +253,7 @@ const DeviceCleanupTool = (() => {
       await Graph.ensureScopes(Graph.SCOPES.deviceObjects);
       devices = await DeviceCleanup.readDevices(prog);
       buckets = DeviceCleanup.bucketize(devices, thresholds());
-      dcuPane = "overview"; selD.clear(); selX.clear(); resultsHtml = "";
+      dcuPane = "overview"; selD.clear(); selX.clear(); selE.clear(); resultsHtml = "";
       prog("");
       render();
     } catch (e) {
@@ -260,7 +283,7 @@ const DeviceCleanupTool = (() => {
       <div class="au-cards">
         ${card("Active", b.active.length, `contact within ${b.thresholds.disableDays}d`, "ok")}
         ${card("Stale, enabled", b.stale.length, "disable candidates — click to open", b.stale.length ? "warn" : "", "disable")}
-        ${card("Disabled, waiting", b.parked.length, `not yet ${b.thresholds.deleteDays}d silent`)}
+        ${card("Disabled, waiting", b.parked.length, `not yet ${b.thresholds.deleteDays}d silent — click to re-enable`, "", "enable")}
         ${card("Delete candidates", b.deletable.length, "disabled AND silent beyond the delete line — click to open", b.deletable.length ? "bad" : "", "delete")}
         ${card("Never seen", b.unknown.length, "unknown is not stale — no action offered")}
       </div>
@@ -302,6 +325,21 @@ const DeviceCleanupTool = (() => {
         <button class="btn primary" id="dcuDeleteBtn" disabled>🗑 Delete the ticked <span class="tag block">writes</span></button>
         <button class="ae-selbar-x" id="dcuBarXX" title="Clear the selection">✕</button></div>`;
 
+    // RE-ENABLE (10565): the way back, in the tool that took the step.
+    const ena = `
+      <div class="list-card" style="margin-top:0">
+        <h4 style="margin:0 0 6px">↩ Re-enable — ${b.disabled.length} disabled device${b.disabled.length === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span></h4>
+        <p class="mini muted" style="margin:0 0 8px">Every disabled device the read found — waiting ones, delete candidates and any disabled outside the staleness buckets. Re-enabling is the undo of ①: a fresh read first, the write, then a read-back that must say enabled. No threshold applies — a disabled device cannot sign in, and wanting it back is the whole reason for the click. It leaves ② the moment it is enabled: delete follows disable, never an enabled device.</p>
+        <div class="tb-actions" style="margin:0 0 8px">
+          <button class="btn" id="dcuAllE">☑ Select all</button><button class="btn" id="dcuNoneE">☐ Select none</button>
+          <span class="mini muted" id="dcuCountE"></span>
+        </div>
+        ${table(b.disabled, "dcue", "dcuMasterE", "Device", selE)}
+      </div>
+      <div class="ae-selbar" id="dcuBarE"><b id="dcuBarECount"></b>
+        <button class="btn primary" id="dcuEnableBtn">☀ Re-enable the ticked <span class="tag block">writes</span></button>
+        <button class="ae-selbar-x" id="dcuBarEX" title="Clear the selection">✕</button></div>`;
+
     const res = `
       <div class="list-card" style="margin-top:0">
         <h4 style="margin:0 0 6px">Results — this session</h4>
@@ -318,8 +356,9 @@ const DeviceCleanupTool = (() => {
     const rail = node("overview", "🧹", "Overview", devices ? devices.length : "—", false)
       + node("disable", "🌙", "① Disable", b.stale.length, b.stale.length > 0)
       + node("delete", "🗑", "② Delete", b.deletable.length, b.deletable.length > 0)
+      + node("enable", "↩", "Re-enable", b.disabled.length, false)
       + node("results", "📋", "Results", lastResults ? lastResults.length : "—", false);
-    const paneHtml = { overview: ov, disable: dis, delete: del, results: res }[dcuPane] || ov;
+    const paneHtml = { overview: ov, disable: dis, delete: del, enable: ena, results: res }[dcuPane] || ov;
     $("dcuBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
 
     // ---- wiring ----
@@ -360,6 +399,11 @@ const DeviceCleanupTool = (() => {
       $("dcuBarDX").addEventListener("click", () => setAll(false));
       $("dcuDisableBtn").addEventListener("click", () => act("disable"));
     }
+    if (dcuPane === "enable") {
+      const setAll = wireSel("dcue", "dcuMasterE", "dcuAllE", "dcuNoneE", "dcuCountE", selE, b.disabled, "dcuBarE", "dcuBarECount");
+      $("dcuBarEX").addEventListener("click", () => setAll(false));
+      $("dcuEnableBtn").addEventListener("click", () => act("enable"));
+    }
     if (dcuPane === "delete") {
       const setAll = wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX", "dcuCountX", selX, b.deletable, "dcuBarX", "dcuBarXCount");
       $("dcuBarXX").addEventListener("click", () => setAll(false));
@@ -372,8 +416,8 @@ const DeviceCleanupTool = (() => {
 
   async function act(kind) {
     if (running || !buckets) return;
-    const src = kind === "disable" ? buckets.stale : buckets.deletable;
-    const attr = kind === "disable" ? "dcud" : "dcux";
+    const src = kind === "disable" ? buckets.stale : kind === "enable" ? buckets.disabled : buckets.deletable;
+    const attr = kind === "disable" ? "dcud" : kind === "enable" ? "dcue" : "dcux";
     const ops = [...$("dcuBody").querySelectorAll(`[data-${attr}]`)]
       .filter((c) => c.checked)
       .map((c) => ({ kind, ...src[+c.dataset[attr]] }));
@@ -386,13 +430,26 @@ const DeviceCleanupTool = (() => {
       const results = await DeviceCleanup.apply(ops, { onStatus: prog, thresholds: buckets.thresholds });
       prog("");
       lastResults = (lastResults || []).concat(results);
-      const good = results.filter((r) => r.outcome === "disabled" || r.outcome === "deleted").length;
+      const good = results.filter((r) => r.outcome === "disabled" || r.outcome === "deleted" || r.outcome === "enabled").length;
       const bad = results.filter((r) => r.outcome === "failed").length;
       // the acted selection is spent; the answer lands on the Results pane
-      (kind === "disable" ? selD : selX).clear();
+      (kind === "disable" ? selD : kind === "enable" ? selE : selX).clear();
+      // THE BUCKETS FOLLOW THE READ-BACKS (10565): every verified outcome
+      // is applied to the device list in hand and the buckets are rebuilt,
+      // so a device disabled in ① is on the Re-enable pane at once and one
+      // re-enabled there leaves ②. Only read-backs move a device — a
+      // failed or refused write leaves it where the read put it.
+      for (const r of results) {
+        const dev = devices.find((x) => x.id === r.op.d.id);
+        if (!dev) continue;
+        if (r.outcome === "disabled") dev.accountEnabled = false;
+        else if (r.outcome === "enabled") dev.accountEnabled = true;
+        else if (r.outcome === "deleted") devices = devices.filter((x) => x.id !== dev.id);
+      }
+      buckets = DeviceCleanup.bucketize(devices, buckets.thresholds);
       resultsHtml = `
-        <p class="mini" style="margin:0 0 6px"><b>${good} ${kind === "disable" ? "disabled" : "deleted"}</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} · ${results.length - good - bad} skipped/refused — every verdict is a read-back, not a status code. 📝 the report carries all of it; 🧹 Read again re-buckets.</p>
-        ${results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}` + resultsHtml;
+        <p class="mini" style="margin:0 0 6px"><b>${good} ${kind === "disable" ? "disabled" : kind === "enable" ? "re-enabled" : "deleted"}</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} · ${results.length - good - bad} skipped/refused — every verdict is a read-back, not a status code. The buckets and the rail already reflect the verified outcomes; 📝 the report carries all of it.</p>
+        ${results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted" && r.outcome !== "enabled").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}` + resultsHtml;
       dcuPane = "results";
       render();
     } catch (e) {
