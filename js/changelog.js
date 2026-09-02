@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10557, date: "2026-09-02", title: "The AppLocker scan carries the Microsoft coverage — and says what a bundle load costs",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Clicking Add allow rule for OneDrive, classic Teams and the Defender platform, scanning again and finding all three \"would be blocked\" again was not a bug in the check — it was the loop: a scan is made on the device, cannot know what was clicked in the browser, and every bundle hands over the rule set the scan itself generated. So the scanner (v1.10.0) now generates those three allows itself: OneDrive by publisher (any version, per-user and machine-wide alike), classic Teams by publisher, and the Defender Platform folder under ProgramData by path. A fresh scan passes the coverage check. -NoMicrosoftCoverage leaves them out, and the bundle records the choice." },
+      { kind: "improved", tool: "AppLocker", text: "Loading a bundle over an edited draft now says how many edits it discarded and why, and points at the two ways edits survive (export the XML, deploy the profile). A bundle from a script before v1.10.0 is told it predates the coverage rules, with the fix buttons as the interim." },
+      { kind: "fixed", tool: "AppLocker", text: "The Defender platform coverage fix is a path rule on the Platform folder now. It was a publisher rule on the Windows operating-system product with any binary — which would have allowed every OS-signed executable from anywhere, mshta and wmic included. The audit knows the Platform folder as a convention and files it at Info, like the IT-TOOLS house folders." },
+    ],
+  },
+  {
     build: 10556, date: "2026-09-02", title: "macOS baseline: the bar that plans also creates",
     items: [
       { kind: "improved", tool: "macOS baseline", text: "On the Upstream pane the floating bar now carries the whole act. After a dry run it reads \"17 ticked · 17 to create\" and offers \"Create 17 in THIS tenant\" right there, with \"Dry run again\" beside it, instead of leaving the create button at the foot of a seventeen-row plan a scroll below the bar that planned it. The plan belongs to the selection it was made for: change a tick or a name and the create disappears, the plan says it is stale, and the dry run comes back; put the selection back exactly and so does the plan." },

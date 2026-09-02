@@ -157,6 +157,11 @@ const MS_APP_CATALOG = [
     artifacts: [
       { path: "%OSDRIVE%\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe", publisher: { name: MS_PUB, product: "MICROSOFT® WINDOWS® OPERATING SYSTEM", binary: "MSMPENG.EXE" } },
     ],
-    fix: { kind: "publisher", note: "Allow MsMpEng.exe by publisher, or scope a path allow to the Defender Platform folder only — never open all of ProgramData for it." },
+    // A PATH fix, on purpose (10557): these binaries carry the Windows
+    // operating-system product name, so a publisher rule on that product
+    // would allow every OS-signed executable from anywhere — mshta, wmic,
+    // a copied cmd.exe. The Platform folder is writable by SYSTEM and
+    // TrustedInstaller only; the audit knows the path as a convention.
+    fix: { kind: "path", path: "%OSDRIVE%\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*", note: "Allow the Defender Platform folder by path — scoped to that folder only, never all of ProgramData. Not by publisher: the product name on these files is the Windows operating system's, and a publisher rule on it would allow every OS-signed binary from anywhere." },
   },
 ];

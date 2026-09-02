@@ -63,6 +63,12 @@ const AppLockerTool = (() => {
 
   // ---------- state ----------
   let policy = null;        // { collections: Map-like array, sourceName }
+  // 10557: browser edits never travel into a scan. Count them, and when a
+  // bundle load throws them away, say so where the bundle is described —
+  // Mihai clicked the same three coverage fixes after every scan and asked
+  // why the next scan "kept saying blocked".
+  let editsSinceLoad = 0;
+  let discardedEdits = 0;
   let findings = [];
   let coverage = [];
   let sevFilter = "all";
@@ -375,6 +381,15 @@ const AppLockerTool = (() => {
     if (gen && gen.auditXml) return { xml: gen.auditXml, source: "generated-audit" };
     if (b.effectivePolicy && b.effectivePolicy.xml) return { xml: b.effectivePolicy.xml, source: "effective" };
     return null;
+  }
+  // Does this bundle's generated set predate the Microsoft coverage rules
+  // (script 1.10.0)? Read from the flag the script writes; fall back to the
+  // script version for bundles written before the flag existed.
+  function scanPredatesCoverage(b) {
+    if (!b || !b.generatedPolicy || !b.generatedPolicy.auditXml) return false;
+    if (typeof b.generatedPolicy.microsoftCoverage === "boolean") return false;
+    const v = String((b.generator && b.generator.version) || "0").split(".").map((x) => parseInt(x, 10) || 0);
+    return (v[0] || 0) < 1 || ((v[0] || 0) === 1 && (v[1] || 0) < 10);
   }
   const SCAN_SOURCE_LABEL = {
     "generated-audit": "the rule set the scan generated, in AuditOnly",
@@ -1172,6 +1187,10 @@ const AppLockerTool = (() => {
           // every audit would be the tool arguing with its own defaults (the
           // 10315 lesson, again). The fact still gets stated, at Info, with the
           // condition that makes it safe: the ACL, which the device scan checks.
+          if (r.action === "Allow" && DEFENDER_PLATFORM_RE.test(cond)) {
+            F("Info", Object.assign({}, base, { condType: "Path", cond, reason: "Microsoft Defender platform folder, allowed by convention — the antivirus updates itself into ProgramData\\Microsoft\\Windows Defender\\Platform\\<version> and runs from there.", rec: "Keep it. The folder is writable by SYSTEM and TrustedInstaller only, and the alternative — a publisher rule on the Windows operating-system product — would allow every OS-signed binary from anywhere." }));
+            continue;
+          }
           if (r.action === "Allow" && IT_TOOLS_RE.test(cond)) {
             F("Info", Object.assign({}, base, { condType: "Path", cond, reason: "IT-TOOLS house folder, allowed by convention — IT-deployed applications and scripts land here, written by the Intune Management Extension as SYSTEM.", rec: "Safe exactly as long as the folder's ACL restricts writes to SYSTEM and Administrators. The device scan verifies that and raises a loud warning when it is not true; if a scan bundle is loaded and no such warning appears among the findings, the ACL was checked and held." }));
             continue;
@@ -1405,6 +1424,10 @@ const AppLockerTool = (() => {
     ["TUNO: IT-TOOLS house folder (Scripts)", "S-1-1-0", { kind: "path", path: "%OSDRIVE%\\ProgramData\\IT-TOOLS\\Scripts\\*" }],
   ];
   const IT_TOOLS_RE = /\\ProgramData\\IT-TOOLS\\(Apps|Scripts)(\\|$)/i;
+  // The Defender platform folder (10557): the one ProgramData path the
+  // generated set allows on purpose — SYSTEM/TrustedInstaller-writable only,
+  // and the alternative (a publisher rule on the OS product) is far worse.
+  const DEFENDER_PLATFORM_RE = /\\ProgramData\\Microsoft\\Windows Defender\\Platform\\\*$/i;
 
   const DEFAULT_RULES = {
     Exe: [
@@ -1458,7 +1481,10 @@ const AppLockerTool = (() => {
     }
     const name = `${BRANDING.name}: allow ${app.name} (path)`;
     if (col.rules.some((r) => r.name === name)) return false;
-    col.rules.push(mkRule("FilePathRule", name, "S-1-1-0", "Allow", [{ kind: "path", path: art.path }], app.fix.note));
+    // fix.path (10557): a catalog entry may name the folder to allow instead
+    // of the artifact's own pattern — the Defender platform wants its
+    // Platform folder, not a wildcard buried mid-path.
+    col.rules.push(mkRule("FilePathRule", name, "S-1-1-0", "Allow", [{ kind: "path", path: app.fix.path || art.path }], app.fix.note));
     return true;
   }
 
@@ -1497,6 +1523,7 @@ const AppLockerTool = (() => {
     if (fn() === false) return false;
     undoState = { snapshot: before, label };
     justApplied = label;
+    editsSinceLoad++;
     // Guarded: one headless harness evaluates this file in a bare VM context
     // without timers, and a notice that never fades is better than a crash.
     if (justAppliedTimer && typeof clearTimeout === "function") clearTimeout(justAppliedTimer);
@@ -2162,6 +2189,12 @@ const AppLockerTool = (() => {
         <span class="mini muted">Editing ${esc(SCAN_SOURCE_LABEL[scanSource] || scanSource)} —</span>
         ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${scanSource === v ? "primary" : ""}" data-src="${v}">${esc(l)}</button>`).join("")}
       </div>` : ""}
+      ${discardedEdits ? `<div class="gu-fail" style="margin-bottom:12px">
+        <b>Loading this bundle replaced the draft you were editing — ${discardedEdits} edit${discardedEdits === 1 ? "" : "s"} since the last load ${discardedEdits === 1 ? "is" : "are"} gone.</b>
+        <span class="why">A scan is made on the device and cannot know what was clicked in this browser: every bundle hands over the rule set the scan itself generated. Edits survive only by leaving the browser — export the XML, or deploy the profile — and a re-scan then finds them in the device's effective policy. Coverage fixes for OneDrive, classic Teams and the Defender platform no longer need clicking at all: since script v1.10.0 the generated set carries them.</span></div>` : ""}
+      ${scanPredatesCoverage(scan) ? `<div class="gu-fail" style="margin-bottom:12px">
+        <b>This bundle's rule set predates the Microsoft app coverage rules${scan.generator && scan.generator.version ? ` (script v${esc(scan.generator.version)})` : ""}.</b>
+        <span class="why">Since script v1.10.0 the generated set carries standing allows for OneDrive, classic Teams and the Defender platform — the three the coverage check below turns red on every fresh scan. Download the current script from step 1 and scan again; until then the 🔧 Add allow rule buttons put the same three rules in by hand.</span></div>` : scan.generatedPolicy && scan.generatedPolicy.microsoftCoverage === false ? `<div class="mini" style="margin-bottom:12px"><b>Scanned with -NoMicrosoftCoverage</b> — the generated set leaves OneDrive, classic Teams and the Defender platform to the coverage check below, on purpose.</div>` : ""}
       ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, (!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? 20 : 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       ${topPaths.length ? `<h4 class="mini" style="margin:12px 0 6px">User-writable directories <span class="muted">— showing ${topPaths.length} of ${scan.writablePaths.length}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
@@ -2597,6 +2630,7 @@ const AppLockerTool = (() => {
   // ================================================================
   function loadFresh() {
     sevFilter = "all";
+    editsSinceLoad = 0;
     resetFixState();
     recompute();
   }
@@ -2622,6 +2656,10 @@ const AppLockerTool = (() => {
       const b = parseBundle(text, name);
       const chosen = bundleXml(b);
       if (!chosen) throw new Error("That bundle carries no policy: the scan ran with -SkipRuleGeneration and the device's effective policy could not be read either. Re-run the scan without -SkipRuleGeneration.");
+      // The bundle's policy REPLACES the draft. Edits made in the browser
+      // since the last load are gone with it — a scan is made on the device
+      // and cannot know them — and the scan card says so (10557).
+      discardedEdits = policy ? editsSinceLoad : 0;
       scan = b;
       scanSource = chosen.source;
       policy = parsePolicy(chosen.xml, name);
@@ -2633,6 +2671,7 @@ const AppLockerTool = (() => {
     // file that has nothing to do with it.
     scan = null;
     scanSource = "";
+    discardedEdits = 0;
     policy = parsePolicy(text, name);
     importedXmlName = name;
   }

@@ -97,7 +97,9 @@ Default: System, ProgramFiles.
 .PARAMETER Path
 Extra directories to treat as unsafe and build rules for, regardless of their ACLs.
 Use this for the locations you already know need rules - per-user application installs
-such as %LOCALAPPDATA%\Microsoft\OneDrive or %LOCALAPPDATA%\Microsoft\Teams.
+of third-party software, say. (OneDrive and classic Teams no longer need it: since
+1.10.0 the generated set carries publisher allows for them by default - see
+-NoMicrosoftCoverage.)
 
 .PARAMETER KnownAdmin
 Additional principals that are administrators in this environment, as names
@@ -141,6 +143,18 @@ offsets for what remains. After AaronLocker, whose default was right and ours wa
 .PARAMETER SniffUnknownExtensions
 Accepted for scripts written before 10553 and ignored - the check is now the
 default. Use -NoPeSniff to turn it off.
+
+.PARAMETER NoMicrosoftCoverage
+Leave the Microsoft app coverage rules OUT of the generated rule set. By default
+(since 1.10.0) every generated Exe and Dll collection carries publisher allows for
+the Microsoft apps that live OUTSIDE the two default-rule folders and therefore
+break under a naive policy: OneDrive (per-user, under AppData), classic Teams
+(per-user, retired but still on older estates) and the Defender platform (which
+updates itself into ProgramData and runs from there). These are the same three the
+TUNO tool's Microsoft app coverage check flags on a fresh scan; putting them in the
+generated set means a scan-generated policy passes that check instead of needing
+the same three fixes clicked in the browser after every scan - and lost again on
+the next one, because a scan never carries browser edits.
 
 .PARAMETER SkipWritableFiles
 Skip the user-writable FILE check. By default (since 10553) every executable-typed
@@ -201,7 +215,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.9.1
+Version    : 1.10.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -255,6 +269,7 @@ param(
     [switch]$SniffUnknownExtensions,
     [switch]$NoPeSniff,
     [switch]$SkipWritableFiles,
+    [switch]$NoMicrosoftCoverage,
 
     [Parameter()]
     [switch]$JSHashRules,
@@ -292,8 +307,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.9.1'
-$script:TunoBuild = 10556
+$script:ScriptVersion = '1.10.0'
+$script:TunoBuild = 10557
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1534,6 +1549,28 @@ $script:ItToolsAllowPaths = @(
     '%OSDRIVE%\ProgramData\IT-TOOLS\Scripts\*'
 )
 
+# MICROSOFT APP COVERAGE (1.10.0) - the apps a locked-down estate still needs
+# that live OUTSIDE %PROGRAMFILES% and %WINDIR%, so neither default rule
+# reaches them. Mirrors js/msappcatalog.js: the same three rows the tool's
+# coverage check turns red on a scan-generated policy. Publisher rules, any
+# version, because all three auto-update; Defender by path because its
+# executables carry the operating-system product name, and a publisher rule
+# on THAT product would allow every OS-signed binary from anywhere.
+# The tool's evaluator matches a publisher rule by signature, not by path,
+# so one OneDrive rule covers the per-user AND the machine-wide install.
+$script:MsPublisher = 'O=MICROSOFT CORPORATION, L=REDMOND, S=WASHINGTON, C=US'
+$script:MicrosoftCoverage = @(
+    [pscustomobject]@{ kind = 'publisher'; name = 'TUNO coverage: Microsoft OneDrive (per-user install, any version)'
+        product = 'MICROSOFT ONEDRIVE'
+        why = 'OneDrive installs and runs from %LOCALAPPDATA%\Microsoft\OneDrive - outside every default rule. The single most common thing a new AppLocker policy silently breaks. Matched by signature, so this one rule also covers the machine-wide install under Program Files.' }
+    [pscustomobject]@{ kind = 'publisher'; name = 'TUNO coverage: Microsoft Teams classic (per-user install, any version)'
+        product = 'MICROSOFT TEAMS'
+        why = 'Classic Teams runs from %LOCALAPPDATA%\Microsoft\Teams - the same per-user problem as OneDrive. Retired by Microsoft; remove this rule once no device on the estate still carries it. The new Teams is a packaged app and is judged by the Appx collection instead.' }
+    [pscustomobject]@{ kind = 'path'; name = 'TUNO coverage: Microsoft Defender platform (ProgramData)'
+        path = '%OSDRIVE%\ProgramData\Microsoft\Windows Defender\Platform\*'
+        why = 'The Defender platform updates itself into ProgramData\Microsoft\Windows Defender\Platform\<version> and runs from there - a policy without an allow here fights the antivirus. A path rule, deliberately: these binaries carry the Windows operating-system product name, and a publisher rule on that product would allow every OS-signed executable from anywhere. The folder is writable by SYSTEM and TrustedInstaller only.' }
+)
+
 function Test-ItToolsAllowedPath {
     <#
     .SYNOPSIS
@@ -1730,7 +1767,10 @@ function New-DefaultRuleSet {
         [string[]]$WritableUnderProgramFiles,
         # From Resolve-LolBinExceptions. Absent (older callers, tests), the
         # patterns go in as path exceptions exactly as before 10553.
-        [object[]]$LolBinExceptions
+        [object[]]$LolBinExceptions,
+        # 1.10.0: the Microsoft app coverage rules ride in Exe and Dll unless
+        # the operator opts out.
+        [switch]$WithoutMicrosoftCoverage
     )
 
     $lolBin = if ($LolBinExceptions -and @($LolBinExceptions).Count) { @($LolBinExceptions) }
@@ -1782,6 +1822,23 @@ function New-DefaultRuleSet {
                 -Sid $script:SidEveryone -Action 'Allow' -RulePath $house `
                 -Description 'Standing allow for the IT-TOOLS house folders under ProgramData, where IT-deployed applications and scripts land (written by the Intune Management Extension as SYSTEM). Present in every generated policy by design, so it never has to be remembered. The ACL on these folders must restrict writes to SYSTEM and Administrators - the scan verifies this and warns when it is not true.' `
                 -ExceptionPaths @()))
+        }
+        # THE MICROSOFT APPS OUTSIDE THE DEFAULT FOLDERS (1.10.0). Exe and Dll
+        # only: a Script collection has nothing to say about OneDrive, and
+        # the Dll collection is where OneDrive's own libraries under AppData
+        # would be judged the day Dll enforcement is switched on.
+        if (-not $WithoutMicrosoftCoverage -and $type -ne 'Script') {
+            foreach ($cov in $script:MicrosoftCoverage) {
+                if ($cov.kind -eq 'publisher') {
+                    $rules.Add((New-PublisherRule -Name $cov.name -Sid $script:SidEveryone -Action 'Allow' `
+                        -Publisher $script:MsPublisher -Product $cov.product -Binary '*' -LowVersion '*' -HighVersion '*' `
+                        -Description $cov.why))
+                }
+                else {
+                    $rules.Add((New-PathRule -Name $cov.name -Sid $script:SidEveryone -Action 'Allow' -RulePath $cov.path `
+                        -Description $cov.why -ExceptionPaths @()))
+                }
+            }
         }
         $collections.Add($type, $rules)
     }
@@ -2035,7 +2092,7 @@ $started = Get-Date
 Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.Keys) -ValidParameterName @(
     'OutputPath', 'Scope', 'Path', 'KnownAdmin', 'PublisherRuleGranularity', 'IncludeEvents',
     'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions', 'NoPeSniff', 'SkipWritableFiles',
-    'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
+    'NoMicrosoftCoverage', 'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
 
 Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
 Write-Info ("Served by  : {0}" -f $script:TunoSite)
@@ -2324,7 +2381,9 @@ if (-not $SkipRuleGeneration) {
         $lolBinResolved = Resolve-LolBinExceptions -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only')
         $pubCount = @($lolBinResolved.exceptions | Where-Object { $_.kind -eq 'publisher' }).Count
         Write-Info ("LOLBin exceptions: {0} publisher condition(s), {1} pattern(s) kept as path" -f $pubCount, @($lolBinResolved.records | Where-Object { $_.kind -eq 'path' }).Count)
-        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf -LolBinExceptions $lolBinResolved.exceptions
+        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf -LolBinExceptions $lolBinResolved.exceptions -WithoutMicrosoftCoverage:$NoMicrosoftCoverage
+        if ($NoMicrosoftCoverage) { Write-Note 'Microsoft app coverage rules left out (-NoMicrosoftCoverage): the tool will flag OneDrive, classic Teams and the Defender platform as blocked.' }
+        else { Write-Info ("Microsoft app coverage: {0} standing rule(s) in Exe and Dll (OneDrive, classic Teams, Defender platform)" -f @($script:MicrosoftCoverage).Count) }
         $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
         foreach ($type in $artifactRules.Keys) {
             if (-not $collections.Contains($type)) { $collections.Add($type, (New-Object System.Collections.Generic.List[object])) }
@@ -2373,6 +2432,10 @@ if (-not $SkipRuleGeneration) {
         $enforceXml = ConvertTo-AppLockerPolicyXml -Collections $collections -Mode 'Enforce'
         $generated = [pscustomobject]@{
             granularity     = $PublisherRuleGranularity
+            # 1.10.0: whether the Microsoft app coverage rules are in this set.
+            # The tool reads this to say, on a bundle that predates them or
+            # opted out, WHY its coverage check turns red on a fresh scan.
+            microsoftCoverage = [bool](-not $NoMicrosoftCoverage)
             ruleCount       = $total
             rulesByCollection = $counts
             dllRulesOmitted = $dllRuleCount

@@ -129,11 +129,14 @@ const PROMOTE = {
     },
     {
       n: 136, title: "\ud83d\udd10 T01 closes the AaronLocker gaps \u2014 PE sniff by default, the Microsoft floor, publisher LOLBin exceptions, writable FILES, and no empty NotConfigured in the GPO XML",
-      tools: ["T01 AppLocker"], builds: [10553, 10555], risk: "medium",
+      tools: ["T01 AppLocker"], builds: [10553, 10555, 10557], risk: "medium",
       why: "The T01-vs-AaronLocker review (scripts/REVIEW-AaronLocker.md) named three places AaronLocker's defaults were better and one gap neither tool covered. All four are now closed in Invoke-TunoAppLockerScan.ps1 v1.9.0: PE-header sniffing on by default with a never-executable extension list as the guard; Microsoft-signed artifacts keep their product name at Publisher granularity; the LOLBin exceptions ride as publisher conditions resolved on the scanned machine; and every executable file inside an admin-only directory has its own DACL evaluated (writable FILES, new bundle section, new evidence-card table). Separately, the App Control review found the GPO XML export could carry an empty NotConfigured collection \u2014 the exact shape Microsoft documents as a no-boot when merged with Intune's Managed Installer rule \u2014 so exportXml() now drops them and the subtitle says so. Medium risk because the scanner change is unrun on Windows in this session (parse-checked under pwsh 7.4, rule generation unit-tested on Linux) and the default-on file check adds one DACL read per executable file; it graduates when a real scan on a reference image confirms timing and the bundle shape.",
       test: [
         "Run Invoke-TunoAppLockerScan.ps1 v1.9.1 on WINDOWS POWERSHELL 5.1, unelevated, on a machine with no user-writable executable files: it gets past the writable-directory walk (v1.9.0 died there with 'Argument types do not match' at the empty writable-files list) and completes; a run on PowerShell 7 completes too.",
         "Break something on purpose (e.g. point -Path at a file instead of a directory, or throw from a function): the scanner prints [fail] with the message and a script stack naming the line, then stops.",
+        "Scan with v1.10.0 (defaults) and upload the bundle: the Microsoft app coverage card shows OneDrive (per-user), classic Teams and the Defender platform ALLOWED via the three 'TUNO coverage:' rules, no Add allow rule buttons, no 'predates' notice; the Rules card lists the three under Exe; the Defender path rule sits at Info, not Medium. Scan with -NoMicrosoftCoverage: the three are red again and the scan card says the switch was used.",
+        "Upload a v1.9.x bundle: the scan card says the bundle predates the coverage rules and names the script version. Click the three fixes, then upload any bundle again: the scan card says 3 edits were discarded and why, and the three rows are red again.",
+        "Click Add allow rule for the Defender platform on any bundle: the rule added is a PATH rule on %OSDRIVE%\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*, not a publisher rule on the OS product.",
         "Run Invoke-TunoAppLockerScan.ps1 v1.9.1 elevated on a reference image: it completes, prints the LOLBin line (N publisher condition(s), M kept as path) and the writable-files line per root, and the bundle carries exceptions.lolBinCarriage, writableFiles and writableFilesChecked:true.",
         "In the generated Audit XML the Windows-folder Exe rule's Exceptions hold FilePublisherCondition elements for MSHTA.EXE, WMIC.EXE, INSTALLUTIL.EXE (any version) and only path conditions for patterns absent on that machine; the Dll and Script Windows rules carry only the writable-directory path exceptions.",
         "Rename a copy of an .exe to .dat inside a scanned writable directory and rescan: it is inventoried with sniffedPe:true and T01's evidence card counts it as found by header; -NoPeSniff makes it disappear.",
@@ -142,7 +145,7 @@ const PROMOTE = {
         "Load the sample policy: the XML panel shows three collections and the subtitle says 1 empty NotConfigured collection was left out; upload an XML whose NotConfigured collection carries rules and it is exported unchanged (that is an audit finding, not a rewrite). Intune profile JSON unchanged.",
         "Upload a pre-10553 bundle: the card says writable files were not checked (never 0) and everything else renders as before.",
       ],
-      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "js/applocker.js", "index.html", "scripts/README.md", "scripts/REVIEW-AaronLocker.md", "js/version.js", "js/changelog.js", "js/promote.js"],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "js/applocker.js", "js/msappcatalog.js", "index.html", "scripts/README.md", "scripts/REVIEW-AaronLocker.md", "js/version.js", "js/changelog.js", "js/promote.js"],
     },
     {
       n: 135, title: "\ud83d\uddfa The layout round \u2014 Option A: the rail everywhere a long tool benefits",

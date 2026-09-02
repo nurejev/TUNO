@@ -206,6 +206,7 @@ which is user-writable by definition, and they are what a first rollout breaks:
 | `-MaxArtifacts` / `-MaxEvents` | `5000` | Safety caps. Hitting one is recorded as a warning, not swallowed. |
 | `-DeepScan` | off | Report every writable directory instead of stopping at the first on each branch. |
 | `-NoPeSniff` | off | Turn OFF the PE-header check on files with unknown extensions. Since 10553 the check is on by default — a renamed binary still runs — with a never-executable extension list keeping it cheap. (`-SniffUnknownExtensions` is accepted and ignored.) |
+| `-NoMicrosoftCoverage` | off | Leave the Microsoft app coverage rules OUT of the generated set. Since 1.10.0 every generated Exe/Dll collection carries standing allows for OneDrive (per-user, by publisher), classic Teams (by publisher) and the Defender platform folder under ProgramData (by path) — the three the tool's coverage check flags on a fresh scan. |
 | `-SkipWritableFiles` | off | Skip the user-writable FILE check. By default every executable file inside an admin-only directory has its own DACL read; a hit is excepted by exact path and inventoried for its own rule. |
 | `-JSHashRules` | off | Hash rules for unsigned `.js`. They go stale on every update. |
 | `-SkipRuleGeneration` | off | Evidence only — let T01 build the rules. |
