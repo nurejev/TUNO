@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10570, date: "2026-09-02", title: "AppLocker: the Enforce profile is named after the audit it enforces",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Create the Enforce profile did two things wrong at once: it named the profile from the name field, which already carries the next audit version, and it then stopped itself because the audit profile shares the grouping — the very design that makes an Enforce profile a replacement rather than a second policy. It now takes the deployed audit profile's name with (AuditOnly) swapped for (Enforced), so V4.0.1 audited becomes V4.0.1 enforced, and a same-grouping audit profile no longer counts as in the way. A profile with the same name, or an Enforced profile already under that grouping, still stops it. The panel shows the exact name before you click." },
+    ],
+  },
+  {
     build: 10569, date: "2026-09-02", title: "AppLocker: the audited executions are judged against your draft, not counted against you",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The third enforce gate read \"1040 executions would have been blocked\" and stopped there — but that number is what the audit profile would have blocked, not what your draft would. The scan's event log now goes through the same judgement the events bundle always had: per file, covered by this draft (would run — the old policy's history, nothing to do), would still be blocked from machine space (a gap — a finding with a fix), from a user-writable area (by design — the policy working), or undecided. The gate passes when no gap and nothing undecided remains, and says the counts. A bundle that counts refusals but carries no entries says so." },

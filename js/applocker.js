@@ -282,6 +282,16 @@ const AppLockerTool = (() => {
   }
 
   function intuneProfileName(mode) {
+    // THE ENFORCE PROFILE IS NAMED AFTER THE AUDIT PROFILE IT ENFORCES
+    // (10570, Mihai): the rules are the ones V4.0.1 audited, so the Enforce
+    // profile is "… (Enforced) - R27.1 - V4.0.1" — not the NEXT version the
+    // name field already carries for the next audit iteration. Only when a
+    // deployed audit profile under this grouping is known; a first
+    // deployment or a create-this-session keeps the field's name.
+    if (mode === "Enforce" && !createdFor("audit")) {
+      const a = typeof auditProfileInTenant === "function" ? auditProfileInTenant() : null;
+      if (a && a.displayName && /\((?:AuditOnly)\)/i.test(a.displayName)) return a.displayName.replace(/\(AuditOnly\)/gi, "(Enforced)");
+    }
     const base = (intuneCfg.displayName || "AppLocker").trim();
     const token = mode === "Enforce" ? "(Enforced)" : "(AuditOnly)";
     // The name field holds the FULL house name with the mode token inline
@@ -3495,12 +3505,12 @@ const AppLockerTool = (() => {
                <button class="btn sm" disabled>🔒 Create the Enforce profile</button>
                <div class="al-dep-confirm" style="margin-top:8px">
                  <b class="mini">Or create it now, on your own judgement</b>
-                 <div class="mini muted" style="margin-top:2px">The gates are this tool's discipline, not its permission to overrule you. Type <b>ENFORCE</b> and the profile is created exactly as it would be with the gates met — same grouping, (Enforced) in the name, every collection Enabled, assigned to nobody — and its description records that it was created past the evidence gates on the operator's decision.</div>
+                 <div class="mini muted" style="margin-top:2px">The gates are this tool's discipline, not its permission to overrule you. Type <b>ENFORCE</b> and the profile is created exactly as it would be with the gates met — <b>${escq(intuneProfileName("Enforce"))}</b>, same grouping, every collection Enabled, assigned to nobody — and its description records that it was created past the evidence gates on the operator's decision.</div>
                  <div class="al-dep-row" style="margin-top:6px">
                    <input id="alDepEnforceWord" class="al-dep-in" style="width:130px" placeholder="ENFORCE" spellcheck="false" autocomplete="off">
                    <button class="btn primary sm" id="alDepEnforceNow" disabled>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile anyway"}</button>
                  </div></div>`
-            : `<p class="mini" style="margin:0 0 6px"><b>3 of 3.</b> The Enforce profile is created under the <b>same grouping</b> as the audit profile, named with <b>(Enforced)</b>, and <b>assigned to nobody</b>. Then, in the portal: assign it to the pilot group and <b>remove the audit profile's assignment for that same group</b> — two profiles writing one grouping to one device is a conflict in Intune, not a merge. When the pilot has held, widen it.</p>
+            : `<p class="mini" style="margin:0 0 6px"><b>3 of 3.</b> The Enforce profile is created as <b>${escq(intuneProfileName("Enforce"))}</b> under the <b>same grouping</b> as the audit profile — the same address on the device is what makes it a replacement, so that profile is not "in the way" — and <b>assigned to nobody</b>. Then, in the portal: assign it to the pilot group and <b>remove the audit profile's assignment for that same group</b> — two profiles writing one grouping to one device is a conflict in Intune, not a merge. When the pilot has held, widen it.</p>
                <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}`;
         })()}
         ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
@@ -3550,7 +3560,23 @@ const AppLockerTool = (() => {
       // Read before write, every time — the tenant may have changed since
       // the last look, and this is the check that stops an overwrite.
       const existing = await Graph.customProfiles();
-      const coll = Graph.collisions(existing, intuneProfileName(mode), intuneGrouping());
+      // Refresh what the panel knows first — the Enforce name and the audit
+      // gate both read the tenant's AppLocker profiles.
+      d.checked = Object.assign({}, d.checked, { tenantAppLocker: appLockerProfilesOf(existing) });
+      let coll = Graph.collisions(existing, intuneProfileName(mode), intuneGrouping());
+      // THE ENFORCE PROFILE SHARES THE AUDIT PROFILE'S GROUPING BY DESIGN
+      // (10570): same address on the device is what makes it a replacement
+      // and not a second policy. So a same-grouping AuditOnly profile is
+      // not in the way of an Enforce create — it is the reason for it. Same
+      // NAME, or a same-grouping profile that is itself Enforced, still stops.
+      if (mode === "Enforce") {
+        coll = coll.filter((c) => {
+          if (/same display name/.test(c.why)) return true;
+          const p = existing.find((x) => x.id === c.id);
+          const enforced = p && (/\(Enforced\)/i.test(p.displayName || "") || (p.omaSettings || []).some((s2) => /EnforcementMode="Enabled"/i.test(String(s2.value || ""))));
+          return !!enforced;
+        });
+      }
       d.checked = {
         collisions: coll,
         auditInTenant: !!auditProfileInTenant(appLockerProfilesOf(existing)),
