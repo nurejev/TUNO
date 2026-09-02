@@ -238,6 +238,40 @@ const Backup = (() => {
 
     // ---- the N+1, bounded ----
     const failed = [];
+
+    // CUSTOM OMA-URI PROFILES ARE ENCRYPTED AT REST (10564). The list hands
+    // back every string setting as { isEncrypted, value: null } — an archive
+    // written from that restores a profile with the right name and no
+    // settings, which is the failure this whole tool exists to prevent. The
+    // values come from a per-setting plain-text read, after a single-object
+    // re-read for the secret references the list omits. A profile whose
+    // values could not all be fetched is EXCLUDED and named, the same rule
+    // as a settings-catalog policy whose settings read failed.
+    if (area.id === "DeviceConfigurations" && objects.length && Graph.hydrateOmaSettings) {
+      const custom = objects.filter((ob) => /windows10CustomConfiguration/i.test(String(ob["@odata.type"] || ""))
+        && (ob.omaSettings || []).some((x) => x && (x.isEncrypted || x.value === null || x.value === undefined)));
+      if (custom.length) {
+        let done = 0;
+        const res = await Graph.pool(custom, async (ob) => {
+          const r = await Graph.hydrateOmaSettings(ob);
+          status(`${area.label} — ${++done}/${custom.length} custom profiles decrypted`);
+          return r;
+        }, o.concurrency || 6);
+        res.forEach((r, i) => {
+          const ob = custom[i];
+          const idx = objects.indexOf(ob);
+          if (r.error) { failed.push({ name: ob.displayName || ob.id, id: ob.id, error: `OMA-URI values could not be read: ${String(r.error.message || r.error)}` }); objects[idx] = null; return; }
+          if (r.value.errors.length) { failed.push({ name: ob.displayName || ob.id, id: ob.id, error: `${r.value.errors.length} OMA-URI value(s) could not be decrypted: ${r.value.errors.map((e) => e.error).join("; ")}` }); objects[idx] = null; return; }
+          // Archive the value, not the reference: a POST carrying a
+          // secretReferenceValueId from another object is refused, and the
+          // hydration marks are this run's, not the profile's.
+          r.value.profile.omaSettings.forEach((x) => { delete x.secretReferenceValueId; delete x._decrypted; delete x._decryptError; });
+          objects[idx] = r.value.profile;
+        });
+        objects = objects.filter(Boolean);
+      }
+    }
+
     if (area.detail && objects.length) {
       let done = 0;
       const results = await Graph.pool(objects, async (obj) => {

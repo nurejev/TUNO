@@ -755,14 +755,8 @@ const AppLockerTool = (() => {
   // tenant profile goes through this first; a value that cannot be
   // fetched is named as such, never read as an empty collection.
   async function hydrateAppLocker(p) {
-    const out = Object.assign({}, p, { omaSettings: (p.omaSettings || []).map((s) => Object.assign({}, s)) });
-    const todo = out.omaSettings.filter((s) => s && APPLOCKER_OMA_RE.test(String(s.omaUri || ""))
-      && s.isEncrypted && (s.value === null || s.value === undefined || s.value === "") && s.secretReferenceValueId);
-    for (const s of todo) {
-      try { s.value = await Graph.omaSettingPlainText(p.id, s.secretReferenceValueId); s._decrypted = true; }
-      catch (e) { s._decryptError = String((e && e.message) || e).slice(0, 160); }
-    }
-    return out;
+    const r = await Graph.hydrateOmaSettings(p, { only: (s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")) });
+    return r.profile;
   }
   function policyOfProfile(p) {
     const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
@@ -3314,9 +3308,18 @@ const AppLockerTool = (() => {
     const grouping = intuneGrouping();
     const issues = intuneIssues().filter((i) => i.sev === "High");
 
+    const valuesUnread = d.error && /RuleCollection|encrypted|decrypt|effective policy/i.test(String(d.error.message || ""));
     const err = d.error ? `<div class="al-dep-err">
         <b>${escq(d.error.kind === "admin" ? "The tenant refused this" : d.error.kind === "consent" ? "Consent was not granted" : d.error.kind === "throttled" ? "The tenant is throttling" : "Graph refused this")}.</b>
         <div style="margin-top:4px">${escq(d.error.message)}</div>
+        ${valuesUnread ? `<div class="mini" style="margin-top:8px"><b>Get the deployed policy in another way and compare with that:</b>
+          <ul class="al-list" style="margin:4px 0 0">
+            <li><b>From a device that has the profile</b> — run the TUNO scan (step 1): the bundle carries the device's <i>effective</i> policy, which is the deployed profile as the device applies it.</li>
+            <li><b>From PowerShell on such a device</b> — <code>Get-AppLockerPolicy -Effective -Xml | Out-File applocker-effective.xml</code>.</li>
+            <li><b>From the portal</b> — Devices › Configuration › the profile › Properties › Configuration settings: copy each OMA-URI value into <code>&lt;AppLockerPolicy Version="1"&gt;…&lt;/AppLockerPolicy&gt;</code> and save it as XML.</li>
+          </ul>
+          <div class="al-dep-row" style="margin-top:6px"><label class="btn sm primary">⇄ Upload it and compare — differences only<input type="file" id="alDepCmpFile" accept=".xml,.json,.log,text/xml,application/xml,application/json" style="display:none"></label>
+          <span class="muted">the file is the deployed side; the draft on this page is the other. Nothing is written.</span></div></div>` : ""}
         ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
         ${d.error.consentUrl ? `<div class="mini" style="margin-top:6px">An administrator of this tenant grants it once, here: <a href="${escq(d.error.consentUrl)}" target="_blank" rel="noopener">admin consent for TUNO</a>. Nothing is granted by opening the link — it shows what is being asked for first.</div>` : ""}
       </div>` : "";
@@ -3433,7 +3436,7 @@ const AppLockerTool = (() => {
   function diffHtml(df) {
     const r = df.result;
     const ruleLine = (rule) => `<b>${escq(rule.name)}</b> <span class="muted">— ${escq(rule.action)} for ${escq(sidName(rule.sid))}</span><div class="mini muted" style="overflow-wrap:anywhere">${(rule.conditions || []).map((c) => escq(condText(c))).join("; ")}${(rule.exceptions || []).length ? ` · ${rule.exceptions.length} exception${rule.exceptions.length === 1 ? "" : "s"}` : ""}</div>`;
-    const head = `<div class="al-dep-h" style="margin-top:10px"><b>⇄ ${escq(df.name)} vs the ${escq(df.mode)} profile TUNO would write</b> <span class="mini muted">differences only · compared ${escq(df.when.replace("T", " ").slice(0, 16))} UTC</span></div>`;
+    const head = `<div class="al-dep-h" style="margin-top:10px"><b>⇄ ${escq(df.name)} vs the ${escq(df.mode)} profile TUNO would write</b> <span class="mini muted">differences only · compared ${escq(df.when.replace("T", " ").slice(0, 16))} UTC${df.fromFile ? " · the deployed side came from a file, not from the tenant" : ""}</span></div>`;
     if (r.same) return `<div class="al-dep-ok">${head}<div class="mini" style="margin-top:4px"><b>No differences.</b> Every collection, mode, rule, condition and exception matches — updating this profile would change nothing on any device.</div></div>`;
     const cols = r.collections.map((c) => `<div style="margin-top:8px"><b class="mini">${escq(COLLECTION_LABEL[c.type] || c.type)}</b>
       ${c.modeDiff ? `<div class="mini" style="margin-top:2px">Enforcement mode: <b>${escq(c.modeFrom || "absent")} → ${escq(c.modeTo || "absent")}</b>${c.modeTo === null ? " — the collection is not in the profile TUNO writes" : c.modeFrom === null ? " — the collection is new to the tenant" : ""}</div>` : ""}
@@ -3532,6 +3535,30 @@ const AppLockerTool = (() => {
     } catch (e) { depFail(e); }
   }
 
+  // COMPARE WITH A FILE (10564): when Graph will not hand the deployed
+  // values over, the deployed policy can still come in as a file — the
+  // scan bundle's effective policy from a device that has the profile, a
+  // Get-AppLockerPolicy -Effective -Xml export, or the portal's OMA-URI
+  // values in an AppLockerPolicy wrapper — and be held up against what
+  // TUNO would write, exactly as the tenant read would have been.
+  function compareWithFile(text, name) {
+    const d = deployState;
+    d.error = null; d.diff = null;
+    try {
+      let xml = text, label = name;
+      if (/^\s*\{/.test(text)) {
+        const b = parseBundle(text, name);
+        const chosen = bundleXml(b, "effective");
+        if (!chosen || chosen.source !== "effective") throw new Error("That bundle carries no effective policy from the device — the deployed side of a compare has to be what the device is actually running. Re-run the scan on a device that has the profile.");
+        xml = chosen.xml; label = `${name} — the device's effective policy`;
+      }
+      const deployed = parsePolicy(xml, label);
+      const mode = intuneCfg.mode === "Enforce" ? "Enforce" : "Audit";
+      d.diff = { id: null, name: label, mode, result: diffPolicies(deployed, toBeDeployedPolicy(mode)), when: new Date().toISOString(), fromFile: true };
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
   async function checkTenantGrouping() {
     const d = deployState;
     d.error = null;
@@ -3597,6 +3624,13 @@ const AppLockerTool = (() => {
     const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
     on("alDepCheckGroup", "click", checkTenantGrouping);
     document.querySelectorAll(".al-dep-cmp").forEach((b) => b.addEventListener("click", () => compareWithTenant(b.dataset.id)));
+    on("alDepCmpFile", "change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try { compareWithFile(await f.text(), f.name); }
+      catch (err2) { depFail(err2); }
+      e.target.value = "";
+    });
     on("alDepDiffMd", "click", () => {
       const df = deployState.diff; if (!df) return;
       const a = document.createElement("a");

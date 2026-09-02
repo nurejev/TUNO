@@ -620,6 +620,37 @@ const Graph = (() => {
     const r = await get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/getOmaSettingPlainTextValue(secretReferenceValueId='${encodeURIComponent(secretReferenceValueId)}')`, { scopes: SCOPES.profiles });
     return r && typeof r.value === "string" ? r.value : (typeof r === "string" ? r : "");
   }
+  // THE WHOLE ROAD TO A CUSTOM PROFILE'S VALUES (10564). The LIST endpoint
+  // returns encrypted settings WITHOUT their secretReferenceValueId — that
+  // field is on the single-object GET only — so a profile whose encrypted
+  // settings carry no reference is re-read by id first, then each value is
+  // fetched. Everything goes through the API object, so a harness can stand
+  // in for the network at the seams. Returns a copy; `errors` names every
+  // setting that could not be filled, and a caller decides what that means
+  // (the AppLocker tool refuses, the backup excludes the file).
+  async function hydrateOmaSettings(profile, opts) {
+    const only = (opts && opts.only) || (() => true);
+    const empty = (v) => v === null || v === undefined || v === "";
+    let p = Object.assign({}, profile, { omaSettings: (profile.omaSettings || []).map((x) => Object.assign({}, x)) });
+    const wants = (x) => x && only(x) && empty(x.value);
+    if (p.omaSettings.some((x) => wants(x) && !x.secretReferenceValueId) && p.id) {
+      const full = await API.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(p.id)}`, { scopes: SCOPES.profiles });
+      if (full && Array.isArray(full.omaSettings)) {
+        p.omaSettings = p.omaSettings.map((x) => {
+          const f = full.omaSettings.find((y) => y && y.omaUri === x.omaUri) || null;
+          return f ? Object.assign({}, x, f) : x;
+        });
+      }
+    }
+    const errors = [];
+    for (const x of p.omaSettings) {
+      if (!wants(x)) continue;
+      if (!x.secretReferenceValueId) { errors.push({ omaUri: x.omaUri, error: "no value and no secret reference — Graph returned nothing to fetch" }); continue; }
+      try { x.value = await API.omaSettingPlainText(p.id, x.secretReferenceValueId); x._decrypted = true; }
+      catch (e) { const m = String((e && e.message) || e).slice(0, 160); x._decryptError = m; errors.push({ omaUri: x.omaUri, error: m }); }
+    }
+    return { profile: p, errors };
+  }
   // TUNO never overwrites a profile it did not create. Two things collide:
   // a profile with the same NAME (the admin will not be able to tell them
   // apart) and a profile writing the same GROUPING (they fight over one CSP
@@ -712,9 +743,9 @@ const Graph = (() => {
     { assignments: [{ target: { "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId } }] },
     { scopes: SCOPES.profiles });
 
-  return {
+  const API = {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, patch, del, customProfiles, omaSettingPlainText, collisions, createProfile,
+    get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
     remediations, createRemediation,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
@@ -733,4 +764,5 @@ const Graph = (() => {
     // demo (build 10426)
     useDemo, isDemo,
   };
+  return API;
 })();

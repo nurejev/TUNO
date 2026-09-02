@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10564, date: "2026-09-02", title: "Encrypted OMA-URI values, the whole road — and a file as the second road",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The previous build fetched the plain text but asked the profile list for the secret reference, which the list never carries — that field is only on the single-profile read — so the compare still came back empty. The profile is now re-read by id first, then each value fetched. When Graph still refuses, the refusal explains how else the deployed policy can come in — the scan bundle's effective policy from a device that has the profile, Get-AppLockerPolicy -Effective -Xml, or the portal's OMA-URI values — and offers Upload it and compare: the file becomes the deployed side and the differences render as before." },
+      { kind: "fixed", tool: "Backup", text: "Custom OMA-URI profiles are archived with their values. Intune encrypts them at rest and the list read answers null, so backups taken since then held custom profiles with names and no settings — which a restore would recreate as empty profiles. Each is now re-read and decrypted before it is written; one whose values could not all be fetched is left out and named with Graph's reason." },
+    ],
+  },
+  {
     build: 10563, date: "2026-09-02", title: "AppLocker reads the encrypted OMA-URI values",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Intune encrypts custom OMA-URI values at rest, so the profile list hands back every AppLocker collection with no value and a secret reference — which the tool reported as \"no readable RuleCollection values\" and refused to compare or adopt. The value comes only from a separate plain-text read per setting; the compare and pull-from-the-tenant now make that read first. A refused decrypt is reported with Graph's reason, never as an empty policy." },
