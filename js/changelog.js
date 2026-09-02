@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10561, date: "2026-09-02", title: "macOS baseline: Upstream stays on the baseline tenant",
+    items: [
+      { kind: "fixed", tool: "macOS baseline", text: "Export and Upstream — the two acts that author the baseline — exist on cloudfellows.dev only. The rail already withheld them elsewhere, but a session that left Upstream open there and then signed into another tenant kept showing the Upstream card under a rail that no longer offered it. The pane now follows the rail: off the baseline tenant it falls back to Compare, and the card itself says it is cloudfellows.dev only." },
+    ],
+  },
+  {
     build: 10560, date: "2026-09-02", title: "AppLocker: compare the deployed profile with what you are about to deploy",
     items: [
       { kind: "new", tool: "AppLocker", text: "Beside every AppLocker profile the tenant check finds there is now a Compare button. It holds the deployed profile up against the profile TUNO would write — same serialiser, same mode, so it compares what the deploy actually sends, not the raw draft — and lists only what differs: enforcement mode changes, rules added, rules removed, rules changed (action, principal, condition with was/now, exceptions) and rules merely renamed. A rule is matched by Id, or by name and condition when the other side re-minted Ids, so a portal export never reads as everything removed and everything added. Identical is one line: no differences, updating would change nothing. The differences can be taken away as Markdown, and any edit to the draft clears the compare." },

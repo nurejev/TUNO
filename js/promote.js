@@ -130,14 +130,15 @@ const PROMOTE = {
     },
     {
       n: 138, title: "\ud83c\udf4e T24 \u2014 the floating bar carries create as well as dry run",
-      tools: ["T24 macOS baseline"], builds: [10556], risk: "low",
+      tools: ["T24 macOS baseline"], builds: [10556, 10561], risk: "low",
       why: "Production's Upstream pane puts Create N in THIS tenant at the bottom of the plan table, a scroll below the floating bar that ran the dry run (Mihai, 2026-09-02: 'after dry-run has completed, in the same floating bar create/deploy in tenant should appear'). Convenience, nothing broken. It graduates when the bar's create writes exactly the planned set and a changed selection can never fire a stale plan.",
       test: [
         "Load an intune-my-macs zip on beta, tick some rows, Dry run the ticked: the bar changes to 'N ticked \u00b7 M to create' with \u270d Create M in THIS tenant as the primary and \ud83d\udd0d Dry run again beside it; no create button under the plan table, the plan says the create is in the bar.",
         "Untick one row: the create vanishes, the dry run is primary again, the plan shows the stale line. Re-tick that same row: the create is back without a new dry run.",
         "Edit a canonical name by one character: same invalidation; undo it: the plan returns.",
         "Click Create in the bar (test tenant): exactly the planned policies are created unassigned, the result lands under the plan, and the bar is back to the dry run with the ticks still set.",
-        "Suite: _to_delete/macbaseline-tests.js 106/106 (14 new assertions cover the bar states).",
+        "cfdev gate (10561): on cloudfellows.dev open Upstream, sign out, sign into another tenant, open the tool: the rail offers Compare and Import only and the pane shows Compare — no Upstream or Export card. On cloudfellows.dev the Upstream card's heading says 'cloudfellows.dev only'.",
+        "Suite: _to_delete/macbaseline-tests.js 110/110 (14 cover the bar states, 4 the cfdev gate).",
       ],
       files: ["js/macbaseline.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
     },

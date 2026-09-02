@@ -545,8 +545,17 @@ const MacBaselineTool = (() => {
     ].join("");
   }
 
+  // The two acts that AUTHOR the baseline — Export and Upstream — exist on
+  // the baseline tenant only (the cfdev convention). The rail already
+  // withholds their nodes elsewhere; this makes the PANE follow the rail:
+  // `mode` is module state and outlives a sign-out, so a session that left
+  // Upstream open on cloudfellows.dev and signed into another tenant kept
+  // rendering the Upstream card under a rail that no longer offered it
+  // (Mihai, 10561). An act the rail does not offer is not on screen.
+  const CFDEV_ONLY = new Set(["export", "upstream"]);
   function render(sourceNote) {
     if (sourceNote) lastSource = sourceNote;
+    if (CFDEV_ONLY.has(mode) && !isCfdev()) mode = "compare";
     renderSeg();
     const c = activeCatalog();
     const parts = [];
@@ -628,7 +637,7 @@ const MacBaselineTool = (() => {
     }
 
     if (mode === "upstream") {
-      parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🍏 Upstream — Microsoft's intune-my-macs <span class="tag block">writes to the tenant</span></h4>
+      parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🍏 Upstream — Microsoft's intune-my-macs <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
         <p class="mini muted" style="margin:0 0 8px">Watch <code>github.com/microsoft/intune-my-macs</code> for controls our baseline lacks. The app never fetches it — the content-security policy allows Graph and nothing else, and that rule does not bend for a read-only repo: <b>download the zip yourself</b> (the link is plain navigation), then load it here. Matching is by <b>content, never name</b>: a settings-catalog policy is its set of setting definition ids, a compliance policy the properties it configures — identical sets are <b>same</b>, a half-or-better overlap is a <b>match with its diff shown</b>, anything else is <b>new</b>. New and changed controls get an editable canonical name and can be created in THIS tenant — curate, then 🧬 re-export the baseline.</p>
         <div class="tb-actions">
           <a class="btn" href="${esc(MacBaseline.UPSTREAM_ZIP_URL)}" target="_blank" rel="noopener">⬇ Get the latest (zip, from GitHub)</a>
@@ -642,7 +651,7 @@ const MacBaselineTool = (() => {
     // their tab — hidden, not destroyed, so ticks and edited names survive
     // switching tabs (the restore picker's rule, applied to tabs).
     const up = $("mbUpstream");
-    if (up) up.style.display = mode === "upstream" ? "" : "none";
+    if (up) up.style.display = mode === "upstream" && isCfdev() ? "" : "none";
     wire();
   }
 
