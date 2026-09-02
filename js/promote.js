@@ -100,7 +100,7 @@ const PROMOTE = {
   items: [
     {
       n: 135, title: "\ud83d\uddfa The layout round \u2014 Option A: the rail everywhere a long tool benefits",
-      tools: ["T26 Compliance evidence", "T13 Compliance report", "T17 Multi-admin approval", "T08 Assignment what-if", "T16 Firewall & ASR coverage", "T12 Setting conflict scan", "T09 Assignment health", "T18 Windows LAPS audit", "T14 Assignment filters", "T22 Group migration", "T23 Restricted AUs", "T02 Group Analyzer", "T06 Device analyzer", "T15 Defender status", "T04 Backup/Restore/Verify", "T01 AppLocker", "T03 Change audit", "T25 Entra device cleanup"], builds: [10538, 10539, 10540, 10541, 10542, 10543, 10544, 10545, 10546, 10547, 10548, 10549], risk: "low",
+      tools: ["T26 Compliance evidence", "T13 Compliance report", "T17 Multi-admin approval", "T08 Assignment what-if", "T16 Firewall & ASR coverage", "T12 Setting conflict scan", "T09 Assignment health", "T18 Windows LAPS audit", "T14 Assignment filters", "T22 Group migration", "T23 Restricted AUs", "T02 Group Analyzer", "T06 Device analyzer", "T15 Defender status", "T04 Backup/Restore/Verify", "T01 AppLocker", "T03 Change audit", "T25 Entra device cleanup"], builds: [10538, 10539, 10540, 10541, 10542, 10543, 10544, 10545, 10546, 10547, 10548, 10549, 10550], risk: "low",
       why: "One decision, taken once on the mockup (2026-09-01): tools that stack many result sections adopt the posture tool's sticky left rail (shared ep-rail chrome) so jumping to a section or back to a filter is a click, not a scroll; the lighter tools get the T19 fixes \u2014 static filter bars and popouts instead of inline expansions. Ships tool by tool on beta; promotes as ONE item because half a layout language in production is worse than none. Graduates when the converted tools read naturally on a live tenant and nothing lost a capability in the move.",
       test: [
         "Per converted tool on beta: the rail is sticky beside the pane, every section that used to render stacked is reachable as a node with a truthful count, and the pane swaps without losing filter state.",
@@ -108,7 +108,7 @@ const PROMOTE = {
         "Every tool's own suite stays green after its conversion \u2014 the pass counts are in the build messages.",
         "Exports are unchanged by the layout \u2014 the MD/CSV of a converted tool matches its pre-conversion content for the same tenant.",
       ],
-      files: ["js/complianceevidence.js", "js/compliance.js", "js/maa.js", "js/whatif.js", "js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/complianceevidence.js", "js/compliance.js", "js/maa.js", "js/whatif.js", "js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
     {
       n: 134, title: "\ud83d\udccb T26 Compliance evidence \u2014 capability evidence laid against ISO 27001, NIST 800-53 and NIST CSF",
@@ -136,7 +136,7 @@ const PROMOTE = {
         "A tenant where the config read is not consented: the \ud83e\uddf1 click asks for it at the click; declining leaves the fleet report intact.",
         "The MD export carries the baseline section only after a match ran; a fresh \ud83e\udda0 fleet read clears the match.",
       ],
-      files: ["js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
     {
       n: 132, title: "\ud83d\udee1 T16 says on how many devices \u2014 group member counts on every covering policy",
@@ -149,7 +149,7 @@ const PROMOTE = {
         "Sign in as an admin who can read policy but not group membership (or revoke Group.Read.All in a test tenant): counts read \u2018unreadable \u2014 unknown, not zero\u2019 and sums become floors; nothing renders as 0.",
         "Exports: the Markdown table's Configured on column and the CSV's configuredOn field carry the same phrases as the screen for the same policies.",
       ],
-      files: ["js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
   ],
 

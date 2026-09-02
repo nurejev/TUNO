@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10550, date: "2026-09-02", title: "Intune RBAC goes master-detail",
+    items: [
+      { kind: "improved", tool: "Intune RBAC", text: "The roles line up on the left \u2014 member counts on every node, custom roles marked, empty ones dimmed \u2014 and the picked role's assignments, members, scope tags and permissions fill the right pane. No more one long page of folded cards; the observations and the RBAC-only caveat live on the Overview pane." },
+    ],
+  },
+  {
     build: 10549, date: "2026-09-02", title: "Device cleanup: the rail and the floating action bar",
     items: [
       { kind: "improved", tool: "Entra device cleanup", text: "Overview, \u2460 Disable, \u2461 Delete and Results become rail panes \u2014 switching between the 30-day and the 90-day question is a click, with both step counts always on the rail so disable-before-delete stays visible. And the action now follows the ticking: a floating bar (the assignment editor's own) appears with the first ticked device, carries the count, the button and the typed-DELETE arm, and never sits a long scroll below the list. Selections survive switching panes; an apply lands on Results." },

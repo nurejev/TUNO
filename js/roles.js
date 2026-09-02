@@ -573,7 +573,10 @@ const RolesTool = (() => {
   const permCache = new Map();
   // Open role folds, keyed on role ids — the T03 rule; survives re-renders
   // and the empty-roles toggle. Reset on a new read.
-  const open = new Set();
+  const open = new Set();   // kept for export parity; the rail selects now
+  // MASTER-DETAIL (10550, Mihai's spec — the roles on the left, what the
+  // role has on the right; his words are the pick, no mockup round).
+  let selRole = "overview";
 
   function download(name, text, type) {
     const a = document.createElement("a");
@@ -620,6 +623,7 @@ const RolesTool = (() => {
       permCache.clear();
       closeGroupModal();
       out = await Roles.run({ showEmpty: showEmpty(), onStatus: prog });
+      selRole = "overview";
       prog("");
       render();
       showExports(true);
@@ -664,19 +668,44 @@ const RolesTool = (() => {
       ${out.observations.map((o) => `<div class="gu-fail gu-skip">${esc(o.text)}</div>`).join("")}
     </div>` : "";
 
-    const roles = Roles.shown(out, showEmpty()).map((r) => {
-      const isOpen = open.has(r.id);
+    const failed = out.failed.length ? `<div class="list-card">
+      <h4 style="margin:0 0 4px">Could not be read</h4>
+      <p class="mini muted" style="margin:0 0 10px"><b>These assignments exist and they grant access.</b> This report cannot say to whom.</p>
+      ${out.failed.map((f) => `<div class="gu-fail"><b>${esc(f.name)}</b> — ${esc(f.error)}</div>`).join("")}
+    </div>` : "";
+
+    // ---- master-detail: the rail lists the roles, the pane is the role ----
+    const shownRoles = Roles.shown(out, showEmpty());
+    if (selRole !== "overview" && !shownRoles.some((r) => r.id === selRole)) selRole = "overview";
+    const node = (id, label, right, cls, dim) => `<div class="ep-node${selRole === id ? " active" : ""}${dim ? " dim" : ""}" data-rbrole="${esc(id)}" role="button" tabindex="0"${dim ? ' style="opacity:.55"' : ""}>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap">${right}</span></div>`;
+    const rail = node("overview", "📋 Overview", `${t.observations || ""}`, "", false)
+      + '<p class="mini muted" style="margin:2px 10px 6px">members per role · dim is empty</p><hr>'
+      + shownRoles.map((r) => {
+        const memberCount = r.assignments.reduce((n, a) => n + a.memberObjects.length, 0);
+        const empty = !r.assignments.length;
+        return node(r.id, `${r.builtIn ? "" : "✳ "}${esc(r.name)}`, empty ? "empty" : `${memberCount}`, "", empty);
+      }).join("");
+
+    let pane;
+    if (selRole === "overview") {
+      pane = `<div class="list-card" style="margin-top:0">${notes}
+        <p class="mini muted" style="margin:0 0 10px">Pick a role on the left for its assignments and members — custom roles wear ✳, empty roles fold in dimmed rather than hiding, because one membership change from live is a fact worth seeing.</p>
+        <p class="mini muted" style="margin:10px 0 0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (MIT). Member names are resolved through <code>directoryObjects/getByIds</code> in one batched call rather than probing <code>/users/{id}</code> then <code>/groups/{id}</code> per member, which is what the original does and costs up to two round trips each.</p></div>` + obs + failed;
+    } else {
+      const r = shownRoles.find((x) => x.id === selRole);
       const empty = !r.assignments.length;
       const memberCount = r.assignments.reduce((n, a) => n + a.memberObjects.length, 0);
-      const head = `<div class="au-ev-h">
+      pane = `<div class="list-card" style="margin-top:0">
+        <div class="au-ev-h" style="margin:0 0 6px">
           <b>${esc(r.name)}</b>
           <span class="au-op ${r.unknownRole ? "other" : r.builtIn ? "action" : "create"}">${r.unknownRole ? "unknown" : r.builtIn ? "built-in" : "custom"}</span>
           ${empty ? `<span class="gu-how exc">empty</span>` : ""}
           ${r.unknownRole ? "" : `<button class="btn sm" data-rbperm="${esc(r.id)}" data-rbpermname="${esc(r.name)}" title="What this role ALLOWS — the portal's permission grid on one page, read on the click. Intune RBAC is an allow list: anything not named is not granted.">⚙ permissions</button>`}
           <span class="au-when mini muted">${r.assignments.length} assignment${r.assignments.length === 1 ? "" : "s"}${memberCount ? ` · ${memberCount} member${memberCount === 1 ? "" : "s"}` : ""}</span>
         </div>
-        <div class="mini muted au-ev-m">${esc(r.description || (empty ? "Nobody holds this role today." : ""))} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
-      const detail = !isOpen ? "" : `<div class="au-detail">
+        ${r.description ? `<p class="mini muted" style="margin:0 0 10px">${esc(r.description)}</p>` : ""}
+        <div class="au-detail" style="margin:0;border:0;padding:0">
         ${r.assignments.length ? r.assignments.map((a) => `
           <div style="margin:0 0 12px">
             <div class="mini"><b>${esc(a.name)}</b> — scope: ${esc(Roles.scopeLabel(a))} · tags: ${a.tags.length ? a.tags.map((x) => `<span class="gu-stat zero">${esc(x.name)}</span>`).join(" ") : "none"}</div>
@@ -685,25 +714,15 @@ const RolesTool = (() => {
          <tbody>${a.memberObjects.map((mm) => `<tr><td><b>${esc(mm.name)}</b>${mm.type === "group" ? ` <button class="btn sm" data-rbgrp="${esc(mm.id)}" data-rbgrpname="${esc(mm.name)}" title="Who is in it — every user, nested groups flattened. Read on the click; the report stays as read.">👥 members</button>` : ""}</td><td class="mini">${esc(mm.type)}</td><td class="mini">${esc(mm.upn)}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="mini muted" style="margin:4px 0 0">No members. The assignment is live — adding one member to it grants this role.</p>`}
           </div>`).join("") : `<p class="mini muted" style="margin:0">No assignments. Nobody holds this role today — and it is one membership change from being a live grant.</p>`}
+        </div>
       </div>`;
-      return `<div class="au-fold ${empty ? "dim" : r.builtIn ? "" : "ok"} ${isOpen ? "open" : ""}" data-rbrole="${esc(r.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
-    }).join("");
+    }
 
-    const failed = out.failed.length ? `<div class="list-card">
-      <h4 style="margin:0 0 4px">Could not be read</h4>
-      <p class="mini muted" style="margin:0 0 10px"><b>These assignments exist and they grant access.</b> This report cannot say to whom.</p>
-      ${out.failed.map((f) => `<div class="gu-fail"><b>${esc(f.name)}</b> — ${esc(f.error)}</div>`).join("")}
-    </div>` : "";
-
-    $("rbBody").innerHTML = cards + `<div class="list-card">${notes}
-      <p class="mini muted" style="margin:0 0 10px">Click a role for its assignments and members. Empty roles fold in dimmed rather than hiding — one membership change from live is a fact worth seeing.</p>
-      ${roles}
-      <p class="mini muted" style="margin:10px 0 0">After Ugur Koc's <a href="https://github.com/ugurkocde/IntuneAutomation/blob/main/scripts/security/get-intune-role-assignments.ps1" target="_blank" rel="noopener">Get Intune Role Assignments</a> (MIT). Member names are resolved through <code>directoryObjects/getByIds</code> in one batched call rather than probing <code>/users/{id}</code> then <code>/groups/{id}</code> per member, which is what the original does and costs up to two round trips each.</p></div>` + obs + failed;
+    $("rbBody").innerHTML = cards + `<div class="ep-wrap"><div class="ep-rail" style="max-height:70vh;overflow:auto">${rail}</div><div class="ep-main">${pane}</div></div>`;
 
     $("rbBody").querySelectorAll("[data-rbrole]").forEach((el) => el.addEventListener("click", (e) => {
       if (e.target.closest("a,code,button")) return;
-      const id = el.dataset.rbrole;
-      open.has(id) ? open.delete(id) : open.add(id);
+      selRole = el.dataset.rbrole;
       render();
     }));
   }
