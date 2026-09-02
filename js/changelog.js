@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10553, date: "2026-09-02", title: "T01 closes the AaronLocker gaps — and finds the writable files",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "The device scan now PE-sniffs by default: a file whose extension says \"not a program\" but whose header says MZ/PE is inventoried as an executable and flagged as found-by-header, because renaming a binary is exactly what an attacker does. A list of never-executable extensions keeps the cost to a 4-byte read; -NoPeSniff turns it off." },
+      { kind: "improved", tool: "AppLocker", text: "Microsoft-signed files never get a bare publisher rule: at Publisher granularity they keep their product name, so the generated policy says \"this Microsoft product\" and never \"anything Microsoft signs\" — which would be the operating system and every living-off-the-land binary in it." },
+      { kind: "improved", tool: "AppLocker", text: "The living-off-the-land exceptions on the Windows allow rule (mshta, WMIC, InstallUtil, MSBuild and friends) are carried as publisher conditions resolved on the scanned machine, so the exception follows the file when it is copied out of System32. A pattern that does not resolve stays a path exception, and the bundle records which happened per pattern." },
+      { kind: "new", tool: "AppLocker", text: "User-writable FILES. Every executable file inside a directory a standard user cannot write to has its own permissions read — a file a user can overwrite inside a safe directory is allowed by the directory rule and invisible to the directory walk, the blind spot AaronLocker's own header names and neither tool covered. A hit is excepted from the default allow by its exact path, inventoried for its own rule, and shown on the evidence card and in the Markdown report. An older bundle reads \"not checked\", never 0; -SkipWritableFiles turns the check off." },
+      { kind: "fixed", tool: "AppLocker", text: "The GPO XML export no longer carries an empty NotConfigured collection. Merged with the AppLocker rule Intune's Managed Installer policy deploys, an empty NotConfigured collection becomes a NotConfigured collection WITH a rule — which AppLocker enforces, blocking everything up to and including sign-in (Microsoft's documented no-boot case). The audit already flagged it; the file now refuses it, and the panel subtitle says what was left out and why." },
+    ],
+  },
+  {
     build: 10552, date: "2026-09-02", title: "The macOS baseline joins the rail — and the upstream card straightens up",
     items: [
       { kind: "improved", tool: "macOS baseline", text: "The four acts \u2014 Compare, Export, Import, Upstream \u2014 move from tabs onto the rail, each node carrying its state: the compare's worst count in red, whether the upstream zip is loaded and how much of it wants review. On the upstream card, Select all and Select none now sit above the table with a ticked count (they were hiding below it), and the dry run rides the floating bar that appears with the first tick." },

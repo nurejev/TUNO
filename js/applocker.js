@@ -206,9 +206,22 @@ const AppLockerTool = (() => {
     out.push(`${pad}</RuleCollection>`);
     return out;
   }
+  // THE GPO XML NEVER CARRIES AN EMPTY NotConfigured COLLECTION (10553). The
+  // audit already flags one as High; the export now refuses it too, because
+  // Microsoft documents the exact failure: Intune's Managed Installer policy
+  // merges an AppLocker policy with a dummy rule into whatever is on the
+  // device, and an empty NotConfigured collection merged with that one rule
+  // becomes "NotConfigured with rules" — which AppLocker ENFORCES. Anything
+  // not the dummy rule is then blocked, up to and including sign-in. The
+  // collection is dropped from the file (absence is the only inert state);
+  // a NotConfigured collection that carries rules is left as it is — that is
+  // an audit finding for the admin to decide, not a silent rewrite.
+  function exportableCollections() {
+    return policy.collections.filter((c) => !(c.mode === "NotConfigured" && !c.rules.length));
+  }
   function exportXml() {
     const lines = ['<AppLockerPolicy Version="1">'];
-    for (const col of policy.collections) lines.push(...collectionLines(col, "  "));
+    for (const col of exportableCollections()) lines.push(...collectionLines(col, "  "));
     lines.push("</AppLockerPolicy>");
     return lines.join("\n");
   }
@@ -225,11 +238,12 @@ const AppLockerTool = (() => {
   // CSP. That is the single most expensive thing to get wrong here, so the UI asks
   // for it rather than inventing one.
   //
-  // DLL is forced to NotConfigured whatever the chosen mode. AppLocker evaluates
-  // every DLL load: Enabled cripples the endpoint and even AuditOnly buries the
-  // event log under Microsoft-signed System32 libraries, EDR AMSI providers and
-  // .NET native images. The rules still ship — documented and inert — so the
-  // collection can be switched on deliberately later instead of being invisible.
+  // DLL is OMITTED from the profile whatever the chosen mode (see intuneProfile
+  // — this comment used to say "forced to NotConfigured", which the code never
+  // did after the NotConfigured trap was understood). AppLocker evaluates every
+  // DLL load: Enabled cripples the endpoint and even AuditOnly buries the event
+  // log under Microsoft-signed System32 libraries, EDR AMSI providers and .NET
+  // native images. Absence is the only inert state.
   // ================================================================
   let groupingMinted = false;
   const intuneGrouping = () => {
@@ -339,6 +353,11 @@ const AppLockerTool = (() => {
     // rule generation, no events, unreadable effective policy) renders as
     // "not collected" rather than throwing somewhere three sections down.
     b.writablePaths = Array.isArray(b.writablePaths) ? b.writablePaths : [];
+    // 10553: writable FILES inside admin-only directories. Absent on older
+    // bundles and on -SkipWritableFiles runs — the card says "not checked"
+    // then, rather than the "0" that would read as a clean bill.
+    b.writableFilesChecked = Array.isArray(b.writableFiles) && b.writableFilesChecked !== false;
+    b.writableFiles = Array.isArray(b.writableFiles) ? b.writableFiles : [];
     b.artifacts = Array.isArray(b.artifacts) ? b.artifacts : [];
     b.warnings = Array.isArray(b.warnings) ? b.warnings : [];
     b.sourceName = sourceName || "";
@@ -1911,6 +1930,7 @@ const AppLockerTool = (() => {
         : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates")} |`);
       L.push(`| Application Identity service | ${m.appIdentityService || "—"} |`);
       L.push(`| User-writable directories | ${scan.writablePaths.length} |`);
+      L.push(`| User-writable files in admin-only directories | ${scan.writableFilesChecked ? scan.writableFiles.length : "not checked (older scan or -SkipWritableFiles)"} |`);
       L.push(`| Executables inventoried | ${scan.artifacts.length} (${scan.artifacts.filter((a) => a && !a.signed).length} unsigned) |`);
       if (ev && ev.available && ev.summary) L.push(`| AppLocker events (${ev.daysBack} days) | ${ev.summary.blocked} blocked, ${ev.summary.audited} audited, ${ev.summary.allowed} allowed |`);
       L.push("");
@@ -1931,6 +1951,21 @@ const AppLockerTool = (() => {
         if (reach.length > 200) L.push(`| … | ${reach.length - 200} more | |`);
       }
       L.push("");
+      if (scan.writableFiles.length) {
+        L.push(`### User-writable files inside directories a standard user cannot write to (${scan.writableFiles.length})`);
+        L.push("");
+        L.push("The directory is safe, the file is not: a path rule on the directory allows it and the directory walk cannot see it. Each is excepted from the default allow by its exact path and has its own rule if it was signed; the fix is the file's ACL.");
+        L.push("");
+        L.push(`| File | Writable by | Allowed now by |`);
+        L.push(`|---|---|---|`);
+        for (const f of scan.writableFiles.slice(0, 200)) {
+          const p = f.normalized || f.path;
+          const rule = evaluateProbePath(policy, p, f.collection || "Exe");
+          L.push(`| ${p} | ${(f.grantees || []).map((g) => g.name || g.sid).join(", ") || "—"} | ${rule ? rule.name : "— (excepted or unreachable)"} |`);
+        }
+        if (scan.writableFiles.length > 200) L.push(`| … | ${scan.writableFiles.length - 200} more | |`);
+        L.push("");
+      }
     }
     L.push(`## Microsoft app coverage`);
     L.push("");
@@ -2070,7 +2105,10 @@ const AppLockerTool = (() => {
     }
     if (name) name.textContent = "AppLockerPolicy.xml";
     const rules = policy.collections.reduce((n, c) => n + c.rules.length, 0);
-    sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${policy.collections.length} collection${policy.collections.length === 1 ? "" : "s"}`;
+    const shipped = exportableCollections();
+    const leftOut = policy.collections.length - shipped.length;
+    sub.textContent = `${rules} rule${rules === 1 ? "" : "s"} · ${shipped.length} collection${shipped.length === 1 ? "" : "s"}`
+      + (leftOut ? ` · ${leftOut} empty NotConfigured collection${leftOut === 1 ? "" : "s"} left out of the file (an empty NotConfigured collection merged with Intune's Managed Installer rule becomes an enforced one)` : "");
     code.innerHTML = highlightXml(exportXml());
   }
 
@@ -2095,6 +2133,7 @@ const AppLockerTool = (() => {
     ].filter(Boolean);
 
     const topPaths = scan.writablePaths.slice(0, 12);
+    const topFiles = scan.writableFiles.slice(0, 12);
     const topEvents = ev && ev.entries
       ? ev.entries.filter((e) => e.verdict === "Blocked" || e.verdict === "Audited").slice(0, 12)
       : [];
@@ -2110,7 +2149,8 @@ const AppLockerTool = (() => {
         : m.appLockerCmdlets ? "yes" : "NO — publishers derived from certificates"))}
         ${fact("Application Identity", m.appIdentityService)}
         ${fact("Writable directories", scan.writablePaths.length)}
-        ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : ""))}
+        ${fact("Writable files in admin-only dirs", scan.writableFilesChecked ? scan.writableFiles.length : "not checked")}
+        ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : "") + (scan.artifacts.some((a) => a && a.sniffedPe) ? ` · ${scan.artifacts.filter((a) => a && a.sniffedPe).length} PE by header, not by name` : ""))}
         ${fact("Scan taken", scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "—")}
       </div>
       ${(!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? `<div class="gu-fail" style="margin-bottom:12px">
@@ -2133,6 +2173,17 @@ const AppLockerTool = (() => {
             <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
         }).join("")}
       </tbody></table></div>` : `<p class="mini muted">No user-writable directories were found in the scanned roots. That is unusual — check the scan warnings above before believing it.</p>`}
+      ${topFiles.length ? `<h4 class="mini" style="margin:14px 0 6px">User-writable files inside admin-only directories <span class="muted">— showing ${topFiles.length} of ${scan.writableFiles.length}</span></h4>
+      <p class="mini muted" style="margin:0 0 6px">The directory is safe, the file is not: the directory's allow rule covers it and the directory walk cannot see it. The scan excepted each by its exact path and gave it its own rule where it was signed. The fix is the file's ACL.</p>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
+        ${topFiles.map((f) => {
+          const p = f.normalized || f.path;
+          const rule = evaluateProbePath(policy, p, f.collection || "Exe");
+          return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(p)}</td>
+            <td class="mini">${esc((f.grantees || []).map((g) => g.name || g.sid).join(", ") || "—")}</td>
+            <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
+        }).join("")}
+      </tbody></table></div>` : (scan.writableFilesChecked ? `<p class="mini muted" style="margin-top:10px">Every executable file in the admin-only directories has an admin-only ACL of its own — the check ran and found nothing.</p>` : `<p class="mini muted" style="margin-top:10px">Writable files were not checked in this scan (older scanner, or -SkipWritableFiles). Re-run with the current Invoke-TunoAppLockerScan.ps1 to close that gap.</p>`)}
       ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Executions the endpoint refused <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Verdict</th><th>File</th><th>Publisher</th><th>User</th><th>When</th></tr></thead><tbody>
         ${topEvents.map((e) => `<tr>

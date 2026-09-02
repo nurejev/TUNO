@@ -130,9 +130,27 @@ By default the walk stops descending once a directory is found writable, because
 rule it produces ("<dir>\*") already covers everything beneath it. -DeepScan keeps
 going and reports every writable directory individually. Slower, more precise evidence.
 
+.PARAMETER NoPeSniff
+Skip the PE-header check on files whose extension is not a known executable one.
+The check is ON by default since build 10553: a renamed binary still runs, and
+renaming one is exactly what an attacker does, so the default has to catch it. A
+list of never-executable extensions (documents, images, logs, archives, .mui) is
+skipped before any header is read, which keeps the cost to one 4-byte read at two
+offsets for what remains. After AaronLocker, whose default was right and ours was not.
+
 .PARAMETER SniffUnknownExtensions
-Also PE-sniff files whose extension is not a known executable extension. Catches
-renamed binaries; costs a header read per file.
+Accepted for scripts written before 10553 and ignored - the check is now the
+default. Use -NoPeSniff to turn it off.
+
+.PARAMETER SkipWritableFiles
+Skip the user-writable FILE check. By default (since 10553) every executable-typed
+file in a directory a standard user cannot write to has its own DACL read: a file a
+user can overwrite inside an admin-only directory is a blind spot every path-based
+allow rule shares - the directory is safe, the file is not, and the rule allows it.
+AaronLocker's header names this gap and does nothing about it; neither did we until
+this build. The check costs one DACL read per executable file under the scanned
+roots. A hit is excepted from the default allow by its exact path and inventoried
+for a publisher or hash rule, exactly as a file in a writable directory is.
 
 .PARAMETER JSHashRules
 Generate hash rules for unsigned .js files. Off by default - .js files churn, and the
@@ -183,7 +201,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.8.0
+Version    : 1.9.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -235,6 +253,8 @@ param(
 
     [Parameter()]
     [switch]$SniffUnknownExtensions,
+    [switch]$NoPeSniff,
+    [switch]$SkipWritableFiles,
 
     [Parameter()]
     [switch]$JSHashRules,
@@ -260,8 +280,8 @@ $ErrorActionPreference = 'Stop'
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.8.0'
-$script:TunoBuild = 10552
+$script:ScriptVersion = '1.9.0'
+$script:TunoBuild = 10553
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -647,6 +667,12 @@ $script:RightsCreate = [int][System.Security.AccessControl.FileSystemRights]::Cr
                        [int][System.Security.AccessControl.FileSystemRights]::CreateDirectories
 $script:RightsSeize  = [int][System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor
                        [int][System.Security.AccessControl.FileSystemRights]::TakeOwnership
+# On a FILE the bits that matter are the ones that change its contents. CreateFiles
+# and WriteData are the same bit (0x2), AppendData and CreateDirectories the same
+# (0x4) - the FileSystemRights enum names them per object type; the mask is one.
+$script:RightsWriteFile = [int][System.Security.AccessControl.FileSystemRights]::WriteData -bor
+                          [int][System.Security.AccessControl.FileSystemRights]::AppendData
+$script:WritableFiles = New-Object System.Collections.Generic.List[object]
 
 function Get-DirectoryWriteGrantee {
     <#
@@ -656,13 +682,22 @@ function Get-DirectoryWriteGrantee {
     #>
     param(
         [Parameter(Mandatory)] [string]$DirectoryPath,
-        [Parameter(Mandatory)] [System.Collections.Generic.HashSet[string]]$TrustedSet
+        [Parameter(Mandatory)] [System.Collections.Generic.HashSet[string]]$TrustedSet,
+        # 10553: the same evaluation for a FILE - FileSecurity instead of
+        # DirectorySecurity, and "can overwrite" instead of "can create".
+        [switch]$IsFile
     )
 
     $acl = $null
     try {
-        $acl = New-Object System.Security.AccessControl.DirectorySecurity(
-            $DirectoryPath, [System.Security.AccessControl.AccessControlSections]::Access)
+        if ($IsFile) {
+            $acl = New-Object System.Security.AccessControl.FileSecurity(
+                $DirectoryPath, [System.Security.AccessControl.AccessControlSections]::Access)
+        }
+        else {
+            $acl = New-Object System.Security.AccessControl.DirectorySecurity(
+                $DirectoryPath, [System.Security.AccessControl.AccessControlSections]::Access)
+        }
     }
     catch { return $null }
 
@@ -689,7 +724,7 @@ function Get-DirectoryWriteGrantee {
         return , @([pscustomobject]@{
             sid    = 'S-1-1-0'
             name   = 'Everyone'
-            reason = 'the directory has a null or empty DACL - access is unrestricted'
+            reason = $(if ($IsFile) { 'the file has a null or empty DACL - access is unrestricted' } else { 'the directory has a null or empty DACL - access is unrestricted' })
         })
     }
 
@@ -715,7 +750,10 @@ function Get-DirectoryWriteGrantee {
         if ($deny.ContainsKey($sid)) { $effective = $effective -band (-bnot $deny[$sid]) }
 
         $reasons = New-Object System.Collections.Generic.List[string]
-        if (($effective -band $script:RightsCreate) -ne 0) { $reasons.Add('can create files') }
+        if ($IsFile) {
+            if (($effective -band $script:RightsWriteFile) -ne 0) { $reasons.Add('can overwrite the file') }
+        }
+        elseif (($effective -band $script:RightsCreate) -ne 0) { $reasons.Add('can create files') }
         if (($effective -band $script:RightsSeize) -ne 0) { $reasons.Add('can take ownership or change permissions') }
         if ($reasons.Count -eq 0) { continue }
 
@@ -762,11 +800,18 @@ function Get-WritableDirectory {
     param(
         [Parameter(Mandatory)] [string]$Root,
         [Parameter(Mandatory)] [System.Collections.Generic.HashSet[string]]$TrustedSet,
-        [switch]$Deep
+        [switch]$Deep,
+        # 10553: in every directory that is NOT writable, read the DACL of each
+        # executable-typed file. Hits land in $script:WritableFiles - the return
+        # value stays the directory list so nothing that reads it has to change.
+        [switch]$CheckFiles
     )
 
     $results = New-Object System.Collections.Generic.List[object]
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return , $results.ToArray() }
+    $filesChecked = 0
+    $unreadableFileAcl = 0
+    $unlistableFiles = 0
 
     # Counted apart, because they mean different things and the fix differs.
     # Lumping them into one number was hiding the long-path failures behind the
@@ -798,6 +843,30 @@ function Get-WritableDirectory {
             # The rule this produces is "<dir>\*", which already covers everything
             # below. Descending further only lengthens the evidence list.
             if (-not $Deep) { continue }
+        }
+        elseif ($CheckFiles) {
+            # The directory is admin-only. Its FILES may not be: a vendor installer
+            # that granted Users modify on its own exe, an ACL edit someone made to
+            # get past a permissions error. The directory allow rule covers that
+            # file, so it is a hole the directory walk cannot see.
+            $names = @()
+            try { $names = [System.IO.Directory]::GetFiles((ConvertTo-LongPath $dir)) }
+            catch { $unlistableFiles++ }
+            foreach ($fp in $names) {
+                $fext = [System.IO.Path]::GetExtension($fp).ToLowerInvariant()
+                if (-not $script:CollectionByExtension.ContainsKey($fext)) { continue }
+                $filesChecked++
+                $fg = Get-DirectoryWriteGrantee -DirectoryPath $fp -TrustedSet $TrustedSet -IsFile
+                if ($null -eq $fg) { $unreadableFileAcl++; continue }
+                if ($fg.Count -gt 0) {
+                    $script:WritableFiles.Add([pscustomobject]@{
+                        path       = (ConvertFrom-LongPath $fp)
+                        directory  = (ConvertFrom-LongPath $dir)
+                        collection = $script:CollectionByExtension[$fext]
+                        grantees   = $fg
+                    })
+                }
+            }
         }
 
         # GetDirectories, not EnumerateDirectories. The lazy enumerator throws
@@ -846,6 +915,13 @@ function Get-WritableDirectory {
     }
     Write-Info ("{0,-6} writable of {1} directories under {2}{3}" -f $results.Count, $visited, $Root,
         $(if ($reparse -gt 0) { " ($reparse reparse point(s) not followed)" } else { '' }))
+    if ($CheckFiles) {
+        $hitsHere = @($script:WritableFiles | Where-Object { $_.path.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase) }).Count
+        Write-Info ("{0,-6} writable of {1} executable files checked under {2}" -f $hitsHere, $filesChecked, $Root)
+        if ($unreadableFileAcl -gt 0 -or $unlistableFiles -gt 0) {
+            Add-ScanWarning "Under $Root, $unreadableFileAcl file permission(s) could not be read and $unlistableFiles director$(if ($unlistableFiles -eq 1) { 'y' } else { 'ies' }) could not be listed for files. A user-writable file there would not have been found."
+        }
+    }
     return , $results.ToArray()
 }
 
@@ -1089,6 +1165,23 @@ function Get-FileFacts {
 # file hash. Script files are hashed flat, so Get-FileHash is correct for them.
 $script:AuthenticodeHashedCollections = @('Exe', 'Dll', 'Msi', 'Appx')
 
+# Extensions that are never a PE, skipped before the header read so the default-on
+# sniff stays cheap. After AaronLocker's NeverExecutableExts (MIT), trimmed to what
+# turns up in the directories this scan walks. .mui is a resource-only DLL that is
+# loaded as data, never as code, so it needs no rule and no read. Anything NOT on
+# this list and not a known executable extension gets the 4-byte MZ/PE check.
+$script:NeverExecutableExtensions = New-Object System.Collections.Generic.HashSet[string] ([string[]]@(
+    '.admx', '.adml', '.opax', '.opal', '.etl', '.evtx', '.msc', '.pdb', '.chm', '.hlp',
+    '.gif', '.jpg', '.jpeg', '.png', '.bmp', '.svg', '.ico', '.pfm', '.ttf', '.fon', '.otf', '.cur', '.woff', '.woff2',
+    '.html', '.htm', '.hta', '.css', '.json', '.txt', '.log', '.xml', '.xsl', '.xslt', '.ini', '.csv', '.reg', '.mof', '.md', '.yml', '.yaml',
+    '.pdf', '.tif', '.tiff', '.xps', '.rtf', '.lnk', '.url', '.inf', '.cat', '.manifest', '.config', '.nupkg', '.pak', '.dat', '.db', '.sqlite',
+    '.odl', '.odlgz', '.odlsent', '.mui',
+    '.doc', '.docx', '.docm', '.dot', '.dotx', '.dotm', '.xls', '.xlsx', '.xlsm', '.xlt', '.xltx', '.xltm',
+    '.ppt', '.pptx', '.pptm', '.pot', '.potx', '.potm', '.pps', '.ppsx',
+    '.zip', '.7z', '.tar', '.gz', '.cab', '.wav', '.wmv', '.mp3', '.mp4', '.mpg', '.mpeg', '.avi', '.mov'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:SniffedPeHits = 0
+
 function Get-ArtifactInventory {
     param(
         [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]]$Directories,
@@ -1125,11 +1218,12 @@ function Get-ArtifactInventory {
 
             $ext = $f.Extension.ToLowerInvariant()
             $collection = $null
+            $sniffed = $false
             if ($script:CollectionByExtension.ContainsKey($ext)) {
                 $collection = $script:CollectionByExtension[$ext]
             }
-            elseif ($Sniff -and $f.Length -ge 512) {
-                if (Test-PortableExecutable -FilePath $f.FullName) { $collection = 'Exe' }
+            elseif ($Sniff -and $f.Length -ge 512 -and -not $script:NeverExecutableExtensions.Contains($ext)) {
+                if (Test-PortableExecutable -FilePath $f.FullName) { $collection = 'Exe'; $sniffed = $true }
             }
             if (-not $collection) { continue }
 
@@ -1137,7 +1231,12 @@ function Get-ArtifactInventory {
             if (-not $Quiet -and ($n % 100) -eq 0) {
                 Write-Progress -Activity 'Inventorying executables' -Status "$n examined, $($artifacts.Count) recorded" -Id 2
             }
-            $artifacts.Add((Get-FileFacts -File $f -Collection $collection -UseAppLockerCmdlets $UseAppLockerCmdlets))
+            $facts = Get-FileFacts -File $f -Collection $collection -UseAppLockerCmdlets $UseAppLockerCmdlets
+            # A PE wearing the wrong extension is evidence in itself: the bundle
+            # says which artifacts were found by the header, not the name.
+            $facts | Add-Member -NotePropertyName sniffedPe -NotePropertyValue $sniffed
+            if ($sniffed) { $script:SniffedPeHits++ }
+            $artifacts.Add($facts)
         }
     }
 
@@ -1464,8 +1563,13 @@ function New-RuleId { return [guid]::NewGuid().ToString() }
 function New-PathRule {
     param(
         [string]$Name, [string]$Sid, [string]$Action, [string]$RulePath,
-        [string]$Description, [string[]]$ExceptionPaths
+        [string]$Description, [string[]]$ExceptionPaths,
+        # Ready-made condition objects (kind = path | publisher) appended after
+        # the path exceptions - how the LOLBin publisher exceptions arrive.
+        [object[]]$ExceptionConditions
     )
+    $exc = @(@($ExceptionPaths) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ kind = 'path'; path = $_ } })
+    if ($ExceptionConditions) { $exc = @($exc) + @($ExceptionConditions | Where-Object { $_ }) }
     [pscustomobject]@{
         nodeName    = 'FilePathRule'
         id          = (New-RuleId)
@@ -1474,8 +1578,78 @@ function New-PathRule {
         sid         = $Sid
         action      = $Action
         conditions  = @([pscustomobject]@{ kind = 'path'; path = $RulePath })
-        exceptions  = @(@($ExceptionPaths) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ kind = 'path'; path = $_ } })
+        exceptions  = @($exc)
     }
+}
+
+function Resolve-LolBinExceptions {
+    <#
+    .SYNOPSIS
+        The LOLBin exceptions as PUBLISHER conditions (10553, after AaronLocker).
+    .DESCRIPTION
+        A path exception stops meaning anything the moment the file is copied
+        elsewhere - and copying mshta.exe into Downloads is precisely the move.
+        A publisher condition (publisher + product + binary name, any version)
+        follows the file wherever it goes and survives Windows updating it.
+
+        Each pattern in $script:LolBinPatterns is resolved on THIS machine. A file
+        that resolves and is signed becomes a publisher exception; a pattern that
+        resolves to nothing, or only to unsigned files, stays a path exception so
+        nothing is silently dropped. The bundle records which happened, per pattern.
+
+        The binary name is never left as '*': an exception of "anything Microsoft
+        signs" would carve the operating system out of the Windows allow rule.
+    #>
+    param([bool]$UseAppLockerCmdlets)
+
+    $out     = New-Object System.Collections.Generic.List[object]
+    $records = New-Object System.Collections.Generic.List[object]
+    $seen    = @{}
+    $windir  = $env:WINDIR
+    $sysDirs = @((Join-Path $windir 'System32'), (Join-Path $windir 'SysWOW64'))
+
+    foreach ($pattern in $script:LolBinPatterns) {
+        $probes = @()
+        if ($pattern -like '%SYSTEM32%\*') {
+            $rel = $pattern.Substring('%SYSTEM32%\'.Length)
+            $probes = @($sysDirs | ForEach-Object { Join-Path $_ $rel })
+        }
+        elseif ($pattern -like '%WINDIR%\*') {
+            $probes = @((Join-Path $windir $pattern.Substring('%WINDIR%\'.Length)))
+        }
+        $files = @()
+        foreach ($probe in $probes) {
+            try { $files += @(Get-ChildItem -Path $probe -File -ErrorAction SilentlyContinue) } catch { }
+        }
+
+        $resolved = 0
+        foreach ($f in $files) {
+            $facts = $null
+            try { $facts = Get-FileFacts -File $f -Collection 'Exe' -UseAppLockerCmdlets $UseAppLockerCmdlets } catch { }
+            if (-not ($facts -and $facts.signed -and $facts.publisher)) { continue }
+            $p = $facts.publisher
+            $binary  = if ($p.binary -and $p.binary -ne '*') { $p.binary } else { $f.Name.ToUpperInvariant() }
+            $product = if ($p.product) { $p.product } else { '*' }
+            $resolved++
+            $key = "$($p.name)|$product|$binary"
+            if ($seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            $out.Add([pscustomobject]@{ kind = 'publisher'; publisher = $p.name; product = $product; binary = $binary; low = '*'; high = '*' })
+        }
+
+        if ($resolved -eq 0) {
+            $out.Add([pscustomobject]@{ kind = 'path'; path = $pattern })
+            $records.Add([pscustomobject]@{
+                pattern = $pattern; kind = 'path'
+                reason  = $(if ($files.Count) { 'present but not signed - path exception kept' } else { 'not present on this machine - path exception kept' })
+            })
+        }
+        else {
+            $records.Add([pscustomobject]@{ pattern = $pattern; kind = 'publisher'; files = $resolved })
+        }
+    }
+
+    [pscustomobject]@{ exceptions = @($out); records = @($records) }
 }
 
 function New-PublisherRule {
@@ -1541,10 +1715,14 @@ function New-DefaultRuleSet {
     #>
     param(
         [string[]]$WritableUnderWindir,
-        [string[]]$WritableUnderProgramFiles
+        [string[]]$WritableUnderProgramFiles,
+        # From Resolve-LolBinExceptions. Absent (older callers, tests), the
+        # patterns go in as path exceptions exactly as before 10553.
+        [object[]]$LolBinExceptions
     )
 
-    $windirExceptions = @(@($WritableUnderWindir) + @($script:LolBinPatterns))
+    $lolBin = if ($LolBinExceptions -and @($LolBinExceptions).Count) { @($LolBinExceptions) }
+              else { @($script:LolBinPatterns | ForEach-Object { [pscustomobject]@{ kind = 'path'; path = $_ } }) }
     $collections = [ordered]@{}
 
     foreach ($type in @('Exe', 'Script', 'Dll')) {
@@ -1555,8 +1733,8 @@ function New-DefaultRuleSet {
             -ExceptionPaths $WritableUnderProgramFiles))
         $rules.Add((New-PathRule -Name "(Default Rule) All files located in the Windows folder" `
             -Sid $script:SidEveryone -Action 'Allow' -RulePath '%WINDIR%\*' `
-            -Description "Allows members of the Everyone group to run applications that are located in the Windows folder, EXCEPT the sub-folders a non-administrator can write to and the well-known binaries that execute arbitrary code. Exceptions supplied by the TUNO scan." `
-            -ExceptionPaths $(if ($type -eq 'Exe') { $windirExceptions } else { @($WritableUnderWindir) })))
+            -Description "Allows members of the Everyone group to run applications that are located in the Windows folder, EXCEPT the sub-folders a non-administrator can write to and the well-known binaries that execute arbitrary code (mshta, WMIC, InstallUtil and friends - carried as publisher conditions where the scan could sign them, so the exception follows the file if it is copied elsewhere). Exceptions supplied by the TUNO scan." `
+            -ExceptionPaths @($WritableUnderWindir) -ExceptionConditions $(if ($type -eq 'Exe') { $lolBin } else { @() })))
         $rules.Add((New-PathRule -Name "(Default Rule) All files" `
             -Sid $script:SidAdmins -Action 'Allow' -RulePath '*' `
             -Description 'Allows members of the local Administrators group to run all applications. Application control does not meaningfully restrict an administrator; this rule states that plainly instead of pretending otherwise. This is one of the two sanctioned ways software arrives on these devices: by IME, or by an administrator.' `
@@ -1666,6 +1844,16 @@ function New-ArtifactRuleSet {
         if ($a.signed -and $a.publisher) {
             $p = $a.publisher
             $product = if ($inclProduct -and $p.product -and $p.product -ne '*') { $p.product } else { '*' }
+            # THE MICROSOFT FLOOR (10553, after AaronLocker). "Anything signed by
+            # Microsoft" is not one vendor's software - it is the operating system,
+            # every LOLBin in it, and whatever Microsoft ships next. So at
+            # -PublisherRuleGranularity Publisher a Microsoft-signed artifact keeps
+            # its product name: the rule says "this Microsoft product", never
+            # "Microsoft". Every other publisher gets the granularity asked for.
+            $floored = $false
+            if ($product -eq '*' -and -not $inclProduct -and $p.product -and $p.product -ne '*' -and $p.name -like 'O=MICROSOFT*') {
+                $product = $p.product; $floored = $true
+            }
             $binary  = if ($inclBinary  -and $p.binary  -and $p.binary  -ne '*') { $p.binary  } else { '*' }
             $low     = if ($inclVersion -and $p.version -and $p.version -ne '*') { $p.version } else { '*' }
 
@@ -1692,6 +1880,7 @@ function New-ArtifactRuleSet {
             if ($binary -eq '*')  { $breadth += 'any binary' }
             $desc = "TUNO scan: found at $($a.path). Publisher: $($p.name). Publisher name source: $($a.publisherSource)."
             if ($breadth.Count) { $desc += " NOTE - this rule allows $($breadth -join ' and ') from this publisher; narrow it if the vendor ships more than you intend to allow." }
+            if ($floored) { $desc += " Product kept although Publisher granularity was asked for: a rule for everything Microsoft signs would allow the whole operating system and every living-off-the-land binary in it." }
 
             $rule = New-PublisherRule -Name "TUNO: $label" -Sid $script:SidEveryone -Action 'Allow' `
                 -Publisher $p.name -Product $product -Binary $binary -LowVersion $low -HighVersion '*' -Description $desc
@@ -1833,7 +2022,7 @@ $started = Get-Date
 
 Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.Keys) -ValidParameterName @(
     'OutputPath', 'Scope', 'Path', 'KnownAdmin', 'PublisherRuleGranularity', 'IncludeEvents',
-    'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions',
+    'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions', 'NoPeSniff', 'SkipWritableFiles',
     'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
 
 Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
@@ -1918,10 +2107,17 @@ Write-Info ("$($trusted.Count) principals treated as administrative (built-in + 
 
 $writable = New-Object System.Collections.Generic.List[object]
 foreach ($root in $roots) {
-    foreach ($w in (Get-WritableDirectory -Root $root -TrustedSet $trusted -Deep:$DeepScan)) { $writable.Add($w) }
+    foreach ($w in (Get-WritableDirectory -Root $root -TrustedSet $trusted -Deep:$DeepScan -CheckFiles:(-not $SkipWritableFiles))) { $writable.Add($w) }
 }
 
 $writablePaths = @($writable | ForEach-Object { $_.path })
+$writableFiles = @($script:WritableFiles)
+if ($writableFiles.Count -gt 0) {
+    Add-ScanWarning ("{0} executable file(s) inside admin-only directories are writable by a standard user. The directory rule allows them and the directory walk cannot see them - each is excepted from the default allow by its exact path and inventoried for its own rule. The real fix is the ACL: a user who can overwrite a file the policy allows can run anything." -f $writableFiles.Count)
+    foreach ($wf in $writableFiles | Select-Object -First 10) {
+        Write-Note ("writable file: {0}  ({1})" -f $wf.path, (($wf.grantees | ForEach-Object { $_.name }) -join ', '))
+    }
+}
 
 # Each profile is recorded ONCE, as a fact rather than a discovery, and is not
 # walked. See the note where $profileRoots is built.
@@ -1977,6 +2173,19 @@ foreach ($p in (@($writablePaths) + @($extraPaths))) {
 }
 $excWindir = @(Compress-PathList -Paths $normWindir.ToArray() | ForEach-Object { "$_\*" })
 $excPf = @(Compress-PathList -Paths $normPf.ToArray() | ForEach-Object { "$_\*" })
+# Writable FILES are excepted by their exact path - no "\*", it is one file - and
+# only when no directory exception already covers them.
+foreach ($wf in $writableFiles) {
+    if (Test-ImeProtectedPath -Candidate $wf.path) {
+        Add-ScanWarning ("'{0}' is a user-writable file inside an Intune Management Extension path. NO exception was generated (it would break app delivery); fix the file's ACL." -f $wf.path)
+        continue
+    }
+    $n = ConvertTo-AppLockerPath -LiteralPath $wf.path
+    $coveredBy = @(@($excWindir) + @($excPf)) | Where-Object { $_.EndsWith('\*') -and $n.StartsWith($_.Substring(0, $_.Length - 1), [System.StringComparison]::OrdinalIgnoreCase) }
+    if ($coveredBy) { continue }
+    if ($n.StartsWith('%WINDIR%', 'OrdinalIgnoreCase') -or $n.StartsWith('%SYSTEM32%', 'OrdinalIgnoreCase')) { $excWindir += $n }
+    elseif ($n.StartsWith('%PROGRAMFILES%', 'OrdinalIgnoreCase')) { $excPf += $n }
+}
 
 # Compress-PathList can produce a SHORTER path than anything that went in, and a
 # short enough exception swallows an IME directory that was never writable itself.
@@ -2003,9 +2212,32 @@ if ($unsafeDirectories.Count -eq 0) {
 }
 else {
     $artifacts = Get-ArtifactInventory -Directories $unsafeDirectories -Limit $MaxArtifacts `
-        -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only') -Sniff:$SniffUnknownExtensions
+        -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only') -Sniff:(-not $NoPeSniff)
     $signedCount = @($artifacts | Where-Object { $_.signed }).Count
     Write-Ok ("$($artifacts.Count) artifact(s): $signedCount signed, $($artifacts.Count - $signedCount) unsigned")
+    if ($script:SniffedPeHits -gt 0) {
+        Write-Note ("{0} of them carry a non-executable extension but ARE PE files (found by the header check). Look at these first - a renamed binary in a user-writable directory is either a vendor oddity or a bypass." -f $script:SniffedPeHits)
+    }
+}
+# A writable file is an artifact in its own right: excepted from the allow by
+# path above, it still needs a rule if users are to run it - publisher-first,
+# hash otherwise, exactly like a file found in a writable directory.
+if ($writableFiles.Count -gt 0) {
+    $known = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($a in $artifacts) { [void]$known.Add($a.path) }
+    $added = 0
+    foreach ($wf in $writableFiles) {
+        if ($known.Contains($wf.path)) { continue }
+        try {
+            $facts = Get-FileFacts -File (Get-Item -LiteralPath $wf.path -Force) -Collection $wf.collection -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only')
+            $facts | Add-Member -NotePropertyName sniffedPe -NotePropertyValue $false
+            $facts | Add-Member -NotePropertyName writableFile -NotePropertyValue $true
+            $artifacts = @($artifacts) + @($facts)
+            $added++
+        }
+        catch { }
+    }
+    if ($added) { Write-Info ("{0} user-writable file(s) added to the artifact inventory for their own rules" -f $added) }
 }
 
 # ---- is this a reference machine? ----
@@ -2061,6 +2293,7 @@ else { Write-Note "Effective policy not captured: $($effective.reason)" }
 $generated = $null
 $auditXml = $null
 $enforceXml = $null
+$lolBinResolved = $null
 # Rule generation is the LAST thing that happens and the only part that can be
 # rebuilt from what is already in hand. Everything before it - the ACL walk, the
 # signature inventory, the event logs - can take an hour and cannot be recovered
@@ -2071,7 +2304,10 @@ $enforceXml = $null
 if (-not $SkipRuleGeneration) {
     Write-Section 'Building the rule set'
     try {
-        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf
+        $lolBinResolved = Resolve-LolBinExceptions -UseAppLockerCmdlets ($machine.appLockerCmdlets -and $machine.appLockerSource -ne 'compat-policy-only')
+        $pubCount = @($lolBinResolved.exceptions | Where-Object { $_.kind -eq 'publisher' }).Count
+        Write-Info ("LOLBin exceptions: {0} publisher condition(s), {1} pattern(s) kept as path" -f $pubCount, @($lolBinResolved.records | Where-Object { $_.kind -eq 'path' }).Count)
+        $collections = New-DefaultRuleSet -WritableUnderWindir $excWindir -WritableUnderProgramFiles $excPf -LolBinExceptions $lolBinResolved.exceptions
         $artifactRules = New-ArtifactRuleSet -Artifacts $artifacts -Granularity $PublisherRuleGranularity -AllowJSHashRules:$JSHashRules
         foreach ($type in $artifactRules.Keys) {
             if (-not $collections.Contains($type)) { $collections.Add($type, (New-Object System.Collections.Generic.List[object])) }
@@ -2172,7 +2408,9 @@ $bundle = [pscustomobject]@{
         extraPaths       = @($extraPaths)
         scope            = @($Scope)
         deepScan         = [bool]$DeepScan
-        sniffedUnknown   = [bool]$SniffUnknownExtensions
+        peSniff          = [bool](-not $NoPeSniff)
+        sniffedPeHits    = [int]$script:SniffedPeHits
+        sniffedUnknown   = [bool](-not $NoPeSniff)   # pre-10553 name, kept for readers of older bundles
         durationSeconds  = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
         maxArtifacts     = $MaxArtifacts
         maxEvents        = $MaxEvents
@@ -2184,10 +2422,26 @@ $bundle = [pscustomobject]@{
             grantees   = $_.grantees
         }
     })
+    # 10553: files a standard user can overwrite inside directories they cannot
+    # write to. Empty is the expected answer on a clean image; absent means the
+    # check was skipped (-SkipWritableFiles) or the bundle predates it.
+    writableFiles = @($writableFiles | ForEach-Object {
+        [pscustomobject]@{
+            path       = $_.path
+            normalized = (ConvertTo-AppLockerPath -LiteralPath $_.path)
+            directory  = $_.directory
+            collection = $_.collection
+            grantees   = $_.grantees
+        }
+    })
+    writableFilesChecked = [bool](-not $SkipWritableFiles)
     exceptions = [pscustomobject]@{
         windir       = $excWindir
         programFiles = $excPf
         lolBins      = $script:LolBinPatterns
+        # 10553: how each LOLBin pattern was carried - publisher condition (the
+        # file resolved and is signed) or path (kept, with the reason).
+        lolBinCarriage = $(if ($lolBinResolved) { @($lolBinResolved.records) } else { @() })
     }
     referenceMachine = $reference
     artifacts = @($artifacts)

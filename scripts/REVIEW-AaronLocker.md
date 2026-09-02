@@ -233,12 +233,19 @@ themselves* never appear in the exception list.
 ## 8. Recommendations, in the order I would do them
 
 1. **Done in 10354** — long paths, and count the three failure kinds apart.
-2. **Flip PE sniffing on by default.** Their default is right and ours is not.
-3. **Check the Microsoft-publisher floor.** Verify we clamp Microsoft-signed
-   files the way AaronLocker does; if not, add it.
+2. **Done in 10553** — PE sniffing on by default, with a never-executable
+   extension list as the performance guard (`-NoPeSniff` turns it off).
+3. **Done in 10553** — the Microsoft floor: at `Publisher` granularity a
+   Microsoft-signed artifact keeps its product name. (We had no floor.)
 4. **Check the top-level-directory blind spot** their comment admits to, in our
    own normalisation.
-5. **Consider LOLBin exceptions as publisher conditions** rather than paths.
+5. **Done in 10553** — LOLBin exceptions as publisher conditions, resolved on
+   the scanned machine; a pattern that does not resolve stays a path exception
+   and the bundle says which (`exceptions.lolBinCarriage`).
 6. **Only then**, if still wanted, the opt-in AccessChk cross-check in §7.
-7. **Address writable files** — the gap neither tool covers. This is the one
-   that would make ours meaningfully better rather than incrementally tidier.
+7. **Done in 10553** — writable files: every executable-typed file inside an
+   admin-only directory has its own DACL evaluated (same Deny-aware arithmetic,
+   `FileSecurity` instead of `DirectorySecurity`). A hit is excepted from the
+   default allow by exact path, inventoried for its own rule, recorded in the
+   bundle as `writableFiles`, and shown on T01's evidence card. Neither tool
+   covered this before; ours does now. `-SkipWritableFiles` turns it off.

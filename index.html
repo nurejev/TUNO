@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10552"></script>
+<script src="js/popup-guard.js?v=10553"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10552">
+<link rel="stylesheet" href="css/app.css?v=10553">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10552"></script>
+<script src="js/selfhost-boot.js?v=10553"></script>
 </head>
 <body>
 
@@ -348,7 +348,7 @@
             <summary>🚀 Deploy the pairs as Intune Remediations from here <span class="tag new">writes to your tenant</span></summary>
             <div class="al-guide-body" id="alRemedyBox"></div>
           </details>
-          <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site.</p>
+          <p class="mini muted" style="margin:8px 0 0"><b>No Sysinternals needed.</b> Write access is worked out natively from each directory's DACL, with Deny entries honoured. AaronLocker and the walkthroughs based on it shell out to <code>AccessChk.exe</code> and parse its output; this does not, which is why there is nothing else to download — and its own alternate-data-stream check ORs the rights across every matching entry without looking at whether one of them is a Deny, so a Deny there reads as a grant. Nothing here is downloaded or executed from anywhere but this site. The three places AaronLocker's defaults were better are now matched: the PE-header check runs by default, Microsoft-signed files never get a bare publisher rule, and the LOLBin exceptions ride as publisher conditions that follow the file if it is copied.</p>
           <details class="al-guide">
             <summary>How to run it, and what each switch is for</summary>
             <div class="al-guide-body">
@@ -366,6 +366,8 @@
                 <li><code>-PublisherRuleGranularity</code> — how specific the generated rules are, from <code>Publisher</code> to <code>PublisherProductBinaryVersion</code>. Default <code>PublisherProductBinary</code>.</li>
                 <li><code>-EventDaysBack</code> — how far back to read the AppLocker logs. Default 30.</li>
                 <li><code>-DeepScan</code> — report every writable directory instead of stopping at the first one on each branch. Slower, more evidence.</li>
+                <li><code>-NoPeSniff</code> — turn off the PE-header check on files with unknown extensions. It is on by default: a renamed binary still runs, and renaming one is exactly what an attacker does.</li>
+                <li><code>-SkipWritableFiles</code> — skip the user-writable <i>file</i> check. On by default: every executable file in an admin-only directory has its own DACL read, because a file a user can overwrite inside a safe directory is allowed by the directory rule and invisible to the directory walk.</li>
                 <li><code>-SkipRuleGeneration</code> — collect the evidence and let this tool build the rules instead.</li>
               </ul>
               <p class="mini"><b>Scan more than one machine.</b> A laptop build and a kiosk build do not have the same holes. Run it on each, and work through the bundles one at a time.</p>
@@ -2070,48 +2072,48 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10552"></script>
-<script src="js/selfhost.js?v=10552"></script>
-<script src="js/version.js?v=10552"></script>
-<script src="js/promote.js?v=10552"></script>
-<script src="js/authConfig.js?v=10552"></script>
-<script src="js/changelog.js?v=10552"></script>
-<script src="js/msappcatalog.js?v=10552"></script>
-<script src="js/demo.js?v=10552"></script>
-<script src="js/graph.js?v=10552"></script>
-<script src="js/suggest.js?v=10552"></script>
-<script src="js/progress.js?v=10552"></script>
-<script src="js/groupuse.js?v=10552"></script>
-<script src="js/audit.js?v=10552"></script>
-<script src="js/devicecleanup.js?v=10552"></script>
-<script src="js/backup.js?v=10552"></script>
-<script src="js/document.js?v=10552"></script>
-<script src="js/policycache.js?v=10552"></script>
-<script src="js/overview.js?v=10552"></script>
-<script src="js/devicewhy.js?v=10552"></script>
-<script src="js/whatif.js?v=10552"></script>
-<script src="js/health.js?v=10552"></script>
-<script src="js/settingsearch.js?v=10552"></script>
-<script src="js/conflict.js?v=10552"></script>
-<script src="js/compliance.js?v=10552"></script>
-<script src="js/filterrules.js?v=10552"></script>
-<script src="js/filters.js?v=10552"></script>
-<script src="js/restore.js?v=10552"></script>
-<script src="js/macbaselineData.js?v=10552"></script>
-<script src="js/complianceevidence.js?v=10552"></script>
-<script src="js/macbaseline.js?v=10552"></script>
-<script src="js/assignedit.js?v=10552"></script>
-<script src="js/restrictedau.js?v=10552"></script>
-<script src="js/groupmigrate.js?v=10552"></script>
-<script src="js/roles.js?v=10552"></script>
-<script src="js/defender.js?v=10552"></script>
-<script src="js/endpointsec.js?v=10552"></script>
-<script src="js/report.js?v=10552"></script>
-<script src="js/securescore.js?v=10552"></script>
-<script src="js/endpointposture.js?v=10552"></script>
-<script src="js/maa.js?v=10552"></script>
-<script src="js/laps.js?v=10552"></script>
-<script src="js/applocker.js?v=10552"></script>
-<script src="js/app.js?v=10552"></script>
+<script src="js/branding.js?v=10553"></script>
+<script src="js/selfhost.js?v=10553"></script>
+<script src="js/version.js?v=10553"></script>
+<script src="js/promote.js?v=10553"></script>
+<script src="js/authConfig.js?v=10553"></script>
+<script src="js/changelog.js?v=10553"></script>
+<script src="js/msappcatalog.js?v=10553"></script>
+<script src="js/demo.js?v=10553"></script>
+<script src="js/graph.js?v=10553"></script>
+<script src="js/suggest.js?v=10553"></script>
+<script src="js/progress.js?v=10553"></script>
+<script src="js/groupuse.js?v=10553"></script>
+<script src="js/audit.js?v=10553"></script>
+<script src="js/devicecleanup.js?v=10553"></script>
+<script src="js/backup.js?v=10553"></script>
+<script src="js/document.js?v=10553"></script>
+<script src="js/policycache.js?v=10553"></script>
+<script src="js/overview.js?v=10553"></script>
+<script src="js/devicewhy.js?v=10553"></script>
+<script src="js/whatif.js?v=10553"></script>
+<script src="js/health.js?v=10553"></script>
+<script src="js/settingsearch.js?v=10553"></script>
+<script src="js/conflict.js?v=10553"></script>
+<script src="js/compliance.js?v=10553"></script>
+<script src="js/filterrules.js?v=10553"></script>
+<script src="js/filters.js?v=10553"></script>
+<script src="js/restore.js?v=10553"></script>
+<script src="js/macbaselineData.js?v=10553"></script>
+<script src="js/complianceevidence.js?v=10553"></script>
+<script src="js/macbaseline.js?v=10553"></script>
+<script src="js/assignedit.js?v=10553"></script>
+<script src="js/restrictedau.js?v=10553"></script>
+<script src="js/groupmigrate.js?v=10553"></script>
+<script src="js/roles.js?v=10553"></script>
+<script src="js/defender.js?v=10553"></script>
+<script src="js/endpointsec.js?v=10553"></script>
+<script src="js/report.js?v=10553"></script>
+<script src="js/securescore.js?v=10553"></script>
+<script src="js/endpointposture.js?v=10553"></script>
+<script src="js/maa.js?v=10553"></script>
+<script src="js/laps.js?v=10553"></script>
+<script src="js/applocker.js?v=10553"></script>
+<script src="js/app.js?v=10553"></script>
 </body>
 </html>

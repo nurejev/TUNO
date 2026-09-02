@@ -205,7 +205,8 @@ which is user-writable by definition, and they are what a first rollout breaks:
 | `-EventDaysBack` | `30` | How far back to read the AppLocker logs. |
 | `-MaxArtifacts` / `-MaxEvents` | `5000` | Safety caps. Hitting one is recorded as a warning, not swallowed. |
 | `-DeepScan` | off | Report every writable directory instead of stopping at the first on each branch. |
-| `-SniffUnknownExtensions` | off | PE-sniff files whose extension is not a known executable extension. Catches renamed binaries. |
+| `-NoPeSniff` | off | Turn OFF the PE-header check on files with unknown extensions. Since 10553 the check is on by default — a renamed binary still runs — with a never-executable extension list keeping it cheap. (`-SniffUnknownExtensions` is accepted and ignored.) |
+| `-SkipWritableFiles` | off | Skip the user-writable FILE check. By default every executable file inside an admin-only directory has its own DACL read; a hit is excepted by exact path and inventoried for its own rule. |
 | `-JSHashRules` | off | Hash rules for unsigned `.js`. They go stale on every update. |
 | `-SkipRuleGeneration` | off | Evidence only — let T01 build the rules. |
 | `-ConfigPath` | — | A JSON config file supplying any of the above. Explicit parameters win. |
