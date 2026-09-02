@@ -761,6 +761,10 @@ const TUNO_DEMO = (() => {
     // FAULT: the approver group is empty. Every script change queues forever.
     { id: P(96), displayName: "Scripts require approval", description: "Script changes gated.",
       policyType: "script", approverGroupIds: [G(10)], lastModifiedDateTime: ago(55 * DAY) },
+    // An ACTION gate (10554): device wipe is one of the nine operation types
+    // and lands as a row of its own, not a footnote.
+    { id: P(97), displayName: "Device wipe", description: "Wiping a device needs a second admin.",
+      policyType: "deviceWipe", approverGroupIds: [G(9)], lastModifiedDateTime: ago(12 * DAY) },
   ];
 
   const MAA_REQUESTS = [

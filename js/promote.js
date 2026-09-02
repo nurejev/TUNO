@@ -100,6 +100,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 137, title: "\ud83e\udd1d T17 counts one thing, nine ways \u2014 the full MAA gate list, one vocabulary across cards, rail and panes",
+      tools: ["T17 Multi-admin approval"], builds: [10554], risk: "medium",
+      why: "Production's T17 counts four operation types and files a device-wipe policy under a footnote, so a tenant whose only policy gates wipes reads '1 policy, 0/4 gated' with a red unexplained 1/1 on the rail \u2014 the reader concludes the policy is missing (Mihai, 2026-09-02). A wrong-looking report in production, so medium rather than low. It graduates when a live tenant with a device-action policy shows it as a gated row, when the three counts (policies, gated N/9, nobody-can-open) agree with the portal's Access policies list, and when a tenant with a compliance-policy access policy shows the new row gated.",
+      test: [
+        "On beta against a tenant with ONE access policy of type device wipe and an empty approver group: Overview reads Approval policies 1 (gating 1 of 9 operation types), Gated 1/9 naming Device wipe, Nobody can open 1; the rail reads What is gated 1/9 and Policies 1 \u00b7 \u26a0 1 with a tooltip; the at-a-glance list names the policy and 'gates the wipe action on every device'.",
+        "What is gated pane on that tenant: nine rows in the fixed order, Device wipe gated with the policy named in the Policy column, the three action rows saying 'an action, not an inventory', Compliance policies with a count.",
+        "A tenant with access policies of type app, script, compliance and role: four rows gated, Gated 4/9, the inventories filled, no 'action gate' wording anywhere on the page or in the MD.",
+        "A tenant with no access policies: Overview says never configured, Gated 0/9 in red, no Nobody-can-open card, the What is gated pane is all 'no approval gate'.",
+        "Demo mode: three policies (app, script with the empty-group fault, device wipe); Gated 3/9; Policies 3 \u00b7 \u26a0 1.",
+        "MD export: 'What is gated \u2014 N of 9 operation types' table with Operation type | Gate | Policy | Inventory; policy table's middle column reads the label and what it gates, not the enum token.",
+        "Headless suite (t17-10554-test.js, outside the repo): 38/38 \u2014 screenshot tenant, no policies, unknown future type + unreadable approver group + mixed-case type.",
+      ],
+      files: ["js/maa.js", "js/demo.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 136, title: "\ud83d\udd10 T01 closes the AaronLocker gaps \u2014 PE sniff by default, the Microsoft floor, publisher LOLBin exceptions, writable FILES, and no empty NotConfigured in the GPO XML",
       tools: ["T01 AppLocker"], builds: [10553], risk: "medium",
       why: "The T01-vs-AaronLocker review (scripts/REVIEW-AaronLocker.md) named three places AaronLocker's defaults were better and one gap neither tool covered. All four are now closed in Invoke-TunoAppLockerScan.ps1 v1.9.0: PE-header sniffing on by default with a never-executable extension list as the guard; Microsoft-signed artifacts keep their product name at Publisher granularity; the LOLBin exceptions ride as publisher conditions resolved on the scanned machine; and every executable file inside an admin-only directory has its own DACL evaluated (writable FILES, new bundle section, new evidence-card table). Separately, the App Control review found the GPO XML export could carry an empty NotConfigured collection \u2014 the exact shape Microsoft documents as a no-boot when merged with Intune's Managed Installer rule \u2014 so exportXml() now drops them and the subtitle says so. Medium risk because the scanner change is unrun on Windows in this session (parse-checked under pwsh 7.4, rule generation unit-tested on Linux) and the default-on file check adds one DACL read per executable file; it graduates when a real scan on a reference image confirms timing and the bundle shape.",

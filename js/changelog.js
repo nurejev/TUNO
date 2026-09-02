@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10554, date: "2026-09-02", title: "Multi-admin approval counts one thing, nine ways",
+    items: [
+      { kind: "fixed", tool: "Multi-admin approval", text: "The overview said \"1 approval policy\" beside \"0/4 categories gated, plus 1 action gate\", and the rail said \"Policies 1/1\" in red with no explanation \u2014 a tenant whose one policy gated device wipes read as if the policy were missing. The tool counted only four operation types; Intune's access policies can protect nine today (apps, scripts, settings catalog, compliance policies, roles, device wipe, device retire, device delete, tenant configuration), and now all nine are the list. A device-wipe policy is a row like any other. The cards, the rail and the panes count the same things: policies, operation types gated (1 of 9, naming which), and gates nobody can open. The overview names every policy with what it gates; the Policies node reads \"1 \u00b7 \u26a0 1\" with a tooltip saying the approver groups hold nobody; policy rows say \"gates the wipe action on every device\" instead of the raw deviceWipe token." },
+      { kind: "improved", tool: "Multi-admin approval", text: "Compliance policies join the inventoried context reads (no new permission). A policy of a type this build does not know by name is still counted and shown under its raw name, never dropped. Demo mode gains a device-wipe policy so the action row renders." },
+    ],
+  },
+  {
     build: 10553, date: "2026-09-02", title: "T01 closes the AaronLocker gaps — and finds the writable files",
     items: [
       { kind: "improved", tool: "AppLocker", text: "The device scan now PE-sniffs by default: a file whose extension says \"not a program\" but whose header says MZ/PE is inventoried as an executable and flagged as found-by-header, because renaming a binary is exactly what an attacker does. A list of never-executable extensions keeps the cost to a 4-byte read; -NoPeSniff turns it off." },

@@ -7,10 +7,19 @@
 //
 // COVERAGE IS COMPUTED THE WAY MAA ACTUALLY WORKS: an approval policy
 // gates an operation TYPE tenant-wide, so one policy of type app protects
-// every app, and a category with no policy has no gate at all — which is
-// the finding. The inventories (apps, scripts, settings catalog, roles)
-// are context for the gate, not the gate itself; one whose read failed is
-// UNKNOWN, never zero, and the gate verdict stands on the policy list.
+// every app, and a type with no policy has no gate at all — which is
+// the finding. ONE LIST, ONE VOCABULARY (10554): the nine operation types
+// Intune lets an access policy protect today — apps, scripts, settings
+// catalog, compliance policies, roles, device wipe, device retire, device
+// delete, tenant configuration — are the rows, and a device-wipe policy is
+// a row like any other, not a footnote under "action gates". Before 10554
+// only four types were counted and a tenant whose one policy gated wipes
+// read "1 policy, 0/4 gated", which is how a reader concludes the policy
+// is missing. The inventories (apps, scripts, settings catalog, compliance,
+// roles) are context for the gate, not the gate itself; one whose read
+// failed is UNKNOWN, never zero, and the gate verdict stands on the policy
+// list. A policy of a type outside the nine (a future enum member) is
+// still counted and named — never dropped.
 //
 // THE ADMINS HALF CARRIES T07's SENTENCE, because the original needs it
 // and does not say it: "admins without MAA approval rights" is counted
@@ -39,16 +48,33 @@ const Maa = (() => {
   const lc = (s) => String(s || "").toLowerCase();
   const DEFAULT_DAYS = 30;
 
-  // The four policy types whose gated resources TUNO inventories — the
-  // original's map, kept. Everything else (device actions, wipes, resets)
-  // gates an ACTION rather than an inventory and is listed as such.
-  const TYPE_CATEGORY = {
-    app: "Applications",
-    script: "Scripts",
-    configurationpolicy: "Settings catalog policies",
-    role: "Intune roles",
-  };
-  const CATEGORIES = ["Applications", "Scripts", "Settings catalog policies", "Intune roles"];
+  // THE NINE GATES — every operationApprovalPolicyType an access policy can
+  // be created for today (Intune docs, "Use access policies to require
+  // multi admin approval", 2026-09). Keys are the Graph enum member,
+  // lower-cased because tenants answer in either case. `gates` is the
+  // sentence fragment shown after "gates"; `inv` names an inventory read
+  // for context where one exists — an action has none, and says so.
+  // operationApprovalPolicy (the access policies themselves) is protected
+  // automatically and is not selectable, so it is not a row; a policy of
+  // any type outside this list is still counted, under its raw name.
+  const GATES = [
+    { type: "app", label: "Applications", gates: "every app deployment", inv: "Applications" },
+    { type: "script", label: "Scripts", gates: "every script deployment", inv: "Scripts" },
+    { type: "configurationpolicy", label: "Settings catalog policies", gates: "every settings catalog policy", inv: "Settings catalog policies" },
+    { type: "compliancepolicy", label: "Compliance policies", gates: "every compliance policy", inv: "Compliance policies" },
+    { type: "role", label: "Intune roles", gates: "every role and role assignment", inv: "Intune roles" },
+    { type: "devicewipe", label: "Device wipe", gates: "the wipe action on every device", inv: null },
+    { type: "deviceretire", label: "Device retire", gates: "the retire action on every device", inv: null },
+    { type: "devicedelete", label: "Device delete", gates: "the delete action on every device", inv: null },
+    { type: "tenantconfiguration", label: "Tenant configuration", gates: "device categories", inv: null },
+  ];
+  const gateOf = (type) => GATES.find((g) => g.type === lc(type)) || null;
+  // "deviceWipe" on screen reads as an API token; "Device wipe" reads as a
+  // thing. Unknown types keep their raw name — never invented.
+  const typeLabel = (type) => { const g = gateOf(type); return g ? g.label : String(type || "?"); };
+  const CATEGORIES = GATES.map((g) => g.label);
+  // Kept for callers that still read it: raw type → label, inventoried types only.
+  const TYPE_CATEGORY = Object.fromEntries(GATES.filter((g) => g.inv).map((g) => [g.type, g.label]));
 
   // Request status arrives as a string on some tenants and a number on
   // others — the original tolerates both, and so does this.
@@ -99,7 +125,7 @@ const Maa = (() => {
     const onStatus = o.onStatus || (() => {});
     const days = Number.isFinite(+o.days) && +o.days > 0 ? +o.days : DEFAULT_DAYS;
     const out = { days, policies: null, policyError: null, requests: null, requestsError: null,
-      stats: null, coverage: null, actionGates: [], admins: null, adminsError: null,
+      stats: null, coverage: null, otherGates: [], admins: null, adminsError: null,
       approverIds: {}, approverErrors: [], names: {}, nameError: null };
 
     // 1 — the approval policies. The core: a failure here is the headline.
@@ -126,11 +152,13 @@ const Maa = (() => {
     // 3 — what the gates cover. The gate verdict comes from the POLICY LIST;
     // the inventories are context and each may fail on its own.
     onStatus("Reading the gated inventories…");
-    const gatedTypes = new Set(out.policies.map((p) => lc(p.policyType)));
+    const byType = {};
+    for (const p of out.policies) { const t = lc(p.policyType); (byType[t] = byType[t] || []).push(p); }
     const inventories = [
       ["Applications", `${Graph.BETA}/deviceAppManagement/mobileApps?$select=id,displayName&$top=999`, S().apps],
       ["Scripts", `${Graph.BETA}/deviceManagement/deviceManagementScripts?$select=id,displayName`, S().scripts],
       ["Settings catalog policies", `${Graph.BETA}/deviceManagement/configurationPolicies?$select=id,name`, S().config],
+      ["Compliance policies", `${Graph.BETA}/deviceManagement/deviceCompliancePolicies?$select=id,displayName`, S().config],
       ["Intune roles", `${Graph.BETA}/deviceManagement/roleDefinitions?$select=id,displayName`, S().rbac],
     ];
     const counts = {};
@@ -138,18 +166,22 @@ const Maa = (() => {
       try { counts[label] = (await Graph.readAll(url, { scopes, retry: true })).length; }
       catch (e) { counts[label] = { error: String((e && e.message) || e).slice(0, 140) }; }
     }
-    out.coverage = CATEGORIES.map((cat) => {
-      const type = Object.keys(TYPE_CATEGORY).find((k) => TYPE_CATEGORY[k] === cat);
-      const gated = gatedTypes.has(type);
-      const inv = counts[cat];
+    // One row per gate, in the fixed order; the policies of that type are
+    // carried on the row so the screen can say WHICH policy gates it.
+    out.coverage = GATES.map((g) => {
+      const pols = byType[g.type] || [];
+      const inv = g.inv ? counts[g.inv] : undefined;
       return {
-        category: cat, gated,
+        type: g.type, category: g.label, gates: g.gates, gated: pols.length > 0,
+        policies: pols.map((p) => p.displayName || p.id),
+        action: !g.inv,
         inventory: typeof inv === "number" ? inv : null,
         inventoryError: inv && inv.error ? inv.error : null,
       };
     });
-    // Everything else a policy gates is an action, not an inventory.
-    out.actionGates = [...gatedTypes].filter((t) => t && !TYPE_CATEGORY[t]).sort();
+    // A policy type outside the nine — a future enum member — is still a
+    // gate; named raw rather than dropped.
+    out.otherGates = Object.keys(byType).filter((t) => t && !gateOf(t)).sort();
 
     // 4 — approvers: the policies' approver groups, membership transitive.
     const approverGroups = [...new Set(out.policies.flatMap((p) => p.approverGroupIds || []).filter(Boolean))];
@@ -248,18 +280,20 @@ const Maa = (() => {
     if (!rep.policies.length) {
       L.push(`**This tenant has no multi-admin approval policies.** That is an answer, not an error: no Intune operation requires a second administrator today. The coverage table below is the finding.`, "");
     }
-    L.push(`## What is gated`, "", `| Category | Gate | Inventory |`, `|---|---|---|`);
+    const gatedN = rep.coverage.filter((c) => c.gated).length;
+    L.push(`## What is gated — ${gatedN} of ${rep.coverage.length} operation types`, "", `| Operation type | Gate | Policy | Inventory |`, `|---|---|---|---|`);
     for (const c of rep.coverage) {
-      L.push(`| ${c.category} | ${c.gated ? "gated tenant-wide" : "**no approval gate**"} | ${c.inventory !== null ? c.inventory : `unknown — ${mdCell(c.inventoryError || "not read")}`} |`);
+      L.push(`| ${c.category} | ${c.gated ? "gated tenant-wide" : "**no approval gate**"} | ${c.policies.length ? mdCell(c.policies.join(", ")) : "—"} | ${c.action ? "— (an action, not an inventory)" : c.inventory !== null ? c.inventory : `unknown — ${mdCell(c.inventoryError || "not read")}`} |`);
     }
     L.push("");
-    if (rep.actionGates.length) L.push(`Also gated, as operations rather than inventories: ${rep.actionGates.join(", ")}.`, "");
-    L.push(`A gate applies to its operation type tenant-wide — one approval policy of type app protects every app. An inventory that could not be read is unknown, not zero; the gate verdict stands on the policy list either way.`, "");
+    if (rep.otherGates.length) L.push(`Also gated, by a policy type this build does not know by name: ${rep.otherGates.join(", ")}.`, "");
+    L.push(`A gate applies to its operation type tenant-wide — one approval policy of type app protects every app, one of type device wipe protects the wipe action on every device. An inventory that could not be read is unknown, not zero; the gate verdict stands on the policy list either way.`, "");
     if (rep.policies.length) {
-      L.push(`## Approval policies (${rep.policies.length})`, "", `| Policy | Type | Approvers |`, `|---|---|---|`);
+      L.push(`## Approval policies (${rep.policies.length})`, "", `| Policy | Gates | Approvers |`, `|---|---|---|`);
       for (const p of rep.policies) {
         const n = p.__approverCount;
-        L.push(`| ${mdCell(p.displayName || p.id)} | ${mdCell(p.policyType || "?")} | ${n === null ? "unknown — a group could not be read" : n === 0 ? "**0 — A GATE NOBODY CAN OPEN**" : n} |`);
+        const g = gateOf(p.policyType);
+        L.push(`| ${mdCell(p.displayName || p.id)} | ${mdCell(g ? `${g.label} — ${g.gates}` : p.policyType || "?")} | ${n === null ? "unknown — a group could not be read" : n === 0 ? "**0 — A GATE NOBODY CAN OPEN**" : n} |`);
       }
       L.push("");
       const dead = rep.policies.filter((p) => p.__approverCount === 0);
@@ -310,7 +344,7 @@ const Maa = (() => {
     return L.join("\n");
   }
 
-  return { DEFAULT_DAYS, CATEGORIES, TYPE_CATEGORY, RBAC_ONLY, statusOf, requestStats, report, markdown, requestsCsv, adminsCsv, meta };
+  return { DEFAULT_DAYS, GATES, CATEGORIES, TYPE_CATEGORY, RBAC_ONLY, gateOf, typeLabel, statusOf, requestStats, report, markdown, requestsCsv, adminsCsv, meta };
 })();
 
 
@@ -366,10 +400,19 @@ const MaaTool = (() => {
 
     const s = rep.stats;
     const card = (label, n, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    // ONE VOCABULARY (10554): the cards count the same things the rail and
+    // the panes count — policies, operation types gated, policies nobody
+    // can open — so "1 policy" never sits beside "0 gated". Before this a
+    // device-wipe policy was outside the four counted categories and the
+    // overview read as if the policy were missing.
     const gatedCount = rep.coverage.filter((c) => c.gated).length;
+    const deadCount = rep.policies.filter((p) => p.__approverCount === 0).length;
+    const unknownCount = rep.policies.filter((p) => p.__approverCount === null).length;
+    const gatedNames = rep.coverage.filter((c) => c.gated).map((c) => c.category);
     parts.push(`<div class="au-cards">
-      ${card("Approval policies", rep.policies.length, rep.policies.length ? "gates on admin operations" : "no operation needs a second admin", rep.policies.length ? "ok" : "bad")}
-      ${card("Categories gated", `${gatedCount}<span class="mini muted" style="font-size:13px;font-weight:normal">/${rep.coverage.length}</span>`, rep.actionGates.length ? `plus ${rep.actionGates.length} action gate${rep.actionGates.length === 1 ? "" : "s"}` : "of the inventoried categories", gatedCount ? "" : "bad")}
+      ${card("Approval policies", rep.policies.length, rep.policies.length ? `gating ${gatedCount} of ${rep.coverage.length} operation types` : "no operation needs a second admin", rep.policies.length ? "ok" : "bad")}
+      ${card("Gated", `${gatedCount}<span class="mini muted" style="font-size:13px;font-weight:normal">/${rep.coverage.length}</span>`, gatedCount ? esc(gatedNames.join(", ")) : "of the operation types Intune can protect", gatedCount ? "" : "bad")}
+      ${rep.policies.length ? card("Nobody can open", deadCount, deadCount ? `polic${deadCount === 1 ? "y whose" : "ies whose"} approver groups hold nobody` : unknownCount ? `${unknownCount} approver group${unknownCount === 1 ? "" : "s"} could not be read` : "every policy has approvers", deadCount ? "bad" : unknownCount ? "warn" : "ok") : ""}
       ${s ? card("Requests", s.total, `last ${rep.days} days`, "") : card("Requests", "—", "could not be read — unknown, not quiet", "bad")}
       ${s ? card("Pending", s.byStatus.pending, s.byStatus.pending ? "waiting on an approver" : "nothing waiting", s.byStatus.pending ? "bad" : "ok") : ""}
       ${s && s.approvalRate !== null ? card("Approval rate", `${s.approvalRate}%`, "of decided requests", "") : ""}
@@ -377,19 +420,38 @@ const MaaTool = (() => {
     </div>`);
 
     if (!rep.policies.length) {
-      parts.push(`<div class="list-card"><div class="gu-fail"><b>This tenant has never configured multi-admin approval.</b><span class="why">An answer, not an error: no Intune operation requires a second administrator today. The coverage table below is the finding.</span></div></div>`);
+      parts.push(`<div class="list-card"><div class="gu-fail"><b>This tenant has never configured multi-admin approval.</b><span class="why">An answer, not an error: no Intune operation requires a second administrator today. The 🚪 What is gated pane is the finding.</span></div></div>`);
+    } else {
+      // The policies at a glance — the overview names them, so a reader
+      // never has to click through to learn what the "1" is.
+      const glance = rep.policies.map((p) => {
+        const n = p.__approverCount;
+        const g = Maa.gateOf(p.policyType);
+        const state = n === 0 ? `<span class="au-op delete">a gate nobody can open</span>`
+          : n === null ? `<span class="gu-how priv">approvers unknown</span>`
+          : `<span class="au-op create">${n} approver${n === 1 ? "" : "s"}</span>`;
+        return `<li><b>${esc(p.displayName || p.id)}</b> — gates <b>${esc(g ? g.gates : `type ${p.policyType || "?"}`)}</b> ${state}</li>`;
+      }).join("");
+      const ungated = rep.coverage.filter((c) => !c.gated).map((c) => c.category);
+      parts.push(`<div class="list-card">
+        <h4 style="margin:0 0 4px">The ${rep.policies.length === 1 ? "policy" : "policies"}, at a glance</h4>
+        <ul class="mini" style="margin:0 0 8px;padding-left:18px">${glance}</ul>
+        ${ungated.length ? `<p class="mini muted" style="margin:0"><b>Not gated</b> — any one admin can change alone: ${esc(ungated.join(", "))}.</p>` : `<p class="mini muted" style="margin:0">Every operation type Intune can protect has a gate.</p>`}
+        ${deadCount ? `<p class="mini" style="margin:8px 0 0"><b>${deadCount === 1 ? "A gate nobody can open" : `${deadCount} gates nobody can open`}</b> — the approver groups hold no members, so every gated operation sits pending until someone is added. Details in 📜 Policies.</p>` : ""}
+      </div>`);
     }
 
     // coverage
     gated.push(`<div class="list-card">
-      <h4 style="margin:0 0 4px">What is gated</h4>
-      <p class="mini muted" style="margin:0 0 10px">A gate applies to its operation type <b>tenant-wide</b> — one approval policy of type app protects every app. The inventory is context, and one that could not be read is <b>unknown, not zero</b>; the gate verdict stands on the policy list either way.</p>
-      <div class="gu-tw"><table class="cg-table"><thead><tr><th>Category</th><th style="width:220px">Gate</th><th style="width:180px">Inventory</th></tr></thead><tbody>
-      ${rep.coverage.map((c) => `<tr><td><b>${esc(c.category)}</b></td>
+      <h4 style="margin:0 0 4px">What is gated — ${gatedCount} of ${rep.coverage.length} operation types</h4>
+      <p class="mini muted" style="margin:0 0 10px">These are the operation types an Intune access policy can protect today. A gate applies to its type <b>tenant-wide</b> — one policy of type app protects every app, one of type device wipe protects the wipe action on every device. The inventory is context, and one that could not be read is <b>unknown, not zero</b>; the gate verdict stands on the policy list either way.</p>
+      <div class="gu-tw"><table class="cg-table"><thead><tr><th>Operation type</th><th style="width:170px">Gate</th><th>Policy</th><th style="width:170px">Inventory</th></tr></thead><tbody>
+      ${rep.coverage.map((c) => `<tr><td><b>${esc(c.category)}</b><div class="mini muted">${esc(c.gates)}</div></td>
         <td>${c.gated ? `<span class="au-op create">gated tenant-wide</span>` : `<span class="au-op delete">no approval gate</span>`}</td>
-        <td class="mini">${c.inventory !== null ? c.inventory : `unknown — ${esc(c.inventoryError || "not read")}`}</td></tr>`).join("")}
+        <td class="mini">${c.policies.length ? esc(c.policies.join(", ")) : `<span class="muted">—</span>`}</td>
+        <td class="mini">${c.action ? `<span class="muted">an action, not an inventory</span>` : c.inventory !== null ? c.inventory : `unknown — ${esc(c.inventoryError || "not read")}`}</td></tr>`).join("")}
       </tbody></table></div>
-      ${rep.actionGates.length ? `<p class="mini muted" style="margin:8px 0 0">Also gated, as operations rather than inventories: ${rep.actionGates.map(esc).join(", ")}.</p>` : ""}
+      ${rep.otherGates.length ? `<p class="mini muted" style="margin:8px 0 0">Also gated, by a policy type this build does not know by name: ${rep.otherGates.map(esc).join(", ")}.</p>` : ""}
     </div>`);
 
     // policies, folded
@@ -406,12 +468,13 @@ const MaaTool = (() => {
           const e = look && look.entry(g);
           return e ? esc(e.name) : `<code>${esc(g)}</code>`;
         });
+        const g = Maa.gateOf(p.policyType);
         const head = `<div class="au-ev-h"><b>${esc(p.displayName || p.id)}</b> ${badge}
-            <span class="au-when mini muted">${esc(p.policyType || "?")}</span></div>
+            <span class="au-when mini muted">gates ${esc(g ? g.gates : `type ${p.policyType || "?"}`)}</span></div>
           <div class="mini muted au-ev-m">${groups.length ? `approver group${groups.length === 1 ? "" : "s"}: ${groups.join(", ")}` : "no approver groups on the policy"} <span class="au-chev">${isOpen ? "▴" : "▾"}</span></div>`;
         const detail = !isOpen ? "" : `<div class="au-detail">
           <div class="au-detail-grid mini">
-            <span class="muted">Type</span><span>${esc(p.policyType || "?")} — gates that operation type tenant-wide</span>
+            <span class="muted">Type</span><span>${esc(Maa.typeLabel(p.policyType))} <code>${esc(p.policyType || "?")}</code> — gates ${esc(g ? g.gates : "that operation type")} tenant-wide</span>
             <span class="muted">Approvers</span><span>${n === null ? "unknown — an approver group could not be read" : n === 0 ? "<b>none — every gated operation will sit pending until someone is added</b>" : `${n} (transitive, users only)`}</span>
             ${p.lastModifiedDateTime ? `<span class="muted">Last modified</span><span>${esc(String(p.lastModifiedDateTime).replace("T", " ").replace(/:\d\d(\.\d+)?Z$/, "Z"))}</span>` : ""}
             ${p.description ? `<span class="muted">Description</span><span>${esc(p.description)}</span>` : ""}
@@ -459,15 +522,13 @@ const MaaTool = (() => {
 
     if (!pol.length) pol.push(`<div class="list-card"><p class="mini muted" style="margin:0">No approval policies — nothing in this tenant requires a second administrator, which is the Overview pane's finding.</p></div>`);
 
-    // ---- the rail ----
-    const gatedN = rep.coverage.filter((c) => c.gated).length;
-    const badPol = rep.policies.filter((p) => p.__approverCount === 0).length;
-    const node = (id, icon, label, right, bad) => `<div class="ep-node${pane === id ? " active" : ""}" data-mapane="${id}" role="button" tabindex="0">
+    // ---- the rail ---- (same numbers as the cards: gatedCount, deadCount)
+    const node = (id, icon, label, right, bad, title) => `<div class="ep-node${pane === id ? " active" : ""}" data-mapane="${id}" role="button" tabindex="0"${title ? ` title="${esc(title)}"` : ""}>
       <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
     const rail =
-      node("overview", "🤝", "Overview", rep.policies.length || "none", !rep.policies.length)
-      + node("gated", "🚪", "What is gated", `${gatedN}/${rep.coverage.length}`, !gatedN)
-      + node("policies", "📜", "Policies", badPol ? `<b>${badPol}</b>/${rep.policies.length}` : rep.policies.length, badPol > 0)
+      node("overview", "🤝", "Overview", rep.policies.length || "none", !rep.policies.length, rep.policies.length ? `${rep.policies.length} approval polic${rep.policies.length === 1 ? "y" : "ies"}` : "no approval policies")
+      + node("gated", "🚪", "What is gated", `${gatedCount}/${rep.coverage.length}`, !gatedCount, `${gatedCount} of ${rep.coverage.length} operation types have an approval gate`)
+      + node("policies", "📜", "Policies", deadCount ? `${rep.policies.length} · <b>⚠ ${deadCount}</b>` : rep.policies.length, deadCount > 0, deadCount ? `${deadCount} of ${rep.policies.length} — approver groups hold nobody` : `${rep.policies.length} approval polic${rep.policies.length === 1 ? "y" : "ies"}`)
       + node("requests", "⏳", "Requests", s ? s.total : "unread", !s || (s && s.byStatus.pending > 0))
       + node("admins", "🛡", "Admins", rep.admins ? rep.admins.users.length : "unread", !rep.admins);
 
