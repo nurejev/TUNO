@@ -100,6 +100,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 140, title: "\ud83e\uddf1 T16 says what each policy configures \u2014 ASR rules with their modes, every setting by name",
+      tools: ["T16 Firewall & ASR coverage"], builds: [10559], risk: "low",
+      why: "Production's T16 says whether a policy reaches anybody, never what it does when it does; Mihai (2026-09-02): 'this should show which rules are enabled within that policy'. Missing capability, nothing broken, reads only. It graduates when a live tenant's ASR fold matches the portal's rule editor mode for mode, and an AV and a firewall fold show the portal's labels.",
+      test: [
+        "Open an ASR policy on beta: the fold shows 'ASR rules \u2014 n of 19 set' with every rule a row, modes as Block/Audit/Warn/Off chips, unset rules greyed as 'not set'; compare three rules against the portal's policy editor.",
+        "A policy that carries a per-rule exclusion shows it under the rule; ASR-only exclusions show below the table.",
+        "Open an AV policy and a firewall policy: every setting is listed by the display name the portal shows, values as option labels (True/False, Enabled/Disabled, the number), children indented.",
+        "'\u2699 Read what all N configure' reads the rest and the header then says every policy shown is read; the Markdown export carries a 'What the policies configure' section with one table per policy (ASR policies with the rule table first).",
+        "A legacy intent's fold says it has no settings-catalog body; a policy whose settings read fails (revoke the config scope mid-session) says unknown, not empty.",
+        "Demo mode: the ASR policy's fold reads 3 of 19 set.",
+        "Suite: _to_delete/t16-endpointsec-tests.js 87/87 (20 new).",
+      ],
+      files: ["js/endpointsec.js", "js/demo.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 139, title: "\ud83d\udd04 T22 joins the rail \u2014 Overview says what is still to do, State says what was done",
       tools: ["T22 Group migration"], builds: [10558], risk: "low",
       why: "Production's Group migration is one long card: chips, table, archived block, with nothing saying that reading is step one of four. Mihai's asks (2026-09-02): the rail layout, the fact chips as filters or places, and 'it should be clear what the tool will still need to do after reading the tenant'. Convenience and clarity, nothing broken. It graduates when the Overview's counts agree with the table's State column across an examine, a refusal and a migration on a test tenant, and the prefix filters split the list exactly.",

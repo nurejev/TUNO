@@ -413,7 +413,13 @@ const TUNO_DEMO = (() => {
       roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
       templateReference: { templateId: "t-asr", templateFamily: "endpointSecurityAttackSurfaceReductionRules", templateDisplayName: "Attack Surface Reduction Rules" },
       assignments: [inc(G(3), F(1), "include")],
-      _settings: [choice(DEF_ASR, `${DEF_ASR}_1`)] },
+      // The rules inside (10559): three set, the other sixteen NOT SET —
+      // which is what T16's fold now says, rule by rule.
+      _settings: [choice(DEF_ASR, `${DEF_ASR}_1`, [
+        choice(`${DEF_ASR}_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem`, `${DEF_ASR}_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem_block`).settingInstance,
+        choice(`${DEF_ASR}_blockexecutablecontentfromemailclientandwebmail`, `${DEF_ASR}_blockexecutablecontentfromemailclientandwebmail_block`).settingInstance,
+        choice(`${DEF_ASR}_blockabuseofexploitedvulnerablesigneddrivers`, `${DEF_ASR}_blockabuseofexploitedvulnerablesigneddrivers_audit`).settingInstance,
+      ])] },
 
     { id: P(13), name: "ES — Disk encryption (BitLocker)", description: "Silent enablement.",
       platforms: "windows10", technologies: "mdm", createdDateTime: ago(350 * DAY), lastModifiedDateTime: ago(70 * DAY),

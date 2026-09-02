@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10559, date: "2026-09-02", title: "Firewall & ASR coverage says what each policy configures",
+    items: [
+      { kind: "new", tool: "Firewall & ASR coverage", text: "Open a policy and, under its assignments, it now lists what it configures — read at the click with the catalog's own display names and option labels, so a firewall policy reads \"Enable Domain Network Firewall — True\" rather than a slug and a 1. An Attack Surface Reduction policy leads with its rules: all nineteen, each Block, Audit, Warn, Off or not set, per-rule exclusions on their rule. One button reads them all; the Markdown export carries every policy read. A read that fails says so on that policy; a legacy intent says it has no settings-catalog body." },
+    ],
+  },
+  {
     build: 10558, date: "2026-09-02", title: "Group migration joins the rail — and says what is still to do",
     items: [
       { kind: "improved", tool: "Group migration", text: "The screen takes the rail: Overview, Groups, Restricted units, Archived. The read now lands on Overview, which lays out the four steps of a migration with their counts — the read done, \"0 of 157 examined\" marked as now, plan-and-apply per group, and the finishing work TUNO cannot do for you (the Intune surfaces it cannot write, the Conditional Access and licensing it cannot see, the rollback to delete) — so a finished list is never mistaken for a finished job. The restricted-unit count and the archived count became panes of their own; the detected prefix became two filter chips, wears it and does not." },

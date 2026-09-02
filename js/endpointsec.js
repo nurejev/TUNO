@@ -39,6 +39,7 @@ const EndpointSec = (() => {
   "use strict";
 
   const S = () => Graph.SCOPES;
+  const lc = (s) => String(s || "").toLowerCase();
 
   // The portal's disciplines, from templateFamily — the original's wildcard
   // switch, kept in the same order.
@@ -163,7 +164,8 @@ const EndpointSec = (() => {
     const onStatus = o.onStatus || (() => {});
     const out = { policies: null, policyError: null, intents: [], intentsError: null,
       templatesError: null, deviceCount: null, deviceCountError: null, disciplines: null, names: {}, nameError: null,
-      groupCounts: {}, groupCountUnread: 0 };
+      groupCounts: {}, groupCountUnread: 0,
+      settingsById: {} };   // policy id → { rows, error } once read (10559)
 
     onStatus("Reading settings catalog policies…");
     let all;
@@ -285,6 +287,135 @@ const EndpointSec = (() => {
     return out;
   }
 
+  // ================================================================
+  // WHAT A POLICY CONFIGURES (10559, Mihai: "this should show which rules
+  // are enabled within that policy"). The coverage read says whether a
+  // policy reaches anybody; this says what it does when it does. Read per
+  // policy, lazily at the click (or all at once from the button), with
+  // $expand=settingDefinitions so the rows wear the catalog's own display
+  // names and option labels — never a slug when the tenant can say better.
+  // A read that fails is an error on that policy, never an empty list.
+  // ================================================================
+  const ASR_PARENT = "device_vendor_msft_policy_config_defender_attacksurfacereductionrules";
+  const ASR_MODE = { 0: "Off", 1: "Block", 2: "Audit", 6: "Warn", off: "Off", block: "Block", audit: "Audit", warn: "Warn" };
+  // Every ASR rule Microsoft documents today — the settings-catalog slug
+  // under the ASR parent, the rule GUID the legacy string uses, the name.
+  // A rule the policy does not mention is NOT SET, said as such.
+  const ASR_RULES = [
+    ["blockabuseofexploitedvulnerablesigneddrivers", "56a863a9-875e-4185-98a7-b882c64b5ce5", "Block abuse of exploited vulnerable signed drivers"],
+    ["blockadobereaderfromcreatingchildprocesses", "7674ba52-37eb-4a4f-a9a1-f0f9a1619a2c", "Block Adobe Reader from creating child processes"],
+    ["blockallofficeapplicationsfromcreatingchildprocesses", "d4f940ab-401b-4efc-aadc-ad5f3c50688a", "Block all Office applications from creating child processes"],
+    ["blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem", "9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2", "Block credential stealing from LSASS"],
+    ["blockexecutablecontentfromemailclientandwebmail", "be9ba2d9-53ea-4cdc-84e5-9b1eeee46550", "Block executable content from email client and webmail"],
+    ["blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion", "01443614-cd74-433a-b99e-2ecdc07bfc25", "Block executables unless they meet prevalence, age or trusted-list criteria"],
+    ["blockexecutionofpotentiallyobfuscatedscripts", "5beb7efe-fd9a-4556-801d-275e5ffc04cc", "Block execution of potentially obfuscated scripts"],
+    ["blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent", "d3e037e1-3eb8-44c8-a917-57927947596d", "Block JavaScript or VBScript from launching downloaded executable content"],
+    ["blockofficeapplicationsfromcreatingexecutablecontent", "3b576869-a4ec-4529-8536-b80a7769e899", "Block Office applications from creating executable content"],
+    ["blockofficeapplicationsfrominjectingcodeintootherprocesses", "75668c1f-73b5-4cf0-bb93-3ecf5cb7cc84", "Block Office applications from injecting code into other processes"],
+    ["blockofficecommunicationappfromcreatingchildprocesses", "26190899-1602-49e8-8b27-eb1d0a1ce869", "Block Office communication application from creating child processes"],
+    ["blockpersistencethroughwmieventsubscription", "e6db77e5-3df2-4cf1-b95a-636979351e5b", "Block persistence through WMI event subscription"],
+    ["blockprocesscreationsfrompsexecandwmicommands", "d1e49aac-8f56-4280-b9ba-993a6d77406c", "Block process creations originating from PSExec and WMI commands"],
+    ["blockuntrustedunsignedprocessesthatrunfromusb", "b2b3f03d-6a65-4f7b-a9c7-1c7ef74a9ba4", "Block untrusted and unsigned processes that run from USB"],
+    ["blockwin32apicallsfromofficemacros", "92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b", "Block Win32 API calls from Office macros"],
+    ["useadvancedprotectionagainstransomware", "c1db55ab-c21a-4637-bb3f-a12568109d35", "Use advanced protection against ransomware"],
+    ["blockrebootingmachineinsafemode", "33ddedf1-c6e0-47cb-833e-de6133960387", "Block rebooting machine in Safe Mode"],
+    ["blockuseofcopiedorimpersonatedsystemtools", "c0033c00-d16d-4114-a5a0-dc9b3a7d2ceb", "Block use of copied or impersonated system tools"],
+    ["blockwebshellcreationforservers", "a8f5898e-1dc8-49a9-9878-85004b8a61e6", "Block Webshell creation for Servers"],
+  ];
+
+  const prettySlug = (id) => {
+    const last = String(id || "").split("_").pop() || "";
+    return last ? last.charAt(0).toUpperCase() + last.slice(1) : "(setting)";
+  };
+  // Flatten one policy's settings (as /settings?$expand=settingDefinitions
+  // returns them) into rows: { defId, name, value, depth, raw }. The
+  // definitions ride beside each setting; option labels come from them.
+  function flattenSettings(settings) {
+    const rows = [];
+    for (const s of settings || []) {
+      const defs = {};
+      for (const d of (s && s.settingDefinitions) || []) if (d && d.id) defs[lc(d.id)] = d;
+      const nameOf = (id) => { const d = defs[lc(id)]; return (d && d.displayName) || prettySlug(id); };
+      const optionOf = (id, v) => {
+        const d = defs[lc(id)];
+        const o = d && Array.isArray(d.options) ? d.options.find((x) => x && lc(x.itemId) === lc(v)) : null;
+        if (o && o.displayName) return o.displayName;
+        const sv = lc(String(v ?? ""));
+        return sv.startsWith(lc(id) + "_") ? sv.slice(String(id).length + 1) : String(v ?? "");
+      };
+      const walk = (inst, depth) => {
+        if (!inst || typeof inst !== "object") return;
+        // a child handed over still wrapped as a setting (fixtures do this;
+        // Graph does not) is unwrapped rather than dropped
+        if (inst.settingInstance && !inst.settingDefinitionId) { walk(inst.settingInstance, depth); return; }
+        const id = inst.settingDefinitionId || "";
+        if (inst.choiceSettingValue) {
+          rows.push({ defId: id, name: nameOf(id), value: optionOf(id, inst.choiceSettingValue.value), raw: inst.choiceSettingValue.value, depth });
+          (inst.choiceSettingValue.children || []).forEach((c) => walk(c, depth + 1));
+        } else if (inst.simpleSettingValue) {
+          rows.push({ defId: id, name: nameOf(id), value: String(inst.simpleSettingValue.value ?? ""), raw: inst.simpleSettingValue.value, depth });
+        } else if (Array.isArray(inst.simpleSettingCollectionValue)) {
+          const vals = inst.simpleSettingCollectionValue.map((x) => String((x && x.value) ?? ""));
+          rows.push({ defId: id, name: nameOf(id), value: vals.join(", "), raw: vals, depth, list: vals });
+        } else if (Array.isArray(inst.choiceSettingCollectionValue)) {
+          for (const c of inst.choiceSettingCollectionValue) {
+            rows.push({ defId: id, name: nameOf(id), value: optionOf(id, c && c.value), raw: c && c.value, depth });
+            ((c && c.children) || []).forEach((x) => walk(x, depth + 1));
+          }
+        } else if (Array.isArray(inst.groupSettingCollectionValue)) {
+          inst.groupSettingCollectionValue.forEach((g) => (g.children || []).forEach((c) => walk(c, depth + 1)));
+        } else if (inst.groupSettingValue) {
+          (inst.groupSettingValue.children || []).forEach((c) => walk(c, depth + 1));
+        } else if (id) {
+          rows.push({ defId: id, name: nameOf(id), value: "(configured)", raw: null, depth });
+        }
+      };
+      walk(s && (s.settingInstance || s), 0);
+    }
+    return rows;
+  }
+  // The ASR view of those rows: every documented rule with the mode this
+  // policy gives it — from the catalog child (…_<slug> → block/audit/warn/
+  // off) or the legacy "guid=1|guid=2" string — or NOT SET. Plus the
+  // exclusions and the per-rule exclusions the policy carries.
+  function asrRulesOf(rows) {
+    const mode = {};
+    const perRule = {};
+    const excl = [];
+    for (const r of rows) {
+      const id = lc(r.defId);
+      if (id === ASR_PARENT) {
+        // legacy string form on the parent: "guid=1|guid=2"
+        for (const pair of String(r.raw ?? "").split("|")) {
+          const m = /^\s*([0-9a-f-]{36})\s*=\s*(\d+)\s*$/i.exec(pair);
+          if (m) { const rule = ASR_RULES.find((x) => x[1] === lc(m[1])); if (rule) mode[rule[0]] = ASR_MODE[Number(m[2])] || m[2]; }
+        }
+        continue;
+      }
+      if (id === ASR_PARENT + "_asronlyperruleexclusions" || /attacksurfacereductiononlyexclusions$/.test(id)) { excl.push(...(r.list || [r.value])); continue; }
+      if (id.startsWith(ASR_PARENT + "_")) {
+        const rest = id.slice(ASR_PARENT.length + 1);
+        const rule = ASR_RULES.find((x) => rest === x[0]);
+        if (rule) {
+          const tail = lc(String(r.raw ?? "")).replace(new RegExp("^" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "_"), "");
+          mode[rule[0]] = ASR_MODE[tail] || r.value;
+          continue;
+        }
+        const pm = ASR_RULES.find((x) => rest.startsWith(x[0] + "_"));
+        if (pm) { (perRule[pm[0]] = perRule[pm[0]] || []).push(...(r.list || [r.value])); continue; }
+      }
+    }
+    return {
+      rules: ASR_RULES.map(([slug, guid, name]) => ({ slug, guid, name, mode: mode[slug] || null, exclusions: perRule[slug] || [] })),
+      set: Object.keys(mode).length,
+      exclusions: excl.filter(Boolean),
+    };
+  }
+  async function readSettings(policyId) {
+    const rows = await Graph.readAll(`${Graph.BETA}/deviceManagement/configurationPolicies/${encodeURIComponent(policyId)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: S().config, retry: true });
+    return flattenSettings(rows);
+  }
+
   // ---- exports ----
   const mdCell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   function meta() {
@@ -321,6 +452,25 @@ const EndpointSec = (() => {
       const tp = targetPhrase(targetCountOf(r, rep.groupCounts, rep.deviceCount));
       L.push(`| ${mdCell(r.name)} | ${mdCell(r.discipline)} | ${r.source} | ${reach} | ${mdCell(tp) || "—"} | ${mdCell(r.caveat)} |`);
     }
+    const read = (rep.policies || []).filter((r) => rep.settingsById && rep.settingsById[r.id]);
+    if (read.length) {
+      L.push("", `## What the policies configure (${read.length} read)`, "");
+      for (const r of read) {
+        const st = rep.settingsById[r.id];
+        L.push(`### ${mdCell(r.name)}`, "");
+        if (st.error) { L.push(`> Settings could not be read — ${mdCell(st.error)}.`, ""); continue; }
+        if (/Attack Surface Reduction/i.test(r.discipline)) {
+          const a = asrRulesOf(st.rows);
+          L.push(`| ASR rule | Mode |`, `|---|---|`);
+          for (const x of a.rules) L.push(`| ${mdCell(x.name)} | ${x.mode ? x.mode : "_not set_"}${x.exclusions.length ? ` (exclusions: ${mdCell(x.exclusions.join(", "))})` : ""} |`);
+          if (a.exclusions.length) L.push("", `ASR-only exclusions: ${mdCell(a.exclusions.join(", "))}`);
+          L.push("");
+        }
+        L.push(`| Setting | Value |`, `|---|---|`);
+        for (const x of st.rows) L.push(`| ${"&nbsp;&nbsp;".repeat(Math.min(x.depth, 4))}${mdCell(x.name)} | ${mdCell(x.value)} |`);
+        L.push("");
+      }
+    }
     L.push("", `---`,
       `Coverage means at least one policy that is assigned AND reaches somebody by construction — no include and no tenant-wide target is nobody, exclusions only is nobody. "Configured on" is group MEMBERSHIP, not per-device applicability: sums across groups may double-count, exclusions are not subtracted, a filter caps reach at "may", and whether an included group is empty is the 🩺 Assignment health tool's finding.`);
     return L.join("\n");
@@ -337,7 +487,8 @@ const EndpointSec = (() => {
     return L.join("\n");
   }
 
-  return { CORE, disciplineOf, disciplineOfTemplateName, reachOf, includeGroupIdsOf, targetCountOf, targetPhrase, report, markdown, csv, meta };
+  return { CORE, ASR_RULES, disciplineOf, disciplineOfTemplateName, reachOf, includeGroupIdsOf, targetCountOf, targetPhrase, report, markdown, csv, meta,
+    flattenSettings, asrRulesOf, readSettings };
 })();
 
 
@@ -351,6 +502,70 @@ const EndpointSecTool = (() => {
 
   let rep = null, running = false, discFilter = null;
   const open = new Set();   // fold state keyed on policy ids — the T03 rule
+  const loading = new Set(); // policies whose settings are being read right now (10559)
+
+  // WHAT IT CONFIGURES (10559): read at the click, once per policy, and
+  // kept on the report so the export carries it. A legacy intent has no
+  // settings-catalog body to read and says so.
+  async function loadSettings(id) {
+    if (!rep || rep.settingsById[id] || loading.has(id)) return;
+    const row = (rep.policies || []).find((r) => r.id === id);
+    if (!row || row.source !== "Settings catalog") return;
+    loading.add(id);
+    render();
+    try {
+      rep.settingsById[id] = { rows: await EndpointSec.readSettings(id), error: null };
+    } catch (e) {
+      rep.settingsById[id] = { rows: [], error: String((e && e.message) || e).slice(0, 200) };
+    } finally { loading.delete(id); render(); }
+  }
+  async function loadAllSettings() {
+    if (!rep || running) return;
+    const todo = (rep.policies || []).filter((r) => r.source === "Settings catalog" && !rep.settingsById[r.id]);
+    if (!todo.length) return;
+    running = true;
+    try {
+      todo.forEach((r) => loading.add(r.id));
+      render();
+      prog(`Reading what ${todo.length} polic${todo.length === 1 ? "y" : "ies"} configure…`);
+      const res = await Graph.pool(todo, (r) => EndpointSec.readSettings(r.id), 4);
+      for (const x of res) {
+        rep.settingsById[x.item.id] = x.error
+          ? { rows: [], error: String((x.error && x.error.message) || x.error).slice(0, 200) }
+          : { rows: x.value, error: null };
+      }
+    } finally { todo.forEach((r) => loading.delete(r.id)); running = false; prog(""); render(); }
+  }
+
+  // The "what it configures" block inside a fold.
+  function settingsHtml(r) {
+    if (r.source !== "Settings catalog") return `<p class="mini muted" style="margin:8px 0 0">A legacy intent carries no settings-catalog body — what it configures is read in the portal's template, not here.</p>`;
+    const st = rep.settingsById[r.id];
+    if (loading.has(r.id)) return `<p class="mini muted" style="margin:8px 0 0">Reading what it configures…</p>`;
+    if (!st) return `<p class="mini muted" style="margin:8px 0 0">What it configures has not been read — <button class="btn sm" data-fwread="${esc(r.id)}">⚙ Read the settings</button></p>`;
+    if (st.error) return `<div class="gu-fail" style="margin-top:8px"><b>What it configures could not be read.</b><span class="why">${esc(st.error)} — unknown, not empty.</span></div>`;
+    const isAsr = /Attack Surface Reduction/i.test(r.discipline);
+    let asr = "";
+    if (isAsr) {
+      const a = EndpointSec.asrRulesOf(st.rows);
+      const modeChip = (m) => !m ? `<span class="muted">not set</span>`
+        : m === "Block" ? `<span class="au-op create">Block</span>`
+        : m === "Warn" ? `<span class="gu-how priv">Warn</span>`
+        : m === "Audit" ? `<span class="gu-how">Audit</span>`
+        : m === "Off" ? `<span class="au-op delete">Off</span>` : `<span class="gu-how">${esc(m)}</span>`;
+      asr = `<h5 class="mini" style="margin:10px 0 4px">ASR rules — ${a.set} of ${a.rules.length} set${a.exclusions.length ? ` · ${a.exclusions.length} ASR-only exclusion${a.exclusions.length === 1 ? "" : "s"}` : ""}</h5>
+        <div class="gu-tw"><table class="cg-table"><thead><tr><th>Rule</th><th style="width:90px">Mode</th></tr></thead><tbody>
+        ${a.rules.map((x) => `<tr${x.mode ? "" : ' class="muted"'}><td class="mini">${esc(x.name)}${x.exclusions.length ? `<div class="mini muted">excluded: ${esc(x.exclusions.join(", "))}</div>` : ""}</td><td>${modeChip(x.mode)}</td></tr>`).join("")}
+        </tbody></table></div>
+        ${a.exclusions.length ? `<p class="mini muted" style="margin:6px 0 0">ASR-only exclusions: ${esc(a.exclusions.join(", "))}</p>` : ""}`;
+    }
+    const rows = st.rows;
+    const table = rows.length ? `<h5 class="mini" style="margin:10px 0 4px">${isAsr ? "Every setting in the policy" : "What it configures"} — ${rows.length} row${rows.length === 1 ? "" : "s"}</h5>
+      <div class="gu-tw"><table class="cg-table"><thead><tr><th>Setting</th><th style="width:34%">Value</th></tr></thead><tbody>
+      ${rows.map((x) => `<tr><td class="mini" style="padding-left:${8 + Math.min(x.depth, 4) * 14}px" title="${esc(x.defId)}">${esc(x.name)}</td><td class="mini">${esc(x.value)}</td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="mini muted" style="margin:8px 0 0">The policy carries no settings — it configures nothing.</p>`;
+    return asr + table;
+  }
 
   function prog(msg) { TunoProgress.show("fwBody", "fwProg", msg); }
   function download(name, text, type) {
@@ -465,6 +680,7 @@ const EndpointSecTool = (() => {
           ${groups.length ? `<span class="muted">Groups</span><span>${groups.join(", ")}${rep.nameError ? ` <span class="muted">(names unresolved — ${esc(rep.nameError)})</span>` : ""}</span>` : ""}
           ${tp ? `<span class="muted">Configured on</span><span>${esc(tp)} <span class="muted">— group membership, not per-device applicability: exclusions are not subtracted${r.reach.filtered ? ", and the assignment filter caps this at may" : ""}</span></span>` : ""}
         </div>
+        ${settingsHtml(r)}
       </div>`;
       const cls = r.counts ? "ok" : "bad";
       return `<div class="au-fold ${cls} ${isOpen ? "open" : ""}" data-fwfold="${esc(r.id)}"><div class="au-ev-card">${head}${detail}</div></div>`;
@@ -472,7 +688,8 @@ const EndpointSecTool = (() => {
 
     parts.push(`<div class="list-card">
       <h4 style="margin:0 0 4px">Endpoint security policies (${shown.length}${discFilter ? ` — ${esc(discFilter)}` : ""})</h4>
-      <p class="mini muted" style="margin:0 0 10px">Grouped by discipline — click a policy for its assignments. A policy whose only assignments are exclusions, or that has none, reaches nobody by construction and does not count as coverage.</p>
+      <p class="mini muted" style="margin:0 0 10px">Grouped by discipline — click a policy for its assignments and <b>what it configures</b> (an ASR policy lists every rule with its mode, unset ones included). A policy whose only assignments are exclusions, or that has none, reaches nobody by construction and does not count as coverage.
+        ${(() => { const sc = shown.filter((r) => r.source === "Settings catalog"); const done = sc.filter((r) => rep.settingsById[r.id]).length; return sc.length && done < sc.length ? `<button class="btn sm" id="fwReadAll" style="margin-left:6px">⚙ Read what ${discFilter ? "these" : "all"} ${sc.length - done} configure</button>` : sc.length ? `<span class="muted">· settings read for every policy shown — the Markdown export carries them</span>` : ""; })()}</p>
       ${rows || `<p class="mini muted" style="margin:0">No endpoint security policies${discFilter ? " in this discipline" : ""} — which is itself the finding.</p>`}
     </div>`);
 
@@ -496,11 +713,16 @@ const EndpointSecTool = (() => {
     $("fwMd").addEventListener("click", () => exportAs("md"));
     $("fwCsv").addEventListener("click", () => exportAs("csv"));
     $("fwBody").addEventListener("click", (e) => {
+      if (e.target.closest("#fwReadAll")) { loadAllSettings(); return; }
+      const rb = e.target.closest("[data-fwread]");
+      if (rb) { loadSettings(rb.dataset.fwread); return; }
       const f = e.target.closest("[data-fwfold]");
       if (!f || e.target.closest("a,code,button")) return;
       const id = f.dataset.fwfold;
       open.has(id) ? open.delete(id) : open.add(id);
       render();
+      // opening a settings-catalog policy reads what it configures (10559)
+      if (open.has(id)) loadSettings(id);
     });
   }
 
