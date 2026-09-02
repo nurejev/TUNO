@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10569, date: "2026-09-02", title: "AppLocker: the audited executions are judged against your draft, not counted against you",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The third enforce gate read \"1040 executions would have been blocked\" and stopped there — but that number is what the audit profile would have blocked, not what your draft would. The scan's event log now goes through the same judgement the events bundle always had: per file, covered by this draft (would run — the old policy's history, nothing to do), would still be blocked from machine space (a gap — a finding with a fix), from a user-writable area (by design — the policy working), or undecided. The gate passes when no gap and nothing undecided remains, and says the counts. A bundle that counts refusals but carries no entries says so." },
+    ],
+  },
+  {
     build: 10568, date: "2026-09-02", title: "AppLocker: the road to Enforce, gate by gate — and a way past the gates",
     items: [
       { kind: "improved", tool: "AppLocker", text: "The Enforce step now shows its three gates as a checklist with a verdict each: the AuditOnly profile under this grouping (named, or what to do), a scan bundle from a device it reached (which device, taken when — or that an XML policy is not evidence of anything that ran), and an event log showing nothing blocked and nothing that would have been (the counts). It also says that the draft's enforcement modes do not matter here — the Enforce profile is written Enabled regardless — and, once open, how to hand the pilot group over: assign the Enforced profile and remove the audit profile's assignment for that group, because two profiles on one grouping is a conflict on the device, not a merge." },

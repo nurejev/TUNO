@@ -658,9 +658,24 @@ const AppLockerTool = (() => {
 
   // One classification pass over the whole bundle — the loop strip, the chips
   // and the gap report all read THIS, so their numbers cannot disagree.
+  // THE EVIDENCE THE FLEET MACHINERY JUDGES (10569): the events bundle
+  // when one is loaded, otherwise the scan bundle's own event log. The
+  // scan's 1040 audited executions used to be a raw count on the enforce
+  // gate and a raw list under an Info finding — never judged against the
+  // draft, never offered a fix — while the identical list from an events
+  // bundle got verdicts and fix buttons. Same entries, same judgement.
+  function fleetEntries() {
+    if (eventsEvidence) return (eventsEvidence.events || {}).entries || [];
+    // an events log that was read but carries no entries is an empty list,
+    // not "no evidence" — the gate then says the entries are missing
+    if (scan && scan.events && scan.events.available) return Array.isArray(scan.events.entries) ? scan.events.entries : [];
+    return null;
+  }
+  const fleetSourceLabel = () => eventsEvidence ? (eventsEvidence.sourceName || "the events bundle") : scan ? `the scan's event log${(scan.machine || {}).name ? ` (${scan.machine.name})` : ""}` : "";
   function fleetGapStats() {
-    if (!eventsEvidence) return null;
-    const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    const entries = fleetEntries();
+    if (!entries) return null;
+    const rows = aggregateFleetEvents(entries);
     const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0 };
     for (const row of rows) {
       const c = fleetRowClass(row, draftVerdictForEvent(row.sample));
@@ -678,8 +693,9 @@ const AppLockerTool = (() => {
   // on the evidence card and sections in the gap report.
   function analyzeFleetEvents() {
     const out = [];
-    if (!eventsEvidence || !policy) return out;
-    const rows = aggregateFleetEvents((eventsEvidence.events || {}).entries || []);
+    const entries = fleetEntries();
+    if (!entries || !policy) return out;
+    const rows = aggregateFleetEvents(entries);
     // Gaps per collection first: a handful get a row and a fix each, a FLOOD
     // collapses into ONE finding with an expandable list. The flood is real —
     // one rule in a collection makes AppLocker enforce the whole collection,
@@ -1162,8 +1178,8 @@ const AppLockerTool = (() => {
         cond: `${ev.summary.blocked} blocked · ${ev.summary.audited} audited · ${ev.daysBack} days`,
         reason: `The device's AppLocker logs show ${ev.summary.blocked} execution(s) actually blocked and ${ev.summary.audited} that would have been blocked under enforcement, across ${ev.summary.distinctUsers} user(s).`,
         rec: ev.summary.blocked
-          ? "Work through the blocked and audited list — open it right here — before touching enforcement anywhere else: these are real users who could not run something."
-          : "Review the audited list — open it right here: each one becomes a blocked user the day this policy is enforced.",
+          ? "Work through the blocked and audited list — open it right here — before touching enforcement anywhere else: these are real users who could not run something. Each file is judged against THIS draft: the ones it would still block from machine space are findings of their own, with a fix each."
+          : "Review the audited list — open it right here. Each file is judged against THIS draft: covered ones are the old policy's history and need nothing; the ones the draft would still block from machine space are findings of their own, with a fix each; blocks from user-writable areas are the policy working.",
         // The renderer attaches the list this recommendation promises (10443):
         // a "below" that pointed at nothing was the complaint, verbatim.
         eventsList: true,
@@ -3128,14 +3144,23 @@ const AppLockerTool = (() => {
         : "upload the .json bundle Invoke-TunoAppLockerScan.ps1 writes (step 1) — an XML policy is not evidence of anything that ran",
     };
     const sm = (ev && ev.summary) || {};
+    // JUDGED AGAINST THE DRAFT (10569): the log's audited count is what the
+    // AUDIT profile would have blocked — not what THIS draft blocks. The
+    // gate counts the files the draft would still refuse from machine
+    // space (gaps, each a finding with a fix) and the undecided ones; a
+    // block from a user-writable area is the policy working and is named
+    // as such, because those users WILL be blocked — on purpose.
+    const gs = scan && !eventsEvidence ? fleetGapStats() : null;
+    const total = (sm.blocked || 0) + (sm.audited || 0);
     const g3 = {
-      ok: !!(scan && ev && ev.available && !sm.blocked && !sm.audited),
-      label: "The event log on that device shows nothing blocked and nothing that would have been",
+      ok: !!(scan && ev && ev.available && (!total || (gs && gs.rows > 0 && !gs.gap && !gs.undecided))),
+      label: "Nothing in that device's event log that this draft would still block unintentionally",
       detail: !scan ? "waits on the bundle"
         : !ev || !ev.available ? "the scan could not read the AppLocker event logs — re-run it elevated on a device the audit profile actually reached"
-        : sm.blocked ? `${sm.blocked} execution(s) blocked in the last ${ev.daysBack || "?"} days — real users who could not run something; work them to nothing first`
-        : sm.audited ? `${sm.audited} execution(s) WOULD have been blocked in the last ${ev.daysBack || "?"} days — every one becomes a blocked user the day this is enforced`
-        : `0 blocked · 0 would-have-been-blocked · ${sm.allowed || 0} allowed over ${ev.daysBack || "?"} days`,
+        : !total ? `0 blocked · 0 would-have-been-blocked · ${sm.allowed || 0} allowed over ${ev.daysBack || "?"} days`
+        : !gs ? `${total} refused execution(s) in the log and no draft to judge them against`
+        : !gs.rows ? `${total} refused execution(s) counted, but the bundle carries no event entries to judge — re-scan with the current script so the files themselves are in the bundle`
+        : `${total} refused execution(s) over ${ev.daysBack || "?"} days, ${gs.rows} distinct file${gs.rows === 1 ? "" : "s"} judged against this draft: ${gs.covered} covered (would run) · ${gs.gap} would still be blocked from machine space${gs.gap ? " — GAPS, each a finding above with a fix" : ""} · ${gs.bydesign} from user-writable areas (by design — the policy working, those users will be blocked on purpose)${gs.undecided ? ` · ${gs.undecided} undecided — the draft has no rules for that collection yet` : ""}${gs.dll ? ` · ${gs.dll} DLL loads set aside (no Dll collection)` : ""}`,
     };
     return [g1, g2, g3];
   }
@@ -3149,8 +3174,13 @@ const AppLockerTool = (() => {
     if (!scan) return `${has}Now the evidence: upload a scan bundle taken AFTER the audit profile had been applied for a while — run Invoke-TunoAppLockerScan.ps1 on a device the profile reached (events are read by default), and upload the bundle in step 1. Without it there is no evidence the audit was worked down, only a belief that it was.`;
     if (!ev || !ev.available) return "The uploaded scan could not read the AppLocker event logs, so it cannot show whether anything was blocked. Re-run the scan elevated on a device the audit profile actually reached.";
     const s = ev.summary || {};
-    if (s.blocked) return `The scan still shows ${s.blocked} execution(s) blocked. Those are real users who could not run something — work them to nothing before enforcing.`;
-    if (s.audited) return `The scan shows ${s.audited} execution(s) that WOULD have been blocked under enforcement. Every one of them becomes a blocked user the day this is enforced.`;
+    const total = (s.blocked || 0) + (s.audited || 0);
+    if (!total) return "";
+    const gs = eventsEvidence ? null : fleetGapStats();
+    if (!gs) return `The scan shows ${total} refused execution(s) and there is no draft to judge them against.`;
+    if (!gs.rows) return `The scan counts ${s.blocked || 0} blocked and ${s.audited || 0} audited execution(s) but carries no event entries to judge against the draft — re-scan with the current script.`;
+    if (gs.gap) return `${gs.gap} file${gs.gap === 1 ? "" : "s"} the device tried to run would STILL be blocked from machine space under this draft — the Findings card lists ${gs.gap === 1 ? "it" : "them"} with a fix each. Work ${gs.gap === 1 ? "it" : "them"} to nothing (allow, or decide it is meant to be blocked and remove the evidence by re-scanning after the fix).`;
+    if (gs.undecided) return `${gs.undecided} refused file${gs.undecided === 1 ? "" : "s"} fall in a collection this draft has no rules for — decide that collection before enforcing.`;
     return "";
   }
 
