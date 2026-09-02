@@ -1350,4 +1350,11 @@ const Fs = (() => {
   if (typeof DocsTool !== "undefined") DocsTool.init();
   if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
   if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();
+
+  // Tile chips from the queue + new/updated tiles lead their section
+  // (10551, Mihai's ask). Derived on beta so they cannot rot; production
+  // keeps its promotion-stamped chips and only gains the ordering.
+  if (typeof PROMOTE !== "undefined" && PROMOTE.applyTileFlags) {
+    PROMOTE.applyTileFlags(document, typeof TOOL_VERSIONS !== "undefined" ? TOOL_VERSIONS : {}, { beta: !isProduction() });
+  }
 })();

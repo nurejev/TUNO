@@ -91,16 +91,17 @@ const PROMOTE = {
   // prefetch went app-wide, and the registration gained its first
   // directory-device write scope (Device.ReadWrite.All, item 131).
   //
-  // THE QUEUE IS EMPTY. Every tool on this channel is also in production;
-  // the only differences left are the two permanent ones in staying[]. An
-  // empty queue is a state worth returning to: it means "beta and main
-  // match", and the next item added is the whole of the next promotion.
+  // The queue emptied at 10534 and REFILLED the same day: items 132-135
+  // are the T16 member counts, the T15 MDE baseline, the new T26, and the
+  // layout round — the fourth promotion-in-waiting. (This paragraph said
+  // "THE QUEUE IS EMPTY" until 10551, thirteen builds after it stopped
+  // being true — the ledger is hand-maintained and this line is its rot.)
   productionBuild: "v1.0.13",
 
   items: [
     {
       n: 135, title: "\ud83d\uddfa The layout round \u2014 Option A: the rail everywhere a long tool benefits",
-      tools: ["T26 Compliance evidence", "T13 Compliance report", "T17 Multi-admin approval", "T08 Assignment what-if", "T16 Firewall & ASR coverage", "T12 Setting conflict scan", "T09 Assignment health", "T18 Windows LAPS audit", "T14 Assignment filters", "T22 Group migration", "T23 Restricted AUs", "T02 Group Analyzer", "T06 Device analyzer", "T15 Defender status", "T04 Backup/Restore/Verify", "T01 AppLocker", "T03 Change audit", "T25 Entra device cleanup"], builds: [10538, 10539, 10540, 10541, 10542, 10543, 10544, 10545, 10546, 10547, 10548, 10549, 10550], risk: "low",
+      tools: ["T26 Compliance evidence", "T13 Compliance report", "T17 Multi-admin approval", "T08 Assignment what-if", "T16 Firewall & ASR coverage", "T12 Setting conflict scan", "T09 Assignment health", "T18 Windows LAPS audit", "T14 Assignment filters", "T22 Group migration", "T23 Restricted AUs", "T02 Group Analyzer", "T06 Device analyzer", "T15 Defender status", "T04 Backup/Restore/Verify", "T01 AppLocker", "T03 Change audit", "T25 Entra device cleanup", "T07 Intune RBAC"], builds: [10538, 10539, 10540, 10541, 10542, 10543, 10544, 10545, 10546, 10547, 10548, 10549, 10550, 10551], risk: "low",
       why: "One decision, taken once on the mockup (2026-09-01): tools that stack many result sections adopt the posture tool's sticky left rail (shared ep-rail chrome) so jumping to a section or back to a filter is a click, not a scroll; the lighter tools get the T19 fixes \u2014 static filter bars and popouts instead of inline expansions. Ships tool by tool on beta; promotes as ONE item because half a layout language in production is worse than none. Graduates when the converted tools read naturally on a live tenant and nothing lost a capability in the move.",
       test: [
         "Per converted tool on beta: the rail is sticky beside the pane, every section that used to render stacked is reachable as a node with a truthful count, and the pane swaps without losing filter state.",
@@ -108,7 +109,7 @@ const PROMOTE = {
         "Every tool's own suite stays green after its conversion \u2014 the pass counts are in the build messages.",
         "Exports are unchanged by the layout \u2014 the MD/CSV of a converted tool matches its pre-conversion content for the same tenant.",
       ],
-      files: ["js/complianceevidence.js", "js/compliance.js", "js/maa.js", "js/whatif.js", "js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/complianceevidence.js", "js/compliance.js", "js/maa.js", "js/whatif.js", "js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
     {
       n: 134, title: "\ud83d\udccb T26 Compliance evidence \u2014 capability evidence laid against ISO 27001, NIST 800-53 and NIST CSF",
@@ -136,7 +137,7 @@ const PROMOTE = {
         "A tenant where the config read is not consented: the \ud83e\uddf1 click asks for it at the click; declining leaves the fleet report intact.",
         "The MD export carries the baseline section only after a match ran; a fresh \ud83e\udda0 fleet read clears the match.",
       ],
-      files: ["js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
     {
       n: 132, title: "\ud83d\udee1 T16 says on how many devices \u2014 group member counts on every covering policy",
@@ -149,7 +150,7 @@ const PROMOTE = {
         "Sign in as an admin who can read policy but not group membership (or revoke Group.Read.All in a test tenant): counts read \u2018unreadable \u2014 unknown, not zero\u2019 and sums become floors; nothing renders as 0.",
         "Exports: the Markdown table's Configured on column and the CSV's configuredOn field carry the same phrases as the screen for the same policies.",
       ],
-      files: ["js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+      files: ["js/endpointsec.js", "js/conflict.js", "js/health.js", "js/laps.js", "css/app.css", "js/groupmigrate.js", "js/restrictedau.js", "js/groupuse.js", "js/devicewhy.js", "js/defender.js", "js/backup.js", "js/applocker.js", "js/audit.js", "js/devicecleanup.js", "js/roles.js", "js/app.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
     },
   ],
 
@@ -176,6 +177,77 @@ const PROMOTE = {
 // actually contains, because the queue's own header says not to trust the
 // queue's list, and that rule does not bend for a nicer file format.
 // ======================================================================
+// ======================================================================
+// TILE CHIPS FROM THE QUEUE (build 10551, Mihai's ask: "tuno is not
+// tagging the updated tools"). The 10534 promotion stripped the tile
+// chips because the queue was empty — and thirteen builds later nothing
+// had put UPDATED back on the tools those builds changed, because
+// hand-stamped chips rot the moment anyone forgets one.
+//
+// So the chips DERIVE from the queue: what is on this channel and not in
+// production IS PROMOTE.items, and every build already updates its item
+// (the house rule this file's header enforces). A tool named in any open
+// item wears UPDATED — or NEW while its version is still 0.x, the
+// channel rule — and when a promotion empties the queue the chips vanish
+// by themselves, which is exactly what the 10534 strip did by hand.
+//
+// Beta only: production's NEW/UPDATED are stamped statically by
+// promotion step 5 and stay as cut. The REORDER (new/updated tiles lead
+// their section) runs on both channels, over whatever chips exist.
+// ======================================================================
+PROMOTE.tileFlags = function (toolVersions) {
+  const flags = {};   // tile id -> "new" | "upd"
+  for (const it of PROMOTE.items || []) {
+    for (const t of it.tools || []) {
+      const m = /^T(\d+)\b/.exec(String(t));
+      if (!m) continue;
+      const n = Number(m[1]);
+      const key = Object.keys(toolVersions || {}).find((k) => toolVersions[k] && toolVersions[k].t === n);
+      if (!key) continue;
+      // 0.x = beta-only = NEW to whoever promotes next; anything else is a
+      // production tool that moved — UPDATED. NEW wins if both would apply.
+      const isNew = /^0\./.test(String(toolVersions[key].v || ""));
+      if (flags[key] !== "new") flags[key] = isNew ? "new" : "upd";
+    }
+  }
+  return flags;
+};
+
+PROMOTE.applyTileFlags = function (doc, toolVersions, opts) {
+  const o = opts || {};
+  if (o.beta) {
+    const flags = PROMOTE.tileFlags(toolVersions);
+    for (const [id, kind] of Object.entries(flags)) {
+      const tile = doc.getElementById(id);
+      const h = tile && tile.querySelector("h3");
+      if (!h) continue;
+      // a tile already wearing a status chip (a birth NEW/BETA, say) keeps
+      // it — the stamp fills the gap, it never doubles up
+      if (h.querySelector(".tag.upd") || h.querySelector(".tag.new")) continue;
+      const chip = doc.createElement("span");
+      chip.className = kind === "new" ? "tag new" : "tag upd";
+      chip.textContent = kind === "new" ? "NEW" : "UPDATED";
+      const block = h.querySelector(".tag.block");
+      h.insertBefore(doc.createTextNode(" "), block);
+      h.insertBefore(chip, block);
+      if (block) h.insertBefore(doc.createTextNode(" "), block);
+    }
+  }
+  // NEW leads, UPDATED follows, the rest keep their order — per section,
+  // on both channels (sort is stable; appendChild moves in place).
+  doc.querySelectorAll(".tools").forEach((grid) => {
+    const tiles = [...grid.children];
+    const rank = (el) => {
+      const h = el.querySelector && el.querySelector("h3");
+      if (!h) return 2;
+      const isNew = [...h.querySelectorAll(".tag.new")].some((x) => x.textContent.trim() === "NEW");
+      return isNew ? 0 : h.querySelector(".tag.upd") ? 1 : 2;
+    };
+    if (!tiles.some((el) => rank(el) < 2)) return;
+    tiles.slice().sort((a, b) => rank(a) - rank(b)).forEach((el) => grid.appendChild(el));
+  });
+};
+
 PROMOTE.buildOrder = function (pickedNs, appBuild) {
   const ns = [...new Set((pickedNs || []).map(Number))].sort((a, b) => a - b);
   if (!ns.length) throw new Error("Nothing is ticked — an empty order is not an order.");

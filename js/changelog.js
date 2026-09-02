@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10551, date: "2026-09-02", title: "The tiles say what moved — and the moved lead their section",
+    items: [
+      { kind: "improved", tool: "TUNO", text: "Every tool the beta channel has changed since the last promotion now wears UPDATED on its home tile (NEW while it is still beta-only) — derived from the promotion queue itself, so the chips cannot rot the way hand-stamped ones did, and they vanish by themselves the moment a promotion empties the queue. And tiles wearing NEW or UPDATED lead their section, on both channels, so what moved is the first thing the grid says." },
+    ],
+  },
+  {
     build: 10550, date: "2026-09-02", title: "Intune RBAC goes master-detail",
     items: [
       { kind: "improved", tool: "Intune RBAC", text: "The roles line up on the left \u2014 member counts on every node, custom roles marked, empty ones dimmed \u2014 and the picked role's assignments, members, scope tags and permissions fill the right pane. No more one long page of folded cards; the observations and the RBAC-only caveat live on the Overview pane." },
