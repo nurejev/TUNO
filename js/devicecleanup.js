@@ -199,6 +199,16 @@ const DeviceCleanupTool = (() => {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
   let devices = null, buckets = null, lastResults = null, running = false;
+  // THE RAIL (10549, Mihai's spec — his words are the pick, no mockup
+  // round needed): Overview | ① Disable | ② Delete | Results as panes, so
+  // switching between the 30-day and the 90-day question is a click, not a
+  // scroll past a long device table. Both step counts stay on the rail at
+  // all times, so delete-after-disable remains visible even paned.
+  let dcuPane = "overview";
+  // Ticks survive a pane switch: selection is STATE keyed on device ids,
+  // the DOM checkboxes are one face of it (the 10531 rule, made durable).
+  const selD = new Set(), selX = new Set();
+  let resultsHtml = "";
   const prog = (m) => TunoProgress.show("dcuBody", "dcuProg", m);
   const download = (name, text, type) => {
     const a = document.createElement("a");
@@ -220,6 +230,7 @@ const DeviceCleanupTool = (() => {
       await Graph.ensureScopes(Graph.SCOPES.deviceObjects);
       devices = await DeviceCleanup.readDevices(prog);
       buckets = DeviceCleanup.bucketize(devices, thresholds());
+      dcuPane = "overview"; selD.clear(); selX.clear(); resultsHtml = "";
       prog("");
       render();
     } catch (e) {
@@ -230,73 +241,111 @@ const DeviceCleanupTool = (() => {
 
   function render() {
     const b = buckets;
-    // Cards double as JUMP ANCHORS (10548, the layout round): the two-step
-    // story stays deliberately stacked — a pane hiding step ① while step ②
-    // arms would invite deleting before disabling — so a card click scrolls
-    // to its section instead of filtering it away.
-    const card = (label, n, sub, cls, jump) => `<div class="au-card${jump ? " au-card-btn" : ""}"${jump ? ` data-dcujump="${jump}" role="button" tabindex="0" title="Jump to the section"` : ""}><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
+    // Cards double as pane switches (10549): the Stale and Delete cards
+    // open their panes — the jump anchors of 10548, grown into the rail.
+    const card = (label, n, sub, cls, pane2) => `<div class="au-card${pane2 ? " au-card-btn" : ""}"${pane2 ? ` data-dcupane="${pane2}" role="button" tabindex="0" title="Open the section"` : ""}><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${n}</div><div class="au-card-s">${sub}</div></div>`;
     const managedChip = (d) => d.isManaged ? ` <span class="gu-how priv" title="Enrolled in Intune — deleting the directory object does not unenrol it; prefer retiring it in Intune first">managed</span>` : "";
-    const row = (r, i, tickAttr) => `<tr>
-      <td style="width:30px"><input type="checkbox" data-${tickAttr}="${i}"></td>
+    const row = (r, i, tickAttr, sel) => `<tr>
+      <td style="width:30px"><input type="checkbox" data-${tickAttr}="${i}"${sel.has(r.d.id) ? " checked" : ""}></td>
       <td class="mini"><b>${esc(r.d.displayName || r.d.id)}</b>${managedChip(r.d)}<div class="mini muted">${esc(r.d.operatingSystem || "—")}${r.d.operatingSystemVersion ? ` ${esc(r.d.operatingSystemVersion)}` : ""} · ${esc(r.d.trustType || "")}</div></td>
       <td class="mini">${r.days}d silent</td>
       <td class="mini">${r.d.accountEnabled === false ? `<span class="gu-how exc">disabled</span>` : `<span class="gu-how inc">enabled</span>`}</td>
     </tr>`;
-    const table = (rows, tickAttr, masterId, head) => `
+    const table = (rows, tickAttr, masterId, head, sel) => `
       <div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:34px"><input type="checkbox" id="${masterId}" title="Select or deselect every row below"></th><th>${head}</th><th style="width:110px">Silence</th><th style="width:110px">State</th></tr></thead>
-      <tbody>${rows.map((r, i) => row(r, i, tickAttr)).join("") || `<tr><td colspan="4" class="mini">Nothing here.</td></tr>`}</tbody></table></div>`;
+      <tbody>${rows.map((r, i) => row(r, i, tickAttr, sel)).join("") || `<tr><td colspan="4" class="mini">Nothing here.</td></tr>`}</tbody></table></div>`;
+    const caveat = `<p class="mini muted" style="margin:10px 0 0">Last contact is the directory's <code>approximateLastSignInDateTime</code> — its name says approximate, so a day either side is noise, not signal. <b>Deleting a device object deletes its BitLocker recovery keys with it</b>; Autopilot-registered devices are refused by the service until deregistered.</p>`;
 
-    $("dcuBody").innerHTML = `
+    const ov = `
       <div class="au-cards">
         ${card("Active", b.active.length, `contact within ${b.thresholds.disableDays}d`, "ok")}
-        ${card("Stale, enabled", b.stale.length, "disable candidates — click to jump", b.stale.length ? "warn" : "", "dcuSecD")}
+        ${card("Stale, enabled", b.stale.length, "disable candidates — click to open", b.stale.length ? "warn" : "", "disable")}
         ${card("Disabled, waiting", b.parked.length, `not yet ${b.thresholds.deleteDays}d silent`)}
-        ${card("Delete candidates", b.deletable.length, "disabled AND silent beyond the delete line — click to jump", b.deletable.length ? "bad" : "", "dcuSecX")}
+        ${card("Delete candidates", b.deletable.length, "disabled AND silent beyond the delete line — click to open", b.deletable.length ? "bad" : "", "delete")}
         ${card("Never seen", b.unknown.length, "unknown is not stale — no action offered")}
       </div>
-      <p class="mini muted" style="margin:10px 0 0">Last contact is the directory's <code>approximateLastSignInDateTime</code> — its name says approximate, so a day either side is noise, not signal. <b>Deleting a device object deletes its BitLocker recovery keys with it</b>; Autopilot-registered devices are refused by the service until deregistered.</p>
+      ${caveat}
+      <div class="tb-actions" style="margin-top:12px">
+        <button class="btn" id="dcuMd">📝 Report (Markdown)</button>
+      </div>`;
 
-      <div class="list-card" id="dcuSecD" style="margin-top:12px">
+    // THE FLOATING BAR (10549, Mihai's ask off the live screenshot): the
+    // action follows the ticking — .ae-selbar, the 10400 bar he picked for
+    // T11, so a long table never puts the button a scroll away. It appears
+    // with the first tick; ✕ clears the selection.
+    const dis = `
+      <div class="list-card" style="margin-top:0">
         <h4 style="margin:0 0 6px">① Disable — ${b.stale.length} stale and still enabled <span class="tag block">writes to the tenant</span></h4>
         <p class="mini muted" style="margin:0 0 8px">Reversible — a disabled device can be re-enabled in the portal. Every 90-day-plus device that is still enabled sits HERE, not in delete: delete follows disable, never replaces it.</p>
         <div class="tb-actions" style="margin:0 0 8px">
           <button class="btn" id="dcuAllD">☑ Select all</button><button class="btn" id="dcuNoneD">☐ Select none</button>
           <span class="mini muted" id="dcuCountD"></span>
         </div>
-        ${table(b.stale, "dcud", "dcuMasterD", "Device")}
-        <div class="tb-actions" style="margin-top:8px">
-          <button class="btn primary" id="dcuDisableBtn">🌙 Disable the ticked <span class="tag block">writes</span></button>
-        </div>
+        ${table(b.stale, "dcud", "dcuMasterD", "Device", selD)}
       </div>
+      <div class="ae-selbar" id="dcuBarD"><b id="dcuBarDCount"></b>
+        <button class="btn primary" id="dcuDisableBtn">🌙 Disable the ticked <span class="tag block">writes</span></button>
+        <button class="ae-selbar-x" id="dcuBarDX" title="Clear the selection">✕</button></div>`;
 
-      <div class="list-card" id="dcuSecX" style="margin-top:12px">
+    const del = `
+      <div class="list-card" style="margin-top:0">
         <h4 style="margin:0 0 6px">② Delete — ${b.deletable.length} disabled and silent past ${b.thresholds.deleteDays} days <span class="tag block">writes to the tenant</span></h4>
-        <p class="mini muted" style="margin:0 0 8px"><b>Not reversible.</b> The BitLocker recovery keys go with the object. Each delete re-checks the device first: re-enabled since the plan → refused (somebody wants it back); signed in since → refused (it woke up).</p>
+        <p class="mini muted" style="margin:0 0 8px"><b>Not reversible.</b> The BitLocker recovery keys go with the object. Each delete re-checks the device first: re-enabled since the plan → refused (somebody wants it back); signed in since → refused (it woke up). Every 90-day-plus device still ENABLED sits in ① — delete follows disable.</p>
         <div class="tb-actions" style="margin:0 0 8px">
           <button class="btn" id="dcuAllX">☑ Select all</button><button class="btn" id="dcuNoneX">☐ Select none</button>
           <span class="mini muted" id="dcuCountX"></span>
         </div>
-        ${table(b.deletable, "dcux", "dcuMasterX", "Device")}
-        <div class="tb-actions" style="margin-top:8px">
-          <label class="mini" style="display:inline-flex;align-items:center;gap:6px">Type <b>DELETE</b> to arm: <input id="dcuConfirm" style="width:110px" autocomplete="off"></label>
-          <button class="btn primary" id="dcuDeleteBtn" disabled>🗑 Delete the ticked <span class="tag block">writes</span></button>
-        </div>
+        ${table(b.deletable, "dcux", "dcuMasterX", "Device", selX)}
       </div>
+      <div class="ae-selbar" id="dcuBarX"><b id="dcuBarXCount"></b>
+        <label class="mini" style="display:inline-flex;align-items:center;gap:6px;color:#fff">Type <b>DELETE</b> to arm: <input id="dcuConfirm" style="width:110px" autocomplete="off"></label>
+        <button class="btn primary" id="dcuDeleteBtn" disabled>🗑 Delete the ticked <span class="tag block">writes</span></button>
+        <button class="ae-selbar-x" id="dcuBarXX" title="Clear the selection">✕</button></div>`;
 
-      <div class="tb-actions" style="margin-top:12px">
-        <button class="btn" id="dcuMd">📝 Report (Markdown)</button>
+    const res = `
+      <div class="list-card" style="margin-top:0">
+        <h4 style="margin:0 0 6px">Results — this session</h4>
+        ${resultsHtml || `<p class="mini muted" style="margin:0">No actions run yet. Tick devices in ① or ② and the floating button appears.</p>`}
+        <div class="tb-actions" style="margin-top:10px">
+          <button class="btn" id="dcuMd">📝 Report (Markdown)</button>
+        </div>
       </div>
       <div id="dcuResults" style="margin-top:10px"></div>`;
 
-    // the 10531 selection pattern, twice — three faces, one selection each
-    const wireSel = (tickAttr, masterId, allId, noneId, countId) => {
-      const ticks = () => [...$("dcuBody").querySelectorAll(`[data-${tickAttr}]`)];
+    // ---- the rail: both step counts always visible, red is work waiting
+    const node = (id, icon, label, right, bad) => `<div class="ep-node${dcuPane === id ? " active" : ""}" data-dcupane="${id}" role="button" tabindex="0">
+      <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const rail = node("overview", "🧹", "Overview", devices ? devices.length : "—", false)
+      + node("disable", "🌙", "① Disable", b.stale.length, b.stale.length > 0)
+      + node("delete", "🗑", "② Delete", b.deletable.length, b.deletable.length > 0)
+      + node("results", "📋", "Results", lastResults ? lastResults.length : "—", false);
+    const paneHtml = { overview: ov, disable: dis, delete: del, results: res }[dcuPane] || ov;
+    $("dcuBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
+
+    // ---- wiring ----
+    $("dcuBody").querySelectorAll("[data-dcupane]").forEach((n) => n.addEventListener("click", () => {
+      dcuPane = n.dataset.dcupane;
+      render();
+    }));
+
+    // the 10531 selection pattern — now FOUR faces of one selection: the
+    // master box, the all/none buttons, the row ticks, and the floating bar
+    const wireSel = (tickAttr, masterId, allId, noneId, countId, sel, rows2, barId, barCountId) => {
       const master = $(masterId);
+      if (!master) return () => {};
+      const ticks = () => [...$("dcuBody").querySelectorAll(`[data-${tickAttr}]`)];
       const sync = () => {
         const t = ticks(), on = t.filter((c) => c.checked).length;
+        sel.clear();
+        t.forEach((c) => { if (c.checked) sel.add(rows2[+c.dataset[tickAttr]].d.id); });
         master.checked = on > 0 && on === t.length;
         master.indeterminate = on > 0 && on < t.length;
         const c2 = $(countId); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+        const bar = $(barId);
+        if (bar) {
+          bar.classList.toggle("visible", on > 0);
+          const bc = $(barCountId); if (bc) bc.textContent = `${on} device${on === 1 ? "" : "s"} ticked`;
+        }
       };
       const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
       master.addEventListener("change", () => setAll(master.checked));
@@ -304,17 +353,20 @@ const DeviceCleanupTool = (() => {
       $(noneId).addEventListener("click", () => setAll(false));
       ticks().forEach((c) => c.addEventListener("change", sync));
       sync();
+      return setAll;
     };
-    $("dcuBody").querySelectorAll("[data-dcujump]").forEach((c) => c.addEventListener("click", () => {
-      const el = $(c.dataset.dcujump);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }));
-    wireSel("dcud", "dcuMasterD", "dcuAllD", "dcuNoneD", "dcuCountD");
-    wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX", "dcuCountX");
-    $("dcuConfirm").addEventListener("input", () => { $("dcuDeleteBtn").disabled = $("dcuConfirm").value.trim() !== "DELETE"; });
-    $("dcuDisableBtn").addEventListener("click", () => act("disable"));
-    $("dcuDeleteBtn").addEventListener("click", () => act("delete"));
-    $("dcuMd").addEventListener("click", () => download(`entra-device-cleanup-${new Date().toISOString().slice(0, 10)}.md`,
+    if (dcuPane === "disable") {
+      const setAll = wireSel("dcud", "dcuMasterD", "dcuAllD", "dcuNoneD", "dcuCountD", selD, b.stale, "dcuBarD", "dcuBarDCount");
+      $("dcuBarDX").addEventListener("click", () => setAll(false));
+      $("dcuDisableBtn").addEventListener("click", () => act("disable"));
+    }
+    if (dcuPane === "delete") {
+      const setAll = wireSel("dcux", "dcuMasterX", "dcuAllX", "dcuNoneX", "dcuCountX", selX, b.deletable, "dcuBarX", "dcuBarXCount");
+      $("dcuBarXX").addEventListener("click", () => setAll(false));
+      $("dcuConfirm").addEventListener("input", () => { $("dcuDeleteBtn").disabled = $("dcuConfirm").value.trim() !== "DELETE"; });
+      $("dcuDeleteBtn").addEventListener("click", () => act("delete"));
+    }
+    if ($("dcuMd")) $("dcuMd").addEventListener("click", () => download(`entra-device-cleanup-${new Date().toISOString().slice(0, 10)}.md`,
       DeviceCleanup.markdown({ buckets, results: lastResults, tenant: tenantName() })));
   }
 
@@ -325,7 +377,7 @@ const DeviceCleanupTool = (() => {
     const ops = [...$("dcuBody").querySelectorAll(`[data-${attr}]`)]
       .filter((c) => c.checked)
       .map((c) => ({ kind, ...src[+c.dataset[attr]] }));
-    if (!ops.length) { $("dcuResults").innerHTML = `<p class="mini muted" style="margin:0">Nothing ticked.</p>`; return; }
+    if (!ops.length) return;   // the floating bar only shows with a tick
     running = true;
     try {
       // the write scope at the click that writes — TUNO's first directory-
@@ -336,12 +388,18 @@ const DeviceCleanupTool = (() => {
       lastResults = (lastResults || []).concat(results);
       const good = results.filter((r) => r.outcome === "disabled" || r.outcome === "deleted").length;
       const bad = results.filter((r) => r.outcome === "failed").length;
-      $("dcuResults").innerHTML = `
+      // the acted selection is spent; the answer lands on the Results pane
+      (kind === "disable" ? selD : selX).clear();
+      resultsHtml = `
         <p class="mini" style="margin:0 0 6px"><b>${good} ${kind === "disable" ? "disabled" : "deleted"}</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} · ${results.length - good - bad} skipped/refused — every verdict is a read-back, not a status code. 📝 the report carries all of it; 🧹 Read again re-buckets.</p>
-        ${results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}`;
+        ${results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}` + resultsHtml;
+      dcuPane = "results";
+      render();
     } catch (e) {
       prog("");
-      $("dcuResults").innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
+      resultsHtml = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>` + resultsHtml;
+      dcuPane = "results";
+      render();
     } finally { running = false; }
   }
 

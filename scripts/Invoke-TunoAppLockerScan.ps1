@@ -261,7 +261,7 @@ $ErrorActionPreference = 'Stop'
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
 $script:ScriptVersion = '1.8.0'
-$script:TunoBuild = 10548
+$script:TunoBuild = 10549
 
 # WHICH CHANNEL SERVED THIS COPY.
 #

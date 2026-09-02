@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10549, date: "2026-09-02", title: "Device cleanup: the rail and the floating action bar",
+    items: [
+      { kind: "improved", tool: "Entra device cleanup", text: "Overview, \u2460 Disable, \u2461 Delete and Results become rail panes \u2014 switching between the 30-day and the 90-day question is a click, with both step counts always on the rail so disable-before-delete stays visible. And the action now follows the ticking: a floating bar (the assignment editor's own) appears with the first ticked device, carries the count, the button and the typed-DELETE arm, and never sits a long scroll below the list. Selections survive switching panes; an apply lands on Results." },
+    ],
+  },
+  {
     build: 10548, date: "2026-09-01", title: "The layout round closes — audit chips pin, cleanup cards jump",
     items: [
       { kind: "improved", tool: "All tools", text: "The change audit's type chips pin above the uncapped timeline, and the device cleanup's finding cards jump to their sections \u2014 its two-step story stays deliberately stacked, because a layout that hides the disable step while the delete step arms would invite doing them in the wrong order. That closes the layout round: eleven builds, every tool from the survey either converted, pinned, or left alone on purpose with the reason written down." },
