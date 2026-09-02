@@ -612,6 +612,14 @@ const Graph = (() => {
     return (r && r.value || []).filter((p) => (p["@odata.type"] || "").indexOf("windows10CustomConfiguration") >= 0);
   }
 
+  // INTUNE ENCRYPTS CUSTOM OMA-URI VALUES AT REST (10563). The profile list
+  // answers every string setting as { isEncrypted: true, value: null,
+  // secretReferenceValueId } — the value itself comes only from this
+  // function, one call per setting. Same scope as the list read.
+  async function omaSettingPlainText(profileId, secretReferenceValueId) {
+    const r = await get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/getOmaSettingPlainTextValue(secretReferenceValueId='${encodeURIComponent(secretReferenceValueId)}')`, { scopes: SCOPES.profiles });
+    return r && typeof r.value === "string" ? r.value : (typeof r === "string" ? r : "");
+  }
   // TUNO never overwrites a profile it did not create. Two things collide:
   // a profile with the same NAME (the admin will not be able to tell them
   // apart) and a profile writing the same GROUPING (they fight over one CSP
@@ -706,7 +714,7 @@ const Graph = (() => {
 
   return {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, patch, del, customProfiles, collisions, createProfile,
+    get, post, patch, del, customProfiles, omaSettingPlainText, collisions, createProfile,
     remediations, createRemediation,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)

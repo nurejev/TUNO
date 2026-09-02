@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10563, date: "2026-09-02", title: "AppLocker reads the encrypted OMA-URI values",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Intune encrypts custom OMA-URI values at rest, so the profile list hands back every AppLocker collection with no value and a secret reference — which the tool reported as \"no readable RuleCollection values\" and refused to compare or adopt. The value comes only from a separate plain-text read per setting; the compare and pull-from-the-tenant now make that read first. A refused decrypt is reported with Graph's reason, never as an empty policy." },
+    ],
+  },
+  {
     build: 10562, date: "2026-09-02", title: "AppLocker: the adopted profile stays on the panel",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "In a tenant running more than one AppLocker profile, adopting one's identity made it disappear from the deploy panel — the 'matches the deployed profile' line only rendered when no other grouping existed — and Compare and Update in place went with it. The matched profile now has its own line whatever else the tenant runs, with Compare and Update in place beside it; the other groupings keep their list below." },

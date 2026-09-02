@@ -748,10 +748,32 @@ const AppLockerTool = (() => {
   // The policy a custom profile carries, rebuilt from its RuleCollection
   // values. Shared by adopt (which REPLACES the draft with it) and by the
   // compare (which holds it up beside the draft) — one reader, one answer.
+  // Intune encrypts custom OMA-URI values at rest (10563): the profile
+  // list hands back { isEncrypted, value: null, secretReferenceValueId }
+  // for every AppLocker collection, and the value comes only from
+  // getOmaSettingPlainTextValue, one call per setting. Every reader of a
+  // tenant profile goes through this first; a value that cannot be
+  // fetched is named as such, never read as an empty collection.
+  async function hydrateAppLocker(p) {
+    const out = Object.assign({}, p, { omaSettings: (p.omaSettings || []).map((s) => Object.assign({}, s)) });
+    const todo = out.omaSettings.filter((s) => s && APPLOCKER_OMA_RE.test(String(s.omaUri || ""))
+      && s.isEncrypted && (s.value === null || s.value === undefined || s.value === "") && s.secretReferenceValueId);
+    for (const s of todo) {
+      try { s.value = await Graph.omaSettingPlainText(p.id, s.secretReferenceValueId); s._decrypted = true; }
+      catch (e) { s._decryptError = String((e && e.message) || e).slice(0, 160); }
+    }
+    return out;
+  }
   function policyOfProfile(p) {
     const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
     const values = settings.map((s) => String(s.value || "")).filter((v) => /<RuleCollection/i.test(v));
-    if (!values.length) throw new Error("That profile's AppLocker settings carry no readable RuleCollection values — Graph may have withheld them. Export the policy from the portal instead.");
+    if (!values.length) {
+      const enc = settings.filter((s) => s.isEncrypted && !s.value);
+      const bad = settings.find((s) => s._decryptError);
+      if (bad) throw new Error(`The profile's AppLocker values are encrypted at rest and Graph refused to decrypt them — ${bad._decryptError}. This read needs DeviceManagementConfiguration.ReadWrite.All consented for the app.`);
+      if (enc.length) throw new Error("The profile's AppLocker values are encrypted at rest and were not fetched — the plain-text read did not run.");
+      throw new Error("That profile's AppLocker settings carry no readable RuleCollection values. Export the policy from the portal instead.");
+    }
     const xml = `<AppLockerPolicy Version="1">\n${values.join("\n")}\n</AppLockerPolicy>`;
     return parsePolicy(xml, p.displayName || "tenant profile");
   }
@@ -833,8 +855,8 @@ const AppLockerTool = (() => {
     return L.join("\n");
   }
 
-  function adoptTenantProfile(p) {
-    policy = policyOfProfile(p);
+  async function adoptTenantProfile(p) {
+    policy = policyOfProfile(await hydrateAppLocker(p));
     scan = null; scanSource = "";
     importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
     // Adopt the profile's identity so the export EDITS rather than duplicates.
@@ -962,8 +984,7 @@ const AppLockerTool = (() => {
     host.querySelectorAll(".al-ev-adopt").forEach((b) => b.addEventListener("click", () => {
       const p = (evTenant.list || [])[+b.dataset.i];
       if (!p) return;
-      try { adoptTenantProfile(p); }
-      catch (e) { evTenant.error = e.message; renderEventsCard(); }
+      adoptTenantProfile(p).catch((e) => { evTenant.error = e.message; renderEventsCard(); });
     }));
   }
 
@@ -3503,7 +3524,7 @@ const AppLockerTool = (() => {
       const target = existing.find((p) => p.id === profileId);
       if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check.");
       const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
-      const deployed = policyOfProfile(target);
+      const deployed = policyOfProfile(await hydrateAppLocker(target));
       const mine = toBeDeployedPolicy(mode);
       d.diff = { id: target.id, name: target.displayName || "(unnamed)", mode, result: diffPolicies(deployed, mine), when: new Date().toISOString() };
       d.busy = "";
