@@ -526,12 +526,23 @@ const MacBaselineTool = (() => {
     render(sourceNote);
   }
 
+  // The rail (10552): the 10528 seg grown into the shared ep-rail chrome,
+  // each node carrying the state of its act — the compare's worst count,
+  // whether the upstream zip is loaded and how much of it wants review.
   function renderSeg() {
     const el = $("mbSeg");
     if (!el) return;
-    const tabs = [["compare", "🍎 Compare"], ...(isCfdev() ? [["export", "🧬 Export"]] : []),
-      ["import", "📥 Import"], ...(isCfdev() ? [["upstream", "🍏 Upstream"]] : [])];
-    el.innerHTML = tabs.map(([k, l]) => `<button type="button" data-mbmode="${k}" class="${mode === k ? "active" : ""}">${l}</button>`).join("");
+    const c = activeCatalog();
+    const node = (k, icon, label, right, bad) => `<div class="ep-node${mode === k ? " active" : ""}" data-mbmode="${k}" role="button" tabindex="0">
+      <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
+    const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) : null;
+    const upBad = upstream ? upstream.rows.filter((r) => r.status !== "same").length : null;
+    el.innerHTML = [
+      node("compare", "🍎", "Compare", cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
+      ...(isCfdev() ? [node("export", "🧬", "Export", res ? "ready" : "read first", false)] : []),
+      node("import", "📥", "Import", c ? `${c.policies.length}` : "no catalog", !c),
+      ...(isCfdev() ? [node("upstream", "🍏", "Upstream", upstream === null ? "load the zip" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
+    ].join("");
   }
 
   function render(sourceNote) {
@@ -695,6 +706,7 @@ const MacBaselineTool = (() => {
       };
       $("mbUpNote").textContent = "";
       renderUpstream();
+      renderSeg();   // the rail's upstream node now knows the zip is in
     } catch (e) {
       $("mbUpNote").textContent = `The zip could not be read: ${(e && e.message) || e}`;
     }
@@ -744,18 +756,22 @@ const MacBaselineTool = (() => {
     $("mbUpstream").innerHTML = `<div class="list-card">
       <h4 style="margin:0 0 6px">🍏 intune-my-macs vs the baseline <span class="mini muted">— loaded ${esc(upstream.when)}</span></h4>
       ${cards}
-      <p class="mini muted" style="margin:10px 0 8px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(MacBaseline.relLabel(MacBaseline.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.${upstream.skipped.length ? ` · ${upstream.skipped.length} file(s) skipped (${esc(upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 2).join(", "))}${upstream.skipped.length > 2 ? "…" : ""})` : ""}</p>
+      <p class="mini muted" style="margin:10px 0 4px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(MacBaseline.relLabel(MacBaseline.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.</p>
+      ${upstream.skipped.length ? `<p class="mini muted" style="margin:0 0 8px">${upstream.skipped.length} file(s) skipped: ${esc(upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 3).join(", "))}${upstream.skipped.length > 3 ? "…" : ""}</p>` : ""}
+      <div class="tb-actions" style="margin:8px 0 8px">
+        <button class="btn" id="mbUpAll">☑ Select all</button>
+        <button class="btn" id="mbUpNone">☐ Select none</button>
+        <span class="mini muted" id="mbUpCount"></span>
+        <button class="btn" id="mbUpMd" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
+      </div>
       <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
         <thead><tr><th><input type="checkbox" id="mbUpMaster" title="Select or deselect every row below"></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
         <tbody>${rows.map(row).join("")}</tbody></table></div>
-      <div class="tb-actions" style="margin-top:10px">
-        <button class="btn primary" id="mbUpDry">🔍 Dry run the ticked</button>
-        <button class="btn" id="mbUpAll">☑ Select all</button>
-        <button class="btn" id="mbUpNone">☐ Select none</button>
-        <button class="btn" id="mbUpMd" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
-      </div>
       <div id="mbUpPlan" style="margin-top:10px"></div>
-    </div>`;
+    </div>
+    <div class="ae-selbar" id="mbUpBar"><b id="mbUpBarCount"></b>
+      <button class="btn primary" id="mbUpDry">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
+      <button class="ae-selbar-x" id="mbUpBarX" title="Clear the selection">✕</button></div>`;
     // stable index → row mapping for the dry run
     $("mbUpstream").dataset.order = JSON.stringify(rows.map((r) => upstream.rows.indexOf(r)));
     $("mbUpDry").addEventListener("click", upDryRun);
@@ -764,15 +780,26 @@ const MacBaselineTool = (() => {
     // step so none of them can lie about the others
     const ticks = () => [...$("mbUpstream").querySelectorAll("[data-uptick]")];
     const master = $("mbUpMaster");
+    // FOUR faces of one selection (the 10549 pattern): master box, the
+    // all/none buttons above the table (the 10533 rule — never below it),
+    // the row ticks, and the floating bar carrying the dry run, so a long
+    // curation list never puts the action a scroll away.
     const syncMaster = () => {
       const t = ticks(), on = t.filter((c) => c.checked).length;
       master.checked = on > 0 && on === t.length;
       master.indeterminate = on > 0 && on < t.length;
+      const c2 = $("mbUpCount"); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+      const bar = $("mbUpBar");
+      if (bar) {
+        bar.classList.toggle("visible", on > 0);
+        const bc = $("mbUpBarCount"); if (bc) bc.textContent = `${on} polic${on === 1 ? "y" : "ies"} ticked`;
+      }
     };
     const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); syncMaster(); };
     master.addEventListener("change", () => setAll(master.checked));
     $("mbUpAll").addEventListener("click", () => setAll(true));
     $("mbUpNone").addEventListener("click", () => setAll(false));
+    $("mbUpBarX").addEventListener("click", () => setAll(false));
     $("mbUpstream").addEventListener("change", (e) => { if (e.target.closest("[data-uptick]")) syncMaster(); });
     syncMaster();
     $("mbUpMd").addEventListener("click", () => {

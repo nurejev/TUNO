@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10552, date: "2026-09-02", title: "The macOS baseline joins the rail — and the upstream card straightens up",
+    items: [
+      { kind: "improved", tool: "macOS baseline", text: "The four acts \u2014 Compare, Export, Import, Upstream \u2014 move from tabs onto the rail, each node carrying its state: the compare's worst count in red, whether the upstream zip is loaded and how much of it wants review. On the upstream card, Select all and Select none now sit above the table with a ticked count (they were hiding below it), and the dry run rides the floating bar that appears with the first tick." },
+    ],
+  },
+  {
     build: 10551, date: "2026-09-02", title: "The tiles say what moved — and the moved lead their section",
     items: [
       { kind: "improved", tool: "TUNO", text: "Every tool the beta channel has changed since the last promotion now wears UPDATED on its home tile (NEW while it is still beta-only) — derived from the promotion queue itself, so the chips cannot rot the way hand-stamped ones did, and they vanish by themselves the moment a promotion empties the queue. And tiles wearing NEW or UPDATED lead their section, on both channels, so what moved is the first thing the grid says." },
