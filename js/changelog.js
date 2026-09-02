@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10566, date: "2026-09-02", title: "Roadmap: the command palette joins Next",
+    items: [
+      { kind: "new", tool: "🗺 Roadmap", text: "R38, the command palette — after ENCA's R03. Ctrl/Cmd + K anywhere opens a search box: a few letters land in a tool, a policy name lands on its policy card, initials match as well as substrings (gm finds Group migration, maa finds Multi-admin approval), and a T-number typed as t17 is honoured. No keystroke goes to the tenant: the tool list is bundled and the policy half searches the cache the sign-in prefetch already warmed. Next re-opens for it — the era had stood empty since R02 shipped." },
+    ],
+  },
+  {
     build: 10565, date: "2026-09-02", title: "Entra device cleanup takes the way back",
     items: [
       { kind: "new", tool: "Entra device cleanup", text: "A Re-enable pane, beside Disable and Delete: every disabled device the read found, tick the ones somebody wants back, and the floating bar re-enables them with the same fresh read, write and read-back the disable step uses. No threshold applies — a disabled device cannot sign in. The buckets now follow every verified outcome: a device disabled in step one appears on Re-enable at once, one re-enabled there leaves the delete list, and a failed write moves nothing. The report gains a Re-enabled section." },

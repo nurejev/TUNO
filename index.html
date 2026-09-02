@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10565"></script>
+<script src="js/popup-guard.js?v=10566"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10565">
+<link rel="stylesheet" href="css/app.css?v=10566">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10565"></script>
+<script src="js/selfhost-boot.js?v=10566"></script>
 </head>
 <body>
 
@@ -1723,6 +1723,15 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           </div>
         </div>
         
+        <div class="rm-era next future">
+          <h3>Next</h3>
+          <div class="list-card rm-card">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R38</span> ⌨️ Command palette <span class="tag">reads nothing new</span></h4>
+            <p class="mini" style="margin:0">After ENCA's <span class="rm-ref">R03</span> (live there since build 267). Past twenty-odd tools, a tile grid stops being the fastest way in. <b>Ctrl/Cmd + K anywhere</b> opens a search box: type a few letters and land in the tool; type a policy name and land on its policy card — the documenter's popout, the one template every tool already shares. Matching takes <b>initials as well as substrings</b>, so <code>gm</code> finds Group migration, <code>maa</code> finds Multi-admin approval and <code>asr</code> finds Firewall &amp; ASR coverage.</p>
+            <p class="mini" style="margin:6px 0 0"><b>No keystroke goes to the tenant.</b> The tool list is bundled, and the policy half searches the shared policy cache the sign-in prefetch already warmed — the thirteen surfaces T05 reads, in memory, so a name that is not in the cache is offered as "read the tenant first", never as absent. Escape closes it, the arrow keys walk it, Enter goes; the same modal contract as every other overlay here, so it never traps the keyboard.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Where it differs from ENCA</b>: ENCA lands on a CA number because a CA number is its identity; TUNO's identities are names (and, for the macOS baseline, release tags), so the palette matches on those — and a T-number typed as <code>t17</code> is honoured too, because the T-numbers are permanent and people say them out loud.</p>
+          </div>
+        </div>
         <div class="rm-era later">
           <h3>Later</h3>
           <div class="list-card rm-card">
@@ -2072,48 +2081,48 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10565"></script>
-<script src="js/selfhost.js?v=10565"></script>
-<script src="js/version.js?v=10565"></script>
-<script src="js/promote.js?v=10565"></script>
-<script src="js/authConfig.js?v=10565"></script>
-<script src="js/changelog.js?v=10565"></script>
-<script src="js/msappcatalog.js?v=10565"></script>
-<script src="js/demo.js?v=10565"></script>
-<script src="js/graph.js?v=10565"></script>
-<script src="js/suggest.js?v=10565"></script>
-<script src="js/progress.js?v=10565"></script>
-<script src="js/groupuse.js?v=10565"></script>
-<script src="js/audit.js?v=10565"></script>
-<script src="js/devicecleanup.js?v=10565"></script>
-<script src="js/backup.js?v=10565"></script>
-<script src="js/document.js?v=10565"></script>
-<script src="js/policycache.js?v=10565"></script>
-<script src="js/overview.js?v=10565"></script>
-<script src="js/devicewhy.js?v=10565"></script>
-<script src="js/whatif.js?v=10565"></script>
-<script src="js/health.js?v=10565"></script>
-<script src="js/settingsearch.js?v=10565"></script>
-<script src="js/conflict.js?v=10565"></script>
-<script src="js/compliance.js?v=10565"></script>
-<script src="js/filterrules.js?v=10565"></script>
-<script src="js/filters.js?v=10565"></script>
-<script src="js/restore.js?v=10565"></script>
-<script src="js/macbaselineData.js?v=10565"></script>
-<script src="js/complianceevidence.js?v=10565"></script>
-<script src="js/macbaseline.js?v=10565"></script>
-<script src="js/assignedit.js?v=10565"></script>
-<script src="js/restrictedau.js?v=10565"></script>
-<script src="js/groupmigrate.js?v=10565"></script>
-<script src="js/roles.js?v=10565"></script>
-<script src="js/defender.js?v=10565"></script>
-<script src="js/endpointsec.js?v=10565"></script>
-<script src="js/report.js?v=10565"></script>
-<script src="js/securescore.js?v=10565"></script>
-<script src="js/endpointposture.js?v=10565"></script>
-<script src="js/maa.js?v=10565"></script>
-<script src="js/laps.js?v=10565"></script>
-<script src="js/applocker.js?v=10565"></script>
-<script src="js/app.js?v=10565"></script>
+<script src="js/branding.js?v=10566"></script>
+<script src="js/selfhost.js?v=10566"></script>
+<script src="js/version.js?v=10566"></script>
+<script src="js/promote.js?v=10566"></script>
+<script src="js/authConfig.js?v=10566"></script>
+<script src="js/changelog.js?v=10566"></script>
+<script src="js/msappcatalog.js?v=10566"></script>
+<script src="js/demo.js?v=10566"></script>
+<script src="js/graph.js?v=10566"></script>
+<script src="js/suggest.js?v=10566"></script>
+<script src="js/progress.js?v=10566"></script>
+<script src="js/groupuse.js?v=10566"></script>
+<script src="js/audit.js?v=10566"></script>
+<script src="js/devicecleanup.js?v=10566"></script>
+<script src="js/backup.js?v=10566"></script>
+<script src="js/document.js?v=10566"></script>
+<script src="js/policycache.js?v=10566"></script>
+<script src="js/overview.js?v=10566"></script>
+<script src="js/devicewhy.js?v=10566"></script>
+<script src="js/whatif.js?v=10566"></script>
+<script src="js/health.js?v=10566"></script>
+<script src="js/settingsearch.js?v=10566"></script>
+<script src="js/conflict.js?v=10566"></script>
+<script src="js/compliance.js?v=10566"></script>
+<script src="js/filterrules.js?v=10566"></script>
+<script src="js/filters.js?v=10566"></script>
+<script src="js/restore.js?v=10566"></script>
+<script src="js/macbaselineData.js?v=10566"></script>
+<script src="js/complianceevidence.js?v=10566"></script>
+<script src="js/macbaseline.js?v=10566"></script>
+<script src="js/assignedit.js?v=10566"></script>
+<script src="js/restrictedau.js?v=10566"></script>
+<script src="js/groupmigrate.js?v=10566"></script>
+<script src="js/roles.js?v=10566"></script>
+<script src="js/defender.js?v=10566"></script>
+<script src="js/endpointsec.js?v=10566"></script>
+<script src="js/report.js?v=10566"></script>
+<script src="js/securescore.js?v=10566"></script>
+<script src="js/endpointposture.js?v=10566"></script>
+<script src="js/maa.js?v=10566"></script>
+<script src="js/laps.js?v=10566"></script>
+<script src="js/applocker.js?v=10566"></script>
+<script src="js/app.js?v=10566"></script>
 </body>
 </html>
