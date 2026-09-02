@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10558, date: "2026-09-02", title: "Group migration joins the rail — and says what is still to do",
+    items: [
+      { kind: "improved", tool: "Group migration", text: "The screen takes the rail: Overview, Groups, Restricted units, Archived. The read now lands on Overview, which lays out the four steps of a migration with their counts — the read done, \"0 of 157 examined\" marked as now, plan-and-apply per group, and the finishing work TUNO cannot do for you (the Intune surfaces it cannot write, the Conditional Access and licensing it cannot see, the rollback to delete) — so a finished list is never mistaken for a finished job. The restricted-unit count and the archived count became panes of their own; the detected prefix became two filter chips, wears it and does not." },
+      { kind: "improved", tool: "Group migration", text: "A State column on the Groups table says what this sitting did with each group: not examined, plan ready but not applied, refused with the reason, frozen, migrated and archived as what. It moves when the examine window closes, the button turns into Re-examine, a migrated group's button is off, and a re-read clears it all." },
+    ],
+  },
+  {
     build: 10557, date: "2026-09-02", title: "The AppLocker scan carries the Microsoft coverage — and says what a bundle load costs",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Clicking Add allow rule for OneDrive, classic Teams and the Defender platform, scanning again and finding all three \"would be blocked\" again was not a bug in the check — it was the loop: a scan is made on the device, cannot know what was clicked in the browser, and every bundle hands over the rule set the scan itself generated. So the scanner (v1.10.0) now generates those three allows itself: OneDrive by publisher (any version, per-user and machine-wide alike), classic Teams by publisher, and the Defender Platform folder under ProgramData by path. A fresh scan passes the coverage check. -NoMicrosoftCoverage leaves them out, and the bundle records the choice." },

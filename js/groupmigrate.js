@@ -1006,6 +1006,18 @@ const GroupMigrateTool = (() => {
   let filter = "all";             // which chip is in force
   const archSel = new Set();      // archived groups ticked for cleanup
   let archRefs = null;            // referencesMany() for the ticked set, or null
+  // THE RAIL (10558, Option A on the mockup): Overview | Groups | Restricted
+  // units | Archived — panes by KIND, the group filters staying chips inside
+  // the Groups pane. Overview is where the read lands, because the read is
+  // step one of four and the other three are still the operator's to do.
+  let pane = "overview";
+  // What has happened to each group THIS SESSION — examined, its verdict,
+  // migrated. The list read knows none of this (it is truth about the
+  // tenant, not about the sitting), and the State column and the Overview's
+  // "N of M examined" are drawn from here. Cleared by a re-read.
+  const gstate = new Map();       // id → { examined, verdict, reason, migrated, newId, archiveName }
+  const stateOf = (id) => gstate.get(GroupMigrate.lc(id)) || null;
+  const setState = (id, patch) => gstate.set(GroupMigrate.lc(id), { ...(stateOf(id) || {}), ...patch });
 
   const prog = (m, n, of) => TunoProgress.show("gmBody", "gmProg", m, n, of);
   // Inside the modal there is no separate progress line and no results to
@@ -1089,7 +1101,7 @@ const GroupMigrateTool = (() => {
     if (busy) return;
     busy = true; chosen = null; plan = null; result = null;
     $("gmBody").innerHTML = "";
-    unitsError = "";
+    unitsError = ""; pane = "overview"; gstate.clear();
     // TWO READS, REPORTED SEPARATELY. They were in one try/catch, so a 403
     // on the ADMINISTRATIVE UNITS printed "Could not read the groups" — a
     // message about the call that had already succeeded. That sent the
@@ -1140,12 +1152,20 @@ const GroupMigrateTool = (() => {
   // restricted-unit count and the detected prefix are facts about the
   // tenant, not properties of a group, and dressing them as filters would
   // promise a narrowing that cannot happen.
+  // The prefix chips (10558, Mihai: "should have filters … prefix CAB
+  // detected") — a detected tenant prefix IS a property of a group (it wears
+  // it or it does not), so it earns a filter where the unit count still
+  // does not. The restricted-unit count and the archived count moved to the
+  // rail, where each is a pane of its own.
+  const wearsPrefix = (g) => !!list.prefix && GroupMigrate.lc(g.name).startsWith(GroupMigrate.lc(list.prefix) + "-");
   const FILTERS = {
-    all: { label: "role-assignable", of: (live) => live },
-    dynamic: { label: "⚠ carries a membership rule", of: (live) => live.filter((g) => g.dynamic) },
-    nodest: { label: "no destination worked out", of: (live) => live.filter((g) => !g.suggestedUnit) },
+    all: { label: () => "role-assignable", of: (live) => live },
+    dynamic: { label: () => "⚠ carries a membership rule", of: (live) => live.filter((g) => g.dynamic) },
+    nodest: { label: () => "no destination worked out", of: (live) => live.filter((g) => !g.suggestedUnit) },
+    prefix: { label: () => `prefix ${list.prefix.toUpperCase()}-`, of: (live) => list.prefix ? live.filter(wearsPrefix) : [] },
+    noprefix: { label: () => `no ${list.prefix.toUpperCase()}- prefix`, of: (live) => list.prefix ? live.filter((g) => !wearsPrefix(g)) : [] },
   };
-  function chipsHtml(live, archived) {
+  function chipsHtml(live) {
     const out = [];
     for (const [k, f] of Object.entries(FILTERS)) {
       const n = f.of(live).length;
@@ -1153,12 +1173,21 @@ const GroupMigrateTool = (() => {
       // in force — an always-visible "0 dynamic" chip is a button that does
       // nothing, and the list is long enough without them.
       if (!n && filter !== k) continue;
-      out.push(`<button class="gu-stat act ${filter === k ? "on" : ""} ${n ? "" : "zero"}" data-gmf="${k}"><b>${n}</b> ${esc(f.label)}</button>`);
+      out.push(`<button class="gu-stat act ${filter === k ? "on" : ""} ${n ? "" : "zero"}" data-gmf="${k}"><b>${n}</b> ${esc(f.label())}</button>`);
     }
-    out.push(`<span class="gu-stat ${units.restricted.length ? "" : "zero"}"><b>${units.restricted.length}</b> restricted unit${units.restricted.length === 1 ? "" : "s"}</span>`);
-    if (archived.length) out.push(`<span class="gu-stat"><b>${archived.length}</b> archived by an earlier run</span>`);
-    if (list.prefix) out.push(`<span class="gu-stat">prefix <b>${esc(list.prefix.toUpperCase())}</b> detected</span>`);
     return out.join("");
+  }
+
+  // The State column: what THIS SITTING has done with the group.
+  function stateHtml(g) {
+    const st = stateOf(g.id);
+    if (!st || !st.examined) return `<span class="tag" style="background:var(--blue-bg);color:var(--blue)">not examined</span>`;
+    if (st.migrated) return `<span class="tag grant">migrated</span><div class="mini muted">archived as ${esc(st.archiveName || "")}</div>`;
+    if (st.verdict === "frozen") return `<span class="tag block">🧊 frozen</span><div class="mini muted">${esc(st.reason || "")}</div>`;
+    if (st.verdict === "refused") return `<span class="tag block">refused</span><div class="mini muted">${esc(st.reason || "")}</div>`;
+    if (st.verdict === "failed") return `<span class="tag block">migration failed</span><div class="mini muted">${esc(st.reason || "")}</div>`;
+    if (st.verdict === "ok") return `<span class="tag" style="background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-bd)">plan ready — not applied</span>`;
+    return `<span class="tag">examined</span>`;
   }
 
   function renderList() {
@@ -1172,6 +1201,55 @@ const GroupMigrateTool = (() => {
         “only Global Administrator or Privileged Role Administrator may touch it”.</p></div>`;
       return;
     }
+    const examined = all.filter((g) => { const st = stateOf(g.id); return st && st.examined; }).length;
+    const migrated = all.filter((g) => { const st = stateOf(g.id); return st && st.migrated; }).length;
+    const planReady = all.filter((g) => { const st = stateOf(g.id); return st && st.verdict === "ok" && !st.migrated; }).length;
+    const refused = all.filter((g) => { const st = stateOf(g.id); return st && (st.verdict === "refused" || st.verdict === "frozen"); }).length;
+    const dyn = all.filter((g) => g.dynamic).length;
+    const nodest = all.filter((g) => !g.suggestedUnit).length;
+
+    // The units could not be read. Say so ONCE, at the top, in the terms the
+    // rest of the screen will now behave in — rather than letting every group
+    // discover it again as a refusal.
+    const unitsWarn = unitsError ? `<div class="list-card" style="border-color:var(--off)">
+      <p class="mini" style="margin:0;color:var(--off)"><b>The administrative units could not be read.</b> ${esc(unitsError)}</p>
+      <p class="mini muted" style="margin:8px 0 0">Needs <code>AdministrativeUnit.Read.All</code>, which this app must have consented by an administrator.
+        The groups are still correct. <b>Nothing can be migrated until this read works</b>: without it the tool cannot tell whether a
+        group is already inside a restricted unit — the 🧊 frozen case, where a role-assignable group in a restricted unit has members
+        nobody at all can change — and migrating on that assumption is exactly the mistake this tool exists to avoid.</p>
+    </div>` : "";
+
+    // ---- OVERVIEW: the four steps, and which of them are done ----
+    // "It should be clear what the tool will still need to do after reading
+    // the tenant" (Mihai, 10558). The read is step one; the other three are
+    // named with their counts so nobody reads a finished list as a finished
+    // job.
+    const step = (cls, t, h, sub) => `<div class="gm-step ${cls}"><div class="gm-step-t">${t}</div><div class="gm-step-h">${h}</div><div class="mini muted">${sub}</div></div>`;
+    const overview = `<div class="list-card">
+      <h4 style="margin:0 0 6px">What the read found — and what is still yours to do</h4>
+      <div class="gm-steps">
+        ${step("done", "✓ 1 · Read", `${all.length} role-assignable group${all.length === 1 ? "" : "s"}`,
+          `${units.restricted.length} restricted unit${units.restricted.length === 1 ? "" : "s"}${list.prefix ? ` · prefix <b>${esc(list.prefix.toUpperCase())}-</b> detected` : ""}${archived.length ? ` · ${archived.length} archived rollback${archived.length === 1 ? "" : "s"}` : ""}${unitsError ? ` · <span style="color:var(--off)">units unread</span>` : ""}`)}
+        ${step(examined < all.length ? "now" : "done", `${examined >= all.length ? "✓ " : ""}2 · Examine, one at a time`, `${examined} of ${all.length} examined`,
+          "Per group: the directory roles it holds, the units already holding it, its members, and the nine Intune surfaces that reference it. Nothing is written.")}
+        ${step(migrated && migrated >= examined ? "done" : planReady ? "now" : "", `3 · Plan and apply`, `${migrated} migrated${planReady ? ` · ${planReady} plan${planReady === 1 ? "" : "s"} ready` : ""}${refused ? ` · ${refused} refused` : ""}`,
+          "Pick or create the destination unit, name its administrator, confirm: rename aside → create → copy members → repoint what TUNO can write.")}
+        ${step("", "4 · Finish by hand", "what TUNO cannot write",
+          "Apps, scripts, app protection, app configuration, enrolment, Autopilot and update rings need write scopes this registration does not declare; Conditional Access, licensing, Azure RBAC and app roles it cannot even see. Each report lists them. Then delete the archived rollback from 🧹 Archived.")}
+      </div>
+      <p class="mini" style="margin:12px 0 0;padding:6px 10px;border-left:3px solid var(--accent2);background:var(--soft2);border-radius:0 8px 8px 0"><b>Nothing has been changed.</b> Reading is free; every write sits behind Examine → Migrate, one group at a time, and each migration ends with the list of references you must move yourself.</p>
+    </div>
+    <div class="list-card">
+      <h4 style="margin:0 0 6px">Worth a look first</h4>
+      <p class="mini" style="margin:0">${[
+        dyn ? `⚠ <b>${dyn}</b> group${dyn === 1 ? "" : "s"} carr${dyn === 1 ? "ies" : "y"} a membership rule Entra forbids on a role-assignable group` : "",
+        nodest ? `<b>${nodest}</b> ${nodest === 1 ? "has" : "have"} no destination worked out from the name — pick one at Examine` : "",
+        archived.length ? `<b>${archived.length}</b> archived rollback${archived.length === 1 ? " is" : "s are"} waiting to be checked and deleted` : "",
+        !units.restricted.length && !unitsError ? `the tenant has <b>no restricted unit yet</b> — the first migration creates one` : "",
+      ].filter(Boolean).join(" · ") || "Nothing stands out: every group has a destination, none carries a membership rule, nothing is left over from an earlier run."}</p>
+    </div>`;
+
+    // ---- GROUPS: the chips, the search, the table ----
     // The search is LOCAL, over the list already in hand — no keystroke goes
     // to the tenant. A tenant-backed typeahead here would be a second read of
     // groups this screen has already read, and it would suggest groups that
@@ -1179,38 +1257,53 @@ const GroupMigrateTool = (() => {
     // Name and object id both match: an id is what a report hands you.
     const q = GroupMigrate.lc(search.trim());
     const shown = q ? live.filter((g) => GroupMigrate.lc(g.name).includes(q) || GroupMigrate.lc(g.id).includes(q)) : live;
-    const rows = shown.map((g) => `<tr>
+    const rows = shown.map((g) => {
+      const st = stateOf(g.id);
+      return `<tr>
       <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div>
         ${g.dynamic ? '<div class="mini" style="color:var(--report)">⚠ carries a membership rule — Entra forbids dynamic membership on a role-assignable group, so this group is in a state worth checking</div>' : ""}</td>
       <td class="mini">${esc(g.suggestedUnit || "—")}</td>
-      <td class="mini"><button class="btn sm primary" data-gmpick="${esc(g.id)}">Examine</button></td>
-    </tr>`).join("");
-    // The units could not be read. Say so ONCE, at the top, in the terms the
-    // rest of the screen will now behave in — rather than letting every group
-    // discover it again as a refusal.
-    const unitsWarn = unitsError ? `<div class="list-card" style="border-color:var(--off);margin-bottom:14px">
-      <p class="mini" style="margin:0;color:var(--off)"><b>The administrative units could not be read.</b> ${esc(unitsError)}</p>
-      <p class="mini muted" style="margin:8px 0 0">Needs <code>AdministrativeUnit.Read.All</code>, which this app must have consented by an administrator.
-        The groups below are still correct. <b>Nothing can be migrated until this read works</b>: without it the tool cannot tell whether a
-        group is already inside a restricted unit — the 🧊 frozen case, where a role-assignable group in a restricted unit has members
-        nobody at all can change — and migrating on that assumption is exactly the mistake this tool exists to avoid.</p>
-    </div>` : "";
-    // The chips and the search pin (10543, the layout round — T19's rule).
-    $("gmBody").innerHTML = unitsWarn + `
-      <div class="toolbar">${chipsHtml(all, archived)}<input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="flex:1;min-width:200px"></div>
+      <td class="mini">${stateHtml(g)}</td>
+      <td class="mini"><button class="btn sm ${st && st.examined ? "" : "primary"}" data-gmpick="${esc(g.id)}" ${st && st.migrated ? "disabled" : ""}>${st && st.examined ? "Re-examine" : "Examine"}</button></td>
+    </tr>`; }).join("");
+    const groups = `<div class="toolbar">${chipsHtml(all)}<input type="text" id="gmSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="flex:1;min-width:200px"></div>
       <div class="list-card">
         <p class="mini muted" style="margin:0 0 12px">Entra caps a tenant at <b>500</b> role-assignable groups, and every
           one of them can only be managed by Global Administrator or Privileged Role Administrator — a list you cannot
           shorten. The suggested unit below follows the <code>${esc(GroupMigrate.UNIT_PREFIX)}</code> convention${list.prefix
             ? ` with <b>${esc(list.prefix.toUpperCase())}-</b> stripped as this tenant's own prefix` : ""}; it is a
-          <b>default</b> and can be changed per group before anything is applied.</p>
-        ${q || filter !== "all" ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${all.length} shown${filter !== "all" ? ` · <b>${esc(FILTERS[filter].label)}</b>` : ""}${q ? ` · matching “${esc(search.trim())}”` : ""}.</p>` : ""}
+          <b>default</b> and can be changed per group before anything is applied. <b>State</b> is what this sitting has done with the group — a re-read clears it.</p>
+        ${q || filter !== "all" ? `<p class="mini muted" style="margin:0 0 8px">${shown.length} of ${all.length} shown${filter !== "all" ? ` · <b>${esc(FILTERS[filter].label())}</b>` : ""}${q ? ` · matching “${esc(search.trim())}”` : ""}.</p>` : ""}
         <div style="overflow-x:auto"><table class="plist">
-          <thead><tr><th>Group</th><th style="width:250px">Suggested unit</th><th style="width:110px"></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="3" class="mini">${q ? "No role-assignable group matches that." : "Every role-assignable group in this tenant is the archived half of an earlier migration."}</td></tr>`}</tbody>
+          <thead><tr><th>Group</th><th style="width:230px">Suggested unit</th><th style="width:170px">State</th><th style="width:110px"></th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="4" class="mini">${q ? "No role-assignable group matches that." : "Every role-assignable group in this tenant is the archived half of an earlier migration."}</td></tr>`}</tbody>
         </table></div>
-      </div>
-      ${archived.length ? renderArchived(archived) : ""}`;
+      </div>`;
+
+    // ---- RESTRICTED UNITS: the vaults the tenant already has ----
+    const unitsPane = unitsError ? unitsWarn : `<div class="list-card">
+      <h4 style="margin:0 0 6px">Restricted management administrative units (${units.restricted.length})</h4>
+      <p class="mini muted" style="margin:0 0 10px">Only units carrying <code>isMemberManagementRestricted</code> — the flag is immutable, so these are the only units a migration can put a group into; "Use an existing one" at Examine offers exactly this list.
+        ${units.unrestricted.length ? `${units.unrestricted.length} ordinary administrative unit${units.unrestricted.length === 1 ? " is" : "s are"} deliberately not listed: an ordinary unit cannot be upgraded into a restricted one.` : ""}</p>
+      ${units.restricted.length ? `<div style="overflow-x:auto"><table class="plist">
+        <thead><tr><th>Unit</th><th>Description</th></tr></thead>
+        <tbody>${units.restricted.map((u) => `<tr><td><b>${esc(u.name)}</b><div class="mini muted">${esc(u.id)}</div></td><td class="mini">${esc(u.description || "—")}</td></tr>`).join("")}</tbody>
+      </table></div>` : `<p class="mini" style="margin:0">None yet. The first migration that keeps "Create a unit" makes one, with the scoped administrator you name.</p>`}
+    </div>`;
+
+    // ---- ARCHIVED ----
+    const archPane = archived.length ? renderArchived(archived) : `<div class="list-card"><p class="mini muted" style="margin:0">Nothing archived by an earlier run — no rollback is waiting to be checked and deleted.</p></div>`;
+
+    // ---- the rail ----
+    const node = (id, icon, label, right, warn, title) => `<div class="ep-node${pane === id ? " active" : ""}" data-gmpane="${id}" role="button" tabindex="0"${title ? ` title="${esc(title)}"` : ""}>
+      <span>${icon} ${label}</span><span class="ep-n${warn ? " gap" : ""}">${right}</span></div>`;
+    const rail =
+      node("overview", "🔄", "Overview", examined < all.length ? `${examined}/${all.length} examined` : migrated < examined ? `${migrated} migrated` : "done", false, "The four steps and where this sitting stands")
+      + node("groups", "👥", "Groups", all.length, false, `${all.length} role-assignable groups`)
+      + node("units", "🏛", "Restricted units", unitsError ? "unread" : units.restricted.length, !!unitsError, unitsError ? "The administrative units could not be read" : `${units.restricted.length} restricted management administrative units`)
+      + node("archived", "🧹", "Archived", archived.length, archived.length > 0, archived.length ? `${archived.length} rollback(s) from earlier migrations, waiting to be checked and deleted` : "nothing left over from an earlier run");
+    const paneHtml = { overview: overview, groups: (unitsError ? unitsWarn + "\n" : "") + groups, units: unitsPane, archived: archPane }[pane] || overview;
+    $("gmBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail">${rail}</div><div class="ep-main">${paneHtml}</div></div>`;
   }
 
   // ------------------------------------------------- archived cleanup ------
@@ -1345,6 +1438,7 @@ const GroupMigrateTool = (() => {
       const members = await GroupMigrate.memberIds(chosen.id);
       const refs = await GroupMigrate.references(chosen.id, (m) => mprog(m));
       chosen = { ...chosen, roleAssignable: true, roles, holding, members, refs };
+      setState(chosen.id, { examined: true });
       // Seed the destination fields for THIS group. The suggestion is a
       // default the operator can overwrite; it is re-seeded per group so a
       // name typed for the last one never silently follows.
@@ -1380,6 +1474,8 @@ const GroupMigrateTool = (() => {
     const m = $("gmModal");
     if (m) m.classList.remove("open");
     chosen = null; plan = null; result = null;
+    // The State column and the Overview counts move with what the modal did.
+    if (list && $("gmBody") && $("gmBody").innerHTML) renderList();
   }
 
   // The destination as the form currently states it. Read fresh on every
@@ -1482,6 +1578,10 @@ const GroupMigrateTool = (() => {
       <h4 style="margin:0 0 6px;font-size:13.5px;color:var(--off)">${p.frozen ? "🧊 Frozen" : "Not migrated"}</h4>
       <p class="mini" style="margin:0">${esc(p.reason)}</p>
     </div>`;
+    // The verdict, for the State column — the list redraws when the modal
+    // closes, never while it is open underneath.
+    const prior = stateOf(g.id);
+    if (!prior || !prior.migrated) setState(g.id, { examined: true, verdict: p.ok ? "ok" : p.frozen ? "frozen" : "refused", reason: p.ok ? "" : String(p.reason || "").slice(0, 140) });
 
     $("gmModalBody").innerHTML = head + form + body;
     // Tenant-backed autofill on the scoped administrator, through the app's
@@ -1562,6 +1662,9 @@ const GroupMigrateTool = (() => {
       if (p.createsUnit) want.push(...GroupMigrate.SCOPES.roleWrite);
       await Graph.ensureScopes([...new Set(want)]);
       result = await GroupMigrate.apply(p, { onStatus: (m) => mprog(m) });
+      setState(chosen.id, result.ok
+        ? { examined: true, verdict: "ok", migrated: true, newId: result.newId, archiveName: result.archiveName }
+        : { examined: true, verdict: "failed", reason: String(result.error || "").slice(0, 140) });
       renderResult();
     } catch (e) {
       $("gmModalBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
@@ -1604,7 +1707,7 @@ const GroupMigrateTool = (() => {
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
       unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; unitsError = "";
-      search = ""; filter = "all"; archSel.clear(); archRefs = null; closeModal();
+      search = ""; filter = "all"; archSel.clear(); archRefs = null; pane = "overview"; gstate.clear(); closeModal();
       $("gmBody").innerHTML = ""; $("gmProg").innerHTML = "";
     });
 
@@ -1614,6 +1717,8 @@ const GroupMigrateTool = (() => {
     // function twice is cheaper than deciding, per control, which host it
     // belongs to and being wrong about one of them later.
     const onClick = (e) => {
+      const rn = e.target.closest("[data-gmpane]");
+      if (rn) { pane = rn.dataset.gmpane; renderList(); return; }
       const chip = e.target.closest("[data-gmf]");
       if (chip) {
         // Clicking the chip in force clears it — the same toggle T19's

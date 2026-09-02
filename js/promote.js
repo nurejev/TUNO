@@ -100,6 +100,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 139, title: "\ud83d\udd04 T22 joins the rail \u2014 Overview says what is still to do, State says what was done",
+      tools: ["T22 Group migration"], builds: [10558], risk: "low",
+      why: "Production's Group migration is one long card: chips, table, archived block, with nothing saying that reading is step one of four. Mihai's asks (2026-09-02): the rail layout, the fact chips as filters or places, and 'it should be clear what the tool will still need to do after reading the tenant'. Convenience and clarity, nothing broken. It graduates when the Overview's counts agree with the table's State column across an examine, a refusal and a migration on a test tenant, and the prefix filters split the list exactly.",
+      test: [
+        "Read a tenant with role-assignable groups: the screen lands on Overview with four steps \u2014 Read marked done with the counts, Examine marked now with '0 of N examined', Plan and apply, Finish by hand \u2014 and the 'worth a look first' line names membership rules, missing destinations and rollbacks where present.",
+        "Rail: Groups shows the table with the State column all 'not examined'; Restricted units lists every restricted unit with id and description (or says none yet); Archived shows the cleanup block or 'nothing archived'.",
+        "Groups pane on a tenant with a detected prefix: two new chips, 'prefix X-' and 'no X- prefix', whose counts add up to the total; clicking one narrows the table and the count line says which is in force.",
+        "Examine a group and close the window: its row reads 'plan ready \u2014 not applied' (or refused/frozen with the reason), the button says Re-examine, the Overview reads '1 of N examined \u00b7 1 plan ready', the rail's Overview node reads '1/N examined'.",
+        "Migrate one (test tenant): its row reads 'migrated \u00b7 archived as \u2026' with the button disabled; the Overview's step 3 counts 1 migrated; Read again and every State is back to 'not examined'.",
+        "Suite: _to_delete/groupmigrate-tests.js 188/188 (12 new assertions cover the rail, the panes, the prefix filters and the State column).",
+      ],
+      files: ["js/groupmigrate.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 138, title: "\ud83c\udf4e T24 \u2014 the floating bar carries create as well as dry run",
       tools: ["T24 macOS baseline"], builds: [10556], risk: "low",
       why: "Production's Upstream pane puts Create N in THIS tenant at the bottom of the plan table, a scroll below the floating bar that ran the dry run (Mihai, 2026-09-02: 'after dry-run has completed, in the same floating bar create/deploy in tenant should appear'). Convenience, nothing broken. It graduates when the bar's create writes exactly the planned set and a changed selection can never fire a stale plan.",

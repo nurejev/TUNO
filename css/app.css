@@ -2416,3 +2416,11 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
   .sc-hero{gap:12px}
   .sc-gauge{width:180px;height:110px}
 }
+/* T22 Overview (10558): the four steps of a migration, which are done and which is now */
+.gm-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 4px}
+.gm-step{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--soft2);min-width:0}
+.gm-step-t{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.gm-step-h{font-weight:700;margin:2px 0}
+.gm-step.done{border-color:var(--on)}.gm-step.done .gm-step-t{color:var(--on)}
+.gm-step.now{border-color:var(--accent2);background:var(--soft)}
+@media (max-width:1100px){.gm-steps{grid-template-columns:1fr 1fr}}
