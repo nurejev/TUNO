@@ -2424,3 +2424,6 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 .gm-step.done{border-color:var(--on)}.gm-step.done .gm-step-t{color:var(--on)}
 .gm-step.now{border-color:var(--accent2);background:var(--soft)}
 @media (max-width:1100px){.gm-steps{grid-template-columns:1fr 1fr}}
+/* T01 enforce gates (10568): three verdicts, one glance */
+.al-gates li{margin:0 0 4px}
+.al-gate-ok{color:var(--on);font-weight:700}.al-gate-no{color:var(--off);font-weight:700}

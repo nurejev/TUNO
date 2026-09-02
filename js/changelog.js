@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10568, date: "2026-09-02", title: "AppLocker: the road to Enforce, gate by gate — and a way past the gates",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "The Enforce step now shows its three gates as a checklist with a verdict each: the AuditOnly profile under this grouping (named, or what to do), a scan bundle from a device it reached (which device, taken when — or that an XML policy is not evidence of anything that ran), and an event log showing nothing blocked and nothing that would have been (the counts). It also says that the draft's enforcement modes do not matter here — the Enforce profile is written Enabled regardless — and, once open, how to hand the pilot group over: assign the Enforced profile and remove the audit profile's assignment for that group, because two profiles on one grouping is a conflict on the device, not a merge." },
+      { kind: "new", tool: "AppLocker", text: "Create the Enforce profile anyway. The gates are the tool's discipline, not its permission to overrule you: type ENFORCE and the profile is created now, exactly as it would be with the gates met, and its description records that it was created past the evidence gates on the operator's decision." },
+    ],
+  },
+  {
     build: 10567, date: "2026-09-02", title: "AppLocker: the enforce step sees the audit profile already deployed",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The Enforce step waited for a profile named exactly what TUNO would call the audit profile now — which is the next version's name once you have been round the loop — so a tenant running the very audit profile the draft had just compared equal to still read \"the AuditOnly profile has to exist first\". It now recognises the deployed audit profile by grouping and mode, from Check against the tenant as well as from a create, names it, and asks for the next thing: a scan bundle from a device the profile reached, so the audit's silence is evidence rather than belief." },

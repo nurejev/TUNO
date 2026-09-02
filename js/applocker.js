@@ -318,7 +318,7 @@ const AppLockerTool = (() => {
     return {
       "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
       displayName: intuneProfileName(mode),
-      description: `AppLocker ${mode} policy built in ${BRANDING.name} ${APP_BUILD.label}${importedXmlName ? ` from ${importedXmlName}` : ""} on ${new Date().toISOString().slice(0, 10)}.`,
+      description: `AppLocker ${mode} policy built in ${BRANDING.name} ${APP_BUILD.label}${importedXmlName ? ` from ${importedXmlName}` : ""} on ${new Date().toISOString().slice(0, 10)}.${mode === "Enforce" && deployState.enforceOverride ? " Created past the evidence gates on the operator's decision — no scan bundle stood behind it." : ""}`,
       omaSettings,
     };
   }
@@ -3102,6 +3102,43 @@ const AppLockerTool = (() => {
 
   // Why the Enforce button is not available yet, or "" when it is. Written
   // as a sentence because it is shown as one.
+  // THE THREE GATES, EACH WITH ITS OWN VERDICT (10568, Mihai: "step 5 is
+  // still not clear"). One sentence naming the first unmet gate left the
+  // reader guessing which of three things it wanted. The checklist says,
+  // per gate, what is satisfied — by what — or what to do next.
+  function enforceGates() {
+    const created = createdFor("audit");
+    const found = created ? null : auditProfileInTenant();
+    const haveAudit = !!created || !!(deployState.checked && deployState.checked.auditInTenant);
+    const checked = !!(deployState.checked && deployState.checked.tenantAppLocker);
+    const g1 = {
+      ok: haveAudit,
+      label: "The AuditOnly profile is in this tenant, under the grouping on screen",
+      detail: created ? `created this session: ${created.displayName}`
+        : found ? `${found.displayName || "(unnamed)"}${found.lastModifiedDateTime ? ` · last changed ${String(found.lastModifiedDateTime).slice(0, 10)}` : ""}`
+        : checked ? "no AuditOnly profile under this grouping — create it above, or ⤓ Adopt identity on the deployed one so the grouping matches"
+        : "not checked yet — press 🔎 Check against the tenant",
+    };
+    const ev = scan && scan.events;
+    const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "";
+    const g2 = {
+      ok: !!scan,
+      label: "A scan bundle from a device the audit profile reached",
+      detail: scan ? `${scan.sourceName || "bundle"}${(scan.machine || {}).name ? ` · ${scan.machine.name}` : ""}${when ? ` · taken ${when}` : ""}`
+        : "upload the .json bundle Invoke-TunoAppLockerScan.ps1 writes (step 1) — an XML policy is not evidence of anything that ran",
+    };
+    const sm = (ev && ev.summary) || {};
+    const g3 = {
+      ok: !!(scan && ev && ev.available && !sm.blocked && !sm.audited),
+      label: "The event log on that device shows nothing blocked and nothing that would have been",
+      detail: !scan ? "waits on the bundle"
+        : !ev || !ev.available ? "the scan could not read the AppLocker event logs — re-run it elevated on a device the audit profile actually reached"
+        : sm.blocked ? `${sm.blocked} execution(s) blocked in the last ${ev.daysBack || "?"} days — real users who could not run something; work them to nothing first`
+        : sm.audited ? `${sm.audited} execution(s) WOULD have been blocked in the last ${ev.daysBack || "?"} days — every one becomes a blocked user the day this is enforced`
+        : `0 blocked · 0 would-have-been-blocked · ${sm.allowed || 0} allowed over ${ev.daysBack || "?"} days`,
+    };
+    return [g1, g2, g3];
+  }
   function enforceBlockedBecause() {
     const haveAudit = !!createdFor("audit")
       || !!(deployState.checked && deployState.checked.auditInTenant);
@@ -3418,11 +3455,24 @@ const AppLockerTool = (() => {
 
       <div class="al-dep-sub">
         <b class="mini">Then, later — the Enforce profile</b>
-        ${blocked
-          ? `<p class="mini al-dep-locked"><b>Not yet.</b> ${escq(blocked)}</p>
-             <button class="btn sm" disabled>🔒 Create the Enforce profile</button>`
-          : `<p class="mini">The audit profile is in this tenant${(() => { const a = createdFor("audit") ? null : auditProfileInTenant(); return a ? ` — <b>${escq(a.displayName || "(unnamed)")}</b>, under this grouping` : ""; })()} and the uploaded scan shows nothing blocked and nothing that would have been. Same grouping, so it replaces the audit profile on the device rather than sitting alongside it.</p>
-             <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}
+        ${(() => {
+          const gates = enforceGates();
+          const met = gates.filter((g) => g.ok).length;
+          return `<p class="mini muted" style="margin:2px 0 6px">Three gates, all three before the button. <b>Your draft's enforcement modes do not matter here</b>: the Enforce profile is written with every collection <code>Enabled</code> whatever the rules table says, so there is nothing to switch first — the rules are the ones on the table, the mode is this step's.</p>
+          <ul class="mini al-list al-gates" style="margin:0 0 8px">${gates.map((g) => `<li><span class="${g.ok ? "al-gate-ok" : "al-gate-no"}">${g.ok ? "✓" : "✗"}</span> <b>${escq(g.label)}</b><div class="mini muted" style="margin-left:18px">${escq(g.detail)}</div></li>`).join("")}</ul>
+          ${blocked
+            ? `<p class="mini al-dep-locked" style="margin:0 0 6px"><b>${met} of 3.</b> ${escq(blocked)}</p>
+               <button class="btn sm" disabled>🔒 Create the Enforce profile</button>
+               <div class="al-dep-confirm" style="margin-top:8px">
+                 <b class="mini">Or create it now, on your own judgement</b>
+                 <div class="mini muted" style="margin-top:2px">The gates are this tool's discipline, not its permission to overrule you. Type <b>ENFORCE</b> and the profile is created exactly as it would be with the gates met — same grouping, (Enforced) in the name, every collection Enabled, assigned to nobody — and its description records that it was created past the evidence gates on the operator's decision.</div>
+                 <div class="al-dep-row" style="margin-top:6px">
+                   <input id="alDepEnforceWord" class="al-dep-in" style="width:130px" placeholder="ENFORCE" spellcheck="false" autocomplete="off">
+                   <button class="btn primary sm" id="alDepEnforceNow" disabled>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile anyway"}</button>
+                 </div></div>`
+            : `<p class="mini" style="margin:0 0 6px"><b>3 of 3.</b> The Enforce profile is created under the <b>same grouping</b> as the audit profile, named with <b>(Enforced)</b>, and <b>assigned to nobody</b>. Then, in the portal: assign it to the pilot group and <b>remove the audit profile's assignment for that same group</b> — two profiles writing one grouping to one device is a conflict in Intune, not a merge. When the pilot has held, widen it.</p>
+               <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}`;
+        })()}
         ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
       </div>
 
@@ -3684,7 +3734,10 @@ const AppLockerTool = (() => {
       if (p) adoptTenantIdentity(p);
     }));
     on("alDepAudit", "click", () => deployProfile("Audit"));
-    on("alDepEnforce", "click", () => deployProfile("Enforce"));
+    on("alDepEnforce", "click", () => { deployState.enforceOverride = false; deployProfile("Enforce"); });
+    // the bypass (10568): armed by the typed word, recorded in the profile
+    on("alDepEnforceWord", "input", (e) => { const b = $("alDepEnforceNow"); if (b) b.disabled = e.target.value.trim() !== "ENFORCE" || !!deployState.busy; });
+    on("alDepEnforceNow", "click", () => { deployState.enforceOverride = true; deployProfile("Enforce"); });
     // The Remediation controls are wired by renderRemedy() itself — its box
     // renders on a different cadence, and wiring them here as well would
     // attach a second listener and double every click into two POSTs.
