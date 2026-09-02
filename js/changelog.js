@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10567, date: "2026-09-02", title: "AppLocker: the enforce step sees the audit profile already deployed",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The Enforce step waited for a profile named exactly what TUNO would call the audit profile now — which is the next version's name once you have been round the loop — so a tenant running the very audit profile the draft had just compared equal to still read \"the AuditOnly profile has to exist first\". It now recognises the deployed audit profile by grouping and mode, from Check against the tenant as well as from a create, names it, and asks for the next thing: a scan bundle from a device the profile reached, so the audit's silence is evidence rather than belief." },
+    ],
+  },
+  {
     build: 10566, date: "2026-09-02", title: "Roadmap: the command palette joins Next",
     items: [
       { kind: "new", tool: "🗺 Roadmap", text: "R38, the command palette — after ENCA's R03. Ctrl/Cmd + K anywhere opens a search box: a few letters land in a tool, a policy name lands on its policy card, initials match as well as substrings (gm finds Group migration, maa finds Multi-admin approval), and a T-number typed as t17 is honoured. No keystroke goes to the tenant: the tool list is bundled and the policy half searches the cache the sign-in prefetch already warmed. Next re-opens for it — the era had stood empty since R02 shipped." },

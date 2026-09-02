@@ -3105,9 +3105,11 @@ const AppLockerTool = (() => {
   function enforceBlockedBecause() {
     const haveAudit = !!createdFor("audit")
       || !!(deployState.checked && deployState.checked.auditInTenant);
-    if (!haveAudit) return "The AuditOnly profile has to exist in this tenant first — deploy it above, or point the grouping at the one that is already there.";
+    if (!haveAudit) return "The AuditOnly profile has to exist in this tenant first — deploy it above, or point the grouping at the one that is already there (🔎 Check against the tenant finds it).";
     const ev = scan && scan.events;
-    if (!scan) return "Upload a scan bundle taken AFTER the audit profile had been applied for a while. Without it there is no evidence the audit was worked down, only a belief that it was.";
+    const found = createdFor("audit") ? null : auditProfileInTenant();
+    const has = found ? `The audit profile ${found.displayName || "(unnamed)"} is in this tenant under this grouping. ` : "";
+    if (!scan) return `${has}Now the evidence: upload a scan bundle taken AFTER the audit profile had been applied for a while — run Invoke-TunoAppLockerScan.ps1 on a device the profile reached (events are read by default), and upload the bundle in step 1. Without it there is no evidence the audit was worked down, only a belief that it was.`;
     if (!ev || !ev.available) return "The uploaded scan could not read the AppLocker event logs, so it cannot show whether anything was blocked. Re-run the scan elevated on a device the audit profile actually reached.";
     const s = ev.summary || {};
     if (s.blocked) return `The scan still shows ${s.blocked} execution(s) blocked. Those are real users who could not run something — work them to nothing before enforcing.`;
@@ -3419,7 +3421,7 @@ const AppLockerTool = (() => {
         ${blocked
           ? `<p class="mini al-dep-locked"><b>Not yet.</b> ${escq(blocked)}</p>
              <button class="btn sm" disabled>🔒 Create the Enforce profile</button>`
-          : `<p class="mini">The audit profile is in this tenant and the uploaded scan shows nothing blocked and nothing that would have been. Same grouping, so it replaces the audit profile on the device rather than sitting alongside it.</p>
+          : `<p class="mini">The audit profile is in this tenant${(() => { const a = createdFor("audit") ? null : auditProfileInTenant(); return a ? ` — <b>${escq(a.displayName || "(unnamed)")}</b>, under this grouping` : ""; })()} and the uploaded scan shows nothing blocked and nothing that would have been. Same grouping, so it replaces the audit profile on the device rather than sitting alongside it.</p>
              <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}
         ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
       </div>
@@ -3471,7 +3473,7 @@ const AppLockerTool = (() => {
       const coll = Graph.collisions(existing, intuneProfileName(mode), intuneGrouping());
       d.checked = {
         collisions: coll,
-        auditInTenant: existing.some((p) => (p.displayName || "").toLowerCase() === intuneProfileName("Audit").toLowerCase()),
+        auditInTenant: !!auditProfileInTenant(appLockerProfilesOf(existing)),
         // The tenant's AppLocker profiles, for the same-policy-same-grouping
         // guidance the panel renders — iterating on a deployed profile under
         // a FRESH guid is the mistake this catches.
@@ -3501,6 +3503,26 @@ const AppLockerTool = (() => {
       const m = st && APPLOCKER_OMA_RE.exec(String(st.omaUri || ""));
       return m && m[1] && m[1].toLowerCase() === g;
     });
+  }
+  // THE AUDIT PROFILE THE ENFORCE STEP WAITS FOR (10567): an AppLocker
+  // profile under the grouping ON SCREEN whose collections run AuditOnly —
+  // judged by the deployed values' EnforcementMode when they were read, by
+  // the "(AuditOnly)" token in the name when they were not. It used to be
+  // "a profile named exactly what TUNO would call the audit profile NOW",
+  // which is the NEXT version's name once the loop has turned — so a
+  // tenant running the very audit profile this draft was compared equal
+  // to still read "the AuditOnly profile has to exist first" (Mihai).
+  function auditProfileInTenant(profiles) {
+    const list = profiles || (deployState.checked && deployState.checked.tenantAppLocker) || [];
+    const g = String(intuneGrouping() || "").toLowerCase();
+    return list.find((p) => {
+      const sts = (p.omaSettings || []).filter((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
+      const m = sts[0] && APPLOCKER_OMA_RE.exec(String(sts[0].omaUri || ""));
+      if (!(m && m[1] && m[1].toLowerCase() === g)) return false;
+      const vals = sts.map((s2) => String(s2.value || "")).filter((v) => /EnforcementMode=/i.test(v));
+      if (vals.length) return vals.some((v) => /EnforcementMode="AuditOnly"/i.test(v)) && !vals.some((v) => /EnforcementMode="Enabled"/i.test(v));
+      return /\(AuditOnly\)/i.test(String(p.displayName || "")) || !/\(Enforced\)/i.test(String(p.displayName || ""));
+    }) || null;
   }
   function tenantOtherGroupings() {
     const g = String(intuneGrouping() || "").toLowerCase();
@@ -3566,7 +3588,8 @@ const AppLockerTool = (() => {
     renderDeploy();
     try {
       const existing = await Graph.customProfiles();
-      d.checked = Object.assign({}, d.checked, { tenantAppLocker: appLockerProfilesOf(existing) });
+      const tap = appLockerProfilesOf(existing);
+      d.checked = Object.assign({}, d.checked, { tenantAppLocker: tap, auditInTenant: !!auditProfileInTenant(tap) });
       d.busy = "";
       renderDeploy();
     } catch (e) { depFail(e); }
