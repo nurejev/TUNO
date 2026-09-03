@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10576, date: "2026-09-03", title: "T01 rethink, part 1 — the scanner writes one file, and looks at ProgramData",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The device scan no longer writes Audit and Enforce policy XML next to the bundle. Those two files looked finished and were one click from a GPO or Set-AppLockerPolicy, and they had never been through the audit, the coverage check or the tenant — which is exactly how an Enforce policy that blocked scripts an admin believed were allowed got onto a device on 3 September. The bundle is the only output and this tool is the only editor. -WriteXml restores the files for GPO estates and stamps them unreviewed." },
+      { kind: "improved", tool: "AppLocker", text: "ProgramData is in the scan's default scope. Every Intune-deployed script that does not live in IT-TOOLS lands there, and a policy built without looking blocks them the day it is enforced." },
+    ],
+  },
+  {
     build: 10575, date: "2026-09-03", title: "Baselines: the folder is the catalog",
     items: [
       { kind: "improved", tool: "🪟 Windows baseline", text: "The catalogs are read from the repository's own baseline folder — baseline/windows/catalog.json and baseline/community/openintunebaseline/catalog.json — fetched from this site when the tool opens, instead of a second copy bundled into the JavaScript. Until now the same catalog existed twice, kept equal only because one function wrote both; now there is one, the one people can read and diff in the repository, and 1.7 MB of script leaves every page load. A read that fails is said on the catalog line rather than mistaken for an empty baseline. Export's repo folder no longer carries a data file, because there is nothing left to bundle; Upstream's community catalog file became a folder zip that unzips at the repository root like the other." },

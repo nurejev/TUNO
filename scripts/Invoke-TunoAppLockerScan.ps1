@@ -89,10 +89,12 @@ Folder for the bundle and the two policy XML files. Defaults to the current dire
 Which roots to scan. Any combination of:
   System        %WINDIR% (default)
   ProgramFiles  %ProgramFiles% and %ProgramFiles(x86)% (default)
-  ProgramData   %ProgramData%
+  ProgramData   %ProgramData% (default since 1.11.0 - every Intune-deployed script
+                that is not in IT-TOOLS lands here, and a policy built without
+                looking blocks them the day it is enforced)
   UserProfiles  every profile under %SystemDrive%\Users
   Custom        the paths given to -Path
-Default: System, ProgramFiles.
+Default: System, ProgramFiles, ProgramData.
 
 .PARAMETER Path
 Extra directories to treat as unsafe and build rules for, regardless of their ACLs.
@@ -170,6 +172,15 @@ for a publisher or hash rule, exactly as a file in a writable directory is.
 Generate hash rules for unsigned .js files. Off by default - .js files churn, and the
 rules go stale within days.
 
+.PARAMETER WriteXml
+Also write AppLockerRules-Audit-<stamp>.xml and AppLockerRules-Enforce-<stamp>.xml
+next to the bundle. OFF by default since 1.11.0: those two files looked finished
+and were one click from a GPO or Set-AppLockerPolicy, and they skipped everything
+T01 exists to do - the audit, the coverage check, the what-breaks replay and the
+tenant. The bundle carries the same generated rule set; T01 is where it is reviewed.
+Use this switch for a GPO-managed estate that has no Intune, and treat the files as
+UNREVIEWED.
+
 .PARAMETER SkipRuleGeneration
 Collect evidence only. The bundle carries the scan results and the effective policy but
 no generated policy, and no XML files are written. Use this when you intend to build the
@@ -215,7 +226,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.10.0
+Version    : 1.11.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -235,7 +246,7 @@ param(
 
     [Parameter()]
     [ValidateSet('System', 'ProgramFiles', 'ProgramData', 'UserProfiles', 'Custom')]
-    [string[]]$Scope = @('System', 'ProgramFiles'),
+    [string[]]$Scope = @('System', 'ProgramFiles', 'ProgramData'),
 
     [Parameter()]
     [string[]]$Path,
@@ -276,6 +287,7 @@ param(
 
     [Parameter()]
     [switch]$SkipRuleGeneration,
+    [switch]$WriteXml,
 
     [Parameter()]
     [string]$ConfigPath,
@@ -307,8 +319,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.10.0'
-$script:TunoBuild = 10570
+$script:ScriptVersion = '1.11.0'
+$script:TunoBuild = 10576
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -2092,7 +2104,7 @@ $started = Get-Date
 Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.Keys) -ValidParameterName @(
     'OutputPath', 'Scope', 'Path', 'KnownAdmin', 'PublisherRuleGranularity', 'IncludeEvents',
     'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions', 'NoPeSniff', 'SkipWritableFiles',
-    'NoMicrosoftCoverage', 'JSHashRules', 'SkipRuleGeneration', 'Quiet', 'ConfigPath')
+    'NoMicrosoftCoverage', 'JSHashRules', 'SkipRuleGeneration', 'WriteXml', 'Quiet', 'ConfigPath')
 
 Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
 Write-Info ("Served by  : {0}" -f $script:TunoSite)
@@ -2540,14 +2552,18 @@ $written = @($bundlePath)
 # Gated on $generated, not on -SkipRuleGeneration: rule generation can also have
 # been ATTEMPTED and failed, in which case $auditXml is null and WriteAllText
 # would throw at the very last step, after the bundle had already been saved.
-if ($generated) {
+if ($generated -and $WriteXml) {
     $auditPath = Join-Path $OutputPath ("AppLockerRules-Audit-{0}.xml" -f $stamp)
     $enforcePath = Join-Path $OutputPath ("AppLockerRules-Enforce-{0}.xml" -f $stamp)
     [System.IO.File]::WriteAllText($auditPath, $auditXml, (New-Object System.Text.UTF8Encoding($false)))
     [System.IO.File]::WriteAllText($enforcePath, $enforceXml, (New-Object System.Text.UTF8Encoding($false)))
     Write-Ok "audit   -> $auditPath"
     Write-Ok "enforce -> $enforcePath"
+    Write-Note "These two XML files are UNREVIEWED - the generated rule set as-is, before the audit, the coverage check and the what-breaks replay. T01 works from the bundle."
     $written += $auditPath, $enforcePath
+}
+elseif ($generated) {
+    Write-Info 'The generated rule set is inside the bundle. No policy XML was written to disk (-WriteXml if you need one for a GPO).'
 }
 
 Write-Section 'Next'

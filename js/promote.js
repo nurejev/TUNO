@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 147, title: "\ud83d\udd10 T01 rethink, part 1 \u2014 the scanner writes one file (-WriteXml for GPO), and ProgramData is in the default scope",
+      tools: ["T01 AppLocker"], builds: [10576], risk: "low",
+      why: "3 Sep: an Enforce policy blocked the Intune drive/printer mapping scripts an admin believed were allowed. The deployed file was the scanner's own AppLockerRules-Enforce XML, which had never been through T01, and the scan had not looked at ProgramData where those scripts live. Both are design faults with one honest answer each: the scanner writes only the bundle unless -WriteXml is given (and then says the XML is unreviewed), and ProgramData is in the default -Scope. Part 2 \u2014 the rail layout (Option B, mockup 3 Sep), the What-breaks replay of ALLOWED events and one Enforce switch \u2014 follows as its own item.",
+      test: [
+        "Run Invoke-TunoAppLockerScan.ps1 v1.11.0 with no switches on a reference image: three roots are walked (Windows, Program Files, ProgramData), exactly one .json is written, the Next section says the rule set is in the bundle, and no AppLockerRules-*.xml appears.",
+        "Run it again with -WriteXml: the two XML files appear and the console carries the UNREVIEWED note.",
+        "Upload the bundle in T01: the evidence card shows ProgramData among the roots and the scripts under ProgramData are inventoried (hash rules for unsigned .ps1/.vbs).",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/README.md", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 146, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the folder is the catalog: baseline/**/catalog.json read from the site, the js/*Data.js copies gone",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10575], risk: "medium",
       why: "Mihai, 2026-09-03: 'I see baseline/windows in the repo, also on GitHub \u2014 why is this not read as the catalog?' It should have been: 10574 wrote the same catalog twice (js data file for the app, folder for people). Now the app fetches baseline/<platform>/catalog.json and baseline/community/<id>/catalog.json from its own origin when a baseline tool opens \u2014 connect-src 'self' allows it, no CSP change \u2014 and the four data files (1.7 MB on every page load) are deleted. Medium: a production tool's catalog now arrives by fetch instead of by script tag; the screen waits for it and says so; a 404 is reported on the catalog line. GitHub Pages serves the folder as any file.",

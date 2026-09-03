@@ -178,11 +178,19 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 .\Invoke-TunoAppLockerScan.ps1
 ```
 
-Three files land next to the script:
+One file lands next to the script:
 
 ```
 TunoAppLockerScan-<DEVICE>-<yyyyMMdd-HHmm>.json   <- upload this to T01
-AppLockerRules-Audit-<yyyyMMdd-HHmm>.xml
+```
+
+The generated rule set is inside the bundle. Since 1.11.0 the Audit/Enforce policy
+XML is written only with `-WriteXml` (for GPO estates) and is UNREVIEWED — T01 is
+where the rules are audited, checked against the Microsoft apps and replayed against
+what actually ran, before anything is deployed:
+
+```
+AppLockerRules-Audit-<yyyyMMdd-HHmm>.xml      <- only with -WriteXml
 AppLockerRules-Enforce-<yyyyMMdd-HHmm>.xml
 ```
 
@@ -198,7 +206,8 @@ which is user-writable by definition, and they are what a first rollout breaks:
 
 | Switch | Default | What it is for |
 |---|---|---|
-| `-Scope` | `System,ProgramFiles` | Which roots to walk. Add `ProgramData`, `UserProfiles`, `Custom`. |
+| `-Scope` | `System,ProgramFiles,ProgramData` | Which roots to walk. Add `UserProfiles`, `Custom`. ProgramData is in the default since 1.11.0 — Intune-deployed scripts outside IT-TOOLS live there. |
+| `-WriteXml` | off | Also write unreviewed Audit/Enforce policy XML next to the bundle, for GPO estates. Off since 1.11.0: the bundle is the input to T01, and the XML files were one click from a GPO without ever being audited. |
 | `-Path` | — | Extra directories always treated as unsafe, whatever their ACLs say. |
 | `-KnownAdmin` | — | Principals that are administrators here but are not in the local Administrators group, e.g. `"CONTOSO\Workstation-Admins"`. |
 | `-PublisherRuleGranularity` | `PublisherProductBinary` | How specific the generated publisher rules are. |

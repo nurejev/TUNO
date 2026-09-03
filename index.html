@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10575"></script>
+<script src="js/popup-guard.js?v=10576"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10575">
+<link rel="stylesheet" href="css/app.css?v=10576">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10575"></script>
+<script src="js/selfhost-boot.js?v=10576"></script>
 </head>
 <body>
 
@@ -359,13 +359,14 @@
               <p class="mini"><b>The normal run.</b> Elevated PowerShell — unelevated it cannot read every DACL or the event logs, and the bundle records that the run was partial rather than pretending it was complete.</p>
               <pre class="al-code">Set-ExecutionPolicy -Scope Process Bypass -Force
 .\Invoke-TunoAppLockerScan.ps1</pre>
-              <p class="mini">It writes three files next to itself: <code>TunoAppLockerScan-&lt;DEVICE&gt;-&lt;stamp&gt;.json</code> (upload this one), plus an Audit and an Enforce <code>.xml</code> for direct GPO use.</p>
+              <p class="mini">It writes one file next to itself: <code>TunoAppLockerScan-&lt;DEVICE&gt;-&lt;stamp&gt;.json</code> — upload that. The generated rule set is inside it; there is no policy XML on disk to deploy by accident (<code>-WriteXml</code> writes one for GPO estates, unreviewed).</p>
               <p class="mini"><b>Include the per-user installs.</b> OneDrive and Teams install into the user's profile, which is user-writable by definition — they are the applications a first AppLocker rollout breaks, every time.</p>
               <pre class="al-code">.\Invoke-TunoAppLockerScan.ps1 -Scope System,ProgramFiles,ProgramData `
     -Path "$env:LOCALAPPDATA\Microsoft\OneDrive","$env:LOCALAPPDATA\Microsoft\Teams"</pre>
               <p class="mini"><b>Switches worth knowing:</b></p>
               <ul class="mini al-list">
-                <li><code>-Scope</code> — which roots to walk: <code>System</code>, <code>ProgramFiles</code>, <code>ProgramData</code>, <code>UserProfiles</code>, <code>Custom</code>. Default is <code>System,ProgramFiles</code>.</li>
+                <li><code>-Scope</code> — which roots to walk: <code>System</code>, <code>ProgramFiles</code>, <code>ProgramData</code>, <code>UserProfiles</code>, <code>Custom</code>. Default is <code>System,ProgramFiles,ProgramData</code>.</li>
+                <li><code>-WriteXml</code> — also write Audit/Enforce policy XML next to the bundle, for a GPO estate. Off by default: those files are the rule set <i>before</i> the audit, the coverage check and the what-breaks replay, and they were one click from a GPO. Upload the bundle here instead.</li>
                 <li><code>-KnownAdmin</code> — groups that are administrators here but are not in the local Administrators group, e.g. <code>"CONTOSO\Workstation-Admins"</code>. Write access granted to them stops being reported as a hole.</li>
                 <li><code>-PublisherRuleGranularity</code> — how specific the generated rules are, from <code>Publisher</code> to <code>PublisherProductBinaryVersion</code>. Default <code>PublisherProductBinary</code>.</li>
                 <li><code>-EventDaysBack</code> — how far back to read the AppLocker logs. Default 30.</li>
@@ -2134,49 +2135,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10575"></script>
-<script src="js/selfhost.js?v=10575"></script>
-<script src="js/version.js?v=10575"></script>
-<script src="js/promote.js?v=10575"></script>
-<script src="js/authConfig.js?v=10575"></script>
-<script src="js/changelog.js?v=10575"></script>
-<script src="js/msappcatalog.js?v=10575"></script>
-<script src="js/demo.js?v=10575"></script>
-<script src="js/graph.js?v=10575"></script>
-<script src="js/suggest.js?v=10575"></script>
-<script src="js/progress.js?v=10575"></script>
-<script src="js/groupuse.js?v=10575"></script>
-<script src="js/audit.js?v=10575"></script>
-<script src="js/devicecleanup.js?v=10575"></script>
-<script src="js/backup.js?v=10575"></script>
-<script src="js/document.js?v=10575"></script>
-<script src="js/policycache.js?v=10575"></script>
-<script src="js/overview.js?v=10575"></script>
-<script src="js/devicewhy.js?v=10575"></script>
-<script src="js/whatif.js?v=10575"></script>
-<script src="js/health.js?v=10575"></script>
-<script src="js/settingsearch.js?v=10575"></script>
-<script src="js/conflict.js?v=10575"></script>
-<script src="js/compliance.js?v=10575"></script>
-<script src="js/filterrules.js?v=10575"></script>
-<script src="js/filters.js?v=10575"></script>
-<script src="js/restore.js?v=10575"></script>
-<script src="js/platformbaseline.js?v=10575"></script>
-<script src="js/complianceevidence.js?v=10575"></script>
-<script src="js/macbaseline.js?v=10575"></script>
-<script src="js/winbaseline.js?v=10575"></script>
-<script src="js/assignedit.js?v=10575"></script>
-<script src="js/restrictedau.js?v=10575"></script>
-<script src="js/groupmigrate.js?v=10575"></script>
-<script src="js/roles.js?v=10575"></script>
-<script src="js/defender.js?v=10575"></script>
-<script src="js/endpointsec.js?v=10575"></script>
-<script src="js/report.js?v=10575"></script>
-<script src="js/securescore.js?v=10575"></script>
-<script src="js/endpointposture.js?v=10575"></script>
-<script src="js/maa.js?v=10575"></script>
-<script src="js/laps.js?v=10575"></script>
-<script src="js/applocker.js?v=10575"></script>
-<script src="js/app.js?v=10575"></script>
+<script src="js/branding.js?v=10576"></script>
+<script src="js/selfhost.js?v=10576"></script>
+<script src="js/version.js?v=10576"></script>
+<script src="js/promote.js?v=10576"></script>
+<script src="js/authConfig.js?v=10576"></script>
+<script src="js/changelog.js?v=10576"></script>
+<script src="js/msappcatalog.js?v=10576"></script>
+<script src="js/demo.js?v=10576"></script>
+<script src="js/graph.js?v=10576"></script>
+<script src="js/suggest.js?v=10576"></script>
+<script src="js/progress.js?v=10576"></script>
+<script src="js/groupuse.js?v=10576"></script>
+<script src="js/audit.js?v=10576"></script>
+<script src="js/devicecleanup.js?v=10576"></script>
+<script src="js/backup.js?v=10576"></script>
+<script src="js/document.js?v=10576"></script>
+<script src="js/policycache.js?v=10576"></script>
+<script src="js/overview.js?v=10576"></script>
+<script src="js/devicewhy.js?v=10576"></script>
+<script src="js/whatif.js?v=10576"></script>
+<script src="js/health.js?v=10576"></script>
+<script src="js/settingsearch.js?v=10576"></script>
+<script src="js/conflict.js?v=10576"></script>
+<script src="js/compliance.js?v=10576"></script>
+<script src="js/filterrules.js?v=10576"></script>
+<script src="js/filters.js?v=10576"></script>
+<script src="js/restore.js?v=10576"></script>
+<script src="js/platformbaseline.js?v=10576"></script>
+<script src="js/complianceevidence.js?v=10576"></script>
+<script src="js/macbaseline.js?v=10576"></script>
+<script src="js/winbaseline.js?v=10576"></script>
+<script src="js/assignedit.js?v=10576"></script>
+<script src="js/restrictedau.js?v=10576"></script>
+<script src="js/groupmigrate.js?v=10576"></script>
+<script src="js/roles.js?v=10576"></script>
+<script src="js/defender.js?v=10576"></script>
+<script src="js/endpointsec.js?v=10576"></script>
+<script src="js/report.js?v=10576"></script>
+<script src="js/securescore.js?v=10576"></script>
+<script src="js/endpointposture.js?v=10576"></script>
+<script src="js/maa.js?v=10576"></script>
+<script src="js/laps.js?v=10576"></script>
+<script src="js/applocker.js?v=10576"></script>
+<script src="js/app.js?v=10576"></script>
 </body>
 </html>
