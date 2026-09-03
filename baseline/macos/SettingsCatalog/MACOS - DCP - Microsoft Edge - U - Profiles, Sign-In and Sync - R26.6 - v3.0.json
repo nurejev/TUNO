@@ -1,0 +1,93 @@
+{
+  "createdDateTime": "2026-01-08T19:34:42.6466126Z",
+  "creationSource": null,
+  "description": "",
+  "lastModifiedDateTime": "2026-05-19T11:28:09.5925013Z",
+  "name": "MACOS - DCP - Microsoft Edge - U - Profiles, Sign-In and Sync - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 4,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "3838f029-0943-4995-ad46-9d2f3f25cbab",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('3838f029-0943-4995-ad46-9d2f3f25cbab')/assignments",
+  "assignments": [
+    {
+      "id": "3838f029-0943-4995-ad46-9d2f3f25cbab_93d20a3f-d668-450f-b5e1-9a84b84e0c08",
+      "source": "direct",
+      "sourceId": "3838f029-0943-4995-ad46-9d2f3f25cbab",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "93d20a3f-d668-450f-b5e1-9a84b84e0c08"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_browsersignin",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_browsersignin_2",
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "1",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_browseraddprofileenabled",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_browseraddprofileenabled_false",
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "2",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_forceephemeralprofiles",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_forceephemeralprofiles_false",
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "3",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_forcesync",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_forcesync_true",
+          "children": []
+        }
+      }
+    }
+  ]
+}

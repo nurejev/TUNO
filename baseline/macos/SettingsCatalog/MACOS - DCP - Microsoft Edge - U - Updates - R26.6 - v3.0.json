@@ -1,0 +1,127 @@
+{
+  "createdDateTime": "2026-01-08T19:34:43.9406514Z",
+  "creationSource": null,
+  "description": "",
+  "lastModifiedDateTime": "2026-05-19T11:27:48.1954996Z",
+  "name": "MACOS - DCP - Microsoft Edge - U - Updates - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 3,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "73e0862e-a933-44d0-9cb6-7ada2f3e3d87",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('73e0862e-a933-44d0-9cb6-7ada2f3e3d87')/assignments",
+  "assignments": [
+    {
+      "id": "73e0862e-a933-44d0-9cb6-7ada2f3e3d87_93d20a3f-d668-450f-b5e1-9a84b84e0c08",
+      "source": "direct",
+      "sourceId": "73e0862e-a933-44d0-9cb6-7ada2f3e3d87",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "93d20a3f-d668-450f-b5e1-9a84b84e0c08"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "com.apple.servicemanagement_com.apple.servicemanagement",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+                "settingDefinitionId": "com.apple.servicemanagement_rules",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "groupSettingCollectionValue": [
+                  {
+                    "settingValueTemplateReference": null,
+                    "children": [
+                      {
+                        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_comment",
+                        "settingInstanceTemplateReference": null,
+                        "auditRuleInformation": null,
+                        "simpleSettingValue": {
+                          "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+                          "settingValueTemplateReference": null,
+                          "value": "Edge Updater"
+                        }
+                      },
+                      {
+                        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_ruletype",
+                        "settingInstanceTemplateReference": null,
+                        "auditRuleInformation": null,
+                        "choiceSettingValue": {
+                          "settingValueTemplateReference": null,
+                          "value": "com.apple.servicemanagement_rules_item_ruletype_3",
+                          "children": []
+                        }
+                      },
+                      {
+                        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_rulevalue",
+                        "settingInstanceTemplateReference": null,
+                        "auditRuleInformation": null,
+                        "simpleSettingValue": {
+                          "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+                          "settingValueTemplateReference": null,
+                          "value": "com.microsoft.EdgeUpdater"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "1",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_componentupdatesenabled",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_componentupdatesenabled_true",
+          "children": []
+        }
+      }
+    },
+    {
+      "id": "2",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "settingDefinitionId": "com.apple.managedclient.preferences_relaunchnotification",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "choiceSettingValue": {
+          "settingValueTemplateReference": null,
+          "value": "com.apple.managedclient.preferences_relaunchnotification_1",
+          "children": []
+        }
+      }
+    }
+  ]
+}

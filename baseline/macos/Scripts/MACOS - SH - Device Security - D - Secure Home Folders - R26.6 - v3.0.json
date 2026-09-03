@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT0S",
+  "retryCount": 3,
+  "blockExecutionNotifications": true,
+  "id": "3e42a012-67b2-4567-8cc5-a62328d9db7c",
+  "displayName": "MACOS - SH - Device Security - D - Secure Home Folders - R26.6 - v3.0",
+  "description": "",
+  "scriptContent": null,
+  "createdDateTime": "2026-01-08T21:13:59.0561269Z",
+  "lastModifiedDateTime": "2026-05-19T11:15:48.4534745Z",
+  "runAsAccount": "system",
+  "fileName": "SecureHomeFolders.sh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('3e42a012-67b2-4567-8cc5-a62328d9db7c')/assignments",
+  "assignments": [
+    {
+      "id": "3e42a012-67b2-4567-8cc5-a62328d9db7c:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT0S",
+  "retryCount": 3,
+  "blockExecutionNotifications": true,
+  "id": "0ac7b547-b96c-4638-a373-4e2d1d407afa",
+  "displayName": "MACOS - SH - Software Configuration - D - Adobe Acrobat Reader - R26.6 - v3.0",
+  "description": "This script ensures that key Adobe Acrobat settings are created, updated, or removed at the machine level using PlistBuddy. It helps enforce security, compliance, and user experience standards by:\n\nDisabling unnecessary or insecure features\nEnabling enterprise-grade protections\nPre-configuring login domains for Adobe licensing\nPreventing users from changing critical settings",
+  "scriptContent": null,
+  "createdDateTime": "2026-01-20T13:34:21.2433563Z",
+  "lastModifiedDateTime": "2026-05-19T11:14:54.3498161Z",
+  "runAsAccount": "system",
+  "fileName": "AdobeAcrobatCombinedPolicyEnforcerMachineLevel.zsh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('0ac7b547-b96c-4638-a373-4e2d1d407afa')/assignments",
+  "assignments": [
+    {
+      "id": "0ac7b547-b96c-4638-a373-4e2d1d407afa:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

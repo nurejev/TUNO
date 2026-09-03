@@ -1,42 +1,4 @@
-// ======================================================================
-// The macOS baseline catalog — the CloudFellows reference export, bundled.
-//
-// REGENERATED FROM THE BASELINE TENANT'S OWN EXPORT, never edited by hand:
-//   tenant   CloudFellows.dev
-//   exported 2026-09-03T08:31:35.237Z (TUNO v1.0.3-beta.273)
-//   policies 82 (3 compliance policies, 41 settings catalog policies, 7 device configuration profiles, 4 assignment filters, 27 scripts & remediations)
-//
-// Bundled rather than fetched at runtime — the CSP allows Graph and the
-// two GitHub read hosts, and a baseline must not change under you
-// mid-session. To re-cut: sign into the baseline tenant on the beta site,
-// T24 -> Export -> Repo folder (zip), unzip at the repo root: this file
-// and baseline/macos/ land together, cut from one export.
-//
-// EACH IDENTITY ONCE, THE NEWEST. Older copies still on the tenant at
-// export time are recorded here rather than silently dropped:
-//   MACOS - CMP - Device Properties - U - Validbuilds 15+ - R26.9 - v3.1  supersedes  MACOS - CMP - Device Properties - U - Validbuilds 15+ - R26.6 - v3.0
-//   MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0  supersedes  MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0
-//   MACOS - DCP - Apple Antivirus - D - Enable X-Protect Malware Upload - R26.9 - v3.1  supersedes  MACOS - DCP - Apple Antivirus - D - Enable X-Protect Malware Upload - R26.6 - v3.0
-//   MACOS - DCP - Apple Firewall - D - Enable MACOS Firewall - R26.9 - v3.1  supersedes  MACOS - DCP - Apple Firewall - D - Enable MACOS Firewall - R26.6 - v3.0
-//   MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.9 - v3.1  supersedes  MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.6 - v3.0
-//   MACOS - DCP - Authentication - U - Platform SSO - R26.9 - v3.2  supersedes  MACOS - DCP - Authentication - U - Platform SSO - R26.6 - v3.1.1
-//   MACOS - DCP - Defender Antivirus - D - MDE System Settings - R26.9 - v3.1  supersedes  MACOS - DCP - Defender Antivirus - D - MDE System Settings - R26.6 - v3.0
-//   MACOS - DCP - Device Configuration - D - Network Time Protocol - R26.9 - v3.1  supersedes  MACOS - DCP - Device Configuration - D - Network Time Protocol - R26.6 - v3.0
-//   MACOS - DCP - Device Configuration - D - Power Management - R26.9 - v3.1  supersedes  MACOS - DCP - Device Configuration - D - Power Management - R26.6 - v3.0
-//   MACOS - DCP - Device Security - D - Accounts And Login - R26.9 - v3.2  supersedes  MACOS - DCP - Device Security - D - Accounts And Login - R26.9 - v3.1 ; MACOS - DCP - Device Security - D - Accounts And Login - R26.6 - v3.0
-//   MACOS - DCP - Device Security - D - DDM Passcode Configuration - R26.9 - v3.1  supersedes  MACOS - DCP - Device Security - D - DDM Passcode Configuration - R26.6 - v3.0
-//   MACOS - DCP - Device Security - D - Guest Account Security - R26.9 - v3.1  supersedes  MACOS - DCP - Device Security - D - Guest Account Security - R26.6 - v3.0
-//   MACOS - DCP - Device Security - D - Recovery Lock - R26.9 - v3.1  supersedes  MACOS - DCP - Device Security - D - Recovery Lock - R26.6 - v3.0
-//   MACOS - DCP - Device Security - D - Screensaver Security - R26.9 - v3.1  supersedes  MACOS - DCP - Device Security - D - Screensaver Security - R26.6 - v3.0
-//   MACOS - DCP - Disk Encryption - D - FileVault - R26.9 - v3.1  supersedes  MACOS - DCP - Disk Encryption - D - FileVault - R26.6 - v3.0
-//   MACOS - DCP - Microsoft Office - D - Office Configuration - R26.9 - v3.2  supersedes  MACOS - DCP - Microsoft Office - D - Office Configuration - R26.9 - v3.1 ; MACOS - DCP - Microsoft Office - D - Office Configuration - R26.6 - v3.0
-//
-// Scripts are present for IDENTIFICATION but carry no scriptContent (the
-// shared read returns script metadata only), so they are not importable
-// from this catalog — restore's rule: a script without its body cannot
-// be put back. The screen says this wherever it matters.
-// ======================================================================
-const BASELINE_MACOS = {
+{
  "kind": "tuno-macos-baseline",
  "release": "R26",
  "exported": "2026-09-03T08:31:35.237Z",
@@ -10749,4 +10711,4 @@ const BASELINE_MACOS = {
    }
   }
  ]
-};
+}

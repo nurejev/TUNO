@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT0S",
+  "retryCount": 3,
+  "blockExecutionNotifications": true,
+  "id": "093b0eb7-3ad1-4197-a30d-68f32029df30",
+  "displayName": "MACOS - SH - Device Configuration - D - Swift Dialog Onboarding - R26.6 - v3.1",
+  "description": "UPDATE 20-05-2026:\nEvery row in the SwiftDialog onboarding monitor now launches with an\nanimated wait spinner and an SF=arrow.down.circle 'queued for download'\nplaceholder icon, replacing the default question-mark glyph for apps\nthat aren't on disk yet. When each app is detected, the row blooms\ninto the real .app bundle icon alongside the green tick.\n\nFailed/timed-out rows intentionally keep the placeholder + red error\nindicator so 'this never arrived' reads correctly.\n\n\n\nRELEASE Info: Displays an interactive Swift Dialog onboarding splash screen that monitors for application installations in real-time. Waits for desktop and Swift Dialog binary availability, then detects Company Portal, Microsoft 365, Microsoft Edge, Microsoft 365 Copilot, and Windows App via app bundle presence or package receipt. Does NOT install apps - only monitors and displays progress as apps are installed by other deployment mechanisms (e.g., Intune). Includes configurable timeouts for desktop wait (15 min), Dialog binary wait (20 min), and app monitoring (60 min).",
+  "scriptContent": null,
+  "createdDateTime": "2026-04-28T09:25:07.4849708Z",
+  "lastModifiedDateTime": "2026-05-20T08:07:25.6351038Z",
+  "runAsAccount": "system",
+  "fileName": "scr-utl-100-dialog-onboarding.sh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('093b0eb7-3ad1-4197-a30d-68f32029df30')/assignments",
+  "assignments": [
+    {
+      "id": "093b0eb7-3ad1-4197-a30d-68f32029df30:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

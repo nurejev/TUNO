@@ -1,0 +1,65 @@
+{
+  "createdDateTime": "2026-09-02T12:41:08.9701402Z",
+  "creationSource": null,
+  "description": "Blocks enrollment in Apple beta OS programs and removes devices from any beta seed they are already on (Software Update Program Enrollment = AlwaysOff). No beta token required. Applies to supervised Macs on macOS 15.4+.",
+  "lastModifiedDateTime": "2026-09-02T12:41:08.9701402Z",
+  "name": "MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.9 - v3.1",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 1,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "200dcc50-0edf-4d88-92eb-42bea1bc8b28",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('200dcc50-0edf-4d88-92eb-42bea1bc8b28')/assignments",
+  "assignments": [],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "softwareupdate_softwareupdate",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+                "settingDefinitionId": "softwareupdate_beta",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "groupSettingCollectionValue": [
+                  {
+                    "settingValueTemplateReference": null,
+                    "children": [
+                      {
+                        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                        "settingDefinitionId": "softwareupdate_beta_programenrollment",
+                        "settingInstanceTemplateReference": null,
+                        "auditRuleInformation": null,
+                        "choiceSettingValue": {
+                          "settingValueTemplateReference": null,
+                          "value": "softwareupdate_beta_programenrollment_2",
+                          "children": []
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

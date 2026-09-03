@@ -1,0 +1,102 @@
+{
+  "createdDateTime": "2026-01-08T08:35:01.3474232Z",
+  "creationSource": null,
+  "description": "Comprehensive Gatekeeper and system policy configuration that enables security assessment for downloaded applications, allows identified developers, enables XProtect malware uploads, and prevents users from overriding security policies.",
+  "lastModifiedDateTime": "2026-05-19T12:16:42.2331694Z",
+  "name": "MACOS - DCP - Apple Firewall - D - Gatekeeper - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 2,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "43bcd24e-38c8-49a0-9516-aa5fc41811de",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('43bcd24e-38c8-49a0-9516-aa5fc41811de')/assignments",
+  "assignments": [
+    {
+      "id": "43bcd24e-38c8-49a0-9516-aa5fc41811de_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "43bcd24e-38c8-49a0-9516-aa5fc41811de",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "com.apple.systempolicy.control_com.apple.systempolicy.control",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                "settingDefinitionId": "com.apple.systempolicy.control_allowidentifieddevelopers",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "choiceSettingValue": {
+                  "settingValueTemplateReference": null,
+                  "value": "com.apple.systempolicy.control_allowidentifieddevelopers_true",
+                  "children": []
+                }
+              },
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                "settingDefinitionId": "com.apple.systempolicy.control_enableassessment",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "choiceSettingValue": {
+                  "settingValueTemplateReference": null,
+                  "value": "com.apple.systempolicy.control_enableassessment_true",
+                  "children": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "1",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "com.apple.systempolicy.managed_com.apple.systempolicy.managed",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                "settingDefinitionId": "com.apple.systempolicy.managed_disableoverride",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "choiceSettingValue": {
+                  "settingValueTemplateReference": null,
+                  "value": "com.apple.systempolicy.managed_disableoverride_true",
+                  "children": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

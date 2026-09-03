@@ -1,0 +1,14 @@
+{
+  "id": "1d647e67-8dd3-4ee1-8e4a-0feb64485d7b",
+  "createdDateTime": "2026-04-28T09:40:37.2703602Z",
+  "lastModifiedDateTime": "2026-04-28T09:40:37.2703602Z",
+  "displayName": "MACOS - FTR - Assignment filters - D - All Apple Intel Devices - R26.4 - v3.0",
+  "description": "",
+  "platform": "macOS",
+  "rule": "(device.cpuArchitecture -eq \"x64\")",
+  "roleScopeTags": [
+    "0"
+  ],
+  "assignmentFilterManagementType": "devices",
+  "payloads": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "0123e1fb-8ab3-43ac-9098-a18cfc4e1c0d",
+  "createdDateTime": "2026-04-28T09:39:51.8150761Z",
+  "lastModifiedDateTime": "2026-04-28T09:39:51.8150761Z",
+  "displayName": "MACOS - FTR - Assignment filters - D - All Apple Silicon Devices - R26.4 - v3.0",
+  "description": "",
+  "platform": "macOS",
+  "rule": "(device.cpuArchitecture -eq \"arm64\")",
+  "roleScopeTags": [
+    "0"
+  ],
+  "assignmentFilterManagementType": "devices",
+  "payloads": []
+}

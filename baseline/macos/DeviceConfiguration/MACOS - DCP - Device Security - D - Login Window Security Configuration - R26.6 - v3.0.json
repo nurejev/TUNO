@@ -1,0 +1,22 @@
+{
+  "@odata.type": "#microsoft.graph.macOSCustomConfiguration",
+  "id": "e3262c56-d2f9-45d5-841c-e844ba0aa069",
+  "lastModifiedDateTime": "2026-05-19T11:30:07.1760087Z",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "supportsScopeTags": true,
+  "deviceManagementApplicabilityRuleOsEdition": null,
+  "deviceManagementApplicabilityRuleOsVersion": null,
+  "deviceManagementApplicabilityRuleDeviceMode": null,
+  "createdDateTime": "2026-04-28T09:25:20.4000269Z",
+  "description": "Essential login window security configuration for macOS devices. Disables FileVault auto-login to ensure users must explicitly authenticate, blocks external account authentication for tighter access control, and prevents administrators from disabling managed preferences to maintain security policy enforcement.",
+  "displayName": "MACOS - DCP - Device Security - D - Login Window Security Configuration - R26.6 - v3.0",
+  "version": 3,
+  "payloadName": "cfg-sec-001-login-window.mobileconfig",
+  "payloadFileName": "cfg-sec-001-login-window.mobileconfig",
+  "payload": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+UGF5bG9hZENvbnRlbnQ8L2tleT4KCTxhcnJheT4KCQk8ZGljdD4KCQkJPGtleT5BZG1pbk1heURpc2FibGVNQ1g8L2tleT4KCQkJPGZhbHNlLz4KCQkJPGtleT5EaXNhYmxlRkRFQXV0b0xvZ2luPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5FbmFibGVFeHRlcm5hbEFjY291bnRzPC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+Y29tLmFwcGxlLmxvZ2luLm1jeC5EaXNhYmxlQXV0b0xvZ2luQ2xpZW50PC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5QYXlsb2FkRGlzcGxheU5hbWU8L2tleT4KCQkJPHN0cmluZz5Mb2dpbiBXaW5kb3c8L3N0cmluZz4KCQkJPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5PgoJCQk8c3RyaW5nPmNvbS5hcHBsZS5sb2dpbndpbmRvdy5FMjAwOTZDOS02QkMzLTQ4NUYtQkQ3RS1CMTA2MEFFOTJENjc8L3N0cmluZz4KCQkJPGtleT5QYXlsb2FkVHlwZTwva2V5PgoJCQk8c3RyaW5nPmNvbS5hcHBsZS5sb2dpbndpbmRvdzwvc3RyaW5nPgoJCQk8a2V5PlBheWxvYWRVVUlEPC9rZXk+CgkJCTxzdHJpbmc+RTIwMDk2QzktNkJDMy00ODVGLUJEN0UtQjEwNjBBRTkyRDY3PC9zdHJpbmc+CgkJCTxrZXk+UGF5bG9hZFZlcnNpb248L2tleT4KCQkJPGludGVnZXI+MTwvaW50ZWdlcj4KCQk8L2RpY3Q+Cgk8L2FycmF5PgoJPGtleT5QYXlsb2FkRGlzcGxheU5hbWU8L2tleT4KCTxzdHJpbmc+U2VjdXJlIExvZ2luIFdpbmRvdyBDb25maWd1cmF0aW9uPC9zdHJpbmc+Cgk8a2V5PlBheWxvYWRJZGVudGlmaWVyPC9rZXk+Cgk8c3RyaW5nPmNvbS5jb21wYW55LmxvZ2lud2luZG93LnNlY3VyZTwvc3RyaW5nPgoJPGtleT5QYXlsb2FkVHlwZTwva2V5PgoJPHN0cmluZz5Db25maWd1cmF0aW9uPC9zdHJpbmc+Cgk8a2V5PlBheWxvYWRVVUlEPC9rZXk+Cgk8c3RyaW5nPjQ3N0IwQUEzLUZGREQtNDBDNS1BQTc5LTYxN0Q4QzEwNTlCRTwvc3RyaW5nPgoJPGtleT5QYXlsb2FkVmVyc2lvbjwva2V5PgoJPGludGVnZXI+MTwvaW50ZWdlcj4KPC9kaWN0Pgo8L3BsaXN0Pgo=",
+  "deploymentChannel": "deviceChannel",
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceConfigurations('e3262c56-d2f9-45d5-841c-e844ba0aa069')/microsoft.graph.macOSCustomConfiguration/assignments",
+  "assignments": []
+}

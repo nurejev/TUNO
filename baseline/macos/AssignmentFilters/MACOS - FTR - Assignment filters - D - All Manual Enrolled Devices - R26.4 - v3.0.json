@@ -1,0 +1,14 @@
+{
+  "id": "a9e65d05-769a-402d-bed0-2293b8ab178c",
+  "createdDateTime": "2026-04-28T09:44:29.8231892Z",
+  "lastModifiedDateTime": "2026-04-28T09:44:29.8231892Z",
+  "displayName": "MACOS - FTR - Assignment filters - D - All Manual Enrolled Devices - R26.4 - v3.0",
+  "description": "",
+  "platform": "macOS",
+  "rule": "(device.enrollmentProfileName -eq null)",
+  "roleScopeTags": [
+    "0"
+  ],
+  "assignmentFilterManagementType": "devices",
+  "payloads": []
+}

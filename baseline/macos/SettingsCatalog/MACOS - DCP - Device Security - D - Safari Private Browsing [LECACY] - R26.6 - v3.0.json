@@ -1,0 +1,64 @@
+{
+  "createdDateTime": "2026-01-08T19:55:33.6444654Z",
+  "creationSource": null,
+  "description": "",
+  "lastModifiedDateTime": "2026-05-19T11:33:14.8215186Z",
+  "name": "MACOS - DCP - Device Security - D - Safari Private Browsing [LECACY] - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 1,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "8646d968-e5b1-4bf4-b026-064a64e11ddc",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('8646d968-e5b1-4bf4-b026-064a64e11ddc')/assignments",
+  "assignments": [
+    {
+      "id": "8646d968-e5b1-4bf4-b026-064a64e11ddc_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "8646d968-e5b1-4bf4-b026-064a64e11ddc",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "com.apple.applicationaccess_com.apple.applicationaccess",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                "settingDefinitionId": "com.apple.applicationaccess_allowsafariprivatebrowsing",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "choiceSettingValue": {
+                  "settingValueTemplateReference": null,
+                  "value": "com.apple.applicationaccess_allowsafariprivatebrowsing_true",
+                  "children": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

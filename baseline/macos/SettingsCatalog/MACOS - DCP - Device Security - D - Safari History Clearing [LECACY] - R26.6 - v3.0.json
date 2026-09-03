@@ -1,0 +1,64 @@
+{
+  "createdDateTime": "2026-01-08T19:55:29.6823368Z",
+  "creationSource": null,
+  "description": "",
+  "lastModifiedDateTime": "2026-05-19T11:33:06.1230138Z",
+  "name": "MACOS - DCP - Device Security - D - Safari History Clearing [LECACY] - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 1,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "c5328610-8373-42ff-88ea-64d0762868d2",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('c5328610-8373-42ff-88ea-64d0762868d2')/assignments",
+  "assignments": [
+    {
+      "id": "c5328610-8373-42ff-88ea-64d0762868d2_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "c5328610-8373-42ff-88ea-64d0762868d2",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "com.apple.applicationaccess_com.apple.applicationaccess",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                "settingDefinitionId": "com.apple.applicationaccess_allowsafarihistoryclearing",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "choiceSettingValue": {
+                  "settingValueTemplateReference": null,
+                  "value": "com.apple.applicationaccess_allowsafarihistoryclearing_true",
+                  "children": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

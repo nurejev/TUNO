@@ -1,0 +1,77 @@
+{
+  "createdDateTime": "2026-01-08T19:55:32.344608Z",
+  "creationSource": null,
+  "description": "Set the default tab start page. default",
+  "lastModifiedDateTime": "2026-05-19T11:33:23.2230641Z",
+  "name": "MACOS - DCP - Device Security - D - Safari TAB Page Type - R26.6 - v3.0",
+  "platforms": "macOS",
+  "priorityMetaData": null,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "settingCount": 1,
+  "technologies": "mdm,appleRemoteManagement",
+  "id": "193d717c-03b0-4170-a6d4-5993373da5ef",
+  "templateReference": {
+    "templateId": "",
+    "templateFamily": "none",
+    "templateDisplayName": null,
+    "templateDisplayVersion": null
+  },
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('193d717c-03b0-4170-a6d4-5993373da5ef')/assignments",
+  "assignments": [
+    {
+      "id": "193d717c-03b0-4170-a6d4-5993373da5ef_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "193d717c-03b0-4170-a6d4-5993373da5ef",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ],
+  "settings": [
+    {
+      "id": "0",
+      "settingInstance": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+        "settingDefinitionId": "safari_safari",
+        "settingInstanceTemplateReference": null,
+        "auditRuleInformation": null,
+        "groupSettingCollectionValue": [
+          {
+            "settingValueTemplateReference": null,
+            "children": [
+              {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+                "settingDefinitionId": "safari_newtabstartpage",
+                "settingInstanceTemplateReference": null,
+                "auditRuleInformation": null,
+                "groupSettingCollectionValue": [
+                  {
+                    "settingValueTemplateReference": null,
+                    "children": [
+                      {
+                        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+                        "settingDefinitionId": "safari_newtabstartpage_pagetype",
+                        "settingInstanceTemplateReference": null,
+                        "auditRuleInformation": null,
+                        "choiceSettingValue": {
+                          "settingValueTemplateReference": null,
+                          "value": "safari_newtabstartpage_pagetype_0",
+                          "children": []
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

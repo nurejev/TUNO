@@ -1,0 +1,56 @@
+{
+  "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
+  "id": "474467b8-6555-4f09-a233-9b650fd49a7d",
+  "lastModifiedDateTime": "2026-08-26T16:45:59.3080991Z",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "supportsScopeTags": true,
+  "deviceManagementApplicabilityRuleOsEdition": null,
+  "deviceManagementApplicabilityRuleOsVersion": null,
+  "deviceManagementApplicabilityRuleDeviceMode": null,
+  "createdDateTime": "2026-08-26T16:13:24.6754107Z",
+  "description": "AppLocker Audit policy built in TUNO v1.0.3-beta.158 from TunoAppLockerScan-NLDBCD333C456A9-20260826-0929.json — the rule set the scan generated, in AuditOnly on 2026-08-26.",
+  "displayName": "Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0.1",
+  "version": 2,
+  "omaSettings": [
+    {
+      "@odata.type": "#microsoft.graph.omaSettingString",
+      "displayName": "StoreApps",
+      "description": "Appx rule collection — EnforcementMode AuditOnly",
+      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/AppLocker-a854dd0e-6d03-46f6-9890-f66091157e25/StoreApps/Policy",
+      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_474467b8-6555-4f09-a233-9b650fd49a7d_5a7e768a-cadf-40a6-b5a8-263a8c1843c2",
+      "isEncrypted": true,
+      "value": "****"
+    },
+    {
+      "@odata.type": "#microsoft.graph.omaSettingString",
+      "displayName": "EXE",
+      "description": "Exe rule collection — EnforcementMode AuditOnly",
+      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/AppLocker-a854dd0e-6d03-46f6-9890-f66091157e25/EXE/Policy",
+      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_474467b8-6555-4f09-a233-9b650fd49a7d_54c70b2b-2e76-4c83-a45c-33460dd6ea70",
+      "isEncrypted": true,
+      "value": "****"
+    },
+    {
+      "@odata.type": "#microsoft.graph.omaSettingString",
+      "displayName": "MSI",
+      "description": "Msi rule collection — EnforcementMode AuditOnly",
+      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/AppLocker-a854dd0e-6d03-46f6-9890-f66091157e25/MSI/Policy",
+      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_474467b8-6555-4f09-a233-9b650fd49a7d_652dbb7e-5097-4efa-846d-a93e62297aa9",
+      "isEncrypted": true,
+      "value": "****"
+    },
+    {
+      "@odata.type": "#microsoft.graph.omaSettingString",
+      "displayName": "Script",
+      "description": "Script rule collection — EnforcementMode AuditOnly",
+      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/AppLocker-a854dd0e-6d03-46f6-9890-f66091157e25/Script/Policy",
+      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_474467b8-6555-4f09-a233-9b650fd49a7d_06cfa3ff-d782-449b-8103-0be805566942",
+      "isEncrypted": true,
+      "value": "****"
+    }
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceConfigurations('474467b8-6555-4f09-a233-9b650fd49a7d')/microsoft.graph.windows10CustomConfiguration/assignments",
+  "assignments": []
+}

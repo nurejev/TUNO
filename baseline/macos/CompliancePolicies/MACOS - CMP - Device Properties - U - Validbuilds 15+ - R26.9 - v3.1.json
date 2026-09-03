@@ -1,0 +1,53 @@
+{
+  "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "id": "0e6dec83-0800-4719-916a-3f549b97d47f",
+  "createdDateTime": "2026-09-02T12:41:35.1334262Z",
+  "description": "Baseline macOS compliance policy requiring FileVault encryption, Firewall enabled, SIP enabled, and minimum macOS 15.0. Gatekeeper configuration is handled separately via configuration policy.",
+  "lastModifiedDateTime": "2026-09-02T12:41:35.1334262Z",
+  "displayName": "MACOS - CMP - Device Properties - U - Validbuilds 15+ - R26.9 - v3.1",
+  "version": 1,
+  "passwordRequired": false,
+  "passwordBlockSimple": false,
+  "passwordExpirationDays": null,
+  "passwordMinimumLength": null,
+  "passwordMinutesOfInactivityBeforeLock": null,
+  "passwordPreviousPasswordBlockCount": null,
+  "passwordMinimumCharacterSetCount": null,
+  "passwordRequiredType": "deviceDefault",
+  "osMinimumVersion": "15.0",
+  "osMaximumVersion": null,
+  "osMinimumBuildVersion": null,
+  "osMaximumBuildVersion": null,
+  "systemIntegrityProtectionEnabled": true,
+  "deviceThreatProtectionEnabled": false,
+  "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+  "advancedThreatProtectionRequiredSecurityLevel": "unavailable",
+  "storageRequireEncryption": true,
+  "gatekeeperAllowedAppSource": "notConfigured",
+  "firewallEnabled": true,
+  "firewallBlockAllIncoming": false,
+  "firewallEnableStealthMode": true,
+  "deviceCompliancePolicyScript": null,
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('0e6dec83-0800-4719-916a-3f549b97d47f')/microsoft.graph.macOSCompliancePolicy/assignments",
+  "assignments": [],
+  "scheduledActionsForRule@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('0e6dec83-0800-4719-916a-3f549b97d47f')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule(scheduledActionConfigurations())",
+  "scheduledActionsForRule": [
+    {
+      "id": "0e6dec83-0800-4719-916a-3f549b97d47f",
+      "ruleName": null,
+      "scheduledActionConfigurations@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('0e6dec83-0800-4719-916a-3f549b97d47f')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule('0e6dec83-0800-4719-916a-3f549b97d47f')/scheduledActionConfigurations",
+      "scheduledActionConfigurations": [
+        {
+          "id": "849127ba-3837-453c-9378-338026dcfec6",
+          "gracePeriodHours": 0,
+          "actionType": "block",
+          "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
+          "notificationMessageCCList": []
+        }
+      ]
+    }
+  ]
+}

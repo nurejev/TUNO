@@ -1,0 +1,34 @@
+{
+  "@odata.type": "#microsoft.graph.macOSCustomAppConfiguration",
+  "id": "4e107d18-ced4-405a-ac2e-84fe466db38e",
+  "lastModifiedDateTime": "2026-05-19T11:29:19.3034961Z",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "supportsScopeTags": true,
+  "deviceManagementApplicabilityRuleOsEdition": null,
+  "deviceManagementApplicabilityRuleOsVersion": null,
+  "deviceManagementApplicabilityRuleDeviceMode": null,
+  "createdDateTime": "2026-01-09T11:20:58.896187Z",
+  "description": "https://workbench.cisecurity.org/benchmarks/19972/sections/3069323\n\n",
+  "displayName": "MACOS - DCP - Device Security - D - Safari Security and Privacy - R26.6 - v3.0",
+  "version": 4,
+  "bundleId": "com.apple.Safari.plist",
+  "fileName": "com.apple.Safari.xml",
+  "configurationXml": "CTxrZXk+QXV0b09wZW5TYWZlRG93bmxvYWRzPC9rZXk+Cgk8ZmFsc2UvPgoJPGtleT5CbG9ja1N0b3JhZ2VQb2xpY3k8L2tleT4KCTxpbnRlZ2VyPjI8L2ludGVnZXI+Cgk8a2V5PlNob3dGdWxsVVJMSW5TbWFydFNlYXJjaEZpZWxkPC9rZXk+Cgk8dHJ1ZS8+Cgk8a2V5PlNob3dPdmVybGF5U3RhdHVzQmFyPC9rZXk+Cgk8dHJ1ZS8+Cgk8a2V5Pldhcm5BYm91dEZyYXVkdWxlbnRXZWJzaXRlczwva2V5PgoJPHRydWUvPgoJPGtleT5XZWJLaXRQcmVmZXJlbmNlcy5wcml2YXRlQ2xpY2tNZWFzdXJlbWVudEVuYWJsZWQ8L2tleT4KCTx0cnVlLz4KCTxrZXk+V2ViS2l0UHJlZmVyZW5jZXMuc3RvcmFnZUJsb2NraW5nUG9saWN5PC9rZXk+Cgk8aW50ZWdlcj4xPC9pbnRlZ2VyPgoJPGtleT5XZWJLaXRTdG9yYWdlQmxvY2tpbmdQb2xpY3k8L2tleT4KCTxpbnRlZ2VyPjE8L2ludGVnZXI+Cg==",
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceConfigurations('4e107d18-ced4-405a-ac2e-84fe466db38e')/microsoft.graph.macOSCustomAppConfiguration/assignments",
+  "assignments": [
+    {
+      "id": "4e107d18-ced4-405a-ac2e-84fe466db38e_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "4e107d18-ced4-405a-ac2e-84fe466db38e",
+      "intent": "apply",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

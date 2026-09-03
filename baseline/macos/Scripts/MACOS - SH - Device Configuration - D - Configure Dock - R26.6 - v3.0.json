@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT0S",
+  "retryCount": 0,
+  "blockExecutionNotifications": false,
+  "id": "19e285df-bc71-4296-b538-5dc35a6eadc8",
+  "displayName": "MACOS - SH - Device Configuration - D - Configure Dock - R26.6 - v3.0",
+  "description": "Configures the macOS Dock with a standardized set of Microsoft 365 and system applications. Optionally waits for applications to be installed before configuration. Supports both dockutil and native plist manipulation methods. Integrates with Swift Dialog for deployment progress visualization and adapts to macOS versions (Apps.app vs Launchpad).",
+  "scriptContent": null,
+  "createdDateTime": "2026-04-28T09:25:07.115616Z",
+  "lastModifiedDateTime": "2026-05-19T11:18:23.3005474Z",
+  "runAsAccount": "system",
+  "fileName": "scr-sys-101-configure-dock.sh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('19e285df-bc71-4296-b538-5dc35a6eadc8')/assignments",
+  "assignments": [
+    {
+      "id": "19e285df-bc71-4296-b538-5dc35a6eadc8:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

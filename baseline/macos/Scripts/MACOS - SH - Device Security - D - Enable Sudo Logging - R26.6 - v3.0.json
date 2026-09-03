@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "P7D",
+  "retryCount": 3,
+  "blockExecutionNotifications": true,
+  "id": "f17027f5-afa8-43f6-b47f-a403e24b8a2d",
+  "displayName": "MACOS - SH - Device Security - D - Enable Sudo Logging - R26.6 - v3.0",
+  "description": "CIS Level 1 - 5.11 Ensure Logging Is Enabled for Sudo\n\nIn order to properly monitor the use of the sudo command, logs events for any use of sudo should be captured in the unified log.\n\n",
+  "scriptContent": null,
+  "createdDateTime": "2026-01-09T11:28:12.1316697Z",
+  "lastModifiedDateTime": "2026-05-19T11:17:39.7185727Z",
+  "runAsAccount": "system",
+  "fileName": "EnableSudoLogging.sh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('f17027f5-afa8-43f6-b47f-a403e24b8a2d')/assignments",
+  "assignments": [
+    {
+      "id": "f17027f5-afa8-43f6-b47f-a403e24b8a2d:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

@@ -12,6 +12,10 @@ TUNO is [ENCA](https://github.com/nurejev/enca)'s sister tool: the same idea —
 | T21 | 📊 **Secure Score visualizer** — the tenant's Microsoft Secure Score over `security/secureScores` and the control catalogue: the gauge, the similar-tenant and all-tenant comparison, the per-category breakdown with Microsoft's own comparison figures as ticks on each bar, the timeline of every reading Graph holds with what improved and regressed, and the improvement actions ranked **cheapest points first** — an ordering openly labelled as ours, not Microsoft's. Graph keeps about ninety days, so it exports a versioned JSON **snapshot** (readings plus the catalogue they were read under) and uploads them back to reach further; a snapshot from a different tenant is refused rather than merged. Markdown, controls CSV, history CSV. `SecurityEvents.Read.All`, asked on the click. Reads only. | BETA |
 | R03 | 🖥 Intune device analyzer | roadmap |
 
+## The baselines in the repository
+
+`baseline/macos/` and `baseline/windows/` hold the CloudFellows baselines as files: one JSON per policy under its section folder, a `README.md` index, and `catalog.json` — the file 🍎 T24 / 🪟 T27 consume. They are **written by the app, never by hand**: on the baseline tenant, Export → 📁 Repo folder (zip), unzipped at the repository root, refreshes the folder and the bundled `js/<platform>baselineData.js` together, cut from one export.
+
 ## Architecture & security
 
 * **Static site, no backend.** GitHub Pages serves the files; everything runs in your browser tab. An imported AppLocker XML is parsed locally and never leaves your session.

@@ -280,6 +280,22 @@ const PlatformBaseline = (() => {
       admx: "AdmxPolicies",
       filters: "AssignmentFilters",   // T14's own create path, not restore's
     };
+    // one identity, the newest — shared by the export and by a re-cut of a
+    // catalog file that was exported before this rule existed
+    function dedupeCatalog(policies) {
+      const byKey = new Map();
+      for (const p of policies) { const k = p.key || keyOf(p.name); if (!byKey.has(k)) byKey.set(k, []); byKey.get(k).push(p); }
+      const kept = [], superseded = [];
+      for (const [k, list] of byKey) {
+        if (list.length === 1) { kept.push(list[0]); continue; }
+        const sorted = list.slice().sort((a, b) => -(cmpRelVer(normRel(a.release, a.name), a.version || versionOf(a.name), normRel(b.release, b.name), b.version || versionOf(b.name)) || 0));
+        const keep = sorted[0];
+        kept.push(keep);
+        superseded.push({ key: k, kept: keep.name, dropped: sorted.slice(1).map((p) => p.name) });
+      }
+      kept.sort((a, b) => String(a.key || keyOf(a.name)).localeCompare(String(b.key || keyOf(b.name))));
+      return { kept, superseded };
+    }
     function buildExport(res, tenantName) {
       const policies = [], skipped = [];
       for (const sec of res.sections || []) {
@@ -303,7 +319,14 @@ const PlatformBaseline = (() => {
         }
       }
       policies.sort((a, b) => String(a.key).localeCompare(String(b.key)));
-      const dupKeys = [...new Set(policies.filter((p, i) => policies.findIndex((x) => x.key === p.key) !== i).map((p) => p.key))];
+      // THE CATALOG HOLDS EACH IDENTITY ONCE — THE NEWEST (build 10574). A
+      // re-cut kept beside its old copy on the baseline tenant is the
+      // tenant's housekeeping, not a feature of the baseline: the newest
+      // release+version is kept, the rest recorded as superseded so the
+      // README and the data-file header can say what was left out. An
+      // exact duplicate (same release and version) keeps the first seen.
+      const { kept, superseded } = dedupeCatalog(policies);
+      const dupKeys = superseded.map((x) => x.key);
       return {
         file: {
           kind: spec.kind,
@@ -311,11 +334,129 @@ const PlatformBaseline = (() => {
           exported: new Date().toISOString(),
           tenant: tenantName || "",
           build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
-          policies,
+          policies: kept,
         },
         skipped,
         duplicateKeys: dupKeys,
+        superseded,
       };
+    }
+
+    // ---- the repo folder: the export as files a repository can hold ----
+    // Mihai (10574): "make it a markdown or something that I can easily put
+    // in a folder in the repo to be used as the baseline". One zip, unzipped
+    // at the repo root: baseline/<platform>/<section>/<policy>.json, a
+    // README.md index, the catalog file, and the data file the app bundles —
+    // so the folder and the bundle are cut from one export and cannot drift.
+    const safeFile = (name) => String(name).replace(/[\/\\:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 150);
+    const SECTION_DIR = { settingsCatalog: "SettingsCatalog", deviceConfigurations: "DeviceConfiguration", compliance: "CompliancePolicies", admx: "AdministrativeTemplates", filters: "AssignmentFilters", scripts: "Scripts", updates: "UpdateProfiles" };
+    function repoFolder(built) {
+      const plat = spec.platform.toLowerCase();
+      const dir = `baseline/${plat}`;
+      const file = built.file;
+      const files = {};
+      for (const p of file.policies) files[`${dir}/${SECTION_DIR[p.section] || p.section}/${safeFile(p.name)}.json`] = JSON.stringify(p.body, null, 2) + "\n";
+      files[`${dir}/catalog.json`] = JSON.stringify(file, null, 1) + "\n";
+      files[`${spec.dataFile}`] = dataFile(built);
+      const L = [];
+      L.push(`# CloudFellows ${spec.platform} baseline — ${file.release}`, "");
+      L.push(`Exported from **${file.tenant || "the baseline tenant"}** on ${file.exported.slice(0, 10)} by TUNO ${file.build} (🧬 Export on the baseline tenant, the cfdev convention). ${file.policies.length} policies, each identity once — the newest release and version.`, "");
+      L.push(`The naming convention is the identity: \`${spec.prefix} - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y\` — \`Ryy.m\` is the release the policy was cut in (year, then month), the version orders re-cuts within it.`, "");
+      L.push(`\`catalog.json\` is the file the app consumes (🍎/🪟 Import → Load a baseline file); \`${spec.dataFile}\` is the same catalog bundled for the build. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository.`, "");
+      const sections = [...new Set(file.policies.map((p) => p.section))];
+      for (const sec of sections) {
+        const rows = file.policies.filter((p) => p.section === sec);
+        L.push(`## ${rows[0].sectionLabel || sec} (${rows.length})`, "");
+        L.push("| Policy | Release | Version | Importable |", "| --- | --- | --- | --- |");
+        for (const p of rows) L.push(`| ${p.name.replace(/\|/g, "\\|")} | ${relLabel(p.release)} | ${p.version ? `v${p.version}` : "—"} | ${p.importable ? "yes" : (p.section === "scripts" ? "no — no script body in the read" : "no")} |`);
+        L.push("");
+      }
+      if (built.superseded.length) {
+        L.push(`## Superseded on the tenant at export time (${built.superseded.length})`, "");
+        L.push("Older copies still present beside their re-cut — left out of the catalog; 🧹 Housekeeping on the baseline tenant retires them.", "");
+        for (const x of built.superseded) L.push(`- **${x.kept}** supersedes ${x.dropped.map((d) => `\`${d}\``).join(", ")}`);
+        L.push("");
+      }
+      if (built.skipped.length) {
+        L.push(`## Skipped (${built.skipped.length})`, "");
+        for (const x of built.skipped) L.push(`- ${x.name} — ${x.why}`);
+        L.push("");
+      }
+      files[`${dir}/README.md`] = L.join("\n");
+      return files;
+    }
+    // js/<platform>baselineData.js, exactly as the build carries it
+    function dataFile(built) {
+      const file = built.file;
+      const sec = {};
+      file.policies.forEach((p) => { sec[p.sectionLabel || p.section] = (sec[p.sectionLabel || p.section] || 0) + 1; });
+      const head = [
+        "// ======================================================================",
+        `// The ${spec.platform} baseline catalog — the CloudFellows reference export, bundled.`,
+        "//",
+        "// REGENERATED FROM THE BASELINE TENANT'S OWN EXPORT, never edited by hand:",
+        `//   tenant   ${file.tenant || "?"}`,
+        `//   exported ${file.exported} (TUNO ${file.build})`,
+        `//   policies ${file.policies.length} (${Object.entries(sec).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(", ")})`,
+        "//",
+        "// Bundled rather than fetched at runtime — the CSP allows Graph and the",
+        "// two GitHub read hosts, and a baseline must not change under you",
+        "// mid-session. To re-cut: sign into the baseline tenant on the beta site,",
+        `// ${spec.code} -> Export -> Repo folder (zip), unzip at the repo root: this file`,
+        `// and baseline/${spec.platform.toLowerCase()}/ land together, cut from one export.`,
+        "//",
+        "// EACH IDENTITY ONCE, THE NEWEST. Older copies still on the tenant at",
+        "// export time are recorded here rather than silently dropped:",
+        ...(built.superseded.length ? built.superseded.map((x) => `//   ${x.kept}  supersedes  ${x.dropped.join(" ; ")}`) : ["//   (none)"]),
+        "//",
+        "// Scripts are present for IDENTIFICATION but carry no scriptContent (the",
+        "// shared read returns script metadata only), so they are not importable",
+        "// from this catalog — restore's rule: a script without its body cannot",
+        "// be put back. The screen says this wherever it matters.",
+        "// ======================================================================",
+      ];
+      return `${head.join("\n")}\nconst ${spec.bundledGlobal} = ${JSON.stringify(file, null, 1)};\n`;
+    }
+
+    // ---- housekeeping: the copies a re-cut left behind (10574) ----
+    // Every identity the tenant carries more than once: the newest release
+    // and version is KEPT, the rest are offered for deletion. An older copy
+    // that still has assignments is listed but refused — deleting it would
+    // take reach away that the new copy does not have; move the reach in
+    // ✏️ the editor first. An exact duplicate (same release and version)
+    // keeps the one with assignments, else the first created.
+    const DELETE_PATH = {
+      settingsCatalog: "/deviceManagement/configurationPolicies",
+      deviceConfigurations: "/deviceManagement/deviceConfigurations",
+      compliance: "/deviceManagement/deviceCompliancePolicies",
+      admx: "/deviceManagement/groupPolicyConfigurations",
+    };
+    function housekeeping(vms) {
+      const byKey = new Map();
+      for (const p of vms) {
+        if (!looksBaseline(p.name)) continue;
+        const k = keyOf(p.name);
+        if (!byKey.has(k)) byKey.set(k, []);
+        byKey.get(k).push(p);
+      }
+      const groups = [];
+      for (const [k, list] of byKey) {
+        if (list.length < 2) continue;
+        const nAsg = (p) => (p.assignments || []).length;
+        const sorted = list.slice().sort((a, b) =>
+          -(cmpRelVer(releaseOf(a.name), versionOf(a.name), releaseOf(b.name), versionOf(b.name)) || 0)
+          || (nAsg(b) - nAsg(a))
+          || String(a.created || "").localeCompare(String(b.created || "")));
+        const keep = sorted[0];
+        const retire = sorted.slice(1).map((p) => ({
+          p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, assignments: nAsg(p),
+          rel: releaseOf(p.name), ver: versionOf(p.name), path: DELETE_PATH[p.section] || null,
+          refused: nAsg(p) ? `assigned to ${nAsg(p)} target${nAsg(p) === 1 ? "" : "s"} — move the reach to the kept copy in ✏️ the editor first` : !DELETE_PATH[p.section] ? `its surface (${p.sectionLabel || p.section}) has no delete path here — retire it in the portal` : "",
+        }));
+        groups.push({ key: k, keep, keepRel: releaseOf(keep.name), keepVer: versionOf(keep.name), keepAssignments: nAsg(keep), retire });
+      }
+      groups.sort((a, b) => String(a.key).localeCompare(String(b.key)));
+      return groups;
     }
 
     // ---- import entries: three roads, each honest about itself ----
@@ -759,6 +900,7 @@ const PlatformBaseline = (() => {
       UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
       matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
       releaseOfDate, stampRelease, RENAME_PATH, renameProposals, fetchUpstream,
+      dedupeCatalog, repoFolder, dataFile, housekeeping, DELETE_PATH,
     };
   }
 
@@ -794,7 +936,7 @@ const PlatformBaseline = (() => {
     const vms = () => {
       const out = [];
       for (const sec of (res && res.sections) || []) {
-        for (const it of sec.items || []) out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "" });
+        for (const it of sec.items || []) out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [] });
       }
       return out;
     };
@@ -825,6 +967,7 @@ const PlatformBaseline = (() => {
     function land(r, sourceNote) {
       res = r;
       const rh = $(ID("Rename")); if (rh) { delete rh.dataset.for; rh.innerHTML = ""; }
+      const hh = $(ID("Housekeeping")); if (hh) { delete hh.dataset.for; hh.innerHTML = ""; }
       recompare();
       render(sourceNote);
     }
@@ -839,12 +982,14 @@ const PlatformBaseline = (() => {
       const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) : null;
       const upBad = upstream ? upstream.rows.filter((r) => r.status !== "same").length : null;
       const rn = res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
+      const hk = res ? E.housekeeping(vms()).reduce((a, g) => a + g.retire.length, 0) : null;
       el.innerHTML = [
         node("compare", spec.icon, "Compare", cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
         ...(isCfdev() ? [node("export", "🧬", "Export", res ? "ready" : "read first", false)] : []),
         node("import", "📥", "Import", c ? `${c.policies.length}` : "no catalog", !c),
         ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", upstream === null ? "fetch or load" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
         ...(isCfdev() ? [node("rename", "✏️", "Rename", res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0)] : []),
+        ...(isCfdev() ? [node("housekeeping", "🧹", "Housekeeping", res ? (hk ? `${hk} old cop${hk === 1 ? "y" : "ies"}` : "tidy") : "read first", hk > 0)] : []),
       ].join("");
     }
 
@@ -866,7 +1011,7 @@ const PlatformBaseline = (() => {
       return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "R26")}</b> · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
     }
 
-    const CFDEV_ONLY = new Set(["export", "upstream", "rename"]);
+    const CFDEV_ONLY = new Set(["export", "upstream", "rename", "housekeeping"]);
     function render(sourceNote) {
       if (sourceNote) lastSource = sourceNote;
       if (CFDEV_ONLY.has(mode) && !isCfdev()) mode = "compare";
@@ -877,7 +1022,9 @@ const PlatformBaseline = (() => {
 
       if (mode === "compare" || mode === "import") parts.push(catalogSeg());
       if (c) parts.push(catalogLine(c));
-      else parts.push(`<div class="list-card"><p class="mini" style="margin:0"><b>No catalog is bundled with this build.</b> Load a baseline file under 📥 Import — or, on the baseline tenant, 🧬 export one. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.</p></div>`);
+      else parts.push(`<div class="list-card"><p class="mini" style="margin:0">${isCfdev()
+        ? `<b>No CloudFellows catalog is bundled with this build — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 🧬 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.dataFile)} and baseline/${esc(spec.platform.toLowerCase())}/ in one go, and the next build carries it everywhere.`
+        : `<b>No catalog is bundled with this build.</b> Load a baseline file under 📥 Import. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.`}</p></div>`);
 
       const comm = E.isCommunity(c);
       const relver = (rel, ver) => comm ? (ver ? `v${esc(ver)}` : `<span class="muted">—</span>`) : `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
@@ -933,7 +1080,8 @@ const PlatformBaseline = (() => {
       if (mode === "export") {
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧬 Export the baseline <span class="mini muted">— this IS the baseline tenant</span></h4>
           <p class="mini muted" style="margin:0 0 8px">Writes the catalog file from this tenant's ${esc(spec.prefix)} policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. Bundle it into the build as ${esc(spec.dataFile)} when it is the new reference.</p>
-          ${res ? `<button class="btn primary" id="${ID("Export")}">⬇ Export the baseline file</button>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
+          ${res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with one JSON per policy and a README index, plus ${esc(spec.dataFile)} ready to bundle — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
+          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b> — an older copy still on the tenant is listed as superseded in the README and the data file's header, and 🧹 Housekeeping retires it.</p>
           <span class="mini muted" id="${ID("ExportNote")}"></span></div>`);
       }
 
@@ -964,6 +1112,12 @@ const PlatformBaseline = (() => {
           <p class="mini muted" id="${ID("UpNote")}" style="margin:8px 0 0"></p></div>`);
       }
 
+      if (mode === "housekeeping") {
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧹 Housekeeping <span class="tag block">deletes from the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">Every identity this tenant carries <b>more than once</b> — a re-cut kept beside its old copy. The newest release and version is <b>kept</b>; the older copies are offered for deletion, ticked by default. An older copy that still has <b>assignments is refused</b>: deleting it would take reach away the kept copy does not have — move the reach in ✏️ the editor first. Dry run reads each policy again before anything is deleted (still there, still that name, still unassigned); every delete is verified by a read-back that fails. <b>📦 Back up first</b> — a deleted policy does not come back from here.</p>
+          ${res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
+      }
+
       if (mode === "rename") {
         const co = communityCatalog();
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">✏️ Stamp the release <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
@@ -979,6 +1133,11 @@ const PlatformBaseline = (() => {
       if (rh) {
         rh.style.display = mode === "rename" && isCfdev() ? "" : "none";
         if (mode === "rename" && isCfdev() && res && !rh.dataset.for) renderRename();
+      }
+      const hh = $(ID("Housekeeping"));
+      if (hh) {
+        hh.style.display = mode === "housekeeping" && isCfdev() ? "" : "none";
+        if (mode === "housekeeping" && isCfdev() && res && !hh.dataset.for) renderHousekeeping();
       }
       wire();
     }
@@ -996,13 +1155,30 @@ const PlatformBaseline = (() => {
         if (!cmp) return;
         download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`, E.toMd(cmp, tenantName()), "text/markdown");
       });
+      const ez = $(ID("ExportZip"));
+      if (ez) ez.addEventListener("click", async () => {
+        const built = E.buildExport(res, tenantName());
+        if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
+        try {
+          const z = new JSZip();
+          const files = E.repoFolder(built);
+          for (const [path, text] of Object.entries(files)) z.file(path, text);
+          const blob = await z.generateAsync({ type: "blob" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.platform.toLowerCase()}-baseline-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/ + ${spec.dataFile}`
+            + (built.superseded.length ? ` · ${built.superseded.length} identit${built.superseded.length === 1 ? "y" : "ies"} exported once, older copies listed as superseded — 🧹 Housekeeping retires them` : "")
+            + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((x) => x.why)[0]})` : "");
+        } catch (e) { $(ID("ExportNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
+      });
       const ex = $(ID("Export"));
       if (ex) ex.addEventListener("click", () => {
         const built = E.buildExport(res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         download(`tuno-${spec.platform.toLowerCase()}-baseline-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(built.file, null, 2));
-        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported`
-          + (built.duplicateKeys.length ? ` · DUPLICATE IDENTITIES: ${built.duplicateKeys.join("; ")} — a leftover copy in the tenant; fix it before bundling` : "")
+        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once`
+          + (built.superseded.length ? ` · ${built.superseded.length} older cop${built.superseded.length === 1 ? "y" : "ies"} left out as superseded — 🧹 Housekeeping retires them` : "")
           + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((s) => s.why)[0]})` : "");
       });
       const fi = $(ID("File"));
@@ -1471,6 +1647,159 @@ const PlatformBaseline = (() => {
         prog("");
         $(ID("RnResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
       } finally { running = false; const ap = $(ID("RnApply")); if (ap) ap.disabled = false; syncRnBar(); }
+    }
+
+    // ------------------------------------------------ housekeeping --------
+    let hkPlanned = null, hkPlanKey = null, syncHkBar = () => {};
+    function hkSelectionKey() {
+      const host = $(ID("Housekeeping"));
+      if (!host) return "";
+      return [...host.querySelectorAll("[data-hktick]")].filter((cb) => cb.checked).map((cb) => cb.dataset.hktick).join(",");
+    }
+    function renderHousekeeping() {
+      const host = $(ID("Housekeeping"));
+      if (!host || !res) return;
+      const groups = E.housekeeping(vms());
+      host.dataset.for = String(groups.length);
+      hkPlanned = null; hkPlanKey = null;
+      const flat = []; groups.forEach((g) => g.retire.forEach((r) => flat.push({ g, r })));
+      const relver = (rel, ver) => `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
+      let i = 0;
+      const rows = groups.map((g) => `
+        <tr><td></td><td class="mini" colspan="2"><b>${esc(g.keep.name)}</b> <span class="gu-how inc">keep</span> <span class="mini muted">${relver(g.keepRel, g.keepVer)} · ${esc(g.keep.sectionLabel || g.keep.section)}${g.keepAssignments ? ` · assigned to ${g.keepAssignments}` : " · unassigned"}</span></td></tr>
+        ${g.retire.map((r) => { const idx = i++; return `<tr>
+          <td style="width:30px">${r.refused ? "" : `<input type="checkbox" data-hktick="${idx}" checked>`}</td>
+          <td class="mini" style="padding-left:24px">${esc(r.name)} <span class="gu-how ${r.refused ? "priv" : "exc"}">${r.refused ? "kept" : "retire"}</span><div class="mini muted">${relver(r.rel, r.ver)} · ${esc(r.sectionLabel || r.section)}${r.refused ? ` · ${esc(r.refused)}` : r.assignments ? "" : " · unassigned"}</div></td>
+          <td class="mini muted">${r.refused ? "" : "DELETE"}</td></tr>`; }).join("")}`).join("");
+      host.innerHTML = `<div class="list-card">
+        <h4 style="margin:0 0 6px">🧹 ${flat.filter((x) => !x.r.refused).length} to retire <span class="mini muted">— ${groups.length} identit${groups.length === 1 ? "y" : "ies"} carried more than once</span></h4>
+        ${groups.length ? "" : `<p class="mini muted" style="margin:0">Every identity is carried once — nothing to tidy.</p>`}
+        <div class="tb-actions" style="margin:8px 0 8px">
+          <button class="btn" id="${ID("HkAll")}">☑ Select all</button>
+          <button class="btn" id="${ID("HkNone")}">☐ Select none</button>
+          <span class="mini muted" id="${ID("HkCount")}"></span>
+        </div>
+        <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col><col style="width:90px"></colgroup>
+          <thead><tr><th><input type="checkbox" id="${ID("HkMaster")}" title="Select or deselect every row below"></th><th>Kept copy — then the older copies under it</th><th>Op</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        <div id="${ID("HkPlan")}" style="margin-top:10px"></div>
+      </div>
+      <div class="ae-selbar" id="${ID("HkBar")}"><b id="${ID("HkBarCount")}"></b>
+        <button class="btn primary" id="${ID("HkDry")}">🔍 Dry run the ticked <span class="tag block">plans deletes</span></button>
+        <button class="btn primary" id="${ID("HkApply")}" style="display:none">🗑 Delete in THIS tenant <span class="tag block">deletes from the tenant</span></button>
+        <button class="ae-selbar-x" id="${ID("HkBarX")}" title="Clear the selection">✕</button></div>`;
+      host.dataset.rows = JSON.stringify(flat.map((x) => ({ id: x.r.p.id, name: x.r.name, section: x.r.section, path: x.r.path, keep: x.g.keep.name })));
+      const ticks = () => [...host.querySelectorAll("[data-hktick]")];
+      const master = $(ID("HkMaster"));
+      const sync = () => {
+        const t = ticks(), on = t.filter((c) => c.checked).length;
+        master.checked = on > 0 && on === t.length; master.indeterminate = on > 0 && on < t.length;
+        const c2 = $(ID("HkCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+        const bar = $(ID("HkBar")); if (!bar) return;
+        bar.classList.toggle("visible", on > 0);
+        const live = hkPlanned && hkPlanKey === hkSelectionKey();
+        const nDo = live ? hkPlanned.filter((p) => !p.refused).length : 0;
+        $(ID("HkBarCount")).textContent = live ? `${on} ticked · ${nDo} to delete` : `${on} cop${on === 1 ? "y" : "ies"} ticked`;
+        const dry = $(ID("HkDry")), ap = $(ID("HkApply"));
+        dry.classList.toggle("primary", !live);
+        dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans deletes</span>`;
+        ap.style.display = live && nDo ? "" : "none";
+        ap.innerHTML = `🗑 Delete ${nDo} in THIS tenant <span class="tag block">deletes from the tenant</span>`;
+        const stale = $(ID("HkStale")); if (stale) stale.style.display = hkPlanned && !live ? "" : "none";
+      };
+      syncHkBar = sync;
+      const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
+      master.addEventListener("change", () => setAll(master.checked));
+      $(ID("HkAll")).addEventListener("click", () => setAll(true));
+      $(ID("HkNone")).addEventListener("click", () => setAll(false));
+      $(ID("HkBarX")).addEventListener("click", () => setAll(false));
+      host.addEventListener("change", (e) => { if (e.target.closest("[data-hktick]")) sync(); });
+      $(ID("HkDry")).addEventListener("click", hkDryRun);
+      $(ID("HkApply")).addEventListener("click", hkApply);
+      sync();
+    }
+    // the fresh per-policy read before a delete: still there, still that
+    // name, still unassigned — the tenant may have moved since the read
+    async function hkFresh(p) {
+      const url = `${Graph.BETA}${p.path}/${encodeURIComponent(p.id)}`;
+      const now = await Graph.readOne(url, { scopes: Graph.SCOPES.config });
+      if (!now) return { refused: "already gone" };
+      const nameNow = now.name || now.displayName || "";
+      if (nameNow !== p.name) return { refused: `the policy is now named “${nameNow}” — not the copy that was planned` };
+      let asg = [];
+      try { asg = await Graph.readAll(`${url}/assignments`, { scopes: Graph.SCOPES.config }); } catch { asg = null; }
+      if (asg === null) return { refused: "its assignments could not be read — not deleting a policy whose reach is unknown" };
+      if (asg.length) return { refused: `assigned to ${asg.length} target${asg.length === 1 ? "" : "s"} since the read — move the reach first` };
+      return { refused: "" };
+    }
+    async function hkDryRun() {
+      if (running) return;
+      running = true; $(ID("HkDry")).disabled = true; $(ID("HkPlan")).innerHTML = "";
+      hkPlanned = null; hkPlanKey = null; syncHkBar();
+      try {
+        const host = $(ID("Housekeeping"));
+        const rows = JSON.parse(host.dataset.rows || "[]");
+        const picked = [...host.querySelectorAll("[data-hktick]")].filter((cb) => cb.checked).map((cb) => rows[+cb.dataset.hktick]);
+        if (!picked.length) { $(ID("HkPlan")).innerHTML = `<p class="mini muted" style="margin:0">Nothing ticked.</p>`; return; }
+        await Graph.ensureScopes(Graph.SCOPES.config);
+        const out = [];
+        for (let i = 0; i < picked.length; i++) {
+          const p = picked[i];
+          prog(`${p.name} — reading again (${i + 1}/${picked.length})…`);
+          const f = p.path ? await hkFresh(p) : { refused: "no delete path here" };
+          out.push({ ...p, refused: f.refused });
+        }
+        prog("");
+        hkPlanned = out; hkPlanKey = hkSelectionKey();
+        const nDo = out.filter((p) => !p.refused).length;
+        $(ID("HkPlan")).innerHTML = `
+          <p class="mini" style="margin:0 0 8px"><b>${nDo} to delete</b> · ${out.length - nDo} refused${nDo ? ` — <b>🗑 Delete ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
+          <p class="mini" id="${ID("HkStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before deleting.</p>
+          <div class="gu-tw"><table class="cg-table"><thead><tr><th>Old copy</th><th>Kept copy</th><th style="width:260px">Operation</th></tr></thead>
+          <tbody>${out.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini">${esc(p.keep)}</td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : "DELETE, verified by a read-back that fails"}</td></tr>`).join("")}</tbody></table></div>
+          <div id="${ID("HkResult")}" style="margin-top:10px"></div>`;
+      } catch (e) {
+        prog("");
+        $(ID("HkPlan")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
+      } finally { running = false; const d = $(ID("HkDry")); if (d) d.disabled = false; syncHkBar(); }
+    }
+    async function hkApply() {
+      if (running || !hkPlanned) return;
+      if (hkPlanKey !== hkSelectionKey()) { syncHkBar(); return; }
+      running = true; $(ID("HkApply")).disabled = true;
+      const results = [];
+      try {
+        await Graph.ensureScopes(Graph.SCOPES.profiles);
+        for (const p of hkPlanned) {
+          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
+          try {
+            // the tenant may have moved since the dry run: read THIS one again
+            prog(`${p.name} — checking again…`);
+            const f = await hkFresh(p);
+            if (f.refused) { results.push({ ...p, outcome: "skipped", detail: `${f.refused} (at delete time)` }); continue; }
+            const url = `${Graph.BETA}${p.path}/${encodeURIComponent(p.id)}`;
+            prog(`${p.name} — deleting…`);
+            await Graph.del(url, { scopes: Graph.SCOPES.profiles });
+            let back = null;
+            try { back = await Graph.readOne(url, { scopes: Graph.SCOPES.config }); } catch { back = null; }
+            if (back) throw new Error("the delete returned, but the policy still reads back — check the portal");
+            results.push({ ...p, outcome: "deleted", detail: "verified gone" });
+          } catch (e) {
+            results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
+          }
+        }
+        prog("");
+        const good = results.filter((r) => r.outcome === "deleted").length, bad = results.filter((r) => r.outcome === "failed").length;
+        $(ID("HkResult")).innerHTML = `
+          <p class="mini" style="margin:0 0 6px"><b>${good} deleted</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant.</p>
+          ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
+        if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
+        hkPlanned = null; hkPlanKey = null;
+        rereadAfter(`🧹 Housekeeping: <b>${good} deleted</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
+      } catch (e) {
+        prog("");
+        $(ID("HkResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
+      } finally { running = false; const ap = $(ID("HkApply")); if (ap) ap.disabled = false; syncHkBar(); }
     }
 
     async function dryRun() {

@@ -100,6 +100,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 145, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 Housekeeping deletes the copies a re-cut left behind; Export writes the repo folder; the CloudFellows Windows catalog bundled",
+      tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10574], risk: "high",
+      why: "Mihai, 2026-09-03: 'a housekeeping button where I can easily see which policies were updated or have a higher release and version number and easily delete them from the tenant', and 'make the export something I can easily put in a folder in the repo to be used as the baseline'. The two exports he sent carried the answer to both: macOS 100 policies of which 16 identities twice (15 re-cuts + the old duplicate), Windows 37 clean. HIGH because this is the baseline tools' FIRST DELETE \u2014 cfdev-only, dry-run-first, fresh per-policy read at plan and at delete time, assigned copies refused, read-back-that-fails as the proof \u2014 and because production's T24 catalog changes shape (newest per identity). The repo now carries baseline/macos and baseline/windows beside the data files, cut from one export through one function.",
+      test: [
+        "cloudfellows.dev, T24: \ud83e\uddf9 Housekeeping reads '18 old copies'; every group shows the R26.9 copy kept and the R26.6 copy under it; any old copy still assigned reads 'kept \u2014 assigned to N, move the reach first' with no tick. \ud83d\udce6 Back up first. Dry run: each ticked copy re-read; Delete: the portal shows them gone; the source line reads 'Housekeeping: 18 deleted'; Compare against the bundled catalog reads 82 up to date, no '2+ versions' chip.",
+        "cloudfellows.dev, T24 then T27: \ud83e\uddec Export \u2192 \ud83d\udcc1 Repo folder (zip): unzip at ~/REPO/TUNO \u2014 baseline/<platform>/ and js/<platform>baselineData.js overwrite the committed ones with no diff when the tenant is unchanged (the proof the bundle was cut from the same road).",
+        "Any tenant, T27: the seg shows \ud83e\uddec CloudFellows R26 \u00b7 37 and \ud83e\udde9 OpenIntuneBaseline v3.8 \u00b7 73; Import from CloudFellows creates the 33 importable (4 scripts refused on the row).",
+        "The two R27.1 names on Windows: Mihai decides \u2014 rename on cfdev (\u270f\ufe0f proposes nothing for them, they wear a tag) or leave; either way re-export.",
+        "Suites (outside the repo): platformbaseline-tests.js 139/139 (15 new: dedupe, repo folder, data file byte-equal to the bundle, housekeeping rules), baseline-dom-tests.js 87/87 (12 new: both catalogs on the seg, export buttons, the housekeeping act end to end against a fake Graph)."
+      ],
+      files: ["js/platformbaseline.js", "js/macbaselineData.js", "js/winbaselineData.js", "baseline/macos/", "baseline/windows/", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 144, title: "\ud83c\udf4e T24 + \ud83e\ude9f T27 \u2014 re-read after every write; one identity twice in the catalog pairs by exact version",
       tools: ["T24 macOS baseline", "T27 Windows baseline"], builds: [10573], risk: "low",
       why: "Mihai on cloudfellows.dev, 2026-09-03: 'just did a create missing for the macos. nothing changes, still saying missing 15' \u2014 the screenshot showed 15 missing AND 15 newer than baseline, the same fifteen: the fresh export carried each re-cut policy twice and compare() gave both tenant copies to the first row. And after any write the screen kept the read it had. Both corrections are in the engine both tools share; production's T24 has the same two behaviours. Correctness fixes with one honest answer each.",

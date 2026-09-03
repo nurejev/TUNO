@@ -1,0 +1,35 @@
+{
+  "@odata.type": "#microsoft.graph.macOSCustomConfiguration",
+  "id": "7bf3fe35-b914-45e7-ab95-5728c3dda033",
+  "lastModifiedDateTime": "2026-05-19T11:27:12.866371Z",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "supportsScopeTags": true,
+  "deviceManagementApplicabilityRuleOsEdition": null,
+  "deviceManagementApplicabilityRuleOsVersion": null,
+  "deviceManagementApplicabilityRuleDeviceMode": null,
+  "createdDateTime": "2026-01-14T12:34:50.4892459Z",
+  "description": null,
+  "displayName": "MACOS - DCP - Microsoft Office - D - M365 Installation Controls - R26.6 - v3.0",
+  "version": 6,
+  "payloadName": "M365-Installation Control",
+  "payloadFileName": "Microsoft 365 Apps - Installation Control.mobileconfig",
+  "payload": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjwhRE9DVFlQRSBwbGlzdCBQVUJMSUMgIi0vL0FwcGxlLy9EVEQgUExJU1QgMS4wLy9FTiIgImh0dHA6Ly93d3cuYXBwbGUuY29tL0RURHMvUHJvcGVydHlMaXN0LTEuMC5kdGQiPg0KPHBsaXN0IHZlcnNpb249IjEuMCI+DQo8ZGljdD4NCiAgICA8a2V5PlBheWxvYWRVVUlEPC9rZXk+DQogICAgPHN0cmluZz5FMjUzMkMzNC05M0JFLTQ0NTUtQTg3Qi03MDNGMTQ5RTlCOTQ8L3N0cmluZz4NCiAgICA8a2V5PlBheWxvYWRUeXBlPC9rZXk+DQogICAgPHN0cmluZz5Db25maWd1cmF0aW9uPC9zdHJpbmc+DQogICAgPGtleT5QYXlsb2FkT3JnYW5pemF0aW9uPC9rZXk+DQogICAgPHN0cmluZz5NaWNyb3NvZnQgQ29ycG9yYXRpb248L3N0cmluZz4NCiAgICA8a2V5PlBheWxvYWRJZGVudGlmaWVyPC9rZXk+DQogICAgPHN0cmluZz5GN0FGQUYwQS02QzkzLTQ2MjgtOTg4NC00REE0QTI4M0Y5N0Q8L3N0cmluZz4NCiAgICA8a2V5PlBheWxvYWREaXNwbGF5TmFtZTwva2V5Pg0KICAgIDxzdHJpbmc+TWljcm9zb2Z0IDM2NSBBcHBzIC0gSW5zdGFsbGF0aW9uIENvbnRyb2w8L3N0cmluZz4NCiAgICA8a2V5PlBheWxvYWREZXNjcmlwdGlvbjwva2V5Pg0KICAgIDxzdHJpbmc+SW5zdGFsbGF0aW9uIGNvbnRyb2wgb2YgTWljcm9zb2Z0IDM2NSBBcHBzPC9zdHJpbmc+DQogICAgPGtleT5QYXlsb2FkVmVyc2lvbjwva2V5Pg0KICAgIDxpbnRlZ2VyPjE8L2ludGVnZXI+DQogICAgPGtleT5QYXlsb2FkRW5hYmxlZDwva2V5Pg0KICAgIDx0cnVlLz4NCiAgICA8a2V5PlBheWxvYWRSZW1vdmFsRGlzYWxsb3dlZDwva2V5Pg0KICAgIDx0cnVlLz4NCiAgICA8a2V5PlBheWxvYWRTY29wZTwva2V5Pg0KICAgIDxzdHJpbmc+U3lzdGVtPC9zdHJpbmc+DQogICAgPGtleT5QYXlsb2FkQ29udGVudDwva2V5Pg0KICAgIDxhcnJheT4NCgkJPGRpY3Q+DQoJCQk8a2V5PlBheWxvYWRVVUlEPC9rZXk+DQoJCQk8c3RyaW5nPkM1MENFNDMyLTg5RTUtNDgzQy04NDZCLUE4N0YwMzQyQTE3Nzwvc3RyaW5nPg0KCQkJPGtleT5QYXlsb2FkVHlwZTwva2V5Pg0KCQkJPHN0cmluZz5jb20ubWljcm9zb2Z0Lm9mZmljZTwvc3RyaW5nPg0KCQkJPGtleT5QYXlsb2FkT3JnYW5pemF0aW9uPC9rZXk+DQoJCQk8c3RyaW5nPk1pY3Jvc29mdCBDb3Jwb3JhdGlvbjwvc3RyaW5nPg0KCQkJPGtleT5QYXlsb2FkSWRlbnRpZmllcjwva2V5Pg0KCQkJPHN0cmluZz5jb20ubWljcm9zb2Z0Lm9mZmljZS5DNTBDRTQzMi04OUU1LTQ4M0MtODQ2Qi1BODdGMDM0MkExNzc8L3N0cmluZz4NCgkJCTxrZXk+UGF5bG9hZERpc3BsYXlOYW1lPC9rZXk+DQoJCQk8c3RyaW5nPk1pY3Jvc29mdCAzNjUgQXBwcyAtIEluc3RhbGxhdGlvbiBDb250cm9sPC9zdHJpbmc+DQoJCQk8a2V5PlBheWxvYWREZXNjcmlwdGlvbjwva2V5Pg0KICAgIAkJPHN0cmluZz5JbnN0YWxsYXRpb24gY29udHJvbCBvZiBNaWNyb3NvZnQgMzY1IEFwcHM8L3N0cmluZz4NCgkJCTxrZXk+UGF5bG9hZFZlcnNpb248L2tleT4NCgkJCTxpbnRlZ2VyPjE8L2ludGVnZXI+DQoJCQk8a2V5PlBheWxvYWRFbmFibGVkPC9rZXk+DQoJCQk8dHJ1ZS8+DQoJCQk8a2V5Pkluc3RhbGxFeGNlbDwva2V5Pg0KCQkJPHRydWUvPg0KCQkJPGtleT5JbnN0YWxsT25lRHJpdmU8L2tleT4NCgkJCTx0cnVlLz4NCgkJCTxrZXk+SW5zdGFsbE9uZU5vdGU8L2tleT4NCgkJCTx0cnVlLz4NCgkJCTxrZXk+SW5zdGFsbE91dGxvb2s8L2tleT4NCgkJCTx0cnVlLz4NCgkJCTxrZXk+SW5zdGFsbFBvd2VyUG9pbnQ8L2tleT4NCgkJCTx0cnVlLz4NCgkJCTxrZXk+SW5zdGFsbFRlYW1zPC9rZXk+DQoJCQk8dHJ1ZS8+DQoJCQk8a2V5Pkluc3RhbGxXb3JkPC9rZXk+DQoJCQk8dHJ1ZS8+DQoJCQk8a2V5Pkluc3RhbGxEZWZlbmRlcjwva2V5Pg0KCQkJPGZhbHNlLz4NCgkJCTxrZXk+SW5zdGFsbEF1dG9VcGRhdGU8L2tleT4NCgkJCTx0cnVlLz4NCgkJPC9kaWN0Pg0KCTwvYXJyYXk+DQo8L2RpY3Q+DQo8L3BsaXN0Pg==",
+  "deploymentChannel": "deviceChannel",
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceConfigurations('7bf3fe35-b914-45e7-ab95-5728c3dda033')/microsoft.graph.macOSCustomConfiguration/assignments",
+  "assignments": [
+    {
+      "id": "7bf3fe35-b914-45e7-ab95-5728c3dda033_f1a6d043-f424-460c-94ad-4629f5929674",
+      "source": "direct",
+      "sourceId": "7bf3fe35-b914-45e7-ab95-5728c3dda033",
+      "intent": "apply",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

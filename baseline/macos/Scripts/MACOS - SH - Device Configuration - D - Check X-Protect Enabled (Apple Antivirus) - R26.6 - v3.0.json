@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT2H",
+  "retryCount": 3,
+  "blockExecutionNotifications": true,
+  "id": "b600afde-12b8-4ffa-a8de-c77ce39e9133",
+  "displayName": "MACOS - SH - Device Configuration - D - Check X-Protect Enabled (Apple Antivirus) - R26.6 - v3.0",
+  "description": "Device Configuration ",
+  "scriptContent": null,
+  "createdDateTime": "2026-01-08T21:34:50.2705864Z",
+  "lastModifiedDateTime": "2026-05-19T11:15:58.4746275Z",
+  "runAsAccount": "system",
+  "fileName": "x-protect.sh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('b600afde-12b8-4ffa-a8de-c77ce39e9133')/assignments",
+  "assignments": [
+    {
+      "id": "b600afde-12b8-4ffa-a8de-c77ce39e9133:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

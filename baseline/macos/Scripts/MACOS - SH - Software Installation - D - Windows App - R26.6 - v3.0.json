@@ -1,0 +1,28 @@
+{
+  "executionFrequency": "PT0S",
+  "retryCount": 0,
+  "blockExecutionNotifications": false,
+  "id": "bad7fafa-9552-4651-9663-b2f785665ef3",
+  "displayName": "MACOS - SH - Software Installation - D - Windows App - R26.6 - v3.0",
+  "description": "Downloads and installs Microsoft Windows App (formerly Remote Desktop) from the official Microsoft download URL. Performs intelligent update checking via HTTP Last-Modified headers to avoid unnecessary reinstalls. Waits for the app to close before updating if running.",
+  "scriptContent": null,
+  "createdDateTime": "2026-04-28T09:25:06.0501Z",
+  "lastModifiedDateTime": "2026-05-19T11:14:02.8757496Z",
+  "runAsAccount": "system",
+  "fileName": "scr-app-105-install-windows-app.zsh",
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('bad7fafa-9552-4651-9663-b2f785665ef3')/assignments",
+  "assignments": [
+    {
+      "id": "bad7fafa-9552-4651-9663-b2f785665ef3:f1a6d043-f424-460c-94ad-4629f5929674",
+      "target": {
+        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+        "deviceAndAppManagementAssignmentFilterId": null,
+        "deviceAndAppManagementAssignmentFilterType": "none",
+        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "71e3ef19-1b58-407c-baea-874ee93d8841",
+  "publisher": "Mihai Monte",
+  "version": "1",
+  "displayName": "Win - DHS - Windows Software - D - Chocolatey App Updates - R26.2 - v3.9",
+  "description": "",
+  "detectionScriptContent": "",
+  "remediationScriptContent": "",
+  "createdDateTime": "2025-09-14T14:08:04.6767662Z",
+  "lastModifiedDateTime": "2026-04-08T13:58:34.720509Z",
+  "runAsAccount": "system",
+  "enforceSignatureCheck": false,
+  "runAs32Bit": false,
+  "roleScopeTagIds": [
+    "0"
+  ],
+  "isGlobalScript": false,
+  "highestAvailableVersion": null,
+  "deviceHealthScriptType": "deviceHealthScript",
+  "detectionScriptParameters": [],
+  "remediationScriptParameters": [],
+  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceHealthScripts('71e3ef19-1b58-407c-baea-874ee93d8841')/assignments",
+  "assignments": []
+}
