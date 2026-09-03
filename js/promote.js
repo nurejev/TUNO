@@ -100,6 +100,16 @@ const PROMOTE = {
 
   items: [
     {
+      n: 150, title: "\ud83d\udd10 T01 \u2014 the Policy screen's sections as sub-nodes on the rail",
+      tools: ["T01 AppLocker"], builds: [10579], risk: "low",
+      why: "Mihai, 3 Sep, on the rail: 'when viewing this policy make it easy to navigate between the sections' \u2014 Policy is the long screen (summary, add-rule, findings, coverage, rules, advanced) and the jump strip went with the rail. The sections are sub-nodes under the Policy node, each with the count that says whether it needs a look; the rail is sticky so they stay in reach.",
+      test: [
+        "Load the sample or a bundle: six sub-nodes appear under Policy (Summary \u00b7 Add a rule \u00b7 Findings N to decide \u00b7 Microsoft apps \u00b7 Rules N \u00b7 Advanced); clicking Findings scrolls the card under the sticky header; clicking Advanced opens the fold.",
+        "Switch to What breaks? or Deploy: the sub-nodes are gone; back to Policy: they return with current counts.",
+      ],
+      files: ["js/applocker.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 149, title: "\ud83d\udd10 T01 \u2014 the deploy panel leads with what happened, an update in place moves the version, the loop strip on top",
       tools: ["T01 AppLocker"], builds: [10578], risk: "low",
       why: "Mihai's first round on the rail, 3 Sep, with a live tenant: the update in place worked but the panel still led with a bold Create button and reported it in one small line; the Enforce profile kept its name (V4.0.1 over V4.0.1 \u2014 10570's audit-pin applied to an update); gate 1 read \u2717 beside the profile it had found; and he asked for the loop strip at the top for visibility. Four fixes with one honest answer each; deploy suite grew a scenario that deploys two profiles under one grouping and updates the Enforce one.",

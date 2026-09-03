@@ -108,7 +108,7 @@ param(
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
 $script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10578
+$script:TunoBuild = 10579
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'

@@ -2453,3 +2453,8 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 .al-dep-done{margin:10px 0 0;padding:14px 16px;border:2px solid var(--ok-bd);background:var(--ok-bg);border-radius:12px}
 .al-dep-done-h{font-size:17px;font-weight:800;color:var(--on,var(--green));margin-bottom:6px}
 .al-dep-more summary{cursor:pointer}
+/* 10579: the Policy screen's sections as sub-nodes under the Policy node */
+.al-rail-subs{margin:0 0 4px 14px;padding-left:10px;border-left:2px solid var(--border)}
+.al-rail-sub{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;font-size:12px;color:var(--muted);cursor:pointer}
+.al-rail-sub:hover{background:var(--soft);color:var(--ink)}
+#alSummary,#alAddRule,#alFindings,#alCoverage,#alRules,#alEnforceAdv,#alScan,#alBreaks,#alEvents,#alXmlCard{scroll-margin-top:calc(var(--sticky-nav,106px) + 14px)}

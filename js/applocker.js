@@ -2353,7 +2353,27 @@ const AppLockerTool = (() => {
     if (policy && !fleetEntries()) next = "Get events on the table: a scan taken after the audit profile ran, or the events bundle — then What breaks? can judge the draft.";
     else if (c.breaks) next = `Resolve ${c.breaks} on What breaks?, then Deploy → Enforce.`;
     else if (policy && c.gs && c.breaks === 0) next = createdFor("enforce") ? "Enforce profile created — assign it in the portal when the pilot says so." : "Nothing that ran would be blocked. Deploy → Enforce is open.";
-    host.innerHTML = SCREENS.map(node).join("") + `<hr><div class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">❓ Help &amp; scripts</div><div class="al-rail-foot"><b>Next:</b> ${esc(next)}</div>`;
+    // THE POLICY SCREEN'S SECTIONS AS SUB-NODES (10579, Mihai: "make it easy
+    // to navigate between the sections"). Summary, Add rule, Findings,
+    // Coverage, Rules, Advanced — each a click that scrolls to its card, each
+    // carrying the count that decides whether it needs a look. Shown only
+    // while Policy is the screen on the table and a policy is loaded.
+    const subs = (screen === "policy" && policy) ? (() => {
+      const own = findings.filter((f) => f.source !== "fleet");
+      const hm = own.filter((f) => f.sev === "High" || f.sev === "Medium").length;
+      const covBad = coverage.filter((c2) => c2.result && (c2.result.status === "blocked" || c2.result.status === "risky")).length;
+      const rules = policy.collections.reduce((n, c2) => n + c2.rules.length, 0);
+      const items = [
+        ["alSummary", "Summary", ""],
+        ["alAddRule", "Add a rule", ""],
+        ["alFindings", "Findings", hm ? `${hm} to decide` : own.length ? `${own.length} info` : "clean"],
+        ["alCoverage", "Microsoft apps", covBad ? `${covBad} not covered` : "all run"],
+        ["alRules", "Rules", String(rules)],
+        ["alEnforceAdv", "Advanced", "per collection"],
+      ];
+      return `<div class="al-rail-subs">${items.map(([id, label, n]) => `<div class="al-rail-sub" data-aljump="${id}">${esc(label)}<span class="ep-n ${/to decide|not covered/.test(n) ? "gap" : ""}">${esc(n)}</span></div>`).join("")}</div>`;
+    })() : "";
+    host.innerHTML = SCREENS.map((sc) => node(sc) + (sc.id === "policy" ? subs : "")).join("") + `<hr><div class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">❓ Help &amp; scripts</div><div class="al-rail-foot"><b>Next:</b> ${esc(next)}</div>`;
   }
   function showScreen(name) {
     if (!SCREENS.some((sc) => sc.id === name) && name !== "help") name = "evidence";
@@ -3049,7 +3069,18 @@ const AppLockerTool = (() => {
   function init() {
     wireJump();
     // The rail: click a node, that screen is on the table.
-    if ($("alRail")) $("alRail").addEventListener("click", (e) => { const n = e.target.closest("[data-alscreen]"); if (n) showScreen(n.dataset.alscreen); });
+    if ($("alRail")) $("alRail").addEventListener("click", (e) => {
+      const j = e.target.closest("[data-aljump]");
+      if (j) {
+        const el = $(j.dataset.aljump);
+        if (!el) return;
+        if (el.tagName === "DETAILS") el.open = true;
+        if (typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const n = e.target.closest("[data-alscreen]");
+      if (n) showScreen(n.dataset.alscreen);
+    });
     // What breaks?: the fix buttons add the rule (same framework as the
     // findings — mutate() so it is one Undo away), Accept records a decision.
     if ($("alBreaks")) $("alBreaks").addEventListener("click", (e) => {

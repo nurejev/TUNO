@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10579, date: "2026-09-03", title: "T01 — the Policy screen's sections on the rail",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "While the Policy screen is on the table, its sections sit under the Policy node on the rail — Summary, Add a rule, Findings (with the High and Medium count), Microsoft apps (not covered, or all run), Rules (count), Advanced — and a click scrolls to the card. The rail is sticky, so on the long screen the sections stay one click away." },
+    ],
+  },
+  {
     build: 10578, date: "2026-09-03", title: "T01 — the deploy panel says what happened, an update moves the version, the loop on top",
     items: [
       { kind: "improved", tool: "AppLocker", text: "After an update in place or a create, the deploy panel leads with one large green banner — Policy updated in place, AuditOnly profile created, Enforce profile created — with the name, the id and the next act, instead of a small line under a still-bold Create button. When the grouping on screen is already deployed the panel says this is an iteration: Update it in place is the primary act on each matched profile and Create steps back behind a fold." },
