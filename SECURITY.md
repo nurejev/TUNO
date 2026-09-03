@@ -5,7 +5,7 @@ TUNO shares ENCA's architecture one-for-one; this document states the model and 
 ## Architecture
 
 * **Static files, no backend.** GitHub Pages serves HTML/CSS/JS; all logic runs in your browser tab. There is no server that could store, log or forward your data.
-* **The AppLocker analysis reads nothing from your tenant.** The policy XML or scan bundle you import is parsed in the browser, analyzed in the tab, and exported back to your disk. It is never transmitted — the Content-Security-Policy in `index.html` only permits connections to `graph.microsoft.com` and `login.microsoftonline.com`, so the code could not upload it anywhere else even if it tried. Import, audit, coverage, rewrite and export all work without ever touching Intune.
+* **The AppLocker analysis reads nothing from your tenant.** The policy XML or scan bundle you import is parsed in the browser, analyzed in the tab, and exported back to your disk. It is never transmitted — the Content-Security-Policy in `index.html` only permits connections to `graph.microsoft.com`, `login.microsoftonline.com` and the two public GitHub read hosts (see below — reads only, no credentials), so the code could not upload it anywhere else even if it tried. Import, audit, coverage, rewrite and export all work without ever touching Intune.
 * **Sign-in** is a SPA **authorization code + PKCE** flow (MSAL.js). No client secret exists. Tokens live in `sessionStorage` and die with the tab.
 * **Permissions are minimal and incremental.** Base scope: `User.Read` (who signed in — nothing else). Everything beyond it is requested at the moment it is used, so consent matches use.
 
@@ -118,7 +118,9 @@ removes even the need to trust a registration outside the directory.
 
 ## Content-Security-Policy
 
-Set via meta tag (GitHub Pages cannot send headers): `default-src 'self'`; scripts only from this origin; connections only to Microsoft Graph and the Microsoft login endpoint; no objects, no external frames beyond the MSAL login iframe.
+Set via meta tag (GitHub Pages cannot send headers): `default-src 'self'`; scripts only from this origin; connections to Microsoft Graph, the Microsoft login endpoint, and — since beta 10572 — `api.github.com` and `raw.githubusercontent.com`; no objects, no external frames beyond the MSAL login iframe.
+
+**Why GitHub is in `connect-src`.** The two baseline tools (🍎 T24, 🪟 T27) can read a community baseline straight from its public repository — OpenIntuneBaseline, intune-my-macs — instead of asking you to download a zip. That read is a plain `fetch` with no credentials: the Graph client refuses to attach a tenant token to any host other than `graph.microsoft.com`, and the GitHub read never goes through it. Nothing from your tenant is sent to GitHub; the request names a public repository path and nothing else. The bundled catalogs and the zip road still work with GitHub unreachable or blocked, so a tenant that forbids third-party origins loses nothing but the convenience. If you self-host a reviewed copy and want the stricter policy, remove the two hosts from the meta tag and the fetch buttons will report the refusal.
 
 ## Honest limits
 

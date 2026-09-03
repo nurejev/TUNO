@@ -27,6 +27,7 @@ const MAC_BASELINE_SPEC = {
     repo: "github.com/microsoft/intune-my-macs",
     url: "https://github.com/microsoft/intune-my-macs",
     zipUrl: "https://github.com/microsoft/intune-my-macs/archive/refs/heads/main.zip",
+    github: { owner: "microsoft", repo: "intune-my-macs", branch: "main" },
     importerUrl: null,
     // no naming convention and no identity token: its policies match by
     // exact name only, and land as PRESENT (no versions to compare)

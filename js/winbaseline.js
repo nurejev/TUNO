@@ -37,6 +37,7 @@ const WIN_BASELINE_SPEC = {
     repo: "github.com/SkipToTheEndpoint/OpenIntuneBaseline",
     url: "https://github.com/SkipToTheEndpoint/OpenIntuneBaseline",
     zipUrl: "https://github.com/SkipToTheEndpoint/OpenIntuneBaseline/archive/refs/heads/main.zip",
+    github: { owner: "SkipToTheEndpoint", repo: "OpenIntuneBaseline", branch: "main" },
     importerUrl: "https://github.com/SkipToTheEndpoint/OpenIntuneBaseline/blob/main/FAQ.md",
     // OIB's own convention and its own identity token
     nameRe: "^\\s*Win\\s*-\\s*OIB\\b", idToken: "OIBID",

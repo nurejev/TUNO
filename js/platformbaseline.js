@@ -611,6 +611,96 @@ const PlatformBaseline = (() => {
       return L.join("\n");
     }
 
+    // ---- rename: stamp the release from the last-modified date (10572) ----
+    // Mihai's ask for the baseline tenant: every policy that wears the
+    // prefix and a version but NO release tag is proposed a tag cut from
+    // its last-modified date — "Win - DCP - Microsoft Office - D - Security
+    // - v3.6", modified 8 Jan 2026, becomes "… - R26.1 - v3.6". A PROPOSAL,
+    // editable before anything is written: last-modified means last
+    // TOUCHED (an assignment edit moves it too), which is not always the
+    // month the policy was cut. The community baseline's own names are
+    // never proposed — keeping them is what lets its deployer maintain them.
+    const releaseOfDate = (iso) => { const d = new Date(iso || ""); return isNaN(d) ? null : { y: d.getUTCFullYear() % 100, m: d.getUTCMonth() + 1 }; };
+    const stampRelease = (name, rel) => String(name).replace(/\s*-\s*(v\s?\d+(?:\.\d+)*)\s*$/i, (m, v) => ` - R${rel.y}.${rel.m} - ${v.replace(/\s+/g, "")}`);
+    // where a rename is written, per surface — the same endpoints restore
+    // creates on; filters go through T14's own update
+    const RENAME_PATH = {
+      settingsCatalog: { endpoint: "/deviceManagement/configurationPolicies", field: "name" },
+      deviceConfigurations: { endpoint: "/deviceManagement/deviceConfigurations", field: "displayName" },
+      compliance: { endpoint: "/deviceManagement/deviceCompliancePolicies", field: "displayName" },
+      admx: { endpoint: "/deviceManagement/groupPolicyConfigurations", field: "displayName" },
+      filters: { endpoint: null, field: "displayName", viaFilters: true },
+    };
+    function renameProposals(vms, community) {
+      const commRe = community && community.nameRe ? new RegExp(community.nameRe, "i") : null;
+      const out = [];
+      for (const p of vms) {
+        if (!spec.prefixRe.test(p.name || "")) continue;
+        if (releaseOf(p.name)) continue;                       // already stamped
+        const base = { p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, modified: p.modified || "" };
+        if (commRe && commRe.test(p.name)) { out.push({ ...base, status: "community", why: `${community.label}'s own name — kept, so its deployer can still maintain it` }); continue; }
+        const ver = versionOf(p.name);
+        if (!ver) { out.push({ ...base, status: "noversion", why: "no version at the end of the name — nothing to put the tag before" }); continue; }
+        const rel = releaseOfDate(p.modified);
+        if (!rel) { out.push({ ...base, status: "nodate", ver, why: "the read carries no last-modified date for it" }); continue; }
+        const path = RENAME_PATH[p.section] || null;
+        out.push({ ...base, status: path ? "propose" : "nopath", ver, rel, proposed: stampRelease(p.name, rel), path,
+          why: path ? "" : `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal` });
+      }
+      return out.sort((a, b) => (a.status === "propose" ? 0 : 1) - (b.status === "propose" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+    }
+
+    // ---- fetch the upstream repo IN THE BROWSER (10572) ----
+    // Mihai: "the new policies are fetched directly without a manual zip
+    // download". GitHub's API and raw.githubusercontent.com answer with
+    // CORS, so the tree is read with two API calls (the branch commit, then
+    // its tree) and each policy file with one raw read — no zip, no
+    // download. Plain fetch, NO token: Graph.call refuses any host but
+    // graph.microsoft.com and this never goes through it. The CSP's
+    // connect-src widened for exactly these two hosts (SECURITY.md).
+    // GitHub's anonymous limit is 60 API calls an hour per address — the
+    // raw reads do not count against it — and a refusal is reported with
+    // its reset time; the zip road and the bundle remain.
+    async function fetchUpstream(onStatus) {
+      const g = spec.upstream.github;
+      const status = (m) => onStatus && onStatus(m);
+      const api = async (u) => {
+        const r = await fetch(u, { headers: { Accept: "application/vnd.github+json" } });
+        if (r.status === 403 || r.status === 429) {
+          const reset = +r.headers.get("x-ratelimit-reset") || 0;
+          const when = reset ? new Date(reset * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "later";
+          throw new Error(`GitHub refused the read (${r.status}) — the anonymous limit is 60 API calls an hour per address and it resets at ${when}. The zip road and the bundled catalog still work.`);
+        }
+        if (!r.ok) throw new Error(`GitHub answered ${r.status} for ${u.replace(/^https:\/\/api\.github\.com/, "")}`);
+        return r.json();
+      };
+      status(`Asking github.com for the latest ${g.owner}/${g.repo} commit…`);
+      const c = await api(`https://api.github.com/repos/${g.owner}/${g.repo}/commits/${encodeURIComponent(g.branch)}`);
+      const sha = c.sha, treeSha = c.commit && c.commit.tree && c.commit.tree.sha;
+      const date = String((c.commit && c.commit.committer && c.commit.committer.date) || "").slice(0, 10);
+      if (!sha || !treeSha) throw new Error("GitHub's commit answer carried no tree — nothing read.");
+      status(`Reading the tree at ${sha.slice(0, 7)}…`);
+      const t = await api(`https://api.github.com/repos/${g.owner}/${g.repo}/git/trees/${treeSha}?recursive=1`);
+      if (t.truncated) throw new Error("GitHub truncated the tree listing — the repository is larger than one page; use the zip road.");
+      const prefix = `${g.repo}-${g.branch}/`;
+      const wanted = (t.tree || []).filter((e) => e.type === "blob").map((e) => e.path)
+        .filter((p) => (spec.upstream.manifestRe && spec.upstream.manifestRe.test("/" + prefix + p)) || (spec.upstream.pathRe.test("/" + prefix + p) && /\.json$/i.test(p)));
+      if (!wanted.length) throw new Error("The tree carries no policy files under the expected folder — has the repository moved?");
+      const files = [];
+      let done = 0;
+      const pull = async (p) => {
+        const r = await fetch(`https://raw.githubusercontent.com/${g.owner}/${g.repo}/${sha}/${p.split("/").map(encodeURIComponent).join("/")}`);
+        if (!r.ok) throw new Error(`raw.githubusercontent.com answered ${r.status} for ${p}`);
+        files.push({ path: prefix + p, text: await r.text() });
+        status(`Reading ${++done}/${wanted.length} files…`);
+      };
+      const queue = wanted.slice();
+      await Promise.all(Array.from({ length: Math.min(6, queue.length) }, async () => { while (queue.length) await pull(queue.shift()); }));
+      // the "seen, not comparable" count comes from the tree, not from reads
+      const seenOther = (t.tree || []).filter((e) => e.type === "blob" && spec.upstream.pathRe.test("/" + prefix + e.path) && spec.upstream.otherRe.test(e.path)).length;
+      return { files, commit: sha, date, seenOther, url: `https://github.com/${g.owner}/${g.repo}/tree/${sha.slice(0, 7)}` };
+    }
+
     // ---- the gap report (ENCA's blMd, Intune-side-out) ----
     const mdEsc = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
     function toMd(cmp, tenantName) {
@@ -645,6 +735,7 @@ const PlatformBaseline = (() => {
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
       UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
       matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
+      releaseOfDate, stampRelease, RENAME_PATH, renameProposals, fetchUpstream,
     };
   }
 
@@ -679,7 +770,7 @@ const PlatformBaseline = (() => {
     const vms = () => {
       const out = [];
       for (const sec of (res && res.sections) || []) {
-        for (const it of sec.items || []) out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "" });
+        for (const it of sec.items || []) out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "" });
       }
       return out;
     };
@@ -687,12 +778,16 @@ const PlatformBaseline = (() => {
     // ---- the two catalogs ----
     const cfCatalog = () => fileCat || E.bundled();
     const cfSource = () => fileCat ? "file" : E.bundled() ? "bundled" : "";
+    // the community catalog: fetched from github.com this session (10572),
+    // else the bundle
+    let fetchedCat = null;
+    const communityCatalog = () => fetchedCat || E.community();
     const catalogs = () => {
       const out = [];
       const cf = cfCatalog();
       if (cf) out.push({ id: "cfdev", cat: cf, icon: "🧬", label: `CloudFellows ${cf.release || "R26"}`, sub: cfSource() === "file" ? "loaded file" : "bundled" });
-      const co = E.community();
-      if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: "community" });
+      const co = communityCatalog();
+      if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: fetchedCat ? "fetched from github.com" : "community" });
       return out;
     };
     function activeCatalog() {
@@ -705,6 +800,7 @@ const PlatformBaseline = (() => {
 
     function land(r, sourceNote) {
       res = r;
+      const rh = $(ID("Rename")); if (rh) { delete rh.dataset.for; rh.innerHTML = ""; }
       recompare();
       render(sourceNote);
     }
@@ -718,11 +814,13 @@ const PlatformBaseline = (() => {
         <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
       const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) : null;
       const upBad = upstream ? upstream.rows.filter((r) => r.status !== "same").length : null;
+      const rn = res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
       el.innerHTML = [
         node("compare", spec.icon, "Compare", cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
         ...(isCfdev() ? [node("export", "🧬", "Export", res ? "ready" : "read first", false)] : []),
         node("import", "📥", "Import", c ? `${c.policies.length}` : "no catalog", !c),
-        ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", upstream === null ? "load the zip" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
+        ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", upstream === null ? "fetch or load" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
+        ...(isCfdev() ? [node("rename", "✏️", "Rename", res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0)] : []),
       ].join("");
     }
 
@@ -736,12 +834,15 @@ const PlatformBaseline = (() => {
     }
     function catalogLine(c) {
       if (E.isCommunity(c)) {
-        return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.released ? ` (${esc(c.released)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}</p>`;
+        const bundle = E.community();
+        return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.released ? ` (${esc(c.released)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}
+          ${fetchedCat ? `<b>Fetched from github.com this session</b>${bundle ? ` — the bundle is v${esc(bundle.release || "?")} @ ${esc(String(bundle.commit || "").slice(0, 7))}` : ""}. <button class="btn sm" id="${ID("FetchRevert")}">↩ Back to the bundle</button>` : `<button class="btn sm" id="${ID("Fetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>`}
+          <span class="mini" id="${ID("FetchNote")}"></span></p>`;
       }
       return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "R26")}</b> · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
     }
 
-    const CFDEV_ONLY = new Set(["export", "upstream"]);
+    const CFDEV_ONLY = new Set(["export", "upstream", "rename"]);
     function render(sourceNote) {
       if (sourceNote) lastSource = sourceNote;
       if (CFDEV_ONLY.has(mode) && !isCfdev()) mode = "compare";
@@ -827,20 +928,34 @@ const PlatformBaseline = (() => {
       }
 
       if (mode === "upstream") {
-        const co = E.community();
+        const co = communityCatalog();
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">${spec.upstream.icon} Upstream — ${esc(spec.upstream.label)} <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
           <p class="mini muted" style="margin:0 0 8px">Watch <code>${esc(spec.upstream.repo)}</code> for controls our baseline lacks. The app never fetches it — the content-security policy allows Graph and nothing else: <b>download the zip yourself</b> (the link is plain navigation), then load it here${co ? ` — or start from the <b>bundled ${esc(co.label)}${co.release ? ` v${esc(co.release)}` : ""}</b>, the release this build already carries` : ""}. Matching is by <b>content, never name</b>: a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures — identical sets are <b>same</b>, a half-or-better overlap is a <b>match with its diff shown</b>, anything else is <b>new</b>. New and changed controls get an editable canonical name and can be created in THIS tenant — curate, then 🧬 re-export the baseline.</p>
           <div class="tb-actions">
-            <a class="btn" href="${esc(E.UPSTREAM_ZIP_URL)}" target="_blank" rel="noopener">⬇ Get the latest (zip, from GitHub)</a>
+            <button class="btn primary" id="${ID("UpFetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>
+            <a class="btn" href="${esc(E.UPSTREAM_ZIP_URL)}" target="_blank" rel="noopener">⬇ Get the zip instead</a>
             <label class="btn">📄 Load the ${esc(spec.upstream.label)} zip<input type="file" id="${ID("UpZip")}" accept=".zip" style="display:none"></label>
             ${co ? `<button class="btn" id="${ID("UpBundled")}" title="Read the bundled community catalog as the upstream — no download">${co.icon || "🧩"} Use the bundled ${esc(co.label)}${co.release ? ` v${esc(co.release)}` : ""}</button>` : ""}
           </div>
           <p class="mini muted" id="${ID("UpNote")}" style="margin:8px 0 0"></p></div>`);
       }
 
+      if (mode === "rename") {
+        const co = communityCatalog();
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">✏️ Stamp the release <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">Every policy that starts with <code>${esc(spec.prefix)}</code> and ends in a version but carries <b>no <code>Ryy.m</code> release tag</b> is proposed one, cut from its <b>last-modified date</b> (year, then month, UTC) and put before the version — <code>${esc(spec.prefix)} - DCP - Microsoft Office - D - Security - v3.6</code> modified in January 2026 becomes <code>… - R26.1 - v3.6</code>. A proposal, not a verdict: last-modified means last <i>touched</i> — an assignment edit moves it too — so every name is editable before anything is written. ${co && co.nameRe ? `<b>${esc(co.label)}'s own names are never proposed</b>: keeping them is what lets its deployer maintain them.` : ""} Renames are PATCHes on the policy's own surface (T14's update for filters), each read back and verified; the comparison above re-reads afterwards.</p>
+          ${res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
+      }
+
       $(ID("Body")).innerHTML = parts.join("");
       const up = $(ID("Upstream"));
       if (up) up.style.display = mode === "upstream" && isCfdev() ? "" : "none";
+      // the rename table has its own host too — proposals are DOM state
+      const rh = $(ID("Rename"));
+      if (rh) {
+        rh.style.display = mode === "rename" && isCfdev() ? "" : "none";
+        if (mode === "rename" && isCfdev() && res && !rh.dataset.for) renderRename();
+      }
       wire();
     }
 
@@ -885,9 +1000,15 @@ const PlatformBaseline = (() => {
         const f = e.target.files && e.target.files[0];
         if (f) await loadUpstreamZip(f);
       });
+      const uf = $(ID("UpFetch"));
+      if (uf) uf.addEventListener("click", () => fetchForUpstream());
+      const cf1 = $(ID("Fetch"));
+      if (cf1) cf1.addEventListener("click", () => fetchForCatalog());
+      const cr = $(ID("FetchRevert"));
+      if (cr) cr.addEventListener("click", () => { fetchedCat = null; planned = null; plannedFilters = null; recompare(); render(); });
       const ub = $(ID("UpBundled"));
       if (ub) ub.addEventListener("click", () => {
-        const co = E.community(), cf = cfCatalog();
+        const co = communityCatalog(), cf = cfCatalog();
         if (!co) return;
         if (!cf) { $(ID("UpNote")).textContent = "Load or bundle a CloudFellows catalog first — a diff needs both sides."; return; }
         landUpstream({ policies: E.communityAsUpstream(co), skipped: [], seenOther: 0, manifest: null }, cf, `bundled ${co.label}${co.release ? ` v${co.release}` : ""}`, false);
@@ -1039,7 +1160,8 @@ const PlatformBaseline = (() => {
       });
       const uc = $(ID("UpCatalog"));
       if (uc) uc.addEventListener("click", () => {
-        const file = E.buildCommunity(upstream.parsed, { release: E.community() ? E.community().release : "", released: "", commit: "" });
+        const f = upstream.fetched || {};
+        const file = E.buildCommunity(upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), released: f.date || "", commit: f.commit || "" });
         download(`tuno-${spec.upstream.id}-community-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(file, null, 1));
       });
     }
@@ -1119,6 +1241,210 @@ const PlatformBaseline = (() => {
         prog("");
         $(ID("UpResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
       } finally { running = false; const ap = $(ID("UpApply")); if (ap) ap.disabled = false; syncUpBar(); }
+    }
+
+    // ------------------------------------------------ the github.com fetch --
+    let fetching = false;
+    async function fetchForUpstream() {
+      const cf = cfCatalog();
+      if (!cf) { $(ID("UpNote")).textContent = "Load or bundle a CloudFellows catalog first — a diff needs both sides."; return; }
+      if (fetching) return;
+      fetching = true; const b = $(ID("UpFetch")); if (b) b.disabled = true;
+      try {
+        const got = await E.fetchUpstream((m) => { const n = $(ID("UpNote")); if (n) n.textContent = m; });
+        const parsed = E.parseUpstream(got.files);
+        parsed.seenOther = got.seenOther;
+        if (!parsed.policies.length) { $(ID("UpNote")).textContent = "The repository carries no comparable policies under the expected folder."; return; }
+        landUpstream(parsed, cf, `github.com @ ${got.commit.slice(0, 7)} (${got.date})`, true);
+        upstream.fetched = { commit: got.commit, date: got.date };
+      } catch (e) {
+        const n = $(ID("UpNote")); if (n) n.textContent = `Not fetched: ${(e && e.message) || e}`;
+      } finally { fetching = false; const b2 = $(ID("UpFetch")); if (b2) b2.disabled = false; }
+    }
+    async function fetchForCatalog() {
+      if (fetching) return;
+      fetching = true; const b = $(ID("Fetch")); if (b) b.disabled = true;
+      try {
+        const got = await E.fetchUpstream((m) => { const n = $(ID("FetchNote")); if (n) n.textContent = m; });
+        const parsed = E.parseUpstream(got.files);
+        parsed.seenOther = got.seenOther;
+        if (!parsed.policies.length) throw new Error("the repository carries no comparable policies under the expected folder");
+        fetchedCat = E.buildCommunity(parsed, { commit: got.commit, released: got.date, release: got.date });
+        catId = "community"; planned = null; plannedFilters = null;
+        recompare(); render();
+      } catch (e) {
+        const n = $(ID("FetchNote")); if (n) n.textContent = `Not fetched: ${(e && e.message) || e}`;
+        const b2 = $(ID("Fetch")); if (b2) b2.disabled = false;
+      } finally { fetching = false; }
+    }
+
+    // ------------------------------------------------ the rename act ------
+    // Its own host (#<ids>Rename): ticks and edited names are DOM state.
+    let rnPlanned = null, rnPlanKey = null, syncRnBar = () => {};
+    function rnSelectionKey() {
+      const host = $(ID("Rename"));
+      if (!host) return "";
+      const parts = [];
+      host.querySelectorAll("[data-rntick]").forEach((cb) => {
+        if (!cb.checked) return;
+        const el = host.querySelector(`[data-rnname="${cb.dataset.rntick}"]`);
+        parts.push(`${cb.dataset.rntick}=${((el && el.value) || "").trim()}`);
+      });
+      return parts.join("\n");
+    }
+    function renderRename() {
+      const host = $(ID("Rename"));
+      if (!host || !res) return;
+      const rows = E.renameProposals(vms(), communityCatalog());
+      host.dataset.for = String(rows.length);
+      rnPlanned = null; rnPlanKey = null;
+      const n = rows.filter((r) => r.status === "propose").length;
+      const row = (r, i) => {
+        const act = r.status === "propose";
+        const when = r.modified ? esc(String(r.modified).slice(0, 10)) : "—";
+        return `<tr>
+          <td style="width:30px">${act ? `<input type="checkbox" data-rntick="${i}" checked>` : ""}</td>
+          <td class="mini"><b>${esc(r.name)}</b><div class="mini muted">${esc(r.sectionLabel || r.section)} · modified ${when}${act ? ` → <b>${esc(E.relLabel(r.rel))}</b>` : ""}${r.why ? ` · ${esc(r.why)}` : ""}</div></td>
+          <td>${act ? `<input data-rnname="${i}" value="${esc(r.proposed)}" style="width:100%">` : `<span class="mini muted">${r.status === "community" ? "kept" : "not proposed"}</span>`}</td>
+        </tr>`;
+      };
+      host.innerHTML = `<div class="list-card">
+        <h4 style="margin:0 0 6px">✏️ ${n} to stamp <span class="mini muted">— of ${rows.length} unstamped ${esc(spec.prefix)} names on the read</span></h4>
+        ${rows.length ? "" : `<p class="mini muted" style="margin:0">Every ${esc(spec.prefix)} policy already carries its release tag.</p>`}
+        <div class="tb-actions" style="margin:8px 0 8px">
+          <button class="btn" id="${ID("RnAll")}">☑ Select all</button>
+          <button class="btn" id="${ID("RnNone")}">☐ Select none</button>
+          <span class="mini muted" id="${ID("RnCount")}"></span>
+        </div>
+        <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:50%"><col></colgroup>
+          <thead><tr><th><input type="checkbox" id="${ID("RnMaster")}" title="Select or deselect every row below"></th><th>Policy now — surface, last modified, the tag it earns</th><th>New name (edit before renaming)</th></tr></thead>
+          <tbody>${rows.map(row).join("")}</tbody></table></div>
+        <div id="${ID("RnPlan")}" style="margin-top:10px"></div>
+      </div>
+      <div class="ae-selbar" id="${ID("RnBar")}"><b id="${ID("RnBarCount")}"></b>
+        <button class="btn primary" id="${ID("RnDry")}">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
+        <button class="btn primary" id="${ID("RnApply")}" style="display:none">✍ Rename in THIS tenant <span class="tag block">writes to the tenant</span></button>
+        <button class="ae-selbar-x" id="${ID("RnBarX")}" title="Clear the selection">✕</button></div>`;
+      host.dataset.rows = JSON.stringify(rows.map((r) => ({ id: r.p.id, name: r.name, section: r.section, modified: r.modified, status: r.status })));
+      const ticks = () => [...host.querySelectorAll("[data-rntick]")];
+      const master = $(ID("RnMaster"));
+      const sync = () => {
+        const t = ticks(), on = t.filter((c) => c.checked).length;
+        master.checked = on > 0 && on === t.length; master.indeterminate = on > 0 && on < t.length;
+        const c2 = $(ID("RnCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+        const bar = $(ID("RnBar")); if (!bar) return;
+        bar.classList.toggle("visible", on > 0);
+        const live = rnPlanned && rnPlanKey === rnSelectionKey();
+        const nDo = live ? rnPlanned.filter((p) => !p.refused).length : 0;
+        $(ID("RnBarCount")).textContent = live ? `${on} ticked · ${nDo} to rename` : `${on} polic${on === 1 ? "y" : "ies"} ticked`;
+        const dry = $(ID("RnDry")), ap = $(ID("RnApply"));
+        dry.classList.toggle("primary", !live);
+        dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans writes</span>`;
+        ap.style.display = live && nDo ? "" : "none";
+        ap.innerHTML = `✍ Rename ${nDo} in THIS tenant <span class="tag block">writes to the tenant</span>`;
+        const stale = $(ID("RnStale")); if (stale) stale.style.display = rnPlanned && !live ? "" : "none";
+      };
+      syncRnBar = sync;
+      const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
+      master.addEventListener("change", () => setAll(master.checked));
+      $(ID("RnAll")).addEventListener("click", () => setAll(true));
+      $(ID("RnNone")).addEventListener("click", () => setAll(false));
+      $(ID("RnBarX")).addEventListener("click", () => setAll(false));
+      host.addEventListener("change", (e) => { if (e.target.closest("[data-rntick]")) sync(); });
+      host.addEventListener("input", (e) => { if (e.target.closest("[data-rnname]")) sync(); });
+      $(ID("RnDry")).addEventListener("click", rnDryRun);
+      $(ID("RnApply")).addEventListener("click", rnApply);
+      sync();
+    }
+    function rnPicked() {
+      const host = $(ID("Rename"));
+      const rows = JSON.parse(host.dataset.rows || "[]");
+      const picked = [];
+      host.querySelectorAll("[data-rntick]").forEach((cb) => {
+        if (!cb.checked) return;
+        const i = +cb.dataset.rntick;
+        const el = host.querySelector(`[data-rnname="${i}"]`);
+        picked.push({ ...rows[i], newName: ((el && el.value) || "").trim(), path: E.RENAME_PATH[rows[i].section] });
+      });
+      return picked;
+    }
+    async function rnDryRun() {
+      if (running) return;
+      running = true; $(ID("RnDry")).disabled = true; $(ID("RnPlan")).innerHTML = "";
+      rnPlanned = null; rnPlanKey = null; syncRnBar();
+      try {
+        const picked = rnPicked();
+        if (!picked.length) { $(ID("RnPlan")).innerHTML = `<p class="mini muted" style="margin:0">Nothing ticked.</p>`; return; }
+        prog("Checking the new names are free…");
+        await Graph.ensureScopes(Graph.SCOPES.config);
+        const areas = [...new Set(picked.map((p) => E.AREA_OF_SECTION[p.section]).filter((a) => a && a !== "AssignmentFilters"))];
+        const names = areas.length ? await Restore.existingNames(areas, (m) => prog(m)) : {};
+        let filterNames = new Set();
+        if (picked.some((p) => p.section === "filters")) {
+          prog("Reading the tenant's assignment filters…");
+          filterNames = new Set((await Filters.list()).map((f) => String(f.displayName || "").toLowerCase()));
+        }
+        prog("");
+        const seen = new Map();
+        rnPlanned = picked.map((p) => {
+          const target = p.newName, lc = target.toLowerCase();
+          let refused = "";
+          if (!target) refused = "empty name";
+          else if (!E.looksBaseline(target)) refused = `does not wear the convention — ${spec.prefix} prefix, an Ryy.m tag and a version`;
+          else if (target === p.name) refused = "unchanged";
+          else if (seen.has(lc)) refused = `the same name is proposed for “${seen.get(lc)}”`;
+          else if (p.section === "filters" ? filterNames.has(lc) : (names[E.AREA_OF_SECTION[p.section]] || new Set()).has(lc)) refused = "a policy already wears this name (the collision stop)";
+          if (!refused) seen.set(lc, p.name);
+          return { ...p, target, refused };
+        });
+        rnPlanKey = rnSelectionKey();
+        const nDo = rnPlanned.filter((p) => !p.refused).length;
+        $(ID("RnPlan")).innerHTML = `
+          <p class="mini" style="margin:0 0 8px"><b>${nDo} to rename</b> · ${rnPlanned.length - nDo} refused${nDo ? ` — <b>✍ Rename ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
+          <p class="mini" id="${ID("RnStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before renaming.</p>
+          <div class="gu-tw"><table class="cg-table"><thead><tr><th>From</th><th>To</th><th style="width:220px">Operation</th></tr></thead>
+          <tbody>${rnPlanned.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : `PATCH ${esc(p.path.field)}${p.path.viaFilters ? " (T14's update)" : ""}`}</td></tr>`).join("")}</tbody></table></div>
+          <div id="${ID("RnResult")}" style="margin-top:10px"></div>`;
+      } catch (e) {
+        prog("");
+        $(ID("RnPlan")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
+      } finally { running = false; const d = $(ID("RnDry")); if (d) d.disabled = false; syncRnBar(); }
+    }
+    async function rnApply() {
+      if (running || !rnPlanned) return;
+      if (rnPlanKey !== rnSelectionKey()) { syncRnBar(); return; }
+      running = true; $(ID("RnApply")).disabled = true;
+      const results = [];
+      try {
+        await Graph.ensureScopes(Graph.SCOPES.profiles);
+        for (const p of rnPlanned) {
+          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
+          try {
+            prog(`${p.target} — renaming…`);
+            if (p.path.viaFilters) {
+              await Filters.update(p.id, p.modified || null, { displayName: p.target });
+            } else {
+              const url = `${Graph.BETA}${p.path.endpoint}/${encodeURIComponent(p.id)}`;
+              await Graph.patch(url, { [p.path.field]: p.target }, { scopes: Graph.SCOPES.profiles });
+              const back = await Graph.readOne(url, { scopes: Graph.SCOPES.profiles });
+              if (!back || String(back[p.path.field] || "") !== p.target) throw new Error("the rename returned, but the read-back does not carry the new name — check the portal");
+            }
+            results.push({ ...p, outcome: "renamed", detail: "verified by read-back" });
+          } catch (e) {
+            results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
+          }
+        }
+        prog("");
+        const good = results.filter((r) => r.outcome === "renamed").length, bad = results.filter((r) => r.outcome === "failed").length;
+        $(ID("RnResult")).innerHTML = `
+          <p class="mini" style="margin:0 0 6px"><b>${good} renamed</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — now ${esc(spec.readLabel)}: the comparison and this list are cut from the read, and the read is stale.</p>
+          ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
+        if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
+        rnPlanned = null; rnPlanKey = null;
+      } catch (e) {
+        prog("");
+        $(ID("RnResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
+      } finally { running = false; const ap = $(ID("RnApply")); if (ap) ap.disabled = false; syncRnBar(); }
     }
 
     async function dryRun() {

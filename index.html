@@ -6,17 +6,17 @@
 <!-- CSP via meta tag (GitHub Pages cannot set headers). frame-src allows
      MSAL's hidden iframe for silent token renewal; img-src data:/blob: for
      future exports. Same policy shape as ENCA. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10571"></script>
+<script src="js/popup-guard.js?v=10572"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10571">
+<link rel="stylesheet" href="css/app.css?v=10572">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10571"></script>
+<script src="js/selfhost-boot.js?v=10572"></script>
 </head>
 <body>
 
@@ -1374,7 +1374,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <h2 style="margin:0 0 6px">🍎 macOS baseline <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
       <p class="mini" style="margin:0">The tenant's macOS policies matched against the <b>CloudFellows macOS baseline</b>, the sister tool ENCA's baseline machinery Intune-side-out. <b>The name is the identity</b>: a baseline policy starts with <code>MACOS</code>, carries its permanent release number <code>R26.xx</code>, and ends with a version — the number is matched, the versions are compared segment-wise, and a number match the rest of the name contradicts is a clash, never silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>The baseline is authored on the baseline tenant</b> (cloudfellows.dev), where this screen offers the export that writes the catalog file — names, numbers, versions and the raw policy bodies. Everywhere else the tool compares against the bundled catalog or a loaded file, and can <b>import what is missing</b>: create-only through the Backup tool's own restore pipeline, canonical names kept (the name is the identity), everything arriving unassigned — reach is ✏️ the Assignment editor's act.</p>
-      <p class="mini muted" style="margin:8px 0 0"><b>Two catalogs</b> (build 10571, ENCA's Joey Verlinden treatment): the CloudFellows export, and the <b>community baseline</b> — Microsoft's <code>intune-my-macs</code>, bundled from the repository — compared on open and importable on any tenant, names kept verbatim. It has no naming convention and no versions in its names, so its policies match by exact name and read as <b>present</b> rather than up to date. On the baseline tenant the bundled community catalog also serves the Upstream act without a download.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Two catalogs</b> (build 10571, ENCA's Joey Verlinden treatment): the CloudFellows export, and the <b>community baseline</b> — Microsoft's <code>intune-my-macs</code>, bundled from the repository — compared on open and importable on any tenant, names kept verbatim. It has no naming convention and no versions in its names, so its policies match by exact name and read as <b>present</b> rather than up to date. On the baseline tenant the bundled community catalog also serves the Upstream act without a download — and since build 10572 the repository is <b>read from github.com in the browser</b> (no token, no zip), on every tenant for the comparison and on the baseline tenant for Upstream; the baseline tenant also gets <b>✏️ Rename</b>, stamping the release tag from the last-modified date onto <code>MACOS</code> names that carry a version and no <code>Ryy.m</code>.</p>
     </div>
     <div class="list-card wi-form">
       <div class="tb-actions">
@@ -1395,6 +1395,9 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
              curation table's ticks and edited names are DOM state, and mbBody
              re-renders would silently drop them — the restore picker's rule. -->
         <div id="mbUpstream" style="margin-top:14px"></div>
+        <!-- The rename act (10572) renders here, its own host for the same
+             reason: proposed names are DOM state. -->
+        <div id="mbRename" style="margin-top:14px"></div>
       </div>
     </div>
   </section>
@@ -1413,6 +1416,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <h2 style="margin:0 0 6px">🪟 Windows baseline <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
       <p class="mini" style="margin:0">The tenant's Windows policies matched against the <b>CloudFellows Windows baseline</b> — the 🍎 macOS baseline's treatment, the same machinery. <b>The name is the identity</b>: a baseline policy starts with <code>Win</code>, carries the release it was cut in as <code>R26.x</code> (year, then month) and ends with a version — <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code>. Releases compare first, versions break the tie, and every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, or not in the baseline.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>Two catalogs.</b> The CloudFellows export, authored on the baseline tenant (cloudfellows.dev) where this screen offers 🧬 Export; and the <b>community baseline</b> — SkipToTheEndpoint's <code>OpenIntuneBaseline</code> (WINDOWS), bundled from the repository. Every OIB policy carries an <code>OIBID:&lt;guid&gt;</code> in its description, so a deployed copy is identified by that token <b>first</b> — a renamed copy still identifies — and by its name second, versions compared segment-wise. Compared on open; <b>importable on any tenant</b> through the Backup tool's own restore pipeline, create-only, everything unassigned, and the author's <b>names and descriptions kept verbatim</b>, token included, so OIB's own deployer can update them later as if it had created them. Driver update profiles are identified but have no create path here.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>The community baseline is read from github.com in the browser</b> (build 10572): two GitHub API calls and one raw read per policy, no token, no zip — on every tenant for the comparison, and on the baseline tenant for the Upstream act. The bundle stays as the road that needs no network. And on the baseline tenant, <b>✏️ Rename</b> stamps the release tag onto every <code>Win</code> policy that carries a version but no <code>Ryy.m</code>, cut from its last-modified date and editable before it is written.</p>
     </div>
     <div class="list-card wi-form">
       <div class="tb-actions">
@@ -1425,6 +1429,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="ep-main">
         <div id="wbBody"></div>
         <div id="wbUpstream" style="margin-top:14px"></div>
+        <div id="wbRename" style="margin-top:14px"></div>
       </div>
     </div>
   </section>
@@ -1757,6 +1762,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <h4 style="margin:0 0 4px"><span class="rm-ref">R39</span> 🪟 Windows baseline <span class="tag grant">live · beta 10571</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
             <p class="mini" style="margin:0"><span class="rm-ref">R35</span>'s treatment for Windows, and the moment the baseline machinery became <b>one engine with a spec per platform</b> (<code>js/platformbaseline.js</code>) rather than a copy per platform. The CloudFellows Windows convention is the OIB naming with the tag replaced by the discipline and the release date appended — <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code> — matched by name, ordered by release then version, exactly as macOS.</p>
             <p class="mini" style="margin:6px 0 0"><b>And the community baseline, for both platforms</b> — ENCA's Joey Verlinden treatment, Intune-side-out. SkipToTheEndpoint's <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a> (Windows, v3.8, 73 policies) and Microsoft's <a href="https://github.com/microsoft/intune-my-macs" target="_blank" rel="noopener">intune-my-macs</a> (macOS, 21) are bundled from their repositories and sit beside the CloudFellows catalog on a switch: <b>compared on open, importable on any tenant, names kept verbatim</b>. OIB's own <code>OIBID</code> token identifies a deployed policy before the name does, and survives the import — so OIB's deployer and TUNO can both maintain what either created. On the baseline tenant the bundled community catalog also feeds the Upstream act without a download.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Beta 10572, two more acts.</b> <b>The repository is read in the browser</b> — GitHub's API and <code>raw.githubusercontent.com</code> answer with CORS, so the community baseline is fetched with two API calls and one raw read per policy, no zip, no token (the tenant token never leaves <code>graph.microsoft.com</code>; this is a plain fetch), on any tenant for the comparison and on the baseline tenant for Upstream. The one rule it bends is said in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>: the content-security policy's <code>connect-src</code> now names those two hosts beside Graph and login. GitHub's anonymous limit of sixty API calls an hour is reported with its reset time when hit; the bundle and the zip road remain. And <b>✏️ Rename</b>, on the baseline tenant: every policy wearing the prefix and a version but no release tag is proposed one cut from its last-modified date, editable, dry-run, PATCHed on its own surface and read back — the community baseline's own names never proposed.</p>
             <p class="mini" style="margin:6px 0 0"><b>Not yet:</b> the CloudFellows Windows catalog itself ships when the baseline tenant exports it (🧬 Export on cloudfellows.dev, bundled as <code>js/winbaselineData.js</code>); until then the screen says no CloudFellows catalog is bundled and the community catalog is the one on offer. No demo fixtures wear either convention.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
@@ -2125,52 +2131,52 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10571"></script>
-<script src="js/selfhost.js?v=10571"></script>
-<script src="js/version.js?v=10571"></script>
-<script src="js/promote.js?v=10571"></script>
-<script src="js/authConfig.js?v=10571"></script>
-<script src="js/changelog.js?v=10571"></script>
-<script src="js/msappcatalog.js?v=10571"></script>
-<script src="js/demo.js?v=10571"></script>
-<script src="js/graph.js?v=10571"></script>
-<script src="js/suggest.js?v=10571"></script>
-<script src="js/progress.js?v=10571"></script>
-<script src="js/groupuse.js?v=10571"></script>
-<script src="js/audit.js?v=10571"></script>
-<script src="js/devicecleanup.js?v=10571"></script>
-<script src="js/backup.js?v=10571"></script>
-<script src="js/document.js?v=10571"></script>
-<script src="js/policycache.js?v=10571"></script>
-<script src="js/overview.js?v=10571"></script>
-<script src="js/devicewhy.js?v=10571"></script>
-<script src="js/whatif.js?v=10571"></script>
-<script src="js/health.js?v=10571"></script>
-<script src="js/settingsearch.js?v=10571"></script>
-<script src="js/conflict.js?v=10571"></script>
-<script src="js/compliance.js?v=10571"></script>
-<script src="js/filterrules.js?v=10571"></script>
-<script src="js/filters.js?v=10571"></script>
-<script src="js/restore.js?v=10571"></script>
-<script src="js/platformbaseline.js?v=10571"></script>
-<script src="js/macbaselineData.js?v=10571"></script>
-<script src="js/immMacosData.js?v=10571"></script>
-<script src="js/complianceevidence.js?v=10571"></script>
-<script src="js/macbaseline.js?v=10571"></script>
-<script src="js/oibWindowsData.js?v=10571"></script>
-<script src="js/winbaseline.js?v=10571"></script>
-<script src="js/assignedit.js?v=10571"></script>
-<script src="js/restrictedau.js?v=10571"></script>
-<script src="js/groupmigrate.js?v=10571"></script>
-<script src="js/roles.js?v=10571"></script>
-<script src="js/defender.js?v=10571"></script>
-<script src="js/endpointsec.js?v=10571"></script>
-<script src="js/report.js?v=10571"></script>
-<script src="js/securescore.js?v=10571"></script>
-<script src="js/endpointposture.js?v=10571"></script>
-<script src="js/maa.js?v=10571"></script>
-<script src="js/laps.js?v=10571"></script>
-<script src="js/applocker.js?v=10571"></script>
-<script src="js/app.js?v=10571"></script>
+<script src="js/branding.js?v=10572"></script>
+<script src="js/selfhost.js?v=10572"></script>
+<script src="js/version.js?v=10572"></script>
+<script src="js/promote.js?v=10572"></script>
+<script src="js/authConfig.js?v=10572"></script>
+<script src="js/changelog.js?v=10572"></script>
+<script src="js/msappcatalog.js?v=10572"></script>
+<script src="js/demo.js?v=10572"></script>
+<script src="js/graph.js?v=10572"></script>
+<script src="js/suggest.js?v=10572"></script>
+<script src="js/progress.js?v=10572"></script>
+<script src="js/groupuse.js?v=10572"></script>
+<script src="js/audit.js?v=10572"></script>
+<script src="js/devicecleanup.js?v=10572"></script>
+<script src="js/backup.js?v=10572"></script>
+<script src="js/document.js?v=10572"></script>
+<script src="js/policycache.js?v=10572"></script>
+<script src="js/overview.js?v=10572"></script>
+<script src="js/devicewhy.js?v=10572"></script>
+<script src="js/whatif.js?v=10572"></script>
+<script src="js/health.js?v=10572"></script>
+<script src="js/settingsearch.js?v=10572"></script>
+<script src="js/conflict.js?v=10572"></script>
+<script src="js/compliance.js?v=10572"></script>
+<script src="js/filterrules.js?v=10572"></script>
+<script src="js/filters.js?v=10572"></script>
+<script src="js/restore.js?v=10572"></script>
+<script src="js/platformbaseline.js?v=10572"></script>
+<script src="js/macbaselineData.js?v=10572"></script>
+<script src="js/immMacosData.js?v=10572"></script>
+<script src="js/complianceevidence.js?v=10572"></script>
+<script src="js/macbaseline.js?v=10572"></script>
+<script src="js/oibWindowsData.js?v=10572"></script>
+<script src="js/winbaseline.js?v=10572"></script>
+<script src="js/assignedit.js?v=10572"></script>
+<script src="js/restrictedau.js?v=10572"></script>
+<script src="js/groupmigrate.js?v=10572"></script>
+<script src="js/roles.js?v=10572"></script>
+<script src="js/defender.js?v=10572"></script>
+<script src="js/endpointsec.js?v=10572"></script>
+<script src="js/report.js?v=10572"></script>
+<script src="js/securescore.js?v=10572"></script>
+<script src="js/endpointposture.js?v=10572"></script>
+<script src="js/maa.js?v=10572"></script>
+<script src="js/laps.js?v=10572"></script>
+<script src="js/applocker.js?v=10572"></script>
+<script src="js/app.js?v=10572"></script>
 </body>
 </html>
