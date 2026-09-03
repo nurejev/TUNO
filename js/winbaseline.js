@@ -2,8 +2,8 @@
 // T27 — 🪟 Windows baseline (R39, BETA). The macOS baseline's treatment
 // pointed at Windows: the tenant's Windows policies against the
 // CloudFellows Windows baseline, and against the community baseline —
-// SkipToTheEndpoint's OpenIntuneBaseline (WINDOWS/, bundled as
-// js/oibWindowsData.js) — with export on the baseline tenant, import
+// SkipToTheEndpoint's OpenIntuneBaseline (WINDOWS/, read from
+// baseline/community/openintunebaseline/) — with export on the baseline tenant, import
 // everywhere, and the upstream watch that authors the next cut.
 //
 // THE MACHINERY LIVES IN js/platformbaseline.js; this file is the
@@ -30,8 +30,8 @@ const WIN_BASELINE_SPEC = {
   prefix: "Win", prefixRe: /^\s*Win\s*-/i,
   screen: "screen-winbaseline", ids: "wb",
   readLabel: "🪟 Read the tenant",
-  kind: "tuno-windows-baseline", bundledGlobal: "BASELINE_WINDOWS", dataFile: "js/winbaselineData.js",
-  communityGlobal: "COMMUNITY_WINDOWS", communityDataFile: "js/oibWindowsData.js",
+  kind: "tuno-windows-baseline", catalogPath: "baseline/windows/catalog.json",
+  communityPath: "baseline/community/openintunebaseline/catalog.json",
   upstream: {
     id: "oib", label: "OpenIntuneBaseline", icon: "🧩", author: "James Robinson (SkipToTheEndpoint)",
     repo: "github.com/SkipToTheEndpoint/OpenIntuneBaseline",

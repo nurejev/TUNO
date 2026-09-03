@@ -100,6 +100,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 146, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the folder is the catalog: baseline/**/catalog.json read from the site, the js/*Data.js copies gone",
+      tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10575], risk: "medium",
+      why: "Mihai, 2026-09-03: 'I see baseline/windows in the repo, also on GitHub \u2014 why is this not read as the catalog?' It should have been: 10574 wrote the same catalog twice (js data file for the app, folder for people). Now the app fetches baseline/<platform>/catalog.json and baseline/community/<id>/catalog.json from its own origin when a baseline tool opens \u2014 connect-src 'self' allows it, no CSP change \u2014 and the four data files (1.7 MB on every page load) are deleted. Medium: a production tool's catalog now arrives by fetch instead of by script tag; the screen waits for it and says so; a 404 is reported on the catalog line. GitHub Pages serves the folder as any file.",
+      test: [
+        "Any tenant, cold open of T24 and T27: a one-line 'Reading the catalogs from baseline/\u2026' then the seg with both catalogs and the rows 'not read'; DevTools shows two same-origin GETs per tool with ?v=10575, 200, and no *Data.js in the page's scripts.",
+        "Rename baseline/windows/catalog.json locally and serve: T27 says the file answered 404 on the catalog line, offers Load a baseline file, and the community catalog still works (and vice versa).",
+        "cloudfellows.dev: \ud83e\uddec Export \u2192 \ud83d\udcc1 Repo folder, unzip at the repo root: git status shows no change (catalog.json and README.md byte-equal to the committed ones \u2014 the suite proves it for both platforms).",
+        "cloudfellows.dev: \ud83e\udde9 Upstream \u2192 Fetch the latest \u2192 \ud83d\udcc1 Community catalog folder: unzips to baseline/community/openintunebaseline/ with catalog.json and README.md.",
+        "Suites (outside the repo): platformbaseline-tests.js 147/147 (loadCatalogs against a fake same-origin fetch incl. the 404 road; the committed folders byte-equal to repoFolder/communityFolder of the exports), baseline-dom-tests.js 90/90 (the cold open waits for the reads, both tools)."
+      ],
+      files: ["js/platformbaseline.js", "js/macbaseline.js", "js/winbaseline.js", "baseline/", "index.html", "README.md", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 145, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 Housekeeping deletes the copies a re-cut left behind; Export writes the repo folder; the CloudFellows Windows catalog bundled",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10574], risk: "high",
       why: "Mihai, 2026-09-03: 'a housekeeping button where I can easily see which policies were updated or have a higher release and version number and easily delete them from the tenant', and 'make the export something I can easily put in a folder in the repo to be used as the baseline'. The two exports he sent carried the answer to both: macOS 100 policies of which 16 identities twice (15 re-cuts + the old duplicate), Windows 37 clean. HIGH because this is the baseline tools' FIRST DELETE \u2014 cfdev-only, dry-run-first, fresh per-policy read at plan and at delete time, assigned copies refused, read-back-that-fails as the proof \u2014 and because production's T24 catalog changes shape (newest per identity). The repo now carries baseline/macos and baseline/windows beside the data files, cut from one export through one function.",

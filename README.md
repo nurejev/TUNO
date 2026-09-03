@@ -14,7 +14,7 @@ TUNO is [ENCA](https://github.com/nurejev/enca)'s sister tool: the same idea —
 
 ## The baselines in the repository
 
-`baseline/macos/` and `baseline/windows/` hold the CloudFellows baselines as files: one JSON per policy under its section folder, a `README.md` index, and `catalog.json` — the file 🍎 T24 / 🪟 T27 consume. They are **written by the app, never by hand**: on the baseline tenant, Export → 📁 Repo folder (zip), unzipped at the repository root, refreshes the folder and the bundled `js/<platform>baselineData.js` together, cut from one export.
+`baseline/` **is what the app reads.** `baseline/macos/` and `baseline/windows/` hold the CloudFellows baselines — one JSON per policy under its section folder, a `README.md` index, and `catalog.json`, the file 🍎 T24 / 🪟 T27 fetch from this site when they open. `baseline/community/openintunebaseline/` and `baseline/community/intune-my-macs/` hold the community baselines the same way, cut verbatim from their repositories. Written by the app, never by hand: on the baseline tenant, Export → 📁 Repo folder (zip) or Upstream → 📁 Community catalog folder (zip), unzipped at the repository root.
 
 ## Architecture & security
 

@@ -1,8 +1,9 @@
 // ======================================================================
 // T24 — 🍎 macOS baseline (R35). Match the tenant's macOS policies
-// against the CloudFellows macOS baseline — and, since build 10571,
-// against the community baseline too (microsoft/intune-my-macs, bundled
-// as js/immMacosData.js), ENCA's Joey Verlinden treatment.
+// against the CloudFellows macOS baseline (baseline/macos/catalog.json,
+// read from the site) — and, since build 10571, against the community
+// baseline too (microsoft/intune-my-macs, baseline/community/intune-my-macs/),
+// ENCA's Joey Verlinden treatment.
 //
 // THE MACHINERY LIVES IN js/platformbaseline.js — one engine and one
 // screen for every platform that wears the convention; this file is the
@@ -20,8 +21,8 @@ const MAC_BASELINE_SPEC = {
   prefix: "MACOS", prefixRe: /^\s*MACOS\b/i,
   screen: "screen-macbaseline", ids: "mb",
   readLabel: "🍎 Read the tenant",
-  kind: "tuno-macos-baseline", bundledGlobal: "BASELINE_MACOS", dataFile: "js/macbaselineData.js",
-  communityGlobal: "COMMUNITY_MACOS", communityDataFile: "js/immMacosData.js",
+  kind: "tuno-macos-baseline", catalogPath: "baseline/macos/catalog.json",
+  communityPath: "baseline/community/intune-my-macs/catalog.json",
   upstream: {
     id: "imm", label: "intune-my-macs", icon: "🍏", author: "Microsoft",
     repo: "github.com/microsoft/intune-my-macs",

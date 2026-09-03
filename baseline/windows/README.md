@@ -4,7 +4,7 @@ Exported from **CloudFellows.dev** on 2026-09-03 by TUNO v1.0.3-beta.271 (🧬 E
 
 The naming convention is the identity: `Win - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y` — `Ryy.m` is the release the policy was cut in (year, then month), the version orders re-cuts within it.
 
-`catalog.json` is the file the app consumes (🍎/🪟 Import → Load a baseline file); `js/winbaselineData.js` is the same catalog bundled for the build. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository.
+`catalog.json` **is the catalog the app reads** — TUNO fetches `baseline/windows/catalog.json` from its own origin when the 🪟 Windows baseline opens; there is no other copy. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository. Written by the app (🧬 Export → 📁 Repo folder), never by hand.
 
 ## Device configuration profiles (2)
 

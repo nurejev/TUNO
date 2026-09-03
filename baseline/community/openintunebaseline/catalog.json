@@ -1,29 +1,4 @@
-// ======================================================================
-// The Windows COMMUNITY baseline catalog — SkipToTheEndpoint's
-// OpenIntuneBaseline, WINDOWS/ only, bundled verbatim.
-//
-// REGENERATED FROM THE REPOSITORY, never edited by hand:
-//   repo     https://github.com/SkipToTheEndpoint/OpenIntuneBaseline
-//   commit   4844247055305c9eb8dfe4b12c895ec8422dee67
-//   release  v3.8 (2026-05-06, WINDOWS/PolicyManifest.json)
-//   policies 73 (4 compliance, 4 deviceConfig, 3 driverUpdate, 62 settingsCatalog)
-//
-// Bundled rather than fetched at runtime — the CSP only allows Graph, and
-// a baseline must not change under you mid-session (ENCA's rule for its
-// Joey Verlinden catalog, unchanged). To re-cut: on the beta site open
-// T27 -> Upstream (cloudfellows.dev) -> load the repo zip -> "Community
-// catalog file", and replace this file's object with the export verbatim.
-//
-// NAMES AND DESCRIPTIONS ARE THE AUTHOR'S OWN, token included: every
-// policy carries OIBID:<guid> in its description (v3.8+), which is how a
-// deployed copy is identified — a renamed copy still identifies — and
-// how OIB's own deployer can update it later. The bodies are Graph reads
-// cleaned by PlatformBaseline.cleanBody: annotations, action stubs and
-// tenant-owned fields dropped, settings reduced to their instances.
-// Driver update profiles are present for identification but have no
-// create path here; the screen says so on the row.
-// ======================================================================
-const COMMUNITY_WINDOWS = {
+{
  "kind": "tuno-community-baseline",
  "id": "oib",
  "platform": "Windows",
@@ -38,7 +13,6 @@ const COMMUNITY_WINDOWS = {
  "released": "2026-05-06",
  "commit": "4844247055305c9eb8dfe4b12c895ec8422dee67",
  "generated": "2026-09-03T07:20:26.461Z",
- "build": "v1.0.3-beta.271",
  "policies": [
   {
    "name": "Win - OIB - Compliance - U - Defender for Endpoint - v3.1",
@@ -18457,4 +18431,4 @@ const COMMUNITY_WINDOWS = {
    }
   }
  ]
-};
+}

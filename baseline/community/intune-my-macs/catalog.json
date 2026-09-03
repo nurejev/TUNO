@@ -1,24 +1,4 @@
-// ======================================================================
-// The macOS COMMUNITY baseline catalog — Microsoft's intune-my-macs,
-// macOS/ only, bundled verbatim.
-//
-// REGENERATED FROM THE REPOSITORY, never edited by hand:
-//   repo     https://github.com/microsoft/intune-my-macs
-//   commit   0fe22b65ae96ca0a3af85b7994a83b28d764d592 (2026-08-07)
-//   policies 21 (19 settingsCatalog, 1 compliance, 1 deviceConfig)
-//   seen, not comparable: 25 (scripts, profiles, packages)
-//
-// Bundled rather than fetched at runtime — the CSP only allows Graph. To
-// re-cut: on the beta site open T24 -> Upstream (cloudfellows.dev) ->
-// load the repo zip -> "Community catalog file", and replace this file's
-// object with the export verbatim.
-//
-// This baseline has NO naming convention and NO versions in its names, so
-// the tool matches its policies by exact name and reports them as PRESENT
-// rather than up to date — ENCA's bucket for a baseline that does not
-// version its names: being there is the whole test. Names kept verbatim.
-// ======================================================================
-const COMMUNITY_MACOS = {
+{
  "kind": "tuno-community-baseline",
  "id": "imm",
  "platform": "macOS",
@@ -33,7 +13,6 @@ const COMMUNITY_MACOS = {
  "released": "2026-08-07",
  "commit": "0fe22b65ae96ca0a3af85b7994a83b28d764d592",
  "generated": "2026-09-03T07:20:26.477Z",
- "build": "v1.0.3-beta.271",
  "policies": [
   {
    "name": "[intune-my-macs] POL-MDE-001 - Microsoft Defender Settings Catalog",
@@ -3326,4 +3305,4 @@ const COMMUNITY_MACOS = {
    }
   }
  ]
-};
+}

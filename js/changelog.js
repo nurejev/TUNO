@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10575, date: "2026-09-03", title: "Baselines: the folder is the catalog",
+    items: [
+      { kind: "improved", tool: "🪟 Windows baseline", text: "The catalogs are read from the repository's own baseline folder — baseline/windows/catalog.json and baseline/community/openintunebaseline/catalog.json — fetched from this site when the tool opens, instead of a second copy bundled into the JavaScript. Until now the same catalog existed twice, kept equal only because one function wrote both; now there is one, the one people can read and diff in the repository, and 1.7 MB of script leaves every page load. A read that fails is said on the catalog line rather than mistaken for an empty baseline. Export's repo folder no longer carries a data file, because there is nothing left to bundle; Upstream's community catalog file became a folder zip that unzips at the repository root like the other." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "The same: baseline/macos/catalog.json and baseline/community/intune-my-macs/catalog.json are the catalogs, read from the site when the tool opens." },
+    ],
+  },
+  {
     build: 10574, date: "2026-09-03", title: "Baselines: housekeeping, the repo folder, and the CloudFellows Windows catalog bundled",
     items: [
       { kind: "new", tool: "🪟 Windows baseline", text: "Housekeeping, on the baseline tenant. Every identity the tenant carries more than once — a re-cut kept beside its old copy — is listed with the newest release and version marked as kept and the older copies offered for deletion, ticked by default. An older copy that still has assignments is refused, with the reason: deleting it would take reach away that the kept copy does not have, so move the reach in the Assignment editor first. Dry run reads each ticked copy again before anything is planned — still there, still that name, still unassigned — and the delete checks once more at delete time and is verified by a read-back that fails. Back up first: a deleted policy does not come back from here." },

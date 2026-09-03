@@ -30,10 +30,11 @@
 // TWO CATALOGS PER PLATFORM (build 10571, ENCA's Joey Verlinden treatment):
 //
 //   🧬 CloudFellows — the baseline tenant's own export (cfdev convention:
-//      exported on cloudfellows.dev and only there), bundled as
-//      js/<platform>baselineData.js or loaded as a file.
+//      exported on cloudfellows.dev and only there), read from the app's
+//      own baseline/<platform>/catalog.json (10575) or loaded as a file.
 //   🧩 the COMMUNITY baseline — OpenIntuneBaseline for Windows,
-//      intune-my-macs for macOS — bundled verbatim from the author's repo
+//      intune-my-macs for macOS — read from baseline/community/<id>/
+//      catalog.json, cut verbatim from the author's repo
 //      (names kept, Mihai's rule: "OIB is a community baseline and can be
 //      updated through TUNO or the deployer from OIB itself; by keeping the
 //      name it can be used as such"), compared on open and importable on
@@ -121,17 +122,38 @@ const PlatformBaseline = (() => {
     };
 
     // ---- catalogs ----
-    const globalOf = (name) => { try { return name && typeof window !== "undefined" ? window[name] : undefined; } catch { return undefined; } };
-    function bundled() {
-      const b = globalOf(spec.bundledGlobal);
-      return (b && Array.isArray(b.policies)) ? b : null;
-    }
-    // the community catalog — bundled from the author's repo, the same shape
-    // the Upstream act builds from a zip (buildCommunity), so one file drives
-    // compare, import and upstream
-    function community() {
-      const c = globalOf(spec.communityGlobal);
-      return (c && c.kind === "tuno-community-baseline" && Array.isArray(c.policies)) ? c : null;
+    // THE FOLDER IS THE CATALOG (build 10575, Mihai: "why is baseline/windows
+    // in the repo not read as the catalog?"). Until 10574 the same catalog
+    // was written twice — js/<platform>baselineData.js for the app and
+    // baseline/<platform>/ for people — kept equal only because one function
+    // wrote both. Now the app reads baseline/<platform>/catalog.json and
+    // baseline/community/<id>/catalog.json from ITS OWN ORIGIN when a
+    // baseline tool opens: connect-src 'self' already allows it, ?v= busts
+    // the cache like any asset, and 1.7 MB leaves every page load. The
+    // engine holds what the loader read; the screen's loadCatalogs() fills it.
+    let bundledCat = null, communityCat = null;
+    const setBundled = (c) => { bundledCat = (c && c.kind === spec.kind && Array.isArray(c.policies)) ? c : null; return bundledCat; };
+    const setCommunity = (c) => { communityCat = (c && c.kind === "tuno-community-baseline" && Array.isArray(c.policies)) ? c : null; return communityCat; };
+    function bundled() { return bundledCat; }
+    // the community catalog — the same shape the Upstream act builds from a
+    // zip (buildCommunity), so one file drives compare, import and upstream
+    function community() { return communityCat; }
+    // the two same-origin reads, once per session; a miss is reported, not
+    // treated as "no baseline" — the screen says the file could not be read
+    async function loadCatalogs(build) {
+      const v = build ? `?v=${encodeURIComponent(build)}` : "";
+      const read = async (path) => {
+        try {
+          const r = await fetch(path + v, { cache: "default" });
+          if (!r.ok) return { error: `${path} answered ${r.status}` };
+          return { cat: await r.json() };
+        } catch (e) { return { error: `${path}: ${(e && e.message) || e}` }; }
+      };
+      const [b, c] = await Promise.all([read(spec.catalogPath), read(spec.communityPath)]);
+      const errors = [];
+      if (b.cat) { if (!setBundled(b.cat)) errors.push(`${spec.catalogPath} is not a ${spec.platform} baseline catalog`); } else errors.push(b.error);
+      if (c.cat) { if (!setCommunity(c.cat)) errors.push(`${spec.communityPath} is not a community catalog`); } else errors.push(c.error);
+      return { bundled: bundledCat, community: communityCat, errors };
     }
     const isCommunity = (cat) => !!(cat && cat.kind === "tuno-community-baseline");
     // does this name wear THIS catalog's convention? CloudFellows: prefix +
@@ -357,12 +379,11 @@ const PlatformBaseline = (() => {
       const files = {};
       for (const p of file.policies) files[`${dir}/${SECTION_DIR[p.section] || p.section}/${safeFile(p.name)}.json`] = JSON.stringify(p.body, null, 2) + "\n";
       files[`${dir}/catalog.json`] = JSON.stringify(file, null, 1) + "\n";
-      files[`${spec.dataFile}`] = dataFile(built);
       const L = [];
       L.push(`# CloudFellows ${spec.platform} baseline — ${file.release}`, "");
       L.push(`Exported from **${file.tenant || "the baseline tenant"}** on ${file.exported.slice(0, 10)} by TUNO ${file.build} (🧬 Export on the baseline tenant, the cfdev convention). ${file.policies.length} policies, each identity once — the newest release and version.`, "");
       L.push(`The naming convention is the identity: \`${spec.prefix} - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y\` — \`Ryy.m\` is the release the policy was cut in (year, then month), the version orders re-cuts within it.`, "");
-      L.push(`\`catalog.json\` is the file the app consumes (🍎/🪟 Import → Load a baseline file); \`${spec.dataFile}\` is the same catalog bundled for the build. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository.`, "");
+      L.push(`\`catalog.json\` **is the catalog the app reads** — TUNO fetches \`${spec.catalogPath}\` from its own origin when the ${spec.icon} ${spec.label} opens; there is no other copy. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository. Written by the app (🧬 Export → 📁 Repo folder), never by hand.`, "");
       const sections = [...new Set(file.policies.map((p) => p.section))];
       for (const sec of sections) {
         const rows = file.policies.filter((p) => p.section === sec);
@@ -385,39 +406,21 @@ const PlatformBaseline = (() => {
       files[`${dir}/README.md`] = L.join("\n");
       return files;
     }
-    // js/<platform>baselineData.js, exactly as the build carries it
-    function dataFile(built) {
-      const file = built.file;
-      const sec = {};
-      file.policies.forEach((p) => { sec[p.sectionLabel || p.section] = (sec[p.sectionLabel || p.section] || 0) + 1; });
-      const head = [
-        "// ======================================================================",
-        `// The ${spec.platform} baseline catalog — the CloudFellows reference export, bundled.`,
-        "//",
-        "// REGENERATED FROM THE BASELINE TENANT'S OWN EXPORT, never edited by hand:",
-        `//   tenant   ${file.tenant || "?"}`,
-        `//   exported ${file.exported} (TUNO ${file.build})`,
-        `//   policies ${file.policies.length} (${Object.entries(sec).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(", ")})`,
-        "//",
-        "// Bundled rather than fetched at runtime — the CSP allows Graph and the",
-        "// two GitHub read hosts, and a baseline must not change under you",
-        "// mid-session. To re-cut: sign into the baseline tenant on the beta site,",
-        `// ${spec.code} -> Export -> Repo folder (zip), unzip at the repo root: this file`,
-        `// and baseline/${spec.platform.toLowerCase()}/ land together, cut from one export.`,
-        "//",
-        "// EACH IDENTITY ONCE, THE NEWEST. Older copies still on the tenant at",
-        "// export time are recorded here rather than silently dropped:",
-        ...(built.superseded.length ? built.superseded.map((x) => `//   ${x.kept}  supersedes  ${x.dropped.join(" ; ")}`) : ["//   (none)"]),
-        "//",
-        "// Scripts are present for IDENTIFICATION but carry no scriptContent (the",
-        "// shared read returns script metadata only), so they are not importable",
-        "// from this catalog — restore's rule: a script without its body cannot",
-        "// be put back. The screen says this wherever it matters.",
-        "// ======================================================================",
-      ];
-      return `${head.join("\n")}\nconst ${spec.bundledGlobal} = ${JSON.stringify(file, null, 1)};\n`;
+    // the community folder: baseline/community/<id>/ — the catalog the app
+    // reads plus a README naming the repo, the commit and how to re-cut
+    function communityFolder(cat) {
+      const dir = spec.communityPath.replace(/\/catalog\.json$/, "");
+      const files = {};
+      files[`${dir}/catalog.json`] = JSON.stringify(cat, null, 1) + "\n";
+      files[`${dir}/README.md`] = [
+        `# ${cat.label} — the ${spec.platform} community baseline`, "",
+        `Cut verbatim from ${cat.url}${cat.commit ? ` at commit \`${cat.commit}\`` : ""}${cat.release ? ` (release ${cat.release}${cat.released ? `, ${cat.released}` : ""})` : ""} by ${cat.author || "the community"}. ${cat.policies.length} policies, names and descriptions the author's own${cat.idToken ? `, each carrying its \`${cat.idToken}\`` : ""}.`, "",
+        `\`catalog.json\` **is the catalog the app reads** — TUNO fetches \`${spec.communityPath}\` from its own origin when ${spec.icon} ${spec.label} opens. Written by the app: on the baseline tenant, ${spec.upstream.icon} Upstream → fetch or load the repository → ⬇ Community catalog folder (zip), unzipped at the repository root. Never edited by hand.`, "",
+        `| Section | Policies |`, `| --- | --- |`,
+        ...Object.entries(cat.policies.reduce((a, p) => (a[p.sectionLabel || p.section] = (a[p.sectionLabel || p.section] || 0) + 1, a), {})).map(([k, n]) => `| ${k} | ${n} |`), "",
+      ].join("\n");
+      return files;
     }
-
     // ---- housekeeping: the copies a re-cut left behind (10574) ----
     // Every identity the tenant carries more than once: the newest release
     // and version is KEPT, the rest are offered for deletion. An older copy
@@ -900,7 +903,8 @@ const PlatformBaseline = (() => {
       UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
       matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
       releaseOfDate, stampRelease, RENAME_PATH, renameProposals, fetchUpstream,
-      dedupeCatalog, repoFolder, dataFile, housekeeping, DELETE_PATH,
+      dedupeCatalog, repoFolder, communityFolder, housekeeping, DELETE_PATH,
+      setBundled, setCommunity, loadCatalogs,
     };
   }
 
@@ -922,6 +926,8 @@ const PlatformBaseline = (() => {
     let cmp = null;            // compare() result
     let planned = null, plannedFilters = null, running = false;
     let lastWrite = null;      // the last import's failures, shown on the Import pane after the re-read
+    let catalogsLoaded = null; // the one same-origin read of the two catalog files, per session
+    let catalogErrors = [];
 
     const prog = (m) => TunoProgress.show(ID("Body"), ID("Prog"), m);
     const download = (name, text, type) => {
@@ -1023,8 +1029,8 @@ const PlatformBaseline = (() => {
       if (mode === "compare" || mode === "import") parts.push(catalogSeg());
       if (c) parts.push(catalogLine(c));
       else parts.push(`<div class="list-card"><p class="mini" style="margin:0">${isCfdev()
-        ? `<b>No CloudFellows catalog is bundled with this build — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 🧬 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.dataFile)} and baseline/${esc(spec.platform.toLowerCase())}/ in one go, and the next build carries it everywhere.`
-        : `<b>No catalog is bundled with this build.</b> Load a baseline file under 📥 Import. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.`}</p></div>`);
+        ? `<b>No CloudFellows catalog could be read — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 🧬 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.catalogPath)}, the file this screen reads.`
+        : `<b>No catalog could be read from ${esc(spec.catalogPath)}.</b> Load a baseline file under 📥 Import. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.`}${catalogErrors.length ? `<br><span class="mini muted">${catalogErrors.map(esc).join(" · ")}</span>` : ""}</p></div>`);
 
       const comm = E.isCommunity(c);
       const relver = (rel, ver) => comm ? (ver ? `v${esc(ver)}` : `<span class="muted">—</span>`) : `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
@@ -1079,9 +1085,9 @@ const PlatformBaseline = (() => {
 
       if (mode === "export") {
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧬 Export the baseline <span class="mini muted">— this IS the baseline tenant</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Writes the catalog file from this tenant's ${esc(spec.prefix)} policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. Bundle it into the build as ${esc(spec.dataFile)} when it is the new reference.</p>
-          ${res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with one JSON per policy and a README index, plus ${esc(spec.dataFile)} ready to bundle — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
-          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b> — an older copy still on the tenant is listed as superseded in the README and the data file's header, and 🧹 Housekeeping retires it.</p>
+          <p class="mini muted" style="margin:0 0 8px">Writes the catalog from this tenant's ${esc(spec.prefix)} policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} — the file every tenant's ${esc(spec.label)} reads from the site — is the new reference on the next push.</p>
+          ${res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
+          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b> — an older copy still on the tenant is listed as superseded in the README, and 🧹 Housekeeping retires it.</p>
           <span class="mini muted" id="${ID("ExportNote")}"></span></div>`);
       }
 
@@ -1167,7 +1173,7 @@ const PlatformBaseline = (() => {
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.platform.toLowerCase()}-baseline-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/ + ${spec.dataFile}`
+          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/`
             + (built.superseded.length ? ` · ${built.superseded.length} identit${built.superseded.length === 1 ? "y" : "ies"} exported once, older copies listed as superseded — 🧹 Housekeeping retires them` : "")
             + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((x) => x.why)[0]})` : "");
         } catch (e) { $(ID("ExportNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
@@ -1300,7 +1306,7 @@ const PlatformBaseline = (() => {
           <button class="btn" id="${ID("UpNone")}">☐ Select none</button>
           <span class="mini muted" id="${ID("UpCount")}"></span>
           <button class="btn" id="${ID("UpMd")}" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
-          ${upstream.parsed ? `<button class="btn" id="${ID("UpCatalog")}" title="Write this upstream as a community catalog file — bundle it as ${esc(spec.communityDataFile)} when it is the release TUNO should carry">⬇ Community catalog file</button>` : ""}
+          ${upstream.parsed ? `<button class="btn" id="${ID("UpCatalog")}" title="Write this upstream as ${esc(spec.communityPath.replace(/\/catalog\.json$/, "/"))} — unzip at the repo root and it is the community catalog every tenant reads">📁 Community catalog folder (zip)</button>` : ""}
         </div>
         <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
           <thead><tr><th><input type="checkbox" id="${ID("UpMaster")}" title="Select or deselect every row below"></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
@@ -1359,10 +1365,17 @@ const PlatformBaseline = (() => {
           E.upstreamMarkdown(rows, { catalog: cf ? `${cf.release || "R26"} (${cf.policies.length} policies)` : "" }), "text/markdown");
       });
       const uc = $(ID("UpCatalog"));
-      if (uc) uc.addEventListener("click", () => {
+      if (uc) uc.addEventListener("click", async () => {
         const f = upstream.fetched || {};
         const file = E.buildCommunity(upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), released: f.date || "", commit: f.commit || "" });
-        download(`tuno-${spec.upstream.id}-community-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(file, null, 1));
+        try {
+          const z = new JSZip();
+          for (const [path, text] of Object.entries(E.communityFolder(file))) z.file(path, text);
+          const blob = await z.generateAsync({ type: "blob" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.upstream.id}-community-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        } catch (e) { $(ID("UpNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
       });
     }
 
@@ -1885,6 +1898,7 @@ const PlatformBaseline = (() => {
       if (running) return;
       running = true; $(ID("Run")).disabled = true; $(ID("Body")).innerHTML = "";
       try {
+        await ensureCatalogs();
         let r;
         if (attach && PolicyCache.reading()) {
           prog("Reading the tenant…");
@@ -1913,7 +1927,22 @@ const PlatformBaseline = (() => {
 
     // the "autocheck" (ENCA's: compare on open, no button) — a cached read
     // is compared the moment the screen shows; the baseline renders regardless
-    function onShow() {
+    // the catalogs come from the site itself, once — the first open waits
+    // for them (a same-origin read, cached after that), so the baseline is
+    // still always shown, a moment later than when it rode a <script> tag
+    function ensureCatalogs() {
+      if (catalogsLoaded) return catalogsLoaded;
+      catalogsLoaded = E.loadCatalogs(typeof APP_BUILD !== "undefined" ? APP_BUILD.build : "").then((r) => {
+        catalogErrors = r.errors || [];
+        recompare();
+        return r;
+      });
+      return catalogsLoaded;
+    }
+    async function onShow() {
+      if (res || running) return;
+      $(ID("Body")).innerHTML = `<p class="mini muted" style="margin:0">Reading the catalogs from ${esc(spec.catalogPath)} and ${esc(spec.communityPath)}…</p>`;
+      await ensureCatalogs();
       if (res || running) return;
       const c = PolicyCache.get();
       if (c) { land(c, srcNote()); return; }
@@ -1938,6 +1967,7 @@ const PlatformBaseline = (() => {
       init,
       // r: collect result · c: a CloudFellows catalog (or null for the bundled one) · m: mode · k: catalog id
       _setForTest: (r, c, m, k) => { fileCat = c || null; mode = m || "compare"; catId = k || null; land(r, ""); },
+      _catalogsForTest: (b, c) => { E.setBundled(b); E.setCommunity(c); catalogsLoaded = Promise.resolve({}); },
     };
   }
 
