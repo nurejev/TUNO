@@ -2444,12 +2444,20 @@ const AppLockerTool = (() => {
       const found = auditProfileInTenant();
       rows.push(`<tr><td>☁️ Deployed profile <span class="tag grant">${found ? "matched" : "checked"}</span></td><td class="mini">${found ? esc(found.displayName || "(unnamed)") : `${tap.length} AppLocker profile${tap.length === 1 ? "" : "s"} in the tenant, none under this grouping`}</td><td class="mini">${found && found.lastModifiedDateTime ? esc(String(found.lastModifiedDateTime).slice(0, 16).replace("T", " ")) : ""}</td><td class="mini">grouping ${esc(intuneGrouping() || "(none)")}</td></tr>`);
     } else {
-      rows.push(`<tr><td class="muted">☁️ Deployed profile</td><td class="mini muted">—</td><td></td><td class="mini muted">sign in and 🔎 Check against the tenant on Deploy; the draft is then judged against what is really out there</td></tr>`);
+      const signedIn = typeof Graph !== "undefined" && Graph.signedIn && Graph.signedIn();
+      const busy = deployState.busy === "groupcheck";
+      rows.push(`<tr><td class="muted">☁️ Deployed profile</td><td class="mini muted">${busy ? "reading the tenant…" : "—"}</td><td></td><td class="mini muted">${!signedIn
+        ? "sign in and the tenant is read automatically — the draft is then judged against what is really out there"
+        : policy
+          ? `<button class="btn sm" id="alEvTenantCheck" ${busy ? "disabled" : ""}>🔎 ${busy ? "Checking…" : "Check the tenant now"}</button> <span>reads the deployed profiles (asks for the read consent once); afterwards it runs by itself every time a policy lands here</span>`
+          : "load a policy — the tenant is then read automatically"}</td></tr>`);
     }
     if (policy && importedXmlName && !scan) rows.push(`<tr><td>📄 Policy XML <span class="tag grant">loaded</span></td><td class="mini">${esc(importedXmlName)}</td><td></td><td class="mini">no ACL or event evidence — the part a browser cannot work out</td></tr>`);
     host.innerHTML = `<h3 style="margin:0 0 8px">What is on the table</h3>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Evidence</th><th>From</th><th>When</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
       ${policy ? `<p class="mini muted" style="margin:10px 0 0">The draft on <b>Policy</b> was built from ${scan ? esc(SCAN_SOURCE_LABEL[scanSource] || "the scan") : importedXmlName ? "the uploaded XML" : "scratch"}. The scanner writes no policy file of its own any more — this draft, reviewed here, is the only policy.</p>` : ""}`;
+    const cb = host.querySelector("#alEvTenantCheck");
+    if (cb) cb.addEventListener("click", () => { autoCheckedFor = null; checkTenantGrouping().then(renderEvidence).catch(() => {}); });
   }
 
   // ---- 3 · What breaks?: every event replayed against the draft ----
@@ -2735,7 +2743,7 @@ const AppLockerTool = (() => {
 
     const compact = shown.length ? `<div class="al-find-compact">` +
       shown.map((f) => `<div class="al-fc-row">
-          <div class="al-fc-head">${sevTag(f.sev)}${srcMark(f)} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
+          <div class="al-fc-head">${sevTag(f.sev)}${srcMark(f)}${decideMark(f)} <b>${esc(f.collection)}</b> <span class="mini muted">${esc(f.rule || f.ruleType)}</span></div>
           <div class="al-fc-reason mini">${esc(f.reason)}</div>
         </div>`).join("") +
       `<button class="btn al-fs al-fc-more" data-fs="alFindings" data-fslabel="Rules and findings">⛶ Open full screen for the recommendations and one-click fixes</button>
@@ -2767,7 +2775,7 @@ const AppLockerTool = (() => {
             <ul class="mini al-list" style="margin:6px 0 0">${li}</ul>
             ${f.fleetGroup.length > 60 ? `<p class="mini muted" style="margin:4px 0 0">Showing 60 of ${f.fleetGroup.length} — the gap report carries all of them.</p>` : ""}</details>`;
         }
-        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}</td><td>${esc(f.collection)}</td><td style="overflow-wrap:anywhere">${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${groupList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
+        const row = `<tr><td>${sevTag(f.sev)}${srcMark(f, true)}${decideMark(f)}</td><td>${esc(f.collection)}</td><td style="overflow-wrap:anywhere">${esc(f.rule || f.ruleType)}<div class="mini muted">${esc(f.principal || "")}</div></td><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(f.cond || "")}</td><td class="mini">${esc(f.reason)}</td><td class="mini">${esc(f.rec)}${evList}${groupList}${plan ? `<div style="margin-top:6px">${btn}</div>` : `<span class="mini muted" title="This finding's recommendation is 'no change needed' — nothing to apply"></span>`}</td></tr>`;
         return row + (editor ? `<tr class="al-fixhost"><td colspan="6" style="padding:0">${editor}</td></tr>` : "");
       }).join("") +
       `</tbody></table></div>` : "";
@@ -2776,7 +2784,7 @@ const AppLockerTool = (() => {
     // container-query switch, because the rule list must stay reachable in the
     // narrow column where the findings table folds into the compact summary.
     const nestedCount = shown.length - topFindings.length;
-    const rulesHtml = policy.collections.map((col) => col.rules.length ? `<h4 class="mini" style="margin:12px 0 6px">${esc(COLLECTION_LABEL[col.type] || col.type)} · ${esc(col.mode)}</h4>
+    const rulesHtml = policy.collections.map((col) => col.rules.length ? `<h4 class="mini al-rules-h" id="alRules-${esc(col.type)}" data-col="${esc(col.type)}" style="margin:12px 0 6px">${esc(COLLECTION_LABEL[col.type] || col.type)} · ${esc(col.mode)} <span class="muted al-rules-n">· ${col.rules.length}</span></h4>
         <div style="overflow-x:auto"><table class="plist"><tbody>` + col.rules.map((r) => {
           const c = r.conditions[0] || {};
           const cond = c.kind === "path" ? c.path : c.kind === "publisher" ? `${c.publisher} · ${c.product} · ${c.binary} [${c.low},${c.high}]` : c.kind === "hash" ? `${(c.hashes || []).length} hash(es)` : "";
@@ -2784,12 +2792,12 @@ const AppLockerTool = (() => {
           const nested = mine.map(({ f, i }) => {
             const { plan, btn, editor } = fixBits(f, i);
             return `<div class="al-rule-find" style="margin-top:6px;padding:5px 9px;border-left:2px solid var(--warn-bd);background:var(--soft2)">
-              ${sevTag(f.sev)}${srcMark(f, true)} <span class="mini">${esc(f.reason)}</span>
+              ${sevTag(f.sev)}${srcMark(f, true)}${decideMark(f)} <span class="mini">${esc(f.reason)}</span>
               ${f.cond && f.cond !== cond ? `<div class="mini muted" style="margin-top:2px;overflow-wrap:anywhere"><code>${esc(f.cond)}</code></div>` : ""}
               <div class="mini muted" style="margin-top:2px">${esc(f.rec)}</div>
               ${btn ? `<div style="margin-top:5px">${btn}</div>` : ""}${editor}</div>`;
           }).join("");
-          return `<tr><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
+          return `<tr class="al-rule-row" data-col="${esc(col.type)}" data-rtext="${esc(String(r.name + " " + cond + " " + sidName(r.sid) + " " + r.action + " " + (c.kind || "")).toLowerCase())}"><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
             <td>${esc(r.name)}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div>${nested}</td>
             <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
             <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
@@ -2844,7 +2852,21 @@ const AppLockerTool = (() => {
 
     $("alCoverage").innerHTML = stickyHead("alCoverage", "Microsoft app coverage", "would a standard user still be able to run these?") + coverageHtml;
 
-    $("alRules").innerHTML = stickyHead("alRules", "Rules", nestedCount ? `${nestedCount} finding${nestedCount === 1 ? "" : "s"} nested under the rule${nestedCount === 1 ? "" : "s"} they are about` : "the policy's rules, per collection") + rulesHtml;
+    // THE RULES BAR (10581, Mihai: "the rules section should also be easy
+    // scrollable"): one chip per collection with its rule count (and the
+    // count of findings nested there) that scrolls to that collection's
+    // table, and a filter box that narrows every table to the rules whose
+    // name, condition, principal or action match — DOM-only, so typing
+    // never re-renders the card or loses the caret.
+    const rulesBar = policy.collections.some((c2) => c2.rules.length) ? `<div class="al-rules-bar">
+        ${policy.collections.filter((c2) => c2.rules.length).map((c2) => {
+          const nf = c2.rules.reduce((n, r) => n + (byRule.get(r.id) || []).length, 0);
+          return `<button class="fchip al-rules-chip" type="button" data-aljump="alRules-${esc(c2.type)}">${esc(c2.type)} <span class="muted">${c2.rules.length}</span>${nf ? ` <span class="al-rules-nf" title="${nf} finding${nf === 1 ? "" : "s"} nested here">${nf}</span>` : ""}</button>`;
+        }).join("")}
+        <input id="alRuleFilter" class="al-rules-filter" type="search" placeholder="Filter rules — name, path, publisher, principal…" spellcheck="false" autocomplete="off">
+        <span class="mini muted" id="alRuleFilterN"></span>
+      </div>` : "";
+    $("alRules").innerHTML = stickyHead("alRules", "Rules", nestedCount ? `${nestedCount} finding${nestedCount === 1 ? "" : "s"} nested under the rule${nestedCount === 1 ? "" : "s"} they are about` : "the policy's rules, per collection") + rulesBar + rulesHtml;
     // The add-rule form lives in its own host high in the column, not at the
     // bottom of the rules list. Same markup, same ids, wired by the same
     // wireDynamic() below — only its address changed.
@@ -2878,7 +2900,45 @@ const AppLockerTool = (() => {
     wireDynamic();
   }
 
+  // "TO DECIDE" ON THE ROW (10581, Mihai: "this should clearly say on the
+  // finding, in the same red, to decide"). The rail says "10 to decide"; the
+  // rows that make up that ten carry the same words in the same colour, so
+  // the count and the table agree on what a decision is: High or Medium,
+  // not from the fleet (those are What breaks? rows).
+  const decideMark = (f) => (f.sev === "High" || f.sev === "Medium") && f.source !== "fleet" ? `<span class="al-decide">to decide</span>` : "";
+
+  function wireRulesBar() {
+    const host = $("alRules");
+    if (!host) return;
+    host.querySelectorAll(".al-rules-chip").forEach((b) => b.addEventListener("click", () => {
+      const el = $(b.dataset.aljump);
+      if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+    const inp = host.querySelector("#alRuleFilter");
+    if (!inp) return;
+    inp.addEventListener("input", () => {
+      const q = inp.value.trim().toLowerCase();
+      let shown = 0, total = 0;
+      const perCol = {};
+      host.querySelectorAll("tr.al-rule-row").forEach((tr) => {
+        total++;
+        const hit = !q || tr.dataset.rtext.includes(q);
+        tr.style.display = hit ? "" : "none";
+        if (hit) { shown++; perCol[tr.dataset.col] = (perCol[tr.dataset.col] || 0) + 1; }
+      });
+      host.querySelectorAll(".al-rules-h").forEach((h) => {
+        const n = perCol[h.dataset.col] || 0;
+        h.style.display = q && !n ? "none" : "";
+        const tbl = h.nextElementSibling;
+        if (tbl) tbl.style.display = q && !n ? "none" : "";
+      });
+      const nEl = host.querySelector("#alRuleFilterN");
+      if (nEl) nEl.textContent = q ? `${shown} of ${total} rule${total === 1 ? "" : "s"}` : "";
+    });
+  }
+
   function wireDynamic() {
+    wireRulesBar();
     document.querySelectorAll(".al-sev").forEach((b) => b.addEventListener("click", () => { sevFilter = b.dataset.sev; render(); }));
     document.querySelectorAll(".al-just-undo").forEach((b) => b.addEventListener("click", undoLast));
     document.querySelectorAll(".al-mode").forEach((s) => s.addEventListener("change", () => {
@@ -3026,6 +3086,8 @@ const AppLockerTool = (() => {
     editsSinceLoad = 0;
     resetFixState();
     recompute();
+    // fire-and-forget; the Evidence row and the deploy panel adopt the result
+    if (typeof autoTenantCheck === "function") autoTenantCheck().catch(() => {});
   }
 
   // One upload button, two file types. The scan bundle is JSON and carries the
@@ -4027,6 +4089,24 @@ const AppLockerTool = (() => {
     } catch (e) { depFail(e); }
   }
 
+  // THE TENANT CHECK RUNS ITSELF (10581, Mihai: "why can't this be
+  // automated"). When a policy lands on the table and the tenant's read
+  // consent already exists (silentScopes — no prompt a tenant did not ask
+  // for), the deployed profiles are read at once and the draft is judged
+  // against what is really out there. Once per policy load; a tenant that
+  // has never consented gets a button on the Evidence row instead.
+  let autoCheckedFor = null;
+  async function autoTenantCheck() {
+    if (!policy || typeof Graph === "undefined" || !Graph.signedIn || !Graph.signedIn()) return;
+    const token = importedXmlName + "|" + (scan && scan.sourceName) + "|" + intuneGrouping();
+    if (autoCheckedFor === token || deployState.busy) return;
+    autoCheckedFor = token;
+    let ok = false;
+    try { ok = typeof Graph.silentScopes === "function" ? await Graph.silentScopes(Graph.SCOPES.profiles) : false; } catch { ok = false; }
+    if (!ok) { renderEvidence(); return; }
+    await checkTenantGrouping();
+    renderEvidence();
+  }
   async function checkTenantGrouping() {
     const d = deployState;
     d.error = null;
@@ -4038,6 +4118,7 @@ const AppLockerTool = (() => {
       d.checked = Object.assign({}, d.checked, { tenantAppLocker: tap, auditInTenant: !!auditProfileInTenant(tap) });
       d.busy = "";
       renderDeploy();
+      renderEvidence();
     } catch (e) { depFail(e); }
   }
 

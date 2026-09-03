@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10581, date: "2026-09-03", title: "T01 — the tenant check runs itself, the rules bar, and \"to decide\" on the row",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "The tenant check runs itself. When a policy lands on the table and the read consent already exists, the deployed profiles are read at once — the Evidence row shows the matched profile and the deploy panel already knows whether this is an iteration. No prompt appears for a tenant that never consented; that tenant gets a button on the Evidence row, and after the first consent the check runs by itself from then on." },
+      { kind: "improved", tool: "AppLocker", text: "The Rules card has a bar: one chip per collection with its rule count and the number of findings nested there, scrolling to that table, and a filter box that narrows every table by name, path, publisher, principal or action while you type." },
+      { kind: "improved", tool: "AppLocker", text: "Every finding the rail counts as 'to decide' says so on its row, in the same red — in the table, the compact cards and the findings nested under rules — so the count on the rail and the rows in the table agree on what a decision is." },
+    ],
+  },
+  {
     build: 10580, date: "2026-09-03", title: "T01 — DLL loads hidden by default; the effective policy explained",
     items: [
       { kind: "improved", tool: "AppLocker", text: "DLL loads are hidden by default on What breaks?, in the Enforce gate and in the scan card's refused list — the house policy neither audits nor enforces DLL. A ticked toggle in the What breaks? header says how many it hides and whether the draft carries Dll rules; untick it to judge them. A device's effective policy often carries a Dll collection (the Managed Installer merge puts a dummy rule there), which used to turn a thousand Defender-platform DLL audits into a thousand rows to resolve." },

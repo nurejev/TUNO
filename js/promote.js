@@ -100,6 +100,18 @@ const PROMOTE = {
 
   items: [
     {
+      n: 152, title: "\ud83d\udd10 T01 \u2014 the tenant check runs itself; the rules bar (chips + filter); \"to decide\" on every counted finding",
+      tools: ["T01 AppLocker"], builds: [10581], risk: "low",
+      why: "Mihai, 3 Sep: 'why can't this be automated' (the Evidence row telling him to go press Check against the tenant), 'the rules section should also be easy scrollable' (83 rules in four tables), and 'this should clearly say on the finding, in the same red, to decide' (the rail said 10 to decide; the rows did not). The check is a read with consent the tenant already gave, so it runs on policy load through Graph.silentScopes and never prompts; the rules bar is chips plus a DOM-only filter; the decide mark is the rail's own words and colour on the rows it counts.",
+      test: [
+        "Signed in to a tenant that has consented before: upload a bundle \u2014 within a second the Evidence row reads 'Deployed profile \u00b7 matched \u00b7 <name>' and Deploy says 'already deployed \u2014 this is an iteration', with no click and no consent prompt. Load a second policy: it is read again; re-render without a new policy: it is not.",
+        "A fresh tenant (no consent yet): nothing is read silently; the Evidence row shows 'Check the tenant now', pressing it asks for the read once and fills the row.",
+        "Policy \u2192 Rules: chips Exe/Msi/Script/Appx with counts and red nested-finding badges; a chip scrolls to its table; typing 'onedrive' in the filter leaves the OneDrive rules only and says 'N of M rules'; clearing restores all.",
+        "Findings: every High/Medium row carries 'to decide' in the rail's red; the number of marks equals the rail's 'N to decide'.",
+      ],
+      files: ["js/applocker.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 151, title: "\ud83d\udd10 T01 \u2014 DLL loads hidden by default on What breaks?; the effective policy explained as evidence",
       tools: ["T01 AppLocker"], builds: [10580], risk: "low",
       why: "Mihai, 3 Sep, on the 2 Sep bundle: 'the solution for now does not audit or enforce .dll, so in What breaks? we need to filter those out' \u2014 the device's effective policy carries the Managed Installer dummy rule in Dll, so a thousand Defender DLL audits became rows. And 'with the effective policy I see that scripts have no rules, but they should be there' \u2014 true of the device at 12:23 on 2 Sep: the merge it was running had an empty Script collection, i.e. the deployed profile had not reached it. The tool now hides DLL loads by default (toggle in the header, remembered) and explains the effective policy as evidence rather than letting it read as a broken draft.",
