@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 151, title: "\ud83d\udd10 T01 \u2014 DLL loads hidden by default on What breaks?; the effective policy explained as evidence",
+      tools: ["T01 AppLocker"], builds: [10580], risk: "low",
+      why: "Mihai, 3 Sep, on the 2 Sep bundle: 'the solution for now does not audit or enforce .dll, so in What breaks? we need to filter those out' \u2014 the device's effective policy carries the Managed Installer dummy rule in Dll, so a thousand Defender DLL audits became rows. And 'with the effective policy I see that scripts have no rules, but they should be there' \u2014 true of the device at 12:23 on 2 Sep: the merge it was running had an empty Script collection, i.e. the deployed profile had not reached it. The tool now hides DLL loads by default (toggle in the header, remembered) and explains the effective policy as evidence rather than letting it read as a broken draft.",
+      test: [
+        "Upload the 2 Sep bundle, What breaks?: the header carries 'Hide DLL loads (1015 events \u2014 no Dll collection in the draft)' ticked; no .DLL row anywhere; the scan card's refused list says how many DLL loads it hides.",
+        "Switch to the device's effective policy on Evidence: the DLL loads stay hidden although that policy carries a Dll rule; the note above the gate explains the merge, names Script/Msi/Appx as empty and points at the generated rule set. Untick the toggle: the DLL rows appear and the rail count jumps; tick again and they go.",
+        "Reload the page: the toggle state is remembered.",
+      ],
+      files: ["js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 150, title: "\ud83d\udd10 T01 \u2014 the Policy screen's sections as sub-nodes on the rail",
       tools: ["T01 AppLocker"], builds: [10579], risk: "low",
       why: "Mihai, 3 Sep, on the rail: 'when viewing this policy make it easy to navigate between the sections' \u2014 Policy is the long screen (summary, add-rule, findings, coverage, rules, advanced) and the jump strip went with the rail. The sections are sub-nodes under the Policy node, each with the count that says whether it needs a look; the rail is sticky so they stay in reach.",

@@ -94,6 +94,16 @@ const AppLockerTool = (() => {
   const saveAccepted = () => { try { localStorage.setItem("tuno.t01.acceptedBreaks", JSON.stringify([...acceptedBreaks])); } catch { } };
   const breakKey = (row) => String(row.path || row.binary || "").toUpperCase();
   let shownBreaks = [];     // the rows renderBreaks() last drew, for the handlers
+  // DLL LOADS ARE SET ASIDE BY DEFAULT (10580, Mihai: "the solution for now
+  // does not audit or enforce .dll"). The house policy carries no Dll
+  // collection, so every DLL load in a log is the record of that decision;
+  // but a device's EFFECTIVE policy can carry one (the Managed Installer
+  // merge does), and then 1 000 Defender-platform DLL audits become 1 000
+  // rows to "resolve". The toggle keeps them out of the replay, the gate and
+  // the scan card until somebody wants them; it says how many it is hiding.
+  let hideDll = true;
+  try { hideDll = localStorage.getItem("tuno.t01.hideDll") !== "0"; } catch { hideDll = true; }
+  const isDllEvent = (en) => eventCollectionType(en) === "Dll";
   // The grouping default is GENERATED, not a word. Microsoft's guidance is that
   // groupings must be unique (removal breaks on duplicates — the CSP deletes
   // duplicate URIs) and recommends a random GUID; a bare GUID, though, is
@@ -552,7 +562,7 @@ const AppLockerTool = (() => {
     // has chosen to police DLL loads on purpose.
     if (eventCollectionType(row.sample) === "Dll") {
       const dllCol = policy && policy.collections.find((c) => c.type === "Dll");
-      if (!dllCol || !dllCol.rules.length) return "dll";
+      if (hideDll || !dllCol || !dllCol.rules.length) return "dll";
     }
     if (dv.s === "no-policy" || dv.s === "no-rules") return "undecided";
     if (dv.s === "allowed") return "covered";
@@ -2465,7 +2475,23 @@ const AppLockerTool = (() => {
     const bydesign = judged.filter((j) => j.cls === "bydesign");
     const covered = judged.filter((j) => j.cls === "covered");
     const dll = judged.filter((j) => j.cls === "dll");
+    const dllEvents = entries.filter(isDllEvent).length;
+    const draftDll = policy.collections.find((c) => c.type === "Dll");
     shownBreaks = gaps.map((j) => j.row).concat(accepted.map((j) => j.row));
+    const dllToggle = dllEvents ? `<label class="mini al-dll-toggle" style="display:inline-flex;gap:6px;align-items:center;margin-left:auto;cursor:pointer" title="${hideDll ? "DLL loads are set aside: the house policy neither audits nor enforces DLL. Untick to judge them against the draft." : "DLL loads are judged against the draft."}">
+      <input type="checkbox" id="alHideDll" ${hideDll ? "checked" : ""}> Hide DLL loads <span class="muted">(${dllEvents} event${dllEvents === 1 ? "" : "s"}${draftDll && draftDll.rules.length ? ` — the draft carries ${draftDll.rules.length} Dll rule${draftDll.rules.length === 1 ? "" : "s"}` : " — no Dll collection in the draft"})</span></label>` : "";
+    // THE EFFECTIVE POLICY IS EVIDENCE, NOT A DRAFT (10580, Mihai: "scripts
+    // have no rules, but they are in the policies"). What the device was
+    // running at scan time is a merge of every AppLocker source on it —
+    // Intune, GPO, the Managed Installer policy — and if a collection is
+    // empty there, the device had not received the profile that carries it.
+    const effNote = (scanSource === "effective") ? (() => {
+      const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "scan time";
+      const empty = COLLECTIONS.filter((t) => t !== "Dll").filter((t) => { const c = policy.collections.find((x) => x.type === t); return !c || !c.rules.length; });
+      const mi = policy.collections.some((c) => /ManagedInstaller/i.test(c.type)) || policy.collections.some((c) => c.rules.some((r) => /managed installer/i.test(r.name || "")));
+      const gen = scan && scan.generatedPolicy && scan.generatedPolicy.auditXml;
+      return `<div class="al-gate" style="border-color:var(--border);background:var(--soft)">ℹ️ <b>You are judging against the policy the device was actually running at ${esc(when)}</b> — the merge of every AppLocker source on it (Intune, GPO${mi ? ", and the Managed Installer policy, whose dummy rules are what sits in Exe and Dll" : ""}). It is evidence, not a draft.${empty.length ? ` It carries <b>no ${empty.join(", ")} rules</b>: if the deployed profile has them, the device had not received it by ${esc(when)} — check the assignment and the device's last sync, then re-scan.` : ""}${gen ? ` To work on the rules themselves, switch to <b>the rule set the scan generated</b> on the Evidence screen.` : ""}</div>`;
+    })() : "";
     const unresolved = gaps.length + undecided.length;
     const fmtWhen = (t) => t ? String(t).replace("T", " ").slice(0, 16) : "";
     const itTools = /IT-TOOLS\\/i;
@@ -2486,7 +2512,8 @@ const AppLockerTool = (() => {
     }).join("");
     const acceptedRows = accepted.map((j, k) => { const i = gaps.length + k; const r = j.row; return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code></td><td class="mini">${r.count}×</td><td><span class="tag block">blocked · accepted</span></td><td class="mini">${esc(j.dv.text)}</td><td><button class="btn sm al-brk-unaccept" data-brkunaccept="${i}">Reconsider</button></td></tr>`; }).join("");
     const undecidedRows = undecided.slice(0, 20).map((j) => `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(j.row.path || j.row.binary || "?")}</code></td><td class="mini">${j.row.count}×</td><td><span class="tag new">undecided</span></td><td class="mini" colspan="2">${esc(j.dv.text)}</td></tr>`).join("");
-    host.innerHTML = `<h3 style="margin:0 0 8px">💥 What breaks? <span class="mini muted">— every event on ${esc(fleetSourceLabel())} replayed against the draft, allowed ones included</span></h3>
+    host.innerHTML = `<h3 style="margin:0 0 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">💥 What breaks? <span class="mini muted">— every event on ${esc(fleetSourceLabel())} replayed against the draft, allowed ones included</span>${dllToggle}</h3>
+      ${effNote}
       ${gate}
       ${gaps.length ? `<h4 class="mini" style="margin:12px 0 6px">Ran on the device, blocked by the draft <span class="muted">— ${gaps.length}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th>Resolve</th></tr></thead><tbody>${gapRows}</tbody></table></div>` : ""}
@@ -2494,7 +2521,7 @@ const AppLockerTool = (() => {
       <p class="mini muted" style="margin:0 0 6px">With no rules for that type nothing is restricted — today. Decide the collection on <b>Policy</b> (add its default rules, or leave it out on purpose) before enforcing.</p>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th colspan="2">Because</th></tr></thead><tbody>${undecidedRows}</tbody></table></div>` : ""}
       ${accepted.length ? `<details style="margin-top:12px"><summary class="mini"><b>Accepted blocks</b> — ${accepted.length}, meant to be blocked ▾</summary><div style="overflow-x:auto;margin-top:6px"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th></th></tr></thead><tbody>${acceptedRows}</tbody></table></div></details>` : ""}
-      <p class="mini muted" style="margin:12px 0 0">${rows.length} distinct file${rows.length === 1 ? "" : "s"} judged: ${covered.length} covered (would run) · ${bydesign.length} from user-writable areas, blocked by design · ${gaps.length} to resolve · ${accepted.length} accepted${undecided.length ? ` · ${undecided.length} undecided` : ""}${dll.length ? ` · ${dll.length} DLL loads set aside (no Dll collection)` : ""}. The device's own refusals, grouped, are on the events card below${eventsEvidence ? "" : " and on the Evidence screen"}.</p>`;
+      <p class="mini muted" style="margin:12px 0 0">${rows.length} distinct file${rows.length === 1 ? "" : "s"} judged: ${covered.length} covered (would run) · ${bydesign.length} from user-writable areas, blocked by design · ${gaps.length} to resolve · ${accepted.length} accepted${undecided.length ? ` · ${undecided.length} undecided` : ""}${dll.length ? ` · ${dll.length} DLL loads ${hideDll ? "hidden" : "set aside (no Dll collection)"}` : ""}. The device's own refusals, grouped, are on the events card below${eventsEvidence ? "" : " and on the Evidence screen"}.</p>`;
   }
 
   // ---- the device-scan evidence card ----
@@ -2520,8 +2547,9 @@ const AppLockerTool = (() => {
     const topPaths = scan.writablePaths.slice(0, 12);
     const topFiles = scan.writableFiles.slice(0, 12);
     const topEvents = ev && ev.entries
-      ? ev.entries.filter((e) => e.verdict === "Blocked" || e.verdict === "Audited").slice(0, 12)
+      ? ev.entries.filter((e) => (e.verdict === "Blocked" || e.verdict === "Audited") && !(hideDll && isDllEvent(e))).slice(0, 12)
       : [];
+    const dllHidden = ev && ev.entries ? ev.entries.filter((e) => (e.verdict === "Blocked" || e.verdict === "Audited") && isDllEvent(e)).length : 0;
 
     host.innerHTML = `
       <h3 style="margin:0 0 8px">🛰 Device scan <span class="mini muted">— evidence the XML alone cannot carry</span></h3>
@@ -2575,7 +2603,7 @@ const AppLockerTool = (() => {
             <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
         }).join("")}
       </tbody></table></div>` : (scan.writableFilesChecked ? `<p class="mini muted" style="margin-top:10px">Every executable file in the admin-only directories has an admin-only ACL of its own — the check ran and found nothing.</p>` : `<p class="mini muted" style="margin-top:10px">Writable files were not checked in this scan (older scanner, or -SkipWritableFiles). Re-run with the current Invoke-TunoAppLockerScan.ps1 to close that gap.</p>`)}
-      ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Executions the endpoint refused <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}</span></h4>
+      ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Executions the endpoint refused <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}${hideDll && dllHidden ? ` · ${dllHidden} DLL loads hidden (What breaks? → show DLL)` : ""}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Verdict</th><th>File</th><th>Publisher</th><th>User</th><th>When</th></tr></thead><tbody>
         ${topEvents.map((e) => `<tr>
           <td>${e.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">would block</span>'}</td>
@@ -3083,6 +3111,13 @@ const AppLockerTool = (() => {
     });
     // What breaks?: the fix buttons add the rule (same framework as the
     // findings — mutate() so it is one Undo away), Accept records a decision.
+    if ($("alBreaks")) $("alBreaks").addEventListener("change", (e) => {
+      if (e.target && e.target.id === "alHideDll") {
+        hideDll = !!e.target.checked;
+        try { localStorage.setItem("tuno.t01.hideDll", hideDll ? "1" : "0"); } catch { /* private mode */ }
+        recompute();
+      }
+    });
     if ($("alBreaks")) $("alBreaks").addEventListener("click", (e) => {
       const fix = e.target.closest("[data-brkfix]"), acc = e.target.closest("[data-brkaccept]"), un = e.target.closest("[data-brkunaccept]");
       if (fix) { const row = shownBreaks[+fix.dataset.brkfix]; if (row) mutate(`allow ${row.binary || row.path}`, () => addFixForFleetRow(row)); }

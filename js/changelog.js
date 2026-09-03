@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10580, date: "2026-09-03", title: "T01 — DLL loads hidden by default; the effective policy explained",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "DLL loads are hidden by default on What breaks?, in the Enforce gate and in the scan card's refused list — the house policy neither audits nor enforces DLL. A ticked toggle in the What breaks? header says how many it hides and whether the draft carries Dll rules; untick it to judge them. A device's effective policy often carries a Dll collection (the Managed Installer merge puts a dummy rule there), which used to turn a thousand Defender-platform DLL audits into a thousand rows to resolve." },
+      { kind: "improved", tool: "AppLocker", text: "Judging against the policy the device was actually running now says what that policy is: the merge of every AppLocker source on the device at scan time — Intune, GPO, the Managed Installer policy — evidence, not a draft. It names the collections that are empty in it (if the deployed profile carries them, the device had not received it by then: check the assignment and the last sync, then re-scan) and points at the generated rule set for editing." },
+    ],
+  },
+  {
     build: 10579, date: "2026-09-03", title: "T01 — the Policy screen's sections on the rail",
     items: [
       { kind: "improved", tool: "AppLocker", text: "While the Policy screen is on the table, its sections sit under the Policy node on the rail — Summary, Add a rule, Findings (with the High and Medium count), Microsoft apps (not covered, or all run), Rules (count), Advanced — and a click scrolls to the card. The rail is sticky, so on the long screen the sections stay one click away." },
