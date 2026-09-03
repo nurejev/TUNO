@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10570"></script>
+<script src="js/popup-guard.js?v=10571"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10570">
+<link rel="stylesheet" href="css/app.css?v=10571">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10570"></script>
+<script src="js/selfhost-boot.js?v=10571"></script>
 </head>
 <body>
 
@@ -187,8 +187,12 @@
         <p>“Which policies configure BitLocker, and to what value?” — answered from the <b>setting definitions</b> rather than the policy names. One read brings Microsoft's settings-catalog definition catalog, roughly seventeen thousand entries, searched as you type with ranked matching over names, keywords and descriptions. A second, separate read brings the tenant's own settings-catalog policies, so each result can say <b>who sets it and to what</b> — and until that read has run, the column says absent rather than empty. <b>Values pass the documenter's redaction gate</b>: a settings search is exactly the tool somebody uses to hunt for “password”, and it will not become a disclosure engine with a search box.</p>
       </div>
       <div class="tool" id="toolMacBaseline">
-        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag block">writes to the tenant</span></h3>
-        <p>Match the tenant's macOS policies against the CloudFellows baseline — MACOS R26.xx names, versions compared — export the catalog from the baseline tenant, import what is missing anywhere else.</p>
+        <div class="tool-ic">🍎</div><h3>macOS baseline <span class="tag upd">UPDATED</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Match the tenant's macOS policies against the CloudFellows baseline — MACOS R26.xx names, versions compared — export the catalog from the baseline tenant, import what is missing anywhere else. Now also against the <b>community baseline</b>, Microsoft's intune-my-macs, bundled: compared on open, importable on any tenant, names kept.</p>
+      </div>
+      <div class="tool" id="toolWinBaseline">
+        <div class="tool-ic">🪟</div><h3>Windows baseline <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>The macOS baseline's treatment for Windows. Match the tenant's Windows policies against the CloudFellows baseline — <code>Win - … - R26.x - vX</code> names — and against the <b>community baseline</b>, SkipToTheEndpoint's OpenIntuneBaseline v3.8, bundled: every OIB policy identified by its own OIBID token first, compared on open, importable on any tenant with the author's names kept verbatim so OIB's deployer can still update them. Export the catalog on the baseline tenant; watch OIB upstream for the next cut.</p>
       </div>
       <div class="tool" id="toolConflict">
         <div class="tool-ic">⚔️</div><h3>Setting conflict scan</h3>
@@ -1370,6 +1374,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <h2 style="margin:0 0 6px">🍎 macOS baseline <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
       <p class="mini" style="margin:0">The tenant's macOS policies matched against the <b>CloudFellows macOS baseline</b>, the sister tool ENCA's baseline machinery Intune-side-out. <b>The name is the identity</b>: a baseline policy starts with <code>MACOS</code>, carries its permanent release number <code>R26.xx</code>, and ends with a version — the number is matched, the versions are compared segment-wise, and a number match the rest of the name contradicts is a clash, never silently trusted. Every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, number clash, or not in the baseline.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>The baseline is authored on the baseline tenant</b> (cloudfellows.dev), where this screen offers the export that writes the catalog file — names, numbers, versions and the raw policy bodies. Everywhere else the tool compares against the bundled catalog or a loaded file, and can <b>import what is missing</b>: create-only through the Backup tool's own restore pipeline, canonical names kept (the name is the identity), everything arriving unassigned — reach is ✏️ the Assignment editor's act.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Two catalogs</b> (build 10571, ENCA's Joey Verlinden treatment): the CloudFellows export, and the <b>community baseline</b> — Microsoft's <code>intune-my-macs</code>, bundled from the repository — compared on open and importable on any tenant, names kept verbatim. It has no naming convention and no versions in its names, so its policies match by exact name and read as <b>present</b> rather than up to date. On the baseline tenant the bundled community catalog also serves the Upstream act without a download.</p>
     </div>
     <div class="list-card wi-form">
       <div class="tb-actions">
@@ -1390,6 +1395,36 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
              curation table's ticks and edited names are DOM state, and mbBody
              re-renders would silently drop them — the restore picker's rule. -->
         <div id="mbUpstream" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ T27 · WINDOWS BASELINE (R39) ============
+       T24's treatment for Windows — the same engine (js/platformbaseline.js)
+       with the Windows spec (js/winbaseline.js): identity is the
+       "Win - … - R26.x - vX" name, the CloudFellows catalog is the
+       cloudfellows.dev export (bundled as js/winbaselineData.js when it
+       exists, or loaded as a file), the community catalog is the
+       OpenIntuneBaseline (bundled as js/oibWindowsData.js), identified by
+       OIBID first. Same four acts on the rail; Export and Upstream on the
+       baseline tenant only. -->
+  <section id="screen-winbaseline" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🪟 Windows baseline <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">The tenant's Windows policies matched against the <b>CloudFellows Windows baseline</b> — the 🍎 macOS baseline's treatment, the same machinery. <b>The name is the identity</b>: a baseline policy starts with <code>Win</code>, carries the release it was cut in as <code>R26.x</code> (year, then month) and ends with a version — <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code>. Releases compare first, versions break the tie, and every baseline line lands in one bucket: up to date, outdated, newer than baseline, missing, or not in the baseline.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Two catalogs.</b> The CloudFellows export, authored on the baseline tenant (cloudfellows.dev) where this screen offers 🧬 Export; and the <b>community baseline</b> — SkipToTheEndpoint's <code>OpenIntuneBaseline</code> (WINDOWS), bundled from the repository. Every OIB policy carries an <code>OIBID:&lt;guid&gt;</code> in its description, so a deployed copy is identified by that token <b>first</b> — a renamed copy still identifies — and by its name second, versions compared segment-wise. Compared on open; <b>importable on any tenant</b> through the Backup tool's own restore pipeline, create-only, everything unassigned, and the author's <b>names and descriptions kept verbatim</b>, token included, so OIB's own deployer can update them later as if it had created them. Driver update profiles are identified but have no create path here.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="wbRun">🪟 Read the tenant</button>
+      </div>
+      <div id="wbProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div class="ep-wrap" style="margin-top:14px">
+      <div class="ep-rail" id="wbSeg"></div>
+      <div class="ep-main">
+        <div id="wbBody"></div>
+        <div id="wbUpstream" style="margin-top:14px"></div>
       </div>
     </div>
   </section>
@@ -1716,6 +1751,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R35</span> 🍎 macOS baseline <span class="tag grant">live · beta 10561 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
             <p class="mini" style="margin:0">The sister tool ENCA's Baseline Policies machinery, Intune-side-out and pointed at macOS. <b>The name is the identity</b>: baseline policies start with <code>MACOS</code>, carry a permanent <code>R26.xx</code> release number and end with a version — matched by number, compared by version, corroborated by the rest of the name so a number clash is a finding, not a silent match. The catalog is the <b>cloudfellows.dev reference export</b>, authored there and only there (the cfdev convention): the baseline tenant exports the file — names, numbers, versions and raw policy bodies — and every other tenant identifies against it and can <b>import what is missing</b>, create-only through the Backup tool's restore pipeline, canonical names kept, everything arriving unassigned.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Since beta 10571</b> the machinery is shared with <span class="rm-ref">R39</span> (🪟 Windows) and a second catalog sits beside CloudFellows: the <b>community baseline</b>, Microsoft's intune-my-macs, bundled — compared on open, importable anywhere, names kept.</p>
+          </div>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R39</span> 🪟 Windows baseline <span class="tag grant">live · beta 10571</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h4>
+            <p class="mini" style="margin:0"><span class="rm-ref">R35</span>'s treatment for Windows, and the moment the baseline machinery became <b>one engine with a spec per platform</b> (<code>js/platformbaseline.js</code>) rather than a copy per platform. The CloudFellows Windows convention is the OIB naming with the tag replaced by the discipline and the release date appended — <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code> — matched by name, ordered by release then version, exactly as macOS.</p>
+            <p class="mini" style="margin:6px 0 0"><b>And the community baseline, for both platforms</b> — ENCA's Joey Verlinden treatment, Intune-side-out. SkipToTheEndpoint's <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a> (Windows, v3.8, 73 policies) and Microsoft's <a href="https://github.com/microsoft/intune-my-macs" target="_blank" rel="noopener">intune-my-macs</a> (macOS, 21) are bundled from their repositories and sit beside the CloudFellows catalog on a switch: <b>compared on open, importable on any tenant, names kept verbatim</b>. OIB's own <code>OIBID</code> token identifies a deployed policy before the name does, and survives the import — so OIB's deployer and TUNO can both maintain what either created. On the baseline tenant the bundled community catalog also feeds the Upstream act without a download.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Not yet:</b> the CloudFellows Windows catalog itself ships when the baseline tenant exports it (🧬 Export on cloudfellows.dev, bundled as <code>js/winbaselineData.js</code>); until then the screen says no CloudFellows catalog is bundled and the community catalog is the one on offer. No demo fixtures wear either convention.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R36</span> 🧹 Entra device cleanup <span class="tag grant">live · beta 10565 · production 13</span> <span class="tag block">writes to the tenant</span></h4>
@@ -2024,6 +2066,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <li><b><a href="https://github.com/ugurkocde/IntuneAssignmentChecker" target="_blank" rel="noopener">Intune Assignment Checker</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R11</span>, <span class="rm-ref">R12</span> and <span class="rm-ref">R14</span>. Most of its assignment reading TUNO already did, which is worth saying plainly; what it had that nothing here did was the <b>simulation</b> — what a user or device would gain and lose by joining or leaving a group — and the idea that an assignment reaching an empty group is a finding rather than a row. Both shipped: the simulation as <b>🔮 Assignment what-if</b>, the findings as <b>🩺 Assignment health</b>, and the definition-catalog search as <b>🔦 Settings search</b>. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a></b> — by <b>Maxime Guillemin</b>. Behind <span class="rm-ref">R13</span>, shipped as <b>✏️ Assignment editor</b>. A WPF application for bulk assignment editing across every policy, app and script type, with backup and restore of the assignments alone. The surface map is his; the write discipline TUNO put around it — dry run, automatic backup, typed removal confirmation, drift detection, verify-by-read-back — is not. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/SkipToTheEndpoint/IntuneComplianceMaintainer" target="_blank" rel="noopener">IntuneComplianceMaintainer</a></b> — by <b>James Robinson</b> (Microsoft MVP, and the author of <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a>). Behind <span class="rm-ref">R18</span>. Which fields on a compliance and an app-protection policy hold the OS floor, where the supported versions come from for each platform, and the two rules that keep the automation from doing harm — a cadence before a release is enforced, and no silent downgrade. The Android handling is the part worth copying exactly: target the <i>oldest maintained</i> release, and treat the security patch level as a second floor of its own. Licensed <b>MIT</b>.</li>
+          <li><b><a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a></b> — by <b>James Robinson</b> (SkipToTheEndpoint). The Windows community baseline behind <span class="rm-ref">R39</span>, bundled verbatim as 🪟 T27's community catalog — names, descriptions and the per-policy OIBID kept, so his deployer and TUNO can both maintain what either created. Licensed MIT.</li>
+          <li><b><a href="https://github.com/microsoft/intune-my-macs" target="_blank" rel="noopener">intune-my-macs</a></b> — by <b>Microsoft</b>. The macOS community baseline behind <span class="rm-ref">R35</span>'s upstream watch since beta 10527 and, from beta 10571, 🍎 T24's bundled community catalog. Licensed MIT.</li>
           <li><b><a href="https://github.com/ugurkocde/TenuVault-TUI" target="_blank" rel="noopener">TenuVault TUI</a></b> — by <b>Ugur Koc</b>. Behind <span class="rm-ref">R15</span> — shipped into 📦 T04 at beta 10426 — <span class="rm-ref">R16</span> and <span class="rm-ref">R17</span>, and two rules borrowed into <span class="rm-ref">R09</span>. Twenty-seven policy types, a checksum per file with an offline verify, and a comparison between two archives that needs no tenant. The idea worth stealing outright is the smallest one: write the manifest LAST, so its presence is what proves the backup finished. Licensed <b>MIT</b>.</li>
           <li><b><a href="https://github.com/Realcookie29/Intuneshade" target="_blank" rel="noopener">IntuneShade</a></b> — by <b>Alper Atar</b>. Behind <span class="rm-ref">R19</span>, <span class="rm-ref">R20</span>, <span class="rm-ref">R21</span>, <span class="rm-ref">R22</span> and <span class="rm-ref">R23</span>. A React console that covers much of the same ground TUNO does, and four ideas here are its: the groups-by-surfaces <b>assignment matrix</b>, <b>setting-level</b> conflict detection rather than only assignment-level, a dedicated <b>assignment filters</b> view with per-filter usage, and <b>AI policy analysis</b> on a bring-your-own key. Where the cards depart from it — overlap-aware conflict findings, redaction before anything leaves the browser, a key that dies with the session, no script generator — the card says so. Licensed <b>MIT</b>.</li>
         </ul>
@@ -2081,48 +2125,52 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10570"></script>
-<script src="js/selfhost.js?v=10570"></script>
-<script src="js/version.js?v=10570"></script>
-<script src="js/promote.js?v=10570"></script>
-<script src="js/authConfig.js?v=10570"></script>
-<script src="js/changelog.js?v=10570"></script>
-<script src="js/msappcatalog.js?v=10570"></script>
-<script src="js/demo.js?v=10570"></script>
-<script src="js/graph.js?v=10570"></script>
-<script src="js/suggest.js?v=10570"></script>
-<script src="js/progress.js?v=10570"></script>
-<script src="js/groupuse.js?v=10570"></script>
-<script src="js/audit.js?v=10570"></script>
-<script src="js/devicecleanup.js?v=10570"></script>
-<script src="js/backup.js?v=10570"></script>
-<script src="js/document.js?v=10570"></script>
-<script src="js/policycache.js?v=10570"></script>
-<script src="js/overview.js?v=10570"></script>
-<script src="js/devicewhy.js?v=10570"></script>
-<script src="js/whatif.js?v=10570"></script>
-<script src="js/health.js?v=10570"></script>
-<script src="js/settingsearch.js?v=10570"></script>
-<script src="js/conflict.js?v=10570"></script>
-<script src="js/compliance.js?v=10570"></script>
-<script src="js/filterrules.js?v=10570"></script>
-<script src="js/filters.js?v=10570"></script>
-<script src="js/restore.js?v=10570"></script>
-<script src="js/macbaselineData.js?v=10570"></script>
-<script src="js/complianceevidence.js?v=10570"></script>
-<script src="js/macbaseline.js?v=10570"></script>
-<script src="js/assignedit.js?v=10570"></script>
-<script src="js/restrictedau.js?v=10570"></script>
-<script src="js/groupmigrate.js?v=10570"></script>
-<script src="js/roles.js?v=10570"></script>
-<script src="js/defender.js?v=10570"></script>
-<script src="js/endpointsec.js?v=10570"></script>
-<script src="js/report.js?v=10570"></script>
-<script src="js/securescore.js?v=10570"></script>
-<script src="js/endpointposture.js?v=10570"></script>
-<script src="js/maa.js?v=10570"></script>
-<script src="js/laps.js?v=10570"></script>
-<script src="js/applocker.js?v=10570"></script>
-<script src="js/app.js?v=10570"></script>
+<script src="js/branding.js?v=10571"></script>
+<script src="js/selfhost.js?v=10571"></script>
+<script src="js/version.js?v=10571"></script>
+<script src="js/promote.js?v=10571"></script>
+<script src="js/authConfig.js?v=10571"></script>
+<script src="js/changelog.js?v=10571"></script>
+<script src="js/msappcatalog.js?v=10571"></script>
+<script src="js/demo.js?v=10571"></script>
+<script src="js/graph.js?v=10571"></script>
+<script src="js/suggest.js?v=10571"></script>
+<script src="js/progress.js?v=10571"></script>
+<script src="js/groupuse.js?v=10571"></script>
+<script src="js/audit.js?v=10571"></script>
+<script src="js/devicecleanup.js?v=10571"></script>
+<script src="js/backup.js?v=10571"></script>
+<script src="js/document.js?v=10571"></script>
+<script src="js/policycache.js?v=10571"></script>
+<script src="js/overview.js?v=10571"></script>
+<script src="js/devicewhy.js?v=10571"></script>
+<script src="js/whatif.js?v=10571"></script>
+<script src="js/health.js?v=10571"></script>
+<script src="js/settingsearch.js?v=10571"></script>
+<script src="js/conflict.js?v=10571"></script>
+<script src="js/compliance.js?v=10571"></script>
+<script src="js/filterrules.js?v=10571"></script>
+<script src="js/filters.js?v=10571"></script>
+<script src="js/restore.js?v=10571"></script>
+<script src="js/platformbaseline.js?v=10571"></script>
+<script src="js/macbaselineData.js?v=10571"></script>
+<script src="js/immMacosData.js?v=10571"></script>
+<script src="js/complianceevidence.js?v=10571"></script>
+<script src="js/macbaseline.js?v=10571"></script>
+<script src="js/oibWindowsData.js?v=10571"></script>
+<script src="js/winbaseline.js?v=10571"></script>
+<script src="js/assignedit.js?v=10571"></script>
+<script src="js/restrictedau.js?v=10571"></script>
+<script src="js/groupmigrate.js?v=10571"></script>
+<script src="js/roles.js?v=10571"></script>
+<script src="js/defender.js?v=10571"></script>
+<script src="js/endpointsec.js?v=10571"></script>
+<script src="js/report.js?v=10571"></script>
+<script src="js/securescore.js?v=10571"></script>
+<script src="js/endpointposture.js?v=10571"></script>
+<script src="js/maa.js?v=10571"></script>
+<script src="js/laps.js?v=10571"></script>
+<script src="js/applocker.js?v=10571"></script>
+<script src="js/app.js?v=10571"></script>
 </body>
 </html>

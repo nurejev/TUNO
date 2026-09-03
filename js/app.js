@@ -131,7 +131,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-devicecleanup", "screen-compev", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-winbaseline", "screen-devicecleanup", "screen-compev", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -231,6 +231,7 @@ const Fs = (() => {
       "screen-health": "toolHealth", "screen-setsearch": "toolSetSearch",
       "screen-conflict": "toolConflict", "screen-assignedit": "toolAssignEdit",
       "screen-macbaseline": "toolMacBaseline",
+      "screen-winbaseline": "toolWinBaseline",
       "screen-devicecleanup": "toolDeviceCleanup",
       "screen-compev": "toolCompEv",
       "screen-device": "toolDevice", "screen-filters": "toolFilters",
@@ -893,6 +894,7 @@ const Fs = (() => {
     ["toolSetSearch", "🔦 Settings search"],
     ["toolConflict", "⚔️ Setting conflict scan"],
     ["toolMacBaseline", "🍎 macOS baseline"],
+    ["toolWinBaseline", "🪟 Windows baseline"],
     ["toolDeviceCleanup", "🧹 Entra device cleanup"],
     ["toolRoles", "🛡 Intune RBAC"],
     ["toolMaa", "🤝 Multi-admin approval"],
@@ -1098,6 +1100,7 @@ const Fs = (() => {
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
   $("toolConflict").addEventListener("click", () => { crumb("⚔️ Setting conflict scan"); show("screen-conflict"); });
   $("toolMacBaseline").addEventListener("click", () => { crumb("🍎 macOS baseline"); show("screen-macbaseline"); });
+  $("toolWinBaseline").addEventListener("click", () => { crumb("🪟 Windows baseline"); show("screen-winbaseline"); });
   $("toolDeviceCleanup").addEventListener("click", () => { crumb("🧹 Entra device cleanup"); show("screen-devicecleanup"); });
   $("toolCompEv").addEventListener("click", () => { crumb("📋 Compliance evidence"); show("screen-compev"); });
   $("toolAssignEdit").addEventListener("click", () => { crumb("✏️ Assignment editor"); show("screen-assignedit"); });
@@ -1345,6 +1348,7 @@ const Fs = (() => {
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof MacBaselineTool !== "undefined") MacBaselineTool.init();
+  if (typeof WinBaselineTool !== "undefined") WinBaselineTool.init();
   if (typeof DeviceCleanupTool !== "undefined") DeviceCleanupTool.init();
   if (typeof CompEvTool !== "undefined") CompEvTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();

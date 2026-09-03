@@ -1,0 +1,18460 @@
+// ======================================================================
+// The Windows COMMUNITY baseline catalog — SkipToTheEndpoint's
+// OpenIntuneBaseline, WINDOWS/ only, bundled verbatim.
+//
+// REGENERATED FROM THE REPOSITORY, never edited by hand:
+//   repo     https://github.com/SkipToTheEndpoint/OpenIntuneBaseline
+//   commit   4844247055305c9eb8dfe4b12c895ec8422dee67
+//   release  v3.8 (2026-05-06, WINDOWS/PolicyManifest.json)
+//   policies 73 (4 compliance, 4 deviceConfig, 3 driverUpdate, 62 settingsCatalog)
+//
+// Bundled rather than fetched at runtime — the CSP only allows Graph, and
+// a baseline must not change under you mid-session (ENCA's rule for its
+// Joey Verlinden catalog, unchanged). To re-cut: on the beta site open
+// T27 -> Upstream (cloudfellows.dev) -> load the repo zip -> "Community
+// catalog file", and replace this file's object with the export verbatim.
+//
+// NAMES AND DESCRIPTIONS ARE THE AUTHOR'S OWN, token included: every
+// policy carries OIBID:<guid> in its description (v3.8+), which is how a
+// deployed copy is identified — a renamed copy still identifies — and
+// how OIB's own deployer can update it later. The bodies are Graph reads
+// cleaned by PlatformBaseline.cleanBody: annotations, action stubs and
+// tenant-owned fields dropped, settings reduced to their instances.
+// Driver update profiles are present for identification but have no
+// create path here; the screen says so on the row.
+// ======================================================================
+const COMMUNITY_WINDOWS = {
+ "kind": "tuno-community-baseline",
+ "id": "oib",
+ "platform": "Windows",
+ "label": "OpenIntuneBaseline",
+ "icon": "🧩",
+ "author": "James Robinson (SkipToTheEndpoint)",
+ "url": "https://github.com/SkipToTheEndpoint/OpenIntuneBaseline",
+ "importerUrl": "https://github.com/SkipToTheEndpoint/OpenIntuneBaseline/blob/main/FAQ.md",
+ "nameRe": "^\\s*Win\\s*-\\s*OIB\\b",
+ "idToken": "OIBID",
+ "release": "3.8",
+ "released": "2026-05-06",
+ "commit": "4844247055305c9eb8dfe4b12c895ec8422dee67",
+ "generated": "2026-09-03T07:20:26.461Z",
+ "build": "v1.0.3-beta.271",
+ "policies": [
+  {
+   "name": "Win - OIB - Compliance - U - Defender for Endpoint - v3.1",
+   "key": "win oib compliance u defender for endpoint",
+   "version": "3.1",
+   "release": null,
+   "section": "compliance",
+   "sectionLabel": "Compliance policies",
+   "area": "CompliancePolicies",
+   "importable": true,
+   "kind": "compliance",
+   "folder": "CompliancePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/CompliancePolicies/Win - OIB - Compliance - U - Defender for Endpoint - v3.1.json",
+   "oibId": "5A7951E6-7DE0-4E97-A6E4-9E53FD9FF29A",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "MDE",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+    "description": "OIBID:5A7951E6-7DE0-4E97-A6E4-9E53FD9FF29A",
+    "displayName": "Win - OIB - Compliance - U - Defender for Endpoint - v3.1",
+    "passwordRequired": false,
+    "passwordBlockSimple": false,
+    "passwordRequiredToUnlockFromIdle": false,
+    "passwordRequiredType": "deviceDefault",
+    "requireHealthyDeviceReport": false,
+    "earlyLaunchAntiMalwareDriverEnabled": false,
+    "bitLockerEnabled": false,
+    "secureBootEnabled": false,
+    "codeIntegrityEnabled": false,
+    "memoryIntegrityEnabled": false,
+    "kernelDmaProtectionEnabled": false,
+    "virtualizationBasedSecurityEnabled": false,
+    "firmwareProtectionEnabled": false,
+    "storageRequireEncryption": false,
+    "activeFirewallRequired": false,
+    "defenderEnabled": true,
+    "signatureOutOfDate": true,
+    "rtpEnabled": true,
+    "antivirusRequired": false,
+    "antiSpywareRequired": false,
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "configurationManagerComplianceRequired": false,
+    "tpmRequired": false,
+    "validOperatingSystemBuildRanges": [],
+    "scheduledActionsForRule": [
+     {
+      "@odata.type": "#microsoft.graph.deviceComplianceScheduledActionForRule",
+      "id": "19214506-43ca-4284-a782-2aad6e8f12d7",
+      "scheduledActionConfigurations": [
+       {
+        "@odata.type": "#microsoft.graph.deviceComplianceActionItem",
+        "id": "d242132f-29d4-4270-b1a3-96d86d192a77",
+        "gracePeriodHours": 6,
+        "actionType": "block",
+        "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
+        "notificationMessageCCList": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - Compliance - U - Device Health - v3.1",
+   "key": "win oib compliance u device health",
+   "version": "3.1",
+   "release": null,
+   "section": "compliance",
+   "sectionLabel": "Compliance policies",
+   "area": "CompliancePolicies",
+   "importable": true,
+   "kind": "compliance",
+   "folder": "CompliancePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/CompliancePolicies/Win - OIB - Compliance - U - Device Health - v3.1.json",
+   "oibId": "39128254-22EC-4ABA-9C34-A1D36CB32B79",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+    "description": "OIBID:39128254-22EC-4ABA-9C34-A1D36CB32B79",
+    "displayName": "Win - OIB - Compliance - U - Device Health - v3.1",
+    "passwordRequired": false,
+    "passwordBlockSimple": false,
+    "passwordRequiredToUnlockFromIdle": false,
+    "passwordRequiredType": "deviceDefault",
+    "requireHealthyDeviceReport": false,
+    "earlyLaunchAntiMalwareDriverEnabled": false,
+    "bitLockerEnabled": true,
+    "secureBootEnabled": true,
+    "codeIntegrityEnabled": true,
+    "memoryIntegrityEnabled": false,
+    "kernelDmaProtectionEnabled": false,
+    "virtualizationBasedSecurityEnabled": false,
+    "firmwareProtectionEnabled": false,
+    "storageRequireEncryption": false,
+    "activeFirewallRequired": false,
+    "defenderEnabled": false,
+    "signatureOutOfDate": false,
+    "rtpEnabled": false,
+    "antivirusRequired": false,
+    "antiSpywareRequired": false,
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "configurationManagerComplianceRequired": false,
+    "tpmRequired": false,
+    "validOperatingSystemBuildRanges": [],
+    "scheduledActionsForRule": [
+     {
+      "@odata.type": "#microsoft.graph.deviceComplianceScheduledActionForRule",
+      "id": "e87d2b39-75a0-4eca-8729-db419a7551fc",
+      "scheduledActionConfigurations": [
+       {
+        "@odata.type": "#microsoft.graph.deviceComplianceActionItem",
+        "id": "b28fa48d-4ea7-4e4d-83fd-46e5e89f4cf9",
+        "gracePeriodHours": 12,
+        "actionType": "block",
+        "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
+        "notificationMessageCCList": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - Compliance - U - Device Security - v3.1",
+   "key": "win oib compliance u device security",
+   "version": "3.1",
+   "release": null,
+   "section": "compliance",
+   "sectionLabel": "Compliance policies",
+   "area": "CompliancePolicies",
+   "importable": true,
+   "kind": "compliance",
+   "folder": "CompliancePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/CompliancePolicies/Win - OIB - Compliance - U - Device Security - v3.1.json",
+   "oibId": "BDE95674-F4F0-4E6E-A49A-D0197BE56560",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+    "description": "OIBID:BDE95674-F4F0-4E6E-A49A-D0197BE56560",
+    "displayName": "Win - OIB - Compliance - U - Device Security - v3.1",
+    "passwordRequired": false,
+    "passwordBlockSimple": false,
+    "passwordRequiredToUnlockFromIdle": false,
+    "passwordRequiredType": "deviceDefault",
+    "requireHealthyDeviceReport": false,
+    "earlyLaunchAntiMalwareDriverEnabled": false,
+    "bitLockerEnabled": false,
+    "secureBootEnabled": false,
+    "codeIntegrityEnabled": false,
+    "memoryIntegrityEnabled": false,
+    "kernelDmaProtectionEnabled": false,
+    "virtualizationBasedSecurityEnabled": false,
+    "firmwareProtectionEnabled": false,
+    "storageRequireEncryption": false,
+    "activeFirewallRequired": true,
+    "defenderEnabled": false,
+    "signatureOutOfDate": false,
+    "rtpEnabled": false,
+    "antivirusRequired": true,
+    "antiSpywareRequired": true,
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "configurationManagerComplianceRequired": false,
+    "tpmRequired": true,
+    "validOperatingSystemBuildRanges": [],
+    "scheduledActionsForRule": [
+     {
+      "@odata.type": "#microsoft.graph.deviceComplianceScheduledActionForRule",
+      "id": "09decce4-cd10-4a00-891f-d9bccf2cc097",
+      "scheduledActionConfigurations": [
+       {
+        "@odata.type": "#microsoft.graph.deviceComplianceActionItem",
+        "id": "08adc93f-8209-424d-b994-839245048b85",
+        "gracePeriodHours": 6,
+        "actionType": "block",
+        "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
+        "notificationMessageCCList": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - Compliance - U - Password - v3.1",
+   "key": "win oib compliance u password",
+   "version": "3.1",
+   "release": null,
+   "section": "compliance",
+   "sectionLabel": "Compliance policies",
+   "area": "CompliancePolicies",
+   "importable": true,
+   "kind": "compliance",
+   "folder": "CompliancePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/CompliancePolicies/Win - OIB - Compliance - U - Password - v3.1.json",
+   "oibId": "10926D04-D949-40AA-BEDE-B6A9CA5E2723",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+    "description": "OIBID:10926D04-D949-40AA-BEDE-B6A9CA5E2723",
+    "displayName": "Win - OIB - Compliance - U - Password - v3.1",
+    "passwordRequired": true,
+    "passwordBlockSimple": true,
+    "passwordRequiredToUnlockFromIdle": false,
+    "passwordMinutesOfInactivityBeforeLock": 15,
+    "passwordMinimumLength": 8,
+    "passwordRequiredType": "numeric",
+    "requireHealthyDeviceReport": false,
+    "earlyLaunchAntiMalwareDriverEnabled": false,
+    "bitLockerEnabled": false,
+    "secureBootEnabled": false,
+    "codeIntegrityEnabled": false,
+    "memoryIntegrityEnabled": false,
+    "kernelDmaProtectionEnabled": false,
+    "virtualizationBasedSecurityEnabled": false,
+    "firmwareProtectionEnabled": false,
+    "storageRequireEncryption": false,
+    "activeFirewallRequired": false,
+    "defenderEnabled": false,
+    "signatureOutOfDate": false,
+    "rtpEnabled": false,
+    "antivirusRequired": false,
+    "antiSpywareRequired": false,
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "configurationManagerComplianceRequired": false,
+    "tpmRequired": false,
+    "validOperatingSystemBuildRanges": [],
+    "scheduledActionsForRule": [
+     {
+      "@odata.type": "#microsoft.graph.deviceComplianceScheduledActionForRule",
+      "id": "f201b86e-ce93-4543-9278-3840544bb010",
+      "scheduledActionConfigurations": [
+       {
+        "@odata.type": "#microsoft.graph.deviceComplianceActionItem",
+        "id": "4922adda-3161-41c2-98ac-371382bae60a",
+        "gracePeriodHours": 0,
+        "actionType": "block",
+        "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
+        "notificationMessageCCList": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (Audit Mode) - v3.1",
+   "key": "win oib es attack surface reduction d asr rules (audit mode)",
+   "version": "3.1",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (Audit Mode) - v3.1.json",
+   "oibId": "92CE33B8-FF64-4604-A18D-35555F26C4BE",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:92CE33B8-FF64-4604-A18D-35555F26C4BE",
+    "name": "Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (Audit Mode) - v3.1",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
+     "templateFamily": "endpointSecurityAttackSurfaceReduction",
+     "templateDisplayName": "Attack Surface Reduction Rules",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutionofpotentiallyobfuscatedscripts",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutionofpotentiallyobfuscatedscripts_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockpersistencethroughwmieventsubscription",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockpersistencethroughwmieventsubscription_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuseofcopiedorimpersonatedsystemtools",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuseofcopiedorimpersonatedsystemtools_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockabuseofexploitedvulnerablesigneddrivers",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockabuseofexploitedvulnerablesigneddrivers_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfromcreatingexecutablecontent",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfromcreatingexecutablecontent_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfrominjectingcodeintootherprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfrominjectingcodeintootherprocesses_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockrebootingmachineinsafemode",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockrebootingmachineinsafemode_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_useadvancedprotectionagainstransomware",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_useadvancedprotectionagainstransomware_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablecontentfromemailclientandwebmail",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablecontentfromemailclientandwebmail_audit",
+            "children": []
+           }
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "78c83b32-56c0-445a-932a-872d69af6e49"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess_2",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "e57db701-c3c6-4264-ab50-7896cb90dfd6",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (L2) - v3.7",
+   "key": "win oib es attack surface reduction d asr rules (l2)",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (L2) - v3.7.json",
+   "oibId": "86EB0653-DD3D-4CBA-BB51-1FFDC3E1F39C",
+   "scope": "Device",
+   "addedIn": "3.3",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "DO NOT ASSIGN THIS POLICY WITHOUT VALIDATING VIA AUDIT MODE FIRST!\nhttps://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-deployment-operationalize\nOIBID:86EB0653-DD3D-4CBA-BB51-1FFDC3E1F39C",
+    "name": "Win - OIB - ES - Attack Surface Reduction - D - ASR Rules (L2) - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
+     "templateFamily": "endpointSecurityAttackSurfaceReduction",
+     "templateDisplayName": "Attack Surface Reduction Rules",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutionofpotentiallyobfuscatedscripts",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutionofpotentiallyobfuscatedscripts_warn",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablefilesrunningunlesstheymeetprevalenceagetrustedlistcriterion_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses_warn",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockallofficeapplicationsfromcreatingchildprocesses_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockcredentialstealingfromwindowslocalsecurityauthoritysubsystem_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockjavascriptorvbscriptfromlaunchingdownloadedexecutablecontent_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockpersistencethroughwmieventsubscription",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockpersistencethroughwmieventsubscription_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuseofcopiedorimpersonatedsystemtools",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuseofcopiedorimpersonatedsystemtools_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockabuseofexploitedvulnerablesigneddrivers",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockabuseofexploitedvulnerablesigneddrivers_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands_warn",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfromcreatingexecutablecontent",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfromcreatingexecutablecontent_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfrominjectingcodeintootherprocesses",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficeapplicationsfrominjectingcodeintootherprocesses_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockrebootingmachineinsafemode",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockrebootingmachineinsafemode_audit",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_useadvancedprotectionagainstransomware",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_useadvancedprotectionagainstransomware_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablecontentfromemailclientandwebmail",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockexecutablecontentfromemailclientandwebmail_block",
+            "children": []
+           }
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "78c83b32-56c0-445a-932a-872d69af6e49"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_enablecontrolledfolderaccess_2",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "e57db701-c3c6-4264-ab50-7896cb90dfd6",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3",
+   "key": "win oib es defender antivirus d av configuration",
+   "version": "3.3",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3.json",
+   "oibId": "80C1B821-B768-43A5-B318-7E2A54290FD8",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:80C1B821-B768-43A5-B318-7E2A54290FD8",
+    "name": "Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "804339ad-1553-4478-a742-138fb5807418_1",
+     "templateFamily": "endpointSecurityAntivirus",
+     "templateDisplayName": "Microsoft Defender Antivirus",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowarchivescanning",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "7c5c9cde-f74d-4d11-904f-de4c27f72d89"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowarchivescanning_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "9ead75d4-6f30-4bc5-8cc5-ab0f999d79f0",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowbehaviormonitoring",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "8eef615a-1aa0-46f4-a25a-12cbe65de5ab"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowbehaviormonitoring_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "905921da-95e2-4a10-9e30-fe5540002ce1",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowcloudprotection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "7da139f1-9b7e-407d-853a-c2e5037cdc70"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowcloudprotection_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "16fe8afd-67be-4c50-8619-d535451a500c",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowemailscanning",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "b0d9ee81-de6a-4750-86d7-9397961c9852"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowemailscanning_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "fdf107fd-e13b-4507-9d8f-db4d93476af9",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowfullscanremovabledrivescanning",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "fb36e70b-5bc9-488a-a949-8ea3ac1634d5"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowfullscanremovabledrivescanning_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "366c5727-629b-4a81-b50b-52f90282fa2c",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowioavprotection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "fa06231d-aed4-4601-b631-3a37e85b62a0"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowioavprotection_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "df4e6cbd-f7ff-41c8-88cd-fa25264a237e",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowrealtimemonitoring",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f0790e28-9231-4d37-8f44-84bb47ca1b3e"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowrealtimemonitoring_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "0492c452-1069-4b91-9363-93b8e006ab12",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowscanningnetworkfiles",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f8f28442-0a6b-4b52-b42c-d31d9687c1cf"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowscanningnetworkfiles_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "7b8c858c-a17d-4623-9e20-f34b851670ce",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowscriptscanning",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "000cf176-949c-4c08-a5d4-90ed43718db7"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowscriptscanning_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "ab9e4320-c953-4067-ac9a-be2becd06b4a",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowuseruiaccess",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "0170a900-b0bc-4ccc-b7ce-dda9be49189b"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowuseruiaccess_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "4b6c9739-4449-4006-8e5f-3049136470ea",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_avgcpuloadfactor",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "816cc03e-8f96-4cba-b14f-2658d031a79a"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 50,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "37195fb1-3743-4c8e-a0ce-b6fae6fa3acd",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_checkforsignaturesbeforerunningscan",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "4fea56e3-7bb6-4ad3-88c6-e364dd2f97b9"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_checkforsignaturesbeforerunningscan_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "010779d1-edd4-441d-8034-89ad57a863fe",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_cloudblocklevel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "c7a37009-c16e-4145-84c8-89a8c121fb15"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_cloudblocklevel_2",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "517b4e84-e933-42b9-b92f-00e640b1a82d",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_cloudextendedtimeout",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f61c2788-14e4-4e80-a5a7-bf2ff5052f63"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 50,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "608f1561-b603-46bd-bf5f-0b9872002f75",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_disablecatchupfullscan",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f881b08c-f047-40d2-b7d9-3dde7ce9ef64"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_disablecatchupfullscan_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "1b26092f-48c4-447b-99d4-e9c501542f1c",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_disablecatchupquickscan",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "dabf6781-9d5d-42da-822a-d4327aa2bdd1"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_disablecatchupquickscan_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d263ced7-0d23-4095-9326-99c8b3f5d35b",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_enablelowcpupriority",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "cdeb96cf-18f5-4477-a710-0ea9ecc618af"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_enablelowcpupriority_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "045a4a13-deee-4e24-9fe4-985c9357680d",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_enablenetworkprotection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f53ab20e-8af6-48f5-9fa1-46863e1e517e"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_enablenetworkprotection_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "ee58fb51-9ae5-408b-9406-b92b643f388a",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_puaprotection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "c0135c2a-f802-44f4-9b71-b0b976411b8c"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_puaprotection_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "2d790211-18cb-4e32-b8cc-97407e2c0b45",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_realtimescandirection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f5ff00a4-e5c7-44cf-a650-9c7619ff1561"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_realtimescandirection_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "6b4e3497-cfbb-4761-a152-de935bbf3f07",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_schedulequickscantime",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "784a4af1-33fa-45f2-b945-138b7ff3bcb6"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 660,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "5d5c55c8-1a4e-4272-830d-8dc64cd3ac03",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_signatureupdateinterval",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "89879f27-6b7d-44d4-a08e-0a0de3e9663d"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 1,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "0af6bbed-a74a-4d08-8587-b16b10b774cb",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_submitsamplesconsent",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "bc47ce7d-a251-4cae-a8a2-6e8384904ab7"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_submitsamplesconsent_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "826ed4b6-e04f-4975-9d23-6f0904b0d87e",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_disablelocaladminmerge",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "5f9a9c65-dea7-4987-a5f5-b28cfd9762ba"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_disablelocaladminmerge_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "3a9774b2-3143-47eb-bbca-d73c0ace2b7e",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_allowonaccessprotection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "afbc322b-083c-4281-8242-ebbb91398b41"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_defender_allowonaccessprotection_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "ed077fee-9803-44f3-b045-aab34d8e6d52",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f6394bc5-6486-4728-b510-555f5c161f2b"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_severethreats",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_severethreats_remove",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_moderateseveritythreats",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_moderateseveritythreats_remove",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_lowseveritythreats",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_lowseveritythreats_block",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_highseveritythreats",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_policy_config_defender_threatseveritydefaultaction_highseveritythreats_remove",
+            "children": []
+           }
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_meteredconnectionupdates",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "7e3aaffb-309f-46de-8cd7-25c1a3b19e5b"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_meteredconnectionupdates_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "20cf972c-be3f-4bc1-93d3-781829d55233",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Defender Antivirus - D - Security Experience - v3.3",
+   "key": "win oib es defender antivirus d security experience",
+   "version": "3.3",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Defender Antivirus - D - Security Experience - v3.3.json",
+   "oibId": "288E75FB-FA36-4161-8A92-EE638D902C06",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "MDE",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: The \"Tamper Protection\" setting requires an active Defender for Endpoint P1/P2 or Defender for Business license.\n\nhttps://learn.microsoft.com/en-us/defender-endpoint/prevent-changes-to-security-settings-with-tamper-protection\nOIBID:288E75FB-FA36-4161-8A92-EE638D902C06",
+    "name": "Win - OIB - ES - Defender Antivirus - D - Security Experience - v3.3",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "d948ff9b-99cb-4ee0-8012-1fbc09685377_1",
+     "templateFamily": "endpointSecurityAntivirus",
+     "templateDisplayName": "Windows Security Experience",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "vendor_msft_defender_configuration_tamperprotection_options",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "5655cab2-7e6b-4c49-9ce2-3865da05f7e6"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "vendor_msft_defender_configuration_tamperprotection_options_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "fc365da9-2c1b-4f79-aa4b-dedca69e728f",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_disablefamilyui",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "afcadc31-118d-4a5f-8a70-9f214389aa11"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_disablefamilyui_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "6add170a-7868-41d1-82a9-1038d2b3ce2b",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_disableenhancednotifications",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "90d71ec1-eace-4cf1-a2da-023962fac6c5"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_disableenhancednotifications_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "aeb811f1-7980-4c19-a6b9-959aa84582c8",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_hidewindowssecuritynotificationareacontrol",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "3a9dc836-5f32-4428-a04a-1bad526d3c7b"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowsdefendersecuritycenter_hidewindowssecuritynotificationareacontrol_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "39f2d84f-4082-478d-bf5c-3317ffb14fd7",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 1 - Pilot - v3.4",
+   "key": "win oib es defender antivirus updates ring 1 pilot",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Defender Antivirus Updates - Ring 1 - Pilot - v3.4.json",
+   "oibId": "C1B1A707-F50C-461A-A811-E8D47FED076C",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:C1B1A707-F50C-461A-A811-E8D47FED076C",
+    "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 1 - Pilot - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "e3f74c5a-a6de-411d-aef6-eb15628f3a0a_1",
+     "templateFamily": "endpointSecurityAntivirus",
+     "templateDisplayName": "Defender Update controls",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_engineupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f7e1409d-9c85-4a3f-85a6-ad05cc8ccf13"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_engineupdateschannel_3",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "afc8df70-7b19-4335-b200-bf4b7e098f67",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_platformupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "e78b3ace-75d0-4aad-b3fa-4f49390d6483"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_platformupdateschannel_3",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d3b0d61a-bdc5-4507-84d0-5f2a4a3e11a5",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "ba273649-e186-4377-89d5-87405bc9a87c"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "41ea06bf-e94a-482a-9aaa-7fd535fb4150",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 2 - UAT - v3.4",
+   "key": "win oib es defender antivirus updates ring 2 uat",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Defender Antivirus Updates - Ring 2 - UAT - v3.4.json",
+   "oibId": "A75B86A1-0C58-4B81-AA31-EAF5EFA9CE26",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:A75B86A1-0C58-4B81-AA31-EAF5EFA9CE26",
+    "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 2 - UAT - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "e3f74c5a-a6de-411d-aef6-eb15628f3a0a_1",
+     "templateFamily": "endpointSecurityAntivirus",
+     "templateDisplayName": "Defender Update controls",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_engineupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f7e1409d-9c85-4a3f-85a6-ad05cc8ccf13"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_engineupdateschannel_4",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "afc8df70-7b19-4335-b200-bf4b7e098f67",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_platformupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "e78b3ace-75d0-4aad-b3fa-4f49390d6483"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_platformupdateschannel_4",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d3b0d61a-bdc5-4507-84d0-5f2a4a3e11a5",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "ba273649-e186-4377-89d5-87405bc9a87c"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel_4",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "41ea06bf-e94a-482a-9aaa-7fd535fb4150",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4",
+   "key": "win oib es defender antivirus updates ring 3 production",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4.json",
+   "oibId": "F597C79E-DBDB-4419-AA69-3617716658E4",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:F597C79E-DBDB-4419-AA69-3617716658E4",
+    "name": "Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "e3f74c5a-a6de-411d-aef6-eb15628f3a0a_1",
+     "templateFamily": "endpointSecurityAntivirus",
+     "templateDisplayName": "Defender Update controls",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_engineupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "f7e1409d-9c85-4a3f-85a6-ad05cc8ccf13"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_engineupdateschannel_5",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "afc8df70-7b19-4335-b200-bf4b7e098f67",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_platformupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "e78b3ace-75d0-4aad-b3fa-4f49390d6483"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_platformupdateschannel_5",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d3b0d61a-bdc5-4507-84d0-5f2a4a3e11a5",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "ba273649-e186-4377-89d5-87405bc9a87c"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_securityintelligenceupdateschannel_5",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "41ea06bf-e94a-482a-9aaa-7fd535fb4150",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Encryption - D - BitLocker (OS Disk) - v3.7",
+   "key": "win oib es encryption d bitlocker (os disk)",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Encryption - D - BitLocker (OS Disk) - v3.7.json",
+   "oibId": "C53F0DA8-45D9-4E38-AB62-D3C359ED91F6",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:C53F0DA8-45D9-4E38-AB62-D3C359ED91F6",
+    "name": "Win - OIB - ES - Encryption - D - BitLocker (OS Disk) - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "46ddfc50-d10f-4867-b852-9434254b3bff_1",
+     "templateFamily": "endpointSecurityDiskEncryption",
+     "templateDisplayName": "BitLocker",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesencryptiontype",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "d3e31794-1ce6-4572-ab0c-0c0f9200a509"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_systemdrivesencryptiontype_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "54f346c7-008f-421c-bcb5-40f822bb97fe",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesencryptiontype_osencryptiontypedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesencryptiontype_osencryptiontypedropdown_name_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "a5673a18-196d-49a0-a460-a8f35b807b45"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "f742e25d-2f09-41f7-9556-6af75960f42b",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmpinkeyusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmpinkeyusagedropdown_name_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configurepinusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configurepinusagedropdown_name_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmusagedropdown_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configurenontpmstartupkeyusage_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configurenontpmstartupkeyusage_name_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmstartupkeyusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrequirestartupauthentication_configuretpmstartupkeyusagedropdown_name_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesdisallowstandarduserscanchangepin",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "ff95fd7f-52a0-4030-8452-6143352ab487"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_systemdrivesdisallowstandarduserscanchangepin_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "3b874ce3-3254-4db9-ab65-1b591f543ed3",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "5a350519-4bc6-4443-9c4b-6859a054ff83"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "2a756c45-f135-442f-9c01-829a9c9b5407",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_oshiderecoverypage_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_oshiderecoverypage_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osallowdra_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osallowdra_name_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osactivedirectorybackupdropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osactivedirectorybackupdropdown_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrequireactivedirectorybackup_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrequireactivedirectorybackup_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osactivedirectorybackup_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osactivedirectorybackup_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrecoverypasswordusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrecoverypasswordusagedropdown_name_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrecoverykeyusagedropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_systemdrivesrecoveryoptions_osrecoverykeyusagedropdown_name_0",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "2a756c45-f135-442f-9c01-829a9c9b5407",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "d1625438-8db8-424f-b605-cf001b7a2f97"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "7cd99564-6bd0-42c8-be6a-5d92c6c1faaf",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsrdvdropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsrdvdropdown_name_4",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsfdvdropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsfdvdropdown_name_7",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsosdropdown_name",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_encryptionmethodbydrivetype_encryptionmethodwithxtsosdropdown_name_7",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_requiredeviceencryption",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "20ec1f6e-0d7a-4b6f-9a4f-9ed33e69ce51"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_requiredeviceencryption_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "86da5fa5-67cf-48d1-8215-8787a9900ae6",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_allowwarningforotherdiskencryption",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "e40531ee-2225-406b-b07b-1c17186c088c"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_allowwarningforotherdiskencryption_0",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "7d348597-0f2a-43db-9fad-8b55c4f89bfe",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_bitlocker_allowstandarduserencryption",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_bitlocker_allowstandarduserencryption_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_bitlocker_configurerecoverypasswordrotation",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "48c938a7-afa0-40ef-914f-40b5da5735b4"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_bitlocker_configurerecoverypasswordrotation_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "48278072-3b30-48e9-b654-ad683fdb9aae",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Encryption - U - Personal Data Encryption - v3.4",
+   "key": "win oib es encryption u personal data encryption",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Encryption - U - Personal Data Encryption - v3.4.json",
+   "oibId": "981FA7C5-6F4F-4338-9802-F9985B6EC3DD",
+   "scope": "User",
+   "addedIn": "3.4",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "Enterprise",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: PDE is only applicable to Windows 11 22H2 or higher, Entra-Joined devices and does not work on Windows Pro/Business SKU's:\nhttps://learn.microsoft.com/en-us/windows/security/operating-system-security/data-protection/personal-data-encryption/\nOIBID:981FA7C5-6F4F-4338-9802-F9985B6EC3DD",
+    "name": "Win - OIB - ES - Encryption - U - Personal Data Encryption - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "0b5708d9-9bc2-49a9-b4f7-ec463fcc41e0_1",
+     "templateFamily": "endpointSecurityDiskEncryption",
+     "templateDisplayName": "Personal Data Encryption",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_pde_enablepersonaldataencryption",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "1ba5dce6-3ba0-40f3-bde3-811ed766c14a"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_pde_enablepersonaldataencryption_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "c3620b1d-8ddc-4ca7-a7b5-2a4e7d985be7",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_pde_protectfolders_protectpictures",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_pde_protectfolders_protectpictures_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_pde_protectfolders_protectdocuments",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_pde_protectfolders_protectdocuments_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_pde_protectfolders_protectdesktop",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_pde_protectfolders_protectdesktop_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Local Group Membership - D - Local Administrators - v3.7",
+   "key": "win oib es local group membership d local administrators",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Local Group Membership - D - Local Administrators - v3.7.json",
+   "oibId": "05B9A828-DB19-4769-B112-62EA1F5367D6",
+   "scope": "Device",
+   "addedIn": "3.7",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:05B9A828-DB19-4769-B112-62EA1F5367D6",
+    "name": "Win - OIB - ES - Local Group Membership - D - Local Administrators - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "22968f54-45fa-486c-848e-f8224aa69772_1",
+     "templateFamily": "endpointSecurityAccountProtection",
+     "templateDisplayName": "Local user group membership",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "de06bec1-4852-48a0-9799-cf7b85992d45"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+           "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup",
+           "groupSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+             "children": [
+              {
+               "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+               "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_desc",
+               "choiceSettingCollectionValue": [
+                {
+                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+                 "value": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_desc_administrators",
+                 "children": []
+                }
+               ]
+              },
+              {
+               "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+               "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_action",
+               "choiceSettingValue": {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+                "value": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_action_add_restrict",
+                "children": []
+               }
+              },
+              {
+               "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+               "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_userselectiontype",
+               "choiceSettingValue": {
+                "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+                "value": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_userselectiontype_manual",
+                "children": [
+                 {
+                  "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+                  "settingDefinitionId": "device_vendor_msft_policy_config_localusersandgroups_configure_groupconfiguration_accessgroup_users",
+                  "simpleSettingCollectionValue": [
+                   {
+                    "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+                    "value": "WLapsAdmin"
+                   }
+                  ]
+                 }
+                ]
+               }
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Windows Firewall - D - Firewall Configuration - v3.1",
+   "key": "win oib es windows firewall d firewall configuration",
+   "version": "3.1",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Windows Firewall - D - Firewall Configuration - v3.1.json",
+   "oibId": "E65452FD-DC67-445F-974C-B69F26B751F9",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:E65452FD-DC67-445F-974C-B69F26B751F9",
+    "name": "Win - OIB - ES - Windows Firewall - D - Firewall Configuration - v3.1",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "6078910e-d808-4a9f-a51d-1b8a7bacb7c0_1",
+     "templateFamily": "endpointSecurityFirewall",
+     "templateDisplayName": "Windows Firewall",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditfilteringplatformconnection",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "be9453a7-6348-4112-a49e-ad029d5d3548"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditfilteringplatformconnection_2",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "f5e48ffe-d924-4ee1-a1a1-677e259952fa",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditfilteringplatformpacketdrop",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "43f5366a-7e27-47a9-be51-d14189d02a17"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditfilteringplatformpacketdrop_2",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "bf48ef86-73e5-4a66-a693-24ff8e4be799",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "vendor_msft_firewall_mdmstore_global_disablestatefulftp",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "38329af6-2670-4a71-972d-482010ca97fc"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "vendor_msft_firewall_mdmstore_global_disablestatefulftp_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "559f6e01-53a9-4c10-9f10-d09d8fe7f903",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_enablefirewall",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "7714c373-a19a-4b64-ba6d-2e9db04a7684"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "vendor_msft_firewall_mdmstore_domainprofile_enablefirewall_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "120c5dbe-0c88-46f0-b897-2c996d3e5277",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_defaultinboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_defaultinboundaction_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_defaultoutboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_defaultoutboundaction_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_disableinboundnotifications",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_disableinboundnotifications_true",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_logmaxfilesize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 16384
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_disablestealthmode",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_disablestealthmode_false",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_enablelogdroppedpackets",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_enablelogdroppedpackets_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "120c5dbe-0c88-46f0-b897-2c996d3e5277",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_enablelogsuccessconnections",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_domainprofile_enablelogsuccessconnections_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "120c5dbe-0c88-46f0-b897-2c996d3e5277",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_domainprofile_logfilepath",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "%SystemRoot%\\System32\\logfiles\\firewall\\domainfw.log",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "120c5dbe-0c88-46f0-b897-2c996d3e5277",
+            "useTemplateDefault": false
+           }
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_enablefirewall",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "1c14f914-69bb-49f8-af5b-e29173a6ee95"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "vendor_msft_firewall_mdmstore_privateprofile_enablefirewall_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "9d55dfae-d55f-4f2a-af03-9a9524f61e76",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_disableinboundnotifications",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_privateprofile_disableinboundnotifications_true",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_defaultoutboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_privateprofile_defaultoutboundaction_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_logmaxfilesize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 16384
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_defaultinboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_privateprofile_defaultinboundaction_1",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "9d55dfae-d55f-4f2a-af03-9a9524f61e76",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_enablelogdroppedpackets",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_privateprofile_enablelogdroppedpackets_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "9d55dfae-d55f-4f2a-af03-9a9524f61e76",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_enablelogsuccessconnections",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_privateprofile_enablelogsuccessconnections_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "9d55dfae-d55f-4f2a-af03-9a9524f61e76",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_privateprofile_logfilepath",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "%SystemRoot%\\System32\\logfiles\\firewall\\privatefw.log",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "9d55dfae-d55f-4f2a-af03-9a9524f61e76",
+            "useTemplateDefault": false
+           }
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_enablefirewall",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "e2714734-708e-4286-8ae9-d56821e306a3"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "vendor_msft_firewall_mdmstore_publicprofile_enablefirewall_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "c38694c7-51a4-4a35-8f64-b10866a04776",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_logmaxfilesize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 16384
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_allowlocalpolicymerge",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_allowlocalpolicymerge_false",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_defaultoutboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_defaultoutboundaction_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_disableinboundnotifications",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_disableinboundnotifications_true",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_defaultinboundaction",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_defaultinboundaction_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_enablelogignoredrules",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_enablelogignoredrules_false",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_enablelogdroppedpackets",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_enablelogdroppedpackets_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "c38694c7-51a4-4a35-8f64-b10866a04776",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_enablelogsuccessconnections",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_enablelogsuccessconnections_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "c38694c7-51a4-4a35-8f64-b10866a04776",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_logfilepath",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "%SystemRoot%\\System32\\logfiles\\firewall\\publicfw.log",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "c38694c7-51a4-4a35-8f64-b10866a04776",
+            "useTemplateDefault": false
+           }
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "vendor_msft_firewall_mdmstore_publicprofile_allowlocalipsecpolicymerge",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "vendor_msft_firewall_mdmstore_publicprofile_allowlocalipsecpolicymerge_false",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "c38694c7-51a4-4a35-8f64-b10866a04776",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Windows Firewall - D - Security Rules - v3.8",
+   "key": "win oib es windows firewall d security rules",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Windows Firewall - D - Security Rules - v3.8.json",
+   "oibId": "51D760CF-928A-4D4E-B743-CA44AB35FE34",
+   "scope": "Device",
+   "addedIn": "3.8",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:51D760CF-928A-4D4E-B743-CA44AB35FE34",
+    "name": "Win - OIB - ES - Windows Firewall - D - Security Rules - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "19c8aa67-f286-4861-9aa0-f23541d31680_1",
+     "templateFamily": "endpointSecurityFirewall",
+     "templateDisplayName": "Windows Firewall Rules",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "76c7a8be-67d2-44bf-81a5-38c94926b1a1"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit calc.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\SysWOW64\\calc.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit calc.exe"
+           }
+          }
+         ]
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit calc.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\System32\\calc.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit calc.exe"
+           }
+          }
+         ]
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit notepad.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\SysWOW64\\notepad.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit notepad.exe"
+           }
+          }
+         ]
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit notepad.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\System32\\notepad.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit notepad.exe"
+           }
+          }
+         ]
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit mshta.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\SysWOW64\\mshta.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 32-bit mshta.exe"
+           }
+          }
+         ]
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit mshta.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%systemroot%\\System32\\mshta.exe"
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
+           "choiceSettingCollectionValue": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+             "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
+             "children": []
+            }
+           ]
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "LOLBIN Security - Block 64-bit mshta.exe"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Windows Hello for Business - D - WHfB Configuration - v3.2",
+   "key": "win oib es windows hello for business d whfb configuration",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Windows Hello for Business - D - WHfB Configuration - v3.2.json",
+   "oibId": "58F56858-93F4-4008-A7C0-8A046ED890F9",
+   "scope": "Device",
+   "addedIn": "3.2",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:58F56858-93F4-4008-A7C0-8A046ED890F9",
+    "name": "Win - OIB - ES - Windows Hello for Business - D - WHfB Configuration - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "fcef01f2-439d-4c3f-9184-823fd6e97646_1",
+     "templateFamily": "endpointSecurityAccountProtection",
+     "templateDisplayName": "Account Protection",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "0ece2bdc-57c1-4be9-93e9-ac9c395a9c94"
+       },
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_requiresecuritydevice",
+           "settingInstanceTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+            "settingInstanceTemplateId": "04df0c8b-5d87-494e-865e-6bfeef5a24a5"
+           },
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_passportforwork_{tenantid}_policies_requiresecuritydevice_true",
+            "settingValueTemplateReference": {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+             "settingValueTemplateId": "c36f290a-cac2-4a0b-96b8-596a75e4890d",
+             "useTemplateDefault": false
+            },
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_usepassportforwork",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_passportforwork_{tenantid}_policies_usepassportforwork_true",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_pincomplexity_minimumpinlength",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+            "value": 6,
+            "settingValueTemplateReference": {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+             "settingValueTemplateId": "b2cec844-c747-466e-ae20-92969da2a10c",
+             "useTemplateDefault": false
+            }
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_usecertificateforonpremauth",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_passportforwork_{tenantid}_policies_usecertificateforonpremauth_false",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_enablepinrecovery",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_passportforwork_{tenantid}_policies_enablepinrecovery_true",
+            "children": []
+           }
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_passportforwork_biometrics_facialfeaturesuseenhancedantispoofing",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "9a29ce6b-fae8-4785-bbfe-3311f14aa88f"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_passportforwork_biometrics_facialfeaturesuseenhancedantispoofing_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "93a7ef59-584d-4177-ac5a-2ca31d47e179",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Windows LAPS - D - LAPS Configuration - v3.1",
+   "key": "win oib es windows laps d laps configuration",
+   "version": "3.1",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Windows LAPS - D - LAPS Configuration - v3.1.json",
+   "oibId": "C6C9B4A2-2CE6-489A-A1AA-FD5A5DC21F94",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:C6C9B4A2-2CE6-489A-A1AA-FD5A5DC21F94",
+    "name": "Win - OIB - ES - Windows LAPS - D - LAPS Configuration - v3.1",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "adc46e5a-f4aa-4ff6-aeff-4f27bc525796_1",
+     "templateFamily": "endpointSecurityAccountProtection",
+     "templateDisplayName": "Local admin password solution (Windows LAPS)",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_backupdirectory",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "a3270f64-e493-499d-8900-90290f61ed8a"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_backupdirectory_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "4d90f03d-e14c-43c4-86da-681da96a2f92",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_passwordagedays_aad",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 7
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_passwordcomplexity",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "8a7459e8-1d1c-458a-8906-7b27d216de52"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_passwordcomplexity_5",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "aa883ab5-625e-4e3b-b830-a37a4bb8ce01",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_passwordlength",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "da7a1dbd-caf7-4341-ab63-ece6f994ff02"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 21,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d08f1266-5345-4f53-8ae1-4c20e6cb5ec9",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_postauthenticationactions",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "d9282eb1-d187-42ae-b366-7081f32dcfff"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_postauthenticationactions_3",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "68ff4f78-baa8-4b32-bf3d-5ad5566d8142",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_postauthenticationresetdelay",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "a9e21166-4055-4042-9372-efaf3ef41868"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 1,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "0deb6aee-8dac-40c4-a9dd-c3718e5c1d52",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - ES - Windows LAPS - D - LAPS Configuration (24H2+) - v3.6",
+   "key": "win oib es windows laps d laps configuration (24h2+)",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - ES - Windows LAPS - D - LAPS Configuration (24H2+) - v3.6.json",
+   "oibId": "F21E7BB1-65BD-4369-A01D-E23C2024D9F7",
+   "scope": "Device",
+   "addedIn": "3.6",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: For 24H2+ devices only.\nOIBID:F21E7BB1-65BD-4369-A01D-E23C2024D9F7",
+    "name": "Win - OIB - ES - Windows LAPS - D - LAPS Configuration (24H2+) - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "adc46e5a-f4aa-4ff6-aeff-4f27bc525796_1",
+     "templateFamily": "endpointSecurityAccountProtection",
+     "templateDisplayName": "Local admin password solution (Windows LAPS)",
+     "templateDisplayVersion": "Version 1"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_backupdirectory",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "a3270f64-e493-499d-8900-90290f61ed8a"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_backupdirectory_1",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "4d90f03d-e14c-43c4-86da-681da96a2f92",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_passwordagedays_aad",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 7
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_passwordcomplexity",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "8a7459e8-1d1c-458a-8906-7b27d216de52"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_passwordcomplexity_8",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "aa883ab5-625e-4e3b-b830-a37a4bb8ce01",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_passphraselength",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 4,
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "aa883ab5-625e-4e3b-b830-a37a4bb8ce01",
+            "useTemplateDefault": false
+           }
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_passwordlength",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "da7a1dbd-caf7-4341-ab63-ece6f994ff02"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 21,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "d08f1266-5345-4f53-8ae1-4c20e6cb5ec9",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_postauthenticationactions",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "d9282eb1-d187-42ae-b366-7081f32dcfff"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_postauthenticationactions_11",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "68ff4f78-baa8-4b32-bf3d-5ad5566d8142",
+         "useTemplateDefault": false
+        },
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_postauthenticationresetdelay",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "a9e21166-4055-4042-9372-efaf3ef41868"
+       },
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 1,
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "0deb6aee-8dac-40c4-a9dd-c3718e5c1d52",
+         "useTemplateDefault": false
+        }
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_laps_policies_automaticaccountmanagementenabled",
+       "settingInstanceTemplateReference": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingInstanceTemplateReference",
+        "settingInstanceTemplateId": "0d70f6fb-8f35-4fba-8ada-494b8a478703"
+       },
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_laps_policies_automaticaccountmanagementenabled_true",
+        "settingValueTemplateReference": {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+         "settingValueTemplateId": "5db30960-1e02-4100-9e2c-a2212596b054",
+         "useTemplateDefault": false
+        },
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_automaticaccountmanagementnameorprefix",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": ""
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_automaticaccountmanagementtarget",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_laps_policies_automaticaccountmanagementtarget_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_automaticaccountmanagementenableaccount",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_laps_policies_automaticaccountmanagementenableaccount_true",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "5db30960-1e02-4100-9e2c-a2212596b054",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_laps_policies_automaticaccountmanagementrandomizename",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_laps_policies_automaticaccountmanagementrandomizename_false",
+           "settingValueTemplateReference": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationSettingValueTemplateReference",
+            "settingValueTemplateId": "5db30960-1e02-4100-9e2c-a2212596b054",
+            "useTemplateDefault": false
+           },
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Credential Management - D - Passwordless - v3.3",
+   "key": "win oib sc credential management d passwordless",
+   "version": "3.3",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Credential Management - D - Passwordless - v3.3.json",
+   "oibId": "AC354D32-C6B3-41C2-A2E9-68F89F2EFC98",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: Applying this policy can cause issues with UAC and elevation if not using Windows LAPS and the built-in Administrator account.\nOIBID:AC354D32-C6B3-41C2-A2E9-68F89F2EFC98",
+    "name": "Win - OIB - SC - Credential Management - D - Passwordless - v3.3",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_credentialproviders_defaultcredentialprovider",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_credentialproviders_defaultcredentialprovider_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_credentialproviders_defaultcredentialprovider_defaultcredentialprovider_message",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "{D6886603-9D2F-4EB2-B667-1971041FA96B}"
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_authentication_enablepasswordlessexperience",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_authentication_enablepasswordlessexperience_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_authentication_enablewebsignin",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_authentication_enablewebsignin_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Defender Antivirus - D - Additional Configuration - v3.8",
+   "key": "win oib sc defender antivirus d additional configuration",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Defender Antivirus - D - Additional Configuration - v3.8.json",
+   "oibId": "7A7AF9FE-1932-44AD-90DB-F15894A2D2D2",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "MDE",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: Some of these settings require the device to be onboarded to Defender for Endpoint.\nOIBID:7A7AF9FE-1932-44AD-90DB-F15894A2D2D2",
+    "name": "Win - OIB - SC - Defender Antivirus - D - Additional Configuration - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_enableconvertwarntoblock",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_enableconvertwarntoblock_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_reporting_enabledynamicsignaturedroppedeventreporting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_reporting_enabledynamicsignaturedroppedeventreporting_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_enablefilehashcomputation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_enablefilehashcomputation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_hideexclusionsfromlocaladmins",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_hideexclusionsfromlocaladmins_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_hideexclusionsfromlocalusers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_hideexclusionsfromlocalusers_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_passiveremediation",
+       "choiceSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+         "value": "device_vendor_msft_defender_configuration_passiveremediation_1",
+         "children": []
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_quickscanincludeexclusions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_defender_configuration_quickscanincludeexclusions_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_defender_configuration_supportloglocation",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+        "value": "%ProgramData%\\Microsoft\\IntuneManagementExtension\\Logs"
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Administrator Protection - v3.7",
+   "key": "win oib sc device security d administrator protection",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Administrator Protection - v3.7.json",
+   "oibId": "E100EBFD-8D2E-40AC-A9A3-48DBF6764144",
+   "scope": "Device",
+   "addedIn": "3.7",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:E100EBFD-8D2E-40AC-A9A3-48DBF6764144",
+    "name": "Win - OIB - SC - Device Security - D - Administrator Protection - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministratorprotection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministratorprotection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_typeofadminapprovalmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_typeofadminapprovalmode_2",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7",
+   "key": "win oib sc device security d audit and event logging",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7.json",
+   "oibId": "8A7BDD48-A411-4B91-8096-2D551D175561",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:8A7BDD48-A411-4B91-8096-2D551D175561",
+    "name": "Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_auditsettings_includecmdline",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_auditsettings_includecmdline_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_controleventlogbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_eventlogservice_controleventlogbehavior_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizeapplicationlog",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizeapplicationlog_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizeapplicationlog_channel_logmaxsize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 32768
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_2",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_2_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesecuritylog",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesecuritylog_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesecuritylog_channel_logmaxsize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 196608
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_3",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_3_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_eventlog_channel_logmaxsize_3",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_eventlog_channel_logmaxsize_3_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_eventlog_channel_logmaxsize_3_channel_logmaxsize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 32768
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_4",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_eventlog_channel_log_retention_4_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesystemlog",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesystemlog_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_eventlogservice_specifymaximumfilesizesystemlog_channel_logmaxsize",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 32768
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogon_auditcredentialvalidation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogon_auditcredentialvalidation_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditaccountlockout",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditaccountlockout_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditgroupmembership",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditgroupmembership_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditlogoff",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditlogoff_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditlogon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditlogon_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountmanagement_auditapplicationgroupmanagement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountmanagement_auditapplicationgroupmanagement_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_policychange_auditauthenticationpolicychange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_policychange_auditauthenticationpolicychange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_policychange_auditauthorizationpolicychange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_policychange_auditauthorizationpolicychange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_policychange_auditpolicychange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_policychange_auditpolicychange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditfileshare",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditfileshare_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditotherlogonlogoffevents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditotherlogonlogoffevents_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountmanagement_auditsecuritygroupmanagement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountmanagement_auditsecuritygroupmanagement_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_system_auditsecuritysystemextension",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_system_auditsecuritysystemextension_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditspeciallogon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountlogonlogoff_auditspeciallogon_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_accountmanagement_audituseraccountmanagement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_accountmanagement_audituseraccountmanagement_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_detailedtracking_auditpnpactivity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_detailedtracking_auditpnpactivity_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_detailedtracking_auditprocesscreation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_detailedtracking_auditprocesscreation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditdetailedfileshare",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditdetailedfileshare_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditotherobjectaccessevents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditotherobjectaccessevents_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_objectaccess_auditremovablestorage",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_objectaccess_auditremovablestorage_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_policychange_auditmpssvcrulelevelpolicychange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_policychange_auditmpssvcrulelevelpolicychange_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_policychange_auditotherpolicychangeevents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_policychange_auditotherpolicychangeevents_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_privilegeuse_auditsensitiveprivilegeuse",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_privilegeuse_auditsensitiveprivilegeuse_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_system_auditipsecdriver",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_system_auditipsecdriver_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_system_auditothersystemevents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_system_auditothersystemevents_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_system_auditsecuritystatechange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_system_auditsecuritystatechange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_audit_system_auditsystemintegrity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_audit_system_auditsystemintegrity_3",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Config Refresh - v3.2",
+   "key": "win oib sc device security d config refresh",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Config Refresh - v3.2.json",
+   "oibId": "C933DA2A-916F-46D4-B2C8-52459180108B",
+   "scope": "Device",
+   "addedIn": "3.2",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:C933DA2A-916F-46D4-B2C8-52459180108B",
+    "name": "Win - OIB - SC - Device Security - D - Config Refresh - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_dmclient_provider_{providerid}",
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_dmclient_provider_{providerid}_configrefresh_enabled",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_dmclient_provider_{providerid}_configrefresh_enabled_true",
+            "children": []
+           }
+          },
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_dmclient_provider_{providerid}_configrefresh_cadence",
+           "simpleSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+            "value": 30
+           }
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Enhanced Phishing Protection - v3.0",
+   "key": "win oib sc device security d enhanced phishing protection",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Enhanced Phishing Protection - v3.0.json",
+   "oibId": "485E5D84-C87C-459D-A2FB-0D060A082BE7",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:485E5D84-C87C-459D-A2FB-0D060A082BE7",
+    "name": "Win - OIB - SC - Device Security - D - Enhanced Phishing Protection - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_webthreatdefense_notifymalicious",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_webthreatdefense_notifymalicious_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_webthreatdefense_notifypasswordreuse",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_webthreatdefense_notifypasswordreuse_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_webthreatdefense_notifyunsafeapp",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_webthreatdefense_notifyunsafeapp_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_webthreatdefense_serviceenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_webthreatdefense_serviceenabled_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Local Security Policies - v3.0",
+   "key": "win oib sc device security d local security policies",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Local Security Policies - v3.0.json",
+   "oibId": "B842CFE2-8EFD-4B11-AD59-87E8F295BC80",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:B842CFE2-8EFD-4B11-AD59-87E8F295BC80",
+    "name": "Win - OIB - SC - Device Security - D - Local Security Policies - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableadministratoraccountstatus",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableadministratoraccountstatus_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableguestaccountstatus",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableguestaccountstatus_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_limitlocalaccountuseofblankpasswordstoconsolelogononly",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_limitlocalaccountuseofblankpasswordstoconsolelogononly_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_interactivelogon_smartcardremovalbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_interactivelogon_smartcardremovalbehavior_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_digitallysigncommunicationsalways",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_digitallysigncommunicationsalways_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_sendunencryptedpasswordtothirdpartysmbservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_sendunencryptedpasswordtothirdpartysmbservers_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkserver_digitallysigncommunicationsalways",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkserver_digitallysigncommunicationsalways_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccounts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccounts_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccountsandshares",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccountsandshares_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictanonymousaccesstonamedpipesandshares",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictanonymousaccesstonamedpipesandshares_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictclientsallowedtomakeremotecallstosam",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+        "value": "O:BAG:BAD:(A;;RC;;;BA)"
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_donotstorelanmanagerhashvalueonnextpasswordchange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_donotstorelanmanagerhashvalueonnextpasswordchange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel_5",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedclients",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedclients_537395200",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedservers_537395200",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministrators",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministrators_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforstandardusers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforstandardusers_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_detectapplicationinstallationsandpromptforelevation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_detectapplicationinstallationsandpromptforelevation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_onlyelevateuiaccessapplicationsthatareinstalledinsecurelocations",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_onlyelevateuiaccessapplicationsthatareinstalledinsecurelocations_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_runalladministratorsinadminapprovalmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_runalladministratorsinadminapprovalmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_switchtothesecuredesktopwhenpromptingforelevation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_switchtothesecuredesktopwhenpromptingforelevation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_useadminapprovalmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_useadminapprovalmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_virtualizefileandregistrywritefailurestoperuserlocations",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_virtualizefileandregistrywritefailurestoperuserlocations_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Local Security Policies (24H2+) - v3.6",
+   "key": "win oib sc device security d local security policies (24h2+)",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Local Security Policies (24H2+) - v3.6.json",
+   "oibId": "D2432603-BDF5-4730-9A7D-ED7C489FA80A",
+   "scope": "Device",
+   "addedIn": "3.6",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: For 24H2+ devices only. Disables built-in Administrator account.\nOIBID:D2432603-BDF5-4730-9A7D-ED7C489FA80A",
+    "name": "Win - OIB - SC - Device Security - D - Local Security Policies (24H2+) - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableadministratoraccountstatus",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableadministratoraccountstatus_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableguestaccountstatus",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_enableguestaccountstatus_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_limitlocalaccountuseofblankpasswordstoconsolelogononly",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_limitlocalaccountuseofblankpasswordstoconsolelogononly_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_interactivelogon_smartcardremovalbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_interactivelogon_smartcardremovalbehavior_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_digitallysigncommunicationsalways",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_digitallysigncommunicationsalways_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_sendunencryptedpasswordtothirdpartysmbservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkclient_sendunencryptedpasswordtothirdpartysmbservers_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkserver_digitallysigncommunicationsalways",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_microsoftnetworkserver_digitallysigncommunicationsalways_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccounts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccounts_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccountsandshares",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_donotallowanonymousenumerationofsamaccountsandshares_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictanonymousaccesstonamedpipesandshares",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictanonymousaccesstonamedpipesandshares_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networkaccess_restrictclientsallowedtomakeremotecallstosam",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+        "value": "O:BAG:BAD:(A;;RC;;;BA)"
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_donotstorelanmanagerhashvalueonnextpasswordchange",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_donotstorelanmanagerhashvalueonnextpasswordchange_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel_5",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedclients",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedclients_537395200",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_minimumsessionsecurityforntlmsspbasedservers_537395200",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministrators",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforadministrators_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforstandardusers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_behavioroftheelevationpromptforstandardusers_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_detectapplicationinstallationsandpromptforelevation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_detectapplicationinstallationsandpromptforelevation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_onlyelevateuiaccessapplicationsthatareinstalledinsecurelocations",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_onlyelevateuiaccessapplicationsthatareinstalledinsecurelocations_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_runalladministratorsinadminapprovalmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_runalladministratorsinadminapprovalmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_switchtothesecuredesktopwhenpromptingforelevation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_switchtothesecuredesktopwhenpromptingforelevation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_useadminapprovalmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_useadminapprovalmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_virtualizefileandregistrywritefailurestoperuserlocations",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_useraccountcontrol_virtualizefileandregistrywritefailurestoperuserlocations_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Location and Privacy - v3.2",
+   "key": "win oib sc device security d location and privacy",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Location and Privacy - v3.2.json",
+   "oibId": "A450DCA4-BEF7-4DEF-934E-FF50BF0A5244",
+   "scope": "Device",
+   "addedIn": "3.2",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:A450DCA4-BEF7-4DEF-934E-FF50BF0A5244",
+    "name": "Win - OIB - SC - Device Security - D - Location and Privacy - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_privacy_letappsaccesslocation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_privacy_letappsaccesslocation_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_privacy_letappsaccesslocation_forceallowtheseapps",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "windows.immersivecontrolpanel_cw5n1h2txyewy"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "Microsoft.OutlookForWindows_8wekyb3d8bbwe"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_allowlocation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_allowlocation_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Login and Lock Screen - v3.8",
+   "key": "win oib sc device security d login and lock screen",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Login and Lock Screen - v3.8.json",
+   "oibId": "072636D1-DF50-4E93-957A-3427F85261EA",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:072636D1-DF50-4E93-957A-3427F85261EA",
+    "name": "Win - OIB - SC - Device Security - D - Login and Lock Screen - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_abovelock_allowcortanaabovelock",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_abovelock_allowcortanaabovelock_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_abovelock_allowtoasts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_abovelock_allowtoasts_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_devicelock_preventenablinglockscreencamera",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_devicelock_preventenablinglockscreencamera_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_devicelock_preventlockscreenslideshow",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_devicelock_preventlockscreenslideshow_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowslogon_disablelockscreenappnotifications",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowslogon_disablelockscreenappnotifications_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_credentialsui_disablepasswordreveal",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_credentialsui_disablepasswordreveal_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_authentication_allowaadpasswordreset",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_authentication_allowaadpasswordreset_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_privacy_letappsactivatewithvoiceabovelock",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_privacy_letappsactivatewithvoiceabovelock_2",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Printing - v3.7",
+   "key": "win oib sc device security d printing",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Printing - v3.7.json",
+   "oibId": "1968C406-B707-4382-AC9E-2FC4EE084EB4",
+   "scope": "Device",
+   "addedIn": "3.7",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:1968C406-B707-4382-AC9E-2FC4EE084EB4",
+    "name": "Win - OIB - SC - Device Security - D - Printing - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_printing2_registerspoolerremoterpcendpoint",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_printing2_registerspoolerremoterpcendpoint_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_configureredirectionguardpolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_configureredirectionguardpolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configureredirectionguardpolicy_redirectionguardpolicy_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configureredirectionguardpolicy_redirectionguardpolicy_enum_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy_rpcconnectionprotocol_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy_rpcconnectionprotocol_enum_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy_rpcconnectionauthentication_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configurerpcconnectionpolicy_rpcconnectionauthentication_enum_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy_rpcauthenticationprotocol_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy_rpcauthenticationprotocol_enum_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy_rpclistenerprotocols_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configurerpclistenerpolicy_rpclistenerprotocols_enum_5",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpctcpport",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_configurerpctcpport_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurerpctcpport_rpctcpport",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 0
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_restrictdriverinstallationtoadministrators",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_restrictdriverinstallationtoadministrators_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurecopyfilespolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_configurecopyfilespolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_configurecopyfilespolicy_copyfilespolicy_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_configurecopyfilespolicy_copyfilespolicy_enum_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_trustedservers_edit",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": ""
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_trustedforest_chk",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_trustedforest_chk_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_trustedservers_chk",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_trustedservers_chk_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_nowarningnoelevationoninstall_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_nowarningnoelevationoninstall_enum_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_nowarningnoelevationonupdate_enum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_printers_pointandprintrestrictions_pointandprint_nowarningnoelevationonupdate_enum_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Remote Desktop Services and RPC - v3.0",
+   "key": "win oib sc device security d remote desktop services and rpc",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Remote Desktop Services and RPC - v3.0.json",
+   "oibId": "A61CE19F-4615-42AB-ABE7-BDCD76D2B203",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:A61CE19F-4615-42AB-ABE7-BDCD76D2B203",
+    "name": "Win - OIB - SC - Device Security - D - Remote Desktop Services and RPC - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remoteprocedurecall_rpcendpointmapperclientauthentication",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remoteprocedurecall_rpcendpointmapperclientauthentication_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remoteprocedurecall_restrictunauthenticatedrpcclients",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remoteprocedurecall_restrictunauthenticatedrpcclients_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_remoteprocedurecall_restrictunauthenticatedrpcclients_rpcrestrictremoteclientslist",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_remoteprocedurecall_restrictunauthenticatedrpcclients_rpcrestrictremoteclientslist_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_donotallowpasswordsaving",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotedesktopservices_donotallowpasswordsaving_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_donotallowdriveredirection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotedesktopservices_donotallowdriveredirection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_promptforpassworduponconnection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotedesktopservices_promptforpassworduponconnection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_requiresecurerpccommunication",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotedesktopservices_requiresecurerpccommunication_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_terminalserver_ts_security_layer_policy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_terminalserver_ts_security_layer_policy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_terminalserver_ts_security_layer_policy_ts_security_layer",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_terminalserver_ts_security_layer_policy_ts_security_layer_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_terminalserver_ts_user_authentication_policy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_terminalserver_ts_user_authentication_policy_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_clientconnectionencryptionlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotedesktopservices_clientconnectionencryptionlevel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_remotedesktopservices_clientconnectionencryptionlevel_ts_encryption_level",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_remotedesktopservices_clientconnectionencryptionlevel_ts_encryption_level_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Script File Associations - v3.4",
+   "key": "win oib sc device security d script file associations",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Script File Associations - v3.4.json",
+   "oibId": "64EB18DA-74A8-45B4-8A08-67BAFC82A2A0",
+   "scope": "Device",
+   "addedIn": "3.4",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "WARNING: Deploying will break running any PowerShell scripts from Intune in the User context. Amend policy if this functionality is required.\nOIBID:64EB18DA-74A8-45B4-8A08-67BAFC82A2A0",
+    "name": "Win - OIB - SC - Device Security - D - Script File Associations - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationdefaults_defaultassociationsconfiguration",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+        "value": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxEZWZhdWx0QXNzb2NpYXRpb25zPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLmFwcHgiIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIuYmF0IiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLmNhYiIgUHJvZ0lkPSJBcHBsaWNhdGlvbnNcbm90ZXBhZC5leGUiIEFwcGxpY2F0aW9uTmFtZT0iTm90ZXBhZCIgLz4NCiAgPEFzc29jaWF0aW9uIElkZW50aWZpZXI9Ii5jb20iIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIuY21kIiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLmh0YSIgUHJvZ0lkPSJBcHBsaWNhdGlvbnNcbm90ZXBhZC5leGUiIEFwcGxpY2F0aW9uTmFtZT0iTm90ZXBhZCIgLz4NCiAgPEFzc29jaWF0aW9uIElkZW50aWZpZXI9Ii5qcyIgUHJvZ0lkPSJBcHBsaWNhdGlvbnNcbm90ZXBhZC5leGUiIEFwcGxpY2F0aW9uTmFtZT0iTm90ZXBhZCIgLz4NCiAgPEFzc29jaWF0aW9uIElkZW50aWZpZXI9Ii5qc2UiIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIucHMxIiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLnBzMW0iIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIuc2N0IiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLnNoYiIgUHJvZ0lkPSJBcHBsaWNhdGlvbnNcbm90ZXBhZC5leGUiIEFwcGxpY2F0aW9uTmFtZT0iTm90ZXBhZCIgLz4NCiAgPEFzc29jaWF0aW9uIElkZW50aWZpZXI9Ii5zaHMiIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIud3NmIiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KICA8QXNzb2NpYXRpb24gSWRlbnRpZmllcj0iLndzaCIgUHJvZ0lkPSJBcHBsaWNhdGlvbnNcbm90ZXBhZC5leGUiIEFwcGxpY2F0aW9uTmFtZT0iTm90ZXBhZCIgLz4NCiAgPEFzc29jaWF0aW9uIElkZW50aWZpZXI9Ii52YmUiIFByb2dJZD0iQXBwbGljYXRpb25zXG5vdGVwYWQuZXhlIiBBcHBsaWNhdGlvbk5hbWU9Ik5vdGVwYWQiIC8+DQogIDxBc3NvY2lhdGlvbiBJZGVudGlmaWVyPSIudmJzIiBQcm9nSWQ9IkFwcGxpY2F0aW9uc1xub3RlcGFkLmV4ZSIgQXBwbGljYXRpb25OYW1lPSJOb3RlcGFkIiAvPg0KPC9EZWZhdWx0QXNzb2NpYXRpb25zPg=="
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Security Hardening - v3.7",
+   "key": "win oib sc device security d security hardening",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Security Hardening - v3.7.json",
+   "oibId": "372C2120-9D79-46C3-A798-BA92C5C80707",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:372C2120-9D79-46C3-A798-BA92C5C80707",
+    "name": "Win - OIB - SC - Device Security - D - Security Hardening - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_mssecurityguide_applyuacrestrictionstolocalaccountsonnetworklogon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_mssecurityguide_applyuacrestrictionstolocalaccountsonnetworklogon_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1clientdriver",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1clientdriver_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1clientdriver_pol_secguide_smb1clientdriver",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1clientdriver_pol_secguide_smb1clientdriver_4",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1server",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_mssecurityguide_configuresmbv1server_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_mssecurityguide_enablestructuredexceptionhandlingoverwriteprotection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_mssecurityguide_enablestructuredexceptionhandlingoverwriteprotection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_ipv6sourceroutingprotectionlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_msslegacy_ipv6sourceroutingprotectionlevel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_ipv6sourceroutingprotectionlevel_disableipsourceroutingipv6",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_msslegacy_ipv6sourceroutingprotectionlevel_disableipsourceroutingipv6_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_ipsourceroutingprotectionlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_msslegacy_ipsourceroutingprotectionlevel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_ipsourceroutingprotectionlevel_disableipsourcerouting",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_msslegacy_ipsourceroutingprotectionlevel_disableipsourcerouting_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_allowicmpredirectstooverrideospfgeneratedroutes",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_msslegacy_allowicmpredirectstooverrideospfgeneratedroutes_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_msslegacy_allowthecomputertoignorenetbiosnamereleaserequestsexceptfromwinsservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_msslegacy_allowthecomputertoignorenetbiosnamereleaserequestsexceptfromwinsservers_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_mss-legacy_pol_mss_screensavergraceperiod",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_mss-legacy_pol_mss_screensavergraceperiod_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_mss-legacy_pol_mss_screensavergraceperiod_screensavergraceperiod",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 0
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_connectivity_prohibitinstallationandconfigurationofnetworkbridge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_connectivity_prohibitinstallationandconfigurationofnetworkbridge_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_networkconnections_nc_stddomainusersetlocation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_networkconnections_nc_stddomainusersetlocation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_wcm_wcm_minimizeconnections",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_wcm_wcm_minimizeconnections_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_wcm_wcm_minimizeconnections_wcm_minimizeconnections_options",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_wcm_wcm_minimizeconnections_wcm_minimizeconnections_options_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowsconnectionmanager_prohitconnectiontonondomainnetworkswhenconnectedtodomainauthenticatednetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowsconnectionmanager_prohitconnectiontonondomainnetworkswhenconnectedtodomainauthenticatednetwork_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_credssp_allowencryptionoracle",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_credssp_allowencryptionoracle_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_credssp_allowencryptionoracle_allowencryptionoracledrop",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_credssp_allowencryptionoracle_allowencryptionoracledrop_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_credentialsdelegation_remotehostallowsdelegationofnonexportablecredentials",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_credentialsdelegation_remotehostallowsdelegationofnonexportablecredentials_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_bootstartdriverinitialization",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_bootstartdriverinitialization_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_system_bootstartdriverinitialization_selectdriverloadpolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_system_bootstartdriverinitialization_selectdriverloadpolicy_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_connectivity_disabledownloadingofprintdriversoverhttp",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_connectivity_disabledownloadingofprintdriversoverhttp_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_connectivity_disableinternetdownloadforwebpublishingandonlineorderingwizards",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_connectivity_disableinternetdownloadforwebpublishingandonlineorderingwizards_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remoteassistance_unsolicitedremoteassistance",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remoteassistance_unsolicitedremoteassistance_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remoteassistance_solicitedremoteassistance",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remoteassistance_solicitedremoteassistance_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_autoplay_disallowautoplayfornonvolumedevices",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_autoplay_disallowautoplayfornonvolumedevices_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_autoplay_setdefaultautorunbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_autoplay_setdefaultautorunbehavior_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_autoplay_setdefaultautorunbehavior_noautorun_dropdown",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_autoplay_setdefaultautorunbehavior_noautorun_dropdown_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_autoplay_turnoffautoplay",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_autoplay_turnoffautoplay_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_autoplay_turnoffautoplay_autorun_box",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_autoplay_turnoffautoplay_autorun_box_255",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_credentialsui_enumerateadministrators",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_credentialsui_enumerateadministrators_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_windowsexplorer_enablesmartscreen",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_windowsexplorer_enablesmartscreen_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_windowsexplorer_enablesmartscreen_enablesmartscreendropdown",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_windowsexplorer_enablesmartscreen_enablesmartscreendropdown_block",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_fileexplorer_turnoffdataexecutionpreventionforexplorer",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_fileexplorer_turnoffdataexecutionpreventionforexplorer_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_fileexplorer_turnoffheapterminationoncorruption",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_fileexplorer_turnoffheapterminationoncorruption_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_sharing_disablehomegroup",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_sharing_disablehomegroup_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableinternetexplorerapp_v2",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disableinternetexplorerapp_v2_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableinternetexplorerapp_v2_notifydisableieoptions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_disableinternetexplorerapp_v2_notifydisableieoptions_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_pushtoinstall_disablepushtoinstall",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_pushtoinstall_disablepushtoinstall_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableenclosuredownloading",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disableenclosuredownloading_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_errorreporting_disablewindowserrorreporting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_errorreporting_disablewindowserrorreporting_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowspowershell_turnonpowershellscriptblocklogging",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowspowershell_turnonpowershellscriptblocklogging_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_windowspowershell_turnonpowershellscriptblocklogging_enablescriptblockinvocationlogging",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_windowspowershell_turnonpowershellscriptblocklogging_enablescriptblockinvocationlogging_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_allowbasicauthentication_client",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_allowbasicauthentication_client_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_allowunencryptedtraffic_client",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_allowunencryptedtraffic_client_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_disallowdigestauthentication",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_disallowdigestauthentication_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_allowbasicauthentication_service",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_allowbasicauthentication_service_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_allowunencryptedtraffic_service",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_allowunencryptedtraffic_service_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_remotemanagement_disallowstoringofrunascredentials",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_remotemanagement_disallowstoringofrunascredentials_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_connectivity_allowphonepclinking",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_connectivity_allowphonepclinking_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_dataprotection_allowdirectmemoryaccess",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_dataprotection_allowdirectmemoryaccess_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_experience_allowcortana",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_experience_allowcortana_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_experience_allowmanualmdmunenrollment",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_experience_allowmanualmdmunenrollment_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_games_allowadvancedgamingservices",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_games_allowadvancedgamingservices_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmconfiguration",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmconfiguration_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha1",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha1_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha256",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha256_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha384",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha384_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha512",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_kerberos_pkinithashalgorithmsha512_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_auditclientdoesnotsupportencryption",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_auditclientdoesnotsupportencryption_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_auditclientdoesnotsupportsigning",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_auditclientdoesnotsupportsigning_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_auditinsecureguestlogon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_auditinsecureguestlogon_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_authratelimiterdelayinms",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 2000
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_enableauthratelimiter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_enableauthratelimiter_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_enablemailslots",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_enablemailslots_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_maxsmb2dialect",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_maxsmb2dialect_785",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanserver_minsmb2dialect",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanserver_minsmb2dialect_768",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_auditinsecureguestlogon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_auditinsecureguestlogon_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_auditserverdoesnotsupportencryption",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_auditserverdoesnotsupportencryption_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_auditserverdoesnotsupportsigning",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_auditserverdoesnotsupportsigning_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_enableinsecureguestlogons",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_enableinsecureguestlogons_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_enablemailslots",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_enablemailslots_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_maxsmb2dialect",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_maxsmb2dialect_785",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_minsmb2dialect",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_minsmb2dialect_768",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lanmanworkstation_requireencryption",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lanmanworkstation_requireencryption_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_privacy_disableprivacyexperience",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_privacy_disableprivacyexperience_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_security_allowaddprovisioningpackage",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_security_allowaddprovisioningpackage_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_security_allowremoveprovisioningpackage",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_security_allowremoveprovisioningpackage_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_security_requireretrievehealthcertificateonboot",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_security_requireretrievehealthcertificateonboot_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_settings_pagevisibilitylist",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+        "value": "hide:gaming-gamebar;gaming-gamedvr;gaming-broadcasting;gaming-gamemode;gaming-xboxnetworking"
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_smartscreen_enablesmartscreeninshell",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_smartscreen_enablesmartscreeninshell_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_smartscreen_preventoverrideforfilesinshell",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_smartscreen_preventoverrideforfilesinshell_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_sudo_enablesudo",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_sudo_enablesudo_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_systemservices_configurexboxaccessorymanagementservicestartupmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_systemservices_configurexboxaccessorymanagementservicestartupmode_4",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_systemservices_configurexboxliveauthmanagerservicestartupmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_systemservices_configurexboxliveauthmanagerservicestartupmode_4",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_systemservices_configurexboxlivegamesaveservicestartupmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_systemservices_configurexboxlivegamesaveservicestartupmode_4",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_systemservices_configurexboxlivenetworkingservicestartupmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_systemservices_configurexboxlivenetworkingservicestartupmode_4",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_taskscheduler_enablexboxgamesavetask",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_taskscheduler_enablexboxgamesavetask_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wifi_allowautoconnecttowifisensehotspots",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wifi_allowautoconnecttowifisensehotspots_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wifi_allowinternetsharing",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wifi_allowinternetsharing_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowsinkworkspace_allowwindowsinkworkspace",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowsinkworkspace_allowwindowsinkworkspace_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wirelessdisplay_allowprojectionfrompc",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wirelessdisplay_allowprojectionfrompc_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wirelessdisplay_allowprojectiontopc",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wirelessdisplay_allowprojectiontopc_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wirelessdisplay_requirepinforpairing",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wirelessdisplay_requirepinforpairing_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Timezone - v3.4",
+   "key": "win oib sc device security d timezone",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Timezone - v3.4.json",
+   "oibId": "44731D7C-3531-4DFF-9099-C5E06CF325CD",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:44731D7C-3531-4DFF-9099-C5E06CF325CD",
+    "name": "Win - OIB - SC - Device Security - D - Timezone - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_crosssitesyncflags",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 2
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_ntpclienteventlogflags",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 3
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_ntpserver",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "time.windows.com"
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_resolvepeerbackoffmaxtimes",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 7
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_resolvepeerbackoffminutes",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 15
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_specialpollinterval",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 1024
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_type",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_configure_ntpclient_w32time_type_allsync",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_enable_ntpclient",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_w32time_w32time_policy_enable_ntpclient_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_changetimezone",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-19"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-545"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - User Rights - v3.7",
+   "key": "win oib sc device security d user rights",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - User Rights - v3.7.json",
+   "oibId": "CAEC2C9B-5FA1-4DC8-9A1D-6A30DC97220D",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:CAEC2C9B-5FA1-4DC8-9A1D-6A30DC97220D",
+    "name": "Win - OIB - SC - Device Security - D - User Rights - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_accessfromnetwork",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-555"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_allowlocallogon",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-545"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_backupfilesanddirectories",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_changesystemtime",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-19"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_createglobalobjects",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-6"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-19"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-20"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_createpagefile",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_createsymboliclinks",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_debugprograms",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_denyaccessfromnetwork",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-113"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-546"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_denylocallogon",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-546"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_denylogonasbatchjob",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-546"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_denylogonasservice",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-546"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_denyremotedesktopserviceslogon",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-113"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-546"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_generatesecurityaudits",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-19"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-20"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_impersonateclient",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-6"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-19"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-20"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-99-216390572-1995538116-3857911515-2404958512-2623887229"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_increaseschedulingpriority",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-90-0"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_loadunloaddevicedrivers",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_manageauditingandsecuritylog",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_managevolume",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_modifyfirmwareenvironment",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_profilesingleprocess",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_remoteshutdown",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_restorefilesanddirectories",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_shutdownthesystem",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        },
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-545"
+        }
+       ]
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_userrights_takeownership",
+       "simpleSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+         "value": "*S-1-5-32-544"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Windows Package Manager  - v3.5",
+   "key": "win oib sc device security d windows package manager",
+   "version": "3.5",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Windows Package Manager  - v3.5.json",
+   "oibId": "F4EEBE99-960A-47EC-841E-3BF030726B97",
+   "scope": "Device",
+   "addedIn": "3.5",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:F4EEBE99-960A-47EC-841E-3BF030726B97",
+    "name": "Win - OIB - SC - Device Security - D - Windows Package Manager  - v3.5",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_desktopappinstaller_enableexperimentalfeatures",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_desktopappinstaller_enableexperimentalfeatures_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_desktopappinstaller_enablehashoverride",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_desktopappinstaller_enablehashoverride_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_desktopappinstaller_enablelocalmanifestfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_desktopappinstaller_enablelocalmanifestfiles_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_desktopappinstaller_enablemsappinstallerprotocol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_desktopappinstaller_enablemsappinstallerprotocol_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_desktopappinstaller_enablesettings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_desktopappinstaller_enablesettings_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - D - Windows Subsystem for Linux - v3.2",
+   "key": "win oib sc device security d windows subsystem for linux",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - D - Windows Subsystem for Linux - v3.2.json",
+   "oibId": "9D2B10AC-20BD-4639-B9DE-7B19053C2D9D",
+   "scope": "Device",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:9D2B10AC-20BD-4639-B9DE-7B19053C2D9D",
+    "name": "Win - OIB - SC - Device Security - D - Windows Subsystem for Linux - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_customkernelusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_customkernelusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_customnetworkingusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_customnetworkingusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_customsystemdistrousersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_customsystemdistrousersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_customkernelcommandlineusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_customkernelcommandlineusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_kerneldebugusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_kerneldebugusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_nestedvirtualizationusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_nestedvirtualizationusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowdebugshell",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowdebugshell_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowinboxwsl",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowinboxwsl_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_firewallusersettingconfigurable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_firewallusersettingconfigurable_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowwsl1",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_wslv1~policy~wsl_allowwsl1_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - U - Device Guard, Credential Guard and HVCI - v3.7",
+   "key": "win oib sc device security u device guard, credential guard and hvci",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - U - Device Guard, Credential Guard and HVCI - v3.7.json",
+   "oibId": "71492EE0-EC96-4314-9F00-591F85E95422",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "Enterprise",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "WARNING: Applying this policy to Devices will cause a reboot between Device and User ESP phases!\nNOTE: These features are automatically enabled on a fresh Win11 22H2 or above install, however they require Windows Enterprise to function correctly. They also require hardware support: \nhttps://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs\nOIBID:71492EE0-EC96-4314-9F00-591F85E95422",
+    "name": "Win - OIB - SC - Device Security - U - Device Guard, Credential Guard and HVCI - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deviceguard_configuresystemguardlaunch",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deviceguard_configuresystemguardlaunch_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deviceguard_lsacfgflags",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deviceguard_lsacfgflags_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deviceguard_enablevirtualizationbasedsecurity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deviceguard_enablevirtualizationbasedsecurity_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deviceguard_machineidentityisolation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deviceguard_machineidentityisolation_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deviceguard_requireplatformsecurityfeatures",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deviceguard_requireplatformsecurityfeatures_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localsecurityauthority_configurelsaprotectedprocess",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localsecurityauthority_configurelsaprotectedprocess_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_virtualizationbasedtechnology_hypervisorenforcedcodeintegrity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_virtualizationbasedtechnology_hypervisorenforcedcodeintegrity_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_virtualizationbasedtechnology_requireuefimemoryattributestable",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_virtualizationbasedtechnology_requireuefimemoryattributestable_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - U - Power and Device Lock - v3.6",
+   "key": "win oib sc device security u power and device lock",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - U - Power and Device Lock - v3.6.json",
+   "oibId": "D207C002-E1A3-4111-9803-D4E83F5160A7",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:D207C002-E1A3-4111-9803-D4E83F5160A7",
+    "name": "Win - OIB - SC - Device Security - U - Power and Device Lock - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_requirepasswordwhencomputerwakesonbattery",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_requirepasswordwhencomputerwakesonbattery_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_requirepasswordwhencomputerwakespluggedin",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_requirepasswordwhencomputerwakespluggedin_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_standbytimeoutonbattery",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_standbytimeoutonbattery_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_power_standbytimeoutonbattery_enterdcstandbytimeout",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 600
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_standbytimeoutpluggedin",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_standbytimeoutpluggedin_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_power_standbytimeoutpluggedin_enteracstandbytimeout",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 900
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_displayofftimeoutonbattery",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_displayofftimeoutonbattery_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_power_displayofftimeoutonbattery_entervideodcpowerdowntimeout",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 300
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_displayofftimeoutpluggedin",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_power_displayofftimeoutpluggedin_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_power_displayofftimeoutpluggedin_entervideoacpowerdowntimeout",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 600
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_unattendedsleeptimeoutonbattery",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 600
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_power_unattendedsleeptimeoutpluggedin",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 900
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - U - Windows Sandbox - v3.4",
+   "key": "win oib sc device security u windows sandbox",
+   "version": "3.4",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - U - Windows Sandbox - v3.4.json",
+   "oibId": "30A97E84-21B4-4A67-8D5C-C6E5922892B5",
+   "scope": "User",
+   "addedIn": "3.4",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:30A97E84-21B4-4A67-8D5C-C6E5922892B5",
+    "name": "Win - OIB - SC - Device Security - U - Windows Sandbox - v3.4",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allowaudioinput",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allowaudioinput_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allowclipboardredirection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allowclipboardredirection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allownetworking",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allownetworking_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allowprinterredirection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allowprinterredirection_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allowvgpu",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allowvgpu_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowssandbox_allowvideoinput",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowssandbox_allowvideoinput_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Device Security - U - Windows Spotlight and Org Messages - v3.0",
+   "key": "win oib sc device security u windows spotlight and org messages",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Device Security - U - Windows Spotlight and Org Messages - v3.0.json",
+   "oibId": "457CAD52-5B2E-4AC6-9451-6D56C05DC4CB",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:457CAD52-5B2E-4AC6-9451-6D56C05DC4CB",
+    "name": "Win - OIB - SC - Device Security - U - Windows Spotlight and Org Messages - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowspotlightcollection",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 0
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowwindowsspotlight",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_experience_allowwindowsspotlight_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowtailoredexperienceswithdiagnosticdata",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_experience_allowtailoredexperienceswithdiagnosticdata_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowthirdpartysuggestionsinwindowsspotlight",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_experience_allowthirdpartysuggestionsinwindowsspotlight_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_experience_allowwindowsconsumerfeatures",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_experience_allowwindowsconsumerfeatures_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowwindowsspotlightonactioncenter",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_experience_allowwindowsspotlightonactioncenter_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowwindowsspotlightwindowswelcomeexperience",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_experience_allowwindowsspotlightwindowswelcomeexperience_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_experience_allowwindowstips",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_experience_allowwindowstips_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_experience_configurewindowsspotlightonlockscreen",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_experience_configurewindowsspotlightonlockscreen_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_experience_allowwindowsspotlightonsettings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_experience_allowwindowsspotlightonsettings_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_experience_disablecloudoptimizedcontent",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_experience_disablecloudoptimizedcontent_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_experience_enableorganizationalmessages",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_experience_enableorganizationalmessages_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Internet Explorer (Legacy) - D - Security - v3.1.1",
+   "key": "win oib sc internet explorer (legacy) d security",
+   "version": "3.1.1",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Internet Explorer (Legacy) - D - Security - v3.1.1.json",
+   "oibId": "E2ED7D97-4313-40A9-8B0B-3145E8CB73CA",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:E2ED7D97-4313-40A9-8B0B-3145E8CB73CA",
+    "name": "Win - OIB - SC - Internet Explorer (Legacy) - D - Security - v3.1.1",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_allowsoftwarewhensignatureisinvalid",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_allowsoftwarewhensignatureisinvalid_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_checkservercertificaterevocation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_checkservercertificaterevocation_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_checksignaturesondownloadedprograms",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_checksignaturesondownloadedprograms_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_donotallowactivexcontrolsinprotectedmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_donotallowactivexcontrolsinprotectedmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableencryptionsupport",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disableencryptionsupport_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableencryptionsupport_advanced_wininetprotocoloptions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_disableencryptionsupport_advanced_wininetprotocoloptions_2048",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableprocessesinenhancedprotectedmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disableprocessesinenhancedprotectedmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_allowenhancedprotectedmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_allowenhancedprotectedmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disableignoringcertificateerrors",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disableignoringcertificateerrors_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowaccesstodatasources",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowaccesstodatasources_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowaccesstodatasources_iz_partname1406",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowaccesstodatasources_iz_partname1406_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowcopypasteviascript",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowcopypasteviascript_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowcopypasteviascript_iz_partname1407",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowcopypasteviascript_iz_partname1407_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowdraganddropcopyandpastefiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowdraganddropcopyandpastefiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowdraganddropcopyandpastefiles_iz_partname1802",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowdraganddropcopyandpastefiles_iz_partname1802_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowloadingofxamlfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowloadingofxamlfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowloadingofxamlfiles_iz_partname2402",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowloadingofxamlfiles_iz_partname2402_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstouseactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstouseactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstouseactivexcontrols_iz_partname120b",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstouseactivexcontrols_iz_partname120b_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstousetdcactivexcontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstousetdcactivexcontrol_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstousetdcactivexcontrol_iz_partname120c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowonlyapproveddomainstousetdcactivexcontrol_iz_partname120c_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptinitiatedwindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptinitiatedwindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptinitiatedwindows_iz_partname2102",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptinitiatedwindows_iz_partname2102_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptingofinternetexplorerwebbrowsercontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptingofinternetexplorerwebbrowsercontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptingofinternetexplorerwebbrowsercontrols_iz_partname1206",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptingofinternetexplorerwebbrowsercontrols_iz_partname1206_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptlets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptlets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptlets_iz_partname1209",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowscriptlets_iz_partname1209_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowupdatestostatusbarviascript",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowupdatestostatusbarviascript_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowupdatestostatusbarviascript_iz_partname2103",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowupdatestostatusbarviascript_iz_partname2103_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowvbscripttorunininternetexplorer",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowvbscripttorunininternetexplorer_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowvbscripttorunininternetexplorer_iz_partname140c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowvbscripttorunininternetexplorer_iz_partname140c_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowautomaticpromptingforfiledownloads",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowautomaticpromptingforfiledownloads_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowautomaticpromptingforfiledownloads_iz_partname2200",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowautomaticpromptingforfiledownloads_iz_partname2200_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedonotrunantimalwareagainstactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedonotrunantimalwareagainstactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedonotrunantimalwareagainstactivexcontrols_iz_partname270c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedonotrunantimalwareagainstactivexcontrols_iz_partname270c_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadsignedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadsignedactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadsignedactivexcontrols_iz_partname1001",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadsignedactivexcontrols_iz_partname1001_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadunsignedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadunsignedactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadunsignedactivexcontrols_iz_partname1004",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonedownloadunsignedactivexcontrols_iz_partname1004_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainsacrosswindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainsacrosswindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainsacrosswindows_iz_partname2709",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainsacrosswindows_iz_partname2709_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainswithinwindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainswithinwindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainswithinwindows_iz_partname2708",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenabledraggingofcontentfromdifferentdomainswithinwindows_iz_partname2708_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneincludelocalpathwhenuploadingfilestoserver",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneincludelocalpathwhenuploadingfilestoserver_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneincludelocalpathwhenuploadingfilestoserver_iz_partname160a",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneincludelocalpathwhenuploadingfilestoserver_iz_partname160a_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneinitializeandscriptactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneinitializeandscriptactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneinitializeandscriptactivexcontrols_iz_partname1201",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneinitializeandscriptactivexcontrols_iz_partname1201_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonelaunchingapplicationsandfilesiniframe",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonelaunchingapplicationsandfilesiniframe_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonelaunchingapplicationsandfilesiniframe_iz_partname1804",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonelaunchingapplicationsandfilesiniframe_iz_partname1804_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonelogonoptions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonelogonoptions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonelogonoptions_iz_partname1a00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonelogonoptions_iz_partname1a00_65536",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonenavigatewindowsandframes",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonenavigatewindowsandframes_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonenavigatewindowsandframes_iz_partname1607",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonenavigatewindowsandframes_iz_partname1607_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallownetframeworkreliantcomponents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallownetframeworkreliantcomponents_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallownetframeworkreliantcomponents_iz_partname2004",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallownetframeworkreliantcomponents_iz_partname2004_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonerunnetframeworkreliantcomponentssignedwithauthenticode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzonerunnetframeworkreliantcomponentssignedwithauthenticode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzonerunnetframeworkreliantcomponentssignedwithauthenticode_iz_partname2001",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzonerunnetframeworkreliantcomponentssignedwithauthenticode_iz_partname2001_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneshowsecuritywarningforpotentiallyunsafefiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneshowsecuritywarningforpotentiallyunsafefiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneshowsecuritywarningforpotentiallyunsafefiles_iz_partname1806",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneshowsecuritywarningforpotentiallyunsafefiles_iz_partname1806_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenablecrosssitescriptingfilter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenablecrosssitescriptingfilter_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenablecrosssitescriptingfilter_iz_partname1409",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenablecrosssitescriptingfilter_iz_partname1409_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenableprotectedmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenableprotectedmode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneenableprotectedmode_iz_partname2500",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneenableprotectedmode_iz_partname2500_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowsmartscreenie",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowsmartscreenie_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowsmartscreenie_iz_partname2301",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowsmartscreenie_iz_partname2301_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneusepopupblocker",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneusepopupblocker_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneusepopupblocker_iz_partname1809",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneusepopupblocker_iz_partname1809_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowuserdatapersistence",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowuserdatapersistence_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowuserdatapersistence_iz_partname1606",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowuserdatapersistence_iz_partname1606_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowlessprivilegedsites",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowlessprivilegedsites_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowlessprivilegedsites_iz_partname2101",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_internetzoneallowlessprivilegedsites_iz_partname2101_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_includeallnetworkpaths",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_includeallnetworkpaths_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzonedonotrunantimalwareagainstactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_intranetzonedonotrunantimalwareagainstactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzonedonotrunantimalwareagainstactivexcontrols_iz_partname270c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_intranetzonedonotrunantimalwareagainstactivexcontrols_iz_partname270c_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzoneinitializeandscriptactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_intranetzoneinitializeandscriptactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzoneinitializeandscriptactivexcontrols_iz_partname1201",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_intranetzoneinitializeandscriptactivexcontrols_iz_partname1201_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_intranetzonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_intranetzonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_intranetzonejavapermissions_iz_partname1c00_65536",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_localmachinezonedonotrunantimalwareagainstactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_localmachinezonedonotrunantimalwareagainstactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_localmachinezonedonotrunantimalwareagainstactivexcontrols_iz_partname270c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_localmachinezonedonotrunantimalwareagainstactivexcontrols_iz_partname270c_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_localmachinezonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_localmachinezonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_localmachinezonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_localmachinezonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddowninternetzoneallowsmartscreenie",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddowninternetzoneallowsmartscreenie_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddowninternetzoneallowsmartscreenie_iz_partname2301",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddowninternetzoneallowsmartscreenie_iz_partname2301_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownintranetjavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownintranetjavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownintranetjavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownintranetjavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownlocalmachinezonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownlocalmachinezonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownlocalmachinezonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownlocalmachinezonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszoneallowsmartscreenie",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszoneallowsmartscreenie_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszoneallowsmartscreenie_iz_partname2301",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddownrestrictedsiteszoneallowsmartscreenie_iz_partname2301_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddowntrustedsiteszonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_lockeddowntrustedsiteszonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_lockeddowntrustedsiteszonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_lockeddowntrustedsiteszonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowaccesstodatasources",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowaccesstodatasources_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowaccesstodatasources_iz_partname1406",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowaccesstodatasources_iz_partname1406_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowactivescripting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowactivescripting_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowactivescripting_iz_partname1400",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowactivescripting_iz_partname1400_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowbinaryandscriptbehaviors",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowbinaryandscriptbehaviors_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowbinaryandscriptbehaviors_iz_partname2000",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowbinaryandscriptbehaviors_iz_partname2000_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowcopypasteviascript",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowcopypasteviascript_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowcopypasteviascript_iz_partname1407",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowcopypasteviascript_iz_partname1407_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowdraganddropcopyandpastefiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowdraganddropcopyandpastefiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowdraganddropcopyandpastefiles_iz_partname1802",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowdraganddropcopyandpastefiles_iz_partname1802_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowfiledownloads",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowfiledownloads_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowfiledownloads_iz_partname1803",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowfiledownloads_iz_partname1803_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowloadingofxamlfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowloadingofxamlfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowloadingofxamlfiles_iz_partname2402",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowloadingofxamlfiles_iz_partname2402_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowmetarefresh",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowmetarefresh_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowmetarefresh_iz_partname1608",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowmetarefresh_iz_partname1608_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstouseactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstouseactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstouseactivexcontrols_iz_partname120b",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstouseactivexcontrols_iz_partname120b_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstousetdcactivexcontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstousetdcactivexcontrol_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstousetdcactivexcontrol_iz_partname120c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowonlyapproveddomainstousetdcactivexcontrol_iz_partname120c_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptinitiatedwindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptinitiatedwindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptinitiatedwindows_iz_partname2102",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptinitiatedwindows_iz_partname2102_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptingofinternetexplorerwebbrowsercontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptingofinternetexplorerwebbrowsercontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptingofinternetexplorerwebbrowsercontrols_iz_partname1206",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptingofinternetexplorerwebbrowsercontrols_iz_partname1206_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptlets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptlets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptlets_iz_partname1209",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowscriptlets_iz_partname1209_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowupdatestostatusbarviascript",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowupdatestostatusbarviascript_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowupdatestostatusbarviascript_iz_partname2103",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowupdatestostatusbarviascript_iz_partname2103_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowvbscripttorunininternetexplorer",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowvbscripttorunininternetexplorer_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowvbscripttorunininternetexplorer_iz_partname140c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowvbscripttorunininternetexplorer_iz_partname140c_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowautomaticpromptingforfiledownloads",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowautomaticpromptingforfiledownloads_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowautomaticpromptingforfiledownloads_iz_partname2200",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowautomaticpromptingforfiledownloads_iz_partname2200_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedonotrunantimalwareagainstactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedonotrunantimalwareagainstactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedonotrunantimalwareagainstactivexcontrols_iz_partname270c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedonotrunantimalwareagainstactivexcontrols_iz_partname270c_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadsignedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadsignedactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadsignedactivexcontrols_iz_partname1001",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadsignedactivexcontrols_iz_partname1001_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadunsignedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadunsignedactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadunsignedactivexcontrols_iz_partname1004",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonedownloadunsignedactivexcontrols_iz_partname1004_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainsacrosswindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainsacrosswindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainsacrosswindows_iz_partname2709",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainsacrosswindows_iz_partname2709_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainswithinwindows",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainswithinwindows_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainswithinwindows_iz_partname2708",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenabledraggingofcontentfromdifferentdomainswithinwindows_iz_partname2708_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablemimesniffing",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablemimesniffing_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablemimesniffing_iz_partname2100",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablemimesniffing_iz_partname2100_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneincludelocalpathwhenuploadingfilestoserver",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneincludelocalpathwhenuploadingfilestoserver_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneincludelocalpathwhenuploadingfilestoserver_iz_partname160a",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneincludelocalpathwhenuploadingfilestoserver_iz_partname160a_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneinitializeandscriptactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneinitializeandscriptactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneinitializeandscriptactivexcontrols_iz_partname1201",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneinitializeandscriptactivexcontrols_iz_partname1201_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonejavapermissions_iz_partname1c00_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelaunchingapplicationsandfilesiniframe",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelaunchingapplicationsandfilesiniframe_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelaunchingapplicationsandfilesiniframe_iz_partname1804",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelaunchingapplicationsandfilesiniframe_iz_partname1804_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelogonoptions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelogonoptions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelogonoptions_iz_partname1a00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonelogonoptions_iz_partname1a00_196608",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonenavigatewindowsandframes",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonenavigatewindowsandframes_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonenavigatewindowsandframes_iz_partname1607",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonenavigatewindowsandframes_iz_partname1607_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallownetframeworkreliantcomponents",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallownetframeworkreliantcomponents_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallownetframeworkreliantcomponents_iz_partname2004",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallownetframeworkreliantcomponents_iz_partname2004_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunnetframeworkreliantcomponentssignedwithauthenticode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunnetframeworkreliantcomponentssignedwithauthenticode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunnetframeworkreliantcomponentssignedwithauthenticode_iz_partname2001",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunnetframeworkreliantcomponentssignedwithauthenticode_iz_partname2001_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunactivexcontrolsandplugins",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunactivexcontrolsandplugins_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunactivexcontrolsandplugins_iz_partname1200",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonerunactivexcontrolsandplugins_iz_partname1200_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptactivexcontrolsmarkedsafeforscripting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptactivexcontrolsmarkedsafeforscripting_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptactivexcontrolsmarkedsafeforscripting_iz_partname1405",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptactivexcontrolsmarkedsafeforscripting_iz_partname1405_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptingofjavaapplets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptingofjavaapplets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptingofjavaapplets_iz_partname1402",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszonescriptingofjavaapplets_iz_partname1402_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneshowsecuritywarningforpotentiallyunsafefiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneshowsecuritywarningforpotentiallyunsafefiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneshowsecuritywarningforpotentiallyunsafefiles_iz_partname1806",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneshowsecuritywarningforpotentiallyunsafefiles_iz_partname1806_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablecrosssitescriptingfilter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablecrosssitescriptingfilter_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablecrosssitescriptingfilter_iz_partname1409",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneenablecrosssitescriptingfilter_iz_partname1409_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneturnonprotectedmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneturnonprotectedmode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneturnonprotectedmode_iz_partname2500",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneturnonprotectedmode_iz_partname2500_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowsmartscreenie",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowsmartscreenie_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowsmartscreenie_iz_partname2301",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowsmartscreenie_iz_partname2301_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneusepopupblocker",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneusepopupblocker_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneusepopupblocker_iz_partname1809",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneusepopupblocker_iz_partname1809_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowuserdatapersistence",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowuserdatapersistence_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowuserdatapersistence_iz_partname1606",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowuserdatapersistence_iz_partname1606_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowlessprivilegedsites",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowlessprivilegedsites_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowlessprivilegedsites_iz_partname2101",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_restrictedsiteszoneallowlessprivilegedsites_iz_partname2101_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonedonotrunantimalwareagainstactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonedonotrunantimalwareagainstactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonedonotrunantimalwareagainstactivexcontrols_iz_partname270c",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonedonotrunantimalwareagainstactivexcontrols_iz_partname270c_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszoneinitializeandscriptactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszoneinitializeandscriptactivexcontrols_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszoneinitializeandscriptactivexcontrols_iz_partname1201",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszoneinitializeandscriptactivexcontrols_iz_partname1201_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonejavapermissions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonejavapermissions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonejavapermissions_iz_partname1c00",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_trustedsiteszonejavapermissions_iz_partname1c00_65536",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_allowcertificateaddressmismatchwarning",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_allowcertificateaddressmismatchwarning_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disablebypassofsmartscreenwarnings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disablebypassofsmartscreenwarnings_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disablebypassofsmartscreenwarningsaboutuncommonfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disablebypassofsmartscreenwarningsaboutuncommonfiles_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_preventmanagingsmartscreenfilter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_preventmanagingsmartscreenfilter_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_preventmanagingsmartscreenfilter_ie9safetyfilteroptions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_preventmanagingsmartscreenfilter_ie9safetyfilteroptions_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_preventperuserinstallationofactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_preventperuserinstallationofactivexcontrols_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_removerunthistimebuttonforoutdatedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_removerunthistimebuttonforoutdatedactivexcontrols_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_donotblockoutdatedactivexcontrols",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_donotblockoutdatedactivexcontrols_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_allowfallbacktossl3",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_allowfallbacktossl3_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_allowfallbacktossl3_advanced_enablessl3fallbackoptions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_internetexplorer_allowfallbacktossl3_advanced_enablessl3fallbackoptions_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_consistentmimehandlinginternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_consistentmimehandlinginternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_mimesniffingsafetyfeatureinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_mimesniffingsafetyfeatureinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_mkprotocolsecurityrestrictioninternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_mkprotocolsecurityrestrictioninternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_notificationbarinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_notificationbarinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_protectionfromzoneelevationinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_protectionfromzoneelevationinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictactivexinstallinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictactivexinstallinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_restrictfiledownloadinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_restrictfiledownloadinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_scriptedwindowsecurityrestrictionsinternetexplorerprocesses",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_scriptedwindowsecurityrestrictionsinternetexplorerprocesses_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_donotallowuserstoaddsites",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_donotallowuserstoaddsites_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_donotallowuserstochangepolicies",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_donotallowuserstochangepolicies_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_securityzonesuseonlymachinesettings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_securityzonesuseonlymachinesettings_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_specifyuseofactivexinstallerservice",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_specifyuseofactivexinstallerservice_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disablecrashdetection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disablecrashdetection_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_internetexplorer_disablesecuritysettingscheck",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_internetexplorer_disablesecuritysettingscheck_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_internetexplorer_allowautocomplete",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_internetexplorer_allowautocomplete_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Accounts - D - Configuration - v3.2",
+   "key": "win oib sc microsoft accounts d configuration",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Accounts - D - Configuration - v3.2.json",
+   "oibId": "7AFCF2FB-6037-49E5-A22F-5E14676EFF69",
+   "scope": "Device",
+   "addedIn": "3.2",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:7AFCF2FB-6037-49E5-A22F-5E14676EFF69",
+    "name": "Win - OIB - SC - Microsoft Accounts - D - Configuration - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_accounts_allowaddingnonmicrosoftaccountsmanually",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_accounts_allowaddingnonmicrosoftaccountsmanually_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_accounts_allowmicrosoftaccountconnection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_accounts_allowmicrosoftaccountconnection_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_appruntime_allowmicrosoftaccountstobeoptional",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_appruntime_allowmicrosoftaccountstobeoptional_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_msapolicy_microsoftaccount_disableuserauth",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_msapolicy_microsoftaccount_disableuserauth_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_blockmicrosoftaccounts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_accounts_blockmicrosoftaccounts_3",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - D - Security - v3.8",
+   "key": "win oib sc microsoft edge d security",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - D - Security - v3.8.json",
+   "oibId": "D4CF7340-CBAB-4402-9786-954408792A8A",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:D4CF7340-CBAB-4402-9786-954408792A8A",
+    "name": "Win - OIB - SC - Microsoft Edge - D - Security - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_adssettingforintrusiveadssites",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_adssettingforintrusiveadssites_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_adssettingforintrusiveadssites_adssettingforintrusiveadssites",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_adssettingforintrusiveadssites_adssettingforintrusiveadssites_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgeupdates.2~policy~microsoft_edge_downloadrestrictions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgeupdates.2~policy~microsoft_edge_downloadrestrictions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgeupdates.2~policy~microsoft_edge_downloadrestrictions_downloadrestrictions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgeupdates.2~policy~microsoft_edge_downloadrestrictions_downloadrestrictions_4",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_importbrowsersettings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_importbrowsersettings_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importhistory",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importhistory_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importhomepage",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importhomepage_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importpaymentinfo",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importpaymentinfo_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importsavedpasswords",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importsavedpasswords_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importsearchengine",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_importsearchengine_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_enterprisehardwareplatformapienabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_enterprisehardwareplatformapienabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_personalizationreportingenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_personalizationreportingenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsernetworktimequeriesenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsernetworktimequeriesenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev92~policy~microsoft_edge_internetexplorerintegrationreloadiniemodeallowed",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev92~policy~microsoft_edge_internetexplorerintegrationreloadiniemodeallowed_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_sslerroroverrideallowed",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_sslerroroverrideallowed_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_paymentmethodqueryenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_paymentmethodqueryenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev117~policy~microsoft_edge_internetexplorerintegrationzoneidentifiermhtfileallowed",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev117~policy~microsoft_edge_internetexplorerintegrationzoneidentifiermhtfileallowed_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_trackingprevention",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_trackingprevention_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_trackingprevention_trackingprevention",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_trackingprevention_trackingprevention_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~googlecast_enablemediarouter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~googlecast_enablemediarouter_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_clearbrowsingdataonexit",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_clearbrowsingdataonexit_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev83diff~policy~microsoft_edge_clearcachedimagesandfilesonexit",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev83diff~policy~microsoft_edge_clearcachedimagesandfilesonexit_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev83diff~policy~microsoft_edge_configureshare",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev83diff~policy~microsoft_edge_configureshare_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_experimentationandconfigurationservicecontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_experimentationandconfigurationservicecontrol_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_experimentationandconfigurationservicecontrol_experimentationandconfigurationservicecontrol",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_experimentationandconfigurationservicecontrol_experimentationandconfigurationservicecontrol_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_dnsinterceptionchecksenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_dnsinterceptionchecksenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev128~policy~microsoft_edge_dynamiccodesettings",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev128~policy~microsoft_edge_dynamiccodesettings_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev128~policy~microsoft_edge_dynamiccodesettings_dynamiccodesettings",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgev128~policy~microsoft_edge_dynamiccodesettings_dynamiccodesettings_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev128.1~policy~microsoft_edge_applicationboundencryptionenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev128.1~policy~microsoft_edge_applicationboundencryptionenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autofilladdressenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autofilladdressenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autofillcreditcardenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autofillcreditcardenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev95~policy~microsoft_edge_browserlegacyextensionpointsblockingenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev95~policy~microsoft_edge_browserlegacyextensionpointsblockingenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_networkpredictionoptions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_networkpredictionoptions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_networkpredictionoptions_networkpredictionoptions",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_networkpredictionoptions_networkpredictionoptions_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_siteperprocess",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_siteperprocess_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_enhancesecuritymode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_enhancesecuritymode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_enhancesecuritymode_enhancesecuritymode",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_enhancesecuritymode_enhancesecuritymode_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~experimentation_featureflagoverridescontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~experimentation_featureflagoverridescontrol_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~experimentation_featureflagoverridescontrol_featureflagoverridescontrol",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~experimentation_featureflagoverridescontrol_featureflagoverridescontrol_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_hidefirstrunexperience",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge_hidefirstrunexperience_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~httpauthentication_authschemes",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~httpauthentication_authschemes_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~httpauthentication_authschemes_authschemes",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "ntlm,negotiate"
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev90~policy~microsoft_edge~httpauthentication_windowshelloforhttpauthenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev90~policy~microsoft_edge~httpauthentication_windowshelloforhttpauthenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_microsoftedgeinsiderpromotionenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev98~policy~microsoft_edge_microsoftedgeinsiderpromotionenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~nativemessaging_nativemessaginguserlevelhosts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~nativemessaging_nativemessaginguserlevelhosts_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev134~policy~microsoft_edge~scarewareblocker_scarewareblockerprotectionenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev134~policy~microsoft_edge~scarewareblocker_scarewareblockerprotectionenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev96~policy~microsoft_edge_internetexplorermodetoolbarbuttonenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev96~policy~microsoft_edge_internetexplorermodetoolbarbuttonenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_smartscreenenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_smartscreenenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge~smartscreen_smartscreenpuaenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev80diff~policy~microsoft_edge~smartscreen_smartscreenpuaenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev97~policy~microsoft_edge~smartscreen_smartscreendnsrequestsenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev97~policy~microsoft_edge~smartscreen_smartscreendnsrequestsenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge~smartscreen_smartscreenfortrusteddownloadsenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge~smartscreen_smartscreenfortrusteddownloadsenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverride",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverride_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverrideforfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverrideforfiles_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edgev96~policy~microsoft_edge~typosquattingchecker_typosquattingcheckerenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edgev96~policy~microsoft_edge~typosquattingchecker_typosquattingcheckerenabled_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - D - Updates - v3.6",
+   "key": "win oib sc microsoft edge d updates",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - D - Updates - v3.6.json",
+   "oibId": "4DC5B8D4-1807-465D-888E-6A4A1E6DA7AE",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:4DC5B8D4-1807-465D-888E-6A4A1E6DA7AE",
+    "name": "Win - OIB - SC - Microsoft Edge - D - Updates - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_componentupdatesenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_componentupdatesenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotification",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotification_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotification_relaunchnotification",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotification_relaunchnotification_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotificationperiod",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotificationperiod_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_relaunchnotificationperiod_relaunchnotificationperiod",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 259200000
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updateupdates.1~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updateupdates.1~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_updateupdates.1~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge_part_installpolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_updateupdates.1~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge_part_installpolicy_5",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_allowinstallationmicrosoftedge_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev83diff~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_createdesktopshortcutmicrosoftedge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev83diff~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_createdesktopshortcutmicrosoftedge_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev95~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_targetchannelmicrosoftedge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev95~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_targetchannelmicrosoftedge_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_updatev95~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_targetchannelmicrosoftedge_part_targetchannel",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_updatev95~policy~cat_edgeupdate~cat_applications~cat_microsoftedge_pol_targetchannelmicrosoftedge_part_targetchannel_stable",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_updatepolicymicrosoftedge",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_updatepolicymicrosoftedge_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_updatepolicymicrosoftedge_part_updatepolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_applications~cat_microsoftedge_pol_updatepolicymicrosoftedge_part_updatepolicy_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev94~policy~cat_edgeupdate_pol_ecscontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev94~policy~cat_edgeupdate_pol_ecscontrol_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_updatev94~policy~cat_edgeupdate_pol_ecscontrol_part_ecscontrol",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_updatev94~policy~cat_edgeupdate_pol_ecscontrol_part_ecscontrol_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_updatepolicymicrosoftedgewebview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_updatepolicymicrosoftedgewebview_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_updatepolicymicrosoftedgewebview_part_updatepolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_updatev87~policy~cat_edgeupdate~cat_webview_pol_updatepolicymicrosoftedgewebview_part_updatepolicy_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_updatev87.updates.1~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_updatev87.updates.1~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_updatev87.updates.1~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview_part_installpolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_updatev87.updates.1~policy~cat_edgeupdate~cat_webview_pol_allowinstallationmicrosoftedgewebview_part_installpolicy_5",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_preferences_pol_autoupdatecheckperiod",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_preferences_pol_autoupdatecheckperiod_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_update~policy~cat_google~cat_googleupdate~cat_preferences_pol_autoupdatecheckperiod_part_autoupdatecheckperiod",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 240
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - U - Extensions - v3.1",
+   "key": "win oib sc microsoft edge u extensions",
+   "version": "3.1",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - U - Extensions - v3.1.json",
+   "oibId": "3B1399B4-FC9A-4523-820F-769416D72543",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:3B1399B4-FC9A-4523-820F-769416D72543",
+    "name": "Win - OIB - SC - Microsoft Edge - U - Extensions - v3.1",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallallowlist",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallallowlist_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge~extensions_blockexternalextensions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge~extensions_blockexternalextensions_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallforcelist",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallforcelist_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallforcelist_extensioninstallforcelistdesc",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "nkbndigcebkoaejohleckhekfmcecfja"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "ofefcgjbeghpigppfmkologfjadafddi"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallblocklist",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallblocklist_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~extensions_extensioninstallblocklist_extensioninstallblocklistdesc",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - U - Password Management - v3.0",
+   "key": "win oib sc microsoft edge u password management",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - U - Password Management - v3.0.json",
+   "oibId": "EFCDF5AC-B50C-4A4C-A38F-976FFFBBEB8D",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:EFCDF5AC-B50C-4A4C-A38F-976FFFBBEB8D",
+    "name": "Win - OIB - SC - Microsoft Edge - U - Password Management - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev85diff~policy~microsoft_edge~passwordmanager_passwordmonitorallowed",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev85diff~policy~microsoft_edge~passwordmanager_passwordmonitorallowed_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~passwordmanager_passwordgeneratorenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~passwordmanager_passwordgeneratorenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev93.1~policy~microsoft_edge~passwordmanager_primarypasswordsetting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev93.1~policy~microsoft_edge~passwordmanager_primarypasswordsetting_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev93.1~policy~microsoft_edge~passwordmanager_primarypasswordsetting_primarypasswordsetting",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_microsoft_edgev93.1~policy~microsoft_edge~passwordmanager_primarypasswordsetting_primarypasswordsetting_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~passwordmanager_passwordmanagerenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~passwordmanager_passwordmanagerenabled_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - U - Profiles, Sign-In and Sync - v3.0",
+   "key": "win oib sc microsoft edge u profiles, sign in and sync",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - U - Profiles, Sign-In and Sync - v3.0.json",
+   "oibId": "1ED22C9C-F667-4513-B249-7254687C43AC",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:1ED22C9C-F667-4513-B249-7254687C43AC",
+    "name": "Win - OIB - SC - Microsoft Edge - U - Profiles, Sign-In and Sync - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autoimportatfirstrun",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_autoimportatfirstrun_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsersignin",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsersignin_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsersignin_browsersignin",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browsersignin_browsersignin_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_nonremovableprofileenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev78diff~policy~microsoft_edge_nonremovableprofileenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browseraddprofileenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_browseraddprofileenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_forceephemeralprofiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_forceephemeralprofiles_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev86~policy~microsoft_edge_forcesync",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev86~policy~microsoft_edge_forcesync_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~identity_implicitsigninenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev93~policy~microsoft_edge~identity_implicitsigninenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev92~policy~microsoft_edge_aadwebsitessousingthisprofileenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev92~policy~microsoft_edge_aadwebsitessousingthisprofileenabled_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Edge - U - User Experience - v3.8",
+   "key": "win oib sc microsoft edge u user experience",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Edge - U - User Experience - v3.8.json",
+   "oibId": "CD2F5221-54A6-41A9-ACE0-33F424A75FDE",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:CD2F5221-54A6-41A9-ACE0-33F424A75FDE",
+    "name": "Win - OIB - SC - Microsoft Edge - U - User Experience - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev99~policy~microsoft_edge_allowgamesmenu",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev99~policy~microsoft_edge_allowgamesmenu_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_urlblocklist",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_urlblocklist_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_urlblocklist_urlblocklistdesc",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "https://apps.microsoft.com"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "https://apps.microsoft.com/*"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "apps.microsoft.com"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "apps.microsoft.com/*"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_notificationsallowedforurls",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_notificationsallowedforurls_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_notificationsallowedforurls_notificationsallowedforurlsdesc",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.microsoft.com"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.cloud.microsoft"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_defaultnotificationssetting",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_defaultnotificationssetting_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_defaultnotificationssetting_defaultnotificationssetting",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge~contentsettings_defaultnotificationssetting_defaultnotificationssetting_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev144~policy~microsoft_edge_whatsnewpageforentraprofilesenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev144~policy~microsoft_edge_whatsnewpageforentraprofilesenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev107~policy~microsoft_edge~edgeworkspaces_edgeworkspacesenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev107~policy~microsoft_edge~edgeworkspaces_edgeworkspacesenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev117~policy~microsoft_edge~edgegames_gamermodeenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev117~policy~microsoft_edge~edgegames_gamermodeenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev111~policy~microsoft_edge_newpdfreaderenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev111~policy~microsoft_edge_newpdfreaderenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev87~policy~microsoft_edge_edgeshoppingassistantenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev87~policy~microsoft_edge_edgeshoppingassistantenabled_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_showmicrosoftrewards",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_showmicrosoftrewards_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev111~policy~microsoft_edge_showacrobatsubscriptionbutton",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev111~policy~microsoft_edge_showacrobatsubscriptionbutton_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_recommended~performance_recommended_startupboostenabled_recommended",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_recommended~performance_recommended_startupboostenabled_recommended_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_recommended~sleepingtabs_recommended_sleepingtabsenabled_recommended",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev88~policy~microsoft_edge_recommended~sleepingtabs_recommended_sleepingtabsenabled_recommended_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_restoreonstartup_recommended",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_restoreonstartup_recommended_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_restoreonstartup_recommended_restoreonstartup",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_restoreonstartup_recommended_restoreonstartup_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edgev79diff~policy~microsoft_edge_recommended~startup_recommended_newtabpagemanagedquicklinks_recommended",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edgev79diff~policy~microsoft_edge_recommended~startup_recommended_newtabpagemanagedquicklinks_recommended_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_showhomebutton_recommended",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_microsoft_edge~policy~microsoft_edge_recommended~startup_recommended_showhomebutton_recommended_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Office - D - Security - v3.6",
+   "key": "win oib sc microsoft office d security",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Office - D - Security - v3.6.json",
+   "oibId": "A182DB08-2F64-4535-8A7E-C0277D88152B",
+   "scope": "Device",
+   "addedIn": "3.6",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: These policies are only applicable to Microsoft 365 Apps for Enterprise (included with M365 E*/A*/F*), not Microsoft 365 Apps for Business (included with M365 Business Premium).\nOIBID:A182DB08-2F64-4535-8A7E-C0277D88152B",
+    "name": "Win - OIB - SC - Microsoft Office - D - Security - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_a001_block_flash",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_a001_block_flash_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_a001_block_flash_pol_secguide_block_flash",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_a001_block_flash_pol_secguide_block_flash_block embedded flash activation only",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_msaccess",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_excel",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_onenote",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_outlook",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_powerpnt",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_winproj",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_mspub",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_visio",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_secguidev22h2~policy~cat_secguide_pol_secguide_legacy_jscript_pol_sg_winword",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 69632
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lync16v2~policy~l_lync~l_lyncconfiguration_l_policyenablesiphighsecuritymode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lync16v2~policy~l_lync~l_lyncconfiguration_l_policyenablesiphighsecuritymode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_lync16v2~policy~l_lync~l_lyncconfiguration_l_policydisablehttpconnect",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_lync16v2~policy~l_lync~l_lyncconfiguration_l_policydisablehttpconnect_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_excelexe15",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_excelexe15_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_exprwdexe24",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_exprwdexe24_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_grooveexe14",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_grooveexe14_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_msaccessexe25",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_msaccessexe25_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_mse7exe27",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_mse7exe27_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_mspubexe16",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_mspubexe16_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_onenoteexe26",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_onenoteexe26_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_outlookexe22",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_outlookexe22_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_powerpntexe17",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_powerpntexe17_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_pptviewexe18",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_pptviewexe18_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_spdesignexe23",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_spdesignexe23_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_visioexe19",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_visioexe19_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_winprojexe20",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_winprojexe20_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_winwordexe21",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_addonmanagement_l_winwordexe21_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_excelexe43",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_excelexe43_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_exprwdexe52",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_exprwdexe52_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_grooveexe42",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_grooveexe42_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_msaccessexe53",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_msaccessexe53_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_mse7exe55",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_mse7exe55_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_mspubexe44",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_mspubexe44_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_onenoteexe54",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_onenoteexe54_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_outlookexe50",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_outlookexe50_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_powerpntexe45",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_powerpntexe45_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_pptviewexe46",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_pptviewexe46_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_spdesignexe51",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_spdesignexe51_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_visioexe47",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_visioexe47_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_winprojexe48",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_winprojexe48_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_winwordexe49",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_consistentmimehandling_l_winwordexe49_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_excelexe127",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_excelexe127_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_exprwdexe136",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_exprwdexe136_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_grooveexe126",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_grooveexe126_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_msaccessexe137",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_msaccessexe137_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_mse7exe139",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_mse7exe139_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_mspubexe128",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_mspubexe128_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_onenoteexe138",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_onenoteexe138_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_outlookexe134",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_outlookexe134_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_powerpntexe129",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_powerpntexe129_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_pptviewexe130",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_pptviewexe130_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_spdesignexe135",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_spdesignexe135_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_visioexe131",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_visioexe131_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_winprojexe132",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_winprojexe132_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_winwordexe133",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_disableusernameandpassword_l_winwordexe133_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_excelexe113",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_excelexe113_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_exprwdexe122",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_exprwdexe122_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_grooveexe112",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_grooveexe112_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_msaccessexe123",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_msaccessexe123_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_mse7exe125",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_mse7exe125_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_mspubexe114",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_mspubexe114_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_onenoteexe124",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_onenoteexe124_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_outlookexe120",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_outlookexe120_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_powerpntexe115",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_powerpntexe115_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_pptviewexe116",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_pptviewexe116_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_spdesignexe121",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_spdesignexe121_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_visioexe117",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_visioexe117_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_winprojexe118",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_winprojexe118_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_winwordexe119",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_informationbar_l_winwordexe119_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_excelexe29",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_excelexe29_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_exprwdexe38",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_exprwdexe38_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_grooveexe28",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_grooveexe28_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_msaccessexe39",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_msaccessexe39_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_mse7exe41",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_mse7exe41_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_mspubexe30",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_mspubexe30_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_onenoteexe40",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_onenoteexe40_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_outlookexe36",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_outlookexe36_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_powerpntexe31",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_powerpntexe31_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_pptviewexe32",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_pptviewexe32_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_spdesignexe37",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_spdesignexe37_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_visioexe33",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_visioexe33_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_winprojexe34",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_winprojexe34_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_winwordexe35",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_localmachinezonelockdownsecurity_l_winwordexe35_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_excelexe57",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_excelexe57_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_exprwdexe66",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_exprwdexe66_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_grooveexe56",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_grooveexe56_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_msaccessexe67",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_msaccessexe67_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_mse7exe69",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_mse7exe69_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_mspubexe58",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_mspubexe58_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_onenoteexe68",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_onenoteexe68_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_outlookexe64",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_outlookexe64_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_powerpntexe59",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_powerpntexe59_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_pptviewexe60",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_pptviewexe60_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_spdesignexe65",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_spdesignexe65_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_visioexe61",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_visioexe61_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_winprojexe62",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_winprojexe62_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_winwordexe63",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_mimesniffingsafetyfature_l_winwordexe63_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_excelexe169",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_excelexe169_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_exprwdexe178",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_exprwdexe178_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_grooveexe168",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_grooveexe168_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_msaccessexe179",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_msaccessexe179_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_mse7exe181",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_mse7exe181_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_mspubexe170",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_mspubexe170_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_onenoteexe180",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_onenoteexe180_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_outlookexe176",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_outlookexe176_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_powerpntexe171",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_powerpntexe171_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_pptviewexe172",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_pptviewexe172_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_spdesignexe177",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_spdesignexe177_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_visioexe173",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_visioexe173_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_winprojexe174",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_winprojexe174_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_winwordexe175",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_navigateurl_l_winwordexe175_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_excelexe71",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_excelexe71_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_exprwdexe80",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_exprwdexe80_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_grooveexe70",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_grooveexe70_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_msaccessexe81",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_msaccessexe81_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_mse7exe83",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_mse7exe83_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_mspubexe72",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_mspubexe72_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_onenoteexe82",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_onenoteexe82_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_outlookexe78",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_outlookexe78_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_powerpntexe73",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_powerpntexe73_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_pptviewexe74",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_pptviewexe74_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_spdesignexe79",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_spdesignexe79_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_visioexe75",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_visioexe75_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_winprojexe76",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_winprojexe76_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_winwordexe77",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_objectcachingprotection_l_winwordexe77_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_excelexe99",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_excelexe99_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_exprwdexe108",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_exprwdexe108_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_grooveexe98",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_grooveexe98_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_msaccessexe109",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_msaccessexe109_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_mse7exe111",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_mse7exe111_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_mspubexe100",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_mspubexe100_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_onenoteexe110",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_onenoteexe110_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_outlookexe106",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_outlookexe106_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_powerpntexe101",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_powerpntexe101_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_pptviewexe102",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_pptviewexe102_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_spdesignexe107",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_spdesignexe107_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_visioexe103",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_visioexe103_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_winprojexe104",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_winprojexe104_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_winwordexe105",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_protectionfromzoneelevation_l_winwordexe105_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_excelexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_excelexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_exprwdexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_exprwdexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_grooveexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_grooveexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_msaccessexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_msaccessexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_mse7exe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_mse7exe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_mspubexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_mspubexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_onenoteexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_onenoteexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_outlookexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_outlookexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_powerpntexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_powerpntexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_pptviewexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_pptviewexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_spdesignexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_spdesignexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_visioexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_visioexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_winprojexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_winprojexe_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_winwordexe",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictactivexinstall_l_winwordexe_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_excelexe1",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_excelexe1_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_exprwdexe10",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_exprwdexe10_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_grooveexe0",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_grooveexe0_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_msaccessexe11",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_msaccessexe11_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_mse7exe13",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_mse7exe13_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_mspubexe2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_mspubexe2_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_onenoteexe12",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_onenoteexe12_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_outlookexe8",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_outlookexe8_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_powerpntexe3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_powerpntexe3_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_pptviewexe4",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_pptviewexe4_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_spdesignexe9",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_spdesignexe9_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_visioexe5",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_visioexe5_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_winprojexe6",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_winprojexe6_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_winwordexe7",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_restrictfiledownload_l_winwordexe7_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_excelexe155",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_excelexe155_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_exprwdexe164",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_exprwdexe164_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_grooveexe154",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_grooveexe154_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_msaccessexe165",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_msaccessexe165_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_mse7exe167",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_mse7exe167_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_mspubexe156",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_mspubexe156_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_onenoteexe166",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_onenoteexe166_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_outlookexe162",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_outlookexe162_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_powerpntexe157",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_powerpntexe157_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_pptviewexe158",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_pptviewexe158_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_spdesignexe163",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_spdesignexe163_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_visioexe159",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_visioexe159_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_winprojexe160",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_winprojexe160_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_winwordexe161",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_savedfromurl_l_winwordexe161_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_excelexe85",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_excelexe85_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_exprwdexe94",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_exprwdexe94_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_grooveexe84",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_grooveexe84_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_msaccessexe95",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_msaccessexe95_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_mse7exe97",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_mse7exe97_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_mspubexe86",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_mspubexe86_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_onenoteexe96",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_onenoteexe96_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_outlookexe92",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_outlookexe92_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_powerpntexe87",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_powerpntexe87_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_pptviewexe88",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_pptviewexe88_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_spdesignexe93",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_spdesignexe93_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_visioexe89",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_visioexe89_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_winprojexe90",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_winprojexe90_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_winwordexe91",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_securitysettingsmachine~l_iesecurity_l_scriptedwindowsecurityrestrictions_l_winwordexe91_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Office - D - Updates - v3.0",
+   "key": "win oib sc microsoft office d updates",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Office - D - Updates - v3.0.json",
+   "oibId": "B42FB11C-AF28-476E-AB4E-BF563AC80975",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:B42FB11C-AF28-476E-AB4E-BF563AC80975",
+    "name": "Win - OIB - SC - Microsoft Office - D - Updates - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v5~policy~l_microsoftofficemachine~l_updates_l_preventbinginstall",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v5~policy~l_microsoftofficemachine~l_updates_l_preventbinginstall_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_enableautomaticupdates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_enableautomaticupdates_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_hideenabledisableupdates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_hideenabledisableupdates_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_onlinerepair",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_onlinerepair_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_onlinerepair_l_localodtpath",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": ""
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_onlinerepair_l_fallbacktocdn",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_office16v2~policy~l_microsoftofficemachine~l_updates_l_onlinerepair_l_fallbacktocdn_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Office - U - Config and Experience - v3.6",
+   "key": "win oib sc microsoft office u config and experience",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Office - U - Config and Experience - v3.6.json",
+   "oibId": "2993C83D-2B5C-4258-BB6E-9392B45EB401",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:2993C83D-2B5C-4258-BB6E-9392B45EB401",
+    "name": "Win - OIB - SC - Microsoft Office - U - Config and Experience - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_saveexcelfilesas",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_saveexcelfilesas_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_saveexcelfilesas_l_saveexcelfilesas1",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_saveexcelfilesas_l_saveexcelfilesas1_51",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_turnofffileformatcompatiblitydialogforods",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_turnofffileformatcompatiblitydialogforods_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_firstrun_l_disablemovie",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_firstrun_l_disablemovie_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_firstrun_l_disableofficefirstrun",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_firstrun_l_disableofficefirstrun_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v10~policy~l_microsoftofficesystem~l_languagesettings~l_displaylanguage_l_allownonadminuserinstalllaps",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v10~policy~l_microsoftofficesystem~l_languagesettings~l_displaylanguage_l_allownonadminuserinstalllaps_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_languagesettings_l_disableproofingtoolsadvertisement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_languagesettings_l_disableproofingtoolsadvertisement_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v18~policy~l_microsoftofficesystem~l_miscellaneous437_l_linksopenrightdefaultsettingisnative",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v18~policy~l_microsoftofficesystem~l_miscellaneous437_l_linksopenrightdefaultsettingisnative_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2.updates.2~policy~l_microsoftofficesystem~l_miscellaneous437_l_onlinestoragefilter",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2.updates.2~policy~l_microsoftofficesystem~l_miscellaneous437_l_onlinestoragefilter_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2.updates.2~policy~l_microsoftofficesystem~l_miscellaneous437_l_onlinestoragefilter_l_onlinestoragefilterid",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+           "value": 137
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_miscellaneous437_l_suppressrecommendedsettingsdialog",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_miscellaneous437_l_suppressrecommendedsettingsdialog_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v7.updates~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_sendsurvey",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v7.updates~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_sendsurvey_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_disableoptinwizard",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_disableoptinwizard_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_enablecustomerexperienceimprovementprogram",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_privacy~l_trustcenter_l_enablecustomerexperienceimprovementprogram_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_automaticallyconfigureprofilebasedonactive",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_automaticallyconfigureprofilebasedonactive_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_downloadshardnonmailfolders",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_downloadshardnonmailfolders_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_configurecachedexchangemode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_configurecachedexchangemode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_includeonlinemodegalinanr",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings~l_cachedexchangemode_l_includeonlinemodegalinanr_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v3~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_preferprovidedemailinautodiscoverauthprompts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v3~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_preferprovidedemailinautodiscoverauthprompts_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_preventnondefaultexchangeaccounts",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_preventnondefaultexchangeaccounts_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_rsssubscriptions_l_turnoffrssfeature",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_rsssubscriptions_l_turnoffrssfeature_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v4~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other_l_disableoutlookmobilehyperlink",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v4~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other_l_disableoutlookmobilehyperlink_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other_l_makeoutlookthedefaultprogramforemailcontactsandcalendar",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other_l_makeoutlookthedefaultprogramforemailcontactsandcalendar_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_savepowerpointfilesas",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_savepowerpointfilesas_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_savepowerpointfilesas_l_savepowerpointfilesas1",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_savepowerpointfilesas_l_savepowerpointfilesas1_27",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_turnofffileformatcompatiblitydialogforodp",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_save_l_turnofffileformatcompatiblitydialogforodp_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_savewordfilesas",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_savewordfilesas_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_savewordfilesas_l_savewordfilesas3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_savewordfilesas_l_savewordfilesas3_",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_donotdisplayfileformatcompatiblitydialogforodt",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_save_l_donotdisplayfileformatcompatiblitydialogforodt_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Office - U - Security - v3.6",
+   "key": "win oib sc microsoft office u security",
+   "version": "3.6",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Office - U - Security - v3.6.json",
+   "oibId": "A40F9A90-1B78-4525-AEC7-93ABE0848C9E",
+   "scope": "User",
+   "addedIn": "3.6",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: These policies are only applicable to Microsoft 365 Apps for Enterprise (included with M365 E*/A*/F*), not Microsoft 365 Apps for Business (included with M365 Business Premium).\nOIBID:A40F9A90-1B78-4525-AEC7-93ABE0848C9E",
+    "name": "Win - OIB - SC - Microsoft Office - U - Security - v3.6",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_vbawarningspolicy_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_access16v2~policy~l_microsoftofficeaccess~l_applicationsettings~l_security~l_trustcenter_l_vbawarningspolicy_l_empty_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_datarecovery_l_donotshowdataextractionoptionswhenopeningcorruptworkbooks",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_datarecovery_l_donotshowdataextractionoptionswhenopeningcorruptworkbooks_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_advanced_l_asktoupdateautomaticlinks",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_advanced_l_asktoupdateautomaticlinks_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_advanced~l_weboptions~l_general_l_loadpicturesfromwebpagesnotcreatedinexcel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_advanced~l_weboptions~l_general_l_loadpicturesfromwebpagesnotcreatedinexcel_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_disableautorepublish",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_disableautorepublish_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_donotshowautorepublishwarningalert",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_save_l_donotshowautorepublishwarningalert_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_forcefileextenstionstomatch",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_forcefileextenstionstomatch_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_forcefileextenstionstomatch_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_forcefileextenstionstomatch_l_empty_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_determinewhethertoforceencryptedexcel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_determinewhethertoforceencryptedexcel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_determinewhethertoforceencryptedexcel_l_determinewhethertoforceencryptedexceldropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_determinewhethertoforceencryptedexcel_l_determinewhethertoforceencryptedexceldropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v8~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockxllfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v8~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockxllfrominternet_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v8~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockxllfrominternet_l_blockxllfrominternetenum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v8~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockxllfrominternet_l_blockxllfrominternetenum_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_enableblockunsecurequeryfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_enableblockunsecurequeryfiles_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_disableddeserverlaunch",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_disableddeserverlaunch_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_disableddeserverlookup",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_externalcontent_l_disableddeserverlookup_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_dbaseiiiandivfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_dbaseiiiandivfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_dbaseiiiandivfiles_l_dbaseiiiandivfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_dbaseiiiandivfiles_l_dbaseiiiandivfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_difandsylkfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_difandsylkfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_difandsylkfiles_l_difandsylkfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_difandsylkfiles_l_difandsylkfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2macrosheetsandaddinfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2macrosheetsandaddinfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2macrosheetsandaddinfiles_l_excel2macrosheetsandaddinfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2macrosheetsandaddinfiles_l_excel2macrosheetsandaddinfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2worksheets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2worksheets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2worksheets_l_excel2worksheetsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel2worksheets_l_excel2worksheetsdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3macrosheetsandaddinfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3macrosheetsandaddinfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3macrosheetsandaddinfiles_l_excel3macrosheetsandaddinfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3macrosheetsandaddinfiles_l_excel3macrosheetsandaddinfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3worksheets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3worksheets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3worksheets_l_excel3worksheetsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel3worksheets_l_excel3worksheetsdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4macrosheetsandaddinfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4macrosheetsandaddinfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4macrosheetsandaddinfiles_l_excel4macrosheetsandaddinfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4macrosheetsandaddinfiles_l_excel4macrosheetsandaddinfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4workbooks",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4workbooks_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4workbooks_l_excel4workbooksdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4workbooks_l_excel4workbooksdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4worksheets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4worksheets_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4worksheets_l_excel4worksheetsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel4worksheets_l_excel4worksheetsdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel95workbooks",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel95workbooks_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel95workbooks_l_excel95workbooksdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel95workbooks_l_excel95workbooksdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel9597workbooksandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel9597workbooksandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel9597workbooksandtemplates_l_excel9597workbooksandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel9597workbooksandtemplates_l_excel9597workbooksandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel972003workbooksandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel972003workbooksandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel972003workbooksandtemplates_l_excel972003workbooksandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_excel972003workbooksandtemplates_l_excel972003workbooksandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_webpagesandexcel2003xmlspreadsheets",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_fileblocksettings_l_webpagesandexcel2003xmlspreadsheets_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v6~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_xl4killswitchpolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v6~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_xl4killswitchpolicy_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_enabledatabasefileprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v3~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_enabledatabasefileprotectedview_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty4",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty4_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_turnofffilevalidation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_turnofffilevalidation_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_webcontentwarninglevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_webcontentwarninglevel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_webcontentwarninglevel_l_webcontentwarninglevelvalue",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_excel16v2~policy~l_microsoftofficeexcel~l_exceloptions~l_security_l_webcontentwarninglevel_l_webcontentwarninglevelvalue_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyaccess",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyaccess_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyexcel",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyexcel_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyinfopath",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyinfopath_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyoutlook",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyoutlook_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicypowerpoint",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicypowerpoint_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyproject",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyproject_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicypublisher",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicypublisher_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyvisio",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyvisio_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyword",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_gloabloptions~l_customize_l_noextensibilitycustomizationfromdocumentpolicy_l_noextensibilitycustomizationfromdocumentpolicyword_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_activexcontrolinitialization",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_activexcontrolinitialization_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_activexcontrolinitialization_l_activexcontrolinitializationcolon",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_activexcontrolinitialization_l_activexcontrolinitializationcolon_6",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v12~policy~l_microsoftofficesystem~l_securitysettings_l_basicauthproxybehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v12~policy~l_microsoftofficesystem~l_securitysettings_l_basicauthproxybehavior_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v6~policy~l_microsoftofficesystem~l_securitysettings_l_allowvbaintranetrefs",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v6~policy~l_microsoftofficesystem~l_securitysettings_l_allowvbaintranetrefs_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_automationsecurity",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_automationsecurity_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_automationsecurity_l_settheautomationsecuritylevel",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_automationsecurity_l_settheautomationsecuritylevel_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v5~policy~l_microsoftofficesystem~l_securitysettings_l_authenticationfbabehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v5~policy~l_microsoftofficesystem~l_securitysettings_l_authenticationfbabehavior_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v5~policy~l_microsoftofficesystem~l_securitysettings_l_authenticationfbabehavior_l_authenticationfbabehaviorenum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v5~policy~l_microsoftofficesystem~l_securitysettings_l_authenticationfbabehavior_l_authenticationfbabehaviorenum_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v5~policy~l_microsoftofficesystem~l_securitysettings_l_authenticationfbabehavior_l_authenticationfbaenabledhostsid",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": ""
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v6~policy~l_microsoftofficesystem~l_securitysettings_l_disablestrictvbarefssecuritypolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v6~policy~l_microsoftofficesystem~l_securitysettings_l_disablestrictvbarefssecuritypolicy_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_disablealltrustbarnotificationsfor",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_disablealltrustbarnotificationsfor_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v14~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforirm",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v14~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforirm_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v14~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforirm_l_encryptiontypeforirmcolon",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v14~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforirm_l_encryptiontypeforirmcolon_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedoffice972003",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedoffice972003_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedoffice972003_l_encryptiontypecolon318",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "Microsoft Enhanced RSA and AES Cryptographic Provider,AES 256,256"
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedofficeopen",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedofficeopen_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_encryptiontypeforpasswordprotectedofficeopen_l_encryptiontypecolon",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "Microsoft Enhanced RSA and AES Cryptographic Provider,AES 256,256"
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_loadcontrolsinforms3",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_loadcontrolsinforms3_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_loadcontrolsinforms3_l_loadcontrolsinforms3colon",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_loadcontrolsinforms3_l_loadcontrolsinforms3colon_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_macroruntimescanscope",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_macroruntimescanscope_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_macroruntimescanscope_l_macroruntimescanscopeenum",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_macroruntimescanscope_l_macroruntimescanscopeenum_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_protectdocumentmetadataforrightsmanaged",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings_l_protectdocumentmetadataforrightsmanaged_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings~l_trustcenter241_l_allowmixofpolicyanduserlocations",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_securitysettings~l_trustcenter241_l_allowmixofpolicyanduserlocations_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_serversettings_l_disabletheofficeclientfrompolling",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_serversettings_l_disabletheofficeclientfrompolling_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_smartdocumentswordexcel_l_disablesmartdocumentsuseofmanifests",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_office16v2~policy~l_microsoftofficesystem~l_smartdocumentswordexcel_l_disablesmartdocumentsuseofmanifests_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings_l_outlooksecuritymode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings_l_outlooksecuritymode_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_allowactivexoneoffforms_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_allowactivexoneoffforms_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_allowactivexoneoffforms_v2_l_empty29",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_allowactivexoneoffforms_v2_l_empty29_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_enablelinksinemailmessages_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_enablelinksinemailmessages_v2_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_enablescriptsinoneoffforms_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_enablescriptsinoneoffforms_v2_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_allowuserstolowerattachments_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_allowuserstolowerattachments_v2_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v6~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_authenticationwithexchangeserver_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v6~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_authenticationwithexchangeserver_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v6~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_authenticationwithexchangeserver_v2_l_selecttheauthenticationwithexchangeserver",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v6~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_authenticationwithexchangeserver_v2_l_selecttheauthenticationwithexchangeserver_16",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressbook_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressbook_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressbook_v2_l_oomaddressbook_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressbook_v2_l_oomaddressbook_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomformula_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomformula_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomformula_v2_l_oomformula_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomformula_v2_l_oomformula_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsaveas_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsaveas_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsaveas_v2_l_oomsaveas_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsaveas_v2_l_oomsaveas_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressaccess_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressaccess_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressaccess_v2_l_oomaddressaccess_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomaddressaccess_v2_l_oomaddressaccess_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oommeetingtaskrequest_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oommeetingtaskrequest_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oommeetingtaskrequest_v2_l_oommeetingtaskrequest_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oommeetingtaskrequest_v2_l_oommeetingtaskrequest_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsend_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsend_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsend_v2_l_oomsend_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_programmaticsettings_l_oomsend_v2_l_oomsend_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level1attachments_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level1attachments_v2_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_disableoutlookobjectmodelscriptsforpublicfolders_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_disableoutlookobjectmodelscriptsforpublicfolders_v2_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_disableoutlookobjectmodelscripts_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_disableoutlookobjectmodelscripts_v2_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_enablerpcencryption_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_toolsaccounts~l_exchangesettings_l_enablerpcencryption_v2_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_automaticpicturedownloadsettings_l_blockinternet_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_automaticpicturedownloadsettings_l_blockinternet_v2_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_minimumencryptionsettings_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_minimumencryptionsettings_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_minimumencryptionsettings_v2_l_minimumkeysizeinbits",
+             "simpleSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+              "value": 168
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings_l_outlooksecuritymode_l_outlooksecuritypolicy",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings_l_outlooksecuritymode_l_outlooksecuritypolicy_3",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_preventusersfromcustomizingattachmentsecuritysettings_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security_l_preventusersfromcustomizingattachmentsecuritysettings_v2_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level1removefilepolicy_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level1removefilepolicy_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level1removefilepolicy_v2_l_removedextensions",
+             "simpleSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+              "value": ""
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level2removefilepolicy_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level2removefilepolicy_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_miscattachmentsettings_l_level2removefilepolicy_v2_l_removedextensions25",
+             "simpleSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+              "value": ""
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography~l_signaturestatusdialog_l_retrievingcrlscertificaterevocationlists_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography~l_signaturestatusdialog_l_retrievingcrlscertificaterevocationlists_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography~l_signaturestatusdialog_l_retrievingcrlscertificaterevocationlists_v2_l_empty31",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography~l_signaturestatusdialog_l_retrievingcrlscertificaterevocationlists_v2_l_empty31_1",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_securityleveloutlook_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_securityleveloutlook_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_securityleveloutlook_v2_l_securitylevel",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_trustcenter_l_securityleveloutlook_v2_l_securitylevel_3",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_onexecutecustomactionoom_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_onexecutecustomactionoom_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_onexecutecustomactionoom_v2_l_onexecutecustomactionoom_setting",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_securityformsettings~l_misccustomformsettings_l_onexecutecustomactionoom_v2_l_onexecutecustomactionoom_setting_0",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_signaturewarning_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_signaturewarning_v2_1",
+           "children": [
+            {
+             "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+             "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_signaturewarning_v2_l_signaturewarning30",
+             "choiceSettingValue": {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+              "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_security~l_cryptography_l_signaturewarning_v2_l_signaturewarning30_1",
+              "children": []
+             }
+            }
+           ]
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_msgunicodeformatwhendraggingtofilesystem_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_outlk16v2~policy~l_microsoftofficeoutlook~l_outlookoptions~l_other~l_advanced_l_msgunicodeformatwhendraggingtofilesystem_v2_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_runprograms",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_runprograms_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_runprograms_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_runprograms_l_empty_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_determinewhethertoforceencryptedppt",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_determinewhethertoforceencryptedppt_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_determinewhethertoforceencryptedppt_l_determinewhethertoforceencryptedpptdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_determinewhethertoforceencryptedppt_l_determinewhethertoforceencryptedpptdropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_ppt~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_powerpoint972003presentationsshowstemplatesandaddinfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_ppt~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_powerpoint972003presentationsshowstemplatesandaddinfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_ppt~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_powerpoint972003presentationsshowstemplatesandaddinfiles_l_powerpoint972003presentationsshowstemplatesandaddinfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_ppt~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_powerpoint972003presentationsshowstemplatesandaddinfiles_l_powerpoint972003presentationsshowstemplatesandaddinfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty3_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_turnofffilevalidation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_ppt16v2~policy~l_microsoftofficepowerpoint~l_powerpointoptions~l_security_l_turnofffilevalidation_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_proj16v3~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_proj16v3~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_proj16v2~policy~l_proj~l_projectoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security_l_publisherautomationsecuritylevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security_l_publisherautomationsecuritylevel_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security_l_publisherautomationsecuritylevel_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security_l_publisherautomationsecuritylevel_l_empty_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_pub16v3~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_pub16v3~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_vbawarningspolicy_l_empty0",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_pub16v2~policy~l_microsoftofficepublisher~l_security~l_trustcenter_l_vbawarningspolicy_l_empty0_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2000files",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2000files_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2000files_l_visio2000filesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2000files_l_visio2000filesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2003files",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2003files_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2003files_l_visio2003filesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio2003files_l_visio2003filesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio50andearlierfiles",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio50andearlierfiles_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio50andearlierfiles_l_visio50andearlierfilesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter~l_fileblocksettings_l_visio50andearlierfiles_l_visio50andearlierfilesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_visio16v2~policy~l_microsoftvisio~l_visiooptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_blockmacroexecutionfrominternet_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_allowdde",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_allowdde_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_setdefaultfileblockbehavior_l_setdefaultfileblockbehaviordropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2andearlierbinarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2andearlierbinarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2andearlierbinarydocumentsandtemplates_l_word2andearlierbinarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2andearlierbinarydocumentsandtemplates_l_word2andearlierbinarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2000binarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2000binarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2000binarydocumentsandtemplates_l_word2000binarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2000binarydocumentsandtemplates_l_word2000binarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2003binarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2003binarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2003binarydocumentsandtemplates_l_word2003binarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2003binarydocumentsandtemplates_l_word2003binarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2007andlaterbinarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2007andlaterbinarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2007andlaterbinarydocumentsandtemplates_l_word2007andlaterbinarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word2007andlaterbinarydocumentsandtemplates_l_word2007andlaterbinarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word6pt0binarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word6pt0binarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word6pt0binarydocumentsandtemplates_l_word6pt0binarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word6pt0binarydocumentsandtemplates_l_word6pt0binarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word95binarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word95binarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word95binarydocumentsandtemplates_l_word95binarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word95binarydocumentsandtemplates_l_word95binarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word97binarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word97binarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word97binarydocumentsandtemplates_l_word97binarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_word97binarydocumentsandtemplates_l_word97binarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_wordxpbinarydocumentsandtemplates",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_wordxpbinarydocumentsandtemplates_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_wordxpbinarydocumentsandtemplates_l_wordxpbinarydocumentsandtemplatesdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_fileblocksettings_l_wordxpbinarydocumentsandtemplates_l_wordxpbinarydocumentsandtemplatesdropid_2",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesfromtheinternetzoneinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_donotopenfilesinunsafelocationsinprotectedview_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsdropid_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_setdocumentbehavioriffilevalidationfails_l_setdocumentbehavioriffilevalidationfailsstr3_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_protectedview_l_turnoffprotectedviewforattachmentsopenedfromoutlook_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_requirethatapplicationextensionsaresigned_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_disabletrustbarnotificationforunsigned_v2_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_determinewhethertoforceencryptedword",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_determinewhethertoforceencryptedword_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_determinewhethertoforceencryptedword_l_determinewhethertoforceencryptedworddropid",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_determinewhethertoforceencryptedword_l_determinewhethertoforceencryptedworddropid_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter~l_trustedlocations_l_allowtrustedlocationsonthenetwork_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_vbawarningspolicy",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_vbawarningspolicy_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty19",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security~l_trustcenter_l_vbawarningspolicy_l_empty19_3",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security_l_turnofffilevalidation",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_word16v2~policy~l_microsoftofficeword~l_wordoptions~l_security_l_turnofffilevalidation_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft OneDrive - D - Configuration - v3.2",
+   "key": "win oib sc microsoft onedrive d configuration",
+   "version": "3.2",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft OneDrive - D - Configuration - v3.2.json",
+   "oibId": "6EF9DFEA-74B4-485D-AAD2-237F7E2EBAB2",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:6EF9DFEA-74B4-485D-AAD2-237F7E2EBAB2",
+    "name": "Win - OIB - SC - Microsoft OneDrive - D - Configuration - v3.2",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_allowtenantlist",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_allowtenantlist_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_allowtenantlist_allowtenantlistbox",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "%OrganizationId%"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv6~policy~onedrivengsc_enablefeedbackandsupport",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv6~policy~onedrivengsc_enablefeedbackandsupport_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv3~policy~onedrivengsc_enableautomaticuploadbandwidthmanagement",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv3~policy~onedrivengsc_enableautomaticuploadbandwidthmanagement_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv6~policy~onedrivengsc_enablesyncadminreports",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv6~policy~onedrivengsc_enablesyncadminreports_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv4~policy~onedrivengsc_enableodignorelistfromgpo",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv4~policy~onedrivengsc_enableodignorelistfromgpo_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv4~policy~onedrivengsc_enableodignorelistfromgpo_enableodignorelistfromgpolistbox",
+          "simpleSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.accdb"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.appx"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.bat"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.cmd"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.exe"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.img"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.iso"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.jar"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.lnk"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.mdb"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.msi"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.pst"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.reg"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.vbs"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.vhd"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.vhdx"
+           },
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+            "value": "*.vmdk"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_kfmblockoptout",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_kfmblockoptout_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_gposetupdatering",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_gposetupdatering_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_gposetupdatering_gposetupdatering_dropdown",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_gposetupdatering_gposetupdatering_dropdown_5",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_desktop_checkbox",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_desktop_checkbox_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_documents_checkbox",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_documents_checkbox_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_pictures_checkbox",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_pictures_checkbox_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_dropdown",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_dropdown_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2.updates~policy~onedrivengsc_kfmoptinnowizard_kfmoptinnowizard_textbox",
+          "simpleSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+           "value": "%OrganizationId%"
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_silentaccountconfig",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_silentaccountconfig_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_filesondemandenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_filesondemandenabled_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft OneDrive - U - Configuration - v3.8",
+   "key": "win oib sc microsoft onedrive u configuration",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft OneDrive - U - Configuration - v3.8.json",
+   "oibId": "5CD97975-5495-4DA4-A402-89817D130CF4",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:5CD97975-5495-4DA4-A402-89817D130CF4",
+    "name": "Win - OIB - SC - Microsoft OneDrive - U - Configuration - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_enableholdthefile",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_enableholdthefile_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablefretutorial",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablefretutorial_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablecustomroot",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablecustomroot_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+          "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablecustomroot_disablecustomrootlist",
+          "groupSettingCollectionValue": [
+           {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+            "children": [
+             {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+              "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablecustomroot_disablecustomrootlist_key",
+              "simpleSettingValue": {
+               "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+               "value": "%OrganizationId%"
+              }
+             },
+             {
+              "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+              "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablecustomroot_disablecustomrootlist_value",
+              "simpleSettingValue": {
+               "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
+               "value": "1"
+              }
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablepersonalsync",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_onedrivengscv2~policy~onedrivengsc_disablepersonalsync_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_onedrivengscv7~policy~onedrivengsc_enableautostart",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_onedrivengscv7~policy~onedrivengsc_enableautostart_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Store - D - Configuration - v3.8",
+   "key": "win oib sc microsoft store d configuration",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Store - D - Configuration - v3.8.json",
+   "oibId": "D239DFC3-E20A-48C9-A906-09C0AF624CB7",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:D239DFC3-E20A-48C9-A906-09C0AF624CB7",
+    "name": "Win - OIB - SC - Microsoft Store - D - Configuration - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_allowalltrustedapps",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_allowalltrustedapps_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_allowappstoreautoupdate",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_allowappstoreautoupdate_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_allowdeveloperunlock",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_allowdeveloperunlock_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_allowgamedvr",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_allowgamedvr_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_blocknonadminuserinstall",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_blocknonadminuserinstall_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_msiallowusercontroloverinstall",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_msiallowusercontroloverinstall_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_msialwaysinstallwithelevatedprivileges",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_msialwaysinstallwithelevatedprivileges_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Microsoft Store - U - Configuration - v3.3",
+   "key": "win oib sc microsoft store u configuration",
+   "version": "3.3",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Microsoft Store - U - Configuration - v3.3.json",
+   "oibId": "2A4518B8-64B5-43C4-AC03-18CE627F1105",
+   "scope": "User",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "Enterprise",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: The \"Turn off the Store application\" setting does not work on Windows Pro/Business SKU's:\nhttps://learn.microsoft.com/en-gb/windows/client-management/mdm/policy-csp-admx-windowsstore?WT.mc_id=Portal-fx#removewindowsstore_2\nOIBID:2A4518B8-64B5-43C4-AC03-18CE627F1105",
+    "name": "Win - OIB - SC - Microsoft Store - U - Configuration - v3.3",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_admx_taskbar_nopinningstoretotaskbar",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_admx_taskbar_nopinningstoretotaskbar_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_admx_windowsstore_removewindowsstore_1",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_admx_windowsstore_removewindowsstore_1_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_applicationmanagement_msialwaysinstallwithelevatedprivileges",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_applicationmanagement_msialwaysinstallwithelevatedprivileges_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Network Security - D - Disable NTLM - v3.8",
+   "key": "win oib sc network security d disable ntlm",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Network Security - D - Disable NTLM - v3.8.json",
+   "oibId": "78A64AF6-87DC-4A95-94F8-E967508ADEE7",
+   "scope": "Device",
+   "addedIn": "3.8",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "WARNING: This configuration may break access to legacy applications. Ensure you have no reliance on NTLM before deploying.\nOIBID:78A64AF6-87DC-4A95-94F8-E967508ADEE7",
+    "name": "Win - OIB - SC - Network Security - D - Disable NTLM - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_lanmanagerauthenticationlevel_5",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_restrictntlm_incomingntlmtraffic",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_restrictntlm_incomingntlmtraffic_2",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_restrictntlm_outgoingntlmtraffictoremoteservers",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_localpoliciessecurityoptions_networksecurity_restrictntlm_outgoingntlmtraffictoremoteservers_2",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows Apps - D - In-Box App Removal - v3.7",
+   "key": "win oib sc windows apps d in box app removal",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows Apps - D - In-Box App Removal - v3.7.json",
+   "oibId": "0EE888FD-C68F-478A-A0F1-F8147967E9DB",
+   "scope": "Device",
+   "addedIn": "3.7",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "Enterprise",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: This policy will only apply to devices running Windows Enterprise\nOIBID:0EE888FD-C68F-478A-A0F1-F8147967E9DB",
+    "name": "Win - OIB - SC - Windows Apps - D - In-Box App Removal - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsfeedbackhub",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsfeedbackhub_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftofficehub",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftofficehub_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_clipchamp",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_clipchamp_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_copilot",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_copilot_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_bingnews",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_bingnews_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_photos",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_photos_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftsolitairecollection",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftsolitairecollection_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftstickynotes",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_microsoftstickynotes_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_msteams",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_msteams_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_todo",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_todo_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_bingweather",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_bingweather_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_outlookforwindows",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_outlookforwindows_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_paint",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_paint_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_quickassist",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_quickassist_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_screensketch",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_screensketch_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowscalculator",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowscalculator_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowscamera",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowscamera_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_mediaplayer",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_mediaplayer_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsnotepad",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsnotepad_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowssoundrecorder",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowssoundrecorder_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsterminal",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_windowsterminal_0",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_gamingapp",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_gamingapp_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxidentityprovider",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxidentityprovider_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxspeechtotextoverlay",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxspeechtotextoverlay_1",
+           "children": []
+          }
+         },
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxtcui",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_applicationmanagement_removedefaultmicrosoftstorepackages_xboxtcui_1",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows Hello for Business - D - Cloud Kerberos Trust - v3.5",
+   "key": "win oib sc windows hello for business d cloud kerberos trust",
+   "version": "3.5",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows Hello for Business - D - Cloud Kerberos Trust - v3.5.json",
+   "oibId": "7796AA16-85E9-4596-A927-3F3E945E5AA3",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: Requires setup of Cloud Kerberos Trust to function.\nhttps://learn.microsoft.com/en-us/windows/security/identity-protection/hello-for-business/deploy/hybrid-cloud-kerberos-trust\nOIBID:7796AA16-85E9-4596-A927-3F3E945E5AA3",
+    "name": "Win - OIB - SC - Windows Hello for Business - D - Cloud Kerberos Trust - v3.5",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_kerberos_cloudkerberosticketretrievalenabled",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_kerberos_cloudkerberosticketretrievalenabled_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
+       "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}",
+       "groupSettingCollectionValue": [
+        {
+         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingValue",
+         "children": [
+          {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+           "settingDefinitionId": "device_vendor_msft_passportforwork_{tenantid}_policies_usecloudtrustforonpremauth",
+           "choiceSettingValue": {
+            "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+            "value": "device_vendor_msft_passportforwork_{tenantid}_policies_usecloudtrustforonpremauth_true",
+            "children": []
+           }
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0",
+   "key": "win oib sc windows update for business d delivery optimisation",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0.json",
+   "oibId": "743720B0-DDC7-4C5A-A50A-DE89476AEF10",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:743720B0-DDC7-4C5A-A50A-DE89476AEF10",
+    "name": "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_doabsolutemaxcachesize",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 0
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_doallowvpnpeercaching",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deliveryoptimization_doallowvpnpeercaching_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dodownloadmode",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deliveryoptimization_dodownloadmode_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dogroupidsource",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deliveryoptimization_dogroupidsource_5",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_domaxcacheage",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 0
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_domaxcachesize",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 20
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dominbackgroundqos",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 500
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dominbatterypercentageallowedtoupload",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 40
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dominfilesizetocache",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 10
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dominramallowedtopeer",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 2
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_domonthlyuploaddatacap",
+       "simpleSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
+        "value": 0
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_deliveryoptimization_dorestrictpeerselectionby",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_deliveryoptimization_dorestrictpeerselectionby_2",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0",
+   "key": "win oib sc windows update for business d reports and telemetry",
+   "version": "3.0",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0.json",
+   "oibId": "EDECD0D7-7955-40ED-8A42-07D5FB876EF2",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: Contains policies required for Windows Update for Business Reports. Further configuration required:\nhttps://learn.microsoft.com/en-us/windows/deployment/update/wufb-reports-enable\nOIBID:EDECD0D7-7955-40ED-8A42-07D5FB876EF2",
+    "name": "Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_allowdevicenameindiagnosticdata",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_allowdevicenameindiagnosticdata_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_allowtelemetry",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_allowtelemetry_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_configuretelemetryoptinchangenotification",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_configuretelemetryoptinchangenotification_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_system_configuretelemetryoptinsettingsux",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_system_configuretelemetryoptinsettingsux_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_update_allowtemporaryenterprisefeaturecontrol",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_update_allowtemporaryenterprisefeaturecontrol_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows User Experience - D - Automatic Restart Sign-On - v3.8",
+   "key": "win oib sc windows user experience d automatic restart sign on",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows User Experience - D - Automatic Restart Sign-On - v3.8.json",
+   "oibId": "445BF199-4BB1-49B3-AB70-FFE4B243AEDC",
+   "scope": "Device",
+   "addedIn": "3.8",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:445BF199-4BB1-49B3-AB70-FFE4B243AEDC",
+    "name": "Win - OIB - SC - Windows User Experience - D - Automatic Restart Sign-On - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowslogon_configautomaticrestartsignon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowslogon_configautomaticrestartsignon_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_windowslogon_configautomaticrestartsignon_configautomaticrestartsignondescription",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_windowslogon_configautomaticrestartsignon_configautomaticrestartsignondescription_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_windowslogon_allowautomaticrestartsignon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_windowslogon_allowautomaticrestartsignon_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows User Experience - D - Feature Configuration - v3.8",
+   "key": "win oib sc windows user experience d feature configuration",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows User Experience - D - Feature Configuration - v3.8.json",
+   "oibId": "4918DE40-A896-409C-B6FA-885B1C75CA0B",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:4918DE40-A896-409C-B6FA-885B1C75CA0B",
+    "name": "Win - OIB - SC - Windows User Experience - D - Feature Configuration - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_filesystem_enabledevdrive",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_filesystem_enabledevdrive_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_experience_configurechaticon",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_experience_configurechaticon_3",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_experience_disableshareapppromotions",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_experience_disableshareapppromotions_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_search_allowcloudsearch",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_search_allowcloudsearch_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_search_disableremovabledriveindexing",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_search_disableremovabledriveindexing_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_search_donotusewebresults",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_search_donotusewebresults_0",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests_0",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows User Experience - D - Settings Sync - v3.7",
+   "key": "win oib sc windows user experience d settings sync",
+   "version": "3.7",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows User Experience - D - Settings Sync - v3.7.json",
+   "oibId": "604FD048-CA7D-4918-AA55-66A4878E0F52",
+   "scope": "Device",
+   "addedIn": "3.7",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "NOTE: This policy assumes you have Enabled the Windows Backup and Restore feature in the Devices > Windows > Enrollment page:\nhttps://techcommunity.microsoft.com/blog/windows-itpro-blog/windows-backup-for-organizations-is-now-available/4441655\nOIBID:604FD048-CA7D-4918-AA55-66A4878E0F52",
+    "name": "Win - OIB - SC - Windows User Experience - D - Settings Sync - v3.7",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_admx_settingsync_disablecredentialssettingsync",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_admx_settingsync_disablecredentialssettingsync_1",
+        "children": [
+         {
+          "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+          "settingDefinitionId": "device_vendor_msft_policy_config_admx_settingsync_disablecredentialssettingsync_checkbox_useroverride",
+          "choiceSettingValue": {
+           "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+           "value": "device_vendor_msft_policy_config_admx_settingsync_disablecredentialssettingsync_checkbox_useroverride_0",
+           "children": []
+          }
+         }
+        ]
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_policy_config_settingssync_enablewindowsbackup",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_policy_config_settingssync_enablewindowsbackup_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "device_vendor_msft_windowsbackupandrestore_enablewindowsrestore",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "device_vendor_msft_windowsbackupandrestore_enablewindowsrestore_true",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - SC - Windows User Experience - U - Copilot - v3.8",
+   "key": "win oib sc windows user experience u copilot",
+   "version": "3.8",
+   "release": null,
+   "section": "settingsCatalog",
+   "sectionLabel": "Settings catalog policies",
+   "area": "SettingsCatalog",
+   "importable": true,
+   "kind": "settingsCatalog",
+   "folder": "SettingsCatalog",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/SettingsCatalog/Win - OIB - SC - Windows User Experience - U - Copilot - v3.8.json",
+   "oibId": "B13B47BA-3BDB-477E-A054-C4952D079972",
+   "scope": "User",
+   "addedIn": "3.1",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicy",
+    "description": "OIBID:B13B47BA-3BDB-477E-A054-C4952D079972",
+    "name": "Win - OIB - SC - Windows User Experience - U - Copilot - v3.8",
+    "platforms": "windows10",
+    "technologies": "mdm",
+    "templateReference": {
+     "@odata.type": "#microsoft.graph.deviceManagementConfigurationPolicyTemplateReference",
+     "templateId": "",
+     "templateFamily": "none"
+    },
+    "settings": [
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp_1",
+        "children": []
+       }
+      }
+     },
+     {
+      "settingInstance": {
+       "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+       "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot",
+       "choiceSettingValue": {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingValue",
+        "value": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot_1",
+        "children": []
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Win - OIB - TP - Health Monitoring - D - Endpoint Analytics - v3.4",
+   "key": "win oib tp health monitoring d endpoint analytics",
+   "version": "3.4",
+   "release": null,
+   "section": "deviceConfigurations",
+   "sectionLabel": "Device configuration profiles",
+   "area": "DeviceConfigurations",
+   "importable": true,
+   "kind": "deviceConfig",
+   "folder": "DeviceConfiguration",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/DeviceConfiguration/Win - OIB - TP - Health Monitoring - D - Endpoint Analytics - v3.4.json",
+   "oibId": "8DB1261D-2474-43C4-A753-61124D7875B6",
+   "scope": "Device",
+   "addedIn": "3.4",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsHealthMonitoringConfiguration",
+    "description": "OIBID:8DB1261D-2474-43C4-A753-61124D7875B6",
+    "displayName": "Win - OIB - TP - Health Monitoring - D - Endpoint Analytics - v3.4",
+    "allowDeviceHealthMonitoring": "enabled",
+    "configDeviceHealthMonitoringScope": "bootPerformance"
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB Drivers - Ring 1 - Pilot - v3.0",
+   "key": "win oib wufb drivers ring 1 pilot",
+   "version": "3.0",
+   "release": null,
+   "section": "driverUpdates",
+   "sectionLabel": "Driver update profiles",
+   "area": null,
+   "importable": false,
+   "kind": "driverUpdate",
+   "folder": "DriverUpdateProfiles",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/DriverUpdateProfiles/Win - OIB - WUfB Drivers - Ring 1 - Pilot - v3.0.json",
+   "oibId": "E8465C32-ECF4-4271-9448-04D32100DF50",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsDriverUpdateProfile",
+    "displayName": "Win - OIB - WUfB Drivers - Ring 1 - Pilot - v3.0",
+    "description": "OIBID:E8465C32-ECF4-4271-9448-04D32100DF50",
+    "approvalType": "automatic",
+    "deploymentDeferralInDays": 0
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB Drivers - Ring 2 - UAT - v3.0",
+   "key": "win oib wufb drivers ring 2 uat",
+   "version": "3.0",
+   "release": null,
+   "section": "driverUpdates",
+   "sectionLabel": "Driver update profiles",
+   "area": null,
+   "importable": false,
+   "kind": "driverUpdate",
+   "folder": "DriverUpdateProfiles",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/DriverUpdateProfiles/Win - OIB - WUfB Drivers - Ring 2 - UAT - v3.0.json",
+   "oibId": "C04E7D1C-D714-4DAE-A0DA-A9A633DC0108",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsDriverUpdateProfile",
+    "displayName": "Win - OIB - WUfB Drivers - Ring 2 - UAT - v3.0",
+    "description": "OIBID:C04E7D1C-D714-4DAE-A0DA-A9A633DC0108",
+    "approvalType": "automatic",
+    "deploymentDeferralInDays": 3
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB Drivers - Ring 3 - Production - v3.0",
+   "key": "win oib wufb drivers ring 3 production",
+   "version": "3.0",
+   "release": null,
+   "section": "driverUpdates",
+   "sectionLabel": "Driver update profiles",
+   "area": null,
+   "importable": false,
+   "kind": "driverUpdate",
+   "folder": "DriverUpdateProfiles",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/DriverUpdateProfiles/Win - OIB - WUfB Drivers - Ring 3 - Production - v3.0.json",
+   "oibId": "63F91886-C8E9-4086-80BB-CFFE3D61FE8C",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsDriverUpdateProfile",
+    "displayName": "Win - OIB - WUfB Drivers - Ring 3 - Production - v3.0",
+    "description": "OIBID:63F91886-C8E9-4086-80BB-CFFE3D61FE8C",
+    "approvalType": "automatic",
+    "deploymentDeferralInDays": 10
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB - Ring 1 - Pilot - v3.0",
+   "key": "win oib wufb ring 1 pilot",
+   "version": "3.0",
+   "release": null,
+   "section": "deviceConfigurations",
+   "sectionLabel": "Device configuration profiles",
+   "area": "DeviceConfigurations",
+   "importable": true,
+   "kind": "deviceConfig",
+   "folder": "UpdatePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/UpdatePolicies/Win - OIB - WUfB - Ring 1 - Pilot - v3.0.json",
+   "oibId": "F7739B87-82DE-4997-BA25-2561C252EF12",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsUpdateForBusinessConfiguration",
+    "description": "Devices in this ring recieve updates immediately after release with 1 day grace period before a forced reboot.\nOIBID:F7739B87-82DE-4997-BA25-2561C252EF12",
+    "displayName": "Win - OIB - WUfB - Ring 1 - Pilot - v3.0",
+    "deliveryOptimizationMode": "userDefined",
+    "prereleaseFeatures": "userDefined",
+    "automaticUpdateMode": "windowsDefault",
+    "microsoftUpdateServiceAllowed": true,
+    "driversExcluded": false,
+    "qualityUpdatesDeferralPeriodInDays": 0,
+    "featureUpdatesDeferralPeriodInDays": 0,
+    "qualityUpdatesPaused": false,
+    "featureUpdatesPaused": false,
+    "qualityUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "businessReadyUpdatesOnly": "userDefined",
+    "skipChecksBeforeRestart": false,
+    "featureUpdatesRollbackWindowInDays": 30,
+    "qualityUpdatesWillBeRolledBack": false,
+    "featureUpdatesWillBeRolledBack": false,
+    "qualityUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "deadlineForFeatureUpdatesInDays": 0,
+    "deadlineForQualityUpdatesInDays": 0,
+    "deadlineGracePeriodInDays": 1,
+    "postponeRebootUntilAfterDeadline": true,
+    "autoRestartNotificationDismissal": "notConfigured",
+    "userPauseAccess": "disabled",
+    "userWindowsUpdateScanAccess": "enabled",
+    "updateNotificationLevel": "defaultNotifications",
+    "allowWindows11Upgrade": false
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB - Ring 2 - UAT - v3.0",
+   "key": "win oib wufb ring 2 uat",
+   "version": "3.0",
+   "release": null,
+   "section": "deviceConfigurations",
+   "sectionLabel": "Device configuration profiles",
+   "area": "DeviceConfigurations",
+   "importable": true,
+   "kind": "deviceConfig",
+   "folder": "UpdatePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/UpdatePolicies/Win - OIB - WUfB - Ring 2 - UAT - v3.0.json",
+   "oibId": "367E46C3-EB05-4D0D-9F97-E839A5CE6696",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsUpdateForBusinessConfiguration",
+    "description": "Devices in this ring receive updates 3 days after release and have a 0-day deadline on install with 2 day grace period before a forced reboot.\nOIBID:367E46C3-EB05-4D0D-9F97-E839A5CE6696",
+    "displayName": "Win - OIB - WUfB - Ring 2 - UAT - v3.0",
+    "deliveryOptimizationMode": "userDefined",
+    "prereleaseFeatures": "userDefined",
+    "automaticUpdateMode": "windowsDefault",
+    "microsoftUpdateServiceAllowed": true,
+    "driversExcluded": false,
+    "qualityUpdatesDeferralPeriodInDays": 3,
+    "featureUpdatesDeferralPeriodInDays": 0,
+    "qualityUpdatesPaused": false,
+    "featureUpdatesPaused": false,
+    "qualityUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "businessReadyUpdatesOnly": "userDefined",
+    "skipChecksBeforeRestart": false,
+    "featureUpdatesRollbackWindowInDays": 30,
+    "qualityUpdatesWillBeRolledBack": false,
+    "featureUpdatesWillBeRolledBack": false,
+    "qualityUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "deadlineForFeatureUpdatesInDays": 0,
+    "deadlineForQualityUpdatesInDays": 0,
+    "deadlineGracePeriodInDays": 2,
+    "postponeRebootUntilAfterDeadline": true,
+    "autoRestartNotificationDismissal": "notConfigured",
+    "userPauseAccess": "disabled",
+    "userWindowsUpdateScanAccess": "enabled",
+    "updateNotificationLevel": "defaultNotifications",
+    "allowWindows11Upgrade": false
+   }
+  },
+  {
+   "name": "Win - OIB - WUfB - Ring 3 - Production - v3.0",
+   "key": "win oib wufb ring 3 production",
+   "version": "3.0",
+   "release": null,
+   "section": "deviceConfigurations",
+   "sectionLabel": "Device configuration profiles",
+   "area": "DeviceConfigurations",
+   "importable": true,
+   "kind": "deviceConfig",
+   "folder": "UpdatePolicies",
+   "path": "OpenIntuneBaseline-main/WINDOWS/IntuneManagement/UpdatePolicies/Win - OIB - WUfB - Ring 3 - Production - v3.0.json",
+   "oibId": "BEEDC071-EA29-4B71-811E-23183059C4FE",
+   "scope": "Device",
+   "addedIn": "3.0",
+   "status": "active",
+   "licenseRequirements": "",
+   "skuRequirements": "",
+   "body": {
+    "@odata.type": "#microsoft.graph.windowsUpdateForBusinessConfiguration",
+    "description": "Devices in this ring receive updates 10 days after release and have a 2-day deadline on install with 1 day grace period before a forced reboot.\nOIBID:BEEDC071-EA29-4B71-811E-23183059C4FE",
+    "displayName": "Win - OIB - WUfB - Ring 3 - Production - v3.0",
+    "deliveryOptimizationMode": "userDefined",
+    "prereleaseFeatures": "userDefined",
+    "automaticUpdateMode": "windowsDefault",
+    "microsoftUpdateServiceAllowed": true,
+    "driversExcluded": false,
+    "qualityUpdatesDeferralPeriodInDays": 10,
+    "featureUpdatesDeferralPeriodInDays": 0,
+    "qualityUpdatesPaused": false,
+    "featureUpdatesPaused": false,
+    "qualityUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesPauseExpiryDateTime": "0001-01-01T00:00:00Z",
+    "businessReadyUpdatesOnly": "userDefined",
+    "skipChecksBeforeRestart": false,
+    "featureUpdatesRollbackWindowInDays": 30,
+    "qualityUpdatesWillBeRolledBack": false,
+    "featureUpdatesWillBeRolledBack": false,
+    "qualityUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "featureUpdatesRollbackStartDateTime": "0001-01-01T00:00:00Z",
+    "deadlineForFeatureUpdatesInDays": 2,
+    "deadlineForQualityUpdatesInDays": 2,
+    "deadlineGracePeriodInDays": 1,
+    "postponeRebootUntilAfterDeadline": true,
+    "autoRestartNotificationDismissal": "notConfigured",
+    "userPauseAccess": "disabled",
+    "userWindowsUpdateScanAccess": "enabled",
+    "updateNotificationLevel": "defaultNotifications",
+    "allowWindows11Upgrade": false
+   }
+  }
+ ]
+};
