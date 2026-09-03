@@ -2449,3 +2449,7 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #alBreaks table.plist td:nth-child(1){min-width:260px;width:34%}
 #alBreaks table.plist td:nth-child(2){white-space:nowrap}
 #alBreaks table.plist td:nth-child(5){min-width:170px}
+/* 10578: what just happened, said once and large, at the top of the deploy panel */
+.al-dep-done{margin:10px 0 0;padding:14px 16px;border:2px solid var(--ok-bd);background:var(--ok-bg);border-radius:12px}
+.al-dep-done-h{font-size:17px;font-weight:800;color:var(--on,var(--green));margin-bottom:6px}
+.al-dep-more summary{cursor:pointer}

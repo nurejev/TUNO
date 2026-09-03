@@ -293,14 +293,19 @@ const AppLockerTool = (() => {
     return m[1] + seg.join(".");
   }
 
-  function intuneProfileName(mode) {
+  function intuneProfileName(mode, opts) {
     // THE ENFORCE PROFILE IS NAMED AFTER THE AUDIT PROFILE IT ENFORCES
     // (10570, Mihai): the rules are the ones V4.0.1 audited, so the Enforce
     // profile is "… (Enforced) - R27.1 - V4.0.1" — not the NEXT version the
     // name field already carries for the next audit iteration. Only when a
     // deployed audit profile under this grouping is known; a first
     // deployment or a create-this-session keeps the field's name.
-    if (mode === "Enforce" && !createdFor("audit")) {
+    //
+    // NOT for an update in place (10578, Mihai: "policy got updated in
+    // Intune but the name is the same"). Updating the Enforce profile with
+    // NEW rules is a new version of it; pinning it to the audit's number
+    // wrote V4.0.1 over V4.0.1. opts.fromTable takes the name on the table.
+    if (mode === "Enforce" && !createdFor("audit") && !(opts && opts.fromTable)) {
       const a = typeof auditProfileInTenant === "function" ? auditProfileInTenant() : null;
       if (a && a.displayName && /\((?:AuditOnly)\)/i.test(a.displayName)) return a.displayName.replace(/\(AuditOnly\)/gi, "(Enforced)");
     }
@@ -2326,7 +2331,7 @@ const AppLockerTool = (() => {
       evidence: evidenceItems().length,
       policy: policy ? own : null,
       breaks: unresolved,
-      deploy: policy ? (createdFor("enforce") ? "Enforce" : createdFor("audit") || (deployState.checked && deployState.checked.auditInTenant) ? "Audit · in tenant" : intuneCfg.mode) : null,
+      deploy: policy ? (createdFor("enforce") ? "Enforce" : deployState.updated ? "updated" : auditIsInTenant() ? "Audit · in tenant" : intuneCfg.mode) : null,
       gs,
     };
   }
@@ -2368,7 +2373,7 @@ const AppLockerTool = (() => {
     if (m.name) parts.push(`<b>${esc(m.name)}</b>${when ? ` · scanned ${esc(when)}` : ""}`);
     else if (policy) parts.push(`<b>${esc(importedXmlName || "New policy")}</b>`);
     if (policy) {
-      const inTenant = createdFor("enforce") ? "Enforce profile created this session" : (createdFor("audit") || (deployState.checked && deployState.checked.auditInTenant)) ? "audit profile in the tenant" : deployState.checked ? "not in the tenant under this grouping" : "tenant not checked";
+      const inTenant = deployState.updated ? `${escq(deployState.updated.displayName || "profile")} updated in place this session` : createdFor("enforce") ? "Enforce profile created this session" : auditIsInTenant() ? "audit profile in the tenant" : deployState.checked ? "not in the tenant under this grouping" : "tenant not checked";
       parts.push(`tenant: ${esc(inTenant)}`);
       if (c.breaks) parts.push(`<span class="al-status-bad">Enforce blocked — ${c.breaks} unresolved break${c.breaks === 1 ? "" : "s"}</span>`);
       else if (c.gs && c.breaks === 0) parts.push(`<span class="al-status-ok">Enforce open — nothing that ran would be blocked</span>`);
@@ -3368,7 +3373,7 @@ const AppLockerTool = (() => {
   function enforceGates() {
     const created = createdFor("audit");
     const found = created ? null : auditProfileInTenant();
-    const haveAudit = !!created || !!(deployState.checked && deployState.checked.auditInTenant);
+    const haveAudit = auditIsInTenant();
     const checked = !!(deployState.checked && deployState.checked.tenantAppLocker);
     const g1 = {
       ok: haveAudit,
@@ -3408,8 +3413,7 @@ const AppLockerTool = (() => {
     return [g1, g2, g3];
   }
   function enforceBlockedBecause() {
-    const haveAudit = !!createdFor("audit")
-      || !!(deployState.checked && deployState.checked.auditInTenant);
+    const haveAudit = auditIsInTenant();
     if (!haveAudit) return "The AuditOnly profile has to exist in this tenant first — deploy it above, or point the grouping at the one that is already there (🔎 Check against the tenant finds it).";
     const ev = scan && scan.events;
     const found = createdFor("audit") ? null : auditProfileInTenant();
@@ -3530,25 +3534,26 @@ const AppLockerTool = (() => {
 
   function loopStations() {
     const signedIn = typeof Graph !== "undefined" && Graph.signedIn();
-    const auditIn = !!(createdFor("audit") || (deployState.checked && deployState.checked.auditInTenant));
+    const auditIn = auditIsInTenant();
     const gs = fleetGapStats();
+    const updated = !!deployState.updated;
     const ruleCount = policy ? policy.collections.reduce((n, c) => n + c.rules.length, 0) : 0;
     const enforceWhy = policy ? enforceBlockedBecause() : "not there yet";
     const collectorMade = !!(deployState.remedy && deployState.remedy.events && deployState.remedy.events.created);
     return [
-      { key: "scan", ico: "🖥", name: "Scan", done: !!scan, target: ".al-steps",
+      { key: "scan", ico: "🖥", name: "Scan", done: !!scan, screen: scan ? "evidence" : "help", target: scan ? "#alScan" : ".al-steps",
         sub: scan ? esc((scan.machine || {}).name || "bundle loaded") + " ✓" : "reference machine" },
-      { key: "build", ico: "🛠", name: "Build", done: !!policy && ruleCount > 0, target: policy ? "#alSummary" : "#alEmpty",
+      { key: "build", ico: "🛠", name: "Build", done: !!policy && ruleCount > 0, screen: policy ? "policy" : "evidence", target: policy ? "#alSummary" : "#alEmpty",
         sub: policy ? ruleCount + " rules on the table" : "upload bundle or XML" },
-      { key: "deploy", ico: "☁", name: "Deploy audit", done: auditIn, target: "#alDeploy",
+      { key: "deploy", ico: "☁", name: "Deploy audit", done: auditIn, screen: "deploy", target: "#alDeploy",
         sub: auditIn ? "in the tenant ✓" : signedIn ? "not created yet" : "sign in to check" },
-      { key: "collect", ico: "📡", name: "Collect", done: !!eventsEvidence, target: "#alRemedyDetails",
-        sub: eventsEvidence ? "bundle uploaded ✓" : collectorMade ? "Remediation created — retrieve bundles" : "deploy the collector pair" },
-      { key: "gaps", ico: "🕳", name: "Gaps", done: !!gs && gs.gap === 0, warn: !!gs && gs.gap > 0, target: eventsEvidence ? "#alEvents" : "#alRemedyDetails",
-        sub: gs ? (gs.gap ? gs.gap + " open" : "0 open ✓") : "upload the events bundle" },
-      { key: "update", ico: "↻", name: "Update profile", done: false, target: "#alDeploy",
-        sub: gs && gs.gap === 0 ? "edit the tenant profile in place" : "after the gaps close" },
-      { key: "enforce", ico: "🔒", name: "Enforce", done: enforceWhy === "", target: "#alEnforce",
+      { key: "collect", ico: "📡", name: "Collect", done: !!eventsEvidence || !!(scan && scan.events && scan.events.available), screen: eventsEvidence ? "evidence" : "help", target: "#alRemedyDetails",
+        sub: eventsEvidence ? "bundle uploaded ✓" : (scan && scan.events && scan.events.available) ? "from the scan ✓" : collectorMade ? "Remediation created — retrieve bundles" : "deploy the collector pair" },
+      { key: "gaps", ico: "💥", name: "What breaks?", done: !!gs && gs.gap === 0, warn: !!gs && gs.gap > 0, screen: "breaks", target: "#alBreaks",
+        sub: gs ? (gs.gap ? gs.gap + " to resolve" : "0 open ✓") : "needs events" },
+      { key: "update", ico: "↻", name: "Update profile", done: updated, screen: "deploy", target: "#alDeploy",
+        sub: updated ? "updated in place ✓" : gs && gs.gap === 0 ? "edit the tenant profile in place" : "after the breaks resolve" },
+      { key: "enforce", ico: "🔒", name: "Enforce", done: enforceWhy === "", screen: "deploy", target: "#alDeploy",
         sub: enforceWhy === "" ? "gate open" : "gated" },
     ];
   }
@@ -3571,20 +3576,20 @@ const AppLockerTool = (() => {
     host.innerHTML = `
       <div class="al-loop-head">
         <b>🔁 The audit loop</b>
-        ${collapsed ? `<span class="al-loop-mini">${esc(summary)}</span>` : `<span class="al-loop-mini">for reference — the rail walks it, one screen at a time</span>`}
+        ${collapsed ? `<span class="al-loop-mini">${esc(summary)}</span>` : `<span class="al-loop-mini">click a station to go there</span>`}
         <button class="btn sm al-loop-toggle" id="alLoopToggle" title="${collapsed ? "Expand the loop strip" : "Collapse to one line"}">${collapsed ? "▸" : "▾"}</button>
       </div>
       ${collapsed ? "" : `
       <div class="al-loop-row" style="margin-top:8px">
         ${st.map((s, i) => `${i ? `<span class="al-loop-arrow">→</span>` : ""}
           <span class="al-loop-wrap">
-          <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
+          <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" data-screen="${esc(s.screen || "")}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
             <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}${s.manual ? " · marked by you" : ""}</span>
           </button>
           ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence. Marks belong to the tenant you are signed in to and clear on their own when a different tenant signs in."}">${s.manual ? "☑" : "☐"}</button>`}
           </span>`).join("")}
       </div>
-      <div class="al-loop-back">↰ <span>Collect → Gaps → Update repeats until a full window shows <b>0 gaps</b> — that evidence is what the Enforce gate reads. Updating the profile happens in the portal (edit in place, same grouping); this strip cannot see it and does not pretend to.</span></div>`}
+      <div class="al-loop-back">↰ <span>Collect → What breaks? → Update repeats until a full window shows <b>0 to resolve</b> — that is what the Enforce gate reads. An update made from Deploy lights the station; one made in the portal is marked by hand.</span></div>`}
     `;
 
     const t = $("alLoopToggle");
@@ -3593,6 +3598,8 @@ const AppLockerTool = (() => {
       renderLoopStrip();
     });
     host.querySelectorAll(".al-loop-st").forEach((b) => b.addEventListener("click", () => {
+      // 10578: a station is on a SCREEN now — switch to it, then scroll.
+      if (b.dataset.screen) showScreen(b.dataset.screen);
       const el = document.querySelector(b.dataset.target);
       if (!el) return;
       if (el.tagName === "DETAILS") el.open = true;
@@ -3608,6 +3615,8 @@ const AppLockerTool = (() => {
   function renderDeploy() {
     renderRemedy();
     renderLoopStrip();
+    // the rail, the status line and the strip all read the tenant state
+    if (typeof renderRail === "function" && $("alRail")) { renderRail(); renderStatus(); }
     const box = $("alDeploy");
     if (!box) return;
     const d = deployState;
@@ -3646,24 +3655,50 @@ const AppLockerTool = (() => {
 
     const blocked = enforceBlockedBecause();
     const coll = d.checked && d.checked.collisions || [];
+    // ITERATING OR FIRST DEPLOY (10578). When the grouping on screen is
+    // already deployed, the act is "update it in place" and creating a
+    // second profile is the mistake the grouping text warns about — so the
+    // create button steps back behind a fold and the matched profiles lead.
+    // And whatever just happened — updated, created — is said ONCE, large,
+    // at the top, instead of as one green line under a still-bold button.
+    const match = (d.checked && d.checked.tenantAppLocker) ? tenantMatchingGrouping() : [];
+    const iterating = match.length > 0;
+    const verRow = (() => {
+      const vm = /^(.*[\s-][Vv])(\d+(?:\.\d+)*)$/.exec(name);
+      return vm
+        ? `<b>${escq(vm[1])}</b><input id="alDepVer" class="al-dep-in al-dep-ver" value="${escq(vm[2])}" spellcheck="false" title="The version token in the profile name — edit it here, it moves in the name only, never in the grouping">`
+        : `<b>${escq(name)}</b>`;
+    })();
+    const createRow = `<div class="al-dep-row">
+        <button class="btn ${iterating ? "sm" : "primary"}" id="alDepAudit" ${d.busy || issues.length ? "disabled" : ""}>
+          ${d.busy === "audit" ? "Creating…" : iterating ? "➕ Create a NEW AuditOnly profile anyway" : "🚀 Create the AuditOnly profile"}</button>
+        <span class="mini muted">as ${verRow}, grouping <b>${escq(grouping || "(none)")}</b></span>
+      </div>`;
+    const done = d.updated
+      ? `<div class="al-dep-done"><div class="al-dep-done-h">✅ Policy updated in place</div>
+          <div><b>${escq(d.updated.displayName)}</b> <span class="mini muted">· id <code>${escq(d.updated.id)}</code></span></div>
+          <div class="mini" style="margin-top:6px">Same profile, same grouping, assignments untouched. Devices pick the new rules up at their next sync (within the hour). <b>Next:</b> let it run, collect events (Help &amp; scripts → the events Remediation, or a fresh scan), upload them on <b>Evidence</b>, and <b>What breaks?</b> judges the new rules.</div></div>`
+      : createdFor("enforce")
+      ? `<div class="al-dep-done"><div class="al-dep-done-h">✅ Enforce profile created</div>
+          <div><b>${escq(createdFor("enforce").displayName)}</b> <span class="mini muted">· id <code>${escq(createdFor("enforce").id)}</code> · assigned to nobody</span></div>
+          <div class="mini" style="margin-top:6px">Assign it in the portal when the pilot has held. Removing the AuditOnly assignment from the same group is the other half of the switch.</div></div>`
+      : createdFor("audit")
+      ? `<div class="al-dep-done"><div class="al-dep-done-h">✅ AuditOnly profile created</div>
+          <div><b>${escq(createdFor("audit").displayName)}</b> <span class="mini muted">· id <code>${escq(createdFor("audit").id)}</code></span></div>
+          <div class="mini" style="margin-top:6px">It is in the tenant and assigned to nobody — nothing has reached a device yet. Assign it to a pilot group below.</div></div>`
+      : "";
 
     box.innerHTML = `<div class="al-dep">
       <div class="al-dep-h"><b>D · Let TUNO do it</b> <span class="tag new">writes to your tenant</span></div>
-      <p class="mini muted" style="margin:0 0 8px">Creates the profile shown in the <b>Intune profile</b> tab, in the tenant you are signed in to. Creating it changes nothing on any device — assignment is a separate step below, and it tells you how big the group is before it does anything.</p>
+      ${done}
+      <p class="mini muted" style="margin:${done ? "10px" : "0"} 0 8px">${iterating
+        ? `The grouping on screen is <b>already deployed</b> in this tenant — this is an iteration. <b>Update the deployed profile in place</b>: the adjusted rules and the new version name are written into it, same address, its assignments never move.`
+        : `Creates the profile shown in the <b>Intune profile</b> tab, in the tenant you are signed in to. Creating it changes nothing on any device — assignment is a separate step below, and it tells you how big the group is before it does anything.`}</p>
 
       ${issues.length ? `<div class="al-dep-err"><b>Fix this before deploying.</b>${issues.map((i) => `<div style="margin-top:4px">${escq(i.text)}</div>`).join("")}</div>` : ""}
       ${err}
 
-      <div class="al-dep-row">
-        <button class="btn primary" id="alDepAudit" ${d.busy || issues.length ? "disabled" : ""}>
-          ${d.busy === "audit" ? "Creating…" : "🚀 Create the AuditOnly profile"}</button>
-        <span class="mini muted">as ${(() => {
-          const vm = /^(.*[\s-][Vv])(\d+(?:\.\d+)*)$/.exec(name);
-          return vm
-            ? `<b>${escq(vm[1])}</b><input id="alDepVer" class="al-dep-in al-dep-ver" value="${escq(vm[2])}" spellcheck="false" title="The version token in the profile name — edit it here, it moves in the name only, never in the grouping">`
-            : `<b>${escq(name)}</b>`;
-        })()}, grouping <b>${escq(grouping || "(none)")}</b></span>
-      </div>
+      ${iterating ? "" : createRow}
       <p class="mini muted" style="margin:6px 0 0"><b>The grouping is the policy's address on the device.</b> Same policy, next iteration → SAME grouping: edit the deployed profile in place (the version moves in the name, not the address). A new GUID deploys a second policy BESIDE the old one — the device merges both, and anything you removed keeps applying from the old address.
       <button class="btn sm" id="alDepCheckGroup" style="margin-left:6px" ${d.busy ? "disabled" : ""}>${d.busy === "groupcheck" ? "Checking…" : "🔎 Check against the tenant"}</button></p>
       ${(() => {
@@ -3676,8 +3711,9 @@ const AppLockerTool = (() => {
         if (!d.checked || !d.checked.tenantAppLocker) return "";
         const match = tenantMatchingGrouping();
         if (match.length) {
-          return `<p class="mini" style="margin:4px 0 0">✓ The grouping on screen matches the deployed profile${match.length > 1 ? `s (${match.length})` : ""}:</p>
-            <ul class="mini al-list" style="margin-top:4px">${match.map((p) => `<li>${p.id ? `<button class="btn sm al-dep-cmp" data-id="${escq(p.id)}" ${d.busy ? "disabled" : ""}>${d.busy === "compare" && d.comparing === p.id ? "Comparing…" : "⇄ Compare — differences only"}</button> <button class="btn sm al-dep-upd" data-id="${escq(p.id)}" data-name="${escq(p.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}${p.id ? ` <span class="muted">— update writes the adjusted rules and the new version name into it, assignments untouched</span>` : ""}</li>`).join("")}</ul>`;
+          return `<p class="mini" style="margin:4px 0 0">✓ The grouping on screen matches the deployed profile${match.length > 1 ? `s (${match.length})` : ""}${iterating ? ` — the version to write is <span class="mini muted">${verRow}</span>` : ""}:</p>
+            <ul class="mini al-list" style="margin-top:4px">${match.map((p) => `<li>${p.id ? `<button class="btn sm al-dep-cmp" data-id="${escq(p.id)}" ${d.busy ? "disabled" : ""}>${d.busy === "compare" && d.comparing === p.id ? "Comparing…" : "⇄ Compare — differences only"}</button> <button class="btn sm ${iterating ? "primary" : ""} al-dep-upd" data-id="${escq(p.id)}" data-name="${escq(p.displayName || "")}" ${d.busy ? "disabled" : ""}>✎ Update it in place</button> ` : ""}<b>${escq(p.displayName || "(unnamed)")}</b>${p.lastModifiedDateTime ? ` · last changed ${escq(String(p.lastModifiedDateTime).slice(0, 10))}` : ""}${p.id ? ` <span class="muted">— update writes the adjusted rules and the new version name into it, assignments untouched</span>` : ""}</li>`).join("")}</ul>` + (iterating ? `<details class="al-dep-more" style="margin-top:8px"><summary class="mini muted">Not iterating — deploy a second, separate profile ▾</summary>
+              <div class="mini muted" style="margin:6px 0 4px">Two profiles under one grouping write the same CSP addresses and unassigning one can delete the other's nodes. Mint a fresh grouping first (↻ on the Intune profile tab) if this is really a new deployment.</div>${createRow}</details>` : "");
         }
         if (!d.checked.tenantAppLocker.length) return `<p class="mini" style="margin:4px 0 0">✓ No AppLocker profile in this tenant yet — a fresh grouping is right for a first deployment.</p>`;
         return "";
@@ -3701,9 +3737,7 @@ const AppLockerTool = (() => {
             <button class="btn primary sm" id="alDepUpdYes" ${d.busy ? "disabled" : ""}>${d.busy === "update" ? "Updating…" : "Yes, update it"}</button>
             <button class="btn sm" id="alDepUpdNo">Cancel</button>
           </div></div>` : ""}
-      ${d.updated ? `<div class="al-dep-ok"><b>Updated in place.</b> ${escq(d.updated.displayName)} — id <code>${escq(d.updated.id)}</code>. Same profile, same grouping, assignments untouched; devices get the new rules at their next sync.</div>` : ""}
 
-      ${createdFor("audit") ? `<div class="al-dep-ok"><b>Created.</b> ${escq(createdFor("audit").displayName)} — id <code>${escq(createdFor("audit").id)}</code>. It is in the tenant and assigned to nobody.</div>` : ""}
 
       ${createdFor("audit") ? `
       <div class="al-dep-sub">
@@ -3746,7 +3780,6 @@ const AppLockerTool = (() => {
             : `<p class="mini" style="margin:0 0 6px"><b>3 of 3.</b> The Enforce profile is created as <b>${escq(intuneProfileName("Enforce"))}</b> under the <b>same grouping</b> as the audit profile — the same address on the device is what makes it a replacement, so that profile is not "in the way" — and <b>assigned to nobody</b>. Then, in the portal: assign it to the pilot group and <b>remove the audit profile's assignment for that same group</b> — two profiles writing one grouping to one device is a conflict in Intune, not a merge. When the pilot has held, widen it.</p>
                <div class="al-dep-row"><button class="btn primary sm" id="alDepEnforce" ${d.busy ? "disabled" : ""}>${d.busy === "enforce" ? "Creating…" : "🚀 Create the Enforce profile"}</button></div>`}`;
         })()}
-        ${createdFor("enforce") ? `<div class="al-dep-ok">Created ${escq(createdFor("enforce").displayName)} — id <code>${escq(createdFor("enforce").id)}</code>, assigned to nobody. Assign it in the portal when the pilot has held.</div>` : ""}
       </div>
 
       <p class="mini muted" style="margin:8px 0 0">Whatever happens here, the <b>Application Identity</b> service still has to be running on the targets or AppLocker does nothing and logs nothing — and removing the assignment is the way back, so test that on the pilot group before the estate depends on it.</p>
@@ -3851,6 +3884,14 @@ const AppLockerTool = (() => {
   // which is the NEXT version's name once the loop has turned — so a
   // tenant running the very audit profile this draft was compared equal
   // to still read "the AuditOnly profile has to exist first" (Mihai).
+  // ONE answer to "is the audit profile in this tenant?" (10578). The gate,
+  // the rail, the status line and the deploy panel each asked it their own
+  // way, and the gate's way (a flag set by the collision preflight, which
+  // only lists SAME-NAME profiles) said ✗ while the line under it named the
+  // profile it had found — Mihai's screenshot, 3 Sep.
+  function auditIsInTenant() {
+    return !!createdFor("audit") || !!(deployState.checked && deployState.checked.auditInTenant) || !!auditProfileInTenant();
+  }
   function auditProfileInTenant(profiles) {
     const list = profiles || (deployState.checked && deployState.checked.tenantAppLocker) || [];
     const g = String(intuneGrouping() || "").toLowerCase();
@@ -3956,6 +3997,18 @@ const AppLockerTool = (() => {
       if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check. Re-run the deploy; there may be nothing in the way any more.");
       const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
       const body = intuneProfile(mode);
+      // AN UPDATE MOVES THE VERSION (10578). The name on the table is the
+      // next version; if it still equals the deployed name — the field was
+      // not bumped, or the 10570 audit-pin gave the Enforce profile the
+      // audit's number — bump it now, so a device admin reading the portal
+      // can see that the rules changed.
+      body.displayName = intuneProfileName(mode, { fromTable: true });
+      if (body.displayName === String(target.displayName || "")) {
+        intuneCfg.displayName = bumpVersionInName(intuneCfg.displayName);
+        const ni = $("alIntuneName");
+        if (ni) ni.value = intuneCfg.displayName;
+        body.displayName = intuneProfileName(mode, { fromTable: true });
+      }
       // The deployed profile's own grouping wins — same address on the
       // device is what makes this an edit instead of a second policy.
       const st = (target.omaSettings || []).find((s2) => APPLOCKER_OMA_RE.test(String(s2.omaUri || "")));
@@ -3979,6 +4032,8 @@ const AppLockerTool = (() => {
       d.busy = "";
       renderDeploy();
       renderCodePane();
+      renderStatus();
+      renderRail();
     } catch (e) { depFail(e); }
   }
 

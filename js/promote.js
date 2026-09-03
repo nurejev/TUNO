@@ -100,6 +100,18 @@ const PROMOTE = {
 
   items: [
     {
+      n: 149, title: "\ud83d\udd10 T01 \u2014 the deploy panel leads with what happened, an update in place moves the version, the loop strip on top",
+      tools: ["T01 AppLocker"], builds: [10578], risk: "low",
+      why: "Mihai's first round on the rail, 3 Sep, with a live tenant: the update in place worked but the panel still led with a bold Create button and reported it in one small line; the Enforce profile kept its name (V4.0.1 over V4.0.1 \u2014 10570's audit-pin applied to an update); gate 1 read \u2717 beside the profile it had found; and he asked for the loop strip at the top for visibility. Four fixes with one honest answer each; deploy suite grew a scenario that deploys two profiles under one grouping and updates the Enforce one.",
+      test: [
+        "Sign in, load a draft under a grouping that is already deployed, 🔎 Check against the tenant: the panel says 'already deployed \u2014 this is an iteration', Update it in place is the primary button on each matched profile, Create is behind the 'Not iterating' fold, gate 1 reads \u2713 with the audit profile's name.",
+        "Update the Enforce profile in place with the name on the table equal to the deployed name: the PATCH carries the next version (V4.0.1 \u2192 V4.0.2), the portal shows the new name, the panel leads with the green 'Policy updated in place' banner naming it, the status line and the strip's Update profile station say so.",
+        "Create the AuditOnly profile on a fresh grouping: the banner reads 'AuditOnly profile created' and the assign-to-pilot block follows it.",
+        "The loop strip is above the rail on every screen; clicking Scan/Build/What breaks?/Deploy switches the rail to that screen and scrolls to the card.",
+      ],
+      files: ["js/applocker.js", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 148, title: "\ud83d\udd10 T01 rethink, part 2 \u2014 the rail (Option B), and What breaks? replays ALLOWED events against the draft",
       tools: ["T01 AppLocker"], builds: [10577], risk: "medium",
       why: "Mihai, 3 Sep: 'the workflow of T01 has become a mess, very difficult to follow, not clear when to use what' \u2014 after an Enforce policy blocked scripts he believed were allowed. Two mockups (tabs vs rail) on 3 Sep; he picked the rail. Four screens, one at a time, on the shared ep-rail chrome; the counts on the nodes are the decisions left, the foot is the next act. The engine (audit, fixes, coverage, groupings, deploy panel, events harvest) is untouched \u2014 the shape around it changed, and one blind spot closed: What breaks? replays every event on the table including Allowed ones, which is the only question anyone has before Enforce and the one the tool never answered. Medium: a full re-parenting of the screen; every T01 suite is green and the real 3 Sep bundle renders the six expected rows, but the tenant-facing deploy flow was exercised headlessly only.",

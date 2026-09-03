@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10578, date: "2026-09-03", title: "T01 — the deploy panel says what happened, an update moves the version, the loop on top",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "After an update in place or a create, the deploy panel leads with one large green banner — Policy updated in place, AuditOnly profile created, Enforce profile created — with the name, the id and the next act, instead of a small line under a still-bold Create button. When the grouping on screen is already deployed the panel says this is an iteration: Update it in place is the primary act on each matched profile and Create steps back behind a fold." },
+      { kind: "fixed", tool: "AppLocker", text: "An update in place moves the version. Updating the Enforce profile wrote V4.0.1 over V4.0.1, because the Enforce profile is named after the audit profile it enforces; an update now takes the name on the table and bumps it if it still equals the deployed one, so the portal shows that the rules changed." },
+      { kind: "fixed", tool: "AppLocker", text: "The first Enforce gate read ✗ beside the very audit profile it had found under the grouping. One answer now serves the gate, the rail, the status line and the loop strip." },
+      { kind: "improved", tool: "AppLocker", text: "The audit loop strip sits at the top, above the rail: a station click switches to its screen, Collect lights from the scan's own event log, the Gaps station is What breaks? with the count to resolve, and Update profile lights from an update made here (a portal edit is still marked by hand)." },
+    ],
+  },
+  {
     build: 10577, date: "2026-09-03", title: "T01 rethink, part 2 — the rail, and What breaks?",
     items: [
       { kind: "improved", tool: "AppLocker", text: "The tool is four screens on a rail now, one at a time: Evidence, Policy, What breaks?, Deploy, with Help & scripts below the line. The rail says where you are, what each screen holds (files loaded, findings, unresolved breaks, the mode in the tenant) and, in its foot, the next act in one line. The five numbered steps, the loop strip on the page, the jump strip and the two-column layout are gone; the audit checks, fixes, coverage table, groupings and update-in-place are exactly as they were." },
