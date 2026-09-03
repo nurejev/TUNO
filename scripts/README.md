@@ -184,6 +184,14 @@ One file lands next to the script:
 TunoAppLockerScan-<DEVICE>-<yyyyMMdd-HHmm>.json   <- upload this to T01
 ```
 
+**The effective policy in the bundle includes what Intune delivered.** `Get-AppLockerPolicy
+-Effective` merges local and Group Policy only; the policy the AppLocker CSP delivers from
+Intune is cached under `%WINDIR%\System32\AppLocker\MDM\<enrollment>\<grouping>\<type>\Policy`
+and the cmdlet does not show it — a device enforcing an Intune policy read as "Script: no
+rules" until 1.12.0. The scanner now reads that cache, merges it in (rules unioned, the most
+restrictive enforcement mode kept) and records the groupings it found under
+`effectivePolicy.sources.mdm`.
+
 The generated rule set is inside the bundle. Since 1.11.0 the Audit/Enforce policy
 XML is written only with `-WriteXml` (for GPO estates) and is UNREVIEWED — T01 is
 where the rules are audited, checked against the Microsoft apps and replayed against

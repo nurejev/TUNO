@@ -226,7 +226,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.11.0
+Version    : 1.12.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -319,8 +319,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.11.0'
-$script:TunoBuild = 10581
+$script:ScriptVersion = '1.12.0'
+$script:TunoBuild = 10582
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1429,17 +1429,124 @@ function Get-AppLockerEventData {
 # ══════════════════════════════════════════════════════════════════════════════
 # Effective policy
 # ══════════════════════════════════════════════════════════════════════════════
+function Get-MdmAppLockerPolicy {
+    <#
+    .SYNOPSIS
+        The Intune-delivered AppLocker policy, read from the CSP cache.
+    .DESCRIPTION
+        Get-AppLockerPolicy -Effective merges LOCAL and GROUP POLICY (the SrpV2
+        registry). What the AppLocker CSP delivers from Intune is cached under
+        %WINDIR%\System32\AppLocker\MDM\<enrollment>\<grouping>\<EXE|MSI|Script|
+        DLL|StoreApps>\Policy - one RuleCollection per file - and the cmdlet does
+        NOT include it, while the Application Identity service enforces it. So a
+        device enforcing an Intune policy read as "Script: no rules" (Mihai, 3 Sep:
+        a Script collection with 14 rules deployed, 8007 blocks in the log, and the
+        effective policy in the bundle empty). This reads the cache and names each
+        grouping, so the bundle's effective policy is what the device enforces.
+    #>
+    $root = Join-Path $env:windir 'System32\AppLocker\MDM'
+    $warnings = New-Object System.Collections.Generic.List[string]
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        return [pscustomobject]@{ present = $false; groupings = @(); collections = @(); warnings = @() }
+    }
+    $typeMap = @{ 'EXE' = 'Exe'; 'MSI' = 'Msi'; 'SCRIPT' = 'Script'; 'DLL' = 'Dll'; 'STOREAPPS' = 'Appx'; 'APPX' = 'Appx' }
+    $groupings = New-Object System.Collections.Generic.List[object]
+    $cols = New-Object System.Collections.Generic.List[object]
+    foreach ($enr in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+        foreach ($grp in @(Get-ChildItem -LiteralPath $enr.FullName -Directory -ErrorAction SilentlyContinue)) {
+            $types = New-Object System.Collections.Generic.List[string]
+            foreach ($typeDir in @(Get-ChildItem -LiteralPath $grp.FullName -Directory -ErrorAction SilentlyContinue)) {
+                $policyFile = Join-Path $typeDir.FullName 'Policy'
+                if (-not (Test-Path -LiteralPath $policyFile -PathType Leaf)) { continue }
+                $text = $null
+                try { $text = [System.IO.File]::ReadAllText($policyFile) } catch { $warnings.Add(("MDM cache {0}\{1}\{2}\Policy could not be read: {3}" -f $enr.Name, $grp.Name, $typeDir.Name, $_.Exception.Message)); continue }
+                $text = $text.Trim([char]0xFEFF, ' ', "`r", "`n", "`t")
+                if (-not $text) { continue }
+                $doc = $null
+                try { $doc = [xml]$text } catch { $warnings.Add(("MDM cache {0}\{1}\{2}\Policy is not XML" -f $enr.Name, $grp.Name, $typeDir.Name)); continue }
+                $rc = $doc.DocumentElement
+                if (-not $rc) { continue }
+                if ($rc.LocalName -eq 'AppLockerPolicy') { $rc = $rc.SelectSingleNode('RuleCollection') }
+                if (-not $rc -or $rc.LocalName -ne 'RuleCollection') { continue }
+                $t = $rc.GetAttribute('Type')
+                if (-not $t) { $key = $typeDir.Name.ToUpperInvariant(); if ($typeMap.ContainsKey($key)) { $t = $typeMap[$key] } }
+                $types.Add($typeDir.Name)
+                $cols.Add([pscustomobject]@{
+                    enrollment = $enr.Name; grouping = $grp.Name; type = $t
+                    mode = $rc.GetAttribute('EnforcementMode'); ruleCount = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count
+                    xml = $rc.OuterXml
+                })
+            }
+            $groupings.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $grp.Name; types = @($types) })
+        }
+    }
+    return [pscustomobject]@{ present = $true; groupings = @($groupings.ToArray()); collections = @($cols.ToArray()); warnings = @($warnings.ToArray()) }
+}
+
+function Merge-AppLockerXml {
+    <#
+      Merge RuleCollection elements into one AppLockerPolicy document the way the
+      service does: rules are UNIONED per Type, and the enforcement mode is the
+      most restrictive one seen (Enabled > AuditOnly > NotConfigured).
+    #>
+    param([string]$BaseXml, [object[]]$Extra)
+    $rank = @{ 'Enabled' = 3; 'AuditOnly' = 2; 'NotConfigured' = 1; '' = 0 }
+    $byType = [ordered]@{}
+    if ($BaseXml) {
+        try {
+            $base = [xml]$BaseXml
+            foreach ($rc in @($base.DocumentElement.SelectNodes('RuleCollection'))) {
+                $byType[$rc.GetAttribute('Type')] = [pscustomobject]@{ mode = $rc.GetAttribute('EnforcementMode'); rules = New-Object System.Collections.Generic.List[string]; ids = New-Object System.Collections.Generic.HashSet[string] }
+                foreach ($r in @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })) { $id = $r.GetAttribute('Id'); if ($id -and -not $byType[$rc.GetAttribute('Type')].ids.Add($id)) { continue }; $byType[$rc.GetAttribute('Type')].rules.Add($r.OuterXml) }
+            }
+        } catch { }
+    }
+    foreach ($c in @($Extra)) {
+        if (-not $c.type) { continue }
+        if (-not $byType.Contains($c.type)) { $byType[$c.type] = [pscustomobject]@{ mode = ''; rules = New-Object System.Collections.Generic.List[string]; ids = New-Object System.Collections.Generic.HashSet[string] } }
+        $slot = $byType[$c.type]
+        $m = [string]$c.mode; if (-not $rank.ContainsKey($m)) { $m = '' }
+        if ($rank[$m] -gt $rank[[string]$slot.mode]) { $slot.mode = $m }
+        try {
+            $doc = [xml]$c.xml
+            foreach ($r in @($doc.DocumentElement.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })) { $id = $r.GetAttribute('Id'); if ($id -and -not $slot.ids.Add($id)) { continue }; $slot.rules.Add($r.OuterXml) }
+        } catch { }
+    }
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<AppLockerPolicy Version="1">')
+    foreach ($t in $byType.Keys) {
+        $slot = $byType[$t]
+        $mode = if ($slot.mode) { $slot.mode } else { 'NotConfigured' }
+        [void]$sb.AppendLine(('  <RuleCollection Type="{0}" EnforcementMode="{1}">' -f $t, $mode))
+        foreach ($r in $slot.rules) { [void]$sb.AppendLine('    ' + $r) }
+        [void]$sb.AppendLine('  </RuleCollection>')
+    }
+    [void]$sb.AppendLine('</AppLockerPolicy>')
+    return $sb.ToString()
+}
+
 function Get-EffectivePolicyXml {
+    $mdm = Get-MdmAppLockerPolicy
+    $cmdletXml = $null; $cmdletReason = $null
     if (-not (Get-Command -Name Get-AppLockerPolicy -ErrorAction SilentlyContinue)) {
-        return [pscustomobject]@{ available = $false; reason = 'The AppLocker module is not available in this PowerShell session.'; xml = $null }
+        $cmdletReason = 'The AppLocker module is not available in this PowerShell session.'
     }
-    try {
-        $xml = Get-AppLockerPolicy -Effective -Xml -ErrorAction Stop
-        return [pscustomobject]@{ available = $true; reason = $null; xml = [string]$xml }
+    else {
+        try { $cmdletXml = [string](Get-AppLockerPolicy -Effective -Xml -ErrorAction Stop) }
+        catch { $cmdletReason = $_.Exception.Message }
     }
-    catch {
-        return [pscustomobject]@{ available = $false; reason = $_.Exception.Message; xml = $null }
+    $mdmCols = @($mdm.collections)
+    if (-not $cmdletXml -and -not $mdmCols.Count) {
+        return [pscustomobject]@{ available = $false; reason = $(if ($cmdletReason) { $cmdletReason } else { 'No local/GPO policy and no MDM cache.' }); xml = $null
+            sources = [pscustomobject]@{ localGpo = $false; mdm = $mdm.groupings; note = $null }; warnings = @($mdm.warnings) }
     }
+    $merged = Merge-AppLockerXml -BaseXml $cmdletXml -Extra $mdmCols
+    $note = if ($mdmCols.Count) {
+        ("Merged from Get-AppLockerPolicy -Effective (local + Group Policy) and {0} Intune-delivered collection(s) read from the AppLocker CSP cache under System32\AppLocker\MDM ({1}). The cmdlet alone does not show Intune policy; this does." -f $mdmCols.Count, (($mdm.groupings | ForEach-Object { $_.grouping }) -join ', '))
+    } else { 'From Get-AppLockerPolicy -Effective (local + Group Policy). No Intune-delivered policy is cached on this device.' }
+    return [pscustomobject]@{ available = $true; reason = $cmdletReason; xml = $merged
+        sources = [pscustomobject]@{ localGpo = [bool]$cmdletXml; mdm = @($mdm.groupings); note = $note }
+        warnings = @($mdm.warnings) }
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2372,7 +2479,12 @@ if ($IncludeEvents) {
 # ---- effective policy ----
 Write-Section 'Reading the current effective policy'
 $effective = Get-EffectivePolicyXml
-if ($effective.available) { Write-Ok 'Effective policy captured.' }
+if ($effective.available) {
+    Write-Ok 'Effective policy captured.'
+    if ($effective.sources -and $effective.sources.note) { Write-Info ("    " + $effective.sources.note) }
+    foreach ($g in @($effective.sources.mdm)) { Write-Info ("    MDM grouping {0}: {1}" -f $g.grouping, (($g.types) -join ', ')) }
+    foreach ($w in @($effective.warnings)) { Add-ScanWarning $w }
+}
 else { Write-Note "Effective policy not captured: $($effective.reason)" }
 
 # ---- rule generation ----

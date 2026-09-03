@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10582, date: "2026-09-03", title: "T01 — the effective policy includes what Intune delivered",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The device scan's effective policy now includes the policy Intune delivered. Get-AppLockerPolicy -Effective merges local and Group Policy only; what the AppLocker CSP delivers is cached under System32\\AppLocker\\MDM per grouping and the cmdlet does not show it — while the device enforces it. A device with a 14-rule Script collection deployed and 8007 blocks in its log read as 'Script: no rules'. Scanner 1.12.0 reads the cache, merges it in and records the groupings; the Evidence row and the effective-policy note name them, and a bundle from an older scanner is told that its effective policy was read without the Intune part." },
+    ],
+  },
+  {
     build: 10581, date: "2026-09-03", title: "T01 — the tenant check runs itself, the rules bar, and \"to decide\" on the row",
     items: [
       { kind: "improved", tool: "AppLocker", text: "The tenant check runs itself. When a policy lands on the table and the read consent already exists, the deployed profiles are read at once — the Evidence row shows the matched profile and the deploy panel already knows whether this is an iteration. No prompt appears for a tenant that never consented; that tenant gets a button on the Evidence row, and after the first consent the check runs by itself from then on." },

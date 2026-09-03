@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 153, title: "\ud83d\udd10 T01 \u2014 the scan's effective policy includes the Intune-delivered (CSP) policy",
+      tools: ["T01 AppLocker"], builds: [10582], risk: "medium",
+      why: "Mihai, 3 Sep: the deployed profile carries a Script collection with 14 rules and the device blocks scripts (8007), yet the scan's effective policy said Script had no rules. Get-AppLockerPolicy -Effective does not include CSP-delivered policy; it lives in the System32\\AppLocker\\MDM cache the cleanup script already knew about. Scanner 1.12.0 reads and merges it (Get-MdmAppLockerPolicy, Merge-AppLockerXml) and T01 names the groupings. Medium: the merge is unit-tested on Linux against a fake cache; the real cache layout (enrollment\\grouping\\type\\Policy, RuleCollection per file) is from Clear-TunoAppLockerPolicy's own reading of it and needs one real scan to confirm.",
+      test: [
+        "Run scanner 1.12.0 elevated on the device with the deployed profile: the console prints the merge note and 'MDM grouping AppLocker-…: EXE, MSI, Script, StoreApps'; the bundle's effectivePolicy.xml carries the Script collection with its 14 rules and effectivePolicy.sources.mdm names the grouping.",
+        "Upload it: the Evidence row says 'effective policy includes Intune grouping AppLocker-…'; switch to the effective policy: the note lists the grouping and its collections, Script is no longer empty, and What breaks? judges against it.",
+        "Upload the 3 Sep 11:51 bundle (scanner 1.11): the Evidence row and the note say its effective policy was read without the Intune part and point at 1.12.",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "scripts/README.md", "js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 152, title: "\ud83d\udd10 T01 \u2014 the tenant check runs itself; the rules bar (chips + filter); \"to decide\" on every counted finding",
       tools: ["T01 AppLocker"], builds: [10581], risk: "low",
       why: "Mihai, 3 Sep: 'why can't this be automated' (the Evidence row telling him to go press Check against the tenant), 'the rules section should also be easy scrollable' (83 rules in four tables), and 'this should clearly say on the finding, in the same red, to decide' (the rail said 10 to decide; the rows did not). The check is a read with consent the tenant already gave, so it runs on policy load through Graph.silentScopes and never prompts; the rules bar is chips plus a DOM-only filter; the decide mark is the rail's own words and colour on the rows it counts.",
