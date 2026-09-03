@@ -2427,3 +2427,25 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 /* T01 enforce gates (10568): three verdicts, one glance */
 .al-gates li{margin:0 0 4px}
 .al-gate-ok{color:var(--on);font-weight:700}.al-gate-no{color:var(--off);font-weight:700}
+
+/* ---- T01 goes rail (10577, Option B of the 3 Sep mockup) ----
+   Four screens in .ep-main, one shown at a time; the rail is the shared
+   ep-rail chrome. The code panel was a sticky side column and is now a
+   full-width card on Deploy, so its column-sized max-height goes. */
+.al-wrap .al-main{min-width:0;flex:1}
+.al-pane > .list-card + .list-card, .al-pane > .list-card + .al-steps{margin-top:14px}
+.al-main .al-xml{max-height:70vh;margin-bottom:14px}
+.al-main .al-col{display:flex;flex-direction:column;gap:14px}
+.al-main .al-col > *{min-width:0}
+.al-rail-foot{padding:8px 10px;font-size:11px;color:var(--muted)}
+.al-rail-foot b{color:var(--ink)}
+.al-status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.al-status .al-status-bad{color:var(--bad-fg,#8b2d1f);font-weight:700}
+.al-status .al-status-ok{color:var(--green);font-weight:700}
+.al-gate{border:1px solid var(--warn-bd);background:var(--warn-bg);border-radius:10px;padding:10px 12px;font-size:12.5px;margin:0 0 12px}
+.al-gate.ok{border-color:var(--ok-bd);background:var(--ok-bg)}
+.al-brk-fix{display:flex;gap:6px;flex-wrap:wrap}
+.al-main #alAddRule select.btn{width:auto;min-width:150px}
+#alBreaks table.plist td:nth-child(1){min-width:260px;width:34%}
+#alBreaks table.plist td:nth-child(2){white-space:nowrap}
+#alBreaks table.plist td:nth-child(5){min-width:170px}

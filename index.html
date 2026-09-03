@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10576"></script>
+<script src="js/popup-guard.js?v=10577"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10576">
+<link rel="stylesheet" href="css/app.css?v=10577">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10576"></script>
+<script src="js/selfhost-boot.js?v=10577"></script>
 </head>
 <body>
 
@@ -258,9 +258,213 @@
   <section id="screen-applocker" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator <span class="tag new">BETA</span></h2>
-      <p class="mini" style="margin:0">Scan a device, upload what the scan produced, edit the policy here, and export it as XML for a GPO or as a ready-to-import Intune custom profile. Everything is audited in the browser with the check set from Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>, and the Microsoft coverage table answers the question every lockdown discovers too late: can a standard user still run OneDrive, Teams, Edge and Office? <b>Nothing is uploaded</b> — the file is read in this tab and stays there. You can skip step 1 entirely and import a plain policy XML instead; the scan is what lets the tool see the ACLs a browser cannot.</p>
+      <p class="mini" style="margin:0">One policy, living in the tenant, and this is its only editor. <b>Evidence</b> is what goes in (a device scan, the fleet's events, the deployed profile); <b>Policy</b> is the draft with its audit, fixes and the Microsoft-apps check; <b>What breaks?</b> replays everything that actually ran against the draft and gates Enforce; <b>Deploy</b> writes the Intune profile, in place. Everything runs in the browser — <b>nothing is uploaded</b>. Audit check set after Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>; scanning strategy after Microsoft's AaronLocker.</p>
     </div>
+    <!-- ============ THE RAIL (10577, the rethink — Option B of the 3 Sep mockup)
+         Four screens, one at a time, and a rail that says where you are and
+         what is missing to move on: Evidence → Policy → What breaks? → Deploy,
+         with Help & scripts below the line. The five-step narrative, the loop
+         strip and the jump strip are gone from the page; the loop is still the
+         loop, the user is walked through it instead of shown a diagram of it.
+         Rendered by renderRail() / showScreen() in js/applocker.js. -->
+    <div class="al-status mini muted" id="alStatus" style="margin:10px 0 0"></div>
+    <div class="ep-wrap al-wrap" style="margin-top:12px">
+      <nav class="ep-rail" id="alRail"></nav>
+      <div class="ep-main al-main">
 
+        <!-- ============ 1 · EVIDENCE ============ -->
+        <div class="al-pane" data-alpane="evidence" id="alPaneEvidence">
+    <div class="toolbar" style="margin-top:0">
+      <div class="tb-actions">
+        <!-- TWO buttons, one import: the POLICY entrance and the EVENTS
+             entrance. Both open the same file picker and the import still
+             routes on content — a human reads two buttons as two acts, and
+             the three-files-in-one-label version read as none of them. -->
+        <button class="btn primary" id="alImport" title="The reference scan's .json bundle, or a policy XML from a GPO export / Get-AppLockerPolicy">📂 Upload scan bundle or policy XML</button>
+        <button class="btn primary" id="alImportEv" title="The AppControlEvents_Bundle_*.log the collector wrote on a device — retrieved via Collect diagnostics or Live Response">📡 Upload events results</button>
+        <input type="file" id="alFile" accept="text/xml,application/xml,.xml,application/json,.json,.log" style="display:none">
+        <button class="btn" id="alSample">🧪 Load sample policy</button>
+        <button class="btn" id="alNew">➕ Start empty</button>
+        <button class="btn" id="alReset" title="Take everything off the table — policy, scan, events evidence, manual loop marks. Nothing in the tenant is touched.">🧹 Start over</button>
+        <span class="spacer"></span>
+        <button class="btn" id="alMd" title="Findings, device-scan evidence and coverage as a Markdown report">Export MD</button>
+      </div>
+    </div>
+          <div class="list-card" id="alEvidence" style="margin-top:14px;padding:14px 18px;display:none"></div>
+    <div id="alEmpty" class="list-card" style="margin-top:14px;padding:26px">
+      <p style="margin:0 0 6px"><b>Upload what the scan wrote — the <code>.json</code> bundle.</b></p>
+      <p class="mini muted" style="margin:0">It carries the generated rule set, the policy the device was really running, the directories a standard user can write to, the unsigned binaries sitting in them, and what AppLocker has already blocked. The tool loads the generated <b>AuditOnly</b> policy by default and you can switch to either of the others once it is open.<br><br>
+      <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
+      Or load the sample policy to see what the audit and the Microsoft coverage check produce.<br><br>
+      <b>Coming back mid-loop with only an events bundle?</b> Upload it with the same button — the fleet evidence card appears below, and it can pull the deployed AppLocker profile straight from the tenant to judge against, so nothing needs hunting for on disk.</p>
+    </div>
+          <div class="list-card" id="alScan" style="margin-top:14px;padding:16px 18px;display:none"></div>
+        </div>
+
+        <!-- ============ 2 · POLICY ============ -->
+        <div class="al-pane" data-alpane="policy" id="alPanePolicy" style="display:none">
+          <div id="alPolicyEmpty" class="list-card" style="padding:22px;display:none"><b>No policy on the table yet.</b> <span class="mini muted">Go to <b>Evidence</b> and upload a scan bundle or a policy XML, pull the deployed profile from the tenant, or load the sample.</span></div>
+          <div id="alBody" style="display:none">
+            <div class="al-col">
+              <!-- Order is the workflow, not the file: the summary and the
+                   add-rule form you TOUCH first, then the findings (the
+                   decisions), the coverage (the standing question) and the
+                   rules with their findings nested. -->
+              <div class="list-card" id="alSummary" style="padding:14px 18px"></div>
+              <div id="alAddRule"></div>
+              <div class="list-card" id="alFindings" style="padding:16px 18px"></div>
+              <div class="list-card" id="alCoverage" style="padding:16px 18px"></div>
+              <div class="list-card" id="alRules" style="padding:16px 18px"></div>
+              <!-- Per-collection enforcement is ADVANCED (10577): Audit vs
+                   Enforce is decided once, on Deploy, for the whole profile —
+                   the Intune profile is written with every shipped collection
+                   in the chosen mode. Per-collection modes still shape the GPO
+                   XML and the audit's enforcement findings, so the editor
+                   stays, folded. -->
+              <details class="al-guide" id="alEnforceAdv"><summary class="mini"><b>⚙ Advanced — enforcement mode per collection</b> <span class="muted">(the GPO XML only; the Intune profile takes its mode from Deploy) ▾</span></summary>
+                <div class="list-card" id="alEnforce" style="padding:16px 18px;margin-top:8px"></div>
+              </details>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ 3 · WHAT BREAKS? ============ -->
+        <div class="al-pane" data-alpane="breaks" id="alPaneBreaks" style="display:none">
+          <div class="list-card" id="alBreaks" style="padding:16px 18px"></div>
+    <!-- Fleet events evidence — OUTSIDE the policy-only body, on purpose:
+         the mid-loop return carries ONLY the events bundle (the policy is in
+         the TENANT), and a card that hides until a policy file is found is
+         exactly the confusion it caused. Full-width here, visible in both
+         states; it offers to pull the deployed profile from the tenant. -->
+    <div class="list-card" id="alEvents" style="margin-top:14px;padding:16px 18px;display:none"></div>
+        </div>
+
+        <!-- ============ 4 · DEPLOY ============ -->
+        <div class="al-pane" data-alpane="deploy" id="alPaneDeploy" style="display:none">
+          <div id="alDeployEmpty" class="list-card" style="padding:22px;display:none"><b>Nothing to deploy yet.</b> <span class="mini muted">A policy has to be on the table first — see <b>Evidence</b>.</span></div>
+          <div id="alDeployBody" style="display:none">
+      <!-- ============ STEP 5 — deploy ============ -->
+      <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
+        <div class="al-step">
+          <div style="min-width:0;flex:1">
+            <h3 style="margin:0 0 4px">Get it into Intune</h3>
+            <p class="mini muted" style="margin:0 0 10px">AppLocker has no settings-catalog surface. The supported route is a Windows custom profile carrying one OMA-URI string per rule collection — which is exactly what the <b>Intune profile</b> tab produces.</p>
+            <!-- Deploy from here. Rendered by js/applocker.js because every
+                 part of it depends on tenant state: whether you are signed
+                 in, what is already in Intune under this grouping, and
+                 whether the audit has actually been worked down. -->
+            <div id="alDeploy" class="al-deploy"></div>
+            <details class="al-guide">
+              <summary>Or do it yourself — three ways, from least to most automated</summary>
+              <div class="al-guide-body">
+                <p class="mini"><b>A · By hand in the portal.</b> Intune admin center → Devices → Configuration → Create → Windows 10 and later → Templates → <b>Custom</b>. Then add one OMA-URI setting per collection, copying each <code>omaUri</code> and its <code>value</code> out of the JSON on the right. Data type is <b>String</b>. Tedious, but it needs no permissions beyond the portal.</p>
+                <p class="mini"><b>B · Post the JSON with Graph.</b> Download the profile from the Intune tab, then:</p>
+                <pre class="al-code">Connect-MgGraph -Scopes DeviceManagementConfiguration.ReadWrite.All
+$body = Get-Content .\Win_-_Device_Security_-_AppLocker_(AuditOnly).json -Raw
+Invoke-MgGraphRequest -Method POST -ContentType application/json `
+    -Uri 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations' `
+    -Body $body</pre>
+                <p class="mini"><b>C · Let the converter script do it.</b> Download the Policy XML tab (or use the Audit and Enforce XML the scan already wrote), then run <code>Convert-TunoAppLockerToIntune.ps1</code>. Offline it writes the profile JSON; with <code>-Online</code> it creates the profile in the tenant.</p>
+                <!-- The converter lives HERE, not in step 1. It has nothing to
+                     do with scanning a device: it turns a policy into an
+                     Intune profile, which is this step. Offering it up there
+                     made step 1 look like it needed two downloads. -->
+                <div class="al-dl" style="margin:8px 0 10px">
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Convert-TunoAppLockerToIntune.ps1" download>⭳ Convert-TunoAppLockerToIntune.ps1</a>
+                    <code class="al-dl-cmd" data-file="Convert-TunoAppLockerToIntune.ps1"></code>
+                    <button class="btn sm al-dl-copy" data-file="Convert-TunoAppLockerToIntune.ps1" title="Copy the download command">⧉ Copy</button>
+                  </div>
+                  <!-- The checklist belongs to the deploy step, not to the export:
+                       it is what you work down BEFORE the policy reaches a device,
+                       and it is the thing you keep afterwards. -->
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/AppLocker-Implementation-Checklist.md" download>⭳ AppLocker-Implementation-Checklist.md</a>
+                    <span class="mini muted" style="flex:1;min-width:240px">Every check that has to pass before this policy is enforced — the XML itself, the coverage, the audit period, the way back. Print it and keep the completed copy.</span>
+                  </div>
+                  <!-- The brownfield pair. Deploying does not clear what came
+                       before, so a device with an OLD policy needs it removed
+                       deliberately — and the carry-over findings above point
+                       here when the scan sees one. -->
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
+                    <span class="mini muted" style="flex:1;min-width:240px">The cleanup for devices that already carry a policy: backs up, clears the local policy and the SrpV2 tattoo, verifies, and exits 1 when it is not clean. Preserves the audit event logs and AppIDSvc by default — the new policy needs both.</span>
+                  </div>
+                  <div class="al-dl-row">
+                    <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
+                    <span class="mini muted" style="flex:1;min-width:240px">Its detection half, for deploying the pair as an Intune Remediation during the migration window. Unassign it once the new policy is out, or it will remove what you just deployed.</span>
+                  </div>
+                </div>
+                <p class="mini"><b>A device that already has an AppLocker policy</b> — the carry-over findings in the audit will say so — is a three-step migration, in this order: <b>unassign</b> the old profile or GPO (skipping this makes the cleanup a loop — everything returns at the next sync), <b>run the cleanup</b> to sweep what unassignment leaves tattooed, then <b>deploy this policy under a new grouping</b>. Signed in, section <b>E</b> below creates the Detect/Clear pair as an Intune Remediation for you — unassigned, scoped to the migration window by you. Never reuse the old deployment's name or grouping: removal of shared groupings is broken by design in the CSP.</p>
+                <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
+.\Convert-TunoAppLockerToIntune.ps1 `
+    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
+
+# Online — create the audit profile in the tenant
+.\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
+    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
+    -DisplayName 'Win - SEC - Device Security - AppLocker'
+# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.</pre>
+                <p class="mini"><b>Then, in every case:</b></p>
+                <ol class="mini al-list">
+                  <li><b>Assign the AuditOnly profile first</b>, to a small pilot group. Nothing here assigns anything for you — an AppLocker policy landing on a group by accident is not a recoverable afternoon.</li>
+                  <li>Make sure the <b>Application Identity</b> service is running on the targets, or AppLocker does nothing and logs nothing. Set it to start automatically via an Intune configuration profile or a remediation script.</li>
+                  <li>Leave it in audit long enough to cover a month-end, a patch cycle and a new starter. Collect events 8003 and 8006 — the things that <i>would</i> have been blocked.</li>
+                  <li>Re-run the scan, upload the new bundle here, and work the blocked list down to nothing.</li>
+                  <li>Only then move to Enforced — by <b>editing the profile you already have</b>, not by assigning a second one. See the grouping note below; two live profiles is the trap.</li>
+                </ol>
+                <p class="mini"><b>One profile, one grouping, edited in place.</b> The grouping is a CSP node name, and Microsoft's guidance is that it should be unique — <i>"Delete/unenrollment is not properly supported unless Grouping values are unique… The best practice is to use a randomly generated GUID."</i> Two profiles sharing a grouping write the same OMA-URIs, so unassigning one can delete the nodes the other still depends on. So: give the profile a grouping of its own (a GUID is ideal), and go from audit to enforce by changing that profile's values rather than deploying a second profile beside it.</p>
+                <p class="mini"><b>Deploying does not clear what came before.</b> Every path adds rather than replaces — the CSP keeps one node per grouping and type until something explicitly deletes it, Group Policy merges rules from every linked GPO, and local policy persists until cleared. A collection your new policy simply omits <b>keeps running</b>. Upload a scan and the audit will name any collection the device is running that this policy does not contain.</p>
+                <p class="mini"><b>It reboots.</b> The AppLocker CSP's Policy nodes carry automatic reboot behaviour, on apply and on delete. Neither deploying nor removing is quiet — plan both for a window.</p>
+                <p class="mini"><b>Keep a way back.</b> Removing the assignment removes the policy, but a device that cannot run the management agent cannot be told that. Test the removal path on the pilot group before the estate depends on it.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+          <!-- Two artefacts leave this tool: the policy XML for a GPO, and the
+               Intune custom profile. They share one panel and one pair of
+               buttons, because they are the same thing said twice and putting
+               them in separate places is how one of them goes stale. -->
+          <div class="al-xml" id="alXmlCard">
+            <div class="al-pane-tabs">
+              <button class="al-pane-tab active" data-pane="xml" title="The AppLocker policy XML — for a GPO, or as the input to the converter script">Policy XML — for a GPO</button>
+              <button class="al-pane-tab" data-pane="intune" title="The Intune custom profile (OMA-URI) built from the same policy">Intune profile — the primary output</button>
+            </div>
+            <div class="al-xml-head">
+              <div class="al-xml-id">
+                <div class="al-xml-name" id="alXmlName">AppLockerPolicy.xml</div>
+                <div class="al-xml-sub" id="alXmlSub"></div>
+              </div>
+              <div class="al-xml-acts">
+                <button class="btn sm" id="alExpand" title="Open this full screen — the same panel, moved, so Copy and Download keep working">⛶ Full screen</button>
+                <button class="btn sm" id="alCopyXml" title="Copy what is shown to the clipboard">⧉ Copy</button>
+                <select id="alDlPart" class="btn sm" title="What the download contains. A single collection is what Intune's manual OMA-URI route asks for — one value per rule collection.">
+                  <option value="all">Whole policy</option>
+                </select>
+                <button class="btn sm primary" id="alXml" title="Download what is shown">⭳ Download</button>
+              </div>
+            </div>
+            <div class="al-intune-form" id="alIntuneForm" style="display:none">
+              <label class="al-f"><span>Profile name <b title="The trailing version token (V4.0, V4.0.1 …) is part of the name. The +v button increments it — V4.0 → V4.0.1 → V4.0.2 — and it auto-increments when a deployed profile is pulled from the tenant, so the next edit carries the next number. Typing in the field overrides everything.">ⓘ</b></span>
+                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneName" spellcheck="false" style="flex:1;min-width:0">
+                <button class="btn" id="alIntuneBumpV" title="Increment the version token in the name — V4.0 → V4.0.1 → V4.0.2">+v</button></span></label>
+              <label class="al-f"><span>Grouping <b title="The grouping names a CSP node and must be UNIQUE per profile — Microsoft's stated best practice is a random GUID, because two profiles sharing a grouping write the same OMA-URIs and unassigning one can delete the nodes the other depends on. TUNO prefills AppLocker-<guid>: unique like a GUID, recognisable in logs and carry-over findings. Do NOT name it pilot or production — that distinction lives in the assignment and the mode, edited in place.">ⓘ</b></span>
+                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneGrouping" spellcheck="false" style="flex:1;min-width:0">
+                <button class="btn" id="alIntuneRegroup" title="Mint a fresh AppLocker-<guid> grouping — use when this export is a NEW deployment rather than an edit of an existing profile">↻</button></span></label>
+              <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
+              <div class="al-f-note" id="alIntuneIssues" style="flex-basis:100%"></div>
+              <p class="al-f-note">DLL is <b>left out of the profile entirely</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. It is omitted rather than marked NotConfigured because a collection in that state <b>carrying rules is enforced</b>, which would be the opposite of the intent. Absence is the only state that restricts nothing.</p>
+            </div>
+            <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
+          </div>
+          </div>
+        </div>
+
+        <!-- ============ HELP & SCRIPTS ============ -->
+        <div class="al-pane" data-alpane="help" id="alPaneHelp" style="display:none">
     <!-- ============ THE AUDIT LOOP ============
          The page reads 1→5 top to bottom, but the work is a CIRCLE — collect,
          find gaps, close them, update, collect again — and that was visible
@@ -269,14 +473,12 @@
          THIS SESSION. Rendered by renderLoopStrip() in js/applocker.js;
          mockup round picked the live strip over a Help-only walkthrough. -->
     <div class="list-card al-loop" id="alLoop" style="margin-top:14px;padding:12px 16px"></div>
-
     <!-- ============ STEP 1 — the scripts ============
          The scan cannot happen in a browser: reading a DACL, an Authenticode
          signature and an event log needs a machine. So T01 hands out the
          PowerShell that does it, rather than pretending the browser could. -->
     <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
       <div class="al-step">
-        <span class="al-step-n">1</span>
         <div style="min-width:0;flex:1">
           <h3 style="margin:0 0 4px">Scan a device <span class="tag">optional — but it is what makes the audit real</span></h3>
           <p class="mini muted" style="margin:0 0 10px">Run this on a <b>clean reference machine</b> — a freshly built image with your standard applications installed and nobody yet working in it. Not your own laptop. It reads directory permissions, signatures and the AppLocker event log, builds a publisher-first rule set from what it finds, and writes one <code>.json</code> bundle. <b>It changes nothing on the device.</b></p>
@@ -381,204 +583,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Step 1 is one way in, not a prerequisite. Without this the two cards
-         read as a sequence and the scan looks mandatory, which it is not:
-         a policy XML you already have goes straight to step 2. -->
-    <div class="al-or"><span>or skip it — upload a policy XML you already have</span></div>
-
-    <div class="toolbar" style="margin-top:0">
-      <div class="tb-actions">
-        <span class="al-step-n sm">2</span>
-        <!-- TWO buttons, one import: the POLICY entrance and the EVENTS
-             entrance. Both open the same file picker and the import still
-             routes on content — a human reads two buttons as two acts, and
-             the three-files-in-one-label version read as none of them. -->
-        <button class="btn primary" id="alImport" title="The reference scan's .json bundle, or a policy XML from a GPO export / Get-AppLockerPolicy">📂 Upload scan bundle or policy XML</button>
-        <button class="btn primary" id="alImportEv" title="The AppControlEvents_Bundle_*.log the collector wrote on a device — retrieved via Collect diagnostics or Live Response">📡 Upload events results</button>
-        <input type="file" id="alFile" accept="text/xml,application/xml,.xml,application/json,.json,.log" style="display:none">
-        <button class="btn" id="alSample">🧪 Load sample policy</button>
-        <button class="btn" id="alNew">➕ Start empty</button>
-        <button class="btn" id="alReset" title="Take everything off the table — policy, scan, events evidence, manual loop marks. Nothing in the tenant is touched.">🧹 Start over</button>
-        <span class="spacer"></span>
-        <button class="btn" id="alMd" title="Findings, device-scan evidence and coverage as a Markdown report">Export MD</button>
-      </div>
-    </div>
-    <div id="alEmpty" class="list-card" style="margin-top:14px;padding:26px">
-      <p style="margin:0 0 6px"><b>Upload what the scan wrote — the <code>.json</code> bundle.</b></p>
-      <p class="mini muted" style="margin:0">It carries the generated rule set, the policy the device was really running, the directories a standard user can write to, the unsigned binaries sitting in them, and what AppLocker has already blocked. The tool loads the generated <b>AuditOnly</b> policy by default and you can switch to either of the others once it is open.<br><br>
-      <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
-      Or load the sample policy to see what the audit and the Microsoft coverage check produce.<br><br>
-      <b>Coming back mid-loop with only an events bundle?</b> Upload it with the same button — the fleet evidence card appears below, and it can pull the deployed AppLocker profile straight from the tenant to judge against, so nothing needs hunting for on disk.</p>
-    </div>
-    <!-- Fleet events evidence — OUTSIDE the policy-only body, on purpose:
-         the mid-loop return carries ONLY the events bundle (the policy is in
-         the TENANT), and a card that hides until a policy file is found is
-         exactly the confusion it caused. Full-width here, visible in both
-         states; it offers to pull the deployed profile from the tenant. -->
-    <div class="list-card" id="alEvents" style="margin-top:14px;padding:16px 18px;display:none"></div>
-    <!-- Two columns: the policy you are working on, and the XML it currently
-         produces. The XML panel is the thing that goes into the GPO, so it is
-         visible while you change the policy rather than only at download. It
-         drops below the audit under 1100px — a column too narrow to read a
-         path in is worse than a stacked one. -->
-    <!-- The jump strip (10547, the layout round): ~10 panels made this the
-         survey's worst scroller. The strip is sticky and scroll-jumps — a
-         pane-rail here would fight the two-column workflow layout that took
-         three mockup rounds to land, so the columns stay exactly as picked. -->
-    <div class="toolbar" id="alJump" style="display:none">
-      <button class="fchip" type="button" data-aljump="alSummary">📊 Summary</button>
-      <button class="fchip" type="button" data-aljump="alEnforce">🎚 Enforcement</button>
-      <button class="fchip" type="button" data-aljump="alAddRule">➕ Add rule</button>
-      <button class="fchip" type="button" data-aljump="alScan" data-aljumpopt="1">💻 Device scan</button>
-      <button class="fchip" type="button" data-aljump="alFindings">🔎 Findings</button>
-      <button class="fchip" type="button" data-aljump="alCoverage">🛡 Coverage</button>
-      <button class="fchip" type="button" data-aljump="alRules">📜 Rules</button>
-      <button class="fchip" type="button" data-aljump="alXmlCard">📄 XML</button>
-      <button class="fchip" type="button" data-aljump="alDeploy">🚀 Deploy</button>
-    </div>
-    <div id="alBody" style="display:none">
-      <div class="al-split">
-        <div class="al-col">
-          <!-- Order is the workflow, not the file. The two things you TOUCH —
-               the enforcement mode per collection, and adding a rule — sit at
-               the top; the things you READ (device evidence, coverage,
-               findings, the rule list) follow. They used to be the other way
-               round, so building a policy meant scrolling past several screens
-               of analysis to reach the controls, every time. -->
-          <div class="list-card" id="alSummary" style="padding:14px 18px"></div>
-          <div class="list-card" id="alEnforce" style="padding:16px 18px"></div>
-          <div id="alAddRule"></div>
-          <div class="list-card" id="alScan" style="padding:16px 18px;display:none"></div>
-          <!-- Three cards, one per LAYOUT (10451): the findings table, the
-               coverage table and the rule tables read differently, and three
-               layouts in one card read as a broken card. Findings lead —
-               they are the decisions; coverage answers the standing question;
-               the rules carry their findings nested. -->
-          <div class="list-card" id="alFindings" style="padding:16px 18px"></div>
-          <div class="list-card" id="alCoverage" style="padding:16px 18px"></div>
-          <div class="list-card" id="alRules" style="padding:16px 18px"></div>
-        </div>
-        <aside class="al-side">
-          <!-- Two artefacts leave this tool: the policy XML for a GPO, and the
-               Intune custom profile. They share one panel and one pair of
-               buttons, because they are the same thing said twice and putting
-               them in separate places is how one of them goes stale. -->
-          <div class="al-xml" id="alXmlCard">
-            <div class="al-pane-tabs">
-              <button class="al-pane-tab active" data-pane="xml" title="The AppLocker policy XML — for a GPO, or as the input to the converter script">3 · Policy XML</button>
-              <button class="al-pane-tab" data-pane="intune" title="The Intune custom profile (OMA-URI) built from the same policy">4 · Intune profile</button>
-            </div>
-            <div class="al-xml-head">
-              <div class="al-xml-id">
-                <div class="al-xml-name" id="alXmlName">AppLockerPolicy.xml</div>
-                <div class="al-xml-sub" id="alXmlSub"></div>
-              </div>
-              <div class="al-xml-acts">
-                <button class="btn sm" id="alExpand" title="Open this full screen — the same panel, moved, so Copy and Download keep working">⛶ Full screen</button>
-                <button class="btn sm" id="alCopyXml" title="Copy what is shown to the clipboard">⧉ Copy</button>
-                <select id="alDlPart" class="btn sm" title="What the download contains. A single collection is what Intune's manual OMA-URI route asks for — one value per rule collection.">
-                  <option value="all">Whole policy</option>
-                </select>
-                <button class="btn sm primary" id="alXml" title="Download what is shown">⭳ Download</button>
-              </div>
-            </div>
-            <div class="al-intune-form" id="alIntuneForm" style="display:none">
-              <label class="al-f"><span>Profile name <b title="The trailing version token (V4.0, V4.0.1 …) is part of the name. The +v button increments it — V4.0 → V4.0.1 → V4.0.2 — and it auto-increments when a deployed profile is pulled from the tenant, so the next edit carries the next number. Typing in the field overrides everything.">ⓘ</b></span>
-                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneName" spellcheck="false" style="flex:1;min-width:0">
-                <button class="btn" id="alIntuneBumpV" title="Increment the version token in the name — V4.0 → V4.0.1 → V4.0.2">+v</button></span></label>
-              <label class="al-f"><span>Grouping <b title="The grouping names a CSP node and must be UNIQUE per profile — Microsoft's stated best practice is a random GUID, because two profiles sharing a grouping write the same OMA-URIs and unassigning one can delete the nodes the other depends on. TUNO prefills AppLocker-<guid>: unique like a GUID, recognisable in logs and carry-over findings. Do NOT name it pilot or production — that distinction lives in the assignment and the mode, edited in place.">ⓘ</b></span>
-                <span style="display:flex;gap:6px;min-width:0"><input id="alIntuneGrouping" spellcheck="false" style="flex:1;min-width:0">
-                <button class="btn" id="alIntuneRegroup" title="Mint a fresh AppLocker-<guid> grouping — use when this export is a NEW deployment rather than an edit of an existing profile">↻</button></span></label>
-              <label class="al-f"><span>Mode</span><select id="alIntuneMode"><option>Audit</option><option>Enforce</option></select></label>
-              <div class="al-f-note" id="alIntuneIssues" style="flex-basis:100%"></div>
-              <p class="al-f-note">DLL is <b>left out of the profile entirely</b>. AppLocker evaluates every DLL load — enforced it cripples the device, and even AuditOnly buries the event log. It is omitted rather than marked NotConfigured because a collection in that state <b>carrying rules is enforced</b>, which would be the opposite of the intent. Absence is the only state that restricts nothing.</p>
-            </div>
-            <pre class="al-xml-code"><code id="alXmlCode"></code></pre>
-          </div>
-        </aside>
-      </div>
-
-      <!-- ============ STEP 5 — deploy ============ -->
-      <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
-        <div class="al-step">
-          <span class="al-step-n">5</span>
-          <div style="min-width:0;flex:1">
-            <h3 style="margin:0 0 4px">Get it into Intune</h3>
-            <p class="mini muted" style="margin:0 0 10px">AppLocker has no settings-catalog surface. The supported route is a Windows custom profile carrying one OMA-URI string per rule collection — which is exactly what the <b>Intune profile</b> tab produces.</p>
-            <!-- Deploy from here. Rendered by js/applocker.js because every
-                 part of it depends on tenant state: whether you are signed
-                 in, what is already in Intune under this grouping, and
-                 whether the audit has actually been worked down. -->
-            <div id="alDeploy" class="al-deploy"></div>
-            <details class="al-guide">
-              <summary>Or do it yourself — three ways, from least to most automated</summary>
-              <div class="al-guide-body">
-                <p class="mini"><b>A · By hand in the portal.</b> Intune admin center → Devices → Configuration → Create → Windows 10 and later → Templates → <b>Custom</b>. Then add one OMA-URI setting per collection, copying each <code>omaUri</code> and its <code>value</code> out of the JSON on the right. Data type is <b>String</b>. Tedious, but it needs no permissions beyond the portal.</p>
-                <p class="mini"><b>B · Post the JSON with Graph.</b> Download the profile from the Intune tab, then:</p>
-                <pre class="al-code">Connect-MgGraph -Scopes DeviceManagementConfiguration.ReadWrite.All
-$body = Get-Content .\Win_-_Device_Security_-_AppLocker_(AuditOnly).json -Raw
-Invoke-MgGraphRequest -Method POST -ContentType application/json `
-    -Uri 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations' `
-    -Body $body</pre>
-                <p class="mini"><b>C · Let the converter script do it.</b> Download the Policy XML tab (or use the Audit and Enforce XML the scan already wrote), then run <code>Convert-TunoAppLockerToIntune.ps1</code>. Offline it writes the profile JSON; with <code>-Online</code> it creates the profile in the tenant.</p>
-                <!-- The converter lives HERE, not in step 1. It has nothing to
-                     do with scanning a device: it turns a policy into an
-                     Intune profile, which is this step. Offering it up there
-                     made step 1 look like it needed two downloads. -->
-                <div class="al-dl" style="margin:8px 0 10px">
-                  <div class="al-dl-row">
-                    <a class="btn" href="scripts/Convert-TunoAppLockerToIntune.ps1" download>⭳ Convert-TunoAppLockerToIntune.ps1</a>
-                    <code class="al-dl-cmd" data-file="Convert-TunoAppLockerToIntune.ps1"></code>
-                    <button class="btn sm al-dl-copy" data-file="Convert-TunoAppLockerToIntune.ps1" title="Copy the download command">⧉ Copy</button>
-                  </div>
-                  <!-- The checklist belongs to the deploy step, not to the export:
-                       it is what you work down BEFORE the policy reaches a device,
-                       and it is the thing you keep afterwards. -->
-                  <div class="al-dl-row">
-                    <a class="btn" href="scripts/AppLocker-Implementation-Checklist.md" download>⭳ AppLocker-Implementation-Checklist.md</a>
-                    <span class="mini muted" style="flex:1;min-width:240px">Every check that has to pass before this policy is enforced — the XML itself, the coverage, the audit period, the way back. Print it and keep the completed copy.</span>
-                  </div>
-                  <!-- The brownfield pair. Deploying does not clear what came
-                       before, so a device with an OLD policy needs it removed
-                       deliberately — and the carry-over findings above point
-                       here when the scan sees one. -->
-                  <div class="al-dl-row">
-                    <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
-                    <span class="mini muted" style="flex:1;min-width:240px">The cleanup for devices that already carry a policy: backs up, clears the local policy and the SrpV2 tattoo, verifies, and exits 1 when it is not clean. Preserves the audit event logs and AppIDSvc by default — the new policy needs both.</span>
-                  </div>
-                  <div class="al-dl-row">
-                    <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
-                    <span class="mini muted" style="flex:1;min-width:240px">Its detection half, for deploying the pair as an Intune Remediation during the migration window. Unassign it once the new policy is out, or it will remove what you just deployed.</span>
-                  </div>
-                </div>
-                <p class="mini"><b>A device that already has an AppLocker policy</b> — the carry-over findings in the audit will say so — is a three-step migration, in this order: <b>unassign</b> the old profile or GPO (skipping this makes the cleanup a loop — everything returns at the next sync), <b>run the cleanup</b> to sweep what unassignment leaves tattooed, then <b>deploy this policy under a new grouping</b>. Signed in, section <b>E</b> below creates the Detect/Clear pair as an Intune Remediation for you — unassigned, scoped to the migration window by you. Never reuse the old deployment's name or grouping: removal of shared groupings is broken by design in the CSP.</p>
-                <pre class="al-code"># Offline — write the JSON for both modes, review before anything touches a tenant
-.\Convert-TunoAppLockerToIntune.ps1 `
-    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml,.\AppLockerRules-Enforce-20260819-1530.xml `
-    -DisplayName 'Win - SEC - Device Security - AppLocker'
-# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.
-
-# Online — create the audit profile in the tenant
-.\Convert-TunoAppLockerToIntune.ps1 -Online -TenantId 'contoso.onmicrosoft.com' `
-    -XmlPath .\AppLockerRules-Audit-20260819-1530.xml `
-    -DisplayName 'Win - SEC - Device Security - AppLocker'
-# No -Grouping: one is generated as AppLocker-<guid> and printed. Record it.</pre>
-                <p class="mini"><b>Then, in every case:</b></p>
-                <ol class="mini al-list">
-                  <li><b>Assign the AuditOnly profile first</b>, to a small pilot group. Nothing here assigns anything for you — an AppLocker policy landing on a group by accident is not a recoverable afternoon.</li>
-                  <li>Make sure the <b>Application Identity</b> service is running on the targets, or AppLocker does nothing and logs nothing. Set it to start automatically via an Intune configuration profile or a remediation script.</li>
-                  <li>Leave it in audit long enough to cover a month-end, a patch cycle and a new starter. Collect events 8003 and 8006 — the things that <i>would</i> have been blocked.</li>
-                  <li>Re-run the scan, upload the new bundle here, and work the blocked list down to nothing.</li>
-                  <li>Only then move to Enforced — by <b>editing the profile you already have</b>, not by assigning a second one. See the grouping note below; two live profiles is the trap.</li>
-                </ol>
-                <p class="mini"><b>One profile, one grouping, edited in place.</b> The grouping is a CSP node name, and Microsoft's guidance is that it should be unique — <i>"Delete/unenrollment is not properly supported unless Grouping values are unique… The best practice is to use a randomly generated GUID."</i> Two profiles sharing a grouping write the same OMA-URIs, so unassigning one can delete the nodes the other still depends on. So: give the profile a grouping of its own (a GUID is ideal), and go from audit to enforce by changing that profile's values rather than deploying a second profile beside it.</p>
-                <p class="mini"><b>Deploying does not clear what came before.</b> Every path adds rather than replaces — the CSP keeps one node per grouping and type until something explicitly deletes it, Group Policy merges rules from every linked GPO, and local policy persists until cleared. A collection your new policy simply omits <b>keeps running</b>. Upload a scan and the audit will name any collection the device is running that this policy does not contain.</p>
-                <p class="mini"><b>It reboots.</b> The AppLocker CSP's Policy nodes carry automatic reboot behaviour, on apply and on delete. Neither deploying nor removing is quiet — plan both for a window.</p>
-                <p class="mini"><b>Keep a way back.</b> Removing the assignment removes the policy, but a device that cannot run the management agent cannot be told that. Test the removal path on the pilot group before the estate depends on it.</p>
-              </div>
-            </details>
-          </div>
         </div>
       </div>
     </div>
@@ -2135,49 +2139,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10576"></script>
-<script src="js/selfhost.js?v=10576"></script>
-<script src="js/version.js?v=10576"></script>
-<script src="js/promote.js?v=10576"></script>
-<script src="js/authConfig.js?v=10576"></script>
-<script src="js/changelog.js?v=10576"></script>
-<script src="js/msappcatalog.js?v=10576"></script>
-<script src="js/demo.js?v=10576"></script>
-<script src="js/graph.js?v=10576"></script>
-<script src="js/suggest.js?v=10576"></script>
-<script src="js/progress.js?v=10576"></script>
-<script src="js/groupuse.js?v=10576"></script>
-<script src="js/audit.js?v=10576"></script>
-<script src="js/devicecleanup.js?v=10576"></script>
-<script src="js/backup.js?v=10576"></script>
-<script src="js/document.js?v=10576"></script>
-<script src="js/policycache.js?v=10576"></script>
-<script src="js/overview.js?v=10576"></script>
-<script src="js/devicewhy.js?v=10576"></script>
-<script src="js/whatif.js?v=10576"></script>
-<script src="js/health.js?v=10576"></script>
-<script src="js/settingsearch.js?v=10576"></script>
-<script src="js/conflict.js?v=10576"></script>
-<script src="js/compliance.js?v=10576"></script>
-<script src="js/filterrules.js?v=10576"></script>
-<script src="js/filters.js?v=10576"></script>
-<script src="js/restore.js?v=10576"></script>
-<script src="js/platformbaseline.js?v=10576"></script>
-<script src="js/complianceevidence.js?v=10576"></script>
-<script src="js/macbaseline.js?v=10576"></script>
-<script src="js/winbaseline.js?v=10576"></script>
-<script src="js/assignedit.js?v=10576"></script>
-<script src="js/restrictedau.js?v=10576"></script>
-<script src="js/groupmigrate.js?v=10576"></script>
-<script src="js/roles.js?v=10576"></script>
-<script src="js/defender.js?v=10576"></script>
-<script src="js/endpointsec.js?v=10576"></script>
-<script src="js/report.js?v=10576"></script>
-<script src="js/securescore.js?v=10576"></script>
-<script src="js/endpointposture.js?v=10576"></script>
-<script src="js/maa.js?v=10576"></script>
-<script src="js/laps.js?v=10576"></script>
-<script src="js/applocker.js?v=10576"></script>
-<script src="js/app.js?v=10576"></script>
+<script src="js/branding.js?v=10577"></script>
+<script src="js/selfhost.js?v=10577"></script>
+<script src="js/version.js?v=10577"></script>
+<script src="js/promote.js?v=10577"></script>
+<script src="js/authConfig.js?v=10577"></script>
+<script src="js/changelog.js?v=10577"></script>
+<script src="js/msappcatalog.js?v=10577"></script>
+<script src="js/demo.js?v=10577"></script>
+<script src="js/graph.js?v=10577"></script>
+<script src="js/suggest.js?v=10577"></script>
+<script src="js/progress.js?v=10577"></script>
+<script src="js/groupuse.js?v=10577"></script>
+<script src="js/audit.js?v=10577"></script>
+<script src="js/devicecleanup.js?v=10577"></script>
+<script src="js/backup.js?v=10577"></script>
+<script src="js/document.js?v=10577"></script>
+<script src="js/policycache.js?v=10577"></script>
+<script src="js/overview.js?v=10577"></script>
+<script src="js/devicewhy.js?v=10577"></script>
+<script src="js/whatif.js?v=10577"></script>
+<script src="js/health.js?v=10577"></script>
+<script src="js/settingsearch.js?v=10577"></script>
+<script src="js/conflict.js?v=10577"></script>
+<script src="js/compliance.js?v=10577"></script>
+<script src="js/filterrules.js?v=10577"></script>
+<script src="js/filters.js?v=10577"></script>
+<script src="js/restore.js?v=10577"></script>
+<script src="js/platformbaseline.js?v=10577"></script>
+<script src="js/complianceevidence.js?v=10577"></script>
+<script src="js/macbaseline.js?v=10577"></script>
+<script src="js/winbaseline.js?v=10577"></script>
+<script src="js/assignedit.js?v=10577"></script>
+<script src="js/restrictedau.js?v=10577"></script>
+<script src="js/groupmigrate.js?v=10577"></script>
+<script src="js/roles.js?v=10577"></script>
+<script src="js/defender.js?v=10577"></script>
+<script src="js/endpointsec.js?v=10577"></script>
+<script src="js/report.js?v=10577"></script>
+<script src="js/securescore.js?v=10577"></script>
+<script src="js/endpointposture.js?v=10577"></script>
+<script src="js/maa.js?v=10577"></script>
+<script src="js/laps.js?v=10577"></script>
+<script src="js/applocker.js?v=10577"></script>
+<script src="js/app.js?v=10577"></script>
 </body>
 </html>

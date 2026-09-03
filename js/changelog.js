@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10577, date: "2026-09-03", title: "T01 rethink, part 2 — the rail, and What breaks?",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "The tool is four screens on a rail now, one at a time: Evidence, Policy, What breaks?, Deploy, with Help & scripts below the line. The rail says where you are, what each screen holds (files loaded, findings, unresolved breaks, the mode in the tenant) and, in its foot, the next act in one line. The five numbered steps, the loop strip on the page, the jump strip and the two-column layout are gone; the audit checks, fixes, coverage table, groupings and update-in-place are exactly as they were." },
+      { kind: "new", tool: "AppLocker", text: "What breaks? replays every event on the table against the draft — allowed ones included. Until now only what the device had refused was judged, so a file that ran fine under the old policy and that the draft would block was invisible until the block after Enforce; on 3 September that was the Intune drive and printer mapping scripts, recorded as Allowed in the very bundle on the table. Each row carries the same fix as a finding (publisher, hash or exact path), an Accept block that records the decision and can be reconsidered, and a move-to-IT-TOOLS hint for scripts deployed to ProgramData, where a path rule would be a door. The unresolved count is the Enforce gate." },
+      { kind: "improved", tool: "AppLocker", text: "Evidence says what is on the table and what is missing: scan, events and the deployed profile each get a row with their origin and counts, and a scan that never walked ProgramData says so instead of reading as complete." },
+      { kind: "improved", tool: "AppLocker", text: "Audit versus Enforce is decided once, on Deploy, for the whole profile. Per-collection enforcement modes still exist for the GPO XML and the audit, folded under Advanced on the Policy screen." },
+    ],
+  },
+  {
     build: 10576, date: "2026-09-03", title: "T01 rethink, part 1 — the scanner writes one file, and looks at ProgramData",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The device scan no longer writes Audit and Enforce policy XML next to the bundle. Those two files looked finished and were one click from a GPO or Set-AppLockerPolicy, and they had never been through the audit, the coverage check or the tenant — which is exactly how an Enforce policy that blocked scripts an admin believed were allowed got onto a device on 3 September. The bundle is the only output and this tool is the only editor. -WriteXml restores the files for GPO estates and stamps them unreviewed." },

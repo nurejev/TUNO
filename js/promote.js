@@ -100,6 +100,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 148, title: "\ud83d\udd10 T01 rethink, part 2 \u2014 the rail (Option B), and What breaks? replays ALLOWED events against the draft",
+      tools: ["T01 AppLocker"], builds: [10577], risk: "medium",
+      why: "Mihai, 3 Sep: 'the workflow of T01 has become a mess, very difficult to follow, not clear when to use what' \u2014 after an Enforce policy blocked scripts he believed were allowed. Two mockups (tabs vs rail) on 3 Sep; he picked the rail. Four screens, one at a time, on the shared ep-rail chrome; the counts on the nodes are the decisions left, the foot is the next act. The engine (audit, fixes, coverage, groupings, deploy panel, events harvest) is untouched \u2014 the shape around it changed, and one blind spot closed: What breaks? replays every event on the table including Allowed ones, which is the only question anyone has before Enforce and the one the tool never answered. Medium: a full re-parenting of the screen; every T01 suite is green and the real 3 Sep bundle renders the six expected rows, but the tenant-facing deploy flow was exercised headlessly only.",
+      test: [
+        "Open T01 signed out: Evidence is the screen on the table, the rail shows nothing yet / \u2014 / \u2014 / \u2014, the foot says to upload a bundle or pull from the tenant.",
+        "Upload the 3 Sep bundle (TunoAppLockerScan-NLDBCD333C456A9-20260902-1423.json): it lands on Policy; the status line names the device and 'Enforce blocked \u2014 6 unresolved breaks'; What breaks? lists the four mapping scripts (ran OK, blocked by the draft, IT-TOOLS hint) and the two TUNO scripts from C:\\Temp; Accept block on the two TUNO ones drops the count to 4 and the rail follows; Allow by hash on a mapping script adds the rule and is one Undo away.",
+        "Evidence says ProgramData not scanned for that bundle; a bundle from scanner 1.11.0 (ProgramData in scope) does not.",
+        "Deploy: the deploy panel leads, the code panel follows full-width with its two tabs (Policy XML \u2014 for a GPO / Intune profile \u2014 the primary output); sign in, 🔎 Check against the tenant, create the audit profile, update in place \u2014 all as before 10577 (the deploy suite is 155/155).",
+        "Help & scripts holds the scanner download, the folded companions, the Remediation deploy and the loop strip; every irm command is populated.",
+        "Narrow window: the rail collapses to the chip strip like the other rail tools; no pane overflows.",
+        "Start over returns to Evidence and clears the accepted blocks.",
+      ],
+      files: ["index.html", "js/applocker.js", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 147, title: "\ud83d\udd10 T01 rethink, part 1 \u2014 the scanner writes one file (-WriteXml for GPO), and ProgramData is in the default scope",
       tools: ["T01 AppLocker"], builds: [10576], risk: "low",
       why: "3 Sep: an Enforce policy blocked the Intune drive/printer mapping scripts an admin believed were allowed. The deployed file was the scanner's own AppLockerRules-Enforce XML, which had never been through T01, and the scan had not looked at ProgramData where those scripts live. Both are design faults with one honest answer each: the scanner writes only the bundle unless -WriteXml is given (and then says the XML is unreviewed), and ProgramData is in the default -Scope. Part 2 \u2014 the rail layout (Option B, mockup 3 Sep), the What-breaks replay of ALLOWED events and one Enforce switch \u2014 follows as its own item.",
