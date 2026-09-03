@@ -100,6 +100,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 144, title: "\ud83c\udf4e T24 + \ud83e\ude9f T27 \u2014 re-read after every write; one identity twice in the catalog pairs by exact version",
+      tools: ["T24 macOS baseline", "T27 Windows baseline"], builds: [10573], risk: "low",
+      why: "Mihai on cloudfellows.dev, 2026-09-03: 'just did a create missing for the macos. nothing changes, still saying missing 15' \u2014 the screenshot showed 15 missing AND 15 newer than baseline, the same fifteen: the fresh export carried each re-cut policy twice and compare() gave both tenant copies to the first row. And after any write the screen kept the read it had. Both corrections are in the engine both tools share; production's T24 has the same two behaviours. Correctness fixes with one honest answer each.",
+      test: [
+        "cloudfellows.dev, T24 with today's export loaded: Compare reads 0 missing, 0 newer than baseline, every duplicated identity up to date and wearing '2+ versions in the catalog'; retire an old copy in the portal, re-export, load \u2014 the chip is gone.",
+        "Any tenant, T27 with OIB: Import dry run \u2192 Create N: the pane says 're-reading the tenant', the screen lands on Compare with 'Import: N created \u2014 re-read at HH:MM' on the source line and the N now up to date; the rail's Compare node dropped by N. Failures, if any, listed under Import.",
+        "cloudfellows.dev, Rename the ticked: the list is re-cut from the fresh read (renamed rows gone, 'all stamped' on the rail when none remain).",
+        "cloudfellows.dev, Upstream create: the source line reads 'Upstream: N created'; the Upstream pane keeps its own result.",
+        "Suites (outside the repo): platformbaseline-tests.js 124/124 (7 new on duplicated catalog identities), baseline-dom-tests.js 75/75 (5 new on the re-read)."
+      ],
+      files: ["js/platformbaseline.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 143, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 Rename stamps the release from the last-modified date; the repository is read from github.com in the browser (CSP widened)",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10572], risk: "medium",
       why: "Mihai, 2026-09-03: the cfdev tenant's Windows policies wear the convention but not the release tag \u2014 stamp it from the last-modified date, show the list, let him edit, one button; and read the upstream repository directly, no zip, everything in the browser. The rename is a write on a production tool's screen (T24 shares it) but cfdev-only and dry-run-first, hence medium. The fetch widens the CSP connect-src to api.github.com and raw.githubusercontent.com \u2014 a security-model change, documented in SECURITY.md, plain fetch with no credentials (Graph.call still refuses any host but graph.microsoft.com). Promote both or neither: the CSP line and the fetch buttons are one change.",

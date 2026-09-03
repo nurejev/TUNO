@@ -179,11 +179,25 @@ const PlatformBaseline = (() => {
       }
       const consumed = new Set();
       const rows = [];
+      // ONE IDENTITY, TWO VERSIONS IN THE CATALOG (build 10573, found on
+      // cloudfellows.dev): a re-cut policy kept beside its old copy is
+      // exported twice under one key, and the tenant carries both copies.
+      // Handing every copy to the first catalog row made it "newer than
+      // baseline" and left the second row "missing" — and the import then
+      // created nothing, because the "missing" name already existed. So
+      // when a key appears more than once in the catalog, each row takes
+      // the tenant copy that wears ITS OWN release and version first; only
+      // what is left over is judged by score.
+      const catKeyCount = new Map();
+      for (const b of cat.policies) { const k = keyOf(b.name); catKeyCount.set(k, (catKeyCount.get(k) || 0) + 1); }
+      const sameRelVer = (b, bRel, bVer, p) =>
+        cmpRelVer(comm ? null : releaseOf(p.name), versionOf(p.name), bRel, bVer) === 0 && !!(bVer || (!comm && bRel));
       for (const b of cat.policies) {
         const k = keyOf(b.name);
         const bRel = comm ? null : normRel(b.release, b.name);
         const bVer = b.version || versionOf(b.name);
         const bTok = comm && b.oibId ? String(b.oibId).toUpperCase() : null;
+        const catDup = (catKeyCount.get(k) || 0) > 1;
         // the token wins: a renamed copy still identifies; a name hit that
         // carries a DIFFERENT token belongs to that other policy
         let hits = bTok ? (byTok.get(bTok) || []).slice() : [];
@@ -194,8 +208,17 @@ const PlatformBaseline = (() => {
           if (!hits.includes(p)) hits.push(p);
         }
         hits = hits.filter((p) => !consumed.has(p));
+        if (catDup) {
+          // this row's own version, if the tenant has it; otherwise leave
+          // every copy to the rows that still want theirs
+          const exact = hits.filter((p) => sameRelVer(b, bRel, bVer, p));
+          if (exact.length) hits = exact;
+          else if (hits.some((p) => cat.policies.some((b2) => b2 !== b && keyOf(b2.name) === k && sameRelVer(b2, comm ? null : normRel(b2.release, b2.name), b2.version || versionOf(b2.name), p)))) {
+            hits = hits.filter((p) => !cat.policies.some((b2) => b2 !== b && keyOf(b2.name) === k && sameRelVer(b2, comm ? null : normRel(b2.release, b2.name), b2.version || versionOf(b2.name), p)));
+          }
+        }
         if (!hits.length) {
-          rows.push({ key: k, baseline: b, bRel, bVer, tenant: null, status: "missing" });
+          rows.push({ key: k, baseline: b, bRel, bVer, tenant: null, status: "missing", catDup });
           continue;
         }
         const scored = hits.map((p) => {
@@ -214,7 +237,7 @@ const PlatformBaseline = (() => {
         rows.push({
           key: k, baseline: b, bRel, bVer,
           tenant: best.p, tRel: best.tRel, tVer: best.tVer,
-          status: best.status, byToken: best.byToken,
+          status: best.status, byToken: best.byToken, catDup,
           duplicates: hits.length > 1 ? hits.length : 0,
         });
       }
@@ -756,6 +779,7 @@ const PlatformBaseline = (() => {
     let fileCat = null;        // a loaded CloudFellows baseline file replaces the bundled slot
     let cmp = null;            // compare() result
     let planned = null, plannedFilters = null, running = false;
+    let lastWrite = null;      // the last import's failures, shown on the Import pane after the re-read
 
     const prog = (m) => TunoProgress.show(ID("Body"), ID("Prog"), m);
     const download = (name, text, type) => {
@@ -869,7 +893,7 @@ const PlatformBaseline = (() => {
           const row = (r) => {
             const st = E.STATUS[r.status];
             return `<tr>
-              <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}${r.baseline && r.baseline.licenseRequirements ? ` <span class="gu-how priv" title="Licence the author names for this policy">${esc(r.baseline.licenseRequirements)}</span>` : ""}</td>
+              <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}${r.baseline && r.baseline.licenseRequirements ? ` <span class="gu-how priv" title="Licence the author names for this policy">${esc(r.baseline.licenseRequirements)}</span>` : ""}${r.catDup ? ` <span class="gu-how priv" title="The catalog carries this identity more than once — a re-cut kept beside its old copy on the baseline tenant. Each row is judged against the tenant copy wearing its own release and version. Retire the old copy, then re-export.">2+ versions in the catalog</span>` : ""}</td>
               <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.byToken ? ` <span class="gu-how inc" title="Identified by the ${esc(c.idToken)} token in its description — the name did not have to match">${esc(c.idToken)}</span>` : ""}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}</td>
               <td class="mini">${r.baseline ? relver(r.bRel, r.bVer) : "—"}</td>
               <td class="mini">${r.tenant ? relver(r.tRel, r.tVer) : "—"}</td>
@@ -924,7 +948,7 @@ const PlatformBaseline = (() => {
             ${comm ? "" : `<label class="btn">📄 Load a baseline file<input type="file" id="${ID("File")}" accept=".json" style="display:none"></label>`}
             <button class="btn" id="${ID("Dry")}" ${importReady ? "" : "disabled title=\"The active catalog carries nothing importable — load a baseline export file.\""}>🔍 Dry run — create what is missing</button>
           </div>
-          <div id="${ID("Plan")}" style="margin-top:10px"></div></div>`);
+          <div id="${ID("Plan")}" style="margin-top:10px">${lastWrite && lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${lastWrite.failedHtml}` : ""}</div></div>`);
       }
 
       if (mode === "upstream") {
@@ -1237,6 +1261,7 @@ const PlatformBaseline = (() => {
           ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         upPlanned = null; upPlanKey = null;
+        rereadAfter(`${spec.upstream.icon} Upstream: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}, unassigned — the Upstream pane keeps the details`);
       } catch (e) {
         prog("");
         $(ID("UpResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
@@ -1437,10 +1462,11 @@ const PlatformBaseline = (() => {
         prog("");
         const good = results.filter((r) => r.outcome === "renamed").length, bad = results.filter((r) => r.outcome === "failed").length;
         $(ID("RnResult")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} renamed</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — now ${esc(spec.readLabel)}: the comparison and this list are cut from the read, and the read is stale.</p>
+          <p class="mini" style="margin:0 0 6px"><b>${good} renamed</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant; the list is cut again from the fresh read.</p>
           ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         rnPlanned = null; rnPlanKey = null;
+        rereadAfter(`✏️ Rename: <b>${good} renamed</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
       } catch (e) {
         prog("");
         $(ID("RnResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
@@ -1507,11 +1533,14 @@ const PlatformBaseline = (() => {
         const all = [...results, ...filterResults];
         const good = all.filter((r) => r.outcome === "created").length;
         const bad = all.filter((r) => r.outcome === "failed").length;
+        const failedHtml = all.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("");
         $(ID("Result")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — everything unassigned; ✏️ the Assignment editor is where reach begins.</p>
-          ${all.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")}`;
+          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — everything unassigned; ✏️ the Assignment editor is where reach begins. Re-reading the tenant…</p>${failedHtml}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         planned = null; plannedFilters = null;
+        lastWrite = { failedHtml };
+        mode = "compare";   // the fresh comparison is the point of the re-read; failures stay on the Import pane
+        rereadAfter(`📥 Import: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b> (listed under Import)` : ""}, unassigned`);
       } catch (e) {
         prog("");
         $(ID("Result")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
@@ -1520,7 +1549,10 @@ const PlatformBaseline = (() => {
     }
 
     // ---- read: through the shared cache, T19's shape ----
-    async function run(attach) {
+    // note: a line kept on the source note through the re-read — the
+    // outcome of the write that caused it, so a fresh comparison never
+    // silently replaces "15 created"
+    async function run(attach, note) {
       if (running) return;
       running = true; $(ID("Run")).disabled = true; $(ID("Body")).innerHTML = "";
       try {
@@ -1534,12 +1566,19 @@ const PlatformBaseline = (() => {
           r = await PolicyCache.refresh(prog);
         }
         prog("");
-        land(r, attach ? srcNote() : "");
+        land(r, note ? `${note} — re-read at ${esc(new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))}, so the comparison below is the tenant as it is now.` : attach ? srcNote() : "");
       } catch (e) {
         prog("");
         $(ID("Body")).innerHTML = `<div class="gu-fail"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;
       } finally { running = false; $(ID("Run")).disabled = false; }
     }
+    // AFTER A WRITE, THE TENANT IS RE-READ (build 10573 — Mihai: "just did a
+    // create missing… nothing changes, still saying missing"). Invalidating
+    // the cache is not enough: the screen kept comparing the read it had.
+    // ENCA's Baseline Policies re-reads after its import for the same reason.
+    // `running` is still held by the write when this is scheduled, so it
+    // waits a tick for the write to let go.
+    const rereadAfter = (note) => { setTimeout(() => { if (!running) run(false, note); }, 0); };
     const srcNote = () =>
       `From ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — ${esc(spec.readLabel)} re-reads.`;
 
