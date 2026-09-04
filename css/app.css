@@ -2466,3 +2466,4 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 .al-decide{display:block;margin-top:3px;font-size:10.5px;font-weight:800;color:var(--off);letter-spacing:.02em;white-space:nowrap}
 .al-fc-head .al-decide{display:inline;margin:0 0 0 6px}
 .al-rule-find .al-decide{display:inline;margin:0 0 0 6px}
+.al-dl-note{margin:2px 0 8px 4px;padding-left:10px;border-left:2px solid var(--border);line-height:1.45}

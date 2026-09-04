@@ -100,6 +100,16 @@ const PROMOTE = {
 
   items: [
     {
+      n: 154, title: "\ud83d\udd10 T01 \u2014 Get-TunoAppLockerPolicyHealth.ps1 joins the companions; each script's note under its own row",
+      tools: ["T01 AppLocker"], builds: [10583], risk: "low",
+      why: "Mihai, 3 Sep: add his policy health check as a download, and put each script's explanation under that script instead of one paragraph for all. The script is taken into the house with its verdict fixed: its first run said 'AppID never processed it' on a device that was blocking scripts, because it trusted Get-AppLockerPolicy -Effective (which does not see CSP policy) and a 0 x 8001 count from an EXE and DLL log that had rolled over. It now reads the MDM store per collection, reports the log's reach, and takes AppLocker decisions after the store's newest write as proof the policy runs.",
+      test: [
+        "Help & scripts: nine downloads; under the fold eight companions in four groups, each row followed by its own note; every irm command populated; the fold starts closed.",
+        "Run Get-TunoAppLockerPolicyHealth.ps1 on the 3 Sep device via Live Response: the MDM store lines carry mode and rule count (Script Enabled, 14), the effective summary is labelled local+GPO only, the log-reach line says whether EXE and DLL rolled, and the verdict reads RUNNING when a decision was logged after the 13:17 write.",
+      ],
+      files: ["scripts/Get-TunoAppLockerPolicyHealth.ps1", "scripts/README.md", "index.html", "css/app.css", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 153, title: "\ud83d\udd10 T01 \u2014 the scan's effective policy includes the Intune-delivered (CSP) policy",
       tools: ["T01 AppLocker"], builds: [10582], risk: "medium",
       why: "Mihai, 3 Sep: the deployed profile carries a Script collection with 14 rules and the device blocks scripts (8007), yet the scan's effective policy said Script had no rules. Get-AppLockerPolicy -Effective does not include CSP-delivered policy; it lives in the System32\\AppLocker\\MDM cache the cleanup script already knew about. Scanner 1.12.0 reads and merges it (Get-MdmAppLockerPolicy, Merge-AppLockerXml) and T01 names the groupings. Medium: the merge is unit-tested on Linux against a fake cache; the real cache layout (enrollment\\grouping\\type\\Policy, RuleCollection per file) is from Clear-TunoAppLockerPolicy's own reading of it and needs one real scan to confirm.",

@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10582"></script>
+<script src="js/popup-guard.js?v=10583"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10582">
+<link rel="stylesheet" href="css/app.css?v=10583">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10582"></script>
+<script src="js/selfhost-boot.js?v=10583"></script>
 </head>
 <body>
 
@@ -489,58 +489,67 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <!-- 10447: the seven companions FOLD. Eight rows of download
-                 commands were most of a screen before the tool's own work
-                 began; the scanner is the step-1 act and stays out, the
-                 companions and the paragraph explaining them collapse under
-                 one line. Native details — no JS to break, and Find-in-page
-                 still opens it in modern browsers. -->
+            <!-- 10447: the companions FOLD. Eight rows of download commands
+                 were most of a screen before the tool's own work began; the
+                 scanner is the act and stays out, the companions collapse
+                 under one line. 10583 (Mihai): EACH SCRIPT'S NOTE SITS UNDER
+                 ITS OWN ROW - one paragraph for eight scripts, keyed by
+                 ordinal ("the fourth and fifth are..."), was a lookup nobody
+                 should have to do. -->
             <details class="al-dl-more">
-              <summary class="mini"><b>7 companion scripts</b> — cleanup pair, IT-TOOLS provisioning pair, events-collection set <span class="muted">▾</span></summary>
-            <!-- The brownfield pair sits here as well as in step 5: a device
-                 that already carries a policy needs the cleanup BEFORE the new
-                 policy means anything, so the download belongs where the work
-                 starts, not only where it ends. -->
+              <summary class="mini"><b>8 companion scripts</b> — cleanup pair, IT-TOOLS provisioning pair, events-collection set, policy health check <span class="muted">▾</span></summary>
+            <p class="mini muted" style="margin:6px 0 2px"><b>Cleanup pair</b> — for devices that already carry an AppLocker policy. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is on Deploy.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
               <code class="al-dl-cmd" data-file="Clear-TunoAppLockerPolicy.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Clear-TunoAppLockerPolicy.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <p class="mini muted al-dl-note">Removes the AppLocker policy a device already carries — local policy and the GPO tattoo under SrpV2 — after backing both up to IT-TOOLS\LOGS. Names any Intune grouping cached under System32\AppLocker\MDM and removes those only with -RemoveMdmGroupings (an assigned profile would just come back at the next sync).</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
               <code class="al-dl-cmd" data-file="Detect-TunoAppLockerPolicy.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Detect-TunoAppLockerPolicy.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <p class="mini muted al-dl-note">Its detection half: exits 1 while a legacy policy is present, so the pair ships as an Intune Remediation for the migration window. Unassign it once the new policy is in.</p>
+            <p class="mini muted" style="margin:10px 0 2px"><b>IT-TOOLS provisioning pair</b> — deploy it <b>before</b> the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass. Unlike the cleanup pair, leave it assigned.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Initialize-TunoItToolsFolders.ps1" download>⭳ Initialize-TunoItToolsFolders.ps1</a>
               <code class="al-dl-cmd" data-file="Initialize-TunoItToolsFolders.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Initialize-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <p class="mini muted al-dl-note">Creates the house folders (IT-TOOLS\Apps, \Scripts, \LOGS) with the admin-only ACL the standing allow rules depend on, and proves SYSTEM can write to IT-TOOLS\LOGS, where every house script logs.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Detect-TunoItToolsFolders.ps1" download>⭳ Detect-TunoItToolsFolders.ps1</a>
               <code class="al-dl-cmd" data-file="Detect-TunoItToolsFolders.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Detect-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <!-- The events-collection pair + its Live Response companion: the
-                 evidence pump that brings the fleet's CodeIntegrity and
-                 AppLocker events home, including the JSON bundle this tool
-                 imports and judges against the draft. -->
+            <p class="mini muted al-dl-note">Its detection half: a folder that drifts writable after provisioning is exactly what it exists to catch, which is why the pair stays assigned.</p>
+            <p class="mini muted" style="margin:10px 0 2px"><b>Events-collection set</b> — the evidence pump. A Remediation pair whose detection always triggers (the "remediation" IS the harvest), plus the Live Response zipper. Upload the <code>AppControlEvents_Bundle_*.log</code> a device produces on <b>Evidence</b> and <b>What breaks?</b> judges every event against the draft.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Get-TunoAppControlEvents.ps1" download>⭳ Get-TunoAppControlEvents.ps1</a>
               <code class="al-dl-cmd" data-file="Get-TunoAppControlEvents.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Get-TunoAppControlEvents.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <p class="mini muted al-dl-note">The harvest: CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report and the JSON events bundle this tool reads. Runs as SYSTEM on a schedule; retrieve per device via Collect diagnostics or Live Response.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Detect-TunoAppControlEvents.ps1" download>⭳ Detect-TunoAppControlEvents.ps1</a>
               <code class="al-dl-cmd" data-file="Detect-TunoAppControlEvents.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Detect-TunoAppControlEvents.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
+            <p class="mini muted al-dl-note">Its detection half — always exits 1 on purpose, so every scheduled pass collects. The Remediation’s compliance numbers mean "the collector ran", never "the device is fine"; unassign it when the campaign ends.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Compress-TunoAppControlReport.ps1" download>⭳ Compress-TunoAppControlReport.ps1</a>
               <code class="al-dl-cmd" data-file="Compress-TunoAppControlReport.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Compress-TunoAppControlReport.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-          <p class="mini muted" style="margin:8px 0 0"><b>The fourth and fifth are the IT-TOOLS provisioning pair</b> — the fourth creates the house folders with the admin-only ACL the standing allow rules depend on (and proves SYSTEM can write to <code>IT-TOOLS\LOGS</code>, where the house scripts log), the fifth is its detection half so the pair ships as an Intune Remediation. Deploy it BEFORE the policy, because ProgramData lets a standard user create missing subfolders and own them, which would turn the standing allow into a bypass — and unlike the cleanup pair, leave it assigned: a folder that drifts writable after provisioning is exactly what its detection exists to catch. <b>The second and third are for devices that already carry an AppLocker policy</b> — the cleanup that runs before the new policy is deployed, and its detection half for shipping that pair as an Intune Remediation. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is in step 5. <b>The last three are the events-collection set</b> — a Remediation pair whose detection always triggers (the "remediation" IS the harvest: CodeIntegrity and AppLocker events into CSV/XML, an HTML report, and a JSON bundle) plus the Live Response zipper for fetching the results. Upload the <code>AppControlEvents_Bundle_*.log</code> a device produces and this tool matches every blocked or audited event against the draft on screen, with a recommendation per file — the audit month, made legible.</p>
+            <p class="mini muted al-dl-note">The Live Response companion: zips a device’s harvest so one getfile fetches it.</p>
+            <p class="mini muted" style="margin:10px 0 2px"><b>Policy health check</b> — for the day the policy is delivered but does not seem to bite.</p>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Get-TunoAppLockerPolicyHealth.ps1" download>⭳ Get-TunoAppLockerPolicyHealth.ps1</a>
+              <code class="al-dl-cmd" data-file="Get-TunoAppLockerPolicyHealth.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Get-TunoAppLockerPolicyHealth.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
+            <p class="mini muted al-dl-note">Read-only: 8000/8001 (conversion failed / applied) from all four AppLocker logs, with the log’s own reach so a rolled-over EXE and DLL log is never read as "never applied"; the CSP delivery events; AppIDSvc and AppLockerFltr; the MDM store inventory with mode and rule count per collection; the effective policy from Get-AppLockerPolicy -Effective (local + GPO) <b>and</b> from the MDM store side by side, because the cmdlet does not see Intune-delivered policy; and the AppLocker decisions logged after the store’s newest write — the one proof that the delivered policy is running. Built for MDE Live Response: <code>run Get-TunoAppLockerPolicyHealth.ps1</code>, then getfile the log it names.</p>
             </details>
           </div>
           <!-- The Remediation deploy lives HERE, with the downloads, because it
@@ -2138,49 +2147,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10582"></script>
-<script src="js/selfhost.js?v=10582"></script>
-<script src="js/version.js?v=10582"></script>
-<script src="js/promote.js?v=10582"></script>
-<script src="js/authConfig.js?v=10582"></script>
-<script src="js/changelog.js?v=10582"></script>
-<script src="js/msappcatalog.js?v=10582"></script>
-<script src="js/demo.js?v=10582"></script>
-<script src="js/graph.js?v=10582"></script>
-<script src="js/suggest.js?v=10582"></script>
-<script src="js/progress.js?v=10582"></script>
-<script src="js/groupuse.js?v=10582"></script>
-<script src="js/audit.js?v=10582"></script>
-<script src="js/devicecleanup.js?v=10582"></script>
-<script src="js/backup.js?v=10582"></script>
-<script src="js/document.js?v=10582"></script>
-<script src="js/policycache.js?v=10582"></script>
-<script src="js/overview.js?v=10582"></script>
-<script src="js/devicewhy.js?v=10582"></script>
-<script src="js/whatif.js?v=10582"></script>
-<script src="js/health.js?v=10582"></script>
-<script src="js/settingsearch.js?v=10582"></script>
-<script src="js/conflict.js?v=10582"></script>
-<script src="js/compliance.js?v=10582"></script>
-<script src="js/filterrules.js?v=10582"></script>
-<script src="js/filters.js?v=10582"></script>
-<script src="js/restore.js?v=10582"></script>
-<script src="js/platformbaseline.js?v=10582"></script>
-<script src="js/complianceevidence.js?v=10582"></script>
-<script src="js/macbaseline.js?v=10582"></script>
-<script src="js/winbaseline.js?v=10582"></script>
-<script src="js/assignedit.js?v=10582"></script>
-<script src="js/restrictedau.js?v=10582"></script>
-<script src="js/groupmigrate.js?v=10582"></script>
-<script src="js/roles.js?v=10582"></script>
-<script src="js/defender.js?v=10582"></script>
-<script src="js/endpointsec.js?v=10582"></script>
-<script src="js/report.js?v=10582"></script>
-<script src="js/securescore.js?v=10582"></script>
-<script src="js/endpointposture.js?v=10582"></script>
-<script src="js/maa.js?v=10582"></script>
-<script src="js/laps.js?v=10582"></script>
-<script src="js/applocker.js?v=10582"></script>
-<script src="js/app.js?v=10582"></script>
+<script src="js/branding.js?v=10583"></script>
+<script src="js/selfhost.js?v=10583"></script>
+<script src="js/version.js?v=10583"></script>
+<script src="js/promote.js?v=10583"></script>
+<script src="js/authConfig.js?v=10583"></script>
+<script src="js/changelog.js?v=10583"></script>
+<script src="js/msappcatalog.js?v=10583"></script>
+<script src="js/demo.js?v=10583"></script>
+<script src="js/graph.js?v=10583"></script>
+<script src="js/suggest.js?v=10583"></script>
+<script src="js/progress.js?v=10583"></script>
+<script src="js/groupuse.js?v=10583"></script>
+<script src="js/audit.js?v=10583"></script>
+<script src="js/devicecleanup.js?v=10583"></script>
+<script src="js/backup.js?v=10583"></script>
+<script src="js/document.js?v=10583"></script>
+<script src="js/policycache.js?v=10583"></script>
+<script src="js/overview.js?v=10583"></script>
+<script src="js/devicewhy.js?v=10583"></script>
+<script src="js/whatif.js?v=10583"></script>
+<script src="js/health.js?v=10583"></script>
+<script src="js/settingsearch.js?v=10583"></script>
+<script src="js/conflict.js?v=10583"></script>
+<script src="js/compliance.js?v=10583"></script>
+<script src="js/filterrules.js?v=10583"></script>
+<script src="js/filters.js?v=10583"></script>
+<script src="js/restore.js?v=10583"></script>
+<script src="js/platformbaseline.js?v=10583"></script>
+<script src="js/complianceevidence.js?v=10583"></script>
+<script src="js/macbaseline.js?v=10583"></script>
+<script src="js/winbaseline.js?v=10583"></script>
+<script src="js/assignedit.js?v=10583"></script>
+<script src="js/restrictedau.js?v=10583"></script>
+<script src="js/groupmigrate.js?v=10583"></script>
+<script src="js/roles.js?v=10583"></script>
+<script src="js/defender.js?v=10583"></script>
+<script src="js/endpointsec.js?v=10583"></script>
+<script src="js/report.js?v=10583"></script>
+<script src="js/securescore.js?v=10583"></script>
+<script src="js/endpointposture.js?v=10583"></script>
+<script src="js/maa.js?v=10583"></script>
+<script src="js/laps.js?v=10583"></script>
+<script src="js/applocker.js?v=10583"></script>
+<script src="js/app.js?v=10583"></script>
 </body>
 </html>

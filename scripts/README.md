@@ -20,6 +20,7 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
 | `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
 | `Detect-TunoAppControlEvents.ps1` | Detection half of that pair — **always exits 1 on purpose**: the "remediation" IS the collection | Its compliance numbers mean "the collector ran", never "the device is fine" |
+| `Get-TunoAppLockerPolicyHealth.ps1` | Read-only policy health check for a device where the policy is delivered but does not seem to bite: 8000/8001 with the log's own reach, CSP delivery events, services, the MDM store per collection (mode, rules), the effective policy from the cmdlet AND the MDM store, and the AppLocker decisions logged after the store's newest write. Built for MDE Live Response. |
 | `Compress-TunoAppControlReport.ps1` | Zips the newest report + bundle for MDE Live Response `getfile` | `%ProgramData%\IT-TOOLS\Apps\ACB-Report_<HOST>_<stamp>.zip`; final line is `ARCHIVE: <path>` |
 
 All are MIT-licensed, like the rest of TUNO. The scan is read-only; the cleanup and the

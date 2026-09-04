@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10583, date: "2026-09-03", title: "T01 — the policy health check joins the scripts, each with its note under its row",
+    items: [
+      { kind: "new", tool: "AppLocker", text: "Get-TunoAppLockerPolicyHealth.ps1 — a read-only check for the day the policy is delivered but does not seem to bite, built for MDE Live Response: 8000/8001 from all four AppLocker logs with the log's own reach (a rolled-over EXE and DLL log is never read as 'never applied'), the CSP delivery events, the services, the MDM store per collection with mode and rule count, the effective policy from Get-AppLockerPolicy -Effective and from the MDM store side by side, and the AppLocker decisions logged after the store's newest write — the one proof that the delivered policy is running." },
+      { kind: "improved", tool: "AppLocker", text: "Under Help & scripts every companion script has its explanation directly under its own download row, grouped as cleanup pair, IT-TOOLS provisioning pair, events-collection set and policy health check — instead of one paragraph for all of them keyed by 'the fourth and fifth'." },
+    ],
+  },
+  {
     build: 10582, date: "2026-09-03", title: "T01 — the effective policy includes what Intune delivered",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The device scan's effective policy now includes the policy Intune delivered. Get-AppLockerPolicy -Effective merges local and Group Policy only; what the AppLocker CSP delivers is cached under System32\\AppLocker\\MDM per grouping and the cmdlet does not show it — while the device enforces it. A device with a 14-rule Script collection deployed and 8007 blocks in its log read as 'Script: no rules'. Scanner 1.12.0 reads the cache, merges it in and records the groupings; the Evidence row and the effective-policy note name them, and a bundle from an older scanner is told that its effective policy was read without the Intune part." },

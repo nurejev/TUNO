@@ -320,7 +320,7 @@ trap {
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
 $script:ScriptVersion = '1.12.0'
-$script:TunoBuild = 10582
+$script:TunoBuild = 10583
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
