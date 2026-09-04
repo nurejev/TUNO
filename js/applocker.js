@@ -553,7 +553,17 @@ const AppLockerTool = (() => {
   // policy doing its job — machine space, not a user profile. A user-profile
   // block is BY DESIGN: closing it is a business decision, not a repair, so it
   // gets an offer worded as one rather than a recommendation.
+  // PowerShell writes a throwaway module named __PSSCRIPTPOLICYTEST_<random>
+  // to %TEMP% on every start and asks AppLocker whether it would run. A block
+  // is the ANSWER it wants: it means a script policy is enforced, so that
+  // session runs in Constrained Language Mode. Allowing %TEMP%\*.psm1 to make
+  // the event go away would switch CLM off — a bypass dressed as a fix. So
+  // these are neither gaps nor "by design": they are expected, and they get
+  // one line that says so (10587, Mihai's first enforced device).
+  function isPolicyProbe(path) { return /__PSSCRIPTPOLICYTEST_[^\\]*\.(ps1|psm1)$/i.test(String(path || "")); }
+
   function fleetRowClass(row, dv) {
+    if (isPolicyProbe(row.path)) return "probe";
     // DLL events are SET ASIDE, not undecided — the generated policies omit
     // the DLL collection deliberately (absence is the only state that
     // restricts nothing), so every DLL load in the log is the record of that
@@ -618,7 +628,7 @@ const AppLockerTool = (() => {
     const ci = eventsEvidence.codeIntegrity || {};
     const m = eventsEvidence.machine || {};
     const rows = aggregateFleetEvents(ev.entries || []);
-    const cls = { gap: [], bydesign: [], covered: [], undecided: [], dll: [] };
+    const cls = { gap: [], bydesign: [], covered: [], undecided: [], dll: [], probe: [] };
     for (const row of rows) {
       const dv = draftVerdictForEvent(row.sample);
       cls[fleetRowClass(row, dv)].push({ row, dv });
@@ -635,6 +645,7 @@ const AppLockerTool = (() => {
     L.push(`| Distinct denied files | ${rows.length} |`);
     L.push(`| **GAPS — would still be blocked, machine space** | **${cls.gap.length}** |`);
     L.push(`| Blocked by design — user-writable origin | ${cls.bydesign.length} |`);
+    if (cls.probe.length) L.push(`| PowerShell policy probes (__PSSCRIPTPOLICYTEST_) — expected, do not allow | ${cls.probe.length} |`);
     L.push(`| Covered — the draft already allows it | ${cls.covered.length} |`);
     L.push(`| Undecided — no rules for the type${policy ? "" : " (no policy loaded)"} | ${cls.undecided.length} |`);
     L.push(`| DLL — set aside (the draft omits DLL on purpose) | ${cls.dll.length} |`);
@@ -727,7 +738,7 @@ const AppLockerTool = (() => {
     const entries = fleetEntries();
     if (!entries) return null;
     const rows = aggregateFleetEvents(entries);
-    const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0, accepted: 0, ranOk: 0 };
+    const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0, probe: 0, accepted: 0, ranOk: 0 };
     for (const row of rows) {
       let c = fleetRowClass(row, draftVerdictForEvent(row.sample));
       if (c === "gap" && acceptedBreaks.has(breakKey(row))) c = "accepted";
@@ -981,7 +992,7 @@ const AppLockerTool = (() => {
     const s = ev.summary || {};
     const ci = eventsEvidence.codeIntegrity || {};
     const m = eventsEvidence.machine || {};
-    const gs = fleetGapStats() || { rows: 0, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0 };
+    const gs = fleetGapStats() || { rows: 0, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0, probe: 0 };
 
     // No policy yet: the card leads with how to GET one, because that is the
     // question the person actually has at this moment — and the best answer
@@ -2490,9 +2501,10 @@ const AppLockerTool = (() => {
     const bydesign = judged.filter((j) => j.cls === "bydesign");
     const covered = judged.filter((j) => j.cls === "covered");
     const dll = judged.filter((j) => j.cls === "dll");
+    const probes = judged.filter((j) => j.cls === "probe");
     const dllEvents = entries.filter(isDllEvent).length;
     const draftDll = policy.collections.find((c) => c.type === "Dll");
-    shownBreaks = gaps.map((j) => j.row).concat(accepted.map((j) => j.row));
+    shownBreaks = gaps.map((j) => j.row).concat(accepted.map((j) => j.row)).concat(bydesign.map((j) => j.row));
     const dllToggle = dllEvents ? `<label class="mini al-dll-toggle" style="display:inline-flex;gap:6px;align-items:center;margin-left:auto;cursor:pointer" title="${hideDll ? "DLL loads are set aside: the house policy neither audits nor enforces DLL. Untick to judge them against the draft." : "DLL loads are judged against the draft."}">
       <input type="checkbox" id="alHideDll" ${hideDll ? "checked" : ""}> Hide DLL loads <span class="muted">(${dllEvents} event${dllEvents === 1 ? "" : "s"}${draftDll && draftDll.rules.length ? ` — the draft carries ${draftDll.rules.length} Dll rule${draftDll.rules.length === 1 ? "" : "s"}` : " — no Dll collection in the draft"})</span></label>` : "";
     // THE EFFECTIVE POLICY IS EVIDENCE, NOT A DRAFT (10580, Mihai: "scripts
@@ -2538,6 +2550,28 @@ const AppLockerTool = (() => {
         <td><div class="al-brk-fix">${fixBtn(r, i)}<button class="btn sm al-brk-accept" data-brkaccept="${i}" title="It is meant to be blocked — the block is the policy working">Accept block</button></div></td></tr>`;
     }).join("");
     const acceptedRows = accepted.map((j, k) => { const i = gaps.length + k; const r = j.row; return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code></td><td class="mini">${r.count}×</td><td><span class="tag block">blocked · accepted</span></td><td class="mini">${esc(j.dv.text)}</td><td><button class="btn sm al-brk-unaccept" data-brkunaccept="${i}">Reconsider</button></td></tr>`; }).join("");
+    // BY DESIGN IS NOT "NOTHING TO SEE" (10587, Mihai: PowerToys in
+    // %LOCALAPPDATA% was blocked on the first enforced device and this screen
+    // had counted it as the policy working, without listing it or offering a
+    // rule — the scan cannot know what users installed for themselves, the
+    // events are the only evidence). A file in a user-writable folder never
+    // earns a PATH rule (that is the door), and a hash goes stale on the
+    // app's next self-update; a SIGNED one can be allowed by publisher, and
+    // an unsigned one has no safe rule — remove it, or install it
+    // machine-wide. So the rows are listed, collapsed, with exactly that.
+    const bdRows = bydesign.map((j, k) => {
+      const i = gaps.length + accepted.length + k; const r = j.row;
+      const canPub = !!(r.signed && r.publisher);
+      const fix = canPub
+        ? `<button class="btn sm primary al-brk-fix-btn" data-brkfix="${i}" title="Follows the signer; survives updates. The only rule shape that is safe for a file a user can replace">Allow by publisher</button>`
+        : `<span class="mini muted">unsigned, in a folder the user can write to — no safe rule exists. Remove it (<code>Remove-TunoUserInstalledApps.ps1</code> on Help) or install it machine-wide.</span>`;
+      return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code>${canPub ? `<div class="muted">${esc(r.publisher)}</div>` : `<div class="muted">not signed</div>`}</td><td class="mini">${r.count}× · ${r.users.size} user${r.users.size === 1 ? "" : "s"}${r.last ? `<div class="muted">last ${esc(fmtWhen(r.last))}</div>` : ""}<div>${r.ranOk ? '<span class="tag grant">ran OK</span>' : r.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">audited</span>'}</div></td><td><span class="tag block">blocked · by design</span></td><td class="mini">${esc(j.dv.text)}</td><td><div class="al-brk-fix">${fix}</div></td></tr>`;
+    }).join("");
+    const bdSigned = bydesign.filter((j) => j.row.signed && j.row.publisher).length;
+    const bdSection = bydesign.length ? `<details class="al-brk-bydesign" style="margin-top:12px"><summary class="mini"><b>From user-writable areas, blocked on purpose</b> — ${bydesign.length}${bdSigned ? `, <b>${bdSigned} signed</b> and allowable by publisher` : ""} ▾</summary>
+      <p class="mini muted" style="margin:6px 0 6px">Per-user installs (PowerToys, Zoom, Teams classic, anything in %LOCALAPPDATA%) live here. The scan never sees them — only the events do. A path rule into a profile is a door and is never offered; a signed app gets a publisher rule, an unsigned one gets removed.</p>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th>Resolve</th></tr></thead><tbody>${bdRows}</tbody></table></div></details>` : "";
+    const probeLine = probes.length ? `<p class="mini al-brk-probe" style="margin:12px 0 0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--soft)">🧪 <b>${probes.length} PowerShell policy probe${probes.length === 1 ? "" : "s"}</b> (<code>__PSSCRIPTPOLICYTEST_*</code> in %TEMP%) — <b>expected, do not allow.</b> PowerShell writes a throwaway module on every start and asks AppLocker whether it would run; a block is the answer that puts the user's session in Constrained Language Mode. Allowing it would switch that protection off.</p>` : "";
     const undecidedRows = undecided.slice(0, 20).map((j) => `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(j.row.path || j.row.binary || "?")}</code></td><td class="mini">${j.row.count}×</td><td><span class="tag new">undecided</span></td><td class="mini" colspan="2">${esc(j.dv.text)}</td></tr>`).join("");
     host.innerHTML = `<h3 style="margin:0 0 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">💥 What breaks? <span class="mini muted">— every event on ${esc(fleetSourceLabel())} replayed against the draft, allowed ones included</span>${dllToggle}</h3>
       ${effNote}
@@ -2547,8 +2581,10 @@ const AppLockerTool = (() => {
       ${undecided.length ? `<h4 class="mini" style="margin:14px 0 6px">In a collection the draft has no rules for <span class="muted">— ${undecided.length}${undecided.length > 20 ? ", showing 20" : ""}</span></h4>
       <p class="mini muted" style="margin:0 0 6px">With no rules for that type nothing is restricted — today. Decide the collection on <b>Policy</b> (add its default rules, or leave it out on purpose) before enforcing.</p>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th colspan="2">Because</th></tr></thead><tbody>${undecidedRows}</tbody></table></div>` : ""}
+      ${bdSection}
+      ${probeLine}
       ${accepted.length ? `<details style="margin-top:12px"><summary class="mini"><b>Accepted blocks</b> — ${accepted.length}, meant to be blocked ▾</summary><div style="overflow-x:auto;margin-top:6px"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th></th></tr></thead><tbody>${acceptedRows}</tbody></table></div></details>` : ""}
-      <p class="mini muted" style="margin:12px 0 0">${rows.length} distinct file${rows.length === 1 ? "" : "s"} judged: ${covered.length} covered (would run) · ${bydesign.length} from user-writable areas, blocked by design · ${gaps.length} to resolve · ${accepted.length} accepted${undecided.length ? ` · ${undecided.length} undecided` : ""}${dll.length ? ` · ${dll.length} DLL loads ${hideDll ? "hidden" : "set aside (no Dll collection)"}` : ""}. The device's own refusals, grouped, are on the events card below${eventsEvidence ? "" : " and on the Evidence screen"}.</p>`;
+      <p class="mini muted" style="margin:12px 0 0">${rows.length} distinct file${rows.length === 1 ? "" : "s"} judged: ${covered.length} covered (would run) · ${bydesign.length} from user-writable areas, blocked by design · ${gaps.length} to resolve · ${accepted.length} accepted${undecided.length ? ` · ${undecided.length} undecided` : ""}${dll.length ? ` · ${dll.length} DLL loads ${hideDll ? "hidden" : "set aside (no Dll collection)"}` : ""}${probes.length ? ` · ${probes.length} PowerShell probe${probes.length === 1 ? "" : "s"} (expected)` : ""}. The device's own refusals, grouped, are on the events card below${eventsEvidence ? "" : " and on the Evidence screen"}.</p>`;
   }
 
   // ---- the device-scan evidence card ----
@@ -2574,7 +2610,7 @@ const AppLockerTool = (() => {
     const topPaths = scan.writablePaths.slice(0, 12);
     const topFiles = scan.writableFiles.slice(0, 12);
     const topEvents = ev && ev.entries
-      ? ev.entries.filter((e) => (e.verdict === "Blocked" || e.verdict === "Audited") && !(hideDll && isDllEvent(e))).slice(0, 12)
+      ? ev.entries.filter((e) => (e.verdict === "Blocked" || e.verdict === "Audited") && !(hideDll && isDllEvent(e)) && !isPolicyProbe(e.path)).slice(0, 12)
       : [];
     const dllHidden = ev && ev.entries ? ev.entries.filter((e) => (e.verdict === "Blocked" || e.verdict === "Audited") && isDllEvent(e)).length : 0;
 

@@ -100,6 +100,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 158, title: "\ud83d\udd10 T01 \u2014 Remove-TunoUserInstalledApps.ps1; What breaks? lists user-profile blocks with a publisher fix; __PSSCRIPTPOLICYTEST_ labelled expected",
+      tools: ["T01 AppLocker"], builds: [10587], risk: "medium",
+      why: "Mihai, 4 Sep, first enforced device: users cannot uninstall their per-user apps any more (the uninstaller in the profile is what Exe refuses) and an admin needs a menu for it; PowerToys was blocked and What breaks? had folded it into a by-design count with no way to allow it; the PowerShell CLM probe showed up as a block. The script changes nothing in the policy; the What breaks? change adds a collapsed list and a publisher-only fix for signed rows.",
+      test: [
+        "Elevated shell on a device with a per-user install: the menu lists it under the right user with version, publisher and ~\\AppData\\Local\\… location; picking it runs the uninstaller and the entry leaves the hive; a logged-off user's hive is loaded and unloaded (no HKU\\S-1-5-21-… left mounted).",
+        "Per-user MSI: msiexec answers 1605, the script says why and offers leftover removal; the guard refuses a folder shallower than three levels inside the profile or named AppData/Local/Roaming/Programs.",
+        "Non-elevated run exits 1 with the message; -List changes nothing; -Name X -Force without -Leftovers never deletes a folder.",
+        "What breaks? with a bundle carrying a signed block under \\Users\\: the by-design details lists it with Allow by publisher and no path button; an unsigned one shows the removal hint; the Enforce gate is unchanged by by-design rows.",
+        "A bundle with __PSSCRIPTPOLICYTEST_ events: one probe line, none in gaps, none in Evidence's refused list, counted in the footer and the markdown report.",
+        "Help & scripts: ten downloads, nine companions in five groups, each row followed by its note; every irm command populated; check-script-versions green with the new script.",
+      ],
+      files: ["scripts/Remove-TunoUserInstalledApps.ps1", "scripts/README.md", "js/applocker.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 157, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 rename and delete on every surface the read covers (the read stamps __surface); lenient versions; ticks on the import plan",
       tools: ["T27 Windows baseline", "T24 macOS baseline", "T05 Documenter"], builds: [10586], risk: "medium",
       why: "Mihai, 2026-09-04: Rename refused scripts, remediations and enrolment configurations with 'no rename path here'; the import plan lacked select/deselect. The refusal was honest but avoidable: the read did not say which of three endpoints a script came from. One additive line in T05's collect stamps __surface on every item of a multi-surface section (beside __detail; nothing rendered changes), and the rename/delete paths use it; enrolment and Autopilot get their PATCH with @odata.type. Medium: T05's read object gains a field (additive), and PATCH/DELETE reach more surfaces on cfdev only.",

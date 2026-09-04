@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10586"></script>
+<script src="js/popup-guard.js?v=10587"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10586">
+<link rel="stylesheet" href="css/app.css?v=10587">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10586"></script>
+<script src="js/selfhost-boot.js?v=10587"></script>
 </head>
 <body>
 
@@ -497,7 +497,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
                  ordinal ("the fourth and fifth are..."), was a lookup nobody
                  should have to do. -->
             <details class="al-dl-more">
-              <summary class="mini"><b>8 companion scripts</b> — cleanup pair, IT-TOOLS provisioning pair, events-collection set, policy health check <span class="muted">▾</span></summary>
+              <summary class="mini"><b>9 companion scripts</b> — cleanup pair, IT-TOOLS provisioning pair, events-collection set, policy health check, per-user app removal <span class="muted">▾</span></summary>
             <p class="mini muted" style="margin:6px 0 2px"><b>Cleanup pair</b> — for devices that already carry an AppLocker policy. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is on Deploy.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Clear-TunoAppLockerPolicy.ps1" download>⭳ Clear-TunoAppLockerPolicy.ps1</a>
@@ -550,6 +550,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <button class="btn sm al-dl-copy" data-file="Get-TunoAppLockerPolicyHealth.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
             <p class="mini muted al-dl-note">Read-only: 8000/8001 (conversion failed / applied) from all four AppLocker logs, with the log’s own reach so a rolled-over EXE and DLL log is never read as "never applied"; the CSP delivery events; AppIDSvc and AppLockerFltr; the MDM store inventory with mode and rule count per collection; the effective policy from Get-AppLockerPolicy -Effective (local + GPO) <b>and</b> from the MDM store side by side, because the cmdlet does not see Intune-delivered policy; and the AppLocker decisions logged after the store’s newest write — the one proof that the delivered policy is running. Built for MDE Live Response: <code>run Get-TunoAppLockerPolicyHealth.ps1</code>, then getfile the log it names.</p>
+            <p class="mini muted" style="margin:10px 0 2px"><b>Per-user app removal</b> — for the apps users installed into their own profiles, which the enforced policy now stops them from uninstalling.</p>
+            <div class="al-dl-row">
+              <a class="btn" href="scripts/Remove-TunoUserInstalledApps.ps1" download>⭳ Remove-TunoUserInstalledApps.ps1</a>
+              <code class="al-dl-cmd" data-file="Remove-TunoUserInstalledApps.ps1"></code>
+              <button class="btn sm al-dl-copy" data-file="Remove-TunoUserInstalledApps.ps1" title="Copy the download command">⧉ Copy</button>
+            </div>
+            <p class="mini muted al-dl-note">An in-shell menu for an administrator. A per-user install (PowerToys, Zoom, anything in %LOCALAPPDATA%) carries its uninstaller inside the profile, and once Exe is enforced that uninstaller is exactly what the policy refuses for the user — the app becomes un-removable by the person who installed it. The script inventories every profile’s Uninstall keys (loading the hive of a logged-off user too) plus machine entries that live under C:\Users, shows a numbered menu, runs the uninstaller under the administrator allow rule, and verifies the entry left that user’s hive. When the uninstaller is missing or is a per-user MSI (msiexec as admin answers 1605), it offers guarded leftover removal: the install folder (three levels inside the profile, never a well-known folder), the uninstall key and the shortcuts into it. <code>-List</code> only reads; <code>-Name PowerToys -Force -Quiet -Leftovers</code> is the Live Response form. It never changes the policy: a user who needs the app gets a publisher rule in "What breaks?", not a path into a profile.</p>
             </details>
           </div>
           <!-- The Remediation deploy lives HERE, with the downloads, because it
@@ -2148,49 +2155,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10586"></script>
-<script src="js/selfhost.js?v=10586"></script>
-<script src="js/version.js?v=10586"></script>
-<script src="js/promote.js?v=10586"></script>
-<script src="js/authConfig.js?v=10586"></script>
-<script src="js/changelog.js?v=10586"></script>
-<script src="js/msappcatalog.js?v=10586"></script>
-<script src="js/demo.js?v=10586"></script>
-<script src="js/graph.js?v=10586"></script>
-<script src="js/suggest.js?v=10586"></script>
-<script src="js/progress.js?v=10586"></script>
-<script src="js/groupuse.js?v=10586"></script>
-<script src="js/audit.js?v=10586"></script>
-<script src="js/devicecleanup.js?v=10586"></script>
-<script src="js/backup.js?v=10586"></script>
-<script src="js/document.js?v=10586"></script>
-<script src="js/policycache.js?v=10586"></script>
-<script src="js/overview.js?v=10586"></script>
-<script src="js/devicewhy.js?v=10586"></script>
-<script src="js/whatif.js?v=10586"></script>
-<script src="js/health.js?v=10586"></script>
-<script src="js/settingsearch.js?v=10586"></script>
-<script src="js/conflict.js?v=10586"></script>
-<script src="js/compliance.js?v=10586"></script>
-<script src="js/filterrules.js?v=10586"></script>
-<script src="js/filters.js?v=10586"></script>
-<script src="js/restore.js?v=10586"></script>
-<script src="js/platformbaseline.js?v=10586"></script>
-<script src="js/complianceevidence.js?v=10586"></script>
-<script src="js/macbaseline.js?v=10586"></script>
-<script src="js/winbaseline.js?v=10586"></script>
-<script src="js/assignedit.js?v=10586"></script>
-<script src="js/restrictedau.js?v=10586"></script>
-<script src="js/groupmigrate.js?v=10586"></script>
-<script src="js/roles.js?v=10586"></script>
-<script src="js/defender.js?v=10586"></script>
-<script src="js/endpointsec.js?v=10586"></script>
-<script src="js/report.js?v=10586"></script>
-<script src="js/securescore.js?v=10586"></script>
-<script src="js/endpointposture.js?v=10586"></script>
-<script src="js/maa.js?v=10586"></script>
-<script src="js/laps.js?v=10586"></script>
-<script src="js/applocker.js?v=10586"></script>
-<script src="js/app.js?v=10586"></script>
+<script src="js/branding.js?v=10587"></script>
+<script src="js/selfhost.js?v=10587"></script>
+<script src="js/version.js?v=10587"></script>
+<script src="js/promote.js?v=10587"></script>
+<script src="js/authConfig.js?v=10587"></script>
+<script src="js/changelog.js?v=10587"></script>
+<script src="js/msappcatalog.js?v=10587"></script>
+<script src="js/demo.js?v=10587"></script>
+<script src="js/graph.js?v=10587"></script>
+<script src="js/suggest.js?v=10587"></script>
+<script src="js/progress.js?v=10587"></script>
+<script src="js/groupuse.js?v=10587"></script>
+<script src="js/audit.js?v=10587"></script>
+<script src="js/devicecleanup.js?v=10587"></script>
+<script src="js/backup.js?v=10587"></script>
+<script src="js/document.js?v=10587"></script>
+<script src="js/policycache.js?v=10587"></script>
+<script src="js/overview.js?v=10587"></script>
+<script src="js/devicewhy.js?v=10587"></script>
+<script src="js/whatif.js?v=10587"></script>
+<script src="js/health.js?v=10587"></script>
+<script src="js/settingsearch.js?v=10587"></script>
+<script src="js/conflict.js?v=10587"></script>
+<script src="js/compliance.js?v=10587"></script>
+<script src="js/filterrules.js?v=10587"></script>
+<script src="js/filters.js?v=10587"></script>
+<script src="js/restore.js?v=10587"></script>
+<script src="js/platformbaseline.js?v=10587"></script>
+<script src="js/complianceevidence.js?v=10587"></script>
+<script src="js/macbaseline.js?v=10587"></script>
+<script src="js/winbaseline.js?v=10587"></script>
+<script src="js/assignedit.js?v=10587"></script>
+<script src="js/restrictedau.js?v=10587"></script>
+<script src="js/groupmigrate.js?v=10587"></script>
+<script src="js/roles.js?v=10587"></script>
+<script src="js/defender.js?v=10587"></script>
+<script src="js/endpointsec.js?v=10587"></script>
+<script src="js/report.js?v=10587"></script>
+<script src="js/securescore.js?v=10587"></script>
+<script src="js/endpointposture.js?v=10587"></script>
+<script src="js/maa.js?v=10587"></script>
+<script src="js/laps.js?v=10587"></script>
+<script src="js/applocker.js?v=10587"></script>
+<script src="js/app.js?v=10587"></script>
 </body>
 </html>

@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10587, date: "2026-09-04", title: "T01 — an admin menu for the apps users can no longer uninstall; What breaks? lists the user-profile blocks",
+    items: [
+      { kind: "new", tool: "AppLocker", text: "Remove-TunoUserInstalledApps.ps1 — an in-shell menu for an administrator to remove per-user installs (PowerToys, Zoom, anything in %LOCALAPPDATA%) that the enforced policy now stops the user from uninstalling, because the uninstaller lives in the profile. Every profile is inventoried (a logged-off user's hive is loaded), the uninstaller runs under the administrator allow rule and is verified against that user's hive, and a per-user MSI or a missing uninstaller gets guarded leftover removal. -List reads only; -Name <app> -Force -Quiet -Leftovers is the Live Response form. Under Help & scripts, with its note." },
+      { kind: "improved", tool: "AppLocker", text: "What breaks? lists the blocks from user-writable areas instead of only counting them as \"by design\": a signed per-user app can be allowed by publisher (never by path — a path into a profile is a door; hashes go stale on the app's next self-update), an unsigned one is pointed at the removal script. The scan never sees per-user installs; the events are the only evidence, and they were being folded away." },
+      { kind: "improved", tool: "AppLocker", text: "__PSSCRIPTPOLICYTEST_*.psm1 blocks in %TEMP% get one line of their own — expected, do not allow: PowerShell writes that module on every start to ask AppLocker whether scripts are enforced, and the block is what puts the user's session in Constrained Language Mode. They no longer appear among the refused executions on Evidence either." },
+    ],
+  },
+  {
     build: 10586, date: "2026-09-04", title: "Baselines: rename and delete on every surface, ticks on the import plan",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "Rename said 'no rename path here — rename it in the portal' for scripts, remediations and enrolment configurations. The reason was the read, not the tenant: scripts and update profiles are read from three endpoints each and folded into one list without saying which an item came from, so the act refused rather than guess. The read now stamps each item with its surface, and Rename writes back there — PowerShell scripts, shell scripts, remediations, feature, quality and driver update profiles — plus enrolment configurations and Autopilot profiles, sent with their type as Graph requires. Housekeeping's delete takes the same road. Only applications stay portal-only. Names with a typo in the version — 'v.3.7', 'vv3.6.1' — are read as versions now and stamped back clean." },
