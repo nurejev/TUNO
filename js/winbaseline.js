@@ -55,8 +55,15 @@ const WIN_BASELINE_SPEC = {
   // A proposed canonical name for a NEW upstream control: the OIB tag
   // gives way to the discipline (ES → SEC, SC/TP → DCP, Compliance → CMP,
   // WUfB kept), the release is stamped, the version starts at v1.0.
+  // The ❓ How it works pane's words (finding 12) — see js/macbaseline.js
+  // for why they live in the SPEC rather than in index.html.
+  help: {
+    overview: "Match this tenant's Windows policies against a catalog, create what is missing, bring names into the convention and retire the copies a re-cut left behind. The catalog is either the CloudFellows export (authored on the reference tenant and committed to this repository) or SkipToTheEndpoint's <code>OpenIntuneBaseline</code>, read from the repository or live from github.com.",
+    identity: "A CloudFellows Windows policy is named <code>Win - &lt;SEC|DCP|CMP|…&gt; - &lt;area&gt; - &lt;D|U&gt; - &lt;description&gt; - Ryy.m - vX.Y.Z</code> — for example <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code>. <code>Ryy.m</code> is the release the policy was cut in, a date: year, then month, so R26.6 is June 2026 and R27.1 comes after R26.12. Releases compare first, versions break the tie segment by segment. The <b>key</b> is the name with release and version stripped: two policies with the same key are the same identity. The <code>D</code> or <code>U</code> token says devices or users, and it is what Import reads to pick a pilot group.",
+    extra: "<b>OpenIntuneBaseline stamps an <code>OIBID:&lt;guid&gt;</code> into every description</b>, and that token identifies a deployed copy before any name does — a renamed copy still identifies. So OIB's names are kept <b>verbatim</b> on import, token and all: that is what lets OIB's own deployer go on updating what TUNO created, and it is why ✏️ Rename never proposes a convention name for a token-bearing policy. A convention-named copy sitting beside an OIB copy with the same content shows as a <b>Duplicate</b>. Driver update profiles are listed so the gap is visible but cannot be imported — their approvals are bound to the tenant that made them.",
+  },
   proposeName(row, tag) {
-    const raw = String(row.up.name || "Unnamed").trim();
+    const raw = String(row.name || "Unnamed").trim();
     const m = /^Win\s*-\s*OIB\s*-\s*(.+?)\s*-\s*v\d+(?:\.\d+)*\s*$/i.exec(raw);
     let mid = m ? m[1] : raw.replace(/\s*-\s*v\d+(?:\.\d+)*\s*$/i, "");
     mid = mid.replace(/^ES\s*-/i, "SEC -").replace(/^(SC|TP)\s*-/i, "DCP -").replace(/^Compliance\s*-/i, "CMP -");

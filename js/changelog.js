@@ -26,6 +26,19 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10590, date: "2026-09-04", title: "Baselines: Compare and Upstream become one screen, and the cards become filters",
+    items: [
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Compare and Upstream were two screens with two reports and two plans, which is how \"compare says X, upstream says Y\" became a question somebody had to answer. There is one table now, one matcher, and a source picker above it: the catalog in this repository, the community one, or a file you load." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The content and similarity passes only ran for community catalogs, so a policy from the repository catalog that had been renamed on a tenant read as missing — and Import then made a second copy of it. The same four passes now run for every catalog: the author's token, the name, the content hash, then similarity." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Similarity was hits over the smaller set, which is not a similarity: a one-setting policy inside a hundred-setting one scored 1.0 and was claimed as the same control. It is now the overlap of the union, at least 60 per cent, only between two policies of the same kind, and one tenant policy is claimed by one catalog row. If the runner-up is within five points of the winner nothing is claimed at all and the row reads Review — a coin flip dressed as a match is worse than an open question." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Nine statuses with one meaning each, and the status cards are now filters — clicking one toggles its rows, and the screen opens on everything that needs attention. A search box, a surface filter and a D/U filter sit beside them, and the gap report prints the table you are looking at rather than a wider one." },
+      { kind: "new", tool: "🪟 Windows baseline", text: "Every row has a settings view that opens the documenter's own popout — the catalog's copy of the policy when it is not in the tenant — and a row whose content differs opens straight onto the difference." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The rail entries are real buttons, so Enter and Space reach them. They were divs with a click handler, which meant the tool was mouse-only." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "All of the above — one engine." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "How it works is a pane on the screen, written once in the tool's own spec; the page's description of these tools is gone. It had been written in one build and the behaviour changed in another, so the page and the code disagreed." },
+    ],
+  },
+  {
     build: 10589, date: "2026-09-04", title: "Baselines: one canonical body, a content hash on every policy, and a catalog loader that refuses",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "The published catalog carried the tenant's own bookkeeping into a public repository — object ids, created and last-modified stamps, assignments, scope tags, setting counts. There is now one canonical body: the tenant's metadata comes off, the reading's annotations come off, and what is left is the policy. Every catalog in the repository has been re-cut through it." },

@@ -120,25 +120,57 @@ const PlatformBaseline = (() => {
       return null;
     }
 
+    // ONE STATUS VOCABULARY (§6.3, build 10590). The old set had `ok` and
+    // `present` saying the same thing in two words because one catalog
+    // versioned its names and the other did not, and no word at all for
+    // "the tenant carries this twice". Nine words now, each with exactly
+    // one meaning, and the table below is the only place they are defined.
     const STATUS = {
-      missing: { icon: "✗", label: "Missing", cls: "bad", order: 0 },
-      outdated: { icon: "⬆", label: "Outdated", cls: "warn", order: 1 },
-      differs: { icon: "≠", label: "Differs", cls: "warn", order: 2 },     // same control, different settings or values (content match, 10576)
-      present: { icon: "✓", label: "Present", cls: "ok", order: 3 },
-      ok: { icon: "✓", label: "Up to date", cls: "ok", order: 4 },
-      ahead: { icon: "⬇", label: "Newer than baseline", cls: "info", order: 5 },
-      unversioned: { icon: "?", label: "Version unknown", cls: "info", order: 6 },
-      extra: { icon: "＋", label: "Not in baseline", cls: "info", order: 7 },
+      missing: { icon: "✗", label: "Missing", cls: "bad", order: 0, attention: true, why: "in the catalog, not in this tenant" },
+      outdated: { icon: "⬆", label: "Outdated", cls: "warn", order: 1, attention: true, why: "the tenant's copy is older than the catalog's" },
+      differs: { icon: "≠", label: "Differs", cls: "warn", order: 2, attention: true, why: "same identity and version, different settings — someone edited one side" },
+      duplicate: { icon: "⧉", label: "Duplicate", cls: "warn", order: 3, attention: true, why: "the same content under a second name in this tenant" },
+      review: { icon: "?", label: "Review", cls: "warn", order: 4, attention: true, why: "two candidates matched almost equally well — not claimed, decide by hand" },
+      ahead: { icon: "⬇", label: "Ahead", cls: "info", order: 5, attention: true, why: "the tenant's copy is newer than the catalog's" },
+      unversioned: { icon: "…", label: "Unversioned", cls: "info", order: 6, attention: false, why: "wears the prefix but carries no release and no version — ✏️ Rename gives it one" },
+      extra: { icon: "＋", label: "Not in the catalog", cls: "info", order: 7, attention: false, why: "wears the convention here, but the catalog does not carry it" },
+      match: { icon: "✓", label: "Match", cls: "ok", order: 8, attention: false, why: "same identity, same version, same settings" },
     };
+    const ATTENTION = Object.keys(STATUS).filter((k) => STATUS[k].attention);
 
-    // content overlap, the one rule for "this is the same control": hits over
-    // the smaller set — the Upstream act's and, since 10576, the community
-    // comparison's
-    function overlap(A, B) {
+    // ---- similarity: Jaccard, anchored, one-to-one (§6.1.4, finding 8) ----
+    // The old score was hits over the SMALLER set, which is not a
+    // similarity at all: a one-setting policy inside a hundred-setting one
+    // scores 1.0 and was claimed as the same control. Jaccard divides by
+    // the UNION, so containment is not identity — 1 of 100 scores 0.01.
+    //
+    // Three more rules, because a number alone still overclaims:
+    //   ANCHOR      — the two must be the same KIND of thing: the same
+    //                 settings-catalog template family, or the same
+    //                 @odata.type. A compliance policy never matches a
+    //                 configuration profile however alike their properties.
+    //   ONE-TO-ONE  — a tenant policy is claimed by ONE catalog row, the
+    //                 highest scorer, and is then out of the pool.
+    //   REVIEW      — if the runner-up for the same row is within 0.05 of
+    //                 the winner, nothing is claimed: the row reads
+    //                 `review` and a person decides. A coin-flip dressed
+    //                 as a match is worse than an unanswered question.
+    const SIMILARITY_MIN = 0.6;
+    const REVIEW_MARGIN = 0.05;
+    function jaccard(A, B) {
       if (!A.size || !B.size) return 0;
       let hit = 0;
       for (const x of A) if (B.has(x)) hit++;
-      return hit / Math.min(A.size, B.size);
+      return hit / (A.size + B.size - hit);
+    }
+    // what kind of thing this is — the anchor two candidates must share
+    function anchorOf(section, body) {
+      const b = body || {};
+      if (section === "settingsCatalog") {
+        const t = (b.templateReference && b.templateReference.templateId) || "";
+        return `sc:${String(t).toLowerCase()}`;
+      }
+      return `t:${String(b["@odata.type"] || section || "").toLowerCase()}`;
     }
 
     // ================================================================
@@ -425,158 +457,190 @@ const PlatformBaseline = (() => {
       return cat;
     }
 
-    // ---- compare tenant policies against the catalog ----
-    // vms: [{ id, name, section, description }] — every policy read, any section.
+    // ================================================================
+    // COMPARE — one matcher, one vocabulary, both catalog kinds (§6.1)
+    // ================================================================
+    // vms: [{ id, name, section, description, body, hash, du }] — every
+    // policy the read returned, whatever surface it lives on.
+    //
+    // THE ORDER IS THE POINT, and it runs the same way for the repo
+    // catalog and for a community one — until 10590 the content and
+    // similarity passes ran for community catalogs ONLY, so a repo policy
+    // renamed on a tenant read as `missing` and Import made a second copy
+    // of it.
+    //
+    //   1 TOKEN    — the author's own identity in the description
+    //                (OIBID:<guid>). Beats everything: a renamed copy
+    //                still identifies.
+    //   2 KEY      — keyOf(name) equal. The convention IS the identity.
+    //   3 HASH     — the canonical bodies are byte-equal. Catches a copy
+    //                renamed on the tenant, whatever it is called now.
+    //   4 SIMILARITY — Jaccard over what the policy configures, anchored,
+    //                one-to-one, with `review` for a near tie (finding 8).
+    //
+    // Each pass only sees what the passes before it did not claim, and a
+    // tenant policy is claimed exactly once.
     function compare(vms, cat) {
       const comm = isCommunity(cat);
-      const byKey = new Map(), byTok = new Map();
-      for (const p of vms) {
-        const tok = comm ? tokenOf(cat, p.description) : null;
-        if (tok) { if (!byTok.has(tok)) byTok.set(tok, []); byTok.get(tok).push(p); }
-        // by name: the CloudFellows convention, a community convention, or —
-        // for a catalog with none — an exact key the catalog itself carries
-        const named = comm ? (cat.nameRe ? catLooks(cat, p.name) : true) : looksBaseline(p.name);
-        if (!named) continue;
-        const k = keyOf(p.name);
-        if (!byKey.has(k)) byKey.set(k, []);
-        byKey.get(k).push(p);
-      }
       const consumed = new Set();
       const rows = [];
+      const push = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
+      const byTok = new Map(), byKey = new Map(), byHash = new Map();
+      for (const p of vms) {
+        const tok = comm ? tokenOf(cat, p.description) : null;
+        if (tok) { p.__tok = tok; push(byTok, tok, p); }
+        push(byKey, keyOf(p.name), p);
+        if (p.hash) push(byHash, p.hash, p);
+      }
+      const free = (list) => (list || []).filter((p) => !consumed.has(p));
+
       // ONE IDENTITY, TWO VERSIONS IN THE CATALOG (build 10573, found on
-      // cloudfellows.dev): a re-cut policy kept beside its old copy is
-      // exported twice under one key, and the tenant carries both copies.
-      // Handing every copy to the first catalog row made it "newer than
-      // baseline" and left the second row "missing" — and the import then
-      // created nothing, because the "missing" name already existed. So
-      // when a key appears more than once in the catalog, each row takes
-      // the tenant copy that wears ITS OWN release and version first; only
-      // what is left over is judged by score.
+      // cloudfellows.dev): a re-cut kept beside its old copy is exported
+      // twice under one key and the tenant carries both. Each row takes
+      // the tenant copy wearing ITS OWN release and version first; what is
+      // left over is judged by the passes below.
       const catKeyCount = new Map();
       for (const b of cat.policies) { const k = keyOf(b.name); catKeyCount.set(k, (catKeyCount.get(k) || 0) + 1); }
-      const sameRelVer = (b, bRel, bVer, p) =>
-        cmpRelVer(comm ? null : releaseOf(p.name), versionOf(p.name), bRel, bVer) === 0 && !!(bVer || (!comm && bRel));
+      const relOf = (b) => comm ? null : normRel(b.release, b.name);
+      const verOf = (b) => b.version || versionOf(b.name);
+      const sameRelVer = (b, p) =>
+        cmpRelVer(comm ? null : releaseOf(p.name), versionOf(p.name), relOf(b), verOf(b)) === 0 && !!(verOf(b) || (!comm && relOf(b)));
+
+      // ---- passes 1-3, per catalog row ----
+      const unmatched = [];
       for (const b of cat.policies) {
         const k = keyOf(b.name);
-        const bRel = comm ? null : normRel(b.release, b.name);
-        const bVer = b.version || versionOf(b.name);
+        const bRel = relOf(b), bVer = verOf(b);
         const bTok = comm && b.oibId ? String(b.oibId).toUpperCase() : null;
-        const catDup = (catKeyCount.get(k) || 0) > 1;
-        // the token wins: a renamed copy still identifies; a name hit that
-        // carries a DIFFERENT token belongs to that other policy
-        let hits = bTok ? (byTok.get(bTok) || []).slice() : [];
-        for (const p of byKey.get(k) || []) {
-          const t = comm ? tokenOf(cat, p.description) : null;
-          if (t && bTok && t !== bTok) continue;
-          if (t && !bTok) continue;
-          if (!hits.includes(p)) hits.push(p);
+        const row = { key: k, baseline: b, bRel, bVer, tenant: null, status: "missing", catDup: (catKeyCount.get(k) || 0) > 1 };
+
+        // 1 — the token
+        let hits = bTok ? free(byTok.get(bTok)) : [];
+        let how = hits.length ? "token" : "";
+        // 2 — the key. A name hit carrying a DIFFERENT token belongs to
+        // that other policy, and a token-bearing policy is never claimed
+        // by a catalog row that has no token of its own.
+        if (!hits.length) {
+          hits = free(byKey.get(k)).filter((p) => {
+            if (!comm) return true;
+            if (p.__tok && bTok) return p.__tok === bTok;
+            return !p.__tok;
+          });
+          if (hits.length) how = "key";
         }
-        hits = hits.filter((p) => !consumed.has(p));
-        if (catDup) {
-          // this row's own version, if the tenant has it; otherwise leave
-          // every copy to the rows that still want theirs
-          const exact = hits.filter((p) => sameRelVer(b, bRel, bVer, p));
+        if (hits.length && row.catDup) {
+          const exact = hits.filter((p) => sameRelVer(b, p));
           if (exact.length) hits = exact;
-          else if (hits.some((p) => cat.policies.some((b2) => b2 !== b && keyOf(b2.name) === k && sameRelVer(b2, comm ? null : normRel(b2.release, b2.name), b2.version || versionOf(b2.name), p)))) {
-            hits = hits.filter((p) => !cat.policies.some((b2) => b2 !== b && keyOf(b2.name) === k && sameRelVer(b2, comm ? null : normRel(b2.release, b2.name), b2.version || versionOf(b2.name), p)));
+          else {
+            const claimedElsewhere = (p) => cat.policies.some((b2) => b2 !== b && keyOf(b2.name) === k && sameRelVer(b2, p));
+            if (hits.some(claimedElsewhere)) hits = hits.filter((p) => !claimedElsewhere(p));
           }
         }
-        if (!hits.length) {
-          rows.push({ key: k, baseline: b, bRel, bVer, tenant: null, status: "missing", catDup });
+        // 3 — the content hash. Same bodies, whatever the names.
+        if (!hits.length && b.hash) {
+          hits = free(byHash.get(b.hash));
+          if (hits.length) { hits = [hits[0]]; how = "hash"; }
+        }
+        if (!hits.length) { unmatched.push(row); rows.push(row); continue; }
+        hits.forEach((p) => consumed.add(p));
+        Object.assign(row, verdict(b, bRel, bVer, hits[0], comm, how));
+        row.duplicates = hits.length > 1 ? hits.length : 0;
+        rows.push(row);
+      }
+
+      // ---- pass 4: similarity, one-to-one, with review (finding 8) ----
+      const pool = vms.filter((p) => p.body && !consumed.has(p))
+        .map((p) => ({ p, ids: defIdsOf(kindOfSection(p.section), p.body), anchor: anchorOf(p.section, p.body) }))
+        .filter((o) => o.ids.size);
+      if (pool.length) {
+        for (const row of unmatched) {
+          const b = row.baseline;
+          if (!b || !b.body) continue;
+          const bIds = defIdsOf(kindOfSection(b.section), b.body);
+          if (!bIds.size) continue;
+          const bAnchor = anchorOf(b.section, b.body);
+          const scored = pool
+            .filter((o) => !consumed.has(o.p) && o.p.section === b.section && o.anchor === bAnchor)
+            .map((o) => ({ o, s: jaccard(bIds, o.ids) }))
+            .filter((x) => x.s >= SIMILARITY_MIN)
+            .sort((a, c) => c.s - a.s);
+          if (!scored.length) continue;
+          // A NEAR TIE IS NOT A MATCH. Two candidates within 0.05 of each
+          // other is a question, and the row asks it rather than guessing.
+          if (scored.length > 1 && (scored[0].s - scored[1].s) < REVIEW_MARGIN) {
+            row.status = "review";
+            row.candidates = scored.slice(0, 3).map((x) => ({ name: x.o.p.name, score: x.s }));
+            continue;
+          }
+          const best = scored[0];
+          consumed.add(best.o.p);
+          Object.assign(row, verdict(b, row.bRel, row.bVer, best.o.p, comm, "similarity"));
+          row.score = best.s;
+        }
+      }
+
+      // ---- what the tenant has that the catalog does not ----
+      // `extra`  — wears the convention (or carries the token) and is not
+      //            in the catalog.
+      // `duplicate` — the same canonical body under a SECOND name in this
+      //            tenant (§6.3). One of them is the copy a re-cut left
+      //            behind, and 🧹 Housekeeping is where it goes.
+      const claimable = (p) => comm ? (!!p.__tok || (cat.nameRe ? catLooks(cat, p.name) : false)) : looksBaseline(p.name);
+      const seenHash = new Map();
+      for (const r of rows) if (r.tenant && r.tenant.hash) seenHash.set(r.tenant.hash, r);
+      for (const p of vms) {
+        if (consumed.has(p)) continue;
+        const twin = p.hash ? seenHash.get(p.hash) : null;
+        if (twin && keyOf(p.name) !== keyOf(twin.tenant.name)) {
+          consumed.add(p);
+          rows.push({ key: keyOf(p.name), baseline: twin.baseline, bRel: twin.bRel, bVer: twin.bVer,
+            tenant: p, tRel: comm ? null : releaseOf(p.name), tVer: versionOf(p.name),
+            status: "duplicate", how: "hash", twinOf: twin.tenant.name });
           continue;
         }
-        const scored = hits.map((p) => {
-          const tRel = comm ? null : releaseOf(p.name), tVer = versionOf(p.name);
-          let status;
-          if (!bVer && !comm) status = "unversioned";
-          else if (!bVer) status = "present";           // ENCA: this baseline does not version its names
-          else {
-            const c = cmpRelVer(tRel, tVer, bRel, bVer);
-            status = c === null ? "unversioned" : c === 0 ? "ok" : c < 0 ? "outdated" : "ahead";
-          }
-          return { p, tRel, tVer, status, byToken: !!(bTok && tokenOf(cat, p.description) === bTok) };
-        }).sort((a, b2) => STATUS[b2.status].order - STATUS[a.status].order);
-        const best = scored[0];
-        hits.forEach((p) => consumed.add(p));
-        rows.push({
-          key: k, baseline: b, bRel, bVer,
-          tenant: best.p, tRel: best.tRel, tVer: best.tVer,
-          status: best.status, byToken: best.byToken, catDup,
-          duplicates: hits.length > 1 ? hits.length : 0,
-        });
+        if (!claimable(p)) continue;
+        consumed.add(p);
+        const tRel = comm ? null : releaseOf(p.name), tVer = versionOf(p.name);
+        rows.push({ key: keyOf(p.name), baseline: null, tenant: p, tRel, tVer,
+          status: (!comm && !tRel && !tVer) ? "unversioned" : "extra" });
       }
-      // BY CONTENT, THIRD (build 10576, Mihai on cloudfellows.dev: "the compare
-      // should match on settings, not on name"): a tenant that deployed the
-      // community baseline under its OWN names — the CloudFellows tenant does
-      // exactly that — matched nothing by token or name and read 72 missing.
-      // So a catalog row still missing after the token and name passes is
-      // matched the way the Upstream act matches: a settings-catalog policy
-      // IS its set of setting definition ids, a compliance or configuration
-      // policy the properties it configures; half-or-better overlap claims
-      // it (UPSTREAM_MIN_OVERLAP, one rule). The verdict then reads the
-      // version off the tenant's name and diffs the settings: same version,
-      // same settings → up to date; same version, different values → DIFFERS
-      // with the diff on the row; lower/higher → outdated / newer.
-      if (comm) {
-        const kindOfRow = (b) => b.kind || (b.section === "compliance" ? "compliance" : b.section === "deviceConfigurations" ? "deviceConfig" : "settingsCatalog");
-        const secOfKind = { settingsCatalog: "settingsCatalog", compliance: "compliance", deviceConfig: "deviceConfigurations" };
-        const pool = vms.filter((p) => p.body && !consumed.has(p)).map((p) => ({ p, ids: null }));
-        const idsOf = (o, kind) => { if (!o.ids) o.ids = defIdsOf(kind, o.p.body); return o.ids; };
-        for (const r of rows) {
-          if (r.status !== "missing" || !r.baseline || !r.baseline.body) continue;
-          const b = r.baseline, kind = kindOfRow(b), sec = secOfKind[kind];
-          if (!sec) continue;
-          const bIds = defIdsOf(kind, b.body);
-          if (!bIds.size) continue;
-          let best = null, bestScore = 0;
-          for (const o of pool) {
-            if (o.p.section !== sec || consumed.has(o.p)) continue;
-            const sc = overlap(bIds, idsOf(o, kind));
-            if (sc > bestScore) { best = o; bestScore = sc; }
-          }
-          if (!best || bestScore < UPSTREAM_MIN_OVERLAP) continue;
-          consumed.add(best.p);
-          const diff = diffPolicies(kind, b.body, best.p.body);
-          const same = !diff.added.length && !diff.removed.length && !diff.changed.length;
-          const tVer = versionOf(best.p.name);
-          let status;
-          if (r.bVer && tVer && cmpVersion(tVer, r.bVer) !== 0) status = cmpVersion(tVer, r.bVer) < 0 ? "outdated" : "ahead";
-          else if (same) status = r.bVer ? "ok" : "present";
-          else status = "differs";
-          Object.assign(r, { tenant: best.p, tRel: null, tVer, status, byContent: true, score: bestScore, diff, duplicates: 0 });
-        }
-      }
-      // wears the convention (or carries the token), not in the catalog —
-      // only claimable when the catalog HAS a convention to wear
-      if (!comm || cat.nameRe || cat.idToken) {
-        const extras = new Map();
-        for (const [k, hits] of byKey) {
-          const left = hits.filter((p) => !consumed.has(p));
-          if (!left.length) continue;
-          if (comm && !cat.nameRe) continue;
-          extras.set(k, left);
-        }
-        for (const [tok, hits] of byTok) {
-          const left = hits.filter((p) => !consumed.has(p));
-          if (!left.length) continue;
-          const k = keyOf(left[0].name) || tok;
-          if (!extras.has(k)) extras.set(k, left);
-        }
-        for (const [k, hits] of extras) {
-          hits.forEach((p) => consumed.add(p));
-          rows.push({ key: k, baseline: null, tenant: hits[0], tRel: comm ? null : releaseOf(hits[0].name), tVer: versionOf(hits[0].name), status: "extra", duplicates: hits.length > 1 ? hits.length : 0 });
-        }
-      }
+
       rows.sort((a, b) => STATUS[a.status].order - STATUS[b.status].order || String(a.key).localeCompare(String(b.key)));
       const counts = {};
+      Object.keys(STATUS).forEach((k) => { counts[k] = 0; });
       rows.forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
       return {
         rows, counts, catalog: cat,
         baselineTotal: cat.policies.length,
         covered: rows.filter((r) => r.baseline && r.tenant).length,
+        attention: rows.filter((r) => STATUS[r.status].attention).length,
       };
     }
 
+    // Which of defIdsOf's three shapes a section is read as.
+    const kindOfSection = (s) => s === "settingsCatalog" ? "settingsCatalog" : s === "admx" ? "settingsCatalog" : "compliance";
+
+    // The verdict on one matched pair — the only place a status is decided
+    // for a policy that IS present.
+    function verdict(b, bRel, bVer, p, comm, how) {
+      const tRel = comm ? null : releaseOf(p.name), tVer = versionOf(p.name);
+      const out = { tenant: p, tRel, tVer, how, byToken: how === "token", byContent: how === "hash" || how === "similarity" };
+      // The tenant copy WEARS THE PREFIX and carries neither a release nor
+      // a version: Rename is the act, and no version comparison is possible
+      // or honest. A copy found by content under some unrelated name is not
+      // unversioned — it is matched, and its name is Rename's business
+      // separately.
+      if (!comm && spec.prefixRe.test(p.name || "") && !tRel && !tVer) { out.status = "unversioned"; return out; }
+      const contentSame = (b.hash && p.hash) ? b.hash === p.hash : null;
+      out.contentSame = contentSame;
+      if (contentSame === false && b.body && p.body) out.diff = diffPolicies(kindOfSection(b.section), b.body, p.body);
+      const c = cmpRelVer(tRel, tVer, bRel, bVer);
+      if (c === null) { out.status = contentSame === false ? "differs" : "match"; return out; }
+      if (c < 0) { out.status = "outdated"; return out; }
+      if (c > 0) { out.status = "ahead"; return out; }
+      out.status = contentSame === false ? "differs" : "match";
+      return out;
+    }
     // ---- export (the baseline tenant's act) ----
     const AREA_OF_SECTION = {
       deviceConfigurations: "DeviceConfigurations",
@@ -861,8 +925,6 @@ const PlatformBaseline = (() => {
     // compliance or device-configuration policy the properties it
     // configures. Exact overlap is "same", half-or-better a match whose
     // DIFF is shown, anything else NEW. 50% is the claim threshold, said here.
-    const UPSTREAM_ZIP_URL = spec.upstream.zipUrl;
-    const UPSTREAM_MIN_OVERLAP = 0.5;
 
     const META = new Set(["id", "displayName", "name", "description", "@odata.type", "roleScopeTagIds",
       "scheduledActionsForRule", "createdDateTime", "lastModifiedDateTime", "version", "assignments", "assignments@odata.context",
@@ -1015,18 +1077,6 @@ const PlatformBaseline = (() => {
         policies,
       };
     }
-    // the bundled community catalog, read as if it were a loaded zip — so the
-    // Upstream act on the baseline tenant needs no download for the release
-    // TUNO already carries
-    function communityAsUpstream(cat) {
-      return (cat && cat.policies || []).map((p) => ({
-        kind: p.kind || (p.section === "compliance" ? "compliance" : p.section === "deviceConfigurations" ? "deviceConfig" : "settingsCatalog"),
-        name: p.name, path: p.path || "", folder: p.folder || "", body: p.body || {},
-        defIds: [...defIdsOf(p.kind || (p.section === "compliance" ? "compliance" : "settingsCatalog"), p.body || {})],
-        oibId: p.oibId || null,
-      }));
-    }
-
     // ---- the per-policy diff, VALUE-AWARE ---------------------------------
     const stripTemplateRefs = (o) => {
       if (Array.isArray(o)) return o.map(stripTemplateRefs);
@@ -1078,73 +1128,14 @@ const PlatformBaseline = (() => {
     }
 
 
-    // ups: parseUpstream().policies · cat: the active CloudFellows catalog.
-    function matchUpstream(ups, cat) {
-      const ours = (cat.policies || []).map((p) => ({
-        p, ids: defIdsOf(p.section === "settingsCatalog" ? "settingsCatalog" : "compliance", p.body || {}),
-      }));
-      return ups.map((u) => {
-        const uIds = new Set(u.defIds);
-        let best = null, bestScore = 0;
-        for (const o of ours) {
-          if (o.p.section !== SECTION_OF_KIND[u.kind]) continue;
-          const s = overlap(uIds, o.ids);
-          if (s > bestScore) { best = o; bestScore = s; }
-        }
-        if (!best || bestScore < UPSTREAM_MIN_OVERLAP) return { up: u, status: "new", match: null, score: 0 };
-        const diff = diffPolicies(u.kind, u.body, best.p.body || {});
-        const status = diff.added.length || diff.removed.length || diff.changed.length ? "differs" : "same";
-        return { up: u, status, match: best.p, score: bestScore, diff,
-          theirsOnly: diff.added.map((x) => x.id), oursOnly: diff.removed.map((x) => x.id) };
-      });
-    }
-
     // A proposed canonical name — a STARTING POINT for the rename field.
-    // Stamps the CURRENT release; new controls start at v1.0; a differing
-    // match keeps the matched identity, re-stamps the release, bumps the minor.
-    function proposeName(row) {
-      const now = currentRelease();
-      const tag = `R${now.y}.${now.m}`;
-      if (row.status === "differs" && row.match) {
-        let name = String(row.match.name).replace(/\bR\d{2}\.\d{1,2}\b/i, tag);
-        const m = /^(.*?)(?:\s*-\s*v(\d+))(?:\.(\d+))?((?:\.\d+)*)\s*$/i.exec(name);
-        if (m) return `${m[1]} - v${m[2]}.${(+(m[3] || 0)) + 1}`;
-        return name;
-      }
-      return spec.proposeName(row, tag);
-    }
-
-    function upstreamEntry(row, newName) {
-      const u = row.up;
-      const area = AREA_OF_KIND[u.kind] || "SettingsCatalog";
-      const obj = Object.assign({}, u.body);
-      if (u.kind === "settingsCatalog") { obj.name = newName; delete obj.displayName; }
-      else obj.displayName = newName;
-      return { area, entry: { area, name: newName, obj, sourceId: obj.id || "" }, newName };
-    }
-
-    function upstreamMarkdown(rows, meta) {
-      const L = [];
-      L.push(`# ${spec.upstream.label} vs the CloudFellows ${spec.platform} baseline`, "");
-      L.push(`Generated ${new Date().toISOString().replace("T", " ").replace(/\..*/, " UTC")} by TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}${meta && meta.catalog ? ` · catalog ${meta.catalog}` : ""}`, "");
-      const n = { same: 0, differs: 0, new: 0 };
-      rows.forEach((r) => { n[r.status]++; });
-      L.push(`${n.new} new to the baseline · ${n.differs} matched with differences · ${n.same} covered.`, "");
-      const cell = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-      const kindLabel = (k) => k === "compliance" ? "Compliance policy" : k === "deviceConfig" ? "Device configuration profile" : "Settings catalog policy";
-      for (const r of rows.filter((x) => x.status === "new")) {
-        L.push(`## NEW — ${cell(r.up.name)}`, "");
-        L.push(`${kindLabel(r.up.kind)} · ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"} — the whole policy is new to the baseline.`, "");
-      }
-      for (const r of rows.filter((x) => x.status === "differs")) {
-        L.push(`## CHANGED — ${cell(r.up.name)}`, "");
-        L.push(`Matches **${cell(r.match.name)}** (${Math.round(r.score * 100)}% by content).`, "");
-        if (r.diff.added.length) { L.push(`**They set, we do not:**`); r.diff.added.forEach((d) => L.push(`- \`${cell(d.id)}\` = ${cell(d.theirs)}`)); L.push(""); }
-        if (r.diff.changed.length) { L.push(`**Different values:**`); r.diff.changed.forEach((d) => L.push(`- \`${cell(d.id)}\`: ours ${cell(d.ours)} → theirs ${cell(d.theirs)}`)); L.push(""); }
-        if (r.diff.removed.length) { L.push(`**We set, they do not:**`); r.diff.removed.forEach((d) => L.push(`- \`${cell(d.id)}\` = ${cell(d.ours)}`)); L.push(""); }
-      }
-      if (n.same) L.push(`## Covered`, "", rows.filter((x) => x.status === "same").map((r) => `- ${cell(r.up.name)} = **${cell(r.match.name)}**`).join("\n"), "");
-      return L.join("\n");
+    // Takes a policy-shaped row ({ name, section, folder, du }); the SPEC
+    // knows what its platform's convention looks like. The release stamped
+    // is `rel` when the caller has one (a community cut is dated by its
+    // sourceDate, §8.5) and this month otherwise.
+    function proposeName(row, rel) {
+      const r = rel || currentRelease();
+      return spec.proposeName(row || {}, `R${r.y}.${r.m}`);
     }
 
     // ---- rename: stamp the release from the last-modified date (10572) ----
@@ -1255,33 +1246,48 @@ const PlatformBaseline = (() => {
     }
 
     // ---- the gap report (ENCA's blMd, Intune-side-out) ----
+    // `rows` is what the person is LOOKING AT (§4.1) — the filtered table,
+    // not the whole comparison. A report that quietly widens the filters is
+    // a different document from the screen it claims to print, and the
+    // person sending it on would not know.
     const mdEsc = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
-    function toMd(cmp, tenantName) {
+    function toMd(cmp, tenantName, rows) {
       const cat = cmp.catalog, comm = isCommunity(cat);
+      const list = rows || cmp.rows;
       const relver = (rel, ver) => comm ? (ver ? `v${ver}` : "—") : `${relLabel(rel)}${ver ? ` · v${ver}` : ""}`;
       const L = [];
       L.push(`# ${spec.platform} baseline gap — ${mdEsc(tenantName || "tenant")} vs ${mdEsc(comm ? `${cat.label} ${cat.release}` : `the CloudFellows ${spec.platform} baseline ${cat.release || "(no release)"}`)}`, "");
       L.push(typeof Brand !== "undefined" && Brand.generatedBy ? Brand.generatedBy() : `Generated by TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}`);
       if (comm && cat.url) L.push(`Baseline source: ${cat.url}${cat.commit ? ` (commit ${String(cat.commit).slice(0, 7)})` : ""}`);
       L.push("");
-      L.push(`- Coverage: **${cmp.covered} of ${cmp.baselineTotal}** baseline policies present in the tenant.`);
-      ["missing", "outdated", "differs", "ok", "present", "ahead", "unversioned", "extra"].forEach((k) => { if (cmp.counts[k]) L.push(`- ${STATUS[k].label}: **${cmp.counts[k]}**`); });
-      const toImport = cmp.rows.filter((r) => r.status === "missing" || r.status === "outdated");
-      L.push(`- Import would add or update **${toImport.length}** policies.`, "");
-      L.push("| Status | Baseline policy | In this tenant | Baseline | Tenant |");
-      L.push("| --- | --- | --- | --- | --- |");
-      for (const r of cmp.rows) {
-        L.push(`| ${STATUS[r.status].label} | ${mdEsc(r.baseline ? r.baseline.name : "—")} | ${mdEsc(r.tenant ? r.tenant.name : "—")}${r.duplicates ? ` (×${r.duplicates})` : ""}${r.byToken ? ` (by ${cat.idToken})` : ""}${r.byContent ? ` (by content, ${Math.round(r.score * 100)}%)` : ""} | ${r.baseline ? relver(r.bRel, r.bVer) : "—"} | ${r.tenant ? relver(r.tRel, r.tVer) : "—"} |`);
+      L.push(`- Coverage: **${cmp.covered} of ${cmp.baselineTotal}** catalog policies present in the tenant.`);
+      Object.keys(STATUS).sort((a, b) => STATUS[a].order - STATUS[b].order)
+        .forEach((k) => { if (cmp.counts[k]) L.push(`- ${STATUS[k].label}: **${cmp.counts[k]}** — ${STATUS[k].why}`); });
+      const toImport = list.filter((r) => r.baseline && !r.baseline.tampered && (r.status === "missing" || r.status === "outdated"));
+      L.push(`- Import would create **${toImport.length}** of the rows below.`);
+      if (list.length !== cmp.rows.length) L.push(`- **${list.length} of ${cmp.rows.length} rows** are printed here: this is the filtered table, exactly as it was on the screen.`);
+      L.push("");
+      L.push("| Status | Catalog policy | In this tenant | Surface | Catalog | Tenant |");
+      L.push("| --- | --- | --- | --- | --- | --- |");
+      for (const r of list) {
+        const sec = (r.baseline && r.baseline.sectionLabel) || (r.tenant && r.tenant.sectionLabel) || "";
+        const note = [r.byToken ? `by ${cat.idToken}` : "", r.how === "hash" ? "by content" : "",
+          r.how === "similarity" ? `${Math.round((r.score || 0) * 100)}% alike` : "",
+          r.duplicates ? `×${r.duplicates}` : "", r.twinOf ? `same content as ${r.twinOf}` : ""].filter(Boolean).join(", ");
+        L.push(`| ${STATUS[r.status].label} | ${mdEsc(r.baseline ? r.baseline.name : "—")} | ${mdEsc(r.tenant ? r.tenant.name : "—")}${note ? ` (${mdEsc(note)})` : ""} | ${mdEsc(sec)} | ${r.baseline ? relver(comm ? null : r.bRel, r.bVer) : "—"} | ${r.tenant ? relver(comm ? null : r.tRel, r.tVer) : "—"} |`);
         if (r.status === "differs" && r.diff) {
-          r.diff.added.forEach((d) => L.push(`|  | ↳ they set \`${mdEsc(d.id)}\` = ${mdEsc(d.theirs)} |  |  |  |`));
-          r.diff.changed.forEach((d) => L.push(`|  | ↳ \`${mdEsc(d.id)}\`: tenant ${mdEsc(d.ours)} → baseline ${mdEsc(d.theirs)} |  |  |  |`));
-          r.diff.removed.forEach((d) => L.push(`|  | ↳ only in the tenant: \`${mdEsc(d.id)}\` = ${mdEsc(d.ours)} |  |  |  |`));
+          r.diff.added.forEach((d) => L.push(`|  | ↳ the catalog sets \`${mdEsc(d.id)}\` = ${mdEsc(d.theirs)} |  |  |  |  |`));
+          r.diff.changed.forEach((d) => L.push(`|  | ↳ \`${mdEsc(d.id)}\`: tenant ${mdEsc(d.ours)} → catalog ${mdEsc(d.theirs)} |  |  |  |  |`));
+          r.diff.removed.forEach((d) => L.push(`|  | ↳ only in the tenant: \`${mdEsc(d.id)}\` = ${mdEsc(d.ours)} |  |  |  |  |`));
+        }
+        if (r.status === "review" && r.candidates) {
+          r.candidates.forEach((x) => L.push(`|  | ↳ candidate: ${mdEsc(x.name)} (${Math.round(x.score * 100)}%) |  |  |  |  |`));
         }
       }
       L.push("");
       if (toImport.length) {
-        L.push("## Would be imported or updated", "");
-        for (const r of toImport) L.push(`- **${mdEsc(r.baseline.name)}**${r.status === "outdated" ? ` — currently ${mdEsc(relver(r.tRel, r.tVer))}` : " — not present"}`);
+        L.push("## Import would create", "");
+        for (const r of toImport) L.push(`- **${mdEsc(r.baseline.name)}**${r.status === "outdated" ? ` — this tenant has ${mdEsc(relver(comm ? null : r.tRel, r.tVer))}, the catalog has ${mdEsc(relver(comm ? null : r.bRel, r.bVer))}; a NEW copy is created and the old one left for Housekeeping` : " — not present"}`);
         L.push("");
       }
       return L.join("\n");
@@ -1293,8 +1299,9 @@ const PlatformBaseline = (() => {
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
       CATALOG_SCHEMA, COMMUNITY_KIND, canonicalBody, canonicalJson, hashBody, hashAll, duOf,
       shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
-      UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
-      matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
+      SIMILARITY_MIN, REVIEW_MARGIN, ATTENTION, jaccard, anchorOf, kindOfSection,
+      defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity,
+      proposeName, diffPolicies, toMd,
       releaseOfDate, stampRelease, RENAME_PATH, renamePathFor, renameProposals, fetchUpstream,
       dedupeCatalog, repoFolder, communityFolder, housekeeping, DELETE_PATH,
       setBundled, setCommunity, loadCatalogs,
@@ -1334,10 +1341,8 @@ const PlatformBaseline = (() => {
       cmp: null,             // compare() result
       fileCat: null,         // a loaded CloudFellows baseline file replaces the bundled slot
       fetchedCat: null,      // the community catalog fetched from github.com this session
-      upstream: null,        // { rows, skipped, seenOther, when, parsed, from }
       planned: null, plannedFilters: null,
       hashes: null,          // policy id -> content hash, computed when the read lands
-      upPlanned: null, upPlanKey: null,
       rnPlanned: null, rnPlanKey: null,
       hkPlanned: null, hkPlanKey: null,
       lastWrite: null,       // the last import's failures, shown on the Import pane after the re-read
@@ -1350,7 +1355,7 @@ const PlatformBaseline = (() => {
     function reset() {
       S = blankSession(currentTenantId());
       mode = "compare";   // the acts a new tenant may not have are not left on the table
-      for (const h of ["Body", "Upstream", "Rename", "Housekeeping"]) {
+      for (const h of ["Body", "Rename", "Housekeeping"]) {
         const el = $(ID(h));
         if (el) { delete el.dataset.for; delete el.dataset.rows; delete el.dataset.order; el.innerHTML = ""; }
       }
@@ -1477,42 +1482,87 @@ const PlatformBaseline = (() => {
       const el = $(ID("Seg"));
       if (!el) return;
       const c = activeCatalog();
-      const node = (k, icon, label, right, bad) => `<div class="ep-node${mode === k ? " active" : ""}" data-${P}mode="${k}" role="button" tabindex="0">
-        <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
-      const worst = S.cmp ? (S.cmp.counts.missing || 0) + (S.cmp.counts.outdated || 0) + (S.cmp.counts.differs || 0) : null;
-      const upBad = S.upstream ? S.upstream.rows.filter((r) => r.status !== "same").length : null;
+      // NATIVE BUTTONS (finding 10). The rail was <div role="button"
+      // tabindex="0"> with a click handler, which looks right and is not:
+      // Enter and Space did nothing, so the whole tool was mouse-only. A
+      // <button> gets both keys, the focus ring and the disabled state for
+      // free, and aria-selected says which one is on the table.
+      const node = (k, icon, label, right, bad) => `<button type="button" class="ep-node${mode === k ? " active" : ""}" data-${P}mode="${k}" aria-selected="${mode === k}" style="width:100%;border:none;background:none;font:inherit;color:inherit;text-align:left">
+        <span>${icon} ${label}</span><span class="ep-n${bad ? " gap" : ""}">${right}</span></button>`;
+      const att = S.cmp ? S.cmp.attention : null;
       const rn = S.res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
       const hk = S.res ? E.housekeeping(vms()).reduce((a, g) => a + g.retire.length, 0) : null;
       el.innerHTML = [
         tenantLine(),
-        node("compare", spec.icon, "Compare", S.cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
-        ...(isCfdev() ? [node("export", "🧬", "Export", S.res ? "ready" : "read first", false)] : []),
-        node("import", "📥", "Import", c ? `${c.policies.length}` : "no catalog", !c),
-        ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", S.upstream === null ? "fetch or load" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
-        ...(isCfdev() ? [node("rename", "✏️", "Rename", S.res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0)] : []),
-        ...(isCfdev() ? [node("housekeeping", "🧹", "Housekeeping", S.res ? (hk ? `${hk} old cop${hk === 1 ? "y" : "ies"}` : "tidy") : "read first", hk > 0)] : []),
+        node("compare", "🔍", "Compare", S.cmp ? (att ? `${att} to fix` : "in step") : c ? `${c.policies.length}` : "—", att > 0),
+        node("import", "📥", "Import", S.cmp ? `${importable().length} to create` : c ? `${c.policies.length}` : "no catalog", !c),
+        node("rename", "✏️", "Rename", S.res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0),
+        ...(isCfdev() ? [node("export", "📤", "Export", S.res ? "ready" : "read first", false)] : []),
+        node("housekeeping", "🧹", "Housekeeping", S.res ? (hk ? `${hk} old cop${hk === 1 ? "y" : "ies"}` : "tidy") : "read first", hk > 0),
+        `<hr>`,
+        node("help", "❓", "How it works", "", false),
       ].join("");
     }
 
-    // the catalog seg — ENCA's blCatalog, ported: which baseline this screen
-    // speaks for, on the two acts that consume one (compare, import)
-    function catalogSeg() {
+    // ---- the source picker (§4.1) ----
+    // ONE PICKER, NOT TWO SCREENS. Compare and Upstream were separate
+    // screens with separate reports and separate plans, which is how
+    // "compare says X, upstream says Y" became a thing anyone had to
+    // resolve. There is one table now, one matcher, one vocabulary, and
+    // this picker says which catalog it is comparing against.
+    function sourcePicker() {
       const list = catalogs();
       if (!list.length) return "";
-      return `<div class="seg" id="${ID("Cat")}" style="margin:0 0 10px">${list.map((c) =>
-        `<button class="${c.id === catId ? "active" : ""}" data-${P}cat="${c.id}" title="${esc(c.sub)}">${c.icon} ${esc(c.label)} <span class="mini">· ${c.cat.policies.length}</span></button>`).join("")}</div>`;
+      const btn = (c) => `<button type="button" class="${c.id === catId ? "active" : ""}" data-${P}cat="${c.id}" aria-selected="${c.id === catId}" title="${esc(c.sub)}">${c.icon} ${esc(c.label)} <span class="mini">· ${c.cat.policies.length}</span></button>`;
+      return `<div class="seg" id="${ID("Cat")}" style="margin:0 0 10px">${list.map(btn).join("")}
+        <button type="button" data-${P}cat="file" aria-selected="${catId === "file"}" class="${catId === "file" ? "active" : ""}" title="Compare against a catalog file you have — an export from another tenant, or an older cut">📄 File…</button>
+        <input type="file" id="${ID("File")}" accept=".json" style="display:none"></div>`;
     }
     function catalogLine(c) {
       if (E.isCommunity(c)) {
         const bundle = E.community();
-        return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.sourceDate ? ` (${esc(c.sourceDate)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}
-          ${S.fetchedCat ? `<b>Fetched from github.com this session</b>${bundle ? ` — the bundle is v${esc(bundle.release || "?")} @ ${esc(String(bundle.commit || "").slice(0, 7))}` : ""}. <button class="btn sm" id="${ID("FetchRevert")}">↩ Back to the bundle</button>` : `<button class="btn sm" id="${ID("Fetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>`}
+        const when = c.sourceDate ? `published ${esc(c.sourceDate)}` : "no publication date";
+        return `<p class="mini muted" style="margin:0 0 10px">${esc(c.label)}${c.release ? ` <b>v${esc(c.release)}</b>` : ""} by ${esc(c.author || "the community")} — ${when}, ${c.policies.length} policies, <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""}.
+          ${S.fetchedCat
+            ? `<b>Read live from github.com this session.</b>${bundle ? ` The copy in the repository is v${esc(bundle.release || "?")}, ${esc(bundle.sourceDate || "undated")}.` : ""} <button class="btn sm" id="${ID("FetchRevert")}">↩ Use the repository's copy</button>${isCfdev() ? ` <button class="btn sm" id="${ID("CommZip")}" title="Write this cut as ${esc(spec.communityPath.replace(/\/catalog\.json$/, "/"))} — unzip at the repo root and it becomes the copy every tenant reads">📁 Community folder (zip)</button>` : ""}`
+            // SAY WHAT THE BUTTON DOES (finding 12). "Fetch latest" used to
+            // sit next to prose about zips and content-security policy that
+            // described a road the button does not take.
+            : `<button class="btn sm" id="${ID("Fetch")}">🌐 Fetch latest from github.com</button> <span class="muted">reads ${esc(spec.upstream.repo)} directly — two API calls and one read per policy, no token, no download — and compares against that instead of the copy in this repository.</span>`}
           <span class="mini" id="${ID("FetchNote")}"></span></p>`;
       }
-      return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "(no release)")}</b>${c.releaseMix && Object.keys(c.releaseMix).length > 1 ? ` <span class="gu-how priv" title="The release is the newest cut any policy in this catalog wears; more than one cut is present, and this is the census">${esc(Object.entries(c.releaseMix).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} \u00d7${n}`).join(", "))}</span>` : ""} · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
+      const mix = (c.releaseMix && Object.keys(c.releaseMix).length > 1)
+        ? ` <span class="gu-how priv" title="The release is the newest cut any policy here wears; more than one is present, and this is the census">${esc(Object.entries(c.releaseMix).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ×${n}`).join(", "))}</span>` : "";
+      return `<p class="mini muted" style="margin:0 0 10px">Release <b>${esc(c.release || "(none)")}</b>${mix} · ${c.policies.length} policies · ${cfSource() === "file"
+        ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}`
+        : `${esc(spec.catalogPath)}${c.tenant ? `, exported from ${esc(c.tenant)}` : ""}${c.exported ? ` on ${esc(String(c.exported).slice(0, 10))}` : ""}`}${c.__verify && c.__verify.tampered ? ` · <span class="gu-how exc">${c.__verify.tampered} body did not match its hash</span>` : ""}.</p>`;
     }
 
-    const CFDEV_ONLY = new Set(["export", "upstream", "rename", "housekeeping"]);
+    // ---- the filters (§4.1). Not tenant state: a person's place in the
+    // screen, kept across a re-read the way a scroll position is.
+    let filters = new Set(E.ATTENTION);
+    let q = "", secFilter = "", duFilter = "";
+    const filteredRows = () => {
+      if (!S.cmp) return [];
+      const needle = q.trim().toLowerCase();
+      return S.cmp.rows.filter((r) => {
+        if (filters.size && !filters.has(r.status)) return false;
+        if (secFilter && sectionOf(r) !== secFilter) return false;
+        if (duFilter && duOfRow(r) !== duFilter) return false;
+        if (!needle) return true;
+        const hay = [r.baseline && r.baseline.name, r.tenant && r.tenant.name, r.key,
+          r.baseline && r.baseline.sectionLabel, r.tenant && r.tenant.sectionLabel].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(needle);
+      });
+    };
+    const sectionOf = (r) => (r.baseline && r.baseline.section) || (r.tenant && r.tenant.section) || "";
+    const sectionLabelOf = (r) => (r.baseline && r.baseline.sectionLabel) || (r.tenant && r.tenant.sectionLabel) || sectionOf(r);
+    const duOfRow = (r) => (r.baseline && r.baseline.du) || (r.tenant && r.tenant.du) || "";
+    // What Import would create — the ONE definition, read by the rail, the
+    // Import pane and the plan (finding 4).
+    const importable = () => (S.cmp ? S.cmp.rows.filter((r) => r.baseline && !r.baseline.tampered && (r.status === "missing" || r.status === "outdated")) : []);
+
+    const CFDEV_ONLY = new Set(["export"]);
     function render(sourceNote) {
       if (sourceNote) S.lastSource = sourceNote;
       if (CFDEV_ONLY.has(mode) && !isCfdev()) mode = "compare";
@@ -1521,53 +1571,57 @@ const PlatformBaseline = (() => {
       const parts = [];
       if (S.lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${S.lastSource}</p>`);
 
-      if (mode === "compare" || mode === "import") parts.push(catalogSeg());
-      if (c) parts.push(catalogLine(c));
+      if (mode === "compare" || mode === "import") parts.push(sourcePicker());
+      if (c) { if (mode === "compare" || mode === "import") parts.push(catalogLine(c)); }
       else parts.push(`<div class="list-card"><p class="mini" style="margin:0">${isCfdev()
-        ? `<b>No CloudFellows catalog could be read — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 🧬 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.catalogPath)}, the file this screen reads.`
-        : `<b>No catalog could be read from ${esc(spec.catalogPath)}.</b> Load a baseline file under 📥 Import. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.`}${catalogErrors.length ? `<br><span class="mini muted">${catalogErrors.map(esc).join(" · ")}</span>` : ""}</p></div>`);
-
-      const comm = E.isCommunity(c);
-      const relver = (rel, ver) => comm ? (ver ? `v${esc(ver)}` : `<span class="muted">—</span>`) : `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
+        ? `<b>No catalog could be read — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 📤 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.catalogPath)}, the file this screen reads.`
+        : `<b>No catalog could be read from ${esc(spec.catalogPath)}.</b> Pick 📄 File… above and load one. Until a catalog is present this screen can only list which policies WEAR the convention, not judge them.`}${catalogErrors.length ? `<br><span class="mini muted">${catalogErrors.map(esc).join(" · ")}</span>` : ""}</p></div>`);
 
       if (mode === "compare") {
         if (S.cmp) {
+          // STATUS CARDS ARE FILTERS (finding 11). They were a read-only
+          // scoreboard above a table of every row in the catalog — a
+          // hundred and forty lines, no way to narrow them, and the
+          // explanation of the matching rules standing between the cards
+          // and the answer. Clicking a card toggles its rows; the default
+          // is everything that needs attention, which is the question
+          // anyone opens this screen with.
           const card = (k) => {
             const st = E.STATUS[k], n = S.cmp.counts[k] || 0;
-            if (!n && !["missing", "outdated", comm && !S.cmp.counts.ok ? "present" : "ok"].includes(k)) return "";
-            return `<div class="au-card"><div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : k === "present" ? "this baseline does not version its names" : k === "differs" ? "same control, different values" : ""}</div></div>`;
+            const on = filters.has(k);
+            return `<button type="button" class="au-card${on ? " active" : ""}" data-${P}filter="${k}" aria-pressed="${on}" title="${esc(st.why)}" style="text-align:left;font:inherit;color:inherit;cursor:pointer${on ? "" : ";opacity:.55"}">
+              <div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${esc(st.why)}</div></button>`;
           };
-          parts.push(`<div class="au-cards">${["missing", "outdated", "differs", "ok", "present", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
-          const row = (r) => {
-            const st = E.STATUS[r.status];
-            return `<tr>
-              <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}${r.baseline && r.baseline.licenseRequirements ? ` <span class="gu-how priv" title="Licence the author names for this policy">${esc(r.baseline.licenseRequirements)}</span>` : ""}${r.catDup ? ` <span class="gu-how priv" title="The catalog carries this identity more than once — a re-cut kept beside its old copy on the baseline tenant. Each row is judged against the tenant copy wearing its own release and version. Retire the old copy, then re-export.">2+ versions in the catalog</span>` : ""}</td>
-              <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.byToken ? ` <span class="gu-how inc" title="Identified by the ${esc(c.idToken)} token in its description — the name did not have to match">${esc(c.idToken)}</span>` : ""}${r.byContent ? ` <span class="gu-how priv" title="Matched by content — ${Math.round(r.score * 100)}% of the smaller set of settings in common; the name did not have to match">content ${Math.round(r.score * 100)}%</span>` : ""}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}${r.status === "differs" && r.diff ? `<details class="mini" style="margin-top:4px"><summary style="cursor:pointer">what differs — ${r.diff.added.length} they set · ${r.diff.changed.length} changed · ${r.diff.removed.length} only here</summary><ul style="margin:6px 0 0">${r.diff.added.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — baseline sets ${esc(d.theirs)}</li>`).join("")}${r.diff.changed.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — here ${esc(d.ours)} → baseline ${esc(d.theirs)}</li>`).join("")}${r.diff.removed.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — only here (${esc(d.ours)})</li>`).join("")}</ul></details>` : ""}</td>
-              <td class="mini">${r.baseline ? relver(r.bRel, r.bVer) : "—"}</td>
-              <td class="mini">${r.tenant ? relver(r.tRel, r.tVer) : "—"}</td>
-              <td><span class="gu-how ${st.cls === "bad" ? "exc" : st.cls === "ok" ? "inc" : ""}">${st.icon} ${esc(st.label)}</span></td>
-            </tr>`;
-          };
-          parts.push(`<div class="list-card"><div class="tb-actions" style="margin:0 0 6px"><h4 style="margin:0;flex:1">The baseline, line by line (${S.cmp.covered} of ${S.cmp.baselineTotal} covered)</h4><button class="btn" id="${ID("Md")}" title="The gap, written down — ENCA's gap report, Intune-side-out">📝 Gap report (Markdown)</button></div>
-            <p class="mini muted" style="margin:0 0 8px">${comm
-              ? `The identity is ${c.idToken ? `the <b>${esc(c.idToken)}</b> token in the description first, then ` : ""}the name with the version stripped${c.nameRe ? "" : " (this baseline has no naming convention, so by name only an exact one counts)"}, then <b>the content</b> — a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures; half-or-better overlap claims a policy whatever it is called, and its settings are then diffed value for value; versions compare segment-wise${c.policies.some((p) => p.version) ? "" : ", and a baseline that does not version its names is judged on presence alone"}. Worst first.`
-              : `The identity is the NAME with the release tag and version stripped; releases compare first — R26.6 is June 2026, the year then the month — and versions break the tie. Worst first.`}</p>
-            <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
-            <tbody>${S.cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
+          const sections = [...new Set(S.cmp.rows.map(sectionOf).filter(Boolean))].sort();
+          parts.push(`<div class="au-cards" id="${ID("Cards")}">${Object.keys(E.STATUS).sort((a, b) => E.STATUS[a].order - E.STATUS[b].order).map(card).join("")}</div>
+            <div class="list-card">
+              <div class="ep-bar">
+                <input id="${ID("Q")}" placeholder="Search name, key or area…" value="${esc(q)}">
+                <select id="${ID("Sec")}"><option value="">Every surface</option>${sections.map((s) => `<option value="${esc(s)}"${s === secFilter ? " selected" : ""}>${esc(sectionLabelOf(S.cmp.rows.find((r) => sectionOf(r) === s)))}</option>`).join("")}</select>
+                <select id="${ID("Du")}"><option value="">D and U</option><option value="D"${duFilter === "D" ? " selected" : ""}>D — device</option><option value="U"${duFilter === "U" ? " selected" : ""}>U — user</option></select>
+                <button class="btn" id="${ID("Clear")}">Show everything</button>
+                <span class="spacer" style="flex:1"></span>
+                <button class="btn" id="${ID("Md")}" title="The rows you are looking at, as Markdown — exactly the filtered table">📝 Gap report</button>
+              </div>
+              <div class="gu-tw"><table class="cg-table"><thead><tr>
+                <th style="width:150px">Status</th><th>Catalog ↔ this tenant</th><th style="width:130px">Surface</th>
+                <th style="width:110px">Catalog</th><th style="width:110px">Tenant</th><th style="width:120px">Content</th><th style="width:80px"></th>
+              </tr></thead><tbody id="${ID("CmpRows")}"></tbody></table></div>
+              <p class="mini muted" id="${ID("CmpFoot")}" style="margin:8px 0 0"></p>
+            </div>`);
         } else if (c && !S.res) {
           // THE BASELINE IS ALWAYS SHOWN (build 10530, Mihai's rule): the
           // catalog is known before any read, so its rows render at once —
           // and the tenant columns say NOT READ, never missing.
-          parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">The baseline, line by line (${c.policies.length})</h4>
+          parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">The catalog, line by line (${c.policies.length})</h4>
             <p class="mini muted" style="margin:0 0 8px">${esc(spec.readLabel)} fills the right-hand columns — until then this tenant's side is unknown, not missing.</p>
-            <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
+            <div class="gu-tw"><table class="cg-table"><thead><tr><th>Catalog policy</th><th style="width:130px">Surface</th><th style="width:110px">Catalog</th><th style="width:110px">Tenant</th></tr></thead>
             <tbody>${c.policies.map((b2) => `<tr>
               <td class="mini">${esc(b2.name)}</td>
-              <td class="mini muted">—</td>
-              <td class="mini">${relver(comm ? null : E.normRel(b2.release, b2.name), b2.version || E.versionOf(b2.name))}</td>
-              <td class="mini muted">—</td>
+              <td class="mini muted">${esc(b2.sectionLabel || b2.section || "")}</td>
+              <td class="mini">${esc(b2.release || "—")}${b2.version ? ` · v${esc(b2.version)}` : ""}</td>
               <td class="mini muted">not read</td>
-            </tr>`).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
+            </tr>`).join("") || `<tr><td colspan="4" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
         } else if (S.res && !c) {
           const worn = vms().filter((v) => E.looksBaseline(v.name));
           parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">Policies wearing the convention (${worn.length})</h4>
@@ -1578,400 +1632,305 @@ const PlatformBaseline = (() => {
         }
       }
 
+      if (mode === "help") parts.push(helpHtml());
+
       if (mode === "export") {
-        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧬 Export the baseline <span class="mini muted">— this IS the baseline tenant</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Writes the catalog from this tenant's ${esc(spec.prefix)} policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} — the file every tenant's ${esc(spec.label)} reads from the site — is the new reference on the next push.</p>
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📤 Export the catalog <span class="mini muted">— the reference tenant authors it, so only here</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">Cuts the catalog from this tenant's ${esc(spec.prefix)} policies. Bodies go through the canonical cleaner first — ids, timestamps, assignments and scope tags come off — and each carries the SHA-256 of what is written. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} is the new reference on the next push.</p>
           ${S.res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
-          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b> — an older copy still on the tenant is listed as superseded in the README, and 🧹 Housekeeping retires it.</p>
+          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b>; an older copy still on the tenant is listed as superseded in the README, and 🧹 Housekeeping retires it. The release is derived from the policies, never typed.</p>
           <span class="mini muted" id="${ID("ExportNote")}"></span></div>`);
       }
 
       if (mode === "import") {
-        const importReady = c && c.policies.some((p) => p.body && p.importable !== false);
-        const nRefused = c ? c.policies.filter((p) => !p.body || p.importable === false).length : 0;
-        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📥 Import the baseline <span class="tag block">writes to the tenant</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Create-only, and only <b>what the comparison calls missing or outdated</b> — a policy found by token, name or content is present whatever it is called here. Two proven pipelines: policies through the Backup tool's restore (dry run, collision stop per name, read-back verify) and assignment filters through 🧩 T14's own create. Everything arrives <b>unassigned</b> — reach is ✏️ the editor's act, taken deliberately afterwards. ${comm
-            ? `Created policies keep the <b>author's own names and descriptions</b>, verbatim${c.idToken ? ` — the ${esc(c.idToken)} token included, so ${esc(c.label)}'s own deployer can update them later as if it had created them` : ""}.${nRefused ? ` ${nRefused} of the ${c.policies.length} cannot be created here (${esc((E.importEntries(c, null).refused[0] || {}).why || "no create path")}) and are said so on the row.` : ""}`
-            : `Created policies keep their <b>canonical baseline names</b>, no prefix — the name is the identity this screen matches on. Scripts are identified but not importable from the catalog: the reference read carries no script bodies, and a script without its body cannot be put back.`}</p>
+        // PLAN FROM THE COMPARISON, NOT FROM THE CATALOG (finding 4). The
+        // plan used to be built from the catalog and filtered afterwards;
+        // now the rows themselves are the plan, and a row that is not
+        // `missing` or `outdated` carries the reason it cannot be.
+        const gap = importable();
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📥 Import <span class="tag block">writes to the tenant</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">Creates only what the comparison calls <b>missing</b> or <b>outdated</b> — nothing else is importable, and every other row says why on itself. A policy found by token, name, content or similarity is present whatever it is called here; creating it again would make a copy. An <b>outdated</b> row creates a NEW copy under the catalog name and leaves the old one for 🧹 Housekeeping — Import never edits a policy's content. ${comm
+            ? `Names and descriptions are the author's own, verbatim${c && c.idToken ? ` — the ${esc(c.idToken)} token included, so ${esc(c.label)}'s own deployer can update them later as if it had created them` : ""}.`
+            : `Names are the catalog's — the name is the identity this screen matches on.`}</p>
           <div class="tb-actions">
-            ${comm ? "" : `<label class="btn">📄 Load a baseline file<input type="file" id="${ID("File")}" accept=".json" style="display:none"></label>`}
-            <button class="btn" id="${ID("Dry")}" ${importReady ? "" : "disabled title=\"The active catalog carries nothing importable — load a baseline export file.\""}>🔍 Dry run — create what is missing</button>
+            <button class="btn" id="${ID("Dry")}" ${gap.length ? "" : "disabled"}>🔍 Dry run — ${gap.length} to create</button>
           </div>
+          ${S.cmp ? "" : `<p class="mini muted" style="margin:8px 0 0">${esc(spec.readLabel)} first — the plan is cut from the comparison.</p>`}
           <div id="${ID("Plan")}" style="margin-top:10px">${S.lastWrite && S.lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${S.lastWrite.failedHtml}` : ""}</div></div>`);
       }
 
-      if (mode === "upstream") {
-        const co = communityCatalog();
-        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">${spec.upstream.icon} Upstream — ${esc(spec.upstream.label)} <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Watch <code>${esc(spec.upstream.repo)}</code> for controls our baseline lacks. The app never fetches it — the content-security policy allows Graph and nothing else: <b>download the zip yourself</b> (the link is plain navigation), then load it here${co ? ` — or start from the <b>bundled ${esc(co.label)}${co.release ? ` v${esc(co.release)}` : ""}</b>, the release this build already carries` : ""}. Matching is by <b>content, never name</b>: a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures — identical sets are <b>same</b>, a half-or-better overlap is a <b>match with its diff shown</b>, anything else is <b>new</b>. New and changed controls get an editable canonical name and can be created in THIS tenant — curate, then 🧬 re-export the baseline.</p>
-          <div class="tb-actions">
-            <button class="btn primary" id="${ID("UpFetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>
-            <a class="btn" href="${esc(E.UPSTREAM_ZIP_URL)}" target="_blank" rel="noopener">⬇ Get the zip instead</a>
-            <label class="btn">📄 Load the ${esc(spec.upstream.label)} zip<input type="file" id="${ID("UpZip")}" accept=".zip" style="display:none"></label>
-            ${co ? `<button class="btn" id="${ID("UpBundled")}" title="Read the bundled community catalog as the upstream — no download">${co.icon || "🧩"} Use the bundled ${esc(co.label)}${co.release ? ` v${esc(co.release)}` : ""}</button>` : ""}
-          </div>
-          <p class="mini muted" id="${ID("UpNote")}" style="margin:8px 0 0"></p></div>`);
-      }
-
       if (mode === "housekeeping") {
-        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧹 Housekeeping <span class="tag block">deletes from the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Every identity this tenant carries <b>more than once</b> — a re-cut kept beside its old copy. The newest release and version is <b>kept</b>; the older copies are offered for deletion, ticked by default. An older copy that still has <b>assignments is refused</b>: deleting it would take reach away the kept copy does not have — move the reach in ✏️ the editor first. Dry run reads each policy again before anything is deleted (still there, still that name, still unassigned); every delete is verified by a read-back that fails. <b>📦 Back up first</b> — a deleted policy does not come back from here.</p>
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧹 Housekeeping <span class="tag block">deletes from the tenant</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">The copies a re-cut left behind. Every identity this tenant carries <b>more than once</b>: the newest release and version is kept, the older copies are offered for deletion and ticked. An older copy that still has <b>assignments is refused</b> — deleting it would take reach away the kept copy does not have; move the reach in ✏️ the Assignment editor first. Dry run reads each policy again before anything is deleted, and every delete is verified by a read-back that fails to find it. <b>📦 Back up first</b> — a deleted policy does not come back from here.</p>
           ${S.res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
       }
 
       if (mode === "rename") {
         const co = communityCatalog();
-        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">✏️ Stamp the release <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Every policy that starts with <code>${esc(spec.prefix)}</code> and ends in a version but carries <b>no <code>Ryy.m</code> release tag</b> is proposed one, cut from its <b>last-modified date</b> (year, then month, UTC) and put before the version — <code>${esc(spec.prefix)} - DCP - Microsoft Office - D - Security - v3.6</code> modified in January 2026 becomes <code>… - R26.1 - v3.6</code>. A proposal, not a verdict: last-modified means last <i>touched</i> — an assignment edit moves it too — so every name is editable before anything is written. ${co && co.nameRe ? `<b>${esc(co.label)}'s own names are never proposed</b>: keeping them is what lets its deployer maintain them.` : ""} Renames are PATCHes on the policy's own surface (T14's update for filters), each read back and verified; the comparison above re-reads afterwards.</p>
+        parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">✏️ Rename <span class="tag block">writes to the tenant</span></h4>
+          <p class="mini muted" style="margin:0 0 8px">Brings names into the convention. A policy that starts with <code>${esc(spec.prefix)}</code> and ends in a version but carries <b>no <code>Ryy.m</code> release tag</b> is proposed one, cut from its <b>last-modified date</b> — a proposal, not a verdict: last-modified means last <i>touched</i>, so every name is editable before it is written. ${co && co.nameRe ? `<b>${esc(co.label)}'s own names are never proposed</b>: keeping them is what lets its deployer maintain them.` : ""} Each rename is a PATCH on the policy's own surface, re-checked for drift and for a name collision immediately before it is written, then verified by reading it back.</p>
           ${S.res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
       }
 
       $(ID("Body")).innerHTML = parts.join("");
-      const up = $(ID("Upstream"));
-      if (up) up.style.display = mode === "upstream" && isCfdev() ? "" : "none";
-      // the rename table has its own host too — proposals are DOM state
+      if (mode === "compare" && S.cmp) renderCompareTable();
+      // the rename table has its own host — proposals are DOM state that a
+      // re-render of the body would silently drop
       const rh = $(ID("Rename"));
       if (rh) {
-        rh.style.display = mode === "rename" && isCfdev() ? "" : "none";
-        if (mode === "rename" && isCfdev() && S.res && !rh.dataset.for) renderRename();
+        rh.style.display = mode === "rename" ? "" : "none";
+        if (mode === "rename" && S.res && !rh.dataset.for) renderRename();
       }
       const hh = $(ID("Housekeeping"));
       if (hh) {
-        hh.style.display = mode === "housekeeping" && isCfdev() ? "" : "none";
-        if (mode === "housekeeping" && isCfdev() && S.res && !hh.dataset.for) renderHousekeeping();
+        hh.style.display = mode === "housekeeping" ? "" : "none";
+        if (mode === "housekeeping" && S.res && !hh.dataset.for) renderHousekeeping();
       }
       wire();
     }
 
+    // ---- the table, drawn on its own so the toolbar never re-renders ----
+    // T15's rule: a control that re-renders while you are typing in it
+    // eats the keystroke. The search box, the two selects and the cards
+    // are painted by render(); only the rows below them are repainted
+    // when a filter moves.
+    function renderCompareTable() {
+      const host = $(ID("CmpRows"));
+      if (!host || !S.cmp) return;
+      const c = S.cmp.catalog, comm = E.isCommunity(c);
+      const rows = filteredRows();
+      const relver = (rel, ver) => {
+        const r = rel ? esc(E.relLabel(rel)) : "";
+        return (r && r !== "—" ? r : "") + (ver ? `${r && r !== "—" ? " · " : ""}v${esc(ver)}` : "") || `<span class="muted">—</span>`;
+      };
+      const how = (r) => r.byToken ? `<span class="gu-how inc" title="Identified by the ${esc(c.idToken || "author's")} token in its description — the name did not have to match">${esc(c.idToken || "token")}</span>`
+        : r.how === "hash" ? `<span class="gu-how priv" title="The canonical bodies are byte-equal — the same policy under another name">by content</span>`
+          : r.how === "similarity" ? `<span class="gu-how priv" title="Matched by similarity — ${Math.round((r.score || 0) * 100)}% of the union of what the two configure, and the same template family">${Math.round((r.score || 0) * 100)}% alike</span>` : "";
+      const content = (r) => {
+        if (!r.tenant || !r.baseline) return `<span class="muted">—</span>`;
+        if (r.contentSame === true) return `<span class="gu-how inc">identical</span>`;
+        if (r.contentSame === false) {
+          const d = r.diff || { added: [], changed: [], removed: [] };
+          return `<button type="button" class="gu-how" data-${P}diff="${esc(r.key)}" style="cursor:pointer;border:none;font:inherit" title="${d.added.length} the catalog sets and this tenant does not · ${d.changed.length} different values · ${d.removed.length} only here">↗ ${d.added.length + d.changed.length + d.removed.length} differ</button>`;
+        }
+        return `<span class="muted" title="One side has no body in this read, so the two cannot be compared">not compared</span>`;
+      };
+      host.innerHTML = rows.map((r) => {
+        const st = E.STATUS[r.status];
+        const cat = r.baseline ? esc(r.baseline.name) : `<span class="muted">not in the catalog</span>`;
+        const ten = r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">not in this tenant</span>`;
+        return `<tr>
+          <td class="mini"><span class="gu-how ${st.cls === "bad" ? "exc" : st.cls === "ok" ? "inc" : ""}" title="${esc(st.why)}">${st.icon} ${esc(st.label)}</span></td>
+          <td class="mini">${cat}${r.baseline && r.baseline.tampered ? ` <span class="gu-how exc" title="This body does not match the hash the catalog carries — edited after export, so it is not the baseline and cannot be imported">tampered</span>` : ""}
+            <div class="mini muted">↔ ${ten} ${how(r)}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — judged on the best">×${r.duplicates}</span>` : ""}${r.twinOf ? ` <span class="mini muted">— same content as “${esc(r.twinOf)}”</span>` : ""}${r.candidates ? ` <span class="mini muted">— ${r.candidates.map((x) => `${esc(x.name)} (${Math.round(x.score * 100)}%)`).join(" or ")}</span>` : ""}</div></td>
+          <td class="mini muted">${esc(sectionLabelOf(r))}${duOfRow(r) ? ` · ${esc(duOfRow(r))}` : ""}</td>
+          <td class="mini">${r.baseline ? relver(comm ? null : r.bRel, r.bVer) : `<span class="muted">—</span>`}</td>
+          <td class="mini">${r.tenant ? relver(comm ? null : r.tRel, r.tVer) : `<span class="muted">—</span>`}</td>
+          <td class="mini">${content(r)}</td>
+          <td class="mini"><button type="button" class="btn sm" data-${P}pop="${esc(r.key)}" title="What this policy configures, setting by setting — the documenter's own popout">⚙</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="mini muted">No row matches these filters.${filters.size ? " The cards above are filters — click one to add its rows back." : ""}</td></tr>`;
+      const foot = $(ID("CmpFoot"));
+      if (foot) foot.textContent = `${rows.length} of ${S.cmp.rows.length} rows · ${S.cmp.covered} of ${S.cmp.baselineTotal} catalog policies present in this tenant · ${S.cmp.attention} need attention.`;
+    }
+
+    // ---- ❓ How it works: ONE source for the words (finding 12) ----
+    // index.html used to carry its own prose about these tools, written at
+    // 10530 and never revised, so the page said the comparison matched by
+    // name while the code had matched by content since 10576. The screen
+    // now says it, once, from the SPEC — and index.html says nothing about
+    // it at all.
+    function helpHtml() {
+      const h = spec.help || {};
+      const sec = (title, body) => `<h4 style="margin:16px 0 6px">${title}</h4><p class="mini muted" style="margin:0">${body}</p>`;
+      return `<div class="list-card">
+        <h4 style="margin:0 0 6px">❓ How ${esc(spec.label)} works</h4>
+        <p class="mini" style="margin:0">${h.overview || ""}</p>
+        ${sec("The identity", h.identity || "")}
+        ${sec("How a policy is matched", `In this order, and a tenant policy is claimed exactly once. <b>1 The author's token</b> — a community baseline that stamps its own id into the description is identified by it first, so a renamed copy still identifies. <b>2 The name</b>, with the release tag and version stripped and separators normalised. <b>3 The content</b> — the canonical body hashed with SHA-256; two policies with the same hash are the same policy whatever they are called. <b>4 Similarity</b> — the Jaccard overlap of what the two configure, at least ${Math.round(E.SIMILARITY_MIN * 100)}% of their union, and only between two policies of the same kind. If the runner-up is within ${Math.round(E.REVIEW_MARGIN * 100)} points of the winner nothing is claimed and the row reads <b>Review</b>: a coin-flip dressed as a match is worse than an open question.`)}
+        ${sec("What the statuses mean", `<ul style="margin:6px 0 0">${Object.keys(E.STATUS).sort((a, b) => E.STATUS[a].order - E.STATUS[b].order).map((k) => `<li><b>${E.STATUS[k].icon} ${esc(E.STATUS[k].label)}</b> — ${esc(E.STATUS[k].why)}</li>`).join("")}</ul>`)}
+        ${sec("What each act does", `<b>📥 Import</b> creates what is <i>missing</i> or <i>outdated</i>, and nothing else; content is never patched, so an outdated row gets a new copy and the old one is Housekeeping's. <b>✏️ Rename</b> brings names into the convention, re-checking drift and collisions immediately before each write. <b>📤 Export</b> cuts the catalog, on the reference tenant only, and refuses to run on an incomplete read. <b>🧹 Housekeeping</b> deletes older copies and same-content duplicates, never an assigned one, and verifies each delete by failing to read it back.`)}
+        ${sec("Where the catalogs come from", `<b>${esc(spec.catalogPath)}</b> — this site's own copy of the reference tenant's export, written by 📤 Export and never by hand. <b>${esc(spec.communityPath)}</b> — ${esc(spec.upstream.label)} by ${esc(spec.upstream.author)}, cut verbatim from ${esc(spec.upstream.repo)}; <i>Fetch latest</i> reads that repository live instead. <b>📄 File…</b> — any catalog export you have. Every one of them goes through the same strict loader: a file whose schema, platform, catalog id or sections do not check out is refused whole, and a policy whose body no longer matches its hash is flagged and can never be imported.`)}
+        ${h.extra ? sec("On this platform", h.extra) : ""}
+        <p class="mini muted" style="margin:16px 0 0">The reference tenant is ${isCfdev() ? "<b>this one</b>" : "not this one"} — it is gated on the tenant's immutable Entra ID, and it is a convenience gate, not a security boundary: what a tenant will actually let you do is decided by Graph permissions.</p>
+      </div>`;
+    }
+
     function wire() {
+      // ---- the source picker ----
       const seg = $(ID("Cat"));
       if (seg) seg.addEventListener("click", (e) => {
-        const b = e.target.closest(`[data-${P}cat]`); if (!b || b.dataset[`${P}cat`] === catId) return;
-        catId = b.dataset[`${P}cat`];
+        const b = e.target.closest(`[data-${P}cat]`);
+        if (!b) return;
+        const want = b.dataset[`${P}cat`];
+        if (want === "file") { const fi = $(ID("File")); if (fi) fi.click(); return; }
+        if (want === catId) return;
+        catId = want;
         S.planned = null; S.plannedFilters = null;   // a plan belongs to the catalog it was made for
         recompare(); render();
       });
+      const fi = $(ID("File"));
+      if (fi) fi.addEventListener("change", async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const note = (html) => { const b = $(ID("Body")); if (b) b.insertAdjacentHTML("afterbegin", html); };
+        try {
+          S.fileCat = await E.parseCatalog(await f.text());
+          catId = "cfdev";
+          recompare(); render();
+        } catch (err) {
+          render();
+          note(`<div class="gu-fail"><b>That file was refused, whole.</b><span class="why">${esc((err && err.message) || err)} — nothing from it was loaded.</span></div>`);
+        }
+      });
+      // ---- the filters ----
+      const cards = $(ID("Cards"));
+      if (cards) cards.addEventListener("click", (e) => {
+        const b = e.target.closest(`[data-${P}filter]`);
+        if (!b) return;
+        const k = b.dataset[`${P}filter`];
+        if (filters.has(k)) filters.delete(k); else filters.add(k);
+        render();
+      });
+      const qi = $(ID("Q"));
+      if (qi) qi.addEventListener("input", () => { q = qi.value; renderCompareTable(); });
+      const sf = $(ID("Sec"));
+      if (sf) sf.addEventListener("change", () => { secFilter = sf.value; renderCompareTable(); });
+      const df = $(ID("Du"));
+      if (df) df.addEventListener("change", () => { duFilter = df.value; renderCompareTable(); });
+      const cl = $(ID("Clear"));
+      if (cl) cl.addEventListener("click", () => { filters = new Set(); q = ""; secFilter = ""; duFilter = ""; render(); });
+      // ---- the row acts: ⚙ the popout, ↗ the diff ----
+      const rowsHost = $(ID("CmpRows"));
+      if (rowsHost) rowsHost.addEventListener("click", (e) => {
+        const pop = e.target.closest(`[data-${P}pop]`);
+        if (pop) { openPopout(pop.dataset[`${P}pop`], false); return; }
+        const dif = e.target.closest(`[data-${P}diff]`);
+        if (dif) openPopout(dif.dataset[`${P}diff`], true);
+      });
+      // THE GAP REPORT PRINTS WHAT YOU ARE LOOKING AT (§4.1), not the whole
+      // table — a report that ignores the filters above it is a different
+      // document from the one on the screen.
       const md = $(ID("Md"));
       if (md) md.addEventListener("click", () => {
         if (!S.cmp) return;
-        download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`, E.toMd(S.cmp, tenantName()), "text/markdown");
+        download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`,
+          E.toMd(S.cmp, tenantName(), filteredRows()), "text/markdown");
       });
+      // ---- export ----
       const ez = $(ID("ExportZip"));
       if (ez) ez.addEventListener("click", async () => {
+        if (!isCfdev()) { $(ID("ExportNote")).innerHTML = refusedHtml("Export"); return; }
         const built = await E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         try {
           const z = new JSZip();
-          const files = E.repoFolder(built);
-          for (const [path, text] of Object.entries(files)) z.file(path, text);
+          for (const [p, text] of Object.entries(E.repoFolder(built))) z.file(p, text);
           const blob = await z.generateAsync({ type: "blob" });
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.platform.toLowerCase()}-baseline-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/`
+          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/, release ${built.file.release}`
             + (built.superseded.length ? ` · ${built.superseded.length} identit${built.superseded.length === 1 ? "y" : "ies"} exported once, older copies listed as superseded — 🧹 Housekeeping retires them` : "")
             + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((x) => x.why)[0]})` : "");
         } catch (e) { $(ID("ExportNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
       });
       const ex = $(ID("Export"));
       if (ex) ex.addEventListener("click", async () => {
+        if (!isCfdev()) { $(ID("ExportNote")).innerHTML = refusedHtml("Export"); return; }
         const built = await E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         download(`tuno-${spec.platform.toLowerCase()}-baseline-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(built.file, null, 2));
-        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once`
-          + (built.superseded.length ? ` · ${built.superseded.length} older cop${built.superseded.length === 1 ? "y" : "ies"} left out as superseded — 🧹 Housekeeping retires them` : "")
+        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once, release ${built.file.release}`
+          + (built.superseded.length ? ` · ${built.superseded.length} older cop${built.superseded.length === 1 ? "y" : "ies"} left out as superseded` : "")
           + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((s) => s.why)[0]})` : "");
-      });
-      const fi = $(ID("File"));
-      if (fi) fi.addEventListener("change", async (e) => {
-        const f = e.target.files && e.target.files[0];
-        if (!f) return;
-        try {
-          S.fileCat = await E.parseCatalog(await f.text());
-          catId = "cfdev";
-          recompare(); render();
-        } catch (err) {
-          $(ID("Plan")).innerHTML = `<div class="gu-fail"><b>${esc((err && err.message) || err)}</b></div>`;
-        }
       });
       const dry = $(ID("Dry"));
       if (dry) dry.addEventListener("click", dryRun);
-      const uz = $(ID("UpZip"));
-      if (uz) uz.addEventListener("change", async (e) => {
-        const f = e.target.files && e.target.files[0];
-        if (f) await loadUpstreamZip(f);
-      });
-      const uf = $(ID("UpFetch"));
-      if (uf) uf.addEventListener("click", () => fetchForUpstream());
+      // ---- the community line ----
       const cf1 = $(ID("Fetch"));
       if (cf1) cf1.addEventListener("click", () => fetchForCatalog());
       const cr = $(ID("FetchRevert"));
       if (cr) cr.addEventListener("click", () => { S.fetchedCat = null; S.planned = null; S.plannedFilters = null; recompare(); render(); });
-      const ub = $(ID("UpBundled"));
-      if (ub) ub.addEventListener("click", () => {
-        const co = communityCatalog(), cf = cfCatalog();
+      const cz = $(ID("CommZip"));
+      if (cz) cz.addEventListener("click", async () => {
+        const co = communityCatalog();
         if (!co) return;
-        if (!cf) { $(ID("UpNote")).textContent = "Load or bundle a CloudFellows catalog first — a diff needs both sides."; return; }
-        landUpstream({ policies: E.communityAsUpstream(co), skipped: [], seenOther: 0, manifest: null }, cf, `bundled ${co.label}${co.release ? ` v${co.release}` : ""}`, false);
-      });
-    }
-
-    // ------------------------------------------------ the upstream watch --
-    // (S.upstream and S.lastSource live in the session object above.)
-
-    // writable: a loaded zip can be written back out as the next community
-    // catalog file; the bundled catalog cannot — it IS that file already
-    function landUpstream(parsed, cf, from, writable) {
-      S.upstream = {
-        rows: E.matchUpstream(parsed.policies, cf),
-        skipped: parsed.skipped, seenOther: parsed.seenOther, parsed: writable ? parsed : null, from,
-        when: new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
-      };
-      $(ID("UpNote")).textContent = "";
-      renderUpstream();
-      renderSeg();
-    }
-    async function loadUpstreamZip(file) {
-      const cf = cfCatalog();
-      if (!cf) { $(ID("UpNote")).textContent = "Load or bundle a CloudFellows catalog first — a diff needs both sides."; return; }
-      try {
-        $(ID("UpNote")).textContent = "Reading the zip…";
-        const z = await JSZip.loadAsync(file);
-        const jobs = [];
-        z.forEach((path, zf) => {
-          if (!zf.dir && /\.json$/i.test(path)) jobs.push(zf.async("string").then((t) => ({ path, text: t })));
-          else if (!zf.dir && spec.upstream.otherRe.test(path)) jobs.push(Promise.resolve({ path, text: "" }));
-        });
-        const files = await Promise.all(jobs);
-        const parsed = E.parseUpstream(files);
-        if (!parsed.policies.length) { $(ID("UpNote")).textContent = `No comparable policies in the zip — is this the ${spec.upstream.label} archive?`; return; }
-        landUpstream(parsed, cf, `the loaded zip${parsed.manifest && parsed.manifest.oibVersion ? ` (v${parsed.manifest.oibVersion})` : ""}`, true);
-      } catch (e) {
-        $(ID("UpNote")).textContent = `The zip could not be read: ${(e && e.message) || e}`;
-      }
-    }
-
-    function renderUpstream() {
-      if (!S.upstream) return;
-      const n = { same: 0, differs: 0, new: 0 };
-      S.upstream.rows.forEach((r) => { n[r.status]++; });
-      const order = { new: 0, differs: 1, same: 2 };
-      const rows = [...upstream.rows].sort((a, b) => order[a.status] - order[b.status] || String(a.up.name).localeCompare(String(b.up.name)));
-      const idShort = (x) => String(x).split("_").pop();
-      const card = (label, num, sub, cls) => `<div class="au-card"><div class="au-card-l">${label}</div><div class="au-card-n ${cls || ""}">${num}</div><div class="au-card-s">${sub}</div></div>`;
-      const cards = `<div class="au-cards">
-        ${card("＋ New to us", n.new, "controls the baseline lacks", n.new ? "bad" : "")}
-        ${card("≠ Matched, differs", n.differs, "same control, different settings or values", n.differs ? "warn" : "")}
-        ${card("✓ Covered", n.same, "setting for setting, value for value", "ok")}
-        ${card("Seen, not comparable", S.upstream.seenOther || 0, "scripts and profiles — no policy body to diff")}
-      </div>`;
-      const kindLabel = (k) => k === "compliance" ? "compliance" : k === "deviceConfig" ? "device configuration" : k === "driverUpdate" ? "driver update profile" : "settings catalog";
-      const whatsNew = (r) => {
-        if (r.status === "same") return r.match ? `<div class="mini muted" style="margin-top:4px">= <b>${esc(r.match.name)}</b></div>` : "";
-        if (r.status === "new") return `<div class="mini muted" style="margin-top:4px">every one of its ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"} is new to the baseline</div>`;
-        const d = r.diff;
-        const li = (x, tail) => `<li><code title="${esc(x.id)}">${esc(idShort(x.id))}</code>${tail}</li>`;
-        return `<details class="mini" style="margin-top:4px"><summary style="cursor:pointer">what's new — ${d.added.length} added · ${d.changed.length} changed · ${d.removed.length} only ours (matches <b>${esc(r.match.name)}</b>, ${Math.round(r.score * 100)}% by content)</summary>
-          <ul style="margin:6px 0 0">
-            ${d.added.map((x) => li(x, ` — they set ${esc(x.theirs)}`)).join("")}
-            ${d.changed.map((x) => li(x, ` — ours ${esc(x.ours)} → theirs ${esc(x.theirs)}`)).join("")}
-            ${d.removed.map((x) => li(x, ` — only in the baseline (${esc(x.ours)})`)).join("")}
-          </ul></details>`;
-      };
-      const row = (r, i) => {
-        const act = r.status !== "same" && r.up.kind !== "driverUpdate";
-        const badge = r.status === "new" ? `<span class="gu-how exc">new</span>`
-          : r.status === "differs" ? `<span class="gu-how">differs</span>`
-            : `<span class="gu-how inc">✓</span>`;
-        return `<tr>
-          <td style="width:30px">${act ? `<input type="checkbox" data-uptick="${i}" ${r.status === "new" ? "checked" : ""}>` : ""}</td>
-          <td class="mini"><b>${esc(r.up.name)}</b> ${badge}<div class="mini muted">${esc(kindLabel(r.up.kind))} · ${r.up.defIds.length} setting${r.up.defIds.length === 1 ? "" : "s"}${r.up.kind === "driverUpdate" ? " · no create path here" : ""}</div>${whatsNew(r)}</td>
-          <td>${act ? `<input data-upname="${i}" value="${esc(E.proposeName(r))}" style="width:100%">` : ""}</td>
-        </tr>`;
-      };
-      const host = $(ID("Upstream"));
-      host.innerHTML = `<div class="list-card">
-        <h4 style="margin:0 0 6px">${spec.upstream.icon} ${esc(spec.upstream.label)} vs the baseline <span class="mini muted">— ${esc(S.upstream.from || "loaded")}, ${esc(S.upstream.when)}</span></h4>
-        ${cards}
-        <p class="mini muted" style="margin:10px 0 4px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(E.relLabel(E.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.</p>
-        ${S.upstream.skipped.length ? `<p class="mini muted" style="margin:0 0 8px">${S.upstream.skipped.length} file(s) skipped: ${esc(S.upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 3).join(", "))}${S.upstream.skipped.length > 3 ? "…" : ""}</p>` : ""}
-        <div class="tb-actions" style="margin:8px 0 8px">
-          <button class="btn" id="${ID("UpAll")}">☑ Select all</button>
-          <button class="btn" id="${ID("UpNone")}">☐ Select none</button>
-          <span class="mini muted" id="${ID("UpCount")}"></span>
-          <button class="btn" id="${ID("UpMd")}" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
-          ${S.upstream.parsed ? `<button class="btn" id="${ID("UpCatalog")}" title="Write this upstream as ${esc(spec.communityPath.replace(/\/catalog\.json$/, "/"))} — unzip at the repo root and it is the community catalog every tenant reads">📁 Community catalog folder (zip)</button>` : ""}
-        </div>
-        <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
-          <thead><tr><th><input type="checkbox" id="${ID("UpMaster")}" title="Select or deselect every row below"></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
-          <tbody>${rows.map(row).join("")}</tbody></table></div>
-        <div id="${ID("UpPlan")}" style="margin-top:10px"></div>
-      </div>
-      <div class="ae-selbar" id="${ID("UpBar")}"><b id="${ID("UpBarCount")}"></b>
-        <button class="btn primary" id="${ID("UpDry")}">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
-        <button class="btn primary" id="${ID("UpApply")}" style="display:none">✍ Create in THIS tenant <span class="tag block">writes to the tenant</span></button>
-        <button class="ae-selbar-x" id="${ID("UpBarX")}" title="Clear the selection">✕</button></div>`;
-      host.dataset.order = JSON.stringify(rows.map((r) => S.upstream.rows.indexOf(r)));
-      $(ID("UpDry")).addEventListener("click", upDryRun);
-      $(ID("UpApply")).addEventListener("click", upApply);
-      const ticks = () => [...host.querySelectorAll("[data-uptick]")];
-      const master = $(ID("UpMaster"));
-      // FOUR faces of one selection (the 10549 pattern): master box, the
-      // all/none buttons above the table, the row ticks, and the floating
-      // bar carrying dry run → create (10556) for the selection it was made for.
-      const syncMaster = () => {
-        const t = ticks(), on = t.filter((c) => c.checked).length;
-        master.checked = on > 0 && on === t.length;
-        master.indeterminate = on > 0 && on < t.length;
-        const c2 = $(ID("UpCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
-        const bar = $(ID("UpBar"));
-        if (bar) {
-          bar.classList.toggle("visible", on > 0);
-          const live = S.upPlanned && S.upPlanKey === upSelectionKey();
-          const nCreate = live ? S.upPlanned.filter((p) => !p.collided).length : 0;
-          const bc = $(ID("UpBarCount"));
-          if (bc) bc.textContent = live ? `${on} ticked · ${nCreate} to create` : `${on} polic${on === 1 ? "y" : "ies"} ticked`;
-          const dry = $(ID("UpDry")), ap = $(ID("UpApply"));
-          if (dry) {
-            dry.classList.toggle("primary", !live);
-            dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans writes</span>`;
-          }
-          if (ap) {
-            ap.style.display = live && nCreate ? "" : "none";
-            ap.innerHTML = `✍ Create ${nCreate} in THIS tenant <span class="tag block">writes to the tenant</span>`;
-          }
-          const stale = $(ID("UpStale"));
-          if (stale) stale.style.display = S.upPlanned && !live ? "" : "none";
-        }
-      };
-      syncUpBar = syncMaster;
-      const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); syncMaster(); };
-      master.addEventListener("change", () => setAll(master.checked));
-      $(ID("UpAll")).addEventListener("click", () => setAll(true));
-      $(ID("UpNone")).addEventListener("click", () => setAll(false));
-      $(ID("UpBarX")).addEventListener("click", () => setAll(false));
-      host.addEventListener("change", (e) => { if (e.target.closest("[data-uptick]")) syncMaster(); });
-      host.addEventListener("input", (e) => { if (e.target.closest("[data-upname]")) syncMaster(); });
-      syncMaster();
-      $(ID("UpMd")).addEventListener("click", () => {
-        const cf = cfCatalog();
-        download(`${spec.upstream.id}-vs-baseline-${new Date().toISOString().slice(0, 10)}.md`,
-          E.upstreamMarkdown(rows, { catalog: cf ? `${cf.release || "(no release)"} (${cf.policies.length} policies)` : "" }), "text/markdown");
-      });
-      const uc = $(ID("UpCatalog"));
-      if (uc) uc.addEventListener("click", async () => {
-        const f = S.upstream.fetched || {};
-        const file = await E.buildCommunity(S.upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), sourceDate: f.date || "", commit: f.commit || "" });
         try {
           const z = new JSZip();
-          for (const [path, text] of Object.entries(E.communityFolder(file))) z.file(path, text);
+          for (const [p, text] of Object.entries(E.communityFolder(co))) z.file(p, text);
           const blob = await z.generateAsync({ type: "blob" });
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.upstream.id}-community-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        } catch (e) { $(ID("UpNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
+        } catch (e) { const n = $(ID("FetchNote")); if (n) n.textContent = `The zip could not be written: ${(e && e.message) || e}`; }
       });
     }
 
-    let syncUpBar = () => {};
-    function upSelectionKey() {
-      const host = $(ID("Upstream"));
-      if (!host) return "";
-      const parts = [];
-      host.querySelectorAll("[data-uptick]").forEach((cb) => {
-        if (!cb.checked) return;
-        const i = cb.dataset.uptick;
-        const nameEl = host.querySelector(`[data-upname="${i}"]`);
-        parts.push(`${i}=${((nameEl && nameEl.value) || "").trim()}`);
-      });
-      return parts.join("\n");
+    // ---- ⚙ the per-policy settings view (§10, T19's own popout) ----
+    // ONE RENDERER. Docs.popoutHtml is the template T05, T11 and T19 all
+    // use; this feeds it from the same read they do, or from the catalog
+    // body when the policy is not in the tenant at all. A `differs` row
+    // opens on the diff instead, because that is the question that row is.
+    function popoutSec(section, label) {
+      const s = (typeof Docs !== "undefined" && Docs.sectionById(section)) || null;
+      return { label: label || (s && s.label) || section, endpoint: (s && s.endpoint) || section, icon: (s && s.icon) || "" };
     }
-    async function upDryRun() {
-      if (running || !S.upstream) return;
-      running = true; $(ID("UpDry")).disabled = true; $(ID("UpPlan")).innerHTML = "";
-      S.upPlanned = null; S.upPlanKey = null; syncUpBar();
+    function rowsFromBody(section, body) {
+      if (typeof Docs === "undefined") return [];
       try {
-        const host = $(ID("Upstream"));
-        const order = JSON.parse(host.dataset.order || "[]");
-        const picked = [], badNames = [];
-        host.querySelectorAll("[data-uptick]").forEach((cb) => {
-          if (!cb.checked) return;
-          const i = +cb.dataset.uptick;
-          const r = S.upstream.rows[order[i]];
-          const nameEl = host.querySelector(`[data-upname="${i}"]`);
-          const name = (nameEl && nameEl.value || "").trim();
-          if (!E.looksBaseline(name)) { badNames.push(name || r.up.name); return; }
-          picked.push(E.upstreamEntry(r, name));
-        });
-        if (badNames.length) {
-          $(ID("UpPlan")).innerHTML = `<div class="gu-fail"><b>${badNames.length} name${badNames.length === 1 ? " does" : "s do"} not wear the convention</b><span class="why">${esc(spec.prefix)} prefix, an Ryy.m release tag and a version — without them the policy would be invisible to the comparison above. Fix: ${esc(badNames[0])}</span></div>`;
-          return;
+        if (section === "settingsCatalog") return Docs.catalogRows(body.settings || []);
+        if (section === "admx") return Docs.admxRows(body.definitionValues || []);
+        return Docs.flatten(body);
+      } catch { return []; }
+    }
+    function openPopout(key, wantDiff) {
+      const r = S.cmp && S.cmp.rows.find((x) => x.key === key);
+      if (!r) return;
+      const host = $(ID("PopBody"));
+      if (!host) return;
+      const foot = `<div class="gu-m-foot"><div class="spacer"></div><button class="btn primary" id="${ID("PopClose")}">Close</button></div>`;
+      let inner = "";
+      if (wantDiff && r.diff) {
+        const cell = (x) => esc(String(x.id).split("_").pop());
+        inner = `<div class="gu-m-head"><h3>${esc((r.baseline && r.baseline.name) || (r.tenant && r.tenant.name) || "")}</h3>
+            <div class="mini muted">What differs between the catalog's copy and this tenant's — the canonical bodies, value for value.</div></div>
+          <div class="gu-m-body"><div class="gu-tw"><table class="cg-table"><thead><tr><th>Setting</th><th>The catalog</th><th>This tenant</th></tr></thead><tbody>
+            ${r.diff.added.map((d) => `<tr><td class="mini"><code title="${esc(d.id)}">${cell(d)}</code></td><td class="mini">${esc(d.theirs)}</td><td class="mini muted">not set</td></tr>`).join("")}
+            ${r.diff.changed.map((d) => `<tr><td class="mini"><code title="${esc(d.id)}">${cell(d)}</code></td><td class="mini">${esc(d.theirs)}</td><td class="mini">${esc(d.ours)}</td></tr>`).join("")}
+            ${r.diff.removed.map((d) => `<tr><td class="mini"><code title="${esc(d.id)}">${cell(d)}</code></td><td class="mini muted">not set</td><td class="mini">${esc(d.ours)}</td></tr>`).join("")}
+          </tbody></table></div></div>`;
+      } else if (r.tenant && S.res) {
+        // the tenant's own documented item — the same object T05 renders
+        let found = null;
+        for (const sec of S.res.sections || []) {
+          const it = (sec.items || []).find((x) => String(x.id) === String(r.tenant.id));
+          if (it) { found = { sec, it }; break; }
         }
-        if (!picked.length) { $(ID("UpPlan")).innerHTML = `<p class="mini muted" style="margin:0">Nothing ticked.</p>`; return; }
-        prog("Checking what already exists…");
-        await Graph.ensureScopes(Graph.SCOPES.config);
-        const names = await Restore.existingNames([...new Set(picked.map((x) => x.area))], (m) => prog(m));
-        S.upPlanned = Restore.plan(picked, names);
-        S.upPlanKey = upSelectionKey();
-        prog("");
-        const nCreate = S.upPlanned.filter((p) => !p.collided).length;
-        $(ID("UpPlan")).innerHTML = `
-          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${S.upPlanned.length - nCreate} already present (the collision stop)${nCreate ? ` — <b>✍ Create ${nCreate} in THIS tenant</b> is in the bar below` : ""}</p>
-          <p class="mini" id="${ID("UpStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before creating.</p>
-          <div class="gu-tw"><table class="cg-table"><thead><tr><th>Will be created as</th><th style="width:180px">Surface</th><th style="width:200px">Operation</th></tr></thead>
-          <tbody>${S.upPlanned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`).join("")}</tbody></table></div>
-          <div id="${ID("UpResult")}" style="margin-top:10px"></div>`;
-      } catch (e) {
-        prog("");
-        $(ID("UpPlan")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-      } finally { running = false; const d = $(ID("UpDry")); if (d) d.disabled = false; syncUpBar(); }
-    }
-
-    async function upApply() {
-      if (running || !S.upPlanned) return;
-      if (S.upPlanKey !== upSelectionKey()) { syncUpBar(); return; }
-      // THE PLAN NAMES A TENANT (finding 1) and this act names a tenant
-      // KIND (finding 7) — both are re-asked here, at the click, not
-      // trusted from when the pane was drawn.
-      if (wrongTenant()) { $(ID("UpPlan")).innerHTML = tenantMovedHtml(); S.upPlanned = null; S.upPlanKey = null; syncUpBar(); return; }
-      if (!isCfdev()) { $(ID("UpPlan")).innerHTML = refusedHtml("Upstream"); S.upPlanned = null; S.upPlanKey = null; syncUpBar(); return; }
-      running = true; $(ID("UpApply")).disabled = true;
-      try {
-        await Graph.ensureScopes(Graph.SCOPES.profiles);
-        const results = await Restore.apply(S.upPlanned, (m) => prog(m));
-        prog("");
-        const good = results.filter((r) => r.outcome === "created").length;
-        const bad = results.filter((r) => r.outcome === "failed").length;
-        $(ID("UpResult")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — unassigned, in this tenant only. Now ${esc(spec.readLabel)}, judge them in the comparison, and 🧬 re-export: the export becomes the new baseline, versions increased, wearing this month's release.</p>
-          ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")}`;
-        if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-        S.upPlanned = null; S.upPlanKey = null;
-        rereadAfter(`${spec.upstream.icon} Upstream: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}, unassigned — the Upstream pane keeps the details`);
-      } catch (e) {
-        prog("");
-        $(ID("UpResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-      } finally { running = false; const ap = $(ID("UpApply")); if (ap) ap.disabled = false; syncUpBar(); }
+        inner = found
+          ? Docs.popoutHtml(found.sec, found.it)
+          : `<div class="gu-m-head"><h3>${esc(r.tenant.name)}</h3></div><div class="gu-m-body"><p class="mini muted">This policy is not in the read any more — re-read the tenant.</p></div>`;
+      } else if (r.baseline) {
+        const b = r.baseline;
+        inner = Docs.popoutHtml(popoutSec(b.section, b.sectionLabel), {
+          name: b.name, platform: spec.platform, type: b.sectionLabel || b.section,
+          modified: "", description: b.description || "", assignments: [],
+          rows: rowsFromBody(b.section, b.body || {}), detailError: "",
+        });
+        inner = inner.replace('<div class="gu-m-body">',
+          `<div class="gu-m-body"><p class="mini muted" style="margin:0 0 10px">This policy is <b>not in this tenant</b> — what follows is the catalog's copy of it, which is what 📥 Import would create.</p>`);
+      }
+      host.innerHTML = inner + foot;
+      $(ID("Pop")).classList.add("open");
+      const close = () => { $(ID("Pop")).classList.remove("open"); document.removeEventListener("keydown", onEsc); };
+      const onEsc = (e) => { if (e.key === "Escape") close(); };
+      $(ID("PopClose")).addEventListener("click", close);
+      $(ID("Pop")).onclick = (e) => { if (e.target === $(ID("Pop"))) close(); };
+      document.addEventListener("keydown", onEsc);
     }
 
     // ------------------------------------------------ the github.com fetch --
     let fetching = false;
-    async function fetchForUpstream() {
-      const cf = cfCatalog();
-      if (!cf) { $(ID("UpNote")).textContent = "Load or bundle a CloudFellows catalog first — a diff needs both sides."; return; }
-      if (fetching) return;
-      fetching = true; const b = $(ID("UpFetch")); if (b) b.disabled = true;
-      try {
-        const got = await E.fetchUpstream((m) => { const n = $(ID("UpNote")); if (n) n.textContent = m; });
-        const parsed = E.parseUpstream(got.files);
-        parsed.seenOther = got.seenOther;
-        if (!parsed.policies.length) { $(ID("UpNote")).textContent = "The repository carries no comparable policies under the expected folder."; return; }
-        landUpstream(parsed, cf, `github.com @ ${got.commit.slice(0, 7)} (${got.date})`, true);
-        S.upstream.fetched = { commit: got.commit, date: got.date };
-      } catch (e) {
-        const n = $(ID("UpNote")); if (n) n.textContent = `Not fetched: ${(e && e.message) || e}`;
-      } finally { fetching = false; const b2 = $(ID("UpFetch")); if (b2) b2.disabled = false; }
-    }
     async function fetchForCatalog() {
       if (fetching) return;
       fetching = true; const b = $(ID("Fetch")); if (b) b.disabled = true;
@@ -2125,7 +2084,6 @@ const PlatformBaseline = (() => {
       if (running || !S.rnPlanned) return;
       if (S.rnPlanKey !== rnSelectionKey()) { syncRnBar(); return; }
       if (wrongTenant()) { $(ID("RnPlan")).innerHTML = tenantMovedHtml(); S.rnPlanned = null; S.rnPlanKey = null; syncRnBar(); return; }
-      if (!isCfdev()) { $(ID("RnPlan")).innerHTML = refusedHtml("Rename"); S.rnPlanned = null; S.rnPlanKey = null; syncRnBar(); return; }
       running = true; $(ID("RnApply")).disabled = true;
       const results = [];
       try {
@@ -2282,7 +2240,6 @@ const PlatformBaseline = (() => {
       if (S.hkPlanKey !== hkSelectionKey()) { syncHkBar(); return; }
       // A DELETE gets the check first, before anything else it does.
       if (wrongTenant()) { $(ID("HkPlan")).innerHTML = tenantMovedHtml(); S.hkPlanned = null; S.hkPlanKey = null; syncHkBar(); return; }
-      if (!isCfdev()) { $(ID("HkPlan")).innerHTML = refusedHtml("Housekeeping"); S.hkPlanned = null; S.hkPlanKey = null; syncHkBar(); return; }
       running = true; $(ID("HkApply")).disabled = true;
       const results = [];
       try {
