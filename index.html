@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10584"></script>
+<script src="js/popup-guard.js?v=10585"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10584">
+<link rel="stylesheet" href="css/app.css?v=10585">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10584"></script>
+<script src="js/selfhost-boot.js?v=10585"></script>
 </head>
 <body>
 
@@ -1778,6 +1778,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0"><span class="rm-ref">R35</span>'s treatment for Windows, and the moment the baseline machinery became <b>one engine with a spec per platform</b> (<code>js/platformbaseline.js</code>) rather than a copy per platform. The CloudFellows Windows convention is the OIB naming with the tag replaced by the discipline and the release date appended — <code>Win - SEC - App Control for Business - D - AllowAll - R26.6 - v3.0</code> — matched by name, ordered by release then version, exactly as macOS.</p>
             <p class="mini" style="margin:6px 0 0"><b>And the community baseline, for both platforms</b> — ENCA's Joey Verlinden treatment, Intune-side-out. SkipToTheEndpoint's <a href="https://github.com/SkipToTheEndpoint/OpenIntuneBaseline" target="_blank" rel="noopener">OpenIntuneBaseline</a> (Windows, v3.8, 73 policies) and Microsoft's <a href="https://github.com/microsoft/intune-my-macs" target="_blank" rel="noopener">intune-my-macs</a> (macOS, 21) are bundled from their repositories and sit beside the CloudFellows catalog on a switch: <b>compared on open, importable on any tenant, names kept verbatim</b>. OIB's own <code>OIBID</code> token identifies a deployed policy before the name does, and survives the import — so OIB's deployer and TUNO can both maintain what either created. On the baseline tenant the bundled community catalog also feeds the Upstream act without a download.</p>
             <p class="mini" style="margin:6px 0 0"><b>Beta 10572, two more acts.</b> <b>The repository is read in the browser</b> — GitHub's API and <code>raw.githubusercontent.com</code> answer with CORS, so the community baseline is fetched with two API calls and one raw read per policy, no zip, no token (the tenant token never leaves <code>graph.microsoft.com</code>; this is a plain fetch), on any tenant for the comparison and on the baseline tenant for Upstream. The one rule it bends is said in <a href="SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>: the content-security policy's <code>connect-src</code> now names those two hosts beside Graph and login. GitHub's anonymous limit of sixty API calls an hour is reported with its reset time when hit; the bundle and the zip road remain. And <b>✏️ Rename</b>, on the baseline tenant: every policy wearing the prefix and a version but no release tag is proposed one cut from its last-modified date, editable, dry-run, PATCHed on its own surface and read back — the community baseline's own names never proposed.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Beta 10585 — by content, third.</b> The community comparison matches by OIBID, then name, then <b>content</b> — the Upstream act's rule: a settings-catalog policy is its set of setting definition ids, half-or-better overlap claims it whatever it is called — and reads <b>≠ Differs</b> when the same control carries different values, with the diff on the row. Import creates only what the comparison calls missing or outdated.</p>
             <p class="mini" style="margin:6px 0 0"><b>Beta 10575 — the folder is the catalog.</b> Mihai: "why is <code>baseline/windows</code> in the repo not read as the catalog?" — it should have been. The app now fetches <code>baseline/&lt;platform&gt;/catalog.json</code> and <code>baseline/community/&lt;id&gt;/catalog.json</code> from its own origin when a baseline tool opens (<code>connect-src 'self'</code>, <code>?v=</code> cache-busting like any asset); the four <code>js/*Data.js</code> copies are gone and 1.7 MB leaves every page load. One source of truth, written by 🧬 Export and 🧩 Upstream, never by hand.</p>
             <p class="mini" style="margin:6px 0 0"><b>Beta 10574.</b> The CloudFellows Windows catalog arrived (37 policies, cloudfellows.dev export of 2026-09-03). <b>🧹 Housekeeping</b> on the baseline tenant: every identity carried more than once, the newest kept, the older copies deleted after a dry run that reads each one again — an assigned copy refused, the reach to be moved first. <b>📁 Repo folder</b> on Export: <code>baseline/&lt;platform&gt;/</code> with one JSON per policy, a README index and the catalog, cut from one export; both folders live in the repository. No demo fixtures wear either convention.</p>
           </div>
@@ -2147,49 +2148,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10584"></script>
-<script src="js/selfhost.js?v=10584"></script>
-<script src="js/version.js?v=10584"></script>
-<script src="js/promote.js?v=10584"></script>
-<script src="js/authConfig.js?v=10584"></script>
-<script src="js/changelog.js?v=10584"></script>
-<script src="js/msappcatalog.js?v=10584"></script>
-<script src="js/demo.js?v=10584"></script>
-<script src="js/graph.js?v=10584"></script>
-<script src="js/suggest.js?v=10584"></script>
-<script src="js/progress.js?v=10584"></script>
-<script src="js/groupuse.js?v=10584"></script>
-<script src="js/audit.js?v=10584"></script>
-<script src="js/devicecleanup.js?v=10584"></script>
-<script src="js/backup.js?v=10584"></script>
-<script src="js/document.js?v=10584"></script>
-<script src="js/policycache.js?v=10584"></script>
-<script src="js/overview.js?v=10584"></script>
-<script src="js/devicewhy.js?v=10584"></script>
-<script src="js/whatif.js?v=10584"></script>
-<script src="js/health.js?v=10584"></script>
-<script src="js/settingsearch.js?v=10584"></script>
-<script src="js/conflict.js?v=10584"></script>
-<script src="js/compliance.js?v=10584"></script>
-<script src="js/filterrules.js?v=10584"></script>
-<script src="js/filters.js?v=10584"></script>
-<script src="js/restore.js?v=10584"></script>
-<script src="js/platformbaseline.js?v=10584"></script>
-<script src="js/complianceevidence.js?v=10584"></script>
-<script src="js/macbaseline.js?v=10584"></script>
-<script src="js/winbaseline.js?v=10584"></script>
-<script src="js/assignedit.js?v=10584"></script>
-<script src="js/restrictedau.js?v=10584"></script>
-<script src="js/groupmigrate.js?v=10584"></script>
-<script src="js/roles.js?v=10584"></script>
-<script src="js/defender.js?v=10584"></script>
-<script src="js/endpointsec.js?v=10584"></script>
-<script src="js/report.js?v=10584"></script>
-<script src="js/securescore.js?v=10584"></script>
-<script src="js/endpointposture.js?v=10584"></script>
-<script src="js/maa.js?v=10584"></script>
-<script src="js/laps.js?v=10584"></script>
-<script src="js/applocker.js?v=10584"></script>
-<script src="js/app.js?v=10584"></script>
+<script src="js/branding.js?v=10585"></script>
+<script src="js/selfhost.js?v=10585"></script>
+<script src="js/version.js?v=10585"></script>
+<script src="js/promote.js?v=10585"></script>
+<script src="js/authConfig.js?v=10585"></script>
+<script src="js/changelog.js?v=10585"></script>
+<script src="js/msappcatalog.js?v=10585"></script>
+<script src="js/demo.js?v=10585"></script>
+<script src="js/graph.js?v=10585"></script>
+<script src="js/suggest.js?v=10585"></script>
+<script src="js/progress.js?v=10585"></script>
+<script src="js/groupuse.js?v=10585"></script>
+<script src="js/audit.js?v=10585"></script>
+<script src="js/devicecleanup.js?v=10585"></script>
+<script src="js/backup.js?v=10585"></script>
+<script src="js/document.js?v=10585"></script>
+<script src="js/policycache.js?v=10585"></script>
+<script src="js/overview.js?v=10585"></script>
+<script src="js/devicewhy.js?v=10585"></script>
+<script src="js/whatif.js?v=10585"></script>
+<script src="js/health.js?v=10585"></script>
+<script src="js/settingsearch.js?v=10585"></script>
+<script src="js/conflict.js?v=10585"></script>
+<script src="js/compliance.js?v=10585"></script>
+<script src="js/filterrules.js?v=10585"></script>
+<script src="js/filters.js?v=10585"></script>
+<script src="js/restore.js?v=10585"></script>
+<script src="js/platformbaseline.js?v=10585"></script>
+<script src="js/complianceevidence.js?v=10585"></script>
+<script src="js/macbaseline.js?v=10585"></script>
+<script src="js/winbaseline.js?v=10585"></script>
+<script src="js/assignedit.js?v=10585"></script>
+<script src="js/restrictedau.js?v=10585"></script>
+<script src="js/groupmigrate.js?v=10585"></script>
+<script src="js/roles.js?v=10585"></script>
+<script src="js/defender.js?v=10585"></script>
+<script src="js/endpointsec.js?v=10585"></script>
+<script src="js/report.js?v=10585"></script>
+<script src="js/securescore.js?v=10585"></script>
+<script src="js/endpointposture.js?v=10585"></script>
+<script src="js/maa.js?v=10585"></script>
+<script src="js/laps.js?v=10585"></script>
+<script src="js/applocker.js?v=10585"></script>
+<script src="js/app.js?v=10585"></script>
 </body>
 </html>

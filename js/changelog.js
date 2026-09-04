@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10585, date: "2026-09-04", title: "Baselines: the community comparison matches on settings, and Import creates only the gap",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "OpenIntuneBaseline read 72 missing on the baseline tenant — which had deployed it, under its own names. Matching by OIBID and by name could not see that. The community comparison now matches by content third: a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures, and half-or-better overlap claims a policy whatever it is called — the same rule the Upstream act has used since 10527. The verdict then reads the version off the tenant's name and diffs the settings value for value: up to date, or a new bucket, Differs — same control, different values — with the diff on the row, or outdated / newer by version. The row says 'content NN%' so you can see how it was found; the gap report carries the diff lines. The CloudFellows comparison is unchanged: there the name is the identity." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Import creates only what the comparison calls missing or outdated, not the whole catalog: a policy found by token, name or content is present whatever it is called here, and creating it again would make a copy. The plan says how many were left alone for that reason. And the plan's first column was blank — it read the wrong field — and now shows the name." },
+      { kind: "fixed", tool: "🍎 macOS baseline", text: "The same three: content matching and the Differs bucket for intune-my-macs, Import scoped to the gap, the plan's name column back." },
+    ],
+  },
+  {
     build: 10584, date: "2026-09-04", title: "T01 — the MDM store is decoded for real",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "The first run of Get-TunoAppLockerPolicyHealth.ps1 printed mode=? rules=? for every Intune-delivered collection — the Policy files in the MDM store did not survive a plain text read. The health check (1.1.1) and the scanner (1.12.1) now detect the encoding, strip NULs, cut to the first tag, and fall back to a text match for mode and rule count; when it still cannot parse, the log says why and shows the first bytes instead of a question mark." },

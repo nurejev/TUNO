@@ -100,6 +100,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 156, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the community comparison matches by content (\u2260 Differs bucket); Import creates only the gap; plan name column fixed",
+      tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10585], risk: "medium",
+      why: "Mihai on cloudfellows.dev, 2026-09-04: OIB read 72 missing against the tenant that had deployed it under CloudFellows names \u2014 'the compare should match on settings, not on name'. The Upstream act already knew how; the comparison now uses the same rule (token \u2192 name \u2192 content, one overlap floor) and gains a Differs bucket with the per-setting diff. Import was creating the whole catalog with a name collision stop, which would have made copies of everything matched by content \u2014 it now creates only the comparison's missing/outdated rows. Medium: a production tool's verdicts change (fewer missing, some differs) and its import plans less \u2014 both in the honest direction. Also fixes the blank name column in the import plan (target vs newName), inherited from T24's original. Built as 10576 against the 10575 tip; renumbered 10585 when it landed after the T01 rethink builds 10576\u201310584.",
+      test: [
+        "cloudfellows.dev, T27 with OIB selected: the 72 missing become mostly up to date / differs / outdated with 'content NN%' chips; open a Differs row's 'what differs' \u2014 the values named are the ones cfdev changed on purpose; Missing is now the OIB policies cfdev really does not carry. \ud83d\udcdd Gap report shows the diff lines under each Differs row.",
+        "cloudfellows.dev, T27 Import with OIB selected: dry run plans only the Missing/Outdated rows and says 'N of 73 left alone \u2014 the comparison found them present'; the plan's first column shows names.",
+        "Any tenant, T27 with OIB, before a read: Import dry run plans the whole catalog (no comparison yet) with the collision stop \u2014 unchanged.",
+        "T24 with intune-my-macs: a tenant policy carrying the same settings under a MACOS name reads present by content.",
+        "Suites (outside the repo): platformbaseline-tests.js 156/156 (9 new: content match ok/differs/outdated, token and name still first, CloudFellows untouched, report lines), baseline-dom-tests.js 90/90 (the import plan scoped to the gap)."
+      ],
+      files: ["js/platformbaseline.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 155, title: "\ud83d\udd10 T01 \u2014 MDM store Policy files decoded robustly (health check 1.1.1, scanner 1.12.1)",
       tools: ["T01 AppLocker"], builds: [10584], risk: "low",
       why: "Mihai, 4 Sep: the health check's first Live Response run printed mode=? rules=? for all four Intune-delivered collections; the catch swallowed the reason. Both readers now sniff BOM/UTF-16, strip NULs, cut to the first tag, fall back to a regex count, and log reason + encoding + first bytes when parsing fails. Read-only; nothing in the policy path changes.",

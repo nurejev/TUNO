@@ -112,14 +112,25 @@ const PlatformBaseline = (() => {
     }
 
     const STATUS = {
-      ok: { icon: "✓", label: "Up to date", cls: "ok", order: 3 },
-      outdated: { icon: "⬆", label: "Outdated", cls: "warn", order: 1 },
-      ahead: { icon: "⬇", label: "Newer than baseline", cls: "info", order: 4 },
-      present: { icon: "✓", label: "Present", cls: "ok", order: 2 },
-      unversioned: { icon: "?", label: "Version unknown", cls: "info", order: 5 },
       missing: { icon: "✗", label: "Missing", cls: "bad", order: 0 },
-      extra: { icon: "＋", label: "Not in baseline", cls: "info", order: 6 },
+      outdated: { icon: "⬆", label: "Outdated", cls: "warn", order: 1 },
+      differs: { icon: "≠", label: "Differs", cls: "warn", order: 2 },     // same control, different settings or values (content match, 10576)
+      present: { icon: "✓", label: "Present", cls: "ok", order: 3 },
+      ok: { icon: "✓", label: "Up to date", cls: "ok", order: 4 },
+      ahead: { icon: "⬇", label: "Newer than baseline", cls: "info", order: 5 },
+      unversioned: { icon: "?", label: "Version unknown", cls: "info", order: 6 },
+      extra: { icon: "＋", label: "Not in baseline", cls: "info", order: 7 },
     };
+
+    // content overlap, the one rule for "this is the same control": hits over
+    // the smaller set — the Upstream act's and, since 10576, the community
+    // comparison's
+    function overlap(A, B) {
+      if (!A.size || !B.size) return 0;
+      let hit = 0;
+      for (const x of A) if (B.has(x)) hit++;
+      return hit / Math.min(A.size, B.size);
+    }
 
     // ---- catalogs ----
     // THE FOLDER IS THE CATALOG (build 10575, Mihai: "why is baseline/windows
@@ -262,6 +273,47 @@ const PlatformBaseline = (() => {
           status: best.status, byToken: best.byToken, catDup,
           duplicates: hits.length > 1 ? hits.length : 0,
         });
+      }
+      // BY CONTENT, THIRD (build 10576, Mihai on cloudfellows.dev: "the compare
+      // should match on settings, not on name"): a tenant that deployed the
+      // community baseline under its OWN names — the CloudFellows tenant does
+      // exactly that — matched nothing by token or name and read 72 missing.
+      // So a catalog row still missing after the token and name passes is
+      // matched the way the Upstream act matches: a settings-catalog policy
+      // IS its set of setting definition ids, a compliance or configuration
+      // policy the properties it configures; half-or-better overlap claims
+      // it (UPSTREAM_MIN_OVERLAP, one rule). The verdict then reads the
+      // version off the tenant's name and diffs the settings: same version,
+      // same settings → up to date; same version, different values → DIFFERS
+      // with the diff on the row; lower/higher → outdated / newer.
+      if (comm) {
+        const kindOfRow = (b) => b.kind || (b.section === "compliance" ? "compliance" : b.section === "deviceConfigurations" ? "deviceConfig" : "settingsCatalog");
+        const secOfKind = { settingsCatalog: "settingsCatalog", compliance: "compliance", deviceConfig: "deviceConfigurations" };
+        const pool = vms.filter((p) => p.body && !consumed.has(p)).map((p) => ({ p, ids: null }));
+        const idsOf = (o, kind) => { if (!o.ids) o.ids = defIdsOf(kind, o.p.body); return o.ids; };
+        for (const r of rows) {
+          if (r.status !== "missing" || !r.baseline || !r.baseline.body) continue;
+          const b = r.baseline, kind = kindOfRow(b), sec = secOfKind[kind];
+          if (!sec) continue;
+          const bIds = defIdsOf(kind, b.body);
+          if (!bIds.size) continue;
+          let best = null, bestScore = 0;
+          for (const o of pool) {
+            if (o.p.section !== sec || consumed.has(o.p)) continue;
+            const sc = overlap(bIds, idsOf(o, kind));
+            if (sc > bestScore) { best = o; bestScore = sc; }
+          }
+          if (!best || bestScore < UPSTREAM_MIN_OVERLAP) continue;
+          consumed.add(best.p);
+          const diff = diffPolicies(kind, b.body, best.p.body);
+          const same = !diff.added.length && !diff.removed.length && !diff.changed.length;
+          const tVer = versionOf(best.p.name);
+          let status;
+          if (r.bVer && tVer && cmpVersion(tVer, r.bVer) !== 0) status = cmpVersion(tVer, r.bVer) < 0 ? "outdated" : "ahead";
+          else if (same) status = r.bVer ? "ok" : "present";
+          else status = "differs";
+          Object.assign(r, { tenant: best.p, tRel: null, tVer, status, byContent: true, score: bestScore, diff, duplicates: 0 });
+        }
       }
       // wears the convention (or carries the token), not in the catalog —
       // only claimable when the catalog HAS a convention to wear
@@ -702,12 +754,6 @@ const PlatformBaseline = (() => {
       return { added, removed, changed };
     }
 
-    const overlap = (A, B) => {
-      if (!A.size || !B.size) return 0;
-      let hit = 0;
-      for (const x of A) if (B.has(x)) hit++;
-      return hit / Math.min(A.size, B.size);
-    };
 
     // ups: parseUpstream().policies · cat: the active CloudFellows catalog.
     function matchUpstream(ups, cat) {
@@ -879,13 +925,18 @@ const PlatformBaseline = (() => {
       if (comm && cat.url) L.push(`Baseline source: ${cat.url}${cat.commit ? ` (commit ${String(cat.commit).slice(0, 7)})` : ""}`);
       L.push("");
       L.push(`- Coverage: **${cmp.covered} of ${cmp.baselineTotal}** baseline policies present in the tenant.`);
-      ["missing", "outdated", "ok", "present", "ahead", "unversioned", "extra"].forEach((k) => { if (cmp.counts[k]) L.push(`- ${STATUS[k].label}: **${cmp.counts[k]}**`); });
+      ["missing", "outdated", "differs", "ok", "present", "ahead", "unversioned", "extra"].forEach((k) => { if (cmp.counts[k]) L.push(`- ${STATUS[k].label}: **${cmp.counts[k]}**`); });
       const toImport = cmp.rows.filter((r) => r.status === "missing" || r.status === "outdated");
       L.push(`- Import would add or update **${toImport.length}** policies.`, "");
       L.push("| Status | Baseline policy | In this tenant | Baseline | Tenant |");
       L.push("| --- | --- | --- | --- | --- |");
       for (const r of cmp.rows) {
-        L.push(`| ${STATUS[r.status].label} | ${mdEsc(r.baseline ? r.baseline.name : "—")} | ${mdEsc(r.tenant ? r.tenant.name : "—")}${r.duplicates ? ` (×${r.duplicates})` : ""}${r.byToken ? ` (by ${cat.idToken})` : ""} | ${r.baseline ? relver(r.bRel, r.bVer) : "—"} | ${r.tenant ? relver(r.tRel, r.tVer) : "—"} |`);
+        L.push(`| ${STATUS[r.status].label} | ${mdEsc(r.baseline ? r.baseline.name : "—")} | ${mdEsc(r.tenant ? r.tenant.name : "—")}${r.duplicates ? ` (×${r.duplicates})` : ""}${r.byToken ? ` (by ${cat.idToken})` : ""}${r.byContent ? ` (by content, ${Math.round(r.score * 100)}%)` : ""} | ${r.baseline ? relver(r.bRel, r.bVer) : "—"} | ${r.tenant ? relver(r.tRel, r.tVer) : "—"} |`);
+        if (r.status === "differs" && r.diff) {
+          r.diff.added.forEach((d) => L.push(`|  | ↳ they set \`${mdEsc(d.id)}\` = ${mdEsc(d.theirs)} |  |  |  |`));
+          r.diff.changed.forEach((d) => L.push(`|  | ↳ \`${mdEsc(d.id)}\`: tenant ${mdEsc(d.ours)} → baseline ${mdEsc(d.theirs)} |  |  |  |`));
+          r.diff.removed.forEach((d) => L.push(`|  | ↳ only in the tenant: \`${mdEsc(d.id)}\` = ${mdEsc(d.ours)} |  |  |  |`));
+        }
       }
       L.push("");
       if (toImport.length) {
@@ -939,10 +990,22 @@ const PlatformBaseline = (() => {
     const isCfdev = () => { const t = window.TunoTenant; return !!(t && t.isCfdev && t.isCfdev()); };
     const tenantName = () => { const n = $("tenantName"); return (n && n.textContent) || ""; };
 
+    // the bodies ride along for the surfaces the content match reads (10576):
+    // the raw object from the shared read, with the settings the read fetched
+    const BODY_SECTIONS = new Set(["settingsCatalog", "compliance", "deviceConfigurations"]);
     const vms = () => {
       const out = [];
       for (const sec of (res && res.sections) || []) {
-        for (const it of sec.items || []) out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [] });
+        const rawById = BODY_SECTIONS.has(sec.id) ? new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r])) : null;
+        for (const it of sec.items || []) {
+          let body = null;
+          const raw = rawById ? rawById.get(String(it.id).toLowerCase()) : null;
+          if (raw) {
+            body = Object.assign({}, raw); delete body.__detail; delete body.__detailError;
+            if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
+          }
+          out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body });
+        }
       }
       return out;
     };
@@ -985,7 +1048,7 @@ const PlatformBaseline = (() => {
       const c = activeCatalog();
       const node = (k, icon, label, right, bad) => `<div class="ep-node${mode === k ? " active" : ""}" data-${P}mode="${k}" role="button" tabindex="0">
         <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
-      const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) : null;
+      const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) + (cmp.counts.differs || 0) : null;
       const upBad = upstream ? upstream.rows.filter((r) => r.status !== "same").length : null;
       const rn = res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
       const hk = res ? E.housekeeping(vms()).reduce((a, g) => a + g.retire.length, 0) : null;
@@ -1040,14 +1103,14 @@ const PlatformBaseline = (() => {
           const card = (k) => {
             const st = E.STATUS[k], n = cmp.counts[k] || 0;
             if (!n && !["missing", "outdated", comm && !cmp.counts.ok ? "present" : "ok"].includes(k)) return "";
-            return `<div class="au-card"><div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : k === "present" ? "this baseline does not version its names" : ""}</div></div>`;
+            return `<div class="au-card"><div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : k === "present" ? "this baseline does not version its names" : k === "differs" ? "same control, different values" : ""}</div></div>`;
           };
-          parts.push(`<div class="au-cards">${["missing", "outdated", "ok", "present", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
+          parts.push(`<div class="au-cards">${["missing", "outdated", "differs", "ok", "present", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
           const row = (r) => {
             const st = E.STATUS[r.status];
             return `<tr>
               <td class="mini">${r.baseline ? esc(r.baseline.name) : `<span class="muted">—</span>`}${r.baseline && r.baseline.licenseRequirements ? ` <span class="gu-how priv" title="Licence the author names for this policy">${esc(r.baseline.licenseRequirements)}</span>` : ""}${r.catDup ? ` <span class="gu-how priv" title="The catalog carries this identity more than once — a re-cut kept beside its old copy on the baseline tenant. Each row is judged against the tenant copy wearing its own release and version. Retire the old copy, then re-export.">2+ versions in the catalog</span>` : ""}</td>
-              <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.byToken ? ` <span class="gu-how inc" title="Identified by the ${esc(c.idToken)} token in its description — the name did not have to match">${esc(c.idToken)}</span>` : ""}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}</td>
+              <td class="mini">${r.tenant ? esc(r.tenant.name) : `<span class="gu-how exc">missing</span>`}${r.byToken ? ` <span class="gu-how inc" title="Identified by the ${esc(c.idToken)} token in its description — the name did not have to match">${esc(c.idToken)}</span>` : ""}${r.byContent ? ` <span class="gu-how priv" title="Matched by content — ${Math.round(r.score * 100)}% of the smaller set of settings in common; the name did not have to match">content ${Math.round(r.score * 100)}%</span>` : ""}${r.duplicates ? ` <span class="gu-how priv" title="${r.duplicates} policies carry this identity — a leftover copy; judged on the best">×${r.duplicates}</span>` : ""}${r.status === "differs" && r.diff ? `<details class="mini" style="margin-top:4px"><summary style="cursor:pointer">what differs — ${r.diff.added.length} they set · ${r.diff.changed.length} changed · ${r.diff.removed.length} only here</summary><ul style="margin:6px 0 0">${r.diff.added.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — baseline sets ${esc(d.theirs)}</li>`).join("")}${r.diff.changed.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — here ${esc(d.ours)} → baseline ${esc(d.theirs)}</li>`).join("")}${r.diff.removed.map((d) => `<li><code title="${esc(d.id)}">${esc(String(d.id).split("_").pop())}</code> — only here (${esc(d.ours)})</li>`).join("")}</ul></details>` : ""}</td>
               <td class="mini">${r.baseline ? relver(r.bRel, r.bVer) : "—"}</td>
               <td class="mini">${r.tenant ? relver(r.tRel, r.tVer) : "—"}</td>
               <td><span class="gu-how ${st.cls === "bad" ? "exc" : st.cls === "ok" ? "inc" : ""}">${st.icon} ${esc(st.label)}</span></td>
@@ -1055,7 +1118,7 @@ const PlatformBaseline = (() => {
           };
           parts.push(`<div class="list-card"><div class="tb-actions" style="margin:0 0 6px"><h4 style="margin:0;flex:1">The baseline, line by line (${cmp.covered} of ${cmp.baselineTotal} covered)</h4><button class="btn" id="${ID("Md")}" title="The gap, written down — ENCA's gap report, Intune-side-out">📝 Gap report (Markdown)</button></div>
             <p class="mini muted" style="margin:0 0 8px">${comm
-              ? `The identity is ${c.idToken ? `the <b>${esc(c.idToken)}</b> token in the description first, then ` : ""}the name with the version stripped${c.nameRe ? "" : " — this baseline has no naming convention, so only an exact name counts"}; versions compare segment-wise${c.policies.some((p) => p.version) ? "" : ", and a baseline that does not version its names is judged on presence alone"}. Worst first.`
+              ? `The identity is ${c.idToken ? `the <b>${esc(c.idToken)}</b> token in the description first, then ` : ""}the name with the version stripped${c.nameRe ? "" : " (this baseline has no naming convention, so by name only an exact one counts)"}, then <b>the content</b> — a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures; half-or-better overlap claims a policy whatever it is called, and its settings are then diffed value for value; versions compare segment-wise${c.policies.some((p) => p.version) ? "" : ", and a baseline that does not version its names is judged on presence alone"}. Worst first.`
               : `The identity is the NAME with the release tag and version stripped; releases compare first — R26.6 is June 2026, the year then the month — and versions break the tie. Worst first.`}</p>
             <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
             <tbody>${cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
@@ -1095,7 +1158,7 @@ const PlatformBaseline = (() => {
         const importReady = c && c.policies.some((p) => p.body && p.importable !== false);
         const nRefused = c ? c.policies.filter((p) => !p.body || p.importable === false).length : 0;
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📥 Import the baseline <span class="tag block">writes to the tenant</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Create-only, two proven pipelines: policies through the Backup tool's restore (dry run, collision stop per name, read-back verify) and assignment filters through 🧩 T14's own create. Everything arrives <b>unassigned</b> — reach is ✏️ the editor's act, taken deliberately afterwards. ${comm
+          <p class="mini muted" style="margin:0 0 8px">Create-only, and only <b>what the comparison calls missing or outdated</b> — a policy found by token, name or content is present whatever it is called here. Two proven pipelines: policies through the Backup tool's restore (dry run, collision stop per name, read-back verify) and assignment filters through 🧩 T14's own create. Everything arrives <b>unassigned</b> — reach is ✏️ the editor's act, taken deliberately afterwards. ${comm
             ? `Created policies keep the <b>author's own names and descriptions</b>, verbatim${c.idToken ? ` — the ${esc(c.idToken)} token included, so ${esc(c.label)}'s own deployer can update them later as if it had created them` : ""}.${nRefused ? ` ${nRefused} of the ${c.policies.length} cannot be created here (${esc((E.importEntries(c, null).refused[0] || {}).why || "no create path")}) and are said so on the row.` : ""}`
             : `Created policies keep their <b>canonical baseline names</b>, no prefix — the name is the identity this screen matches on. Scripts are identified but not importable from the catalog: the reference read carries no script bodies, and a script without its body cannot be put back.`}</p>
           <div class="tb-actions">
@@ -1821,8 +1884,12 @@ const PlatformBaseline = (() => {
       if (!c) return;
       running = true; $(ID("Dry")).disabled = true; $(ID("Plan")).innerHTML = "";
       try {
-        const { entries, filters, refused } = E.importEntries(c, null);
-        if (!entries.length && !filters.length) { $(ID("Plan")).innerHTML = `<div class="gu-fail"><b>Nothing importable.</b><span class="why">${refused.length ? esc(refused[0].why) : "The catalog carries no policy bodies."}</span></div>`; return; }
+        // WHAT THE COMPARISON CALLS MISSING OR OUTDATED (10576) — not the whole
+        // catalog. A policy matched by token, name or content is present,
+        // whatever it is called here; creating it again would make a copy.
+        const wanted = cmp && cmp.catalog === c ? new Set(cmp.rows.filter((r) => r.baseline && (r.status === "missing" || r.status === "outdated")).map((r) => r.key)) : null;
+        const { entries, filters, refused } = E.importEntries(c, wanted);
+        if (!entries.length && !filters.length) { $(ID("Plan")).innerHTML = wanted && !wanted.size ? `<p class="mini" style="margin:0"><b>Nothing to create</b> — the comparison found every baseline policy present, by token, name or content.</p>` : `<div class="gu-fail"><b>Nothing importable.</b><span class="why">${refused.length ? esc(refused[0].why) : "The catalog carries no policy bodies."}</span></div>`; return; }
         prog("Checking what already exists…");
         await Graph.ensureScopes(Graph.SCOPES.config);
         const names = entries.length ? await Restore.existingNames([...new Set(entries.map((x) => x.area))], (m) => prog(m)) : {};
@@ -1836,13 +1903,13 @@ const PlatformBaseline = (() => {
         plannedFilters = filters.map((f) => ({ ...f, collided: haveFilters.has(String(f.body.displayName).toLowerCase()) }));
         prog("");
         const rows = [
-          ...planned.map((p) => `<tr><td class="mini"><b>${esc(p.newName)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
+          ...planned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
           ...plannedFilters.map((f) => `<tr><td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td><td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`),
         ].join("");
         const nCreate = planned.filter((p) => !p.collided).length + plannedFilters.filter((f) => !f.collided).length;
         const nSkip = planned.filter((p) => p.collided).length + plannedFilters.filter((f) => f.collided).length;
         $(ID("Plan")).innerHTML = `
-          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already present (the collision stop — present is the point, not a problem)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""}</p>
+          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already present (the collision stop — present is the point, not a problem)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""}${wanted ? ` · ${c.policies.length - wanted.size} of ${c.policies.length} left alone — the comparison found them present` : ""}</p>
           <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th style="width:200px">Path</th><th style="width:220px">Operation</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${nCreate ? `<div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="${ID("Apply")}">✍ Create ${nCreate} object${nCreate === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span></button></div>` : ""}
           <div id="${ID("Result")}" style="margin-top:10px"></div>`;
