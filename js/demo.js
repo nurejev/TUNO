@@ -1206,6 +1206,10 @@ const TUNO_DEMO_GRAPH = (() => {
     "/deviceManagement/deviceShellScripts": () => T.SHELL_SCRIPTS,
     "/deviceManagement/deviceHealthScripts": () => T.HEALTH_SCRIPTS,
     "/deviceManagement/deviceCustomAttributeShellScripts": () => T.CUSTOM_ATTRIBUTE_SCRIPTS,
+    // Contoso enrols by hand, so it has no Apple enrolment program tokens.
+    // Empty is an answer; leaving the path unanswered would make the shared
+    // read report a surface it could not read, which is a different claim.
+    "/deviceManagement/depOnboardingSettings": () => [],
     "/deviceManagement/deviceEnrollmentConfigurations": () => T.ENROLMENT_CONFIGS,
     "/deviceManagement/windowsAutopilotDeploymentProfiles": () => T.AUTOPILOT_PROFILES,
     "/deviceManagement/windowsFeatureUpdateProfiles": () => T.FEATURE_UPDATES,

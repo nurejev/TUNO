@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10594, date: "2026-09-04", title: "The shared read covers legacy endpoint security, macOS custom attributes and ADE tokens",
+    items: [
+      { kind: "new", tool: "\ud83d\udcc4 Documenter", text: "Three surfaces join the one read every tool goes through: legacy endpoint security intents with their settings, macOS custom attribute scripts, and Apple enrolment program tokens. An endpoint security policy authored before the settings catalog existed was invisible to every tool that reads through this, and is not any more." },
+      { kind: "new", tool: "\ud83e\ude9f Windows baseline", text: "Policy bodies now ride on every surface the read covers, not the three that happened to arrive whole from a list read \u2014 so the content hash, the difference view, Export and Import all work on scripts, remediations, custom attributes, enrolment configurations, Autopilot profiles and update rings as well." },
+      { kind: "improved", tool: "\ud83e\ude9f Windows baseline", text: "Script bodies are asked for rather than assumed. Graph does not return a script's content in a list read and fetching it is one request per script, which seven other tools would otherwise pay for on every read \u2014 so there is a 'with script bodies' tick beside Read the tenant, and a script whose body was not read says exactly that instead of being called empty." },
+      { kind: "improved", tool: "\ud83e\ude9f Windows baseline", text: "Enrolment program tokens and driver update profiles are read so the gap is visible, and refused out loud everywhere else: a token belongs to the Apple account that made it and a driver profile to its own tenant's approvals, so neither can be created anywhere else." },
+      { kind: "improved", tool: "\ud83c\udf4e macOS baseline", text: "The same, plus macOS custom attribute scripts \u2014 which import through the same pipeline as shell scripts, created on the surface the object names." },
+    ],
+  },
+  {
     build: 10593, date: "2026-09-04", title: "Baselines: a delete is only verified by not finding it, and Rename re-checks at the write",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "Housekeeping's read-back after a delete was wrapped in a bare catch, so a throttled read, a permission error or a dropped connection all read as gone — the tool reported policies deleted on the strength of an error it never looked at. Only a genuine not-found verifies now. Anything else is its own outcome, unverified, counted separately and telling you to check the portal." },

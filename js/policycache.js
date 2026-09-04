@@ -39,23 +39,32 @@ const PolicyCache = (() => {
   // has no screen, but a tool opened mid-prefetch attaches its progress
   // line to the same read instead of starting a second one.
   const statusFns = new Set();
+  // WHETHER THE HELD READ CARRIES SCRIPT BODIES (build 10594). Graph's list
+  // read does not return scriptContent; a GET per script does. Seven tools
+  // share this cache and want none of that traffic, so bodies are asked for
+  // rather than assumed — and the cache remembers whether what it holds has
+  // them, so a tool that needs them can tell a bodies-less read from a
+  // bodies-full one instead of guessing from the data.
+  let hasBodies = false;
   const status = (m) => statusFns.forEach((f) => { try { f(m); } catch { /* a broken listener must not sink the read */ } });
 
   const scopesNeeded = () => [...new Set([...Docs.scopesFor(Docs.allSectionIds()), ...Graph.SCOPES.directory])];
 
   // The one read. Dedupes: a second caller while one runs gets the same
   // promise (and its onStatus joins the watchers).
+  let wantBodies = false;
   function read(onStatus) {
     if (onStatus) statusFns.add(onStatus);
     if (!inflight) {
       const g = gen;
-      inflight = Docs.collect({ onStatus: status, keepRaw: true })
+      inflight = Docs.collect({ onStatus: status, keepRaw: true, bodies: wantBodies })
         .then((r) => {
           inflight = null; statusFns.clear();
           // A read that started before an invalidation is PRE-WRITE data
           // wearing a fresh timestamp — it must not become the cache.
           if (g === gen) {
-            res = r; at = Date.now();
+            res = r; at = Date.now(); hasBodies = wantBodies;
+            r.hasBodies = wantBodies;
             // The result describes itself (build 10523): a tool holding the
             // res can say when the tenant was read without asking the cache,
             // and a document exported from it can print the read time.
@@ -83,13 +92,19 @@ const PolicyCache = (() => {
   // Refresh: a deliberate fresh read. An inflight read is already the
   // freshest thing available (it started seconds ago), so attach to it
   // rather than queueing a second sweep behind it.
-  function refresh(onStatus) {
-    if (!inflight) { res = null; at = 0; warmed = false; }
-    return read(onStatus);
+  // `bodies` asks for the per-object script read. A refresh that wants
+  // bodies when the inflight read was NOT asked for them cannot attach to
+  // it — that read will answer without the thing being asked for — so it
+  // waits for it and then reads again.
+  function refresh(onStatus, opts) {
+    const bodies = !!(opts && opts.bodies);
+    if (inflight && (!bodies || wantBodies)) return read(onStatus);
+    const start = () => { res = null; at = 0; warmed = false; wantBodies = bodies || wantBodies; return read(onStatus); };
+    return inflight ? inflight.catch(() => {}).then(start) : start();
   }
 
   // A write happened: whatever is held describes the tenant before it.
-  function invalidate() { res = null; at = 0; warmed = false; gen++; }
+  function invalidate() { res = null; at = 0; warmed = false; hasBodies = false; gen++; }
 
   // Sign-out: same as invalidate, but also the name says why it is called.
   function clear() { invalidate(); }
@@ -107,6 +122,7 @@ const PolicyCache = (() => {
     readAt: () => at,
     timeLabel,
     fromSignIn: () => warmed,
+    hasBodies: () => hasBodies,
     scopesNeeded,
   };
 })();

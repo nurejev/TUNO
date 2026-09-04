@@ -224,6 +224,44 @@ const Docs = (() => {
       rowsFrom: (o) => flatten(o),
     },
     {
+      // LEGACY ENDPOINT SECURITY (build 10594, T24/T27 design §3). The
+      // endpoint security policies created before the settings catalog
+      // took over live here, and nothing in the shared read has ever
+      // covered them — so a tenant's ASR or firewall policy authored in
+      // 2022 was invisible to every tool that reads through collect(),
+      // and the baseline tools reported it missing. T02 reads this
+      // surface separately since 10518; the day it reads it from here
+      // instead is a build of its own.
+      id: "intents", label: "Endpoint security (legacy intents)", icon: "🧱", scopes: () => S().config,
+      endpoint: "/deviceManagement/intents",
+      list: "/deviceManagement/intents?$expand=assignments",
+      detail: (o) => `/deviceManagement/intents/${o.id}/settings`,
+      rowsFrom: (o) => (o.__detail || []).map((s) => ({
+        name: label(String(s.definitionId || "").split("_").pop() || "setting"),
+        value: redactValue(String(s.definitionId || ""), JSON.stringify(s.valueJson !== undefined ? s.valueJson : s.value)),
+      })),
+    },
+    {
+      // macOS custom attribute scripts (§3). Their body is a script, so it
+      // arrives only with `bodies` asked for — see bodyDetail below.
+      id: "customAttributes", label: "Custom attributes (macOS)", icon: "🏷", scopes: () => S().scripts,
+      endpoint: "/deviceManagement/deviceCustomAttributeShellScripts",
+      list: "/deviceManagement/deviceCustomAttributeShellScripts?$expand=assignments",
+      bodyDetail: (o) => `/deviceManagement/deviceCustomAttributeShellScripts/${o.id}`,
+      rowsFrom: (o) => flatten(o),
+    },
+    {
+      // ADE / enrolment program tokens (§3) — LIST ONLY, and deliberately
+      // so: a token is bound to the Apple account that made it and an
+      // enrolment profile is bound to the token. Neither can be exported
+      // or created anywhere else, so they are read to make the gap
+      // visible and nothing more.
+      id: "ade", label: "Enrolment program tokens (ADE)", icon: "🍏", scopes: () => S().service,
+      endpoint: "/deviceManagement/depOnboardingSettings",
+      list: "/deviceManagement/depOnboardingSettings",
+      rowsFrom: (o) => flatten(o),
+    },
+    {
       id: "appProtection", label: "App protection policies", icon: "🛡", scopes: () => S().apps,
       endpoint: "/deviceAppManagement/*ManagedAppProtections",
       surfaces: [
@@ -252,6 +290,17 @@ const Docs = (() => {
       ],
       // The bodies are redacted by key, so this section documents that a
       // script exists, what it is called and where it runs — not what it does.
+      //
+      // THE BODY IS FETCHED ONLY WHEN IT IS ASKED FOR (build 10594). Graph's
+      // list read does not carry scriptContent; a GET per script does, and
+      // the baseline tools need it (a script without its body cannot be
+      // exported or put back). But that is one request per script, and
+      // seven other tools share this read and want none of it — so it
+      // rides `bodies: true` on collect() rather than happening to
+      // everybody. The document is unchanged either way: `scriptcontent`
+      // is a SECRET_KEY, so redactValue replaces it whether it was read
+      // or not, and only sec.raw carries the real thing.
+      bodyDetail: (o) => `${o.__surface || "/deviceManagement/deviceManagementScripts"}/${o.id}`,
       rowsFrom: (o) => flatten(o),
     },
     {
@@ -370,6 +419,27 @@ const Docs = (() => {
             items[i].__detailError = short((r.error && r.error.message) || r.error, 160);
             items[i].__detail = [];
           } else items[i].__detail = r.value;
+        });
+      }
+
+      // THE BODY N+1, OPT-IN (build 10594). A section whose real content
+      // only comes back from a GET per object declares bodyDetail; it runs
+      // when the caller asked for bodies and never otherwise. The answer is
+      // a single object, not a collection, so it is MERGED onto the item —
+      // the list read's assignments and __surface survive it.
+      if (o.bodies && sec.bodyDetail && items.length) {
+        let done = 0;
+        const res = await Graph.pool(items, async (it) => {
+          const r = await Graph.readOne(sec.bodyDetail(it), { scopes: sec.scopes(), beta: true, retry: true });
+          status(`${sec.label} — body ${++done}/${items.length}`);
+          return r;
+        }, 6);
+        res.forEach((r, i) => {
+          if (r && r.error) { items[i].__bodyError = short((r.error && r.error.message) || r.error, 160); return; }
+          const got = r && r.value;
+          // merge, never replace: the list read's assignments and __surface
+          // are not in the single-object answer and must survive it
+          if (got && typeof got === "object") for (const [k, v] of Object.entries(got)) if (items[i][k] === undefined) items[i][k] = v;
         });
       }
 

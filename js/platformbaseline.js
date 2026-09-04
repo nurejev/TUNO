@@ -642,12 +642,35 @@ const PlatformBaseline = (() => {
       return out;
     }
     // ---- export (the baseline tenant's act) ----
+    // EVERY SURFACE CARRIES ITS BODY (design §3, build 10594), not only the
+    // three that happened to arrive whole from a list read. A body is what
+    // the content hash, the diff, the export and the import all work on, so
+    // a surface without one is a surface the tool can only ever list.
+    // Scripts and custom attributes need `bodies: true` on the read (their
+    // content is a GET per object); everything else arrives with the list.
+    const BODY_SECTIONS = new Set(["settingsCatalog", "compliance", "deviceConfigurations", "admx",
+      "intents", "scripts", "customAttributes", "enrolment", "autopilot", "updates", "filters"]);
+    // Surfaces that are read so the gap is VISIBLE and can never be written:
+    // an ADE token is bound to the Apple account that made it, and a driver
+    // update profile to the approvals in the tenant that made it. Listing
+    // them and refusing them out loud beats pretending they do not exist.
+    const LIST_ONLY = {
+      ade: "an enrolment program token is bound to the Apple account that created it — it cannot be exported or created anywhere else",
+      driverUpdates: "driver update profiles carry tenant-bound approvals — deploy them with the author's own deployer",
+    };
+
     const AREA_OF_SECTION = {
       deviceConfigurations: "DeviceConfigurations",
       settingsCatalog: "SettingsCatalog",
       compliance: "CompliancePolicies",
       admx: "AdmxPolicies",
       filters: "AssignmentFilters",   // T14's own create path, not restore's
+      // Scripts, remediations and macOS custom attributes are all created
+      // through T04-restore's PlatformScripts area, which posts to the
+      // surface the object itself names — so one area covers three
+      // endpoints and there is no fourth create path to keep in step.
+      scripts: "PlatformScripts",
+      customAttributes: "PlatformScripts",
     };
     // one identity, the newest — shared by the export and by a re-cut of a
     // catalog file that was exported before this rule existed
@@ -694,6 +717,13 @@ const PlatformBaseline = (() => {
     function rowIssue(secId, it, raw) {
       if (!raw) return "no body in the read — export from a cache-backed read";
       if (raw.__detailError) return `its settings could not be read: ${raw.__detailError}`;
+      if (raw.__bodyError) return `its body could not be read: ${raw.__bodyError}`;
+      // A SCRIPT WITHOUT ITS BODY IS UNREAD, NOT EMPTY (build 10594). The
+      // list read never carries scriptContent; saying "it configures
+      // nothing" would blame the policy for a read nobody asked for.
+      if ((secId === "scripts" || secId === "customAttributes") && !raw.scriptContent) {
+        return "its script body was not read — tick ‘with script bodies’ above and read again";
+      }
       if (bodyLooksEmpty(secId, raw)) return "its body came back empty — it would be exported as a policy that configures nothing";
       return "";
     }
@@ -703,6 +733,9 @@ const PlatformBaseline = (() => {
       for (const sec of (res && res.sections) || []) {
         const raws = new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r]));
         let baseline = 0, bad = 0;
+        // a surface nothing can be exported from cannot make the export
+        // incomplete — it was never going to contribute a row
+        if (LIST_ONLY[sec.id]) { surfaces.push({ id: sec.id, label: sec.label, expected: (sec.items || []).length, read: (sec.raw || []).length, baseline: 0, bad: 0, listOnly: true }); continue; }
         for (const it of sec.items || []) {
           if (!looksBaseline(it.name)) continue;
           baseline++;
@@ -733,7 +766,7 @@ const PlatformBaseline = (() => {
           delete body.__detail; delete body.__detailError; delete body.__surface;
           if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           if (sec.id === "admx" && Array.isArray(raw.__detail)) body.definitionValues = raw.__detail;
-          const scriptNoBody = sec.id === "scripts" && !body.scriptContent;
+          const scriptNoBody = (sec.id === "scripts" || sec.id === "customAttributes") && !body.scriptContent;
           surfaces[sec.id] = (surfaces[sec.id] || 0) + 1;
           const rel = releaseOf(it.name);
           policies.push({
@@ -741,6 +774,10 @@ const PlatformBaseline = (() => {
             release: rel ? `R${rel.y}.${rel.m}` : "", version: versionOf(it.name),
             section: sec.id, sectionLabel: sec.label, area,
             du: duOf(it.name),
+            // the endpoint this item came from — a section that folds three
+            // of them into one list is otherwise a row nobody can write back
+            surface: (raw && raw.__surface) || "",
+            listOnly: !!LIST_ONLY[sec.id],
             // THE DESCRIPTION RIDES ON THE ROW, NOT IN THE BODY. It is not
             // content — two policies whose settings agree are the same
             // policy however they are described, and the hash has to say
@@ -757,7 +794,7 @@ const PlatformBaseline = (() => {
             // over exactly what is written, so a test that recomputes it
             // catches a leak the moment one is reintroduced.
             body: canonicalBody(sec.id, body),
-            importable: !!area && !scriptNoBody,
+            importable: !!area && !scriptNoBody && !LIST_ONLY[sec.id],
           });
         }
       }
@@ -831,7 +868,7 @@ const PlatformBaseline = (() => {
     // README.md index, the catalog file, and the data file the app bundles —
     // so the folder and the bundle are cut from one export and cannot drift.
     const safeFile = (name) => String(name).replace(/[\/\\:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 150);
-    const SECTION_DIR = { settingsCatalog: "SettingsCatalog", deviceConfigurations: "DeviceConfiguration", compliance: "CompliancePolicies", admx: "AdministrativeTemplates", filters: "AssignmentFilters", scripts: "Scripts", updates: "UpdateProfiles" };
+    const SECTION_DIR = { settingsCatalog: "SettingsCatalog", deviceConfigurations: "DeviceConfiguration", compliance: "CompliancePolicies", admx: "AdministrativeTemplates", filters: "AssignmentFilters", scripts: "Scripts", updates: "UpdateProfiles", intents: "EndpointSecurity", customAttributes: "CustomAttributes", enrolment: "Enrolment", autopilot: "Autopilot" };
     function repoFolder(built) {
       const plat = spec.platform.toLowerCase();
       const dir = `baseline/${plat}`;
@@ -921,6 +958,13 @@ const PlatformBaseline = (() => {
       admx: "/deviceManagement/groupPolicyConfigurations",
       scripts: null,   // its own surface, stamped by the read
       updates: null,
+      customAttributes: "/deviceManagement/deviceCustomAttributeShellScripts",
+      intents: "/deviceManagement/intents",
+      enrolment: "/deviceManagement/deviceEnrollmentConfigurations",
+      autopilot: "/deviceManagement/windowsAutopilotDeploymentProfiles",
+      // never: read to show the gap, never written (LIST_ONLY)
+      ade: null,
+      driverUpdates: null,
     };
     const deletePathFor = (p) => (p.section in DELETE_PATH) ? (DELETE_PATH[p.section] || p.surface || null) : null;
     // TWO GROUPS, TWO DEFAULTS (§4.5, build 10593).
@@ -1083,12 +1127,22 @@ const PlatformBaseline = (() => {
           refused.push({ name: p.name, why: "its body does not match the hash the catalog carries — edited after export, so it is not the baseline" });
           continue;
         }
+        if (LIST_ONLY[p.section]) { refused.push({ name: p.name, why: LIST_ONLY[p.section] }); continue; }
         if (p.importable === false || !p.body) {
           refused.push({ name: p.name, why: p.body
-            ? (p.section === "scripts" ? "the reference read carries no script body — a script without its body cannot be put back"
-              : p.section === "driverUpdates" ? "driver update profiles have no create path here — deploy them with the author's deployer"
-                : `its surface (${p.sectionLabel || p.section || "unknown"}) has no create path here`)
+            ? (p.section === "scripts" || p.section === "customAttributes"
+              ? "the catalog carries no script body for it — read the tenant with script bodies and export again"
+              : `its surface (${p.sectionLabel || p.section || "unknown"}) has no create path here`)
             : "no body in the catalog" });
+          continue;
+        }
+        // A script is created on the surface it came from — restore posts to
+        // /deviceManagement/<surface>, so the entry has to name it.
+        if (p.area === "PlatformScripts") {
+          if (!p.body.scriptContent) { refused.push({ name: p.name, why: "no script body in the catalog — a script without its body cannot be put back" }); continue; }
+          entries.push({ area: p.area, entry: { area: p.area, name: p.name, obj: createBody(p),
+            surface: String(p.surface || "").split("/").pop() || (p.section === "customAttributes" ? "deviceCustomAttributeShellScripts" : "deviceManagementScripts"),
+            sourceId: "" }, newName: p.name });
           continue;
         }
         if (p.area === "AssignmentFilters") {
@@ -1356,6 +1410,8 @@ const PlatformBaseline = (() => {
       enrolment: { endpoint: "/deviceManagement/deviceEnrollmentConfigurations", field: "displayName", typed: true },
       autopilot: { endpoint: "/deviceManagement/windowsAutopilotDeploymentProfiles", field: "displayName", typed: true },
       filters: { endpoint: null, field: "displayName", viaFilters: true },
+      customAttributes: { endpoint: "/deviceManagement/deviceCustomAttributeShellScripts", field: "displayName" },
+      intents: { endpoint: "/deviceManagement/intents", field: "displayName" },
     };
     // the concrete path for one policy: its section's, or its own surface
     function renamePathFor(p) {
@@ -1550,7 +1606,7 @@ const PlatformBaseline = (() => {
       releaseOf, normRel, relCmp, currentRelease, versionOf, looksBaseline, keyOf, relLabel, cmpVersion, cmpRelVer,
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
       CATALOG_SCHEMA, COMMUNITY_KIND, canonicalBody, canonicalJson, hashBody, hashAll, duOf,
-      exportReadiness, rowIssue, bodyLooksEmpty,
+      exportReadiness, rowIssue, bodyLooksEmpty, LIST_ONLY, BODY_SECTIONS,
       shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
       SIMILARITY_MIN, REVIEW_MARGIN, ATTENTION, jaccard, anchorOf, kindOfSection,
       PILOT_GROUPS, DEVICE_ONLY_SECTIONS, duFor, assignPathFor, findPilotGroups, assignToGroup,
@@ -1650,7 +1706,6 @@ const PlatformBaseline = (() => {
 
     // the bodies ride along for the surfaces the content match reads (10576):
     // the raw object from the shared read, with the settings the read fetched
-    const BODY_SECTIONS = new Set(["settingsCatalog", "compliance", "deviceConfigurations"]);
     const vms = () => {
       const out = [];
       for (const sec of (S.res && S.res.sections) || []) {
@@ -1658,9 +1713,12 @@ const PlatformBaseline = (() => {
         for (const it of sec.items || []) {
           let body = null;
           const raw = rawById.get(String(it.id).toLowerCase()) || null;
-          if (raw && BODY_SECTIONS.has(sec.id)) {
-            body = Object.assign({}, raw); delete body.__detail; delete body.__detailError; delete body.__surface;
+          if (raw && E.BODY_SECTIONS.has(sec.id)) {
+            body = Object.assign({}, raw);
+            delete body.__detail; delete body.__detailError; delete body.__surface; delete body.__bodyError;
             if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
+            if (sec.id === "admx" && Array.isArray(raw.__detail)) body.definitionValues = raw.__detail;
+            if (sec.id === "intents" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           }
           out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body,
             // The content hash of this policy as the tenant holds it —
@@ -2952,7 +3010,7 @@ const PlatformBaseline = (() => {
         } else {
           prog("Checking permissions…");
           await Graph.ensureScopes(PolicyCache.scopesNeeded());
-          r = await PolicyCache.refresh(prog);
+          r = await PolicyCache.refresh(prog, { bodies: wantBodies });
         }
         prog("");
         await land(r, note ? `${note} — re-read at ${esc(new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))}, so the comparison below is the tenant as it is now.` : attach ? srcNote() : "");
@@ -2961,6 +3019,13 @@ const PlatformBaseline = (() => {
         $(ID("Body")).innerHTML = `<div class="gu-fail"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;
       } finally { running = false; $(ID("Run")).disabled = false; }
     }
+    // SCRIPT BODIES ARE ASKED FOR, NOT ASSUMED (build 10594). Graph's list
+    // read does not carry scriptContent, and a GET per script is real
+    // traffic that seven other tools share this cache with — so the read
+    // costs what it costs only when somebody wants the thing it buys:
+    // exporting a script, or matching one by content.
+    let wantBodies = false;
+
     // AFTER A WRITE, THE TENANT IS RE-READ (build 10573 — Mihai: "just did a
     // create missing… nothing changes, still saying missing"). Invalidating
     // the cache is not enough: the screen kept comparing the read it had.
@@ -3012,6 +3077,14 @@ const PlatformBaseline = (() => {
       // forgotten in app.js's sign-out handler.
       window.addEventListener("tuno:signout", reset);
       $(ID("Run")).addEventListener("click", () => run(false));
+      const bx = $(ID("Bodies"));
+      if (bx) bx.addEventListener("change", () => {
+        wantBodies = bx.checked;
+        const note = $(ID("Body"));
+        if (wantBodies && S.res && !S.res.hasBodies && note) {
+          note.insertAdjacentHTML("afterbegin", `<p class="mini muted" style="margin:0 0 8px">Script bodies are not in the read on the table — ${esc(spec.readLabel)} again to fetch them.</p>`);
+        }
+      });
       $(ID("Seg")).addEventListener("click", (e) => {
         const b2 = e.target.closest(`[data-${P}mode]`);
         if (!b2 || b2.dataset[`${P}mode`] === mode) return;
