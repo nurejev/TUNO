@@ -1,14 +1,22 @@
 {
-  "id": "a9e65d05-769a-402d-bed0-2293b8ab178c",
-  "createdDateTime": "2026-04-28T09:44:29.8231892Z",
-  "lastModifiedDateTime": "2026-04-28T09:44:29.8231892Z",
-  "displayName": "MACOS - FTR - Assignment filters - D - All Manual Enrolled Devices - R26.4 - v3.0",
+  "name": "MACOS - FTR - Assignment filters - D - All Manual Enrolled Devices - R26.4 - v3.0",
+  "key": "macos ftr assignment filters d all manual enrolled devices",
+  "release": "R26.4",
+  "version": "3.0",
+  "section": "filters",
+  "sectionLabel": "Assignment filters",
+  "area": "AssignmentFilters",
+  "du": "D",
   "description": "",
-  "platform": "macOS",
-  "rule": "(device.enrollmentProfileName -eq null)",
-  "roleScopeTags": [
-    "0"
-  ],
-  "assignmentFilterManagementType": "devices",
-  "payloads": []
+  "importable": true,
+  "hash": "sha256:5dde16fc611a8c588973e121d67c2cad745437fdced05c8c698e9fa126c07486",
+  "body": {
+    "assignmentFilterManagementType": "devices",
+    "payloads": [],
+    "platform": "macOS",
+    "roleScopeTags": [
+      "0"
+    ],
+    "rule": "(device.enrollmentProfileName -eq null)"
+  }
 }

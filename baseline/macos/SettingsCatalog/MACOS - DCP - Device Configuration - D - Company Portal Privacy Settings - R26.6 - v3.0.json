@@ -1,111 +1,85 @@
 {
-  "createdDateTime": "2026-06-09T06:42:08.0623628Z",
-  "creationSource": null,
-  "description": "Grants Company Portal (com.microsoft.CompanyPortalMac) App Management (SystemPolicyAppBundles) access via a Privacy Preferences Policy Control settings-catalog profile.",
-  "lastModifiedDateTime": "2026-06-12T06:45:10.3144788Z",
   "name": "MACOS - DCP - Device Configuration - D - Company Portal Privacy Settings - R26.6 - v3.0",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "32a67383-e577-40d2-81fc-abb063a812e3",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('32a67383-e577-40d2-81fc-abb063a812e3')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device configuration d company portal privacy settings",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Grants Company Portal (com.microsoft.CompanyPortalMac) App Management (SystemPolicyAppBundles) access via a Privacy Preferences Policy Control settings-catalog profile.",
+  "importable": true,
+  "hash": "sha256:aab274bef89cb35316086ff9229115342ac0e0602c38ce05cdb80dedce1b64af",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_com.apple.tcc.configuration-profile-policy",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "groupSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                        "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "groupSettingCollectionValue": [
                           {
-                            "settingValueTemplateReference": null,
                             "children": [
                               {
                                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_authorization",
-                                "settingInstanceTemplateReference": null,
-                                "auditRuleInformation": null,
                                 "choiceSettingValue": {
-                                  "settingValueTemplateReference": null,
-                                  "value": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_authorization_0",
-                                  "children": []
-                                }
+                                  "children": [],
+                                  "value": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_authorization_0"
+                                },
+                                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_authorization"
                               },
                               {
                                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                                 "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_coderequirement",
-                                "settingInstanceTemplateReference": null,
-                                "auditRuleInformation": null,
                                 "simpleSettingValue": {
                                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                                  "settingValueTemplateReference": null,
                                   "value": "identifier \"com.microsoft.CompanyPortalMac\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = UBF8T346G9"
                                 }
                               },
                               {
                                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                                 "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_identifier",
-                                "settingInstanceTemplateReference": null,
-                                "auditRuleInformation": null,
                                 "simpleSettingValue": {
                                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                                  "settingValueTemplateReference": null,
                                   "value": "com.microsoft.CompanyPortalMac"
                                 }
                               },
                               {
                                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_identifiertype",
-                                "settingInstanceTemplateReference": null,
-                                "auditRuleInformation": null,
                                 "choiceSettingValue": {
-                                  "settingValueTemplateReference": null,
-                                  "value": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_identifiertype_0",
-                                  "children": []
-                                }
+                                  "children": [],
+                                  "value": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_identifiertype_0"
+                                },
+                                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles_item_identifiertype"
                               }
                             ]
                           }
-                        ]
+                        ],
+                        "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services_systempolicyappbundles"
                       }
                     ]
                   }
-                ]
+                ],
+                "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_services"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "com.apple.tcc.configuration-profile-policy_com.apple.tcc.configuration-profile-policy"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

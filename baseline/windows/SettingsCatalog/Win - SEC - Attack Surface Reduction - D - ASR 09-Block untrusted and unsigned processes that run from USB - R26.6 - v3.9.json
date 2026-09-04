@@ -1,54 +1,42 @@
 {
-  "createdDateTime": "2026-01-08T18:56:38.6378178Z",
-  "creationSource": null,
-  "description": "Block untrusted and unsigned processes that run from USB",
-  "lastModifiedDateTime": "2026-05-19T11:10:17.7426378Z",
   "name": "Win - SEC - Attack Surface Reduction - D - ASR 09-Block untrusted and unsigned processes that run from USB - R26.6 - v3.9",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "7bad828e-b31a-4504-a40c-992ce750251a",
-  "templateReference": {
-    "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
-    "templateFamily": "endpointSecurityAttackSurfaceReduction",
-    "templateDisplayName": "Attack Surface Reduction Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('7bad828e-b31a-4504-a40c-992ce750251a')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec attack surface reduction d asr 09 block untrusted and unsigned processes that run from usb",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Block untrusted and unsigned processes that run from USB",
+  "importable": true,
+  "hash": "sha256:58e1339afc7242c0f18d7dbff2754d732b139cb3fd08f90f046b42af87cb5df5",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb_block",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb_block"
+                },
+                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockuntrustedunsignedprocessesthatrunfromusb"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Attack Surface Reduction Rules",
+      "templateFamily": "endpointSecurityAttackSurfaceReduction",
+      "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1"
     }
-  ]
+  }
 }

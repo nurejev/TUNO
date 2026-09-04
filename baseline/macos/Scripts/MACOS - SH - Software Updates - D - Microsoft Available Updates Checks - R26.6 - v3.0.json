@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT2H",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "38e661ae-c348-403f-92f5-10ca6516d4f1",
-  "displayName": "MACOS - SH - Software Updates - D - Microsoft Available Updates Checks - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Updates - D - Microsoft Available Updates Checks - R26.6 - v3.0",
+  "key": "macos sh software updates d microsoft available updates checks",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "This script displays available Updates for Microsoft Apps by checking MAU",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-08T19:34:17.0813794Z",
-  "lastModifiedDateTime": "2026-05-19T11:17:57.0741853Z",
-  "runAsAccount": "system",
-  "fileName": "check_available_msupdate_updates.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('38e661ae-c348-403f-92f5-10ca6516d4f1')/assignments",
-  "assignments": [
-    {
-      "id": "38e661ae-c348-403f-92f5-10ca6516d4f1:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:de69dcfc77fd490bc38ee1fb0ceeb5291afdd2152243cc5d12449a16f4d0f179",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT2H",
+    "fileName": "check_available_msupdate_updates.sh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

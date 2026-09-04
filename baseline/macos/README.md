@@ -1,6 +1,8 @@
-# CloudFellows macOS baseline — R26
+# CloudFellows macOS baseline — R26.9
 
-Exported from **CloudFellows.dev** on 2026-09-03 by TUNO v1.0.3-beta.273 (🧬 Export on the baseline tenant, the cfdev convention). 82 policies, each identity once — the newest release and version.
+Exported from **CloudFellows.dev** on 2026-09-03 by TUNO v1.0.3-beta.288 (🧬 Export on the reference tenant, the cfdev convention). 82 policies, each identity once — the newest release and version.
+
+Schema 2 · catalog `cloudfellows` · release **R26.9** derived from the policies themselves (R26.6 ×63, R26.9 ×15, R26.4 ×4). Every body is the canonical body — the tenant's ids, timestamps, assignments and scope tags are stripped before export — and every policy carries the SHA-256 of that body, which the loader recomputes on read.
 
 The naming convention is the identity: `MACOS - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y` — `Ryy.m` is the release the policy was cut in (year, then month), the version orders re-cuts within it.
 
@@ -112,24 +114,3 @@ The naming convention is the identity: `MACOS - <type> - <area> - <D|U> - <descr
 | MACOS - SH - Software Installation - D - Windows App - R26.6 - v3.0 | R26.6 | v3.0 | no — no script body in the read |
 | MACOS - SH - Software Updates - D - Google Chrome Update - R26.6 - v3.0 | R26.6 | v3.0 | no — no script body in the read |
 | MACOS - SH - Software Updates - D - Microsoft Available Updates Checks - R26.6 - v3.0 | R26.6 | v3.0 | no — no script body in the read |
-
-## Superseded on the tenant at export time (16)
-
-Older copies still present beside their re-cut — left out of the catalog; 🧹 Housekeeping on the baseline tenant retires them.
-
-- **MACOS - CMP - Device Properties - U - Validbuilds 15+ - R26.9 - v3.1** supersedes `MACOS - CMP - Device Properties - U - Validbuilds 15+ - R26.6 - v3.0`
-- **MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0** supersedes `MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0`
-- **MACOS - DCP - Apple Antivirus - D - Enable X-Protect Malware Upload - R26.9 - v3.1** supersedes `MACOS - DCP - Apple Antivirus - D - Enable X-Protect Malware Upload - R26.6 - v3.0`
-- **MACOS - DCP - Apple Firewall - D - Enable MACOS Firewall - R26.9 - v3.1** supersedes `MACOS - DCP - Apple Firewall - D - Enable MACOS Firewall - R26.6 - v3.0`
-- **MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.9 - v3.1** supersedes `MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.6 - v3.0`
-- **MACOS - DCP - Authentication - U - Platform SSO - R26.9 - v3.2** supersedes `MACOS - DCP - Authentication - U - Platform SSO - R26.6 - v3.1.1`
-- **MACOS - DCP - Defender Antivirus - D - MDE System Settings - R26.9 - v3.1** supersedes `MACOS - DCP - Defender Antivirus - D - MDE System Settings - R26.6 - v3.0`
-- **MACOS - DCP - Device Configuration - D - Network Time Protocol - R26.9 - v3.1** supersedes `MACOS - DCP - Device Configuration - D - Network Time Protocol - R26.6 - v3.0`
-- **MACOS - DCP - Device Configuration - D - Power Management - R26.9 - v3.1** supersedes `MACOS - DCP - Device Configuration - D - Power Management - R26.6 - v3.0`
-- **MACOS - DCP - Device Security - D - Accounts And Login - R26.9 - v3.2** supersedes `MACOS - DCP - Device Security - D - Accounts And Login - R26.9 - v3.1`, `MACOS - DCP - Device Security - D - Accounts And Login - R26.6 - v3.0`
-- **MACOS - DCP - Device Security - D - DDM Passcode Configuration - R26.9 - v3.1** supersedes `MACOS - DCP - Device Security - D - DDM Passcode Configuration - R26.6 - v3.0`
-- **MACOS - DCP - Device Security - D - Guest Account Security - R26.9 - v3.1** supersedes `MACOS - DCP - Device Security - D - Guest Account Security - R26.6 - v3.0`
-- **MACOS - DCP - Device Security - D - Recovery Lock - R26.9 - v3.1** supersedes `MACOS - DCP - Device Security - D - Recovery Lock - R26.6 - v3.0`
-- **MACOS - DCP - Device Security - D - Screensaver Security - R26.9 - v3.1** supersedes `MACOS - DCP - Device Security - D - Screensaver Security - R26.6 - v3.0`
-- **MACOS - DCP - Disk Encryption - D - FileVault - R26.9 - v3.1** supersedes `MACOS - DCP - Disk Encryption - D - FileVault - R26.6 - v3.0`
-- **MACOS - DCP - Microsoft Office - D - Office Configuration - R26.9 - v3.2** supersedes `MACOS - DCP - Microsoft Office - D - Office Configuration - R26.9 - v3.1`, `MACOS - DCP - Microsoft Office - D - Office Configuration - R26.6 - v3.0`

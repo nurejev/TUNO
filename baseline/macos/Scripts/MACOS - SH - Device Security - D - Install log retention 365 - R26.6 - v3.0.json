@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT1H",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "6b12c980-dbd4-4ebf-ad9a-170139f747fb",
-  "displayName": "MACOS - SH - Device Security - D - Install log retention 365 - R26.6 - v3.0",
+  "name": "MACOS - SH - Device Security - D - Install log retention 365 - R26.6 - v3.0",
+  "key": "macos sh device security d install log retention 365",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "- Script to configure /var/log/install.log retention and rotation settings for CIS compliance\n- CIS Benchmark Level 1 - 3.3 Ensure install.log Is Retained for 365 or More Days and No Maximum Size\n\n",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-09T11:35:28.3415051Z",
-  "lastModifiedDateTime": "2026-05-19T11:17:10.089539Z",
-  "runAsAccount": "system",
-  "fileName": "configure_install_log_retention.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('6b12c980-dbd4-4ebf-ad9a-170139f747fb')/assignments",
-  "assignments": [
-    {
-      "id": "6b12c980-dbd4-4ebf-ad9a-170139f747fb:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:b971761b6d978fbf11ad0577b0fb3e529cfc2a6fe1dd10e25ae41a57acea1db1",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT1H",
+    "fileName": "configure_install_log_retention.zsh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

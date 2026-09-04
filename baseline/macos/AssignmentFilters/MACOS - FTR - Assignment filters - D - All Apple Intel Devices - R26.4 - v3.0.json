@@ -1,14 +1,22 @@
 {
-  "id": "1d647e67-8dd3-4ee1-8e4a-0feb64485d7b",
-  "createdDateTime": "2026-04-28T09:40:37.2703602Z",
-  "lastModifiedDateTime": "2026-04-28T09:40:37.2703602Z",
-  "displayName": "MACOS - FTR - Assignment filters - D - All Apple Intel Devices - R26.4 - v3.0",
+  "name": "MACOS - FTR - Assignment filters - D - All Apple Intel Devices - R26.4 - v3.0",
+  "key": "macos ftr assignment filters d all apple intel devices",
+  "release": "R26.4",
+  "version": "3.0",
+  "section": "filters",
+  "sectionLabel": "Assignment filters",
+  "area": "AssignmentFilters",
+  "du": "D",
   "description": "",
-  "platform": "macOS",
-  "rule": "(device.cpuArchitecture -eq \"x64\")",
-  "roleScopeTags": [
-    "0"
-  ],
-  "assignmentFilterManagementType": "devices",
-  "payloads": []
+  "importable": true,
+  "hash": "sha256:ad092d037e81557d147afa0c5b3d1c2b248e463c4aaf7fdd407ae627674b0bec",
+  "body": {
+    "assignmentFilterManagementType": "devices",
+    "payloads": [],
+    "platform": "macOS",
+    "roleScopeTags": [
+      "0"
+    ],
+    "rule": "(device.cpuArchitecture -eq \"x64\")"
+  }
 }

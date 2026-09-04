@@ -1,620 +1,462 @@
 {
-  "createdDateTime": "2026-05-19T10:18:26.8359559Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:06:35.5743967Z",
   "name": "Win - SEC - Defender Firewall Rules - D - Security Rules - R26.6 - v3.8",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "4c50a1c3-7232-478a-963c-648760e86f9d",
-  "templateReference": {
-    "templateId": "19c8aa67-f286-4861-9aa0-f23541d31680_1",
-    "templateFamily": "endpointSecurityFirewall",
-    "templateDisplayName": "Windows Firewall Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('4c50a1c3-7232-478a-963c-648760e86f9d')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec defender firewall rules d security rules",
+  "release": "R26.6",
+  "version": "3.8",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:34c74eb0d9efb5fc291cf5b3928ce185bd3ceb7b468b619623552f09919ec483",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "76c7a8be-67d2-44bf-81a5-38c94926b1a1"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit calc.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\SysWOW64\\calc.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit calc.exe"
                 }
               }
             ]
           },
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit calc.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\System32\\calc.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit calc.exe"
                 }
               }
             ]
           },
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit notepad.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\SysWOW64\\notepad.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit notepad.exe"
                 }
               }
             ]
           },
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit notepad.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\System32\\notepad.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit notepad.exe"
                 }
               }
             ]
           },
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit mshta.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\SysWOW64\\mshta.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 32-bit mshta.exe"
                 }
               }
             ]
           },
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_name",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit mshta.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type_0"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_action_type"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction_out"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_direction"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled_1"
+                },
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_enabled"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes_all"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_interfacetypes"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_app_filepath",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "%systemroot%\\System32\\mshta.exe"
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance",
-                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
-                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647",
-                    "children": []
+                    "children": [],
+                    "value": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles_2147483647"
                   }
-                ]
+                ],
+                "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_profiles"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}_description",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "LOLBIN Security - Block 64-bit mshta.exe"
                 }
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "vendor_msft_firewall_mdmstore_firewallrules_{firewallrulename}"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Windows Firewall Rules",
+      "templateFamily": "endpointSecurityFirewall",
+      "templateId": "19c8aa67-f286-4861-9aa0-f23541d31680_1"
     }
-  ]
+  }
 }

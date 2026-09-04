@@ -1,122 +1,93 @@
 {
-  "createdDateTime": "2026-09-02T12:41:14.5857881Z",
-  "creationSource": null,
-  "description": "Configures power management and energy saver settings for macOS devices. Sets display sleep to 5 minutes and system sleep to 10 minutes for both desktop (AC power) and portable devices. Enables Wake on LAN for desktop computers to allow network-based device management and remote wake capabilities.",
-  "lastModifiedDateTime": "2026-09-02T12:41:14.5857881Z",
   "name": "MACOS - DCP - Device Configuration - D - Power Management - R26.9 - v3.1",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "db7c3514-b7ee-4cf3-b83d-6041acc420c0",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('db7c3514-b7ee-4cf3-b83d-6041acc420c0')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device configuration d power management",
+  "release": "R26.9",
+  "version": "3.1",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Configures power management and energy saver settings for macOS devices. Sets display sleep to 5 minutes and system sleep to 10 minutes for both desktop (AC power) and portable devices. Enables Wake on LAN for desktop computers to allow network-based device management and remote wake capabilities.",
+  "importable": true,
+  "hash": "sha256:7d51dad7f2bbc704503622f98cb602133a7a94bcce4610c8b2daea1bde6881f7",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.mcx_com.apple.mcx-energysaver",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "groupSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower_display sleep timer",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": 5
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower_system sleep timer",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": 10
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                        "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower_wake on lan",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "choiceSettingValue": {
-                          "settingValueTemplateReference": null,
-                          "value": "com.apple.mcx_com.apple.energysaver.desktop.acpower_wake on lan_1",
-                          "children": []
-                        }
+                          "children": [],
+                          "value": "com.apple.mcx_com.apple.energysaver.desktop.acpower_wake on lan_1"
+                        },
+                        "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower_wake on lan"
                       }
                     ]
                   }
-                ]
+                ],
+                "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.desktop.acpower"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.portable.acpower",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "groupSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.portable.acpower_display sleep timer",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": 5
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.portable.acpower_system sleep timer",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": 10
                         }
                       }
                     ]
                   }
-                ]
+                ],
+                "settingDefinitionId": "com.apple.mcx_com.apple.energysaver.portable.acpower"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "com.apple.mcx_com.apple.mcx-energysaver"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

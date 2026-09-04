@@ -1,54 +1,42 @@
 {
-  "createdDateTime": "2026-01-08T18:56:41.1668794Z",
-  "creationSource": null,
-  "description": "Block process creations originating from PSExec and WMI commands",
-  "lastModifiedDateTime": "2026-05-19T11:10:07.2219516Z",
   "name": "Win - SEC - Attack Surface Reduction - D - ASR 10-Block process creations originating from PSExec and WMI commands - R26.6 - v3.9",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "5081df37-bd0f-4a23-8007-dc5ff6e12ecd",
-  "templateReference": {
-    "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
-    "templateFamily": "endpointSecurityAttackSurfaceReduction",
-    "templateDisplayName": "Attack Surface Reduction Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('5081df37-bd0f-4a23-8007-dc5ff6e12ecd')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec attack surface reduction d asr 10 block process creations originating from psexec and wmi commands",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Block process creations originating from PSExec and WMI commands",
+  "importable": true,
+  "hash": "sha256:a0143180b8d9cab937c06077c80a7d1e71ca9d9d7f9be4f4702a3a34a8b6169e",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands_block",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands_block"
+                },
+                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockprocesscreationsfrompsexecandwmicommands"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Attack Surface Reduction Rules",
+      "templateFamily": "endpointSecurityAttackSurfaceReduction",
+      "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1"
     }
-  ]
+  }
 }

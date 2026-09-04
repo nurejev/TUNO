@@ -1,18 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "f4f41a4e-a65e-43d5-b540-d526194bf3ae",
-  "displayName": "MACOS - SH - Software Installation - D - Install Google Chrome - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Install Google Chrome - R26.6 - v3.0",
+  "key": "macos sh software installation d install google chrome",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-13T13:31:48.3815894Z",
-  "lastModifiedDateTime": "2026-05-19T11:15:02.3791343Z",
-  "runAsAccount": "system",
-  "fileName": "installGoogleChrome.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('f4f41a4e-a65e-43d5-b540-d526194bf3ae')/assignments",
-  "assignments": []
+  "importable": false,
+  "hash": "sha256:79a55adcb96d3fd220e9243c107af14fc962f4c06131973bc7fa71075b516f64",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT0S",
+    "fileName": "installGoogleChrome.zsh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

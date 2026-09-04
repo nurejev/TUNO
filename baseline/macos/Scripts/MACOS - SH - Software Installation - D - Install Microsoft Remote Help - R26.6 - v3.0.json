@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 0,
-  "blockExecutionNotifications": false,
-  "id": "21e63e1a-15bd-41ca-9fe2-f65e58524f23",
-  "displayName": "MACOS - SH - Software Installation - D - Install Microsoft Remote Help - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Install Microsoft Remote Help - R26.6 - v3.0",
+  "key": "macos sh software installation d install microsoft remote help",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Downloads and installs Microsoft Remote Help from a signed PKG. Automatically installs Microsoft Auto Update (MAU) first and ensures Rosetta 2 is present on Apple Silicon. Performs intelligent update checking via HTTP Last-Modified headers to avoid unnecessary reinstalls. Enables IT support teams to provide remote assistance to macOS devices.",
-  "scriptContent": null,
-  "createdDateTime": "2026-04-28T09:25:05.4619902Z",
-  "lastModifiedDateTime": "2026-05-19T11:26:13.5412528Z",
-  "runAsAccount": "system",
-  "fileName": "scr-app-102-install-remote-help.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('21e63e1a-15bd-41ca-9fe2-f65e58524f23')/assignments",
-  "assignments": [
-    {
-      "id": "21e63e1a-15bd-41ca-9fe2-f65e58524f23:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:e15fb63f6f926e2915345c643aac063a74f81d6b315bc581a6369e62e609aa23",
+  "body": {
+    "blockExecutionNotifications": false,
+    "executionFrequency": "PT0S",
+    "fileName": "scr-app-102-install-remote-help.sh",
+    "retryCount": 0,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

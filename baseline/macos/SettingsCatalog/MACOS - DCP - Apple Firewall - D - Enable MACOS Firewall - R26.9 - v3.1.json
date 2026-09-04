@@ -1,79 +1,59 @@
 {
-  "createdDateTime": "2026-09-02T12:41:27.355148Z",
-  "creationSource": null,
-  "description": "Enables macOS firewall and prevents users from accessing and modifying firewall settings through System Preferences, ensuring firewall configuration remains under IT control.",
-  "lastModifiedDateTime": "2026-09-02T12:41:27.355148Z",
   "name": "MACOS - DCP - Apple Firewall - D - Enable MACOS Firewall - R26.9 - v3.1",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 2,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "b07ad84e-aa43-49e5-ac77-74ba7b508e35",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('b07ad84e-aa43-49e5-ac77-74ba7b508e35')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp apple firewall d enable macos firewall",
+  "release": "R26.9",
+  "version": "3.1",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Enables macOS firewall and prevents users from accessing and modifying firewall settings through System Preferences, ensuring firewall configuration remains under IT control.",
+  "importable": true,
+  "hash": "sha256:c9097efc37162bc30f5f074a172793b16ab0e90caa3898f2da24521287d1396c",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.preference.security_com.apple.preference.security",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "com.apple.preference.security_dontallowfirewallui",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "com.apple.preference.security_dontallowfirewallui_true",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "com.apple.preference.security_dontallowfirewallui_true"
+                },
+                "settingDefinitionId": "com.apple.preference.security_dontallowfirewallui"
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "id": "1",
-      "settingInstance": {
+        ],
+        "settingDefinitionId": "com.apple.preference.security_com.apple.preference.security"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.security.firewall_com.apple.security.firewall",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "com.apple.security.firewall_enablefirewall",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "com.apple.security.firewall_enablefirewall_true",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "com.apple.security.firewall_enablefirewall_true"
+                },
+                "settingDefinitionId": "com.apple.security.firewall_enablefirewall"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "com.apple.security.firewall_com.apple.security.firewall"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

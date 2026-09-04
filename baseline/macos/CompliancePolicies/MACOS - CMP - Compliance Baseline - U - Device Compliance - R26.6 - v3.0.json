@@ -1,65 +1,40 @@
 {
-  "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "id": "1adf69b9-39d5-4ca4-828a-021948731e04",
-  "createdDateTime": "2026-01-08T08:35:03.7944197Z",
+  "name": "MACOS - CMP - Compliance Baseline - U - Device Compliance - R26.6 - v3.0",
+  "key": "macos cmp compliance baseline u device compliance",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "compliance",
+  "sectionLabel": "Compliance policies",
+  "area": "CompliancePolicies",
+  "du": "U",
   "description": "Baseline macOS compliance policy requiring FileVault encryption, Firewall enabled, SIP enabled, and minimum macOS 15.0. Gatekeeper configuration is handled separately via configuration policy.\n\n",
-  "lastModifiedDateTime": "2026-05-19T11:11:36.2670765Z",
-  "displayName": "MACOS - CMP - Compliance Baseline - U - Device Compliance - R26.6 - v3.0",
-  "version": 8,
-  "passwordRequired": false,
-  "passwordBlockSimple": false,
-  "passwordExpirationDays": null,
-  "passwordMinimumLength": null,
-  "passwordMinutesOfInactivityBeforeLock": null,
-  "passwordPreviousPasswordBlockCount": null,
-  "passwordMinimumCharacterSetCount": null,
-  "passwordRequiredType": "deviceDefault",
-  "osMinimumVersion": null,
-  "osMaximumVersion": null,
-  "osMinimumBuildVersion": null,
-  "osMaximumBuildVersion": null,
-  "systemIntegrityProtectionEnabled": true,
-  "deviceThreatProtectionEnabled": false,
-  "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
-  "advancedThreatProtectionRequiredSecurityLevel": "unavailable",
-  "storageRequireEncryption": true,
-  "gatekeeperAllowedAppSource": "notConfigured",
-  "firewallEnabled": false,
-  "firewallBlockAllIncoming": false,
-  "firewallEnableStealthMode": false,
-  "deviceCompliancePolicyScript": null,
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('1adf69b9-39d5-4ca4-828a-021948731e04')/microsoft.graph.macOSCompliancePolicy/assignments",
-  "assignments": [
-    {
-      "id": "1adf69b9-39d5-4ca4-828a-021948731e04_93d20a3f-d668-450f-b5e1-9a84b84e0c08",
-      "source": "direct",
-      "sourceId": "1adf69b9-39d5-4ca4-828a-021948731e04",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "93d20a3f-d668-450f-b5e1-9a84b84e0c08"
+  "importable": true,
+  "hash": "sha256:40558f187e578fdd673ebf02cf78f930b518bbe88e3ac9cf3acca667282cc9b7",
+  "body": {
+    "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
+    "advancedThreatProtectionRequiredSecurityLevel": "unavailable",
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "firewallBlockAllIncoming": false,
+    "firewallEnableStealthMode": false,
+    "firewallEnabled": false,
+    "gatekeeperAllowedAppSource": "notConfigured",
+    "passwordBlockSimple": false,
+    "passwordRequired": false,
+    "passwordRequiredType": "deviceDefault",
+    "scheduledActionsForRule": [
+      {
+        "scheduledActionConfigurations": [
+          {
+            "actionType": "block",
+            "gracePeriodHours": 0,
+            "notificationMessageCCList": [],
+            "notificationTemplateId": "00000000-0000-0000-0000-000000000000"
+          }
+        ]
       }
-    }
-  ],
-  "scheduledActionsForRule@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('1adf69b9-39d5-4ca4-828a-021948731e04')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule(scheduledActionConfigurations())",
-  "scheduledActionsForRule": [
-    {
-      "id": "1adf69b9-39d5-4ca4-828a-021948731e04",
-      "ruleName": null,
-      "scheduledActionConfigurations@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('1adf69b9-39d5-4ca4-828a-021948731e04')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule('1adf69b9-39d5-4ca4-828a-021948731e04')/scheduledActionConfigurations",
-      "scheduledActionConfigurations": [
-        {
-          "id": "d5bfc980-0b0c-4874-aa5c-970b70b15808",
-          "gracePeriodHours": 0,
-          "actionType": "block",
-          "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
-          "notificationMessageCCList": []
-        }
-      ]
-    }
-  ]
+    ],
+    "storageRequireEncryption": true,
+    "systemIntegrityProtectionEnabled": true
+  }
 }

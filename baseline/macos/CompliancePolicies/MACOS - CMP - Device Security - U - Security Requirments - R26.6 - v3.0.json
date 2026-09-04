@@ -1,53 +1,40 @@
 {
-  "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "id": "22cc9300-fc7d-43c4-809c-197adc7ad478",
-  "createdDateTime": "2026-04-21T09:43:39.7623757Z",
-  "description": null,
-  "lastModifiedDateTime": "2026-05-19T11:12:09.4465752Z",
-  "displayName": "MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0",
-  "version": 2,
-  "passwordRequired": false,
-  "passwordBlockSimple": false,
-  "passwordExpirationDays": null,
-  "passwordMinimumLength": null,
-  "passwordMinutesOfInactivityBeforeLock": null,
-  "passwordPreviousPasswordBlockCount": null,
-  "passwordMinimumCharacterSetCount": null,
-  "passwordRequiredType": "deviceDefault",
-  "osMinimumVersion": null,
-  "osMaximumVersion": null,
-  "osMinimumBuildVersion": null,
-  "osMaximumBuildVersion": null,
-  "systemIntegrityProtectionEnabled": false,
-  "deviceThreatProtectionEnabled": false,
-  "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
-  "advancedThreatProtectionRequiredSecurityLevel": "unavailable",
-  "storageRequireEncryption": true,
-  "gatekeeperAllowedAppSource": "macAppStoreAndIdentifiedDevelopers",
-  "firewallEnabled": true,
-  "firewallBlockAllIncoming": true,
-  "firewallEnableStealthMode": true,
-  "deviceCompliancePolicyScript": null,
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('22cc9300-fc7d-43c4-809c-197adc7ad478')/microsoft.graph.macOSCompliancePolicy/assignments",
-  "assignments": [],
-  "scheduledActionsForRule@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('22cc9300-fc7d-43c4-809c-197adc7ad478')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule(scheduledActionConfigurations())",
-  "scheduledActionsForRule": [
-    {
-      "id": "22cc9300-fc7d-43c4-809c-197adc7ad478",
-      "ruleName": null,
-      "scheduledActionConfigurations@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceCompliancePolicies('22cc9300-fc7d-43c4-809c-197adc7ad478')/microsoft.graph.macOSCompliancePolicy/scheduledActionsForRule('22cc9300-fc7d-43c4-809c-197adc7ad478')/scheduledActionConfigurations",
-      "scheduledActionConfigurations": [
-        {
-          "id": "068d0ec5-8741-4cd3-8876-e2e1f45d10bd",
-          "gracePeriodHours": 0,
-          "actionType": "block",
-          "notificationTemplateId": "00000000-0000-0000-0000-000000000000",
-          "notificationMessageCCList": []
-        }
-      ]
-    }
-  ]
+  "name": "MACOS - CMP - Device Security - U - Security Requirments - R26.6 - v3.0",
+  "key": "macos cmp device security u security requirments",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "compliance",
+  "sectionLabel": "Compliance policies",
+  "area": "CompliancePolicies",
+  "du": "U",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:421fcbcda1efaff8f7505372db6f35f697a866f0801d4d725e2706dc70e0b4a8",
+  "body": {
+    "@odata.type": "#microsoft.graph.macOSCompliancePolicy",
+    "advancedThreatProtectionRequiredSecurityLevel": "unavailable",
+    "deviceThreatProtectionEnabled": false,
+    "deviceThreatProtectionRequiredSecurityLevel": "unavailable",
+    "firewallBlockAllIncoming": true,
+    "firewallEnableStealthMode": true,
+    "firewallEnabled": true,
+    "gatekeeperAllowedAppSource": "macAppStoreAndIdentifiedDevelopers",
+    "passwordBlockSimple": false,
+    "passwordRequired": false,
+    "passwordRequiredType": "deviceDefault",
+    "scheduledActionsForRule": [
+      {
+        "scheduledActionConfigurations": [
+          {
+            "actionType": "block",
+            "gracePeriodHours": 0,
+            "notificationMessageCCList": [],
+            "notificationTemplateId": "00000000-0000-0000-0000-000000000000"
+          }
+        ]
+      }
+    ],
+    "storageRequireEncryption": true,
+    "systemIntegrityProtectionEnabled": false
+  }
 }

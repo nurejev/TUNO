@@ -1,147 +1,111 @@
 {
-  "createdDateTime": "2026-04-28T09:25:03.017368Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:34:46.43814Z",
   "name": "MACOS - DCP - Device Security - D - Managed Login Items - R26.6 - v3.0",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "74dea841-028f-43eb-a825-7da993229cfe",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('74dea841-028f-43eb-a825-7da993229cfe')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device security d managed login items",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:378c969bba9e91965a8af3f73d7a6f3554b59e7850e272987d0de1cb9cfcafda",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.servicemanagement_com.apple.servicemanagement",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                "settingDefinitionId": "com.apple.servicemanagement_rules",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "groupSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_comment",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "Palo Alto"
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_ruletype",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "choiceSettingValue": {
-                          "settingValueTemplateReference": null,
-                          "value": "com.apple.servicemanagement_rules_item_ruletype_4",
-                          "children": []
-                        }
+                          "children": [],
+                          "value": "com.apple.servicemanagement_rules_item_ruletype_4"
+                        },
+                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_ruletype"
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_rulevalue",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "PXPZ95SK77"
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_teamidentifier",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "PXPZ95SK77"
                         }
                       }
                     ]
                   },
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_comment",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "Microsoft"
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_ruletype",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "choiceSettingValue": {
-                          "settingValueTemplateReference": null,
-                          "value": "com.apple.servicemanagement_rules_item_ruletype_4",
-                          "children": []
-                        }
+                          "children": [],
+                          "value": "com.apple.servicemanagement_rules_item_ruletype_4"
+                        },
+                        "settingDefinitionId": "com.apple.servicemanagement_rules_item_ruletype"
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_rulevalue",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "UBF8T346G9"
                         }
                       },
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                         "settingDefinitionId": "com.apple.servicemanagement_rules_item_teamidentifier",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "simpleSettingValue": {
                           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                          "settingValueTemplateReference": null,
                           "value": "UBF8T346G9"
                         }
                       }
                     ]
                   }
-                ]
+                ],
+                "settingDefinitionId": "com.apple.servicemanagement_rules"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "com.apple.servicemanagement_com.apple.servicemanagement"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

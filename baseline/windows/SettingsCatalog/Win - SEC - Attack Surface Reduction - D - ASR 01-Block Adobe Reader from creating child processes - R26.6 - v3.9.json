@@ -1,54 +1,42 @@
 {
-  "createdDateTime": "2026-01-08T18:56:18.9965852Z",
-  "creationSource": null,
-  "description": "Block Adobe Reader from creating child processes",
-  "lastModifiedDateTime": "2026-05-19T11:07:31.78749Z",
   "name": "Win - SEC - Attack Surface Reduction - D - ASR 01-Block Adobe Reader from creating child processes - R26.6 - v3.9",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "eed4ca42-ffcf-4db5-a2aa-6a1ccaeec6f2",
-  "templateReference": {
-    "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
-    "templateFamily": "endpointSecurityAttackSurfaceReduction",
-    "templateDisplayName": "Attack Surface Reduction Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('eed4ca42-ffcf-4db5-a2aa-6a1ccaeec6f2')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec attack surface reduction d asr 01 block adobe reader from creating child processes",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Block Adobe Reader from creating child processes",
+  "importable": true,
+  "hash": "sha256:8f9463870e7cdab3c83ebd5f78f65bf8c5026a029f6afba6012abdc08f9f8530",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses_block",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses_block"
+                },
+                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockadobereaderfromcreatingchildprocesses"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Attack Surface Reduction Rules",
+      "templateFamily": "endpointSecurityAttackSurfaceReduction",
+      "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1"
     }
-  ]
+  }
 }

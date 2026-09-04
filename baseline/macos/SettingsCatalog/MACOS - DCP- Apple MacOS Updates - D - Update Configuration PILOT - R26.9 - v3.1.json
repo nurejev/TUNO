@@ -1,65 +1,51 @@
 {
-  "createdDateTime": "2026-09-02T12:41:08.9701402Z",
-  "creationSource": null,
-  "description": "Blocks enrollment in Apple beta OS programs and removes devices from any beta seed they are already on (Software Update Program Enrollment = AlwaysOff). No beta token required. Applies to supervised Macs on macOS 15.4+.",
-  "lastModifiedDateTime": "2026-09-02T12:41:08.9701402Z",
   "name": "MACOS - DCP- Apple MacOS Updates - D - Update Configuration PILOT - R26.9 - v3.1",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "200dcc50-0edf-4d88-92eb-42bea1bc8b28",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('200dcc50-0edf-4d88-92eb-42bea1bc8b28')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp apple macos updates d update configuration pilot",
+  "release": "R26.9",
+  "version": "3.1",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Blocks enrollment in Apple beta OS programs and removes devices from any beta seed they are already on (Software Update Program Enrollment = AlwaysOff). No beta token required. Applies to supervised Macs on macOS 15.4+.",
+  "importable": true,
+  "hash": "sha256:021c0a2866030540122d75264b8c642c9feb10bacbb480b8abd6d9a3185d42cd",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "softwareupdate_softwareupdate",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-                "settingDefinitionId": "softwareupdate_beta",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "groupSettingCollectionValue": [
                   {
-                    "settingValueTemplateReference": null,
                     "children": [
                       {
                         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                        "settingDefinitionId": "softwareupdate_beta_programenrollment",
-                        "settingInstanceTemplateReference": null,
-                        "auditRuleInformation": null,
                         "choiceSettingValue": {
-                          "settingValueTemplateReference": null,
-                          "value": "softwareupdate_beta_programenrollment_2",
-                          "children": []
-                        }
+                          "children": [],
+                          "value": "softwareupdate_beta_programenrollment_2"
+                        },
+                        "settingDefinitionId": "softwareupdate_beta_programenrollment"
                       }
                     ]
                   }
-                ]
+                ],
+                "settingDefinitionId": "softwareupdate_beta"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "softwareupdate_softwareupdate"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

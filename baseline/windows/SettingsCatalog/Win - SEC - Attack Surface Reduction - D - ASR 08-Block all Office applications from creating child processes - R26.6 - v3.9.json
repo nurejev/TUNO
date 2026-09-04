@@ -1,54 +1,42 @@
 {
-  "createdDateTime": "2026-01-08T18:56:36.2073789Z",
-  "creationSource": null,
-  "description": "Block all Office applications from creating child processes",
-  "lastModifiedDateTime": "2026-05-19T11:10:26.5458522Z",
   "name": "Win - SEC - Attack Surface Reduction - D - ASR 08-Block all Office applications from creating child processes - R26.6 - v3.9",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "1aa027a0-777f-44a4-a0d8-adcaff1c46c4",
-  "templateReference": {
-    "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
-    "templateFamily": "endpointSecurityAttackSurfaceReduction",
-    "templateDisplayName": "Attack Surface Reduction Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('1aa027a0-777f-44a4-a0d8-adcaff1c46c4')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec attack surface reduction d asr 08 block all office applications from creating child processes",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Block all Office applications from creating child processes",
+  "importable": true,
+  "hash": "sha256:f222bf285a4e83ae25a0936afab3266c410a4512e7a16c770a9b2c27fafe83db",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses_block",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses_block"
+                },
+                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockofficecommunicationappfromcreatingchildprocesses"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Attack Surface Reduction Rules",
+      "templateFamily": "endpointSecurityAttackSurfaceReduction",
+      "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1"
     }
-  ]
+  }
 }

@@ -1,24 +1,25 @@
 {
-  "id": "a78922c1-f0aa-489e-a9f6-0ce4b43732dd",
-  "publisher": "Mihai Monte",
-  "version": "2",
-  "displayName": "Win - DHS - Defender Antivirus - D - Detect Antivirus - R26.6 - v3.9",
+  "name": "Win - DHS - Defender Antivirus - D - Detect Antivirus - R26.6 - v3.9",
+  "key": "win dhs defender antivirus d detect antivirus",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "",
-  "detectionScriptContent": "",
-  "remediationScriptContent": "",
-  "createdDateTime": "2026-05-20T12:03:54.6116375Z",
-  "lastModifiedDateTime": "2026-05-20T12:14:28.1238696Z",
-  "runAsAccount": "system",
-  "enforceSignatureCheck": false,
-  "runAs32Bit": false,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "isGlobalScript": false,
-  "highestAvailableVersion": null,
-  "deviceHealthScriptType": "deviceHealthScript",
-  "detectionScriptParameters": [],
-  "remediationScriptParameters": [],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceHealthScripts('a78922c1-f0aa-489e-a9f6-0ce4b43732dd')/assignments",
-  "assignments": []
+  "importable": false,
+  "hash": "sha256:7921a1896c55eeab18e356db7a92fe56efed090ea1de2400e716c344547532ff",
+  "body": {
+    "detectionScriptContent": "",
+    "detectionScriptParameters": [],
+    "deviceHealthScriptType": "deviceHealthScript",
+    "enforceSignatureCheck": false,
+    "isGlobalScript": false,
+    "publisher": "Mihai Monte",
+    "remediationScriptContent": "",
+    "remediationScriptParameters": [],
+    "runAs32Bit": false,
+    "runAsAccount": "system"
+  }
 }

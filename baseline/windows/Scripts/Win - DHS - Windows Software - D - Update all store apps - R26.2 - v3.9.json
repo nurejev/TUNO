@@ -1,24 +1,25 @@
 {
-  "id": "9e522294-6410-4d34-8f82-55848c5e2ea7",
-  "publisher": "Mihai Monte",
-  "version": "1",
-  "displayName": "Win - DHS - Windows Software - D - Update all store apps - R26.2 - v3.9",
+  "name": "Win - DHS - Windows Software - D - Update all store apps - R26.2 - v3.9",
+  "key": "win dhs windows software d update all store apps",
+  "release": "R26.2",
+  "version": "3.9",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "This Remediation script will update all store all weekly",
-  "detectionScriptContent": "",
-  "remediationScriptContent": "",
-  "createdDateTime": "2026-01-08T18:34:52.9192919Z",
-  "lastModifiedDateTime": "2026-04-08T13:58:10.3688253Z",
-  "runAsAccount": "system",
-  "enforceSignatureCheck": false,
-  "runAs32Bit": false,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "isGlobalScript": false,
-  "highestAvailableVersion": null,
-  "deviceHealthScriptType": "deviceHealthScript",
-  "detectionScriptParameters": [],
-  "remediationScriptParameters": [],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceHealthScripts('9e522294-6410-4d34-8f82-55848c5e2ea7')/assignments",
-  "assignments": []
+  "importable": false,
+  "hash": "sha256:7921a1896c55eeab18e356db7a92fe56efed090ea1de2400e716c344547532ff",
+  "body": {
+    "detectionScriptContent": "",
+    "detectionScriptParameters": [],
+    "deviceHealthScriptType": "deviceHealthScript",
+    "enforceSignatureCheck": false,
+    "isGlobalScript": false,
+    "publisher": "Mihai Monte",
+    "remediationScriptContent": "",
+    "remediationScriptParameters": [],
+    "runAs32Bit": false,
+    "runAsAccount": "system"
+  }
 }

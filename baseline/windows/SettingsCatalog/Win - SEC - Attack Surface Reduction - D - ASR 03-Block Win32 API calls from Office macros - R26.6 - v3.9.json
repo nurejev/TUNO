@@ -1,54 +1,42 @@
 {
-  "createdDateTime": "2026-01-08T18:56:23.9559317Z",
-  "creationSource": null,
-  "description": "Block Win32 API calls from Office macros",
-  "lastModifiedDateTime": "2026-05-19T11:07:54.8655857Z",
   "name": "Win - SEC - Attack Surface Reduction - D - ASR 03-Block Win32 API calls from Office macros  - R26.6 - v3.9",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,microsoftSense",
-  "id": "b1bb5727-a48a-4c44-bcf3-0a5f163c8936",
-  "templateReference": {
-    "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1",
-    "templateFamily": "endpointSecurityAttackSurfaceReduction",
-    "templateDisplayName": "Attack Surface Reduction Rules",
-    "templateDisplayVersion": "Version 1"
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('b1bb5727-a48a-4c44-bcf3-0a5f163c8936')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win sec attack surface reduction d asr 03 block win32 api calls from office macros",
+  "release": "R26.6",
+  "version": "3.9",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Block Win32 API calls from Office macros",
+  "importable": true,
+  "hash": "sha256:17eda2eafd8c90a8e9481d473cf2369c8b87f873a09e8f76bdee357eac50536b",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules",
-        "auditRuleInformation": null,
-        "settingInstanceTemplateReference": {
-          "settingInstanceTemplateId": "19600663-e264-4c02-8f55-f2983216d6d7"
-        },
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros_audit",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros_audit"
+                },
+                "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules_blockwin32apicallsfromofficemacros"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "device_vendor_msft_policy_config_defender_attacksurfacereductionrules"
       }
+    ],
+    "technologies": "mdm,microsoftSense",
+    "templateReference": {
+      "templateDisplayName": "Attack Surface Reduction Rules",
+      "templateFamily": "endpointSecurityAttackSurfaceReduction",
+      "templateId": "e8c053d6-9f95-42b1-a7f1-ebfd71c67a4b_1"
     }
-  ]
+  }
 }

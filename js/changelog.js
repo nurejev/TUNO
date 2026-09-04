@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10589, date: "2026-09-04", title: "Baselines: one canonical body, a content hash on every policy, and a catalog loader that refuses",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The published catalog carried the tenant's own bookkeeping into a public repository — object ids, created and last-modified stamps, assignments, scope tags, setting counts. There is now one canonical body: the tenant's metadata comes off, the reading's annotations come off, and what is left is the policy. Every catalog in the repository has been re-cut through it." },
+      { kind: "new", tool: "🪟 Windows baseline", text: "Every catalog policy carries the SHA-256 of its own body. Two policies with the same hash are the same policy whatever they are called — which is what lets a renamed copy be recognised — and a body edited after export no longer matches its hash, so the loader flags it and Import refuses it." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The catalog's release said \"R26\" because a person typed it in 2026. It is now derived from the policies themselves, with the distribution printed beside it — which immediately showed that the Windows catalog holds two R27.1 cuts and three R26.2 alongside the R26.6 generation." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Catalog schema 2: release, sourceDate and exported are three fields instead of one overloaded string, the surfaces are counted, and the loader checks schema, kind, platform, catalog id and every policy's section before it loads anything. A file that fails is refused whole, with its first three reasons — never loaded part-way." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "All of the above. The macOS catalog's derived release is R26.9, not R26." },
+    ],
+  },
+  {
     build: 10588, date: "2026-09-04", title: "Baselines: the tenant's data does not survive sign-out, and the gate becomes the tenant ID",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "Signing out cleared the shared read but not the screen's own copy of it, so the comparison, the plans and the fetched community catalog survived into the next sign-in — the previous tenant's policies, on the screen, for whoever signed in after. Everything a tenant told the screen now lives in one session object stamped with the tenant that produced it: sign-out drops it, opening the screen on a different tenant drops it again, and every Apply refuses a plan whose tenant is no longer the one signed in." },

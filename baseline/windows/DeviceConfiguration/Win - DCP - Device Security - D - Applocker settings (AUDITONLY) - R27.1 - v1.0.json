@@ -1,77 +1,53 @@
 {
-  "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
-  "id": "f2e3570b-2679-425e-afd3-bacc84020549",
-  "lastModifiedDateTime": "2026-06-22T17:20:31.2940511Z",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "supportsScopeTags": true,
-  "deviceManagementApplicabilityRuleOsEdition": null,
-  "deviceManagementApplicabilityRuleOsVersion": null,
-  "deviceManagementApplicabilityRuleDeviceMode": null,
-  "createdDateTime": "2026-06-22T13:27:06.2217021Z",
-  "description": null,
-  "displayName": "Win - DCP - Device Security - D - Applocker settings (AUDITONLY) - R27.1 - v1.0",
-  "version": 2,
-  "omaSettings": [
-    {
-      "@odata.type": "#microsoft.graph.omaSettingString",
-      "displayName": "EXE",
-      "description": "Audit",
-      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/EXE/Policy",
-      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_6ca3433b-575c-4bfe-b567-b3d9563bb668",
-      "isEncrypted": true,
-      "value": "****"
-    },
-    {
-      "@odata.type": "#microsoft.graph.omaSettingString",
-      "displayName": "Script",
-      "description": "Audit",
-      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/Script/Policy",
-      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_2f116c5d-2180-4aa9-9452-263fe5ba0dc0",
-      "isEncrypted": true,
-      "value": "****"
-    },
-    {
-      "@odata.type": "#microsoft.graph.omaSettingString",
-      "displayName": "DLL",
-      "description": "Audit",
-      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/DLL/Policy",
-      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_f819e42f-82de-40cc-ba45-96804f986e4d",
-      "isEncrypted": true,
-      "value": "****"
-    },
-    {
-      "@odata.type": "#microsoft.graph.omaSettingString",
-      "displayName": "MSI",
-      "description": "Audit",
-      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/MSI/Policy",
-      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_c4cf2859-feb5-443d-899c-b89de0c0e75f",
-      "isEncrypted": true,
-      "value": "****"
-    },
-    {
-      "@odata.type": "#microsoft.graph.omaSettingString",
-      "displayName": "StoreApps",
-      "description": "Audit",
-      "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/StoreApps/Policy",
-      "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_4edfd61c-c55a-4adc-98e2-55eee94de23e",
-      "isEncrypted": true,
-      "value": "****"
-    }
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceConfigurations('f2e3570b-2679-425e-afd3-bacc84020549')/microsoft.graph.windows10CustomConfiguration/assignments",
-  "assignments": [
-    {
-      "id": "f2e3570b-2679-425e-afd3-bacc84020549_adadadad-808e-44e2-905a-0b7873a8a531",
-      "source": "direct",
-      "sourceId": "f2e3570b-2679-425e-afd3-bacc84020549",
-      "intent": "apply",
-      "target": {
-        "@odata.type": "#microsoft.graph.allDevicesAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none"
+  "name": "Win - DCP - Device Security - D - Applocker settings (AUDITONLY) - R27.1 - v1.0",
+  "key": "win dcp device security d applocker settings (auditonly)",
+  "release": "R27.1",
+  "version": "1.0",
+  "section": "deviceConfigurations",
+  "sectionLabel": "Device configuration profiles",
+  "area": "DeviceConfigurations",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:9d34803f40d0d66710632f921aeeb2f856e3f03394925a894d31622c10a75995",
+  "body": {
+    "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
+    "omaSettings": [
+      {
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        "isEncrypted": true,
+        "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/EXE/Policy",
+        "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_6ca3433b-575c-4bfe-b567-b3d9563bb668",
+        "value": "****"
+      },
+      {
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        "isEncrypted": true,
+        "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/Script/Policy",
+        "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_2f116c5d-2180-4aa9-9452-263fe5ba0dc0",
+        "value": "****"
+      },
+      {
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        "isEncrypted": true,
+        "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/DLL/Policy",
+        "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_f819e42f-82de-40cc-ba45-96804f986e4d",
+        "value": "****"
+      },
+      {
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        "isEncrypted": true,
+        "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/MSI/Policy",
+        "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_c4cf2859-feb5-443d-899c-b89de0c0e75f",
+        "value": "****"
+      },
+      {
+        "@odata.type": "#microsoft.graph.omaSettingString",
+        "isEncrypted": true,
+        "omaUri": "./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/Pre-Pilot/StoreApps/Policy",
+        "secretReferenceValueId": "f81c585e-dc37-44bc-878d-ce1ea6162d8a_f2e3570b-2679-425e-afd3-bacc84020549_4edfd61c-c55a-4adc-98e2-55eee94de23e",
+        "value": "****"
       }
-    }
-  ]
+    ]
+  }
 }

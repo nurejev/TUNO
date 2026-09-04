@@ -1,6 +1,8 @@
-# CloudFellows Windows baseline — R26
+# CloudFellows Windows baseline — R27.1
 
-Exported from **CloudFellows.dev** on 2026-09-03 by TUNO v1.0.3-beta.271 (🧬 Export on the baseline tenant, the cfdev convention). 37 policies, each identity once — the newest release and version.
+Exported from **CloudFellows.dev** on 2026-09-03 by TUNO v1.0.3-beta.288 (🧬 Export on the reference tenant, the cfdev convention). 37 policies, each identity once — the newest release and version.
+
+Schema 2 · catalog `cloudfellows` · release **R27.1** derived from the policies themselves (R26.6 ×32, R26.2 ×3, R27.1 ×2). Every body is the canonical body — the tenant's ids, timestamps, assignments and scope tags are stripped before export — and every policy carries the SHA-256 of that body, which the loader recomputes on read.
 
 The naming convention is the identity: `Win - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y` — `Ryy.m` is the release the policy was cut in (year, then month), the version orders re-cuts within it.
 

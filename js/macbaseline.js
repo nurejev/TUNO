@@ -21,8 +21,15 @@ const MAC_BASELINE_SPEC = {
   prefix: "MACOS", prefixRe: /^\s*MACOS\b/i,
   screen: "screen-macbaseline", ids: "mb",
   readLabel: "🍎 Read the tenant",
-  kind: "tuno-macos-baseline", catalogPath: "baseline/macos/catalog.json",
+  kind: "tuno-macos-baseline", platformId: "macos",
+  catalogPath: "baseline/macos/catalog.json",
   communityPath: "baseline/community/intune-my-macs/catalog.json",
+  // The strict loader's allow-list (§7.3): which catalog a file may claim
+  // to be, and which surfaces a macOS baseline policy may live on (§3).
+  // A file naming anything else is refused whole, not partly loaded.
+  catalogId: "cloudfellows", communityIds: ["imm"],
+  sections: ["settingsCatalog", "deviceConfigurations", "compliance", "intents", "scripts",
+    "customAttributes", "enrolment", "filters", "ade"],
   upstream: {
     id: "imm", label: "intune-my-macs", icon: "🍏", author: "Microsoft",
     repo: "github.com/microsoft/intune-my-macs",

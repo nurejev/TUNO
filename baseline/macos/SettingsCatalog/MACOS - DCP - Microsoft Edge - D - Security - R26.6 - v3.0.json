@@ -1,471 +1,271 @@
 {
-  "createdDateTime": "2026-01-08T19:34:40.0995831Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:32:54.96483Z",
   "name": "MACOS - DCP - Microsoft Edge - D - Security - R26.6 - v3.0",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 31,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "2a62fe45-a5dd-47b0-a878-6e00e342a85c",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('2a62fe45-a5dd-47b0-a878-6e00e342a85c')/assignments",
-  "assignments": [
-    {
-      "id": "2a62fe45-a5dd-47b0-a878-6e00e342a85c_f1a6d043-f424-460c-94ad-4629f5929674",
-      "source": "direct",
-      "sourceId": "2a62fe45-a5dd-47b0-a878-6e00e342a85c",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp microsoft edge d security",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:4e5917a50f24ccda6273abe9ec725beddc7439a66812ba10f167c7d63a6bb42e",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_adssettingforintrusiveadssites",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_adssettingforintrusiveadssites_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "1",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_downloadrestrictions",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_downloadrestrictions_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "2",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importbrowsersettings",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importbrowsersettings_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "3",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importhistory",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importhistory_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "4",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importhomepage",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importhomepage_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "5",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importpaymentinfo",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importpaymentinfo_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "6",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importsavedpasswords",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importsavedpasswords_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "7",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_importsearchengine",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_importsearchengine_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "8",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_enterprisehardwareplatformapienabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_enterprisehardwareplatformapienabled_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "9",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_personalizationreportingenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_personalizationreportingenabled_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "10",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_browsernetworktimequeriesenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_browsernetworktimequeriesenabled_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "11",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_nativemessaginguserlevelhosts",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_nativemessaginguserlevelhosts_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "12",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_autoimportatfirstrun",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_autoimportatfirstrun_4",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "13",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_trackingprevention",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_trackingprevention_2",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "14",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_clearbrowsingdataonexit",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_clearbrowsingdataonexit_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "15",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_clearcachedimagesandfilesonexit",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_clearcachedimagesandfilesonexit_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "16",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_smartscreenenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_smartscreenenabled_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "17",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_smartscreenpuaenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_smartscreenpuaenabled_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "18",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_experimentationandconfigurationservicecontrol",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_experimentationandconfigurationservicecontrol_2",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "19",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_defaultpopupssetting",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_defaultpopupssetting_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "20",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_dnsinterceptionchecksenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_dnsinterceptionchecksenabled_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "21",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_autofilladdressenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_autofilladdressenabled_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "22",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_autofillcreditcardenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_autofillcreditcardenabled_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "23",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_enablemediarouter",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_enablemediarouter_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "24",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_networkpredictionoptions",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_networkpredictionoptions_2",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "25",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_proactiveauthenabled",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_proactiveauthenabled_false",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "26",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_hidefirstrunexperience",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_hidefirstrunexperience_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "27",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_sslversionmin",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_sslversionmin_2",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "28",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_preventsmartscreenpromptoverride",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_preventsmartscreenpromptoverride_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "29",
-      "settingInstance": {
-        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "com.apple.managedclient.preferences_preventsmartscreenpromptoverrideforfiles",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
-        "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "com.apple.managedclient.preferences_preventsmartscreenpromptoverrideforfiles_true",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "30",
-      "settingInstance": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_adssettingforintrusiveadssites_1"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_adssettingforintrusiveadssites"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
         "settingDefinitionId": "com.apple.managedclient.preferences_authschemes",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "simpleSettingValue": {
           "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-          "settingValueTemplateReference": null,
           "value": "ntlm,negotiate"
         }
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_autofilladdressenabled_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_autofilladdressenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_autofillcreditcardenabled_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_autofillcreditcardenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_autoimportatfirstrun_4"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_autoimportatfirstrun"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_browsernetworktimequeriesenabled_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_browsernetworktimequeriesenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_clearbrowsingdataonexit_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_clearbrowsingdataonexit"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_clearcachedimagesandfilesonexit_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_clearcachedimagesandfilesonexit"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_defaultpopupssetting_1"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_defaultpopupssetting"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_dnsinterceptionchecksenabled_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_dnsinterceptionchecksenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_downloadrestrictions_1"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_downloadrestrictions"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_enablemediarouter_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_enablemediarouter"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_enterprisehardwareplatformapienabled_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_enterprisehardwareplatformapienabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_experimentationandconfigurationservicecontrol_2"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_experimentationandconfigurationservicecontrol"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_hidefirstrunexperience_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_hidefirstrunexperience"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importbrowsersettings_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importbrowsersettings"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importhistory_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importhistory"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importhomepage_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importhomepage"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importpaymentinfo_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importpaymentinfo"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importsavedpasswords_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importsavedpasswords"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_importsearchengine_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_importsearchengine"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_nativemessaginguserlevelhosts_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_nativemessaginguserlevelhosts"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_networkpredictionoptions_2"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_networkpredictionoptions"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_personalizationreportingenabled_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_personalizationreportingenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_preventsmartscreenpromptoverride_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_preventsmartscreenpromptoverride"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_preventsmartscreenpromptoverrideforfiles_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_preventsmartscreenpromptoverrideforfiles"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_proactiveauthenabled_false"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_proactiveauthenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_smartscreenenabled_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_smartscreenenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_smartscreenpuaenabled_true"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_smartscreenpuaenabled"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_sslversionmin_2"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_sslversionmin"
+      },
+      {
+        "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
+        "choiceSettingValue": {
+          "children": [],
+          "value": "com.apple.managedclient.preferences_trackingprevention_2"
+        },
+        "settingDefinitionId": "com.apple.managedclient.preferences_trackingprevention"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

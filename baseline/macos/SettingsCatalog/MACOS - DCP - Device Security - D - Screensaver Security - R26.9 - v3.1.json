@@ -1,123 +1,91 @@
 {
-  "createdDateTime": "2026-09-02T12:41:52.6914773Z",
-  "creationSource": null,
-  "description": "Configures comprehensive screensaver security settings including idle time activation (10 minutes), password requirements, delay timing, and login window idle timeout to enhance device security when unattended.",
-  "lastModifiedDateTime": "2026-09-02T12:41:52.6914773Z",
   "name": "MACOS - DCP - Device Security - D - Screensaver Security - R26.9 - v3.1",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 2,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "885a49ce-e6e4-4cb3-adaa-ef585c11b219",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('885a49ce-e6e4-4cb3-adaa-ef585c11b219')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device security d screensaver security",
+  "release": "R26.9",
+  "version": "3.1",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "Configures comprehensive screensaver security settings including idle time activation (10 minutes), password requirements, delay timing, and login window idle timeout to enhance device security when unattended.",
+  "importable": true,
+  "hash": "sha256:c4797d86efd672c84c4d755f50b60335238fea4eb052b0ef2cf14e6069c4611f",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.screensaver_com.apple.screensaver",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "com.apple.screensaver_askforpassword",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "com.apple.screensaver_askforpassword_true",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "com.apple.screensaver_askforpassword_true"
+                },
+                "settingDefinitionId": "com.apple.screensaver_askforpassword"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "com.apple.screensaver_askforpassworddelay",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": 60
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "com.apple.screensaver_loginwindowidletime",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": 1200
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "com.apple.screensaver_modulename",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "Flurry"
                 }
               }
             ]
           }
-        ]
-      }
-    },
-    {
-      "id": "1",
-      "settingInstance": {
+        ],
+        "settingDefinitionId": "com.apple.screensaver_com.apple.screensaver"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "com.apple.screensaver.user_com.apple.screensaver.user",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "com.apple.screensaver.user_idletime",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": 600
                 }
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance",
                 "settingDefinitionId": "com.apple.screensaver.user_modulename",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "simpleSettingValue": {
                   "@odata.type": "#microsoft.graph.deviceManagementConfigurationStringSettingValue",
-                  "settingValueTemplateReference": null,
                   "value": "Flurry"
                 }
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "com.apple.screensaver.user_com.apple.screensaver.user"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

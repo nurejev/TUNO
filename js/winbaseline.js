@@ -30,8 +30,14 @@ const WIN_BASELINE_SPEC = {
   prefix: "Win", prefixRe: /^\s*Win\s*-/i,
   screen: "screen-winbaseline", ids: "wb",
   readLabel: "🪟 Read the tenant",
-  kind: "tuno-windows-baseline", catalogPath: "baseline/windows/catalog.json",
+  kind: "tuno-windows-baseline", platformId: "windows",
+  catalogPath: "baseline/windows/catalog.json",
   communityPath: "baseline/community/openintunebaseline/catalog.json",
+  // The strict loader's allow-list (§7.3): which catalog a file may claim
+  // to be, and which surfaces a Windows baseline policy may live on (§3).
+  catalogId: "cloudfellows", communityIds: ["oib"],
+  sections: ["settingsCatalog", "deviceConfigurations", "admx", "compliance", "intents", "scripts",
+    "remediations", "autopilot", "enrolment", "esp", "updates", "driverUpdates", "filters"],
   upstream: {
     id: "oib", label: "OpenIntuneBaseline", icon: "🧩", author: "James Robinson (SkipToTheEndpoint)",
     repo: "github.com/SkipToTheEndpoint/OpenIntuneBaseline",

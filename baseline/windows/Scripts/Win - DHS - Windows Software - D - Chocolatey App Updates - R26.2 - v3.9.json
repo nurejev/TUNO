@@ -1,24 +1,25 @@
 {
-  "id": "71e3ef19-1b58-407c-baea-874ee93d8841",
-  "publisher": "Mihai Monte",
-  "version": "1",
-  "displayName": "Win - DHS - Windows Software - D - Chocolatey App Updates - R26.2 - v3.9",
+  "name": "Win - DHS - Windows Software - D - Chocolatey App Updates - R26.2 - v3.9",
+  "key": "win dhs windows software d chocolatey app updates",
+  "release": "R26.2",
+  "version": "3.9",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "",
-  "detectionScriptContent": "",
-  "remediationScriptContent": "",
-  "createdDateTime": "2025-09-14T14:08:04.6767662Z",
-  "lastModifiedDateTime": "2026-04-08T13:58:34.720509Z",
-  "runAsAccount": "system",
-  "enforceSignatureCheck": false,
-  "runAs32Bit": false,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "isGlobalScript": false,
-  "highestAvailableVersion": null,
-  "deviceHealthScriptType": "deviceHealthScript",
-  "detectionScriptParameters": [],
-  "remediationScriptParameters": [],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceHealthScripts('71e3ef19-1b58-407c-baea-874ee93d8841')/assignments",
-  "assignments": []
+  "importable": false,
+  "hash": "sha256:7921a1896c55eeab18e356db7a92fe56efed090ea1de2400e716c344547532ff",
+  "body": {
+    "detectionScriptContent": "",
+    "detectionScriptParameters": [],
+    "deviceHealthScriptType": "deviceHealthScript",
+    "enforceSignatureCheck": false,
+    "isGlobalScript": false,
+    "publisher": "Mihai Monte",
+    "remediationScriptContent": "",
+    "remediationScriptParameters": [],
+    "runAs32Bit": false,
+    "runAsAccount": "system"
+  }
 }

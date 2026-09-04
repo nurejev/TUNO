@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "7c7fd18b-e15d-405a-906b-c1863483db8c",
-  "displayName": "MACOS - SH - Device Configuration - D - Device Rename (enrollment type) - R26.6 - v3.0",
+  "name": "MACOS - SH - Device Configuration - D - Device Rename (enrollment type) - R26.6 - v3.0",
+  "key": "macos sh device configuration d device rename (enrollment type)",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Automatically renames Mac devices using a standardized naming convention based on enrollment type (ADE/BYOD), device model type (MBA/MBP/iMac/etc), serial number, and detected country code via IP geolocation. Differentiates between corporate (ABM-enrolled) and personal (manually-enrolled) devices with configurable prefixes.",
-  "scriptContent": null,
-  "createdDateTime": "2026-04-28T09:25:06.892988Z",
-  "lastModifiedDateTime": "2026-05-19T11:13:52.6250286Z",
-  "runAsAccount": "system",
-  "fileName": "scr-sys-100-device-rename.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('7c7fd18b-e15d-405a-906b-c1863483db8c')/assignments",
-  "assignments": [
-    {
-      "id": "7c7fd18b-e15d-405a-906b-c1863483db8c:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:fc61e18a0813bd144539fceac47c2d65c5a4d4601cb89ceaea3d3fe49dfe100b",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT0S",
+    "fileName": "scr-sys-100-device-rename.sh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

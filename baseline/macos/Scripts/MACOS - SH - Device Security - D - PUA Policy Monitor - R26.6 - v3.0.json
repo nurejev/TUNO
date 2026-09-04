@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT3H",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "4cdae53d-915f-4649-b5af-dfce2e1d96b5",
-  "displayName": "MACOS - SH - Device Security - D - PUA Policy Monitor - R26.6 - v3.0",
+  "name": "MACOS - SH - Device Security - D - PUA Policy Monitor - R26.6 - v3.0",
+  "key": "macos sh device security d pua policy monitor",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "This script runs periodically to check the current PUA policy configuration and log the results.\n\n**Key Features:**\n- Verifies Microsoft Defender processes are running\n- Locates and validates the MDATP command-line tool\n- Retrieves the current PUA policy configuration\n- Logs policy state changes with timestamps\n- Comprehensive error handlin",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-08T19:34:13.2128945Z",
-  "lastModifiedDateTime": "2026-05-19T11:15:36.6367937Z",
-  "runAsAccount": "system",
-  "fileName": "enhanced_mdatp_pua.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('4cdae53d-915f-4649-b5af-dfce2e1d96b5')/assignments",
-  "assignments": [
-    {
-      "id": "4cdae53d-915f-4649-b5af-dfce2e1d96b5:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:c3274c8fd564bf2f7dc739776663d7378ba91f9c14027bb70ad33bc29c47ecdd",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT3H",
+    "fileName": "enhanced_mdatp_pua.sh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 0,
-  "blockExecutionNotifications": false,
-  "id": "06369be0-1eb8-4132-9aae-64f860a53b31",
-  "displayName": "MACOS - SH - Software Installation - D - Install Microsoft 365 Apps for macOS - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Install Microsoft 365 Apps for macOS - R26.6 - v3.0",
+  "key": "macos sh software installation d install microsoft 365 apps for macos",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Downloads and installs Microsoft 365 Apps for Mac (Word, Excel, PowerPoint, Outlook, OneNote) from the official Microsoft download URL. Supports waiting for splash screen (Dialog/Octory) before installation, automatic update detection via HTTP Last-Modified headers, and can terminate running apps during install.",
-  "scriptContent": null,
-  "createdDateTime": "2026-04-28T09:25:05.8390019Z",
-  "lastModifiedDateTime": "2026-05-19T11:19:08.4121548Z",
-  "runAsAccount": "system",
-  "fileName": "scr-app-104-install-M365Apps.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('06369be0-1eb8-4132-9aae-64f860a53b31')/assignments",
-  "assignments": [
-    {
-      "id": "06369be0-1eb8-4132-9aae-64f860a53b31:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:da7d0486c28f0dfc2c185bb82a07ffbcb51badc39e6bde089f17116051d35b24",
+  "body": {
+    "blockExecutionNotifications": false,
+    "executionFrequency": "PT0S",
+    "fileName": "scr-app-104-install-M365Apps.sh",
+    "retryCount": 0,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

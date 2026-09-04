@@ -1,14 +1,22 @@
 {
-  "id": "0123e1fb-8ab3-43ac-9098-a18cfc4e1c0d",
-  "createdDateTime": "2026-04-28T09:39:51.8150761Z",
-  "lastModifiedDateTime": "2026-04-28T09:39:51.8150761Z",
-  "displayName": "MACOS - FTR - Assignment filters - D - All Apple Silicon Devices - R26.4 - v3.0",
+  "name": "MACOS - FTR - Assignment filters - D - All Apple Silicon Devices - R26.4 - v3.0",
+  "key": "macos ftr assignment filters d all apple silicon devices",
+  "release": "R26.4",
+  "version": "3.0",
+  "section": "filters",
+  "sectionLabel": "Assignment filters",
+  "area": "AssignmentFilters",
+  "du": "D",
   "description": "",
-  "platform": "macOS",
-  "rule": "(device.cpuArchitecture -eq \"arm64\")",
-  "roleScopeTags": [
-    "0"
-  ],
-  "assignmentFilterManagementType": "devices",
-  "payloads": []
+  "importable": true,
+  "hash": "sha256:133a505385c4267dc4aa0b83789661e32805ed7fe4031bbdfdc9d4c289e8d301",
+  "body": {
+    "assignmentFilterManagementType": "devices",
+    "payloads": [],
+    "platform": "macOS",
+    "roleScopeTags": [
+      "0"
+    ],
+    "rule": "(device.cpuArchitecture -eq \"arm64\")"
+  }
 }

@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT3H",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "fbc3fe45-5e47-46b8-9d85-54f35271457f",
-  "displayName": "MACOS - SH - Software Updates - D - Google Chrome Update - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Updates - D - Google Chrome Update - R26.6 - v3.0",
+  "key": "macos sh software updates d google chrome update",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-08T19:34:11.6191945Z",
-  "lastModifiedDateTime": "2026-05-19T11:17:48.2544247Z",
-  "runAsAccount": "system",
-  "fileName": "Google-Chrome-Update-Check.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('fbc3fe45-5e47-46b8-9d85-54f35271457f')/assignments",
-  "assignments": [
-    {
-      "id": "fbc3fe45-5e47-46b8-9d85-54f35271457f:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:d634ebe11f851cbdd7648efdf037dd2f8c82dfc44523270323fdbdc94fbc0678",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT3H",
+    "fileName": "Google-Chrome-Update-Check.sh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

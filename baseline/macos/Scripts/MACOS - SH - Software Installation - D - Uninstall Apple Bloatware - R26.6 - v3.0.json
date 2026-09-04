@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "84cd7811-c708-45c2-849e-1dabaf998c0c",
-  "displayName": "MACOS - SH - Software Installation - D - Uninstall Apple Bloatware - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Uninstall Apple Bloatware - R26.6 - v3.0",
+  "key": "macos sh software installation d uninstall apple bloatware",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Uninstall Apple Bloatware Apps (iMovie, GarageBand, Pages, Numbers, and Keynote)",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-13T13:34:03.4853783Z",
-  "lastModifiedDateTime": "2026-05-19T11:16:43.5436628Z",
-  "runAsAccount": "system",
-  "fileName": "UninstallAppleBloatwareApps.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('84cd7811-c708-45c2-849e-1dabaf998c0c')/assignments",
-  "assignments": [
-    {
-      "id": "84cd7811-c708-45c2-849e-1dabaf998c0c:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:902383b8885e98987b88dbf3ec575b0cd84a2bf9ac9c53bd54c15051918ffaf4",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "PT0S",
+    "fileName": "UninstallAppleBloatwareApps.zsh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

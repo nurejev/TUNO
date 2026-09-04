@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 0,
-  "blockExecutionNotifications": false,
-  "id": "843167bb-84f0-4186-bc14-4a54260a4551",
-  "displayName": "MACOS - SH - Software Installation - D - Install Escrow Buddy - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Install Escrow Buddy - R26.6 - v3.0",
+  "key": "macos sh software installation d install escrow buddy",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Downloads and installs the latest release of Escrow Buddy security agent plugin from GitHub. Ensures FileVault recovery keys are properly escrowed to Intune by configuring the authorization database and triggering escrow at login when the FDE profile and PRK file are present.",
-  "scriptContent": null,
-  "createdDateTime": "2026-04-28T09:25:06.7037444Z",
-  "lastModifiedDateTime": "2026-05-19T11:18:41.0181544Z",
-  "runAsAccount": "system",
-  "fileName": "scr-sec-100-install-escrow-buddy.sh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('843167bb-84f0-4186-bc14-4a54260a4551')/assignments",
-  "assignments": [
-    {
-      "id": "843167bb-84f0-4186-bc14-4a54260a4551:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:68c98046b5c991a27755653db1b6cd7e98a7a5e6cc2ad2dd41463f1331d6500a",
+  "body": {
+    "blockExecutionNotifications": false,
+    "executionFrequency": "PT0S",
+    "fileName": "scr-sec-100-install-escrow-buddy.sh",
+    "retryCount": 0,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

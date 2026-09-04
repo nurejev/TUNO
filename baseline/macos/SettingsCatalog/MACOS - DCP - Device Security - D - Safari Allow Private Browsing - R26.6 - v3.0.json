@@ -1,64 +1,41 @@
 {
-  "createdDateTime": "2026-01-08T19:55:25.7192031Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:33:32.8065169Z",
   "name": "MACOS - DCP - Device Security - D - Safari Allow Private Browsing - R26.6 - v3.0",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "4a86045b-922a-496e-961c-4ba0a90b9f3f",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('4a86045b-922a-496e-961c-4ba0a90b9f3f')/assignments",
-  "assignments": [
-    {
-      "id": "4a86045b-922a-496e-961c-4ba0a90b9f3f_f1a6d043-f424-460c-94ad-4629f5929674",
-      "source": "direct",
-      "sourceId": "4a86045b-922a-496e-961c-4ba0a90b9f3f",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device security d safari allow private browsing",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:093febabae2401c742ac114e94e6054895e208a48e95d5865b4e905a32c92bb5",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "safari_safari",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "safari_allowprivatebrowsing",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "safari_allowprivatebrowsing_true",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "safari_allowprivatebrowsing_true"
+                },
+                "settingDefinitionId": "safari_allowprivatebrowsing"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "safari_safari"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

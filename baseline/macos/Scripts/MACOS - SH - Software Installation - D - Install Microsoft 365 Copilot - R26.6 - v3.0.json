@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT0S",
-  "retryCount": 0,
-  "blockExecutionNotifications": false,
-  "id": "c3bdf9cd-83fd-47d8-849f-e7e0386f6ca7",
-  "displayName": "MACOS - SH - Software Installation - D - Install Microsoft 365 Copilot - R26.6 - v3.0",
+  "name": "MACOS - SH - Software Installation - D - Install Microsoft 365 Copilot - R26.6 - v3.0",
+  "key": "macos sh software installation d install microsoft 365 copilot",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Downloads and installs Microsoft 365 Copilot from the official Microsoft download URL. Performs intelligent update checking via HTTP Last-Modified headers to avoid unnecessary reinstalls. Waits for the app to close before updating if running.",
-  "scriptContent": null,
-  "createdDateTime": "2026-04-28T09:25:06.5221305Z",
-  "lastModifiedDateTime": "2026-05-19T11:19:17.6498935Z",
-  "runAsAccount": "system",
-  "fileName": "scr-app-107-M365copilot.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('c3bdf9cd-83fd-47d8-849f-e7e0386f6ca7')/assignments",
-  "assignments": [
-    {
-      "id": "c3bdf9cd-83fd-47d8-849f-e7e0386f6ca7:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:edc19584dae43d40e88473728eb75a66c0add2610e40393123f5eb1b22e58963",
+  "body": {
+    "blockExecutionNotifications": false,
+    "executionFrequency": "PT0S",
+    "fileName": "scr-app-107-M365copilot.zsh",
+    "retryCount": 0,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

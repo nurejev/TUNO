@@ -1,14 +1,22 @@
 {
-  "id": "4800ad85-7b0e-4a1e-95fa-6f9d3e44b79c",
-  "createdDateTime": "2026-04-28T09:36:59.9509346Z",
-  "lastModifiedDateTime": "2026-04-28T09:36:59.9509346Z",
-  "displayName": "MACOS - FTR - Assignment filters - D - All AB Enrolled devices - R26.4 - v3.0",
+  "name": "MACOS - FTR - Assignment filters - D - All AB Enrolled devices - R26.4 - v3.0",
+  "key": "macos ftr assignment filters d all ab enrolled devices",
+  "release": "R26.4",
+  "version": "3.0",
+  "section": "filters",
+  "sectionLabel": "Assignment filters",
+  "area": "AssignmentFilters",
+  "du": "D",
   "description": "",
-  "platform": "macOS",
-  "rule": "(device.enrollmentProfileName -eq \"MACOS - AEP - DeviceEnrollment - D - Apple MACOS Entrollment profile - v3.9\")",
-  "roleScopeTags": [
-    "0"
-  ],
-  "assignmentFilterManagementType": "devices",
-  "payloads": []
+  "importable": true,
+  "hash": "sha256:2196ba0d4b413f030962742df2ac32fbb7ecbc820401e56f0910960b46a57a8c",
+  "body": {
+    "assignmentFilterManagementType": "devices",
+    "payloads": [],
+    "platform": "macOS",
+    "roleScopeTags": [
+      "0"
+    ],
+    "rule": "(device.enrollmentProfileName -eq \"MACOS - AEP - DeviceEnrollment - D - Apple MACOS Entrollment profile - v3.9\")"
+  }
 }

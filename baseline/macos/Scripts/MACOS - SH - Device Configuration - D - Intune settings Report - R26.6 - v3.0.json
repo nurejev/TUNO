@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "PT15M",
-  "retryCount": 3,
-  "blockExecutionNotifications": false,
-  "id": "6109415a-dae8-4633-bec4-0955fb9347b0",
-  "displayName": "MACOS - SH - Device Configuration - D - Intune settings Report - R26.6 - v3.0",
+  "name": "MACOS - SH - Device Configuration - D - Intune settings Report - R26.6 - v3.0",
+  "key": "macos sh device configuration d intune settings report",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-20T18:13:38.4716381Z",
-  "lastModifiedDateTime": "2026-05-19T11:14:46.0316699Z",
-  "runAsAccount": "system",
-  "fileName": "Get-MacOSIntuneSettings.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('6109415a-dae8-4633-bec4-0955fb9347b0')/assignments",
-  "assignments": [
-    {
-      "id": "6109415a-dae8-4633-bec4-0955fb9347b0:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:d870ac6c853ef81fa95238a0fc4ed251d0867aef4aa314db9617501a7eb846a7",
+  "body": {
+    "blockExecutionNotifications": false,
+    "executionFrequency": "PT15M",
+    "fileName": "Get-MacOSIntuneSettings.zsh",
+    "retryCount": 3,
+    "runAsAccount": "system",
+    "scriptContent": ""
+  }
 }

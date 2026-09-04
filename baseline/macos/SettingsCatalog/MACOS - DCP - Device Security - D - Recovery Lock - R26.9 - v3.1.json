@@ -1,63 +1,49 @@
 {
-  "createdDateTime": "2026-09-03T08:14:37.7285671Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-09-03T08:14:37.7285671Z",
   "name": "MACOS - DCP - Device Security - D - Recovery Lock - R26.9 - v3.1",
-  "platforms": "macOS",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm,appleRemoteManagement",
-  "id": "375c8de1-af45-4f1e-82db-6b6a582d951f",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('375c8de1-af45-4f1e-82db-6b6a582d951f')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "macos dcp device security d recovery lock",
+  "release": "R26.9",
+  "version": "3.1",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:2841398c093a15c3c636f6ca1cd1bdf10ce6012d9e53f4765418d71c2c94ee78",
+  "body": {
+    "platforms": "macOS",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance",
-        "settingDefinitionId": "setrecoverylock_setrecoverylock",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "groupSettingCollectionValue": [
           {
-            "settingValueTemplateReference": null,
             "children": [
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "setrecoverylock_enablerecoverylockpassword",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "setrecoverylock_enablerecoverylockpassword_true",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "setrecoverylock_enablerecoverylockpassword_true"
+                },
+                "settingDefinitionId": "setrecoverylock_enablerecoverylockpassword"
               },
               {
                 "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-                "settingDefinitionId": "setrecoverylock_recoverylockpasswordrotationschedule",
-                "settingInstanceTemplateReference": null,
-                "auditRuleInformation": null,
                 "choiceSettingValue": {
-                  "settingValueTemplateReference": null,
-                  "value": "setrecoverylock_recoverylockpasswordrotationschedule_0",
-                  "children": []
-                }
+                  "children": [],
+                  "value": "setrecoverylock_recoverylockpasswordrotationschedule_0"
+                },
+                "settingDefinitionId": "setrecoverylock_recoverylockpasswordrotationschedule"
               }
             ]
           }
-        ]
+        ],
+        "settingDefinitionId": "setrecoverylock_setrecoverylock"
       }
+    ],
+    "technologies": "mdm,appleRemoteManagement",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

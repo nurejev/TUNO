@@ -1,137 +1,87 @@
 {
-  "createdDateTime": "2026-05-19T10:18:20.4740775Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:05:34.8822797Z",
   "name": "Win - DCP - Windows User Experience - D - Feature Configuration - R26.6 - v3.8",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 8,
-  "technologies": "mdm",
-  "id": "7a671939-eeda-4e97-8449-4bb11e5d6be9",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('7a671939-eeda-4e97-8449-4bb11e5d6be9')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win dcp windows user experience d feature configuration",
+  "release": "R26.6",
+  "version": "3.8",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:5745a493fb84dd51378dbaab00598ccfb5f655ff5c967b10eb8cb2bf6b2fb09d",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_filesystem_enabledevdrive",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_filesystem_enabledevdrive_0",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "1",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_experience_configurechaticon_3"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_experience_configurechaticon"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_experience_configurechaticon",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_experience_configurechaticon_3",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "2",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_experience_disableshareapppromotions_1"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_experience_disableshareapppromotions"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_experience_disableshareapppromotions",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_experience_disableshareapppromotions_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "3",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_filesystem_enabledevdrive_0"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_filesystem_enabledevdrive"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_search_allowcloudsearch",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_search_allowcloudsearch_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "4",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests_0"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems_0",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "5",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_search_allowcloudsearch_1"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_search_allowcloudsearch"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_search_disableremovabledriveindexing",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_search_disableremovabledriveindexing_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "6",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems_0"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_search_allowindexingencryptedstoresoritems"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_search_donotusewebresults",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_search_donotusewebresults_0",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "7",
-      "settingInstance": {
+          "children": [],
+          "value": "device_vendor_msft_policy_config_search_disableremovabledriveindexing_1"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_search_disableremovabledriveindexing"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_policy_config_newsandinterests_allownewsandinterests_0",
-          "children": []
-        }
+          "children": [],
+          "value": "device_vendor_msft_policy_config_search_donotusewebresults_0"
+        },
+        "settingDefinitionId": "device_vendor_msft_policy_config_search_donotusewebresults"
       }
+    ],
+    "technologies": "mdm",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

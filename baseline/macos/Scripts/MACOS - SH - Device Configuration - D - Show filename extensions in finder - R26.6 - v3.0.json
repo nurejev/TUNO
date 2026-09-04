@@ -1,28 +1,21 @@
 {
-  "executionFrequency": "P1D",
-  "retryCount": 3,
-  "blockExecutionNotifications": true,
-  "id": "fb5d66c1-c657-49c0-b414-7e640e6e144f",
-  "displayName": "MACOS - SH - Device Configuration - D - Show filename extensions in finder - R26.6 - v3.0",
+  "name": "MACOS - SH - Device Configuration - D - Show filename extensions in finder - R26.6 - v3.0",
+  "key": "macos sh device configuration d show filename extensions in finder",
+  "release": "R26.6",
+  "version": "3.0",
+  "section": "scripts",
+  "sectionLabel": "Scripts & remediations",
+  "area": null,
+  "du": "D",
   "description": "Script to enable 'Show all filename extensions'-setting from Finder",
-  "scriptContent": null,
-  "createdDateTime": "2026-01-09T11:13:38.2552028Z",
-  "lastModifiedDateTime": "2026-05-19T11:17:02.3749506Z",
-  "runAsAccount": "user",
-  "fileName": "ShowAllFilenameExtensions.zsh",
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/deviceShellScripts('fb5d66c1-c657-49c0-b414-7e640e6e144f')/assignments",
-  "assignments": [
-    {
-      "id": "fb5d66c1-c657-49c0-b414-7e640e6e144f:f1a6d043-f424-460c-94ad-4629f5929674",
-      "target": {
-        "@odata.type": "#microsoft.graph.groupAssignmentTarget",
-        "deviceAndAppManagementAssignmentFilterId": null,
-        "deviceAndAppManagementAssignmentFilterType": "none",
-        "groupId": "f1a6d043-f424-460c-94ad-4629f5929674"
-      }
-    }
-  ]
+  "importable": false,
+  "hash": "sha256:b65cb7337444fcbfec14ff65b4357767186c04f98387ccd8c30528cc2ddab3c8",
+  "body": {
+    "blockExecutionNotifications": true,
+    "executionFrequency": "P1D",
+    "fileName": "ShowAllFilenameExtensions.zsh",
+    "retryCount": 3,
+    "runAsAccount": "user",
+    "scriptContent": ""
+  }
 }

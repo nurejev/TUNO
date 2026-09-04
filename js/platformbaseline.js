@@ -74,7 +74,14 @@ const PlatformBaseline = (() => {
     const normRel = (rel, name) => {
       if (rel && typeof rel === "object" && "y" in rel) return rel;
       if (typeof rel === "number") return { y: 26, m: rel };
-      if (typeof rel === "string" && /^\d{2}\.\d{1,2}$/.test(rel)) { const [y, m] = rel.split(".").map(Number); return { y, m }; }
+      // Schema 2 writes the release as the string it is read as — "R26.6".
+      // Schema 1 wrote "26.6", and the first macOS catalog a bare month.
+      // All three shapes read as one release here, so an old file still
+      // compares correctly against a new one.
+      if (typeof rel === "string") {
+        const m = /^\s*R?(\d{2})\.(\d{1,2})\s*$/i.exec(rel);
+        if (m) return { y: +m[1], m: +m[2] };
+      }
       return releaseOf(name);
     };
     const relCmp = (a, b) => (a.y - b.y) || (a.m - b.m);
@@ -134,6 +141,140 @@ const PlatformBaseline = (() => {
       return hit / Math.min(A.size, B.size);
     }
 
+    // ================================================================
+    // THE CANONICAL BODY — ONE CLEANER, ONE HASH (§6.2, findings 5 and 9)
+    // ================================================================
+    // Until build 10589 there were THREE cleaners that all meant "the
+    // policy without the tenant's bookkeeping on it": cleanBody() for a
+    // community import, the delete-list in buildExport() for the catalog,
+    // and defIdsOf()'s META set for the diff. Three rules for one idea is
+    // three chances to disagree — and they did: the catalog kept
+    // `createdDateTime` and `settingCount`, which is tenant metadata
+    // published in a repository (finding 5), while the diff quietly
+    // ignored both.
+    //
+    // canonicalBody(section, body) is now that one rule. The content hash,
+    // the content diff, the export cleaner and the tests all read it, so a
+    // field that leaks into the catalog changes the hash and the test that
+    // recomputes the hash says so.
+    //
+    // WHAT COMES OFF, AND WHY:
+    //   the tenant's bookkeeping — id, createdDateTime, lastModifiedDateTime,
+    //     version (Graph's own row counter, not our vX.Y.Z), assignments,
+    //     roleScopeTagIds, supportsScopeTags, priority, isAssigned,
+    //     settingCount, creationSource and the rest of the reporting fields
+    //   the READING's annotations — @odata.context/etag/count/id/editLink and
+    //     the navigation links, the #microsoft.graph.* action stubs
+    //   the TEMPLATE's bookkeeping — templateDisplayVersion, and the
+    //     settingInstance/settingValue template references, which name the
+    //     template revision the tenant happened to author against
+    //   THE NAME AND THE DESCRIPTION. This is the one that looks wrong and
+    //     is the whole point: "two policies with the same hash are the same
+    //     CONTENT, whatever they are called" (§2). A renamed copy has to
+    //     hash the same or Housekeeping cannot find it, and a community
+    //     policy re-named on the tenant has to hash the same or Compare
+    //     cannot match it. The name is the KEY's job, not the hash's.
+    //   nulls, everywhere — Graph answers null for properties a profile
+    //     does not use, and a body that omits them is the same policy.
+    //
+    // WHAT STAYS: @odata.type (it says what kind of profile this is — the
+    // anchor the similarity match uses), and for scripts the script itself,
+    // decoded from base64 and with its line endings normalised so the same
+    // script saved on Windows and on a Mac is one script.
+    const CANON_DROP = new Set([
+      "id", "name", "displayName", "description",
+      "createdDateTime", "lastModifiedDateTime", "version", "assignments",
+      "roleScopeTagIds", "supportsScopeTags", "priority", "isAssigned",
+      "settingCount", "creationSource", "priorityMetaData", "inventorySyncStatus",
+      "deviceReporting", "newUpdates", "driverInventories", "lastModifiedBy",
+      "settingInstanceTemplateReference", "settingValueTemplateReference",
+      "templateDisplayVersion", "displayVersion",
+    ]);
+    const isAnnotation = (k) => /@odata\.(context|etag|count|id|editLink|nextLink|associationLink|navigationLink)$/i.test(k)
+      || (/@odata\.type$/i.test(k) && k !== "@odata.type")   // a PROPERTY's type annotation, not the object's
+      || k.startsWith("#");
+    // base64 in, text out — and the same text whatever wrote it. A script
+    // whose content cannot be decoded is kept as it came, so a change to it
+    // still changes the hash.
+    const decodeScript = (v) => {
+      const s = String(v ?? "");
+      if (!s) return "";
+      let text = s;
+      try {
+        const dec = (typeof atob === "function") ? atob(s)
+          : (typeof Buffer !== "undefined") ? Buffer.from(s, "base64").toString("utf8") : null;
+        if (dec !== null && /^[A-Za-z0-9+/\r\n=]+$/.test(s)) text = dec;
+      } catch { /* not base64 — compare what is there */ }
+      return text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+    };
+    function canonValue(v) {
+      if (Array.isArray(v)) return v.map(canonValue).filter((x) => x !== undefined);
+      if (v && typeof v === "object") {
+        const out = {};
+        for (const k of Object.keys(v).sort()) {
+          if (CANON_DROP.has(k) || isAnnotation(k)) continue;
+          const cv = canonValue(v[k]);
+          if (cv === undefined) continue;
+          out[k] = cv;
+        }
+        return out;
+      }
+      return (v === null || v === undefined) ? undefined : v;
+    }
+    function canonicalBody(section, body) {
+      const src = body || {};
+      const out = canonValue(src) || {};
+      if (src["@odata.type"]) out["@odata.type"] = src["@odata.type"];   // the anchor survives the drop list
+      if (section === "settingsCatalog") {
+        const list = Array.isArray(src.settings) ? src.settings : [];
+        out.settings = list
+          .map((s) => canonValue((s && s.settingInstance) || s) || {})
+          .filter((i) => i && i.settingDefinitionId)
+          .sort((a, b) => String(a.settingDefinitionId).localeCompare(String(b.settingDefinitionId)));
+        if (!out.settings.length) delete out.settings;
+      } else if (section === "admx") {
+        const list = Array.isArray(src.definitionValues) ? src.definitionValues : [];
+        const dv = list.map(canonValue).filter(Boolean)
+          .sort((a, b) => String((a.definition || {}).id || "").localeCompare(String((b.definition || {}).id || "")));
+        if (dv.length) out.definitionValues = dv; else delete out.definitionValues;
+      }
+      if (src.scriptContent !== undefined) out.scriptContent = decodeScript(src.scriptContent);
+      if (src.detectionScriptContent !== undefined) out.detectionScriptContent = decodeScript(src.detectionScriptContent);
+      if (src.remediationScriptContent !== undefined) out.remediationScriptContent = decodeScript(src.remediationScriptContent);
+      return out;
+    }
+    // Keys are already sorted by canonValue, so a plain stringify is stable.
+    const canonicalJson = (section, body) => JSON.stringify(canonicalBody(section, body));
+    // SHA-256 over that text. crypto.subtle is the browser's own — no
+    // library, and the same digest the tests recompute.
+    async function hashBody(section, body) {
+      const text = canonicalJson(section, body);
+      const subtle = (typeof crypto !== "undefined" && crypto.subtle) || null;
+      if (!subtle) return "";                       // no subtle crypto: no hash, and the caller says so
+      const buf = await subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return "sha256:" + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    // Hash a list of { id, section, body } in one pass, answering a Map by
+    // id. A body the read never fetched hashes to "" — unknown, never equal.
+    async function hashAll(list) {
+      const out = new Map();
+      for (const p of list || []) {
+        if (!p || !p.body) { out.set(p && p.id, ""); continue; }
+        try { out.set(p.id, await hashBody(p.section, p.body)); }
+        catch { out.set(p.id, ""); }
+      }
+      return out;
+    }
+
+    // The D/U token the convention carries, which is what Import reads to
+    // pick a PRE-PILOT group (§8.3). It is a SEGMENT of the name, never a
+    // letter found inside a word: "Win - SEC - Defender - D - Real-time …"
+    // has one, "… - Update - …" does not.
+    const duOf = (name) => {
+      const seg = String(name || "").split(/\s+-\s+/).map((s) => s.trim().toUpperCase());
+      return seg.includes("D") ? "D" : seg.includes("U") ? "U" : "";
+    };
+
     // ---- catalogs ----
     // THE FOLDER IS THE CATALOG (build 10575, Mihai: "why is baseline/windows
     // in the repo not read as the catalog?"). Until 10574 the same catalog
@@ -145,8 +286,82 @@ const PlatformBaseline = (() => {
     // the cache like any asset, and 1.7 MB leaves every page load. The
     // engine holds what the loader read; the screen's loadCatalogs() fills it.
     let bundledCat = null, communityCat = null;
+
+    // ---- SCHEMA 2, AND A LOADER THAT REFUSES (§7.3, finding 9) ----
+    // Schema 1 checked two things: `kind` was a string it liked and
+    // `policies` was an array. Everything else — the platform, which
+    // catalog this claims to be, whether a policy's section is one this
+    // tool can even write to, whether the bodies are the bodies that were
+    // exported — was taken on trust from a JSON file that a person can
+    // hand-edit and that Import creates policies from. That is the whole
+    // of finding 9.
+    //
+    // Schema 2 answers all of it, and separates three things schema 1 ran
+    // together in one "release: R26" string that was HARDCODED at export:
+    //   release    — the newest Ryy.m among the exported policies, DERIVED,
+    //                with releaseMix beside it so an accidental mix of cuts
+    //                is visible rather than averaged away
+    //   sourceDate — when the upstream a community catalog was cut from was
+    //                itself published
+    //   exported   — when this file was written
+    //
+    // A file that fails the shape checks is REFUSED WHOLE: no partial
+    // load, first three reasons printed. A policy whose body does not
+    // recompute to its own hash is not refused — the rest of the catalog
+    // is honest — but that row is flagged `tampered` and can never be
+    // imported, because a body edited after export is not the baseline.
+    const CATALOG_SCHEMA = 2;
+    const COMMUNITY_KIND = "tuno-community";
+    const platformId = () => String(spec.platformId || spec.platform).toLowerCase();
+    const catalogIds = () => [spec.catalogId, ...(spec.communityIds || [])].filter(Boolean);
+    const sectionIds = () => spec.sections || [];
+    function shapeErrors(c) {
+      const e = [];
+      if (!c || typeof c !== "object") { e.push("the file is not a JSON object"); return e; }
+      if (c.schema !== CATALOG_SCHEMA) e.push(`schema is ${JSON.stringify(c.schema)}, this build reads schema ${CATALOG_SCHEMA} — re-cut the catalog with 🧬 Export`);
+      if (c.kind !== spec.kind && c.kind !== COMMUNITY_KIND) e.push(`kind is ${JSON.stringify(c.kind)}, expected "${spec.kind}" or "${COMMUNITY_KIND}"`);
+      if (String(c.platform || "").toLowerCase() !== platformId()) e.push(`platform is ${JSON.stringify(c.platform)} — this is the ${spec.platform} baseline`);
+      if (!catalogIds().includes(c.catalogId)) e.push(`catalogId ${JSON.stringify(c.catalogId)} is not one this tool reads (${catalogIds().join(", ")})`);
+      if (!Array.isArray(c.policies)) { e.push("there is no policies array"); return e; }
+      const secs = sectionIds();
+      c.policies.forEach((p, i) => {
+        const where = `policy ${i + 1} (${String((p && p.name) || "unnamed").slice(0, 60)})`;
+        if (!p || typeof p !== "object") { e.push(`${where}: not an object`); return; }
+        if (!p.name) e.push(`${where}: no name`);
+        if (secs.length && !secs.includes(p.section)) e.push(`${where}: section ${JSON.stringify(p.section)} is not one this tool covers`);
+        if (p.body !== undefined && (!p.body || typeof p.body !== "object" || Array.isArray(p.body))) e.push(`${where}: body is not an object`);
+      });
+      return e;
+    }
+    // Recompute every hash the file carries. A row whose body no longer
+    // matches its own hash is marked and refused for import from here on.
+    async function verifyHashes(c) {
+      let tampered = 0, unhashed = 0;
+      for (const p of (c && c.policies) || []) {
+        delete p.tampered;
+        if (!p.body) { continue; }
+        if (!p.hash) { unhashed++; continue; }
+        const h = await hashBody(p.section, p.body);
+        if (!h) { unhashed++; continue; }             // no subtle crypto — say nothing rather than accuse
+        if (h !== p.hash) { p.tampered = true; p.importable = false; tampered++; }
+      }
+      return { tampered, unhashed };
+    }
+    // The one door every catalog comes through — the same-origin read, the
+    // uploaded file and a freshly fetched community cut.
+    async function loadCatalog(obj) {
+      const errs = shapeErrors(obj);
+      if (errs.length) {
+        const err = new Error(errs.slice(0, 3).join(" · ") + (errs.length > 3 ? ` · (+${errs.length - 3} more)` : ""));
+        err.errors = errs;
+        throw err;
+      }
+      const seen = await verifyHashes(obj);
+      obj.__verify = seen;
+      return obj;
+    }
     const setBundled = (c) => { bundledCat = (c && c.kind === spec.kind && Array.isArray(c.policies)) ? c : null; return bundledCat; };
-    const setCommunity = (c) => { communityCat = (c && c.kind === "tuno-community-baseline" && Array.isArray(c.policies)) ? c : null; return communityCat; };
+    const setCommunity = (c) => { communityCat = (c && c.kind === COMMUNITY_KIND && Array.isArray(c.policies)) ? c : null; return communityCat; };
     function bundled() { return bundledCat; }
     // the community catalog — the same shape the Upstream act builds from a
     // zip (buildCommunity), so one file drives compare, import and upstream
@@ -164,11 +379,22 @@ const PlatformBaseline = (() => {
       };
       const [b, c] = await Promise.all([read(spec.catalogPath), read(spec.communityPath)]);
       const errors = [];
-      if (b.cat) { if (!setBundled(b.cat)) errors.push(`${spec.catalogPath} is not a ${spec.platform} baseline catalog`); } else errors.push(b.error);
-      if (c.cat) { if (!setCommunity(c.cat)) errors.push(`${spec.communityPath} is not a community catalog`); } else errors.push(c.error);
+      // The site's own files go through the SAME loader an uploaded file
+      // does (finding 9). A catalog committed to the repository is not
+      // more trustworthy than one handed over — it is the same JSON, and
+      // the last person to touch it was a script.
+      const take = async (got, path, set, what) => {
+        if (!got.cat) { errors.push(got.error); return; }
+        try {
+          const cat = await loadCatalog(got.cat);
+          if (!set(cat)) errors.push(`${path} is not a ${what}`);
+        } catch (e) { errors.push(`${path} was refused: ${(e && e.message) || e}`); }
+      };
+      await take(b, spec.catalogPath, setBundled, `${spec.platform} baseline catalog`);
+      await take(c, spec.communityPath, setCommunity, "community catalog");
       return { bundled: bundledCat, community: communityCat, errors };
     }
-    const isCommunity = (cat) => !!(cat && cat.kind === "tuno-community-baseline");
+    const isCommunity = (cat) => !!(cat && cat.kind === COMMUNITY_KIND);
     // does this name wear THIS catalog's convention? CloudFellows: prefix +
     // Ryy.m; a community catalog says so itself (OIB: "Win - OIB"); a
     // catalog with no convention (intune-my-macs) claims nothing by name —
@@ -185,15 +411,18 @@ const PlatformBaseline = (() => {
       const m = new RegExp(`\\b${cat.idToken}:\\s*([0-9a-f-]{8,})`, "i").exec(String(description));
       return m ? m[1].toUpperCase() : null;
     };
-    function parseCatalog(text) {
+    // An uploaded file: the same door, plus the convention check that only
+    // a CloudFellows catalog owes (a community catalog wears its author's
+    // names, which is the point of it).
+    async function parseCatalog(text) {
       let j;
       try { j = JSON.parse(text); } catch { throw new Error("Not JSON — the baseline file is the tool's own export."); }
-      if (!j || j.kind !== spec.kind) throw new Error(`Not a ${spec.platform} baseline file — the \`kind\` field is missing or wrong.`);
-      if (!Array.isArray(j.policies)) throw new Error("The baseline file carries no policies array.");
-      for (const p of j.policies) {
-        if (!p.name || !looksBaseline(p.name)) throw new Error(`A catalog policy does not wear the convention: "${String(p.name || "(unnamed)").slice(0, 80)}"`);
+      const cat = await loadCatalog(j);
+      if (cat.kind === spec.kind) {
+        const rogue = (cat.policies || []).find((p) => !looksBaseline(p.name));
+        if (rogue) throw new Error(`A catalog policy does not wear the convention: "${String(rogue.name || "(unnamed)").slice(0, 80)}"`);
       }
-      return j;
+      return cat;
     }
 
     // ---- compare tenant policies against the catalog ----
@@ -372,8 +601,9 @@ const PlatformBaseline = (() => {
       kept.sort((a, b) => String(a.key || keyOf(a.name)).localeCompare(String(b.key || keyOf(b.name))));
       return { kept, superseded };
     }
-    function buildExport(res, tenantName) {
+    async function buildExport(res, tenantName) {
       const policies = [], skipped = [];
+      const surfaces = {};
       for (const sec of res.sections || []) {
         for (const it of sec.items || []) {
           if (!looksBaseline(it.name)) continue;
@@ -381,19 +611,38 @@ const PlatformBaseline = (() => {
           const area = AREA_OF_SECTION[sec.id] || null;
           if (!raw) { skipped.push({ name: it.name, why: "raw body not in the read — export from a cache-backed read" }); continue; }
           const body = Object.assign({}, raw);
-          delete body.__detail; delete body.__detailError;
+          delete body.__detail; delete body.__detailError; delete body.__surface;
           if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           if (sec.id === "admx" && Array.isArray(raw.__detail)) body.definitionValues = raw.__detail;
           const scriptNoBody = sec.id === "scripts" && !body.scriptContent;
+          surfaces[sec.id] = (surfaces[sec.id] || 0) + 1;
+          const rel = releaseOf(it.name);
           policies.push({
             key: keyOf(it.name), name: it.name,
-            release: releaseOf(it.name), version: versionOf(it.name),
+            release: rel ? `R${rel.y}.${rel.m}` : "", version: versionOf(it.name),
             section: sec.id, sectionLabel: sec.label, area,
+            du: duOf(it.name),
+            // THE DESCRIPTION RIDES ON THE ROW, NOT IN THE BODY. It is not
+            // content — two policies whose settings agree are the same
+            // policy however they are described, and the hash has to say
+            // so — but it is not disposable either: OpenIntuneBaseline
+            // stamps its OIBID token into it, and an import that dropped
+            // the token would create a policy OIB's own deployer could
+            // never recognise again (§8.2). So it travels beside the body
+            // and Import puts it back.
+            description: String((body && body.description) || ""),
+            // THE BODY IS CLEANED BEFORE IT IS PUBLISHED (finding 5). The
+            // catalog goes into a public repository; the tenant's own ids,
+            // timestamps, assignments and scope tags are not the baseline
+            // and have no business travelling with it. The hash is taken
+            // over exactly what is written, so a test that recomputes it
+            // catches a leak the moment one is reintroduced.
+            body: canonicalBody(sec.id, body),
             importable: !!area && !scriptNoBody,
-            body,
           });
         }
       }
+      for (const p of policies) p.hash = await hashBody(p.section, p.body);
       policies.sort((a, b) => String(a.key).localeCompare(String(b.key)));
       // THE CATALOG HOLDS EACH IDENTITY ONCE — THE NEWEST (build 10574). A
       // re-cut kept beside its old copy on the baseline tenant is the
@@ -403,19 +652,46 @@ const PlatformBaseline = (() => {
       // exact duplicate (same release and version) keeps the first seen.
       const { kept, superseded } = dedupeCatalog(policies);
       const dupKeys = superseded.map((x) => x.key);
+      const { release, mix } = releaseOfSet(kept);
       return {
         file: {
+          schema: CATALOG_SCHEMA,
           kind: spec.kind,
-          release: "R26",
+          platform: platformId(),
+          catalogId: spec.catalogId,
+          // DERIVED, NEVER HARDCODED (finding 9). Until 10589 this said
+          // "R26" because a person typed it in 2026; a catalog cut in
+          // January 2027 would still have said R26. The release is the
+          // NEWEST Ryy.m the exported policies actually wear, and
+          // releaseMix prints the distribution beside it — so an
+          // accidental mix ("R26.6 ×80, R26.4 ×2") is a thing you can see
+          // rather than an average that hides it.
+          release,
+          releaseMix: mix,
+          sourceDate: "",                    // a CloudFellows cut has no upstream to date
           exported: new Date().toISOString(),
           tenant: tenantName || "",
           build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+          surfaces,
           policies: kept,
         },
         skipped,
         duplicateKeys: dupKeys,
         superseded,
       };
+    }
+    // The newest release worn by a set, with the census beside it.
+    function releaseOfSet(list) {
+      const mix = {};
+      let best = null;
+      for (const p of list || []) {
+        const r = normRel(p.release, p.name);
+        if (!r) continue;
+        const label = `R${r.y}.${r.m}`;
+        mix[label] = (mix[label] || 0) + 1;
+        if (!best || relCmp(r, best) > 0) best = r;
+      }
+      return { release: best ? `R${best.y}.${best.m}` : "", mix };
     }
 
     // ---- the repo folder: the export as files a repository can hold ----
@@ -431,11 +707,30 @@ const PlatformBaseline = (() => {
       const dir = `baseline/${plat}`;
       const file = built.file;
       const files = {};
-      for (const p of file.policies) files[`${dir}/${SECTION_DIR[p.section] || p.section}/${safeFile(p.name)}.json`] = JSON.stringify(p.body, null, 2) + "\n";
+      // THE PER-POLICY FILE IS THE ROW, NOT ONLY THE BODY (build 10589).
+      // The canonical body has no name in it — that is deliberate, it is
+      // what lets a renamed copy hash the same — so a file holding only
+      // the body would be an anonymous blob whose identity lived in its
+      // filename. These files exist to be read and diffed in the
+      // repository, so each one says what it is: the name, key, release,
+      // version, surface, D/U token and the hash, then the body.
+      for (const p of file.policies) {
+        files[`${dir}/${SECTION_DIR[p.section] || p.section}/${safeFile(p.name)}.json`] = JSON.stringify({
+          name: p.name, key: p.key, release: p.release, version: p.version,
+          section: p.section, sectionLabel: p.sectionLabel, area: p.area, du: p.du,
+          description: p.description || "", importable: p.importable, hash: p.hash, body: p.body,
+        }, null, 2) + "\n";
+      }
       files[`${dir}/catalog.json`] = JSON.stringify(file, null, 1) + "\n";
       const L = [];
-      L.push(`# CloudFellows ${spec.platform} baseline — ${file.release}`, "");
-      L.push(`Exported from **${file.tenant || "the baseline tenant"}** on ${file.exported.slice(0, 10)} by TUNO ${file.build} (🧬 Export on the baseline tenant, the cfdev convention). ${file.policies.length} policies, each identity once — the newest release and version.`, "");
+      const mix = Object.entries(file.releaseMix || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ×${n}`).join(", ");
+      L.push(`# CloudFellows ${spec.platform} baseline — ${file.release || "(no release tag)"}`, "");
+      L.push(`Exported from **${file.tenant || "the reference tenant"}** on ${file.exported.slice(0, 10)} by TUNO ${file.build} (🧬 Export on the reference tenant, the cfdev convention). ${file.policies.length} policies, each identity once — the newest release and version.`, "");
+      // THE RELEASE IS DERIVED, AND THE MIX IS PRINTED (finding 9). "R26.6"
+      // is the newest cut any exported policy wears, not a number somebody
+      // typed; the census beside it is how an accidental mix of cuts
+      // becomes visible instead of being averaged into one label.
+      L.push(`Schema ${file.schema} · catalog \`${file.catalogId}\` · release **${file.release || "—"}** derived from the policies themselves${mix ? ` (${mix})` : ""}. Every body is the canonical body — the tenant's ids, timestamps, assignments and scope tags are stripped before export — and every policy carries the SHA-256 of that body, which the loader recomputes on read.`, "");
       L.push(`The naming convention is the identity: \`${spec.prefix} - <type> - <area> - <D|U> - <description> - Ryy.m - vX.Y\` — \`Ryy.m\` is the release the policy was cut in (year, then month), the version orders re-cuts within it.`, "");
       L.push(`\`catalog.json\` **is the catalog the app reads** — TUNO fetches \`${spec.catalogPath}\` from its own origin when the ${spec.icon} ${spec.label} opens; there is no other copy. The per-policy files under the section folders are the same bodies, one per file, for reading and diffing in the repository. Written by the app (🧬 Export → 📁 Repo folder), never by hand.`, "");
       const sections = [...new Set(file.policies.map((p) => p.section))];
@@ -468,7 +763,8 @@ const PlatformBaseline = (() => {
       files[`${dir}/catalog.json`] = JSON.stringify(cat, null, 1) + "\n";
       files[`${dir}/README.md`] = [
         `# ${cat.label} — the ${spec.platform} community baseline`, "",
-        `Cut verbatim from ${cat.url}${cat.commit ? ` at commit \`${cat.commit}\`` : ""}${cat.release ? ` (release ${cat.release}${cat.released ? `, ${cat.released}` : ""})` : ""} by ${cat.author || "the community"}. ${cat.policies.length} policies, names and descriptions the author's own${cat.idToken ? `, each carrying its \`${cat.idToken}\`` : ""}.`, "",
+        `Cut verbatim from ${cat.url}${cat.commit ? ` at commit \`${cat.commit}\`` : ""}${cat.release ? ` (release ${cat.release}${cat.sourceDate ? `, published ${cat.sourceDate}` : ""})` : ""} by ${cat.author || "the community"}. ${cat.policies.length} policies, names and descriptions the author's own${cat.idToken ? `, each carrying its \`${cat.idToken}\`` : ""}.`, "",
+        `Schema ${cat.schema} · catalog \`${cat.catalogId}\` · read into this repository on ${String(cat.exported || "").slice(0, 10)}. Three dates, never one string: \`release\` is the author's own version, \`sourceDate\` is when THEIR cut was published, \`exported\` is when it was read here. Every body is the canonical body and carries the SHA-256 the loader recomputes.`, "",
         `\`catalog.json\` **is the catalog the app reads** — TUNO fetches \`${spec.communityPath}\` from its own origin when ${spec.icon} ${spec.label} opens. Written by the app: on the baseline tenant, ${spec.upstream.icon} Upstream → fetch or load the repository → ⬇ Community catalog folder (zip), unzipped at the repository root. Never edited by hand.`, "",
         `| Section | Policies |`, `| --- | --- |`,
         ...Object.entries(cat.policies.reduce((a, p) => (a[p.sectionLabel || p.section] = (a[p.sectionLabel || p.section] || 0) + 1, a), {})).map(([k, n]) => `| ${k} | ${n} |`), "",
@@ -522,8 +818,16 @@ const PlatformBaseline = (() => {
     // ---- import entries: three roads, each honest about itself ----
     function importEntries(cat, wanted) {
       const entries = [], filters = [], refused = [];
+      // The canonical body has no name and no description in it (§6.2), so
+      // the create body is rebuilt here: the body as published, plus the
+      // description the row carried — Restore.bodyFor stamps the name.
+      const createBody = (p) => Object.assign({}, p.body, p.description ? { description: p.description } : {});
       for (const p of cat.policies) {
         if (wanted && !wanted.has(keyOf(p.name))) continue;
+        if (p.tampered) {
+          refused.push({ name: p.name, why: "its body does not match the hash the catalog carries — edited after export, so it is not the baseline" });
+          continue;
+        }
         if (p.importable === false || !p.body) {
           refused.push({ name: p.name, why: p.body
             ? (p.section === "scripts" ? "the reference read carries no script body — a script without its body cannot be put back"
@@ -534,8 +838,8 @@ const PlatformBaseline = (() => {
         }
         if (p.area === "AssignmentFilters") {
           filters.push({ name: p.name, body: {
-            displayName: p.body.displayName || p.name,
-            description: p.body.description || "",
+            displayName: p.name,
+            description: p.description || "",
             platform: p.body.platform,
             rule: p.body.rule,
             ...(p.body.assignmentFilterManagementType ? { assignmentFilterManagementType: p.body.assignmentFilterManagementType } : {}),
@@ -543,7 +847,7 @@ const PlatformBaseline = (() => {
           continue;
         }
         if (!p.area) { refused.push({ name: p.name, why: `its surface (${p.sectionLabel || p.section || "unknown"}) has no create path here` }); continue; }
-        entries.push({ area: p.area, entry: { area: p.area, name: p.name, obj: p.body, sourceId: p.body.id || "" }, newName: p.name });
+        entries.push({ area: p.area, entry: { area: p.area, name: p.name, obj: createBody(p), sourceId: "" }, newName: p.name });
       }
       return { entries, filters, refused };
     }
@@ -668,32 +972,46 @@ const PlatformBaseline = (() => {
 
     // The community catalog FILE — built from a parsed zip, the shape the
     // bundled js/<community>Data.js carries. Names verbatim, tokens kept.
-    function buildCommunity(parsed, meta) {
+    async function buildCommunity(parsed, meta) {
       const m = parsed.manifest || null;
       const byId = new Map((m ? m.policies : []).map((p) => [String(p.oibId || "").toUpperCase(), p]));
+      const surfaces = {};
       const policies = parsed.policies.map((u) => {
         const mp = u.oibId ? byId.get(u.oibId) : null;
+        const section = SECTION_OF_KIND[u.kind];
+        surfaces[section] = (surfaces[section] || 0) + 1;
         return {
           name: u.name, key: keyOf(u.name), version: versionOf(u.name), release: null,
-          section: SECTION_OF_KIND[u.kind], sectionLabel: LABEL_OF_KIND[u.kind], area: AREA_OF_KIND[u.kind],
+          section, sectionLabel: LABEL_OF_KIND[u.kind], area: AREA_OF_KIND[u.kind],
+          du: duOf(u.name),
+          // the author's own description, token and all — off the body so
+          // the hash is content, on the row so Import can put it back
+          description: String((u.body && u.body.description) || ""),
           importable: !!AREA_OF_KIND[u.kind],
           kind: u.kind, folder: u.folder, path: u.path,
           ...(u.oibId ? { oibId: u.oibId } : {}),
           ...(mp ? { scope: mp.scope || "", addedIn: mp.addedIn || "", status: mp.status || "", licenseRequirements: mp.licenseRequirements || "", skuRequirements: mp.skuRequirements || "" } : {}),
-          body: u.body,
+          body: canonicalBody(section, u.body),
         };
       }).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+      for (const p of policies) p.hash = await hashBody(p.section, p.body);
       return {
-        kind: "tuno-community-baseline",
-        id: spec.upstream.id, platform: spec.platform,
+        schema: CATALOG_SCHEMA,
+        kind: COMMUNITY_KIND,
+        platform: platformId(),
+        catalogId: spec.upstream.id,
+        id: spec.upstream.id,
         label: spec.upstream.label, icon: spec.upstream.icon, author: spec.upstream.author,
         url: spec.upstream.url, importerUrl: spec.upstream.importerUrl || null,
         nameRe: spec.upstream.nameRe || null, idToken: spec.upstream.idToken || null,
+        // three fields, not one string (finding 9): the author's own
+        // release, the day THEIR cut was published, and when we read it
         release: (m && m.oibVersion) || (meta && meta.release) || "",
-        released: (m && m.generatedDate) || (meta && meta.released) || "",
+        sourceDate: (m && m.generatedDate) || (meta && meta.sourceDate) || "",
         commit: (meta && meta.commit) || "",
-        generated: new Date().toISOString(),
+        exported: new Date().toISOString(),
         build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
+        surfaces,
         policies,
       };
     }
@@ -942,7 +1260,7 @@ const PlatformBaseline = (() => {
       const cat = cmp.catalog, comm = isCommunity(cat);
       const relver = (rel, ver) => comm ? (ver ? `v${ver}` : "—") : `${relLabel(rel)}${ver ? ` · v${ver}` : ""}`;
       const L = [];
-      L.push(`# ${spec.platform} baseline gap — ${mdEsc(tenantName || "tenant")} vs ${mdEsc(comm ? `${cat.label} ${cat.release}` : `the CloudFellows ${spec.platform} baseline ${cat.release || "R26"}`)}`, "");
+      L.push(`# ${spec.platform} baseline gap — ${mdEsc(tenantName || "tenant")} vs ${mdEsc(comm ? `${cat.label} ${cat.release}` : `the CloudFellows ${spec.platform} baseline ${cat.release || "(no release)"}`)}`, "");
       L.push(typeof Brand !== "undefined" && Brand.generatedBy ? Brand.generatedBy() : `Generated by TUNO ${typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""}`);
       if (comm && cat.url) L.push(`Baseline source: ${cat.url}${cat.commit ? ` (commit ${String(cat.commit).slice(0, 7)})` : ""}`);
       L.push("");
@@ -973,6 +1291,8 @@ const PlatformBaseline = (() => {
       spec,
       releaseOf, normRel, relCmp, currentRelease, versionOf, looksBaseline, keyOf, relLabel, cmpVersion, cmpRelVer,
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
+      CATALOG_SCHEMA, COMMUNITY_KIND, canonicalBody, canonicalJson, hashBody, hashAll, duOf,
+      shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
       UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
       matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
       releaseOfDate, stampRelease, RENAME_PATH, renamePathFor, renameProposals, fetchUpstream,
@@ -1016,6 +1336,7 @@ const PlatformBaseline = (() => {
       fetchedCat: null,      // the community catalog fetched from github.com this session
       upstream: null,        // { rows, skipped, seenOther, when, parsed, from }
       planned: null, plannedFilters: null,
+      hashes: null,          // policy id -> content hash, computed when the read lands
       upPlanned: null, upPlanKey: null,
       rnPlanned: null, rnPlanKey: null,
       hkPlanned: null, hkPlanKey: null,
@@ -1079,6 +1400,11 @@ const PlatformBaseline = (() => {
             if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           }
           out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body,
+            // The content hash of this policy as the tenant holds it —
+            // computed ONCE when the read lands (crypto.subtle is async and
+            // compare() is not), and carried on every view of it since.
+            hash: (S.hashes && S.hashes.get(it.id)) || "",
+            du: E.duOf(it.name),
             surface: (raw && raw.__surface) || "", odataType: (raw && raw["@odata.type"]) || "" });
         }
       }
@@ -1094,7 +1420,7 @@ const PlatformBaseline = (() => {
     const catalogs = () => {
       const out = [];
       const cf = cfCatalog();
-      if (cf) out.push({ id: "cfdev", cat: cf, icon: "🧬", label: `CloudFellows ${cf.release || "R26"}`, sub: cfSource() === "file" ? "loaded file" : "bundled" });
+      if (cf) out.push({ id: "cfdev", cat: cf, icon: "🧬", label: `CloudFellows ${cf.release || "(no release)"}`, sub: cfSource() === "file" ? "loaded file" : "bundled" });
       const co = communityCatalog();
       if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: S.fetchedCat ? "fetched from github.com" : "community" });
       return out;
@@ -1107,11 +1433,16 @@ const PlatformBaseline = (() => {
     }
     const recompare = () => { const c = activeCatalog(); S.cmp = (S.res && c) ? E.compare(vms(), c) : null; };
 
-    function land(r, sourceNote) {
+    async function land(r, sourceNote) {
       // The read names the tenant it came from. Everything downstream —
       // every plan, every ceremony — inherits that name from here.
       S.tenantId = currentTenantId();
       S.res = r;
+      // HASH THE TENANT ONCE, HERE (§6.2). crypto.subtle is asynchronous
+      // and compare(), housekeeping() and the diff are not — so this is
+      // the one await, taken where the read lands, and every later view
+      // reads the answer off the session rather than recomputing it.
+      S.hashes = await E.hashAll(vms());
       const rh = $(ID("Rename")); if (rh) { delete rh.dataset.for; rh.innerHTML = ""; }
       const hh = $(ID("Housekeeping")); if (hh) { delete hh.dataset.for; hh.innerHTML = ""; }
       recompare();
@@ -1174,11 +1505,11 @@ const PlatformBaseline = (() => {
     function catalogLine(c) {
       if (E.isCommunity(c)) {
         const bundle = E.community();
-        return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.released ? ` (${esc(c.released)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}
+        return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.sourceDate ? ` (${esc(c.sourceDate)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}
           ${S.fetchedCat ? `<b>Fetched from github.com this session</b>${bundle ? ` — the bundle is v${esc(bundle.release || "?")} @ ${esc(String(bundle.commit || "").slice(0, 7))}` : ""}. <button class="btn sm" id="${ID("FetchRevert")}">↩ Back to the bundle</button>` : `<button class="btn sm" id="${ID("Fetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>`}
           <span class="mini" id="${ID("FetchNote")}"></span></p>`;
       }
-      return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "R26")}</b> · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
+      return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "(no release)")}</b>${c.releaseMix && Object.keys(c.releaseMix).length > 1 ? ` <span class="gu-how priv" title="The release is the newest cut any policy in this catalog wears; more than one cut is present, and this is the census">${esc(Object.entries(c.releaseMix).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} \u00d7${n}`).join(", "))}</span>` : ""} · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
     }
 
     const CFDEV_ONLY = new Set(["export", "upstream", "rename", "housekeeping"]);
@@ -1327,7 +1658,7 @@ const PlatformBaseline = (() => {
       });
       const ez = $(ID("ExportZip"));
       if (ez) ez.addEventListener("click", async () => {
-        const built = E.buildExport(S.res, tenantName());
+        const built = await E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         try {
           const z = new JSZip();
@@ -1343,8 +1674,8 @@ const PlatformBaseline = (() => {
         } catch (e) { $(ID("ExportNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
       });
       const ex = $(ID("Export"));
-      if (ex) ex.addEventListener("click", () => {
-        const built = E.buildExport(S.res, tenantName());
+      if (ex) ex.addEventListener("click", async () => {
+        const built = await E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         download(`tuno-${spec.platform.toLowerCase()}-baseline-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(built.file, null, 2));
         $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once`
@@ -1356,7 +1687,7 @@ const PlatformBaseline = (() => {
         const f = e.target.files && e.target.files[0];
         if (!f) return;
         try {
-          S.fileCat = E.parseCatalog(await f.text());
+          S.fileCat = await E.parseCatalog(await f.text());
           catId = "cfdev";
           recompare(); render();
         } catch (err) {
@@ -1525,12 +1856,12 @@ const PlatformBaseline = (() => {
       $(ID("UpMd")).addEventListener("click", () => {
         const cf = cfCatalog();
         download(`${spec.upstream.id}-vs-baseline-${new Date().toISOString().slice(0, 10)}.md`,
-          E.upstreamMarkdown(rows, { catalog: cf ? `${cf.release || "R26"} (${cf.policies.length} policies)` : "" }), "text/markdown");
+          E.upstreamMarkdown(rows, { catalog: cf ? `${cf.release || "(no release)"} (${cf.policies.length} policies)` : "" }), "text/markdown");
       });
       const uc = $(ID("UpCatalog"));
       if (uc) uc.addEventListener("click", async () => {
         const f = S.upstream.fetched || {};
-        const file = E.buildCommunity(S.upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), released: f.date || "", commit: f.commit || "" });
+        const file = await E.buildCommunity(S.upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), sourceDate: f.date || "", commit: f.commit || "" });
         try {
           const z = new JSZip();
           for (const [path, text] of Object.entries(E.communityFolder(file))) z.file(path, text);
@@ -1649,7 +1980,7 @@ const PlatformBaseline = (() => {
         const parsed = E.parseUpstream(got.files);
         parsed.seenOther = got.seenOther;
         if (!parsed.policies.length) throw new Error("the repository carries no comparable policies under the expected folder");
-        S.fetchedCat = E.buildCommunity(parsed, { commit: got.commit, released: got.date, release: got.date });
+        S.fetchedCat = await E.buildCommunity(parsed, { commit: got.commit, sourceDate: got.date, release: got.date });
         catId = "community"; S.planned = null; S.plannedFilters = null;
         recompare(); render();
       } catch (e) {
@@ -2113,7 +2444,7 @@ const PlatformBaseline = (() => {
           r = await PolicyCache.refresh(prog);
         }
         prog("");
-        land(r, note ? `${note} — re-read at ${esc(new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))}, so the comparison below is the tenant as it is now.` : attach ? srcNote() : "");
+        await land(r, note ? `${note} — re-read at ${esc(new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))}, so the comparison below is the tenant as it is now.` : attach ? srcNote() : "");
       } catch (e) {
         prog("");
         $(ID("Body")).innerHTML = `<div class="gu-fail"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;
@@ -2156,7 +2487,7 @@ const PlatformBaseline = (() => {
       await ensureCatalogs();
       if (S.res || running) return;
       const c = PolicyCache.get();
-      if (c) { land(c, srcNote()); return; }
+      if (c) { await land(c, srcNote()); return; }
       if (PolicyCache.reading()) { run(true); return; }
       render();
     }
@@ -2184,7 +2515,7 @@ const PlatformBaseline = (() => {
       // what the session is holding, for the tests and for nothing else
       _session: () => S,
       // r: collect result · c: a CloudFellows catalog (or null for the bundled one) · m: mode · k: catalog id
-      _setForTest: (r, c, m, k) => { S.fileCat = c || null; mode = m || "compare"; catId = k || null; land(r, ""); },
+      _setForTest: async (r, c, m, k) => { S.fileCat = c || null; mode = m || "compare"; catId = k || null; await land(r, ""); },
       _catalogsForTest: (b, c) => { E.setBundled(b); E.setCommunity(c); catalogsLoaded = Promise.resolve({}); },
     };
   }

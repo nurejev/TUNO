@@ -1,53 +1,39 @@
 {
-  "createdDateTime": "2026-05-19T10:18:21.7636262Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:05:45.5394741Z",
   "name": "Win - DCP - Windows User Experience - U - Copilot - R26.6 - v3.8",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 2,
-  "technologies": "mdm",
-  "id": "d3f26cf0-fcd7-445a-83e2-c73ff2ae7e2a",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('d3f26cf0-fcd7-445a-83e2-c73ff2ae7e2a')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win dcp windows user experience u copilot",
+  "release": "R26.6",
+  "version": "3.8",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "U",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:0495b272a9f50e32eebba2d914b64a50d045d273d08df222c7fa02270ee363e0",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp_1",
-          "children": []
-        }
-      }
-    },
-    {
-      "id": "1",
-      "settingInstance": {
+          "children": [],
+          "value": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp_1"
+        },
+        "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_removemicrosoftcopilotapp"
+      },
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot_1",
-          "children": []
-        }
+          "children": [],
+          "value": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot_1"
+        },
+        "settingDefinitionId": "user_vendor_msft_policy_config_windowsai_turnoffwindowscopilot"
       }
+    ],
+    "technologies": "mdm",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }

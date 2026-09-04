@@ -1,39 +1,31 @@
 {
-  "createdDateTime": "2026-04-08T13:50:05.2514845Z",
-  "creationSource": null,
-  "description": "",
-  "lastModifiedDateTime": "2026-05-19T11:02:14.6451792Z",
   "name": "Win - DCP - Device Security - D - Oobe Defender updates - R26.6 - v1.0",
-  "platforms": "windows10",
-  "priorityMetaData": null,
-  "roleScopeTagIds": [
-    "0"
-  ],
-  "settingCount": 1,
-  "technologies": "mdm",
-  "id": "78bdc206-05dd-4d57-9b4d-1322583fb257",
-  "templateReference": {
-    "templateId": "",
-    "templateFamily": "none",
-    "templateDisplayName": null,
-    "templateDisplayVersion": null
-  },
-  "assignments@odata.context": "https://graph.microsoft.com/beta/$metadata#deviceManagement/configurationPolicies('78bdc206-05dd-4d57-9b4d-1322583fb257')/assignments",
-  "assignments": [],
-  "settings": [
-    {
-      "id": "0",
-      "settingInstance": {
+  "key": "win dcp device security d oobe defender updates",
+  "release": "R26.6",
+  "version": "1.0",
+  "section": "settingsCatalog",
+  "sectionLabel": "Settings catalog policies",
+  "area": "SettingsCatalog",
+  "du": "D",
+  "description": "",
+  "importable": true,
+  "hash": "sha256:de8d45c60648c350ad47bf5046768ce6497a29582b6433f7e11be845c6d30a14",
+  "body": {
+    "platforms": "windows10",
+    "settings": [
+      {
         "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance",
-        "settingDefinitionId": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate",
-        "settingInstanceTemplateReference": null,
-        "auditRuleInformation": null,
         "choiceSettingValue": {
-          "settingValueTemplateReference": null,
-          "value": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate_1",
-          "children": []
-        }
+          "children": [],
+          "value": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate_1"
+        },
+        "settingDefinitionId": "device_vendor_msft_defender_configuration_oobeenablertpandsigupdate"
       }
+    ],
+    "technologies": "mdm",
+    "templateReference": {
+      "templateFamily": "none",
+      "templateId": ""
     }
-  ]
+  }
 }
