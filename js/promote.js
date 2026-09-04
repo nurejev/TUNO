@@ -100,6 +100,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 157, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 rename and delete on every surface the read covers (the read stamps __surface); lenient versions; ticks on the import plan",
+      tools: ["T27 Windows baseline", "T24 macOS baseline", "T05 Documenter"], builds: [10586], risk: "medium",
+      why: "Mihai, 2026-09-04: Rename refused scripts, remediations and enrolment configurations with 'no rename path here'; the import plan lacked select/deselect. The refusal was honest but avoidable: the read did not say which of three endpoints a script came from. One additive line in T05's collect stamps __surface on every item of a multi-surface section (beside __detail; nothing rendered changes), and the rename/delete paths use it; enrolment and Autopilot get their PATCH with @odata.type. Medium: T05's read object gains a field (additive), and PATCH/DELETE reach more surfaces on cfdev only.",
+      test: [
+        "cloudfellows.dev, \u270f\ufe0f Rename after a fresh read: the remediations, PowerShell scripts, enrolment restrictions and update profiles that read 'no rename path' now propose; 'v.3.7' proposes '- R26.1 - v3.7'. Dry run names the endpoint per row (deviceHealthScripts, deviceEnrollmentConfigurations \u2026); Rename: each renamed in the portal, read back.",
+        "cloudfellows.dev, an item from the cached sign-in read (older than this build) reads 'the read did not say which endpoint \u2026 re-read the tenant'; after Read it proposes.",
+        "Any tenant, Import dry run: rows ticked, select none disables the button at 0, untick one and the button counts down; Create creates only the ticked.",
+        "T05: a document renders exactly as before (the stamp is not a row).",
+        "Suites (outside the repo): platformbaseline-tests.js 167/167 (11 new), baseline-dom-tests.js 94/94 (4 new)."
+      ],
+      files: ["js/platformbaseline.js", "js/document.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 156, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the community comparison matches by content (\u2260 Differs bucket); Import creates only the gap; plan name column fixed",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10585], risk: "medium",
       why: "Mihai on cloudfellows.dev, 2026-09-04: OIB read 72 missing against the tenant that had deployed it under CloudFellows names \u2014 'the compare should match on settings, not on name'. The Upstream act already knew how; the comparison now uses the same rule (token \u2192 name \u2192 content, one overlap floor) and gains a Differs bucket with the per-setting diff. Import was creating the whole catalog with a name collision stop, which would have made copies of everything matched by content \u2014 it now creates only the comparison's missing/outdated rows. Medium: a production tool's verdicts change (fewer missing, some differs) and its import plans less \u2014 both in the honest direction. Also fixes the blank name column in the import plan (target vs newName), inherited from T24's original. Built as 10576 against the 10575 tip; renumbered 10585 when it landed after the T01 rethink builds 10576\u201310584.",

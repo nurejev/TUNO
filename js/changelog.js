@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10586, date: "2026-09-04", title: "Baselines: rename and delete on every surface, ticks on the import plan",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Rename said 'no rename path here — rename it in the portal' for scripts, remediations and enrolment configurations. The reason was the read, not the tenant: scripts and update profiles are read from three endpoints each and folded into one list without saying which an item came from, so the act refused rather than guess. The read now stamps each item with its surface, and Rename writes back there — PowerShell scripts, shell scripts, remediations, feature, quality and driver update profiles — plus enrolment configurations and Autopilot profiles, sent with their type as Graph requires. Housekeeping's delete takes the same road. Only applications stay portal-only. Names with a typo in the version — 'v.3.7', 'vv3.6.1' — are read as versions now and stamped back clean." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "The import plan has ticks: every creatable row ticked, select all and none, the master box, and the button counting what is ticked — only those are created." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "The same three." },
+    ],
+  },
+  {
     build: 10585, date: "2026-09-04", title: "Baselines: the community comparison matches on settings, and Import creates only the gap",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "OpenIntuneBaseline read 72 missing on the baseline tenant — which had deployed it, under its own names. Matching by OIBID and by name could not see that. The community comparison now matches by content third: a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures, and half-or-better overlap claims a policy whatever it is called — the same rule the Upstream act has used since 10527. The verdict then reads the version off the tenant's name and diffs the settings value for value: up to date, or a new bucket, Differs — same control, different values — with the diff on the row, or outdated / newer by version. The row says 'content NN%' so you can see how it was found; the gap report carries the diff lines. The CloudFellows comparison is unchanged: there the name is the identity." },

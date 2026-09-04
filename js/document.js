@@ -326,7 +326,10 @@ const Docs = (() => {
       try {
         if (sec.surfaces) {
           for (const p of sec.surfaces) {
-            try { (await read(p, sec.scopes())).forEach((x) => items.push(x)); }
+            // the surface each item came from rides along (build 10586): a
+            // section that folds three endpoints into one list — scripts,
+            // update profiles — is otherwise a list nobody can write back to
+            try { const surface = p.split("?")[0]; (await read(p, sec.scopes())).forEach((x) => { x.__surface = surface; items.push(x); }); }
             catch (e) { notes.push(`${p.split("?")[0].split("/").pop()}: ${short((e && e.message) || e, 120)}`); }
           }
           // All of them failing is a real failure. Some failing is a tenant

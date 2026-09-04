@@ -79,9 +79,11 @@ const PlatformBaseline = (() => {
     };
     const relCmp = (a, b) => (a.y - b.y) || (a.m - b.m);
     const currentRelease = () => { const d = new Date(); return { y: d.getUTCFullYear() % 100, m: d.getUTCMonth() + 1 }; };
+    // "v3.7" — and, leniently, the typos seen on cloudfellows.dev (10586):
+    // "v.3.7", "vv3.6.1"; the stamp writes the clean form back
     const versionOf = (name) => {
       const t = String(name || "").trim();
-      const end = /v\s?(\d+(?:\.\d+)*)\s*$/i.exec(t);
+      const end = /v{1,2}\.?\s?(\d+(?:\.\d+)*)\s*$/i.exec(t);
       if (end) return end[1];
       const any = /\bv(\d+(?:\.\d+)+)\b/i.exec(t);
       return any ? any[1] : null;
@@ -90,7 +92,7 @@ const PlatformBaseline = (() => {
     const looksBaseline = (name) => spec.prefixRe.test(name || "") && releaseOf(name) != null;
     const keyOf = (name) => String(name || "")
       .replace(/-?\s*\bR\d{2}\.\d{1,2}\b\s*/gi, " ")
-      .replace(/-?\s*v\d+(?:\.\d+)*\s*$/i, " ")
+      .replace(/-?\s*v{1,2}\.?\s?\d+(?:\.\d+)*\s*$/i, " ")
       .replace(/[-_]/g, " ")
       .replace(/\s+/g, " ")
       .trim().toLowerCase();
@@ -485,7 +487,10 @@ const PlatformBaseline = (() => {
       deviceConfigurations: "/deviceManagement/deviceConfigurations",
       compliance: "/deviceManagement/deviceCompliancePolicies",
       admx: "/deviceManagement/groupPolicyConfigurations",
+      scripts: null,   // its own surface, stamped by the read
+      updates: null,
     };
+    const deletePathFor = (p) => (p.section in DELETE_PATH) ? (DELETE_PATH[p.section] || p.surface || null) : null;
     function housekeeping(vms) {
       const byKey = new Map();
       for (const p of vms) {
@@ -505,8 +510,8 @@ const PlatformBaseline = (() => {
         const keep = sorted[0];
         const retire = sorted.slice(1).map((p) => ({
           p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, assignments: nAsg(p),
-          rel: releaseOf(p.name), ver: versionOf(p.name), path: DELETE_PATH[p.section] || null,
-          refused: nAsg(p) ? `assigned to ${nAsg(p)} target${nAsg(p) === 1 ? "" : "s"} — move the reach to the kept copy in ✏️ the editor first` : !DELETE_PATH[p.section] ? `its surface (${p.sectionLabel || p.section}) has no delete path here — retire it in the portal` : "",
+          rel: releaseOf(p.name), ver: versionOf(p.name), path: deletePathFor(p),
+          refused: nAsg(p) ? `assigned to ${nAsg(p)} target${nAsg(p) === 1 ? "" : "s"} — move the reach to the kept copy in ✏️ the editor first` : !deletePathFor(p) ? `its surface (${p.sectionLabel || p.section}) has no delete path here — retire it in the portal` : "",
         }));
         groups.push({ key: k, keep, keepRel: releaseOf(keep.name), keepVer: versionOf(keep.name), keepAssignments: nAsg(keep), retire });
       }
@@ -834,16 +839,31 @@ const PlatformBaseline = (() => {
     // month the policy was cut. The community baseline's own names are
     // never proposed — keeping them is what lets its deployer maintain them.
     const releaseOfDate = (iso) => { const d = new Date(iso || ""); return isNaN(d) ? null : { y: d.getUTCFullYear() % 100, m: d.getUTCMonth() + 1 }; };
-    const stampRelease = (name, rel) => String(name).replace(/\s*-\s*(v\s?\d+(?:\.\d+)*)\s*$/i, (m, v) => ` - R${rel.y}.${rel.m} - ${v.replace(/\s+/g, "")}`);
+    const stampRelease = (name, rel) => String(name).replace(/\s*-\s*v{1,2}\.?\s?(\d+(?:\.\d+)*)\s*$/i, (m, v) => ` - R${rel.y}.${rel.m} - v${v}`);
     // where a rename is written, per surface — the same endpoints restore
     // creates on; filters go through T14's own update
+    // Sections that fold several endpoints into one list carry the surface
+    // each item came from (the read stamps it, 10586) — the write goes back
+    // where the item lives. Derived types (device configurations, enrolment
+    // configurations, Autopilot profiles) PATCH with their @odata.type.
     const RENAME_PATH = {
       settingsCatalog: { endpoint: "/deviceManagement/configurationPolicies", field: "name" },
-      deviceConfigurations: { endpoint: "/deviceManagement/deviceConfigurations", field: "displayName" },
-      compliance: { endpoint: "/deviceManagement/deviceCompliancePolicies", field: "displayName" },
+      deviceConfigurations: { endpoint: "/deviceManagement/deviceConfigurations", field: "displayName", typed: true },
+      compliance: { endpoint: "/deviceManagement/deviceCompliancePolicies", field: "displayName", typed: true },
       admx: { endpoint: "/deviceManagement/groupPolicyConfigurations", field: "displayName" },
+      scripts: { endpoint: null, field: "displayName", bySurface: true },
+      updates: { endpoint: null, field: "displayName", bySurface: true },
+      enrolment: { endpoint: "/deviceManagement/deviceEnrollmentConfigurations", field: "displayName", typed: true },
+      autopilot: { endpoint: "/deviceManagement/windowsAutopilotDeploymentProfiles", field: "displayName", typed: true },
       filters: { endpoint: null, field: "displayName", viaFilters: true },
     };
+    // the concrete path for one policy: its section's, or its own surface
+    function renamePathFor(p) {
+      const base = RENAME_PATH[p.section] || null;
+      if (!base) return null;
+      if (base.bySurface) return p.surface ? { endpoint: p.surface, field: base.field, typed: false } : null;
+      return { endpoint: base.endpoint, field: base.field, typed: !!base.typed, viaFilters: !!base.viaFilters };
+    }
     function renameProposals(vms, community) {
       const commRe = community && community.nameRe ? new RegExp(community.nameRe, "i") : null;
       const out = [];
@@ -856,9 +876,11 @@ const PlatformBaseline = (() => {
         if (!ver) { out.push({ ...base, status: "noversion", why: "no version at the end of the name — nothing to put the tag before" }); continue; }
         const rel = releaseOfDate(p.modified);
         if (!rel) { out.push({ ...base, status: "nodate", ver, why: "the read carries no last-modified date for it" }); continue; }
-        const path = RENAME_PATH[p.section] || null;
-        out.push({ ...base, status: path ? "propose" : "nopath", ver, rel, proposed: stampRelease(p.name, rel), path,
-          why: path ? "" : `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal` });
+        const path = renamePathFor(p);
+        out.push({ ...base, status: path ? "propose" : "nopath", ver, rel, proposed: stampRelease(p.name, rel), path, odataType: p.odataType || "",
+          why: path ? "" : (RENAME_PATH[p.section] && RENAME_PATH[p.section].bySurface
+            ? "the read did not say which endpoint this item came from — re-read the tenant (the surface rides along since build 10586)"
+            : `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal`) });
       }
       return out.sort((a, b) => (a.status === "propose" ? 0 : 1) - (b.status === "propose" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
     }
@@ -953,7 +975,7 @@ const PlatformBaseline = (() => {
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
       UPSTREAM_ZIP_URL, UPSTREAM_MIN_OVERLAP, defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity, communityAsUpstream,
       matchUpstream, proposeName, upstreamEntry, diffPolicies, upstreamMarkdown, toMd,
-      releaseOfDate, stampRelease, RENAME_PATH, renameProposals, fetchUpstream,
+      releaseOfDate, stampRelease, RENAME_PATH, renamePathFor, renameProposals, fetchUpstream,
       dedupeCatalog, repoFolder, communityFolder, housekeeping, DELETE_PATH,
       setBundled, setCommunity, loadCatalogs,
     };
@@ -996,15 +1018,16 @@ const PlatformBaseline = (() => {
     const vms = () => {
       const out = [];
       for (const sec of (res && res.sections) || []) {
-        const rawById = BODY_SECTIONS.has(sec.id) ? new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r])) : null;
+        const rawById = new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r]));
         for (const it of sec.items || []) {
           let body = null;
-          const raw = rawById ? rawById.get(String(it.id).toLowerCase()) : null;
-          if (raw) {
-            body = Object.assign({}, raw); delete body.__detail; delete body.__detailError;
+          const raw = rawById.get(String(it.id).toLowerCase()) || null;
+          if (raw && BODY_SECTIONS.has(sec.id)) {
+            body = Object.assign({}, raw); delete body.__detail; delete body.__detailError; delete body.__surface;
             if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           }
-          out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body });
+          out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body,
+            surface: (raw && raw.__surface) || "", odataType: (raw && raw["@odata.type"]) || "" });
         }
       }
       return out;
@@ -1602,7 +1625,7 @@ const PlatformBaseline = (() => {
         <button class="btn primary" id="${ID("RnDry")}">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
         <button class="btn primary" id="${ID("RnApply")}" style="display:none">✍ Rename in THIS tenant <span class="tag block">writes to the tenant</span></button>
         <button class="ae-selbar-x" id="${ID("RnBarX")}" title="Clear the selection">✕</button></div>`;
-      host.dataset.rows = JSON.stringify(rows.map((r) => ({ id: r.p.id, name: r.name, section: r.section, modified: r.modified, status: r.status })));
+      host.dataset.rows = JSON.stringify(rows.map((r) => ({ id: r.p.id, name: r.name, section: r.section, modified: r.modified, status: r.status, path: r.path || null, odataType: r.odataType || "" })));
       const ticks = () => [...host.querySelectorAll("[data-rntick]")];
       const master = $(ID("RnMaster"));
       const sync = () => {
@@ -1641,7 +1664,7 @@ const PlatformBaseline = (() => {
         if (!cb.checked) return;
         const i = +cb.dataset.rntick;
         const el = host.querySelector(`[data-rnname="${i}"]`);
-        picked.push({ ...rows[i], newName: ((el && el.value) || "").trim(), path: E.RENAME_PATH[rows[i].section] });
+        picked.push({ ...rows[i], newName: ((el && el.value) || "").trim() });
       });
       return picked;
     }
@@ -1680,7 +1703,7 @@ const PlatformBaseline = (() => {
           <p class="mini" style="margin:0 0 8px"><b>${nDo} to rename</b> · ${rnPlanned.length - nDo} refused${nDo ? ` — <b>✍ Rename ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
           <p class="mini" id="${ID("RnStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before renaming.</p>
           <div class="gu-tw"><table class="cg-table"><thead><tr><th>From</th><th>To</th><th style="width:220px">Operation</th></tr></thead>
-          <tbody>${rnPlanned.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : `PATCH ${esc(p.path.field)}${p.path.viaFilters ? " (T14's update)" : ""}`}</td></tr>`).join("")}</tbody></table></div>
+          <tbody>${rnPlanned.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : `PATCH ${esc(p.path.field)}${p.path.viaFilters ? " (T14's update)" : ` on ${esc(String(p.path.endpoint).split("/").pop())}`}`}</td></tr>`).join("")}</tbody></table></div>
           <div id="${ID("RnResult")}" style="margin-top:10px"></div>`;
       } catch (e) {
         prog("");
@@ -1702,7 +1725,9 @@ const PlatformBaseline = (() => {
               await Filters.update(p.id, p.modified || null, { displayName: p.target });
             } else {
               const url = `${Graph.BETA}${p.path.endpoint}/${encodeURIComponent(p.id)}`;
-              await Graph.patch(url, { [p.path.field]: p.target }, { scopes: Graph.SCOPES.profiles });
+              const patch = { [p.path.field]: p.target };
+              if (p.path.typed && p.odataType) patch["@odata.type"] = p.odataType;   // derived types say what they are
+              await Graph.patch(url, patch, { scopes: Graph.SCOPES.profiles });
               const back = await Graph.readOne(url, { scopes: Graph.SCOPES.profiles });
               if (!back || String(back[p.path.field] || "") !== p.target) throw new Error("the rename returned, but the read-back does not carry the new name — check the portal");
             }
@@ -1902,17 +1927,36 @@ const PlatformBaseline = (() => {
         }
         plannedFilters = filters.map((f) => ({ ...f, collided: haveFilters.has(String(f.body.displayName).toLowerCase()) }));
         prog("");
+        // every creatable row ticked (10586, Mihai: "this should have a select /
+        // deselect option"); the button counts what is ticked
         const rows = [
-          ...planned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
-          ...plannedFilters.map((f) => `<tr><td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td><td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`),
+          ...planned.map((p, i) => `<tr><td style="width:30px">${p.collided ? "" : `<input type="checkbox" data-imtick="p${i}" checked>`}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
+          ...plannedFilters.map((f, i) => `<tr><td style="width:30px">${f.collided ? "" : `<input type="checkbox" data-imtick="f${i}" checked>`}</td><td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td><td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`),
         ].join("");
         const nCreate = planned.filter((p) => !p.collided).length + plannedFilters.filter((f) => !f.collided).length;
         const nSkip = planned.filter((p) => p.collided).length + plannedFilters.filter((f) => f.collided).length;
         $(ID("Plan")).innerHTML = `
           <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already present (the collision stop — present is the point, not a problem)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""}${wanted ? ` · ${c.policies.length - wanted.size} of ${c.policies.length} left alone — the comparison found them present` : ""}</p>
-          <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th style="width:200px">Path</th><th style="width:220px">Operation</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${nCreate ? `<div class="tb-actions" style="margin:0 0 8px"><button class="btn" id="${ID("ImAll")}">☑ Select all</button><button class="btn" id="${ID("ImNone")}">☐ Select none</button><span class="mini muted" id="${ID("ImCount")}"></span></div>` : ""}
+          <div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:30px">${nCreate ? `<input type="checkbox" id="${ID("ImMaster")}" title="Select or deselect every row below">` : ""}</th><th>Baseline policy</th><th style="width:200px">Path</th><th style="width:220px">Operation</th></tr></thead><tbody>${rows}</tbody></table></div>
           ${nCreate ? `<div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="${ID("Apply")}">✍ Create ${nCreate} object${nCreate === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span></button></div>` : ""}
           <div id="${ID("Result")}" style="margin-top:10px"></div>`;
+        const plan = $(ID("Plan"));
+        const ticks = () => [...plan.querySelectorAll("[data-imtick]")];
+        const master = $(ID("ImMaster"));
+        const syncIm = () => {
+          const t = ticks(), on = t.filter((x) => x.checked).length;
+          if (master) { master.checked = on > 0 && on === t.length; master.indeterminate = on > 0 && on < t.length; }
+          const cnt = $(ID("ImCount")); if (cnt) cnt.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+          const ap2 = $(ID("Apply"));
+          if (ap2) { ap2.disabled = !on; ap2.innerHTML = `✍ Create ${on} object${on === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span>`; }
+        };
+        const setAll = (v) => { ticks().forEach((x) => { x.checked = v; }); syncIm(); };
+        if (master) master.addEventListener("change", () => setAll(master.checked));
+        const ia = $(ID("ImAll")); if (ia) ia.addEventListener("click", () => setAll(true));
+        const inn = $(ID("ImNone")); if (inn) inn.addEventListener("click", () => setAll(false));
+        plan.addEventListener("change", (e) => { if (e.target.closest("[data-imtick]")) syncIm(); });
+        syncIm();
         const ap = $(ID("Apply"));
         if (ap) ap.addEventListener("click", apply);
       } catch (e) {
@@ -1923,12 +1967,17 @@ const PlatformBaseline = (() => {
 
     async function apply() {
       if (running || (!planned && !plannedFilters)) return;
+      // only the ticked rows are created; the rest of the plan is left as it was
+      const on = new Set([...$(ID("Plan")).querySelectorAll("[data-imtick]")].filter((x) => x.checked).map((x) => x.dataset.imtick));
+      const doPolicies = (planned || []).filter((p, i) => !p.collided && on.has(`p${i}`));
+      const doFilters = (plannedFilters || []).filter((f, i) => !f.collided && on.has(`f${i}`));
+      if (!doPolicies.length && !doFilters.length) return;
       running = true; $(ID("Apply")).disabled = true;
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        const results = planned && planned.length ? await Restore.apply(planned, (m) => prog(m)) : [];
+        const results = doPolicies.length ? await Restore.apply(doPolicies, (m) => prog(m)) : [];
         const filterResults = [];
-        for (const f of plannedFilters || []) {
+        for (const f of doFilters) {
           if (f.collided) { filterResults.push({ target: f.body.displayName, outcome: "skipped", detail: "name existed at dry run" }); continue; }
           try {
             prog(`${f.body.displayName} — creating the filter…`);
