@@ -89,16 +89,43 @@ const Fs = (() => {
   // check, dormant since 10373, and gives every tool one place to get the
   // tenant's identity — TunoTenant.org() — instead of each paying its own
   // /organization read.
-  let tenantName = "", tenantDomain = "";
+  let tenantName = "", tenantDomain = "", tenantId = "";
   // Two entries because the tenant answers to two names: devcf.onmicrosoft.com
   // is what the sign-in UPN actually carries (the tenant's initial domain), and
   // cloudfellows.dev is the verified domain ENCA's list names — kept so a UPN
   // on the verified domain, or the org display name, still matches.
   const CFDEV_TENANTS = ["cloudfellows.dev", "devcf.onmicrosoft.com"];
+  // THE GATE IS THE TENANT ID (T24/T27 design finding 7, build 10588). A
+  // display-name substring is not an identity: any tenant can call itself
+  // CloudFellows, and `n.includes("cloudfellows")` then unlocks the acts
+  // that author the baseline. The immutable Entra tenant ID cannot be
+  // spoofed by naming, so it is what the gate compares — MSAL's `tid` on
+  // the signed-in account, which every account carries.
+  //
+  // THE LIST SHIPS EMPTY, ON PURPOSE, FOR EXACTLY ONE BUILD. The GUID is
+  // not in this repository and cannot be invented; filling it with a guess
+  // would lock Mihai out of his own reference tenant. So this build SHOWS
+  // the signed-in tenant ID — in the header badge's tooltip and on every
+  // baseline rail — and the moment the real GUID is pasted in here the
+  // name half below goes, in the same edit. While the list is empty the
+  // ENCA name check still answers, and `gate()` says which half spoke, so
+  // nobody has to guess whether the gate has been closed yet.
+  const CFDEV_TENANT_IDS = [];
+  const idIsCfdev = () => CFDEV_TENANT_IDS.some((t) => String(t).toLowerCase() === String(tenantId || "").toLowerCase());
   function isCfdevTenant() {
+    // Once the list has an entry the ID is the ONLY test — no falling back
+    // to the name for a tenant the ID did not claim, which is the whole
+    // point of moving off the name.
+    if (CFDEV_TENANT_IDS.length) return idIsCfdev();
     const n = (tenantName || "").toLowerCase(), d = (tenantDomain || "").toLowerCase();
     return CFDEV_TENANTS.some((t) => d === t || d.endsWith("." + t) || n.includes(t.split(".")[0]));
   }
+  // How the gate decided, so a screen can say it rather than imply it.
+  const cfdevGate = () => ({
+    on: isCfdevTenant(),
+    by: CFDEV_TENANT_IDS.length ? "id" : "name",
+    id: tenantId, name: tenantName, domain: tenantDomain,
+  });
   // Tools live in their own files and gate cfdev-only features through this
   // seam rather than keeping a second copy of the list — the first time two
   // lists exist, one of them is wrong. The headless tests drive it too.
@@ -110,12 +137,24 @@ const Fs = (() => {
   let orgInfo = null;
   window.TunoTenant = {
     isCfdev: isCfdevTenant,
+    gate: cfdevGate,
     domain: () => tenantDomain,
+    // THE KEY EVERY TOOL'S SESSION STATE HANGS ON (finding 1). A tool that
+    // cached a read must be able to ask "is this still the tenant I read?"
+    // — and the answer has to be the immutable id, not a display name the
+    // org read can change under it mid-session.
+    tenantId: () => tenantId,
+    name: () => tenantName,
     org: () => orgInfo,
     setOrgName: (n) => { tenantName = String(n || ""); },
     // for the headless tests only — the real values are set by enter()/sign out
-    _setForTest: (d, n) => { tenantDomain = String(d || ""); tenantName = String(n || ""); },
+    _setForTest: (d, n, id) => { tenantDomain = String(d || ""); tenantName = String(n || ""); tenantId = String(id || ""); },
   };
+  // Sign-out is an EVENT, not a list of tools app.js has to remember to
+  // call (finding 1). A tool registers for it in its own file, beside the
+  // state it drops; app.js stays ignorant of who is listening, so a tool
+  // added later cannot be forgotten here.
+  const fireSignOut = () => { try { window.dispatchEvent(new CustomEvent("tuno:signout")); } catch { /* no CustomEvent: nothing to drop */ } };
 
   // ---------- sticky stack: measured, not assumed (ENCA pattern) ----------
   function syncStickyTops() {
@@ -707,6 +746,11 @@ const Fs = (() => {
     account = null;
     tenantDomain = "";
     tenantName = "Contoso B.V. (demo)";
+    // The demo is a tenant like any other as far as session state is
+    // concerned: it gets an id, so a tool that cached a real tenant's read
+    // and then lands in the demo sees a different key and drops it.
+    tenantId = "d0e1f2a3-4b5c-6d7e-8f90-abcdef012345";
+    fireSignOut();
     // The same org demo.js answers for /organization — set directly rather
     // than read, so TunoTenant.org() and the demo Graph cannot disagree
     // about who the pretend tenant is.
@@ -766,18 +810,37 @@ const Fs = (() => {
         $("tenantName").textContent = tenantName;
         // The org-name half of the cfdev check just woke up — re-ask with
         // both halves in hand, the same call enter() made with one.
-        $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
+        paintCfdevBadge();
       }
     } catch { /* ENCA's own hedge, ported: the org read is best-effort */ }
+  }
+
+  // The badge, and the tenant ID under it. Extended behaviour is said where
+  // the tenant identity lives instead of being a hidden mode — ENCA's rule,
+  // ported with the badge — and since 10588 the badge's tooltip carries the
+  // signed-in tenant ID and says which half of the gate answered, so the
+  // GUID that closes CFDEV_TENANT_IDS can be read straight off the page.
+  function paintCfdevBadge() {
+    const b = $("cfdevBadge");
+    if (!b) return;
+    const g = cfdevGate();
+    b.style.display = g.on ? "inline-block" : "none";
+    b.title = `Reference tenant detected — the acts that author the baseline are available in this session.\n`
+      + `Tenant ID: ${g.id || "(not read)"}\nTenant: ${g.name || g.domain || "(unknown)"}\n`
+      + (g.by === "id"
+        ? `Gated on the immutable Entra tenant ID (CFDEV_TENANT_IDS in js/app.js) — a display name cannot claim it.`
+        : `Gated on the UPN domain and org display name, because CFDEV_TENANT_IDS is still empty — paste the tenant ID above into it and the name half goes.`)
+      + `\nThis is a UX gate, not a security boundary: the write acts re-check it at Apply, and anything genuinely sensitive is enforced by Graph permissions.`;
   }
 
   function enter() {
     signedIn = true;
     $("tenantName").textContent = (account && (account.tenantId ? account.username.split("@")[1] : "")) || "";
     tenantDomain = (account && account.username ? account.username.split("@")[1] : "") || "";
-    // Extended behaviour is said where the tenant identity lives instead of
-    // being a hidden mode — ENCA's rule, ported with the badge.
-    $("cfdevBadge").style.display = isCfdevTenant() ? "inline-block" : "none";
+    // MSAL's `tid` — the immutable identity every gate and every tool's
+    // session state keys on from 10588.
+    tenantId = (account && account.tenantId) || "";
+    paintCfdevBadge();
     // Audience branding by who signed in: an account whose UPN matches a
     // BRAND_OVERRIDES entry gets that look even without ?brand=. The list
     // ships empty — the machinery arrives with the self-host gear.
@@ -833,10 +896,15 @@ const Fs = (() => {
   $("signOutBtn").addEventListener("click", () => {
     const acc = account;
     account = null; signedIn = false;
-    tenantDomain = ""; tenantName = ""; orgInfo = null;
+    tenantDomain = ""; tenantName = ""; tenantId = ""; orgInfo = null;
     // The cache holds tenant data and the next sign-in may be a different
     // tenant — it does not survive the account that read it.
     if (typeof PolicyCache !== "undefined") PolicyCache.clear();
+    // …and neither does anything a TOOL kept (finding 1). PolicyCache.clear()
+    // only empties the shared read; a screen that had already landed one
+    // held its own copy — comparisons, plans, fetched catalogs — and went
+    // on rendering the previous tenant's policies to whoever signed in next.
+    fireSignOut();
     $("cfdevBadge").style.display = "none";
     $("tenantBox").style.display = "none";
     $("homeBtn").style.display = "none";

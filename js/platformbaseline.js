@@ -992,13 +992,65 @@ const PlatformBaseline = (() => {
     const P = spec.ids;
     const ID = (s) => P + s;
 
-    let res = null;            // the collect result (cache-served or fresh)
+    // ---- SESSION STATE: EVERYTHING THIS TENANT TOLD US, IN ONE OBJECT ----
+    // (T24/T27 design finding 1, build 10588.) Until now each of these was
+    // a `let` of its own, and sign-out cleared none of them: PolicyCache
+    // was emptied, but a screen that had already landed a read kept ITS
+    // copy — the comparison, the plans, the fetched catalog, the upstream
+    // rows — and went on rendering the previous tenant's policies to
+    // whoever signed in next. On a consultancy laptop that is the wrong
+    // customer's estate on the screen.
+    //
+    // So every field that came from A TENANT lives here, the object is
+    // KEYED BY THE TENANT ID that produced it, and there is exactly one
+    // place that says what tenant-derived state is: add a field to the
+    // factory and sign-out drops it for free. Fields that are NOT
+    // tenant-derived deliberately stay outside — `mode` and `catId` are
+    // this person's place in the screen, `catalogsLoaded` is the site's
+    // own baseline/ folder, and `running` is a re-entrancy latch.
+    const blankSession = (tid) => ({
+      tenantId: tid || "",
+      res: null,             // the collect result (cache-served or fresh)
+      cmp: null,             // compare() result
+      fileCat: null,         // a loaded CloudFellows baseline file replaces the bundled slot
+      fetchedCat: null,      // the community catalog fetched from github.com this session
+      upstream: null,        // { rows, skipped, seenOther, when, parsed, from }
+      planned: null, plannedFilters: null,
+      upPlanned: null, upPlanKey: null,
+      rnPlanned: null, rnPlanKey: null,
+      hkPlanned: null, hkPlanKey: null,
+      lastWrite: null,       // the last import's failures, shown on the Import pane after the re-read
+      lastSource: "",
+    });
+    const currentTenantId = () => { const t = window.TunoTenant; return (t && t.tenantId && t.tenantId()) || ""; };
+    let S = blankSession(currentTenantId());
+    // The tenant changed under us (sign-out and back in, or the demo): the
+    // state that named the old one is not adjusted, it is dropped.
+    function reset() {
+      S = blankSession(currentTenantId());
+      mode = "compare";   // the acts a new tenant may not have are not left on the table
+      for (const h of ["Body", "Upstream", "Rename", "Housekeeping"]) {
+        const el = $(ID(h));
+        if (el) { delete el.dataset.for; delete el.dataset.rows; delete el.dataset.order; el.innerHTML = ""; }
+      }
+      renderSeg();        // the rail names the tenant, so it is repainted with it
+    }
+    // A plan is a promise about ONE tenant. Apply re-asks before it writes:
+    // between the dry run and the click somebody may have signed out and
+    // into somewhere else, and the ids in the plan mean nothing there.
+    const wrongTenant = () => S.tenantId !== currentTenantId();
+    const tenantMovedHtml = () =>
+      `<div class="gu-fail"><b>The signed-in tenant changed since this plan was made.</b><span class="why">The plan names ${esc(S.tenantId || "no tenant")}; this session is now ${esc(currentTenantId() || "signed out")}. Nothing was written — read this tenant and plan again.</span></div>`;
+    // The reference-tenant gate is a UX gate, not a security boundary — but
+    // the acts it hides still ask again at the click, because the pane may
+    // have been drawn before the org read answered, or on a tenant that is
+    // no longer the signed-in one.
+    const refusedHtml = (act) =>
+      `<div class="gu-fail"><b>${esc(act)} is refused here.</b><span class="why">It authors the baseline, so it runs on the reference tenant only, and this session is not on it. Nothing was written.</span></div>`;
+
     let mode = "compare";      // compare · export · import · upstream
     let catId = null;          // "cfdev" | "community" — which catalog the screen speaks for
-    let fileCat = null;        // a loaded CloudFellows baseline file replaces the bundled slot
-    let cmp = null;            // compare() result
-    let planned = null, plannedFilters = null, running = false;
-    let lastWrite = null;      // the last import's failures, shown on the Import pane after the re-read
+    let running = false;
     let catalogsLoaded = null; // the one same-origin read of the two catalog files, per session
     let catalogErrors = [];
 
@@ -1017,7 +1069,7 @@ const PlatformBaseline = (() => {
     const BODY_SECTIONS = new Set(["settingsCatalog", "compliance", "deviceConfigurations"]);
     const vms = () => {
       const out = [];
-      for (const sec of (res && res.sections) || []) {
+      for (const sec of (S.res && S.res.sections) || []) {
         const rawById = new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r]));
         for (const it of sec.items || []) {
           let body = null;
@@ -1034,18 +1086,17 @@ const PlatformBaseline = (() => {
     };
 
     // ---- the two catalogs ----
-    const cfCatalog = () => fileCat || E.bundled();
-    const cfSource = () => fileCat ? "file" : E.bundled() ? "bundled" : "";
+    const cfCatalog = () => S.fileCat || E.bundled();
+    const cfSource = () => S.fileCat ? "file" : E.bundled() ? "bundled" : "";
     // the community catalog: fetched from github.com this session (10572),
     // else the bundle
-    let fetchedCat = null;
-    const communityCatalog = () => fetchedCat || E.community();
+    const communityCatalog = () => S.fetchedCat || E.community();
     const catalogs = () => {
       const out = [];
       const cf = cfCatalog();
       if (cf) out.push({ id: "cfdev", cat: cf, icon: "🧬", label: `CloudFellows ${cf.release || "R26"}`, sub: cfSource() === "file" ? "loaded file" : "bundled" });
       const co = communityCatalog();
-      if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: fetchedCat ? "fetched from github.com" : "community" });
+      if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: S.fetchedCat ? "fetched from github.com" : "community" });
       return out;
     };
     function activeCatalog() {
@@ -1054,14 +1105,40 @@ const PlatformBaseline = (() => {
       if (!catId || !list.some((c) => c.id === catId)) catId = list[0].id;
       return list.find((c) => c.id === catId).cat;
     }
-    const recompare = () => { const c = activeCatalog(); cmp = (res && c) ? E.compare(vms(), c) : null; };
+    const recompare = () => { const c = activeCatalog(); S.cmp = (S.res && c) ? E.compare(vms(), c) : null; };
 
     function land(r, sourceNote) {
-      res = r;
+      // The read names the tenant it came from. Everything downstream —
+      // every plan, every ceremony — inherits that name from here.
+      S.tenantId = currentTenantId();
+      S.res = r;
       const rh = $(ID("Rename")); if (rh) { delete rh.dataset.for; rh.innerHTML = ""; }
       const hh = $(ID("Housekeeping")); if (hh) { delete hh.dataset.for; hh.innerHTML = ""; }
       recompare();
       render(sourceNote);
+    }
+
+    // WHICH TENANT THIS RAIL IS TALKING ABOUT (design §4, build 10588).
+    // The acts below it create, rename and delete policies; the one thing
+    // the rail owes the person reading it is that they never have to guess
+    // whose tenant that is. So the identity sits at the top of the rail —
+    // the org name, the immutable tenant ID under it, and the `reference
+    // tenant` badge when this is the tenant that authors the baseline.
+    //
+    // The ID is not decoration. It is the value CFDEV_TENANT_IDS wants
+    // (js/app.js, finding 7): sign in to cloudfellows.dev, read the GUID
+    // here, paste it there, and the display-name half of the gate goes.
+    function tenantLine() {
+      const t = window.TunoTenant || {};
+      const gate = (t.gate && t.gate()) || { on: false, by: "name", id: "", name: "", domain: "" };
+      const who = gate.name || gate.domain || "";
+      return `<div class="ep-node" style="cursor:default;align-items:flex-start;flex-direction:column;gap:2px" aria-hidden="true">
+        <span class="mini" style="font-weight:600">${who ? esc(who) : `<span class="muted">not signed in</span>`}</span>
+        <span class="mini muted" style="word-break:break-all;font-family:var(--mono,monospace)" title="The tenant's immutable Entra ID — what the reference-tenant gate compares, and what this screen's session state is keyed on">${gate.id ? esc(gate.id) : "—"}</span>
+        ${gate.on ? `<span class="gu-how inc" title="${gate.by === "id"
+          ? "Matched on the immutable tenant ID — a display name cannot claim this."
+          : "Matched on the UPN domain and org display name, because CFDEV_TENANT_IDS in js/app.js is still empty. Paste the ID above into it to close the gate."}">reference tenant${gate.by === "id" ? "" : " (by name)"}</span>` : ""}
+      </div>`;
     }
 
     // The rail: each node carrying the state of its act.
@@ -1071,17 +1148,18 @@ const PlatformBaseline = (() => {
       const c = activeCatalog();
       const node = (k, icon, label, right, bad) => `<div class="ep-node${mode === k ? " active" : ""}" data-${P}mode="${k}" role="button" tabindex="0">
         <span>${icon} ${label}</span><span class="mini" style="margin-left:auto;white-space:nowrap${bad ? ";color:var(--off)" : ""}">${right}</span></div>`;
-      const worst = cmp ? (cmp.counts.missing || 0) + (cmp.counts.outdated || 0) + (cmp.counts.differs || 0) : null;
-      const upBad = upstream ? upstream.rows.filter((r) => r.status !== "same").length : null;
-      const rn = res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
-      const hk = res ? E.housekeeping(vms()).reduce((a, g) => a + g.retire.length, 0) : null;
+      const worst = S.cmp ? (S.cmp.counts.missing || 0) + (S.cmp.counts.outdated || 0) + (S.cmp.counts.differs || 0) : null;
+      const upBad = S.upstream ? S.upstream.rows.filter((r) => r.status !== "same").length : null;
+      const rn = S.res ? E.renameProposals(vms(), communityCatalog()).filter((r) => r.status === "propose").length : null;
+      const hk = S.res ? E.housekeeping(vms()).reduce((a, g) => a + g.retire.length, 0) : null;
       el.innerHTML = [
-        node("compare", spec.icon, "Compare", cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
-        ...(isCfdev() ? [node("export", "🧬", "Export", res ? "ready" : "read first", false)] : []),
+        tenantLine(),
+        node("compare", spec.icon, "Compare", S.cmp ? (worst ? `${worst} to fix` : "in step") : c ? `${c.policies.length}` : "—", worst > 0),
+        ...(isCfdev() ? [node("export", "🧬", "Export", S.res ? "ready" : "read first", false)] : []),
         node("import", "📥", "Import", c ? `${c.policies.length}` : "no catalog", !c),
-        ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", upstream === null ? "fetch or load" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
-        ...(isCfdev() ? [node("rename", "✏️", "Rename", res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0)] : []),
-        ...(isCfdev() ? [node("housekeeping", "🧹", "Housekeeping", res ? (hk ? `${hk} old cop${hk === 1 ? "y" : "ies"}` : "tidy") : "read first", hk > 0)] : []),
+        ...(isCfdev() ? [node("upstream", spec.upstream.icon, "Upstream", S.upstream === null ? "fetch or load" : upBad ? `${upBad} to review` : "covered", upBad > 0)] : []),
+        ...(isCfdev() ? [node("rename", "✏️", "Rename", S.res ? (rn ? `${rn} to stamp` : "all stamped") : "read first", rn > 0)] : []),
+        ...(isCfdev() ? [node("housekeeping", "🧹", "Housekeeping", S.res ? (hk ? `${hk} old cop${hk === 1 ? "y" : "ies"}` : "tidy") : "read first", hk > 0)] : []),
       ].join("");
     }
 
@@ -1097,7 +1175,7 @@ const PlatformBaseline = (() => {
       if (E.isCommunity(c)) {
         const bundle = E.community();
         return `<p class="mini muted" style="margin:0 0 10px">Community baseline: <b>${esc(c.label)}${c.release ? ` v${esc(c.release)}` : ""}</b>${c.released ? ` (${esc(c.released)})` : ""} by ${esc(c.author || "the community")} — <a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(String(c.url).replace(/^https?:\/\//, ""))}</a>${c.commit ? ` @ ${esc(String(c.commit).slice(0, 7))}` : ""} · ${c.policies.length} policies, names kept verbatim${c.idToken ? `, identified by their ${esc(c.idToken)} first` : ""}.${c.importerUrl ? ` The author's own deployer: <a href="${esc(c.importerUrl)}" target="_blank" rel="noopener">${esc(String(c.importerUrl).replace(/^https?:\/\//, ""))}</a>.` : ""}
-          ${fetchedCat ? `<b>Fetched from github.com this session</b>${bundle ? ` — the bundle is v${esc(bundle.release || "?")} @ ${esc(String(bundle.commit || "").slice(0, 7))}` : ""}. <button class="btn sm" id="${ID("FetchRevert")}">↩ Back to the bundle</button>` : `<button class="btn sm" id="${ID("Fetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>`}
+          ${S.fetchedCat ? `<b>Fetched from github.com this session</b>${bundle ? ` — the bundle is v${esc(bundle.release || "?")} @ ${esc(String(bundle.commit || "").slice(0, 7))}` : ""}. <button class="btn sm" id="${ID("FetchRevert")}">↩ Back to the bundle</button>` : `<button class="btn sm" id="${ID("Fetch")}" title="Read the repository directly — two GitHub API calls and one raw read per policy, no token, no zip">🌐 Fetch the latest from github.com</button>`}
           <span class="mini" id="${ID("FetchNote")}"></span></p>`;
       }
       return `<p class="mini muted" style="margin:0 0 10px">Catalog: <b>${esc(c.release || "R26")}</b> · ${c.policies.length} policies · ${cfSource() === "file" ? `loaded from a file${c.tenant ? ` (exported from ${esc(c.tenant)}${c.exported ? `, ${esc(String(c.exported).slice(0, 10))}` : ""})` : ""}` : `the bundled reference export${c.tenant ? ` from ${esc(c.tenant)}` : ""}${c.exported ? ` (${esc(String(c.exported).slice(0, 10))})` : ""}`}.</p>`;
@@ -1105,12 +1183,12 @@ const PlatformBaseline = (() => {
 
     const CFDEV_ONLY = new Set(["export", "upstream", "rename", "housekeeping"]);
     function render(sourceNote) {
-      if (sourceNote) lastSource = sourceNote;
+      if (sourceNote) S.lastSource = sourceNote;
       if (CFDEV_ONLY.has(mode) && !isCfdev()) mode = "compare";
       const c = activeCatalog();
       renderSeg();
       const parts = [];
-      if (lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${lastSource}</p>`);
+      if (S.lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${S.lastSource}</p>`);
 
       if (mode === "compare" || mode === "import") parts.push(catalogSeg());
       if (c) parts.push(catalogLine(c));
@@ -1122,10 +1200,10 @@ const PlatformBaseline = (() => {
       const relver = (rel, ver) => comm ? (ver ? `v${esc(ver)}` : `<span class="muted">—</span>`) : `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
 
       if (mode === "compare") {
-        if (cmp) {
+        if (S.cmp) {
           const card = (k) => {
-            const st = E.STATUS[k], n = cmp.counts[k] || 0;
-            if (!n && !["missing", "outdated", comm && !cmp.counts.ok ? "present" : "ok"].includes(k)) return "";
+            const st = E.STATUS[k], n = S.cmp.counts[k] || 0;
+            if (!n && !["missing", "outdated", comm && !S.cmp.counts.ok ? "present" : "ok"].includes(k)) return "";
             return `<div class="au-card"><div class="au-card-l">${st.icon} ${esc(st.label)}</div><div class="au-card-n ${n ? st.cls : ""}">${n}</div><div class="au-card-s">${k === "missing" ? "in the baseline, not here" : k === "extra" ? "wears the convention, not in the baseline" : k === "present" ? "this baseline does not version its names" : k === "differs" ? "same control, different values" : ""}</div></div>`;
           };
           parts.push(`<div class="au-cards">${["missing", "outdated", "differs", "ok", "present", "ahead", "unversioned", "extra"].map(card).join("")}</div>`);
@@ -1139,13 +1217,13 @@ const PlatformBaseline = (() => {
               <td><span class="gu-how ${st.cls === "bad" ? "exc" : st.cls === "ok" ? "inc" : ""}">${st.icon} ${esc(st.label)}</span></td>
             </tr>`;
           };
-          parts.push(`<div class="list-card"><div class="tb-actions" style="margin:0 0 6px"><h4 style="margin:0;flex:1">The baseline, line by line (${cmp.covered} of ${cmp.baselineTotal} covered)</h4><button class="btn" id="${ID("Md")}" title="The gap, written down — ENCA's gap report, Intune-side-out">📝 Gap report (Markdown)</button></div>
+          parts.push(`<div class="list-card"><div class="tb-actions" style="margin:0 0 6px"><h4 style="margin:0;flex:1">The baseline, line by line (${S.cmp.covered} of ${S.cmp.baselineTotal} covered)</h4><button class="btn" id="${ID("Md")}" title="The gap, written down — ENCA's gap report, Intune-side-out">📝 Gap report (Markdown)</button></div>
             <p class="mini muted" style="margin:0 0 8px">${comm
               ? `The identity is ${c.idToken ? `the <b>${esc(c.idToken)}</b> token in the description first, then ` : ""}the name with the version stripped${c.nameRe ? "" : " (this baseline has no naming convention, so by name only an exact one counts)"}, then <b>the content</b> — a settings-catalog policy is its set of setting definition ids, a compliance or configuration policy the properties it configures; half-or-better overlap claims a policy whatever it is called, and its settings are then diffed value for value; versions compare segment-wise${c.policies.some((p) => p.version) ? "" : ", and a baseline that does not version its names is judged on presence alone"}. Worst first.`
               : `The identity is the NAME with the release tag and version stripped; releases compare first — R26.6 is June 2026, the year then the month — and versions break the tie. Worst first.`}</p>
             <div class="gu-tw"><table class="cg-table"><thead><tr><th>Baseline policy</th><th>This tenant</th><th style="width:120px">Baseline</th><th style="width:120px">Tenant</th><th style="width:170px">Status</th></tr></thead>
-            <tbody>${cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
-        } else if (c && !res) {
+            <tbody>${S.cmp.rows.map(row).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
+        } else if (c && !S.res) {
           // THE BASELINE IS ALWAYS SHOWN (build 10530, Mihai's rule): the
           // catalog is known before any read, so its rows render at once —
           // and the tenant columns say NOT READ, never missing.
@@ -1159,20 +1237,20 @@ const PlatformBaseline = (() => {
               <td class="mini muted">—</td>
               <td class="mini muted">not read</td>
             </tr>`).join("") || `<tr><td colspan="5" class="mini">The catalog is empty.</td></tr>`}</tbody></table></div></div>`);
-        } else if (res && !c) {
+        } else if (S.res && !c) {
           const worn = vms().filter((v) => E.looksBaseline(v.name));
           parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">Policies wearing the convention (${worn.length})</h4>
             ${worn.length ? `<ul class="mini" style="margin:6px 0 0">${worn.map((w) => `<li>${esc(w.name)} <span class="muted">(${esc(E.relLabel(E.releaseOf(w.name)))}${E.versionOf(w.name) ? ` · v${esc(E.versionOf(w.name))}` : " · no version in the name"})</span></li>`).join("")}</ul>` : `<p class="mini muted" style="margin:0">None — no policy name starts with ${esc(spec.prefix)} and carries an Ryy.m release tag.</p>`}</div>`);
         }
-        if (res && res.failed && res.failed.length) {
-          parts.push(`<div class="gu-fail"><b>${res.failed.length} surface${res.failed.length === 1 ? "" : "s"} could not be read</b><span class="why">${res.failed.map((f) => esc(f.label)).join(", ")} — a baseline policy living there would read as missing, so these rows are floors, not verdicts.</span></div>`);
+        if (S.res && S.res.failed && S.res.failed.length) {
+          parts.push(`<div class="gu-fail"><b>${S.res.failed.length} surface${S.res.failed.length === 1 ? "" : "s"} could not be read</b><span class="why">${S.res.failed.map((f) => esc(f.label)).join(", ")} — a baseline policy living there would read as missing, so these rows are floors, not verdicts.</span></div>`);
         }
       }
 
       if (mode === "export") {
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧬 Export the baseline <span class="mini muted">— this IS the baseline tenant</span></h4>
           <p class="mini muted" style="margin:0 0 8px">Writes the catalog from this tenant's ${esc(spec.prefix)} policies — names, releases, versions and the raw bodies, so the one file drives identification and import everywhere else. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} — the file every tenant's ${esc(spec.label)} reads from the site — is the new reference on the next push.</p>
-          ${res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
+          ${S.res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
           <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b> — an older copy still on the tenant is listed as superseded in the README, and 🧹 Housekeeping retires it.</p>
           <span class="mini muted" id="${ID("ExportNote")}"></span></div>`);
       }
@@ -1188,7 +1266,7 @@ const PlatformBaseline = (() => {
             ${comm ? "" : `<label class="btn">📄 Load a baseline file<input type="file" id="${ID("File")}" accept=".json" style="display:none"></label>`}
             <button class="btn" id="${ID("Dry")}" ${importReady ? "" : "disabled title=\"The active catalog carries nothing importable — load a baseline export file.\""}>🔍 Dry run — create what is missing</button>
           </div>
-          <div id="${ID("Plan")}" style="margin-top:10px">${lastWrite && lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${lastWrite.failedHtml}` : ""}</div></div>`);
+          <div id="${ID("Plan")}" style="margin-top:10px">${S.lastWrite && S.lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${S.lastWrite.failedHtml}` : ""}</div></div>`);
       }
 
       if (mode === "upstream") {
@@ -1207,14 +1285,14 @@ const PlatformBaseline = (() => {
       if (mode === "housekeeping") {
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">🧹 Housekeeping <span class="tag block">deletes from the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
           <p class="mini muted" style="margin:0 0 8px">Every identity this tenant carries <b>more than once</b> — a re-cut kept beside its old copy. The newest release and version is <b>kept</b>; the older copies are offered for deletion, ticked by default. An older copy that still has <b>assignments is refused</b>: deleting it would take reach away the kept copy does not have — move the reach in ✏️ the editor first. Dry run reads each policy again before anything is deleted (still there, still that name, still unassigned); every delete is verified by a read-back that fails. <b>📦 Back up first</b> — a deleted policy does not come back from here.</p>
-          ${res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
+          ${S.res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
       }
 
       if (mode === "rename") {
         const co = communityCatalog();
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">✏️ Stamp the release <span class="tag block">writes to the tenant</span> <span class="mini muted">— cloudfellows.dev only, because it authors the baseline</span></h4>
           <p class="mini muted" style="margin:0 0 8px">Every policy that starts with <code>${esc(spec.prefix)}</code> and ends in a version but carries <b>no <code>Ryy.m</code> release tag</b> is proposed one, cut from its <b>last-modified date</b> (year, then month, UTC) and put before the version — <code>${esc(spec.prefix)} - DCP - Microsoft Office - D - Security - v3.6</code> modified in January 2026 becomes <code>… - R26.1 - v3.6</code>. A proposal, not a verdict: last-modified means last <i>touched</i> — an assignment edit moves it too — so every name is editable before anything is written. ${co && co.nameRe ? `<b>${esc(co.label)}'s own names are never proposed</b>: keeping them is what lets its deployer maintain them.` : ""} Renames are PATCHes on the policy's own surface (T14's update for filters), each read back and verified; the comparison above re-reads afterwards.</p>
-          ${res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
+          ${S.res ? "" : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the list is cut from the read.</p>`}</div>`);
       }
 
       $(ID("Body")).innerHTML = parts.join("");
@@ -1224,12 +1302,12 @@ const PlatformBaseline = (() => {
       const rh = $(ID("Rename"));
       if (rh) {
         rh.style.display = mode === "rename" && isCfdev() ? "" : "none";
-        if (mode === "rename" && isCfdev() && res && !rh.dataset.for) renderRename();
+        if (mode === "rename" && isCfdev() && S.res && !rh.dataset.for) renderRename();
       }
       const hh = $(ID("Housekeeping"));
       if (hh) {
         hh.style.display = mode === "housekeeping" && isCfdev() ? "" : "none";
-        if (mode === "housekeeping" && isCfdev() && res && !hh.dataset.for) renderHousekeeping();
+        if (mode === "housekeeping" && isCfdev() && S.res && !hh.dataset.for) renderHousekeeping();
       }
       wire();
     }
@@ -1239,17 +1317,17 @@ const PlatformBaseline = (() => {
       if (seg) seg.addEventListener("click", (e) => {
         const b = e.target.closest(`[data-${P}cat]`); if (!b || b.dataset[`${P}cat`] === catId) return;
         catId = b.dataset[`${P}cat`];
-        planned = null; plannedFilters = null;   // a plan belongs to the catalog it was made for
+        S.planned = null; S.plannedFilters = null;   // a plan belongs to the catalog it was made for
         recompare(); render();
       });
       const md = $(ID("Md"));
       if (md) md.addEventListener("click", () => {
-        if (!cmp) return;
-        download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`, E.toMd(cmp, tenantName()), "text/markdown");
+        if (!S.cmp) return;
+        download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`, E.toMd(S.cmp, tenantName()), "text/markdown");
       });
       const ez = $(ID("ExportZip"));
       if (ez) ez.addEventListener("click", async () => {
-        const built = E.buildExport(res, tenantName());
+        const built = E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         try {
           const z = new JSZip();
@@ -1266,7 +1344,7 @@ const PlatformBaseline = (() => {
       });
       const ex = $(ID("Export"));
       if (ex) ex.addEventListener("click", () => {
-        const built = E.buildExport(res, tenantName());
+        const built = E.buildExport(S.res, tenantName());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         download(`tuno-${spec.platform.toLowerCase()}-baseline-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(built.file, null, 2));
         $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once`
@@ -1278,7 +1356,7 @@ const PlatformBaseline = (() => {
         const f = e.target.files && e.target.files[0];
         if (!f) return;
         try {
-          fileCat = E.parseCatalog(await f.text());
+          S.fileCat = E.parseCatalog(await f.text());
           catId = "cfdev";
           recompare(); render();
         } catch (err) {
@@ -1297,7 +1375,7 @@ const PlatformBaseline = (() => {
       const cf1 = $(ID("Fetch"));
       if (cf1) cf1.addEventListener("click", () => fetchForCatalog());
       const cr = $(ID("FetchRevert"));
-      if (cr) cr.addEventListener("click", () => { fetchedCat = null; planned = null; plannedFilters = null; recompare(); render(); });
+      if (cr) cr.addEventListener("click", () => { S.fetchedCat = null; S.planned = null; S.plannedFilters = null; recompare(); render(); });
       const ub = $(ID("UpBundled"));
       if (ub) ub.addEventListener("click", () => {
         const co = communityCatalog(), cf = cfCatalog();
@@ -1308,13 +1386,12 @@ const PlatformBaseline = (() => {
     }
 
     // ------------------------------------------------ the upstream watch --
-    let upstream = null;   // { rows, skipped, seenOther, when, parsed, from }
-    let lastSource = "";
+    // (S.upstream and S.lastSource live in the session object above.)
 
     // writable: a loaded zip can be written back out as the next community
     // catalog file; the bundled catalog cannot — it IS that file already
     function landUpstream(parsed, cf, from, writable) {
-      upstream = {
+      S.upstream = {
         rows: E.matchUpstream(parsed.policies, cf),
         skipped: parsed.skipped, seenOther: parsed.seenOther, parsed: writable ? parsed : null, from,
         when: new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
@@ -1344,9 +1421,9 @@ const PlatformBaseline = (() => {
     }
 
     function renderUpstream() {
-      if (!upstream) return;
+      if (!S.upstream) return;
       const n = { same: 0, differs: 0, new: 0 };
-      upstream.rows.forEach((r) => { n[r.status]++; });
+      S.upstream.rows.forEach((r) => { n[r.status]++; });
       const order = { new: 0, differs: 1, same: 2 };
       const rows = [...upstream.rows].sort((a, b) => order[a.status] - order[b.status] || String(a.up.name).localeCompare(String(b.up.name)));
       const idShort = (x) => String(x).split("_").pop();
@@ -1355,7 +1432,7 @@ const PlatformBaseline = (() => {
         ${card("＋ New to us", n.new, "controls the baseline lacks", n.new ? "bad" : "")}
         ${card("≠ Matched, differs", n.differs, "same control, different settings or values", n.differs ? "warn" : "")}
         ${card("✓ Covered", n.same, "setting for setting, value for value", "ok")}
-        ${card("Seen, not comparable", upstream.seenOther || 0, "scripts and profiles — no policy body to diff")}
+        ${card("Seen, not comparable", S.upstream.seenOther || 0, "scripts and profiles — no policy body to diff")}
       </div>`;
       const kindLabel = (k) => k === "compliance" ? "compliance" : k === "deviceConfig" ? "device configuration" : k === "driverUpdate" ? "driver update profile" : "settings catalog";
       const whatsNew = (r) => {
@@ -1383,16 +1460,16 @@ const PlatformBaseline = (() => {
       };
       const host = $(ID("Upstream"));
       host.innerHTML = `<div class="list-card">
-        <h4 style="margin:0 0 6px">${spec.upstream.icon} ${esc(spec.upstream.label)} vs the baseline <span class="mini muted">— ${esc(upstream.from || "loaded")}, ${esc(upstream.when)}</span></h4>
+        <h4 style="margin:0 0 6px">${spec.upstream.icon} ${esc(spec.upstream.label)} vs the baseline <span class="mini muted">— ${esc(S.upstream.from || "loaded")}, ${esc(S.upstream.when)}</span></h4>
         ${cards}
         <p class="mini muted" style="margin:10px 0 4px">Tick what belongs in the baseline and curate the name — proposals stamp <b>${esc(E.relLabel(E.currentRelease()))}</b> with the version increased; created here unassigned, then 🧬 re-export.</p>
-        ${upstream.skipped.length ? `<p class="mini muted" style="margin:0 0 8px">${upstream.skipped.length} file(s) skipped: ${esc(upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 3).join(", "))}${upstream.skipped.length > 3 ? "…" : ""}</p>` : ""}
+        ${S.upstream.skipped.length ? `<p class="mini muted" style="margin:0 0 8px">${S.upstream.skipped.length} file(s) skipped: ${esc(S.upstream.skipped.map((sk) => sk.path.split("/").pop()).slice(0, 3).join(", "))}${S.upstream.skipped.length > 3 ? "…" : ""}</p>` : ""}
         <div class="tb-actions" style="margin:8px 0 8px">
           <button class="btn" id="${ID("UpAll")}">☑ Select all</button>
           <button class="btn" id="${ID("UpNone")}">☐ Select none</button>
           <span class="mini muted" id="${ID("UpCount")}"></span>
           <button class="btn" id="${ID("UpMd")}" title="The whole comparison as Markdown — what is new, per policy, for the release notes">📝 What's new (Markdown)</button>
-          ${upstream.parsed ? `<button class="btn" id="${ID("UpCatalog")}" title="Write this upstream as ${esc(spec.communityPath.replace(/\/catalog\.json$/, "/"))} — unzip at the repo root and it is the community catalog every tenant reads">📁 Community catalog folder (zip)</button>` : ""}
+          ${S.upstream.parsed ? `<button class="btn" id="${ID("UpCatalog")}" title="Write this upstream as ${esc(spec.communityPath.replace(/\/catalog\.json$/, "/"))} — unzip at the repo root and it is the community catalog every tenant reads">📁 Community catalog folder (zip)</button>` : ""}
         </div>
         <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:56%"><col></colgroup>
           <thead><tr><th><input type="checkbox" id="${ID("UpMaster")}" title="Select or deselect every row below"></th><th>Upstream policy — and what's new in it</th><th>Canonical name (edit before creating)</th></tr></thead>
@@ -1403,7 +1480,7 @@ const PlatformBaseline = (() => {
         <button class="btn primary" id="${ID("UpDry")}">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
         <button class="btn primary" id="${ID("UpApply")}" style="display:none">✍ Create in THIS tenant <span class="tag block">writes to the tenant</span></button>
         <button class="ae-selbar-x" id="${ID("UpBarX")}" title="Clear the selection">✕</button></div>`;
-      host.dataset.order = JSON.stringify(rows.map((r) => upstream.rows.indexOf(r)));
+      host.dataset.order = JSON.stringify(rows.map((r) => S.upstream.rows.indexOf(r)));
       $(ID("UpDry")).addEventListener("click", upDryRun);
       $(ID("UpApply")).addEventListener("click", upApply);
       const ticks = () => [...host.querySelectorAll("[data-uptick]")];
@@ -1419,8 +1496,8 @@ const PlatformBaseline = (() => {
         const bar = $(ID("UpBar"));
         if (bar) {
           bar.classList.toggle("visible", on > 0);
-          const live = upPlanned && upPlanKey === upSelectionKey();
-          const nCreate = live ? upPlanned.filter((p) => !p.collided).length : 0;
+          const live = S.upPlanned && S.upPlanKey === upSelectionKey();
+          const nCreate = live ? S.upPlanned.filter((p) => !p.collided).length : 0;
           const bc = $(ID("UpBarCount"));
           if (bc) bc.textContent = live ? `${on} ticked · ${nCreate} to create` : `${on} polic${on === 1 ? "y" : "ies"} ticked`;
           const dry = $(ID("UpDry")), ap = $(ID("UpApply"));
@@ -1433,7 +1510,7 @@ const PlatformBaseline = (() => {
             ap.innerHTML = `✍ Create ${nCreate} in THIS tenant <span class="tag block">writes to the tenant</span>`;
           }
           const stale = $(ID("UpStale"));
-          if (stale) stale.style.display = upPlanned && !live ? "" : "none";
+          if (stale) stale.style.display = S.upPlanned && !live ? "" : "none";
         }
       };
       syncUpBar = syncMaster;
@@ -1452,8 +1529,8 @@ const PlatformBaseline = (() => {
       });
       const uc = $(ID("UpCatalog"));
       if (uc) uc.addEventListener("click", async () => {
-        const f = upstream.fetched || {};
-        const file = E.buildCommunity(upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), released: f.date || "", commit: f.commit || "" });
+        const f = S.upstream.fetched || {};
+        const file = E.buildCommunity(S.upstream.parsed, { release: f.date || (E.community() ? E.community().release : ""), released: f.date || "", commit: f.commit || "" });
         try {
           const z = new JSZip();
           for (const [path, text] of Object.entries(E.communityFolder(file))) z.file(path, text);
@@ -1465,8 +1542,6 @@ const PlatformBaseline = (() => {
       });
     }
 
-    let upPlanned = null;
-    let upPlanKey = null;
     let syncUpBar = () => {};
     function upSelectionKey() {
       const host = $(ID("Upstream"));
@@ -1481,9 +1556,9 @@ const PlatformBaseline = (() => {
       return parts.join("\n");
     }
     async function upDryRun() {
-      if (running || !upstream) return;
+      if (running || !S.upstream) return;
       running = true; $(ID("UpDry")).disabled = true; $(ID("UpPlan")).innerHTML = "";
-      upPlanned = null; upPlanKey = null; syncUpBar();
+      S.upPlanned = null; S.upPlanKey = null; syncUpBar();
       try {
         const host = $(ID("Upstream"));
         const order = JSON.parse(host.dataset.order || "[]");
@@ -1491,7 +1566,7 @@ const PlatformBaseline = (() => {
         host.querySelectorAll("[data-uptick]").forEach((cb) => {
           if (!cb.checked) return;
           const i = +cb.dataset.uptick;
-          const r = upstream.rows[order[i]];
+          const r = S.upstream.rows[order[i]];
           const nameEl = host.querySelector(`[data-upname="${i}"]`);
           const name = (nameEl && nameEl.value || "").trim();
           if (!E.looksBaseline(name)) { badNames.push(name || r.up.name); return; }
@@ -1505,15 +1580,15 @@ const PlatformBaseline = (() => {
         prog("Checking what already exists…");
         await Graph.ensureScopes(Graph.SCOPES.config);
         const names = await Restore.existingNames([...new Set(picked.map((x) => x.area))], (m) => prog(m));
-        upPlanned = Restore.plan(picked, names);
-        upPlanKey = upSelectionKey();
+        S.upPlanned = Restore.plan(picked, names);
+        S.upPlanKey = upSelectionKey();
         prog("");
-        const nCreate = upPlanned.filter((p) => !p.collided).length;
+        const nCreate = S.upPlanned.filter((p) => !p.collided).length;
         $(ID("UpPlan")).innerHTML = `
-          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${upPlanned.length - nCreate} already present (the collision stop)${nCreate ? ` — <b>✍ Create ${nCreate} in THIS tenant</b> is in the bar below` : ""}</p>
+          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${S.upPlanned.length - nCreate} already present (the collision stop)${nCreate ? ` — <b>✍ Create ${nCreate} in THIS tenant</b> is in the bar below` : ""}</p>
           <p class="mini" id="${ID("UpStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before creating.</p>
           <div class="gu-tw"><table class="cg-table"><thead><tr><th>Will be created as</th><th style="width:180px">Surface</th><th style="width:200px">Operation</th></tr></thead>
-          <tbody>${upPlanned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`).join("")}</tbody></table></div>
+          <tbody>${S.upPlanned.map((p) => `<tr><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`).join("")}</tbody></table></div>
           <div id="${ID("UpResult")}" style="margin-top:10px"></div>`;
       } catch (e) {
         prog("");
@@ -1522,12 +1597,17 @@ const PlatformBaseline = (() => {
     }
 
     async function upApply() {
-      if (running || !upPlanned) return;
-      if (upPlanKey !== upSelectionKey()) { syncUpBar(); return; }
+      if (running || !S.upPlanned) return;
+      if (S.upPlanKey !== upSelectionKey()) { syncUpBar(); return; }
+      // THE PLAN NAMES A TENANT (finding 1) and this act names a tenant
+      // KIND (finding 7) — both are re-asked here, at the click, not
+      // trusted from when the pane was drawn.
+      if (wrongTenant()) { $(ID("UpPlan")).innerHTML = tenantMovedHtml(); S.upPlanned = null; S.upPlanKey = null; syncUpBar(); return; }
+      if (!isCfdev()) { $(ID("UpPlan")).innerHTML = refusedHtml("Upstream"); S.upPlanned = null; S.upPlanKey = null; syncUpBar(); return; }
       running = true; $(ID("UpApply")).disabled = true;
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        const results = await Restore.apply(upPlanned, (m) => prog(m));
+        const results = await Restore.apply(S.upPlanned, (m) => prog(m));
         prog("");
         const good = results.filter((r) => r.outcome === "created").length;
         const bad = results.filter((r) => r.outcome === "failed").length;
@@ -1535,7 +1615,7 @@ const PlatformBaseline = (() => {
           <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — unassigned, in this tenant only. Now ${esc(spec.readLabel)}, judge them in the comparison, and 🧬 re-export: the export becomes the new baseline, versions increased, wearing this month's release.</p>
           ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-        upPlanned = null; upPlanKey = null;
+        S.upPlanned = null; S.upPlanKey = null;
         rereadAfter(`${spec.upstream.icon} Upstream: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}, unassigned — the Upstream pane keeps the details`);
       } catch (e) {
         prog("");
@@ -1556,7 +1636,7 @@ const PlatformBaseline = (() => {
         parsed.seenOther = got.seenOther;
         if (!parsed.policies.length) { $(ID("UpNote")).textContent = "The repository carries no comparable policies under the expected folder."; return; }
         landUpstream(parsed, cf, `github.com @ ${got.commit.slice(0, 7)} (${got.date})`, true);
-        upstream.fetched = { commit: got.commit, date: got.date };
+        S.upstream.fetched = { commit: got.commit, date: got.date };
       } catch (e) {
         const n = $(ID("UpNote")); if (n) n.textContent = `Not fetched: ${(e && e.message) || e}`;
       } finally { fetching = false; const b2 = $(ID("UpFetch")); if (b2) b2.disabled = false; }
@@ -1569,8 +1649,8 @@ const PlatformBaseline = (() => {
         const parsed = E.parseUpstream(got.files);
         parsed.seenOther = got.seenOther;
         if (!parsed.policies.length) throw new Error("the repository carries no comparable policies under the expected folder");
-        fetchedCat = E.buildCommunity(parsed, { commit: got.commit, released: got.date, release: got.date });
-        catId = "community"; planned = null; plannedFilters = null;
+        S.fetchedCat = E.buildCommunity(parsed, { commit: got.commit, released: got.date, release: got.date });
+        catId = "community"; S.planned = null; S.plannedFilters = null;
         recompare(); render();
       } catch (e) {
         const n = $(ID("FetchNote")); if (n) n.textContent = `Not fetched: ${(e && e.message) || e}`;
@@ -1580,7 +1660,7 @@ const PlatformBaseline = (() => {
 
     // ------------------------------------------------ the rename act ------
     // Its own host (#<ids>Rename): ticks and edited names are DOM state.
-    let rnPlanned = null, rnPlanKey = null, syncRnBar = () => {};
+    let syncRnBar = () => {};
     function rnSelectionKey() {
       const host = $(ID("Rename"));
       if (!host) return "";
@@ -1594,10 +1674,10 @@ const PlatformBaseline = (() => {
     }
     function renderRename() {
       const host = $(ID("Rename"));
-      if (!host || !res) return;
+      if (!host || !S.res) return;
       const rows = E.renameProposals(vms(), communityCatalog());
       host.dataset.for = String(rows.length);
-      rnPlanned = null; rnPlanKey = null;
+      S.rnPlanned = null; S.rnPlanKey = null;
       const n = rows.filter((r) => r.status === "propose").length;
       const row = (r, i) => {
         const act = r.status === "propose";
@@ -1634,15 +1714,15 @@ const PlatformBaseline = (() => {
         const c2 = $(ID("RnCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
         const bar = $(ID("RnBar")); if (!bar) return;
         bar.classList.toggle("visible", on > 0);
-        const live = rnPlanned && rnPlanKey === rnSelectionKey();
-        const nDo = live ? rnPlanned.filter((p) => !p.refused).length : 0;
+        const live = S.rnPlanned && S.rnPlanKey === rnSelectionKey();
+        const nDo = live ? S.rnPlanned.filter((p) => !p.refused).length : 0;
         $(ID("RnBarCount")).textContent = live ? `${on} ticked · ${nDo} to rename` : `${on} polic${on === 1 ? "y" : "ies"} ticked`;
         const dry = $(ID("RnDry")), ap = $(ID("RnApply"));
         dry.classList.toggle("primary", !live);
         dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans writes</span>`;
         ap.style.display = live && nDo ? "" : "none";
         ap.innerHTML = `✍ Rename ${nDo} in THIS tenant <span class="tag block">writes to the tenant</span>`;
-        const stale = $(ID("RnStale")); if (stale) stale.style.display = rnPlanned && !live ? "" : "none";
+        const stale = $(ID("RnStale")); if (stale) stale.style.display = S.rnPlanned && !live ? "" : "none";
       };
       syncRnBar = sync;
       const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
@@ -1671,7 +1751,7 @@ const PlatformBaseline = (() => {
     async function rnDryRun() {
       if (running) return;
       running = true; $(ID("RnDry")).disabled = true; $(ID("RnPlan")).innerHTML = "";
-      rnPlanned = null; rnPlanKey = null; syncRnBar();
+      S.rnPlanned = null; S.rnPlanKey = null; syncRnBar();
       try {
         const picked = rnPicked();
         if (!picked.length) { $(ID("RnPlan")).innerHTML = `<p class="mini muted" style="margin:0">Nothing ticked.</p>`; return; }
@@ -1686,7 +1766,7 @@ const PlatformBaseline = (() => {
         }
         prog("");
         const seen = new Map();
-        rnPlanned = picked.map((p) => {
+        S.rnPlanned = picked.map((p) => {
           const target = p.newName, lc = target.toLowerCase();
           let refused = "";
           if (!target) refused = "empty name";
@@ -1697,13 +1777,13 @@ const PlatformBaseline = (() => {
           if (!refused) seen.set(lc, p.name);
           return { ...p, target, refused };
         });
-        rnPlanKey = rnSelectionKey();
-        const nDo = rnPlanned.filter((p) => !p.refused).length;
+        S.rnPlanKey = rnSelectionKey();
+        const nDo = S.rnPlanned.filter((p) => !p.refused).length;
         $(ID("RnPlan")).innerHTML = `
-          <p class="mini" style="margin:0 0 8px"><b>${nDo} to rename</b> · ${rnPlanned.length - nDo} refused${nDo ? ` — <b>✍ Rename ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
+          <p class="mini" style="margin:0 0 8px"><b>${nDo} to rename</b> · ${S.rnPlanned.length - nDo} refused${nDo ? ` — <b>✍ Rename ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
           <p class="mini" id="${ID("RnStale")}" style="display:none;margin:0 0 8px;color:var(--report)">The selection changed since this dry run — dry run again before renaming.</p>
           <div class="gu-tw"><table class="cg-table"><thead><tr><th>From</th><th>To</th><th style="width:220px">Operation</th></tr></thead>
-          <tbody>${rnPlanned.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : `PATCH ${esc(p.path.field)}${p.path.viaFilters ? " (T14's update)" : ` on ${esc(String(p.path.endpoint).split("/").pop())}`}`}</td></tr>`).join("")}</tbody></table></div>
+          <tbody>${S.rnPlanned.map((p) => `<tr><td class="mini">${esc(p.name)}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini${p.refused ? '" style="color:var(--off)' : ""}">${p.refused ? `skip — ${esc(p.refused)}` : `PATCH ${esc(p.path.field)}${p.path.viaFilters ? " (T14's update)" : ` on ${esc(String(p.path.endpoint).split("/").pop())}`}`}</td></tr>`).join("")}</tbody></table></div>
           <div id="${ID("RnResult")}" style="margin-top:10px"></div>`;
       } catch (e) {
         prog("");
@@ -1711,13 +1791,15 @@ const PlatformBaseline = (() => {
       } finally { running = false; const d = $(ID("RnDry")); if (d) d.disabled = false; syncRnBar(); }
     }
     async function rnApply() {
-      if (running || !rnPlanned) return;
-      if (rnPlanKey !== rnSelectionKey()) { syncRnBar(); return; }
+      if (running || !S.rnPlanned) return;
+      if (S.rnPlanKey !== rnSelectionKey()) { syncRnBar(); return; }
+      if (wrongTenant()) { $(ID("RnPlan")).innerHTML = tenantMovedHtml(); S.rnPlanned = null; S.rnPlanKey = null; syncRnBar(); return; }
+      if (!isCfdev()) { $(ID("RnPlan")).innerHTML = refusedHtml("Rename"); S.rnPlanned = null; S.rnPlanKey = null; syncRnBar(); return; }
       running = true; $(ID("RnApply")).disabled = true;
       const results = [];
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        for (const p of rnPlanned) {
+        for (const p of S.rnPlanned) {
           if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
           try {
             prog(`${p.target} — renaming…`);
@@ -1742,7 +1824,7 @@ const PlatformBaseline = (() => {
           <p class="mini" style="margin:0 0 6px"><b>${good} renamed</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant; the list is cut again from the fresh read.</p>
           ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-        rnPlanned = null; rnPlanKey = null;
+        S.rnPlanned = null; S.rnPlanKey = null;
         rereadAfter(`✏️ Rename: <b>${good} renamed</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
       } catch (e) {
         prog("");
@@ -1751,7 +1833,7 @@ const PlatformBaseline = (() => {
     }
 
     // ------------------------------------------------ housekeeping --------
-    let hkPlanned = null, hkPlanKey = null, syncHkBar = () => {};
+    let syncHkBar = () => {};
     function hkSelectionKey() {
       const host = $(ID("Housekeeping"));
       if (!host) return "";
@@ -1759,10 +1841,10 @@ const PlatformBaseline = (() => {
     }
     function renderHousekeeping() {
       const host = $(ID("Housekeeping"));
-      if (!host || !res) return;
+      if (!host || !S.res) return;
       const groups = E.housekeeping(vms());
       host.dataset.for = String(groups.length);
-      hkPlanned = null; hkPlanKey = null;
+      S.hkPlanned = null; S.hkPlanKey = null;
       const flat = []; groups.forEach((g) => g.retire.forEach((r) => flat.push({ g, r })));
       const relver = (rel, ver) => `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
       let i = 0;
@@ -1798,15 +1880,15 @@ const PlatformBaseline = (() => {
         const c2 = $(ID("HkCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} ticked` : "";
         const bar = $(ID("HkBar")); if (!bar) return;
         bar.classList.toggle("visible", on > 0);
-        const live = hkPlanned && hkPlanKey === hkSelectionKey();
-        const nDo = live ? hkPlanned.filter((p) => !p.refused).length : 0;
+        const live = S.hkPlanned && S.hkPlanKey === hkSelectionKey();
+        const nDo = live ? S.hkPlanned.filter((p) => !p.refused).length : 0;
         $(ID("HkBarCount")).textContent = live ? `${on} ticked · ${nDo} to delete` : `${on} cop${on === 1 ? "y" : "ies"} ticked`;
         const dry = $(ID("HkDry")), ap = $(ID("HkApply"));
         dry.classList.toggle("primary", !live);
         dry.innerHTML = live ? `🔍 Dry run again` : `🔍 Dry run the ticked <span class="tag block">plans deletes</span>`;
         ap.style.display = live && nDo ? "" : "none";
         ap.innerHTML = `🗑 Delete ${nDo} in THIS tenant <span class="tag block">deletes from the tenant</span>`;
-        const stale = $(ID("HkStale")); if (stale) stale.style.display = hkPlanned && !live ? "" : "none";
+        const stale = $(ID("HkStale")); if (stale) stale.style.display = S.hkPlanned && !live ? "" : "none";
       };
       syncHkBar = sync;
       const setAll = (v) => { ticks().forEach((c) => { c.checked = v; }); sync(); };
@@ -1836,7 +1918,7 @@ const PlatformBaseline = (() => {
     async function hkDryRun() {
       if (running) return;
       running = true; $(ID("HkDry")).disabled = true; $(ID("HkPlan")).innerHTML = "";
-      hkPlanned = null; hkPlanKey = null; syncHkBar();
+      S.hkPlanned = null; S.hkPlanKey = null; syncHkBar();
       try {
         const host = $(ID("Housekeeping"));
         const rows = JSON.parse(host.dataset.rows || "[]");
@@ -1851,7 +1933,7 @@ const PlatformBaseline = (() => {
           out.push({ ...p, refused: f.refused });
         }
         prog("");
-        hkPlanned = out; hkPlanKey = hkSelectionKey();
+        S.hkPlanned = out; S.hkPlanKey = hkSelectionKey();
         const nDo = out.filter((p) => !p.refused).length;
         $(ID("HkPlan")).innerHTML = `
           <p class="mini" style="margin:0 0 8px"><b>${nDo} to delete</b> · ${out.length - nDo} refused${nDo ? ` — <b>🗑 Delete ${nDo} in THIS tenant</b> is in the bar below` : ""}</p>
@@ -1865,13 +1947,16 @@ const PlatformBaseline = (() => {
       } finally { running = false; const d = $(ID("HkDry")); if (d) d.disabled = false; syncHkBar(); }
     }
     async function hkApply() {
-      if (running || !hkPlanned) return;
-      if (hkPlanKey !== hkSelectionKey()) { syncHkBar(); return; }
+      if (running || !S.hkPlanned) return;
+      if (S.hkPlanKey !== hkSelectionKey()) { syncHkBar(); return; }
+      // A DELETE gets the check first, before anything else it does.
+      if (wrongTenant()) { $(ID("HkPlan")).innerHTML = tenantMovedHtml(); S.hkPlanned = null; S.hkPlanKey = null; syncHkBar(); return; }
+      if (!isCfdev()) { $(ID("HkPlan")).innerHTML = refusedHtml("Housekeeping"); S.hkPlanned = null; S.hkPlanKey = null; syncHkBar(); return; }
       running = true; $(ID("HkApply")).disabled = true;
       const results = [];
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        for (const p of hkPlanned) {
+        for (const p of S.hkPlanned) {
           if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
           try {
             // the tenant may have moved since the dry run: read THIS one again
@@ -1895,7 +1980,7 @@ const PlatformBaseline = (() => {
           <p class="mini" style="margin:0 0 6px"><b>${good} deleted</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant.</p>
           ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-        hkPlanned = null; hkPlanKey = null;
+        S.hkPlanned = null; S.hkPlanKey = null;
         rereadAfter(`🧹 Housekeeping: <b>${good} deleted</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
       } catch (e) {
         prog("");
@@ -1912,20 +1997,20 @@ const PlatformBaseline = (() => {
         // WHAT THE COMPARISON CALLS MISSING OR OUTDATED (10576) — not the whole
         // catalog. A policy matched by token, name or content is present,
         // whatever it is called here; creating it again would make a copy.
-        const wanted = cmp && cmp.catalog === c ? new Set(cmp.rows.filter((r) => r.baseline && (r.status === "missing" || r.status === "outdated")).map((r) => r.key)) : null;
+        const wanted = S.cmp && S.cmp.catalog === c ? new Set(S.cmp.rows.filter((r) => r.baseline && (r.status === "missing" || r.status === "outdated")).map((r) => r.key)) : null;
         const { entries, filters, refused } = E.importEntries(c, wanted);
         if (!entries.length && !filters.length) { $(ID("Plan")).innerHTML = wanted && !wanted.size ? `<p class="mini" style="margin:0"><b>Nothing to create</b> — the comparison found every baseline policy present, by token, name or content.</p>` : `<div class="gu-fail"><b>Nothing importable.</b><span class="why">${refused.length ? esc(refused[0].why) : "The catalog carries no policy bodies."}</span></div>`; return; }
         prog("Checking what already exists…");
         await Graph.ensureScopes(Graph.SCOPES.config);
         const names = entries.length ? await Restore.existingNames([...new Set(entries.map((x) => x.area))], (m) => prog(m)) : {};
-        planned = entries.length ? Restore.plan(entries, names) : [];
+        S.planned = entries.length ? Restore.plan(entries, names) : [];
         let haveFilters = new Set();
         if (filters.length) {
           prog("Reading the tenant's assignment filters…");
           try { haveFilters = new Set((await Filters.list()).map((f) => String(f.displayName || "").toLowerCase())); }
           catch (e) { throw new Error(`The tenant's filters could not be read (${(e && e.message) || e}) — the filter half of the plan would be a guess, so there is no plan.`); }
         }
-        plannedFilters = filters.map((f) => ({ ...f, collided: haveFilters.has(String(f.body.displayName).toLowerCase()) }));
+        S.plannedFilters = filters.map((f) => ({ ...f, collided: haveFilters.has(String(f.body.displayName).toLowerCase()) }));
         prog("");
         // every creatable row ticked (10586, Mihai: "this should have a select /
         // deselect option"); the button counts what is ticked
@@ -1933,8 +2018,8 @@ const PlatformBaseline = (() => {
           ...planned.map((p, i) => `<tr><td style="width:30px">${p.collided ? "" : `<input type="checkbox" data-imtick="p${i}" checked>`}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
           ...plannedFilters.map((f, i) => `<tr><td style="width:30px">${f.collided ? "" : `<input type="checkbox" data-imtick="f${i}" checked>`}</td><td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td><td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`),
         ].join("");
-        const nCreate = planned.filter((p) => !p.collided).length + plannedFilters.filter((f) => !f.collided).length;
-        const nSkip = planned.filter((p) => p.collided).length + plannedFilters.filter((f) => f.collided).length;
+        const nCreate = S.planned.filter((p) => !p.collided).length + S.plannedFilters.filter((f) => !f.collided).length;
+        const nSkip = S.planned.filter((p) => p.collided).length + S.plannedFilters.filter((f) => f.collided).length;
         $(ID("Plan")).innerHTML = `
           <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already present (the collision stop — present is the point, not a problem)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""}${wanted ? ` · ${c.policies.length - wanted.size} of ${c.policies.length} left alone — the comparison found them present` : ""}</p>
           ${nCreate ? `<div class="tb-actions" style="margin:0 0 8px"><button class="btn" id="${ID("ImAll")}">☑ Select all</button><button class="btn" id="${ID("ImNone")}">☐ Select none</button><span class="mini muted" id="${ID("ImCount")}"></span></div>` : ""}
@@ -1966,12 +2051,15 @@ const PlatformBaseline = (() => {
     }
 
     async function apply() {
-      if (running || (!planned && !plannedFilters)) return;
+      if (running || (!S.planned && !S.plannedFilters)) return;
       // only the ticked rows are created; the rest of the plan is left as it was
       const on = new Set([...$(ID("Plan")).querySelectorAll("[data-imtick]")].filter((x) => x.checked).map((x) => x.dataset.imtick));
-      const doPolicies = (planned || []).filter((p, i) => !p.collided && on.has(`p${i}`));
-      const doFilters = (plannedFilters || []).filter((f, i) => !f.collided && on.has(`f${i}`));
+      const doPolicies = (S.planned || []).filter((p, i) => !p.collided && on.has(`p${i}`));
+      const doFilters = (S.plannedFilters || []).filter((f, i) => !f.collided && on.has(`f${i}`));
       if (!doPolicies.length && !doFilters.length) return;
+      // Import runs on every tenant, so there is no kind to re-check — but
+      // the plan still names one tenant, and this is where that is proved.
+      if (wrongTenant()) { $(ID("Result")).innerHTML = tenantMovedHtml(); S.planned = null; S.plannedFilters = null; return; }
       running = true; $(ID("Apply")).disabled = true;
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
@@ -1995,8 +2083,8 @@ const PlatformBaseline = (() => {
         $(ID("Result")).innerHTML = `
           <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — everything unassigned; ✏️ the Assignment editor is where reach begins. Re-reading the tenant…</p>${failedHtml}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
-        planned = null; plannedFilters = null;
-        lastWrite = { failedHtml };
+        S.planned = null; S.plannedFilters = null;
+        S.lastWrite = { failedHtml };
         mode = "compare";   // the fresh comparison is the point of the re-read; failures stay on the Import pane
         rereadAfter(`📥 Import: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b> (listed under Import)` : ""}, unassigned`);
       } catch (e) {
@@ -2056,10 +2144,17 @@ const PlatformBaseline = (() => {
       return catalogsLoaded;
     }
     async function onShow() {
-      if (res || running) return;
+      // THE SESSION IS MADE HERE, AND IT IS KEYED BY THE TENANT (finding 1).
+      // The sign-out event drops it, but this is the second latch and the
+      // one that cannot be missed: if the screen opens holding a read that
+      // a DIFFERENT tenant produced — a sign-out the listener never saw, a
+      // demo entered from a signed-in session — the state goes before a
+      // single row of it is rendered.
+      if (S.tenantId && S.tenantId !== currentTenantId()) reset();
+      if (S.res || running) return;
       $(ID("Body")).innerHTML = `<p class="mini muted" style="margin:0">Reading the catalogs from ${esc(spec.catalogPath)} and ${esc(spec.communityPath)}…</p>`;
       await ensureCatalogs();
-      if (res || running) return;
+      if (S.res || running) return;
       const c = PolicyCache.get();
       if (c) { land(c, srcNote()); return; }
       if (PolicyCache.reading()) { run(true); return; }
@@ -2069,6 +2164,11 @@ const PlatformBaseline = (() => {
     function init() {
       if (!$(ID("Run"))) return;
       (window.TunoScreenHooks = window.TunoScreenHooks || {})[spec.screen] = onShow;
+      // SIGN-OUT DROPS THE TENANT'S DATA (finding 1). app.js fires the
+      // event and knows nothing about who listens; the tool registers
+      // beside the state it owns, so a tool added later cannot be
+      // forgotten in app.js's sign-out handler.
+      window.addEventListener("tuno:signout", reset);
       $(ID("Run")).addEventListener("click", () => run(false));
       $(ID("Seg")).addEventListener("click", (e) => {
         const b2 = e.target.closest(`[data-${P}mode]`);
@@ -2080,9 +2180,11 @@ const PlatformBaseline = (() => {
     }
 
     return {
-      init,
+      init, reset,
+      // what the session is holding, for the tests and for nothing else
+      _session: () => S,
       // r: collect result · c: a CloudFellows catalog (or null for the bundled one) · m: mode · k: catalog id
-      _setForTest: (r, c, m, k) => { fileCat = c || null; mode = m || "compare"; catId = k || null; land(r, ""); },
+      _setForTest: (r, c, m, k) => { S.fileCat = c || null; mode = m || "compare"; catId = k || null; land(r, ""); },
       _catalogsForTest: (b, c) => { E.setBundled(b); E.setCommunity(c); catalogsLoaded = Promise.resolve({}); },
     };
   }

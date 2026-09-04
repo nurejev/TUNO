@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10588, date: "2026-09-04", title: "Baselines: the tenant's data does not survive sign-out, and the gate becomes the tenant ID",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Signing out cleared the shared read but not the screen's own copy of it, so the comparison, the plans and the fetched community catalog survived into the next sign-in — the previous tenant's policies, on the screen, for whoever signed in after. Everything a tenant told the screen now lives in one session object stamped with the tenant that produced it: sign-out drops it, opening the screen on a different tenant drops it again, and every Apply refuses a plan whose tenant is no longer the one signed in." },
+      { kind: "fixed", tool: "🍎 macOS baseline", text: "The same. One engine, one fix." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Export, Upstream, Rename and Housekeeping ask the reference-tenant question again at the click, not only when the pane was drawn." },
+      { kind: "improved", tool: "Sign-in", text: "The reference-tenant badge is on its way to being gated on the tenant's immutable Entra ID rather than on its UPN domain and display name — a display name is not an identity, and any tenant can call itself CloudFellows. The machinery is in place and the ID list is deliberately still empty for one build: the badge's tooltip and both baseline rails now print the signed-in tenant ID, and they say which half of the gate answered, so the value that closes the list can be read straight off the page." },
+    ],
+  },
+  {
     build: 10587, date: "2026-09-04", title: "T01 — an admin menu for the apps users can no longer uninstall; What breaks? lists the user-profile blocks",
     items: [
       { kind: "new", tool: "AppLocker", text: "Remove-TunoUserInstalledApps.ps1 — an in-shell menu for an administrator to remove per-user installs (PowerToys, Zoom, anything in %LOCALAPPDATA%) that the enforced policy now stops the user from uninstalling, because the uninstaller lives in the profile. Every profile is inventoried (a logged-off user's hive is loaded), the uninstaller runs under the administrator allow rule and is verified against that user's hive, and a per-user MSI or a missing uninstaller gets guarded leftover removal. -List reads only; -Name <app> -Force -Quiet -Leftovers is the Live Response form. Under Help & scripts, with its note." },
