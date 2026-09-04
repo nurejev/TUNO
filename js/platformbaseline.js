@@ -879,6 +879,66 @@ const PlatformBaseline = (() => {
       return groups;
     }
 
+    // ================================================================
+    // THE PRE-PILOT ASSIGNMENT (§8.3, build 10591)
+    // ================================================================
+    // Import has always created everything unassigned, on the argument
+    // that reach is the Assignment editor's act. That is right for reach
+    // in general and wrong for the one case this tool exists for: a
+    // baseline arriving on a new tenant is going to a PILOT first, every
+    // time, and making somebody open a second tool to say so for eighty
+    // policies is the tool refusing to finish its own sentence.
+    //
+    // So there is exactly one assignment Import will make: the two
+    // PRE-PILOT groups, by their exact display names, chosen by the
+    // policy's own D/U token. Device policies go to the device group,
+    // user policies to the user group, and a policy whose token cannot be
+    // read goes NOWHERE until a person picks one on the row.
+    //
+    // The groups are looked up, never created, and a missing group is a
+    // WARNING, not a stop: the policies are still created, unassigned,
+    // and the plan says so before anything is written. An import that
+    // refuses to run because a group is absent would be the tool putting
+    // its own convenience ahead of the thing being asked for.
+    const PILOT_GROUPS = { D: "INT-SEC-D-PRE-PILOT", U: "INT-SEC-U-PRE-PILOT" };
+    // Surfaces where D is the only honest answer: a policy that cannot
+    // target a user at all is a device policy, and asking is theatre.
+    const DEVICE_ONLY_SECTIONS = new Set(["autopilot", "enrolment", "esp", "scripts", "remediations", "customAttributes", "filters", "updates", "driverUpdates"]);
+    // the D/U for one catalog row: its own token, then its surface, then
+    // nothing — and nothing means the row asks (§8.3)
+    const duFor = (p) => p.du || (DEVICE_ONLY_SECTIONS.has(p.section) ? "D" : "");
+    // Where an assignment is POSTed, per area. Filters have none — an
+    // assignment filter is not assigned, it is referenced by assignments.
+    const ASSIGN_PATH = {
+      SettingsCatalog: (id) => `/deviceManagement/configurationPolicies/${id}/assign`,
+      DeviceConfigurations: (id) => `/deviceManagement/deviceConfigurations/${id}/assign`,
+      CompliancePolicies: (id) => `/deviceManagement/deviceCompliancePolicies/${id}/assign`,
+      AdmxPolicies: (id) => `/deviceManagement/groupPolicyConfigurations/${id}/assign`,
+    };
+    const assignPathFor = (area, id) => (ASSIGN_PATH[area] ? ASSIGN_PATH[area](id) : null);
+    // Look the two groups up by EXACT display name. Not found is an
+    // answer, not an error: the caller warns and imports unassigned.
+    async function findPilotGroups() {
+      const out = { D: null, U: null, error: "" };
+      try {
+        for (const k of ["D", "U"]) {
+          const name = PILOT_GROUPS[k];
+          const r = await Graph.readAll(Graph.odata`/groups?$filter=displayName eq '${name}'` + "&$select=id,displayName",
+            { scopes: Graph.SCOPES.groups, retry: true });
+          const hit = (r || []).find((g) => String(g.displayName) === name);
+          if (hit) out[k] = { id: hit.id, displayName: hit.displayName };
+        }
+      } catch (e) { out.error = String((e && e.message) || e); }
+      return out;
+    }
+    async function assignToGroup(area, id, groupId) {
+      const path = assignPathFor(area, id);
+      if (!path) throw new Error("this surface has no assign action here");
+      await Graph.post(Graph.BETA + path, {
+        assignments: [{ target: { "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId } }],
+      }, { scopes: Graph.SCOPES.profiles });
+    }
+
     // ---- import entries: three roads, each honest about itself ----
     function importEntries(cat, wanted) {
       const entries = [], filters = [], refused = [];
@@ -1300,6 +1360,7 @@ const PlatformBaseline = (() => {
       CATALOG_SCHEMA, COMMUNITY_KIND, canonicalBody, canonicalJson, hashBody, hashAll, duOf,
       shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
       SIMILARITY_MIN, REVIEW_MARGIN, ATTENTION, jaccard, anchorOf, kindOfSection,
+      PILOT_GROUPS, DEVICE_ONLY_SECTIONS, duFor, assignPathFor, findPilotGroups, assignToGroup,
       defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity,
       proposeName, diffPolicies, toMd,
       releaseOfDate, stampRelease, RENAME_PATH, renamePathFor, renameProposals, fetchUpstream,
@@ -1343,6 +1404,7 @@ const PlatformBaseline = (() => {
       fetchedCat: null,      // the community catalog fetched from github.com this session
       planned: null, plannedFilters: null,
       hashes: null,          // policy id -> content hash, computed when the read lands
+      pilot: null,           // the two PRE-PILOT groups, as the dry run found them
       rnPlanned: null, rnPlanKey: null,
       hkPlanned: null, hkPlanKey: null,
       lastWrite: null,       // the last import's failures, shown on the Import pane after the re-read
@@ -1374,7 +1436,10 @@ const PlatformBaseline = (() => {
     const refusedHtml = (act) =>
       `<div class="gu-fail"><b>${esc(act)} is refused here.</b><span class="why">It authors the baseline, so it runs on the reference tenant only, and this session is not on it. Nothing was written.</span></div>`;
 
-    let mode = "compare";      // compare · export · import · upstream
+    let mode = "compare";      // compare · import · rename · export · housekeeping · help
+    // No assignment is the default (§4.2): reach is a decision, and the
+    // tool does not make it for you by starting with it switched on.
+    let assignMode = "none";   // none | pilot
     let catId = null;          // "cfdev" | "community" — which catalog the screen speaks for
     let running = false;
     let catalogsLoaded = null; // the one same-origin read of the two catalog files, per session
@@ -1571,6 +1636,7 @@ const PlatformBaseline = (() => {
       const parts = [];
       if (S.lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${S.lastSource}</p>`);
 
+      const comm = E.isCommunity(c);
       if (mode === "compare" || mode === "import") parts.push(sourcePicker());
       if (c) { if (mode === "compare" || mode === "import") parts.push(catalogLine(c)); }
       else parts.push(`<div class="list-card"><p class="mini" style="margin:0">${isCfdev()
@@ -1652,6 +1718,11 @@ const PlatformBaseline = (() => {
           <p class="mini muted" style="margin:0 0 8px">Creates only what the comparison calls <b>missing</b> or <b>outdated</b> — nothing else is importable, and every other row says why on itself. A policy found by token, name, content or similarity is present whatever it is called here; creating it again would make a copy. An <b>outdated</b> row creates a NEW copy under the catalog name and leaves the old one for 🧹 Housekeeping — Import never edits a policy's content. ${comm
             ? `Names and descriptions are the author's own, verbatim${c && c.idToken ? ` — the ${esc(c.idToken)} token included, so ${esc(c.label)}'s own deployer can update them later as if it had created them` : ""}.`
             : `Names are the catalog's — the name is the identity this screen matches on.`}</p>
+          <fieldset style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 10px">
+            <legend class="mini muted" style="padding:0 6px">Where the created policies land</legend>
+            <label class="mini" style="display:block"><input type="radio" name="${ID("Asg")}" value="none"${assignMode === "none" ? " checked" : ""}> <b>No assignment</b> — created and reaching nobody. Reach is ✏️ the Assignment editor's act, taken afterwards.</label>
+            <label class="mini" style="display:block;margin-top:4px"><input type="radio" name="${ID("Asg")}" value="pilot"${assignMode === "pilot" ? " checked" : ""}> <b>Assign to the pilot groups</b> — device policies to <code>${esc(E.PILOT_GROUPS.D)}</code>, user policies to <code>${esc(E.PILOT_GROUPS.U)}</code>, chosen by the policy's own D/U token. The groups are looked up at dry run and never created; a missing one is a warning and the import still runs, unassigned.</label>
+          </fieldset>
           <div class="tb-actions">
             <button class="btn" id="${ID("Dry")}" ${gap.length ? "" : "disabled"}>🔍 Dry run — ${gap.length} to create</button>
           </div>
@@ -1847,6 +1918,14 @@ const PlatformBaseline = (() => {
       });
       const dry = $(ID("Dry"));
       if (dry) dry.addEventListener("click", dryRun);
+      // Changing where the policies land invalidates the plan that was made
+      // for the other answer — the groups were looked up under it.
+      document.getElementsByName(ID("Asg")).forEach((r) => r.addEventListener("change", () => {
+        if (!r.checked) return;
+        assignMode = r.value;
+        S.planned = null; S.plannedFilters = null; S.pilot = null;
+        const p = $(ID("Plan")); if (p) p.innerHTML = `<p class="mini muted" style="margin:0">Dry run again — the plan was made for the other answer.</p>`;
+      }));
       // ---- the community line ----
       const cf1 = $(ID("Fetch"));
       if (cf1) cf1.addEventListener("click", () => fetchForCatalog());
@@ -2276,18 +2355,38 @@ const PlatformBaseline = (() => {
       } finally { running = false; const ap = $(ID("HkApply")); if (ap) ap.disabled = false; syncHkBar(); }
     }
 
+    // ================================================================
+    // IMPORT — the plan IS the comparison's gap (finding 4, §4.2, §8.3)
+    // ================================================================
+    // The plan used to be built from the whole catalog and filtered
+    // afterwards, which is how an `ahead` row — a policy the tenant has a
+    // NEWER copy of — could reach the create pipeline. It is built from
+    // the rows now: `missing` and `outdated`, nothing else, and every
+    // other row carries its own reason on the Compare table.
+    //
+    // An `outdated` row creates a NEW copy under the catalog's name and
+    // leaves the older one where it is. Import never PATCHes content: a
+    // policy the tenant has been running is not silently rewritten, and
+    // 🧹 Housekeeping is where the superseded copy goes, deliberately,
+    // afterwards.
     async function dryRun() {
       if (running) return;
       const c = activeCatalog();
       if (!c) return;
       running = true; $(ID("Dry")).disabled = true; $(ID("Plan")).innerHTML = "";
+      S.planned = null; S.plannedFilters = null;
       try {
-        // WHAT THE COMPARISON CALLS MISSING OR OUTDATED (10576) — not the whole
-        // catalog. A policy matched by token, name or content is present,
-        // whatever it is called here; creating it again would make a copy.
-        const wanted = S.cmp && S.cmp.catalog === c ? new Set(S.cmp.rows.filter((r) => r.baseline && (r.status === "missing" || r.status === "outdated")).map((r) => r.key)) : null;
+        const gap = importable();
+        if (!gap.length) {
+          $(ID("Plan")).innerHTML = `<p class="mini" style="margin:0"><b>Nothing to create.</b> The comparison found every catalog policy present — by token, name, content or similarity.</p>`;
+          return;
+        }
+        const wanted = new Set(gap.map((r) => r.key));
         const { entries, filters, refused } = E.importEntries(c, wanted);
-        if (!entries.length && !filters.length) { $(ID("Plan")).innerHTML = wanted && !wanted.size ? `<p class="mini" style="margin:0"><b>Nothing to create</b> — the comparison found every baseline policy present, by token, name or content.</p>` : `<div class="gu-fail"><b>Nothing importable.</b><span class="why">${refused.length ? esc(refused[0].why) : "The catalog carries no policy bodies."}</span></div>`; return; }
+        if (!entries.length && !filters.length) {
+          $(ID("Plan")).innerHTML = `<div class="gu-fail"><b>Nothing importable.</b><span class="why">${refused.length ? esc(refused[0].why) : "The catalog carries no policy bodies for the rows that are missing."}</span></div>`;
+          return;
+        }
         prog("Checking what already exists…");
         await Graph.ensureScopes(Graph.SCOPES.config);
         const names = entries.length ? await Restore.existingNames([...new Set(entries.map((x) => x.area))], (m) => prog(m)) : {};
@@ -2299,36 +2398,93 @@ const PlatformBaseline = (() => {
           catch (e) { throw new Error(`The tenant's filters could not be read (${(e && e.message) || e}) — the filter half of the plan would be a guess, so there is no plan.`); }
         }
         S.plannedFilters = filters.map((f) => ({ ...f, collided: haveFilters.has(String(f.body.displayName).toLowerCase()) }));
+
+        // THE GROUPS ARE LOOKED UP AT DRY RUN, NOT AT APPLY (§8.3) — so
+        // "the group is not there" is something the plan tells you before
+        // you click the button, not a surprise in the results.
+        S.pilot = null;
+        if (assignMode === "pilot") {
+          prog("Looking up the PRE-PILOT groups…");
+          await Graph.ensureScopes(Graph.SCOPES.groups);
+          S.pilot = await E.findPilotGroups();
+        }
         prog("");
-        // every creatable row ticked (10586, Mihai: "this should have a select /
-        // deselect option"); the button counts what is ticked
-        const rows = [
-          ...planned.map((p, i) => `<tr><td style="width:30px">${p.collided ? "" : `<input type="checkbox" data-imtick="p${i}" checked>`}</td><td class="mini"><b>${esc(p.target)}</b></td><td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td><td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create, unassigned"}</td></tr>`),
-          ...plannedFilters.map((f, i) => `<tr><td style="width:30px">${f.collided ? "" : `<input type="checkbox" data-imtick="f${i}" checked>`}</td><td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td><td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`),
-        ].join("");
+        const rowOf = (name) => gap.find((r) => r.baseline && r.baseline.name === name) || null;
+        const duOfName = (name) => { const r = rowOf(name); return r && r.baseline ? E.duFor(r.baseline) : ""; };
+        const missingGroups = S.pilot ? Object.keys(E.PILOT_GROUPS).filter((k) => !S.pilot[k]) : [];
+
+        const duCell = (id, du) => assignMode !== "pilot" ? `<span class="muted">—</span>`
+          : du ? `<span class="gu-how ${du === "D" ? "inc" : "priv"}" title="${du === "D" ? "A device policy — the device pilot group" : "A user policy — the user pilot group"}">${du}</span>`
+            // NO GUESS. A policy whose token cannot be read is not assumed
+            // to be a device policy: the row asks, and cannot be applied
+            // until it is answered.
+            : `<select data-${P}du="${esc(id)}" class="mini"><option value="">needs D/U</option><option value="D">D — device</option><option value="U">U — user</option></select>`;
+
+        const pRows = S.planned.map((p, i) => {
+          const du = duOfName(p.target);
+          return `<tr><td style="width:30px">${p.collided ? "" : `<input type="checkbox" data-imtick="p${i}" data-imdu="${esc(du)}" checked>`}</td>
+            <td class="mini"><b>${esc(p.target)}</b>${rowOf(p.target) && rowOf(p.target).status === "outdated" ? ` <span class="gu-how">a NEW copy — the older one stays for 🧹 Housekeeping</span>` : ""}</td>
+            <td class="mini">${esc(Restore.AREA_INFO[p.area].label)}</td>
+            <td class="mini">${duCell(`p${i}`, du)}</td>
+            <td class="mini${p.collided ? '" style="color:var(--off)' : ""}">${p.collided ? "skip — a policy already wears this name" : "create"}</td></tr>`;
+        });
+        const fRows = S.plannedFilters.map((f, i) => `<tr><td style="width:30px">${f.collided ? "" : `<input type="checkbox" data-imtick="f${i}" data-imdu="D" checked>`}</td>
+          <td class="mini"><b>${esc(f.body.displayName)}</b></td><td class="mini">Assignment filter (T14's create)</td>
+          <td class="mini"><span class="muted">not assignable</span></td>
+          <td class="mini${f.collided ? '" style="color:var(--off)' : ""}">${f.collided ? "skip — a filter already wears this name" : "create"}</td></tr>`);
         const nCreate = S.planned.filter((p) => !p.collided).length + S.plannedFilters.filter((f) => !f.collided).length;
         const nSkip = S.planned.filter((p) => p.collided).length + S.plannedFilters.filter((f) => f.collided).length;
+
         $(ID("Plan")).innerHTML = `
-          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already present (the collision stop — present is the point, not a problem)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""}${wanted ? ` · ${c.policies.length - wanted.size} of ${c.policies.length} left alone — the comparison found them present` : ""}</p>
-          ${nCreate ? `<div class="tb-actions" style="margin:0 0 8px"><button class="btn" id="${ID("ImAll")}">☑ Select all</button><button class="btn" id="${ID("ImNone")}">☐ Select none</button><span class="mini muted" id="${ID("ImCount")}"></span></div>` : ""}
-          <div class="gu-tw"><table class="cg-table"><thead><tr><th style="width:30px">${nCreate ? `<input type="checkbox" id="${ID("ImMaster")}" title="Select or deselect every row below">` : ""}</th><th>Baseline policy</th><th style="width:200px">Path</th><th style="width:220px">Operation</th></tr></thead><tbody>${rows}</tbody></table></div>
-          ${nCreate ? `<div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="${ID("Apply")}">✍ Create ${nCreate} object${nCreate === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span></button></div>` : ""}
+          <p class="mini" style="margin:0 0 8px"><b>${nCreate} to create</b> · ${nSkip} already wear the name (the collision stop)${refused.length ? ` · ${refused.length} not importable (${esc(refused[0].why)})` : ""} · ${c.policies.length - wanted.size} of ${c.policies.length} left alone, because the comparison found them present.</p>
+          ${missingGroups.length ? `<div class="gu-fail"><b>${missingGroups.map((k) => E.PILOT_GROUPS[k]).join(" and ")} ${missingGroups.length === 1 ? "was" : "were"} not found in this tenant.</b><span class="why">The policies are still created — unassigned. TUNO does not create groups, and it does not refuse an import because one is missing. Make the group and assign in ✏️ the Assignment editor, or re-run this after creating it.</span></div>` : ""}
+          ${S.pilot && S.pilot.error ? `<div class="gu-fail"><b>The groups could not be read.</b><span class="why">${esc(S.pilot.error)} — the import will create everything unassigned.</span></div>` : ""}
+          <div class="tb-actions" style="margin:0 0 8px">
+            <button class="btn" id="${ID("ImAll")}">☑ Select all</button>
+            <button class="btn" id="${ID("ImNone")}">☐ Select none</button>
+            <button class="btn" id="${ID("ImD")}">Select D</button>
+            <button class="btn" id="${ID("ImU")}">Select U</button>
+            <span class="mini muted" id="${ID("ImCount")}"></span>
+          </div>
+          <div class="gu-tw"><table class="cg-table"><thead><tr>
+            <th style="width:30px">${nCreate ? `<input type="checkbox" id="${ID("ImMaster")}" title="Select or deselect every row below">` : ""}</th>
+            <th>Catalog policy</th><th style="width:190px">Surface</th><th style="width:130px">Pilot group</th><th style="width:200px">Operation</th>
+          </tr></thead><tbody>${pRows.join("")}${fRows.join("")}</tbody></table></div>
+          <p class="mini muted" id="${ID("ImWarn")}" style="margin:8px 0 0"></p>
+          ${nCreate ? `<div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="${ID("Apply")}">✍ Create <span class="tag block">writes to the tenant</span></button></div>` : ""}
           <div id="${ID("Result")}" style="margin-top:10px"></div>`;
+
         const plan = $(ID("Plan"));
         const ticks = () => [...plan.querySelectorAll("[data-imtick]")];
+        const duOf = (cb) => {
+          const sel = plan.querySelector(`[data-${P}du="${cb.dataset.imtick}"]`);
+          return sel ? sel.value : (cb.dataset.imdu || "");
+        };
         const master = $(ID("ImMaster"));
         const syncIm = () => {
-          const t = ticks(), on = t.filter((x) => x.checked).length;
-          if (master) { master.checked = on > 0 && on === t.length; master.indeterminate = on > 0 && on < t.length; }
-          const cnt = $(ID("ImCount")); if (cnt) cnt.textContent = t.length ? `${on} of ${t.length} ticked` : "";
+          const t = ticks(), on = t.filter((x) => x.checked);
+          if (master) { master.checked = on.length > 0 && on.length === t.length; master.indeterminate = on.length > 0 && on.length < t.length; }
+          const cnt = $(ID("ImCount")); if (cnt) cnt.textContent = t.length ? `${on.length} of ${t.length} ticked` : "";
+          // A TICKED ROW WITH NO D/U CANNOT BE APPLIED (§8.3). It is not
+          // dropped quietly and it is not guessed at — the button says so.
+          const blocked = assignMode === "pilot" ? on.filter((cb) => !duOf(cb)).length : 0;
+          const warn = $(ID("ImWarn"));
+          if (warn) warn.innerHTML = blocked
+            ? `<span style="color:var(--off)"><b>${blocked} ticked row${blocked === 1 ? " has" : "s have"} no D/U.</b> Pick device or user on the row, or switch to “No assignment” above — a policy whose target is a guess is not one this tool will assign.</span>`
+            : (assignMode === "pilot" ? `Device policies go to <b>${esc(E.PILOT_GROUPS.D)}</b>, user policies to <b>${esc(E.PILOT_GROUPS.U)}</b>. One assignment per created policy; a failure to assign is reported on the row and never rolled back.` : "");
           const ap2 = $(ID("Apply"));
-          if (ap2) { ap2.disabled = !on; ap2.innerHTML = `✍ Create ${on} object${on === 1 ? "" : "s"} <span class="tag block">writes to the tenant</span>`; }
+          if (ap2) {
+            ap2.disabled = !on.length || blocked > 0;
+            ap2.innerHTML = `✍ Create ${on.length} object${on.length === 1 ? "" : "s"}${assignMode === "pilot" && !blocked ? ", assigned to the pilot groups" : ""} <span class="tag block">writes to the tenant</span>`;
+          }
         };
-        const setAll = (v) => { ticks().forEach((x) => { x.checked = v; }); syncIm(); };
+        const setAll = (v, du) => { ticks().forEach((x) => { if (!du || duOf(x) === du) x.checked = v; }); syncIm(); };
         if (master) master.addEventListener("change", () => setAll(master.checked));
-        const ia = $(ID("ImAll")); if (ia) ia.addEventListener("click", () => setAll(true));
-        const inn = $(ID("ImNone")); if (inn) inn.addEventListener("click", () => setAll(false));
-        plan.addEventListener("change", (e) => { if (e.target.closest("[data-imtick]")) syncIm(); });
+        $(ID("ImAll")).addEventListener("click", () => setAll(true));
+        $(ID("ImNone")).addEventListener("click", () => setAll(false));
+        $(ID("ImD")).addEventListener("click", () => { setAll(false); setAll(true, "D"); });
+        $(ID("ImU")).addEventListener("click", () => { setAll(false); setAll(true, "U"); });
+        plan.addEventListener("change", (e) => { if (e.target.closest("[data-imtick]") || e.target.closest(`[data-${P}du]`)) syncIm(); });
         syncIm();
         const ap = $(ID("Apply"));
         if (ap) ap.addEventListener("click", apply);
@@ -2340,21 +2496,47 @@ const PlatformBaseline = (() => {
 
     async function apply() {
       if (running || (!S.planned && !S.plannedFilters)) return;
-      // only the ticked rows are created; the rest of the plan is left as it was
-      const on = new Set([...$(ID("Plan")).querySelectorAll("[data-imtick]")].filter((x) => x.checked).map((x) => x.dataset.imtick));
-      const doPolicies = (S.planned || []).filter((p, i) => !p.collided && on.has(`p${i}`));
-      const doFilters = (S.plannedFilters || []).filter((f, i) => !f.collided && on.has(`f${i}`));
+      const plan = $(ID("Plan"));
+      const ticked = [...plan.querySelectorAll("[data-imtick]")].filter((x) => x.checked);
+      const on = new Set(ticked.map((x) => x.dataset.imtick));
+      const duBy = new Map(ticked.map((cb) => {
+        const sel = plan.querySelector(`[data-${P}du="${cb.dataset.imtick}"]`);
+        return [cb.dataset.imtick, sel ? sel.value : (cb.dataset.imdu || "")];
+      }));
+      const doPolicies = (S.planned || []).map((p, i) => ({ p, key: `p${i}` })).filter((x) => !x.p.collided && on.has(x.key));
+      const doFilters = (S.plannedFilters || []).map((f, i) => ({ f, key: `f${i}` })).filter((x) => !x.f.collided && on.has(x.key));
       if (!doPolicies.length && !doFilters.length) return;
-      // Import runs on every tenant, so there is no kind to re-check — but
-      // the plan still names one tenant, and this is where that is proved.
       if (wrongTenant()) { $(ID("Result")).innerHTML = tenantMovedHtml(); S.planned = null; S.plannedFilters = null; return; }
+      if (assignMode === "pilot" && doPolicies.some((x) => !duBy.get(x.key))) return;   // the button is already disabled; belt and braces
       running = true; $(ID("Apply")).disabled = true;
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        const results = doPolicies.length ? await Restore.apply(doPolicies, (m) => prog(m)) : [];
+        const results = doPolicies.length ? await Restore.apply(doPolicies.map((x) => x.p), (m) => prog(m)) : [];
+        // ---- the assignment, one POST per created policy (§8.3) ----
+        // AFTER the create, never inside it: a create that succeeded and an
+        // assignment that failed is a policy that exists and reaches
+        // nobody, which is reported as exactly that and NOT rolled back —
+        // deleting a policy because its assignment failed would be a
+        // second, larger, write to fix a smaller one.
+        const assigned = new Map();
+        if (assignMode === "pilot" && S.pilot) {
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i], x = doPolicies[i];
+            if (!r || r.outcome !== "created" || !r.newId) continue;
+            const du = duBy.get(x.key);
+            const g = du ? S.pilot[du] : null;
+            if (!g) { assigned.set(r.target, du ? `created, not assigned — ${E.PILOT_GROUPS[du]} is not in this tenant` : "created, not assigned — no D/U"); continue; }
+            try {
+              prog(`${r.target} — assigning to ${g.displayName}…`);
+              await E.assignToGroup(x.p.area, r.newId, g.id);
+              assigned.set(r.target, `assigned to ${g.displayName}`);
+            } catch (e) {
+              assigned.set(r.target, `created, NOT assigned — ${GroupUse.shortErr(e, 160)}`);
+            }
+          }
+        }
         const filterResults = [];
-        for (const f of doFilters) {
-          if (f.collided) { filterResults.push({ target: f.body.displayName, outcome: "skipped", detail: "name existed at dry run" }); continue; }
+        for (const { f } of doFilters) {
           try {
             prog(`${f.body.displayName} — creating the filter…`);
             await Filters.create(f.body);
@@ -2367,14 +2549,16 @@ const PlatformBaseline = (() => {
         const all = [...results, ...filterResults];
         const good = all.filter((r) => r.outcome === "created").length;
         const bad = all.filter((r) => r.outcome === "failed").length;
-        const failedHtml = all.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("");
+        const notAssigned = [...assigned.entries()].filter(([, v]) => /not assigned/i.test(v));
+        const failedHtml = all.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")
+          + notAssigned.map(([t, v]) => `<div class="gu-fail"><b>${esc(t)}</b><span class="why">${esc(v)} — the policy exists and reaches nobody; assign it in ✏️ the Assignment editor.</span></div>`).join("");
         $(ID("Result")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — everything unassigned; ✏️ the Assignment editor is where reach begins. Re-reading the tenant…</p>${failedHtml}`;
+          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""}${assignMode === "pilot" ? ` · ${[...assigned.values()].filter((v) => /^assigned/.test(v)).length} assigned to a pilot group${notAssigned.length ? `, <b style="color:var(--off)">${notAssigned.length} not assigned</b>` : ""}` : " — unassigned, as asked"}. Re-reading the tenant…</p>${failedHtml}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         S.planned = null; S.plannedFilters = null;
         S.lastWrite = { failedHtml };
-        mode = "compare";   // the fresh comparison is the point of the re-read; failures stay on the Import pane
-        rereadAfter(`📥 Import: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b> (listed under Import)` : ""}, unassigned`);
+        mode = "compare";   // the fresh comparison is the point of the re-read
+        rereadAfter(`📥 Import: <b>${good} created</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b> (listed under Import)` : ""}${assignMode === "pilot" ? "" : ", unassigned"}`);
       } catch (e) {
         prog("");
         $(ID("Result")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;

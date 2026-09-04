@@ -26,6 +26,17 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10591, date: "2026-09-04", title: "Baselines: Import plans the gap, and can put what it creates in front of a pilot",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The import plan was built from the whole catalog and filtered afterwards, so a policy this tenant already had a newer copy of could reach the create pipeline. The plan is the comparison's rows now — missing and outdated, nothing else — and every other row carries the reason it is not importable." },
+      { kind: "new", tool: "🪟 Windows baseline", text: "Import can assign what it creates to the PRE-PILOT groups: device policies to INT-SEC-D-PRE-PILOT, user policies to INT-SEC-U-PRE-PILOT, chosen by the policy's own D or U token. No assignment is still the default. The groups are looked up when you dry run and are never created; if one is missing the import still runs and says which policies arrived unassigned." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "A policy whose D or U cannot be read is not guessed at. Surfaces that can only target devices — Autopilot, enrolment, scripts, remediations, filters — fall back to D; anywhere else the row gets a dropdown and the Create button stays disabled until it is answered." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "An assignment that fails after a successful create is reported on the row as created, not assigned — and is never rolled back. Deleting a policy because its assignment failed would be a larger write to fix a smaller one." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "The plan says which rows are an outdated policy's new copy, and Select D / Select U join Select all and none." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "The same Import — one engine." },
+    ],
+  },
+  {
     build: 10590, date: "2026-09-04", title: "Baselines: Compare and Upstream become one screen, and the cards become filters",
     items: [
       { kind: "improved", tool: "🪟 Windows baseline", text: "Compare and Upstream were two screens with two reports and two plans, which is how \"compare says X, upstream says Y\" became a question somebody had to answer. There is one table now, one matcher, and a source picker above it: the catalog in this repository, the community one, or a file you load." },
