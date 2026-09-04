@@ -1,0 +1,45 @@
+# ======================================================================
+# The tracked suites, on every push to beta (design finding 13).
+#
+# The suites lived on one laptop until build 10595, so nothing but that
+# laptop could tell whether a commit broke them. This runs them where the
+# commit lands.
+#
+# It does NOT run the scratch suites in _to_delete/ — those are untracked
+# and this cannot see them. As each one is made to stand on its own it
+# moves into tests/ and is picked up here without touching this file.
+# ======================================================================
+name: tests
+
+on:
+  push:
+    branches: [beta, main]
+  pull_request:
+    branches: [beta, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install jsdom
+        run: npm install --no-audit --no-fund
+
+      # Every JS file has to parse before any suite is worth running, and a
+      # syntax error here names the file instead of surfacing as a boot
+      # failure inside a suite.
+      - name: Syntax-check every source file
+        run: |
+          set -e
+          for f in js/*.js tests/*.js tests/**/*.js; do
+            node --check "$f"
+          done
+
+      - name: Run the tracked suites
+        run: npm test

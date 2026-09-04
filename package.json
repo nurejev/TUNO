@@ -1,0 +1,11 @@
+{
+  "name": "tuno",
+  "private": true,
+  "description": "TUNO is static files in a browser and has no build step. This file exists for ONE reason: the tracked test suites need jsdom, and `npm test` and CI need somewhere to say so. Nothing here is served, bundled or shipped — index.html loads js/*.js directly, as it always has.",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}

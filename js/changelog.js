@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10595, date: "2026-09-04", title: "The baseline test suites are tracked, and run on every push",
+    items: [
+      { kind: "new", tool: "\ud83e\ude9f Windows baseline", text: "The headless suites for these tools are in the repository now, under tests/platformbaseline: an engine suite for the matching, the canonical bodies, the hashes, the catalog loading, Housekeeping's groups and Rename's proposals, and a screen suite for the session, the rail, the filters, the panes and the bookkeeping every build owes. Three hundred and fifty-five assertions, each block named for the rule it defends." },
+      { kind: "new", tool: "\ud83e\ude9f Windows baseline", text: "npm test runs them, and GitHub Actions runs them on every push. Until now every suite in this repository lived in an untracked folder on one laptop, so nothing but that laptop could tell whether a commit had broken one \u2014 which is how several of the older ones drifted red without anybody noticing." },
+      { kind: "note", tool: "\ud83e\ude9f Windows baseline", text: "TUNO is still static files with no build step. The package.json that arrives with this exists so the suites can say they need jsdom, and for nothing else \u2014 nothing in it is served or bundled." },
+      { kind: "improved", tool: "\ud83c\udf4e macOS baseline", text: "Covered by the same two suites \u2014 one engine, two platforms." },
+    ],
+  },
+  {
     build: 10594, date: "2026-09-04", title: "The shared read covers legacy endpoint security, macOS custom attributes and ADE tokens",
     items: [
       { kind: "new", tool: "\ud83d\udcc4 Documenter", text: "Three surfaces join the one read every tool goes through: legacy endpoint security intents with their settings, macOS custom attribute scripts, and Apple enrolment program tokens. An endpoint security policy authored before the settings catalog existed was invisible to every tool that reads through this, and is not any more." },

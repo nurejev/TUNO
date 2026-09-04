@@ -85,6 +85,31 @@ them.
      already shows the build the handover was delivering — check the
      subject, not the feeling.
 
+## The suites: tracked ones first, scratch ones second
+
+**Since build 10595 some suites are TRACKED**, in `tests/`, and they are the
+ones a commit is checked against:
+
+```bash
+npm install     # jsdom, once — package.json exists for this and nothing else
+npm test        # every tests/**/*.test.js, each in its own process
+```
+
+`.github/workflows/tests.yml` runs the same thing on every push to `beta`
+and `main`. A new suite dropped into `tests/<tool>/` as `*.test.js` is
+picked up without editing the runner or the workflow.
+
+Everything else is still untracked scratch in `_to_delete/*-tests.js`, on
+Mihai's machine only. Run the ones your change could touch, and **say which
+were already red before you started** — several have drifted and a report
+that lists them as new breakage is worse than one that does not mention
+them. `graph-read-tests` had twelve failures at 10587, before any of the
+T24/T27 work; `layout-tests` throws on a missing `crypto` in its own
+harness. Neither is yours unless you made it so.
+
+TUNO is still static files with no build step. `package.json` is not a
+bundler arriving; nothing in it is served.
+
 ## Mihai runs PowerShell. Quote every rev-spec
 
 Commands handed over are typed into PowerShell, where `^`, `{`, `}` and `~`
