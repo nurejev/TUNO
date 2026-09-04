@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10584, date: "2026-09-04", title: "T01 — the MDM store is decoded for real",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The first run of Get-TunoAppLockerPolicyHealth.ps1 printed mode=? rules=? for every Intune-delivered collection — the Policy files in the MDM store did not survive a plain text read. The health check (1.1.1) and the scanner (1.12.1) now detect the encoding, strip NULs, cut to the first tag, and fall back to a text match for mode and rule count; when it still cannot parse, the log says why and shows the first bytes instead of a question mark." },
+      { kind: "note", tool: "AppLocker", text: "The verdict on that device was already right: 52 script blocks logged after the MDM store's newest write — the enforce policy is running, and the earlier '0 × 8001' was a 1 MB EXE and DLL log holding twenty minutes of history." },
+    ],
+  },
+  {
     build: 10583, date: "2026-09-03", title: "T01 — the policy health check joins the scripts, each with its note under its row",
     items: [
       { kind: "new", tool: "AppLocker", text: "Get-TunoAppLockerPolicyHealth.ps1 — a read-only check for the day the policy is delivered but does not seem to bite, built for MDE Live Response: 8000/8001 from all four AppLocker logs with the log's own reach (a rolled-over EXE and DLL log is never read as 'never applied'), the CSP delivery events, the services, the MDM store per collection with mode and rule count, the effective policy from Get-AppLockerPolicy -Effective and from the MDM store side by side, and the AppLocker decisions logged after the store's newest write — the one proof that the delivered policy is running." },

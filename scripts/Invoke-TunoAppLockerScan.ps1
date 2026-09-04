@@ -226,7 +226,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.12.0
+Version    : 1.12.1
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -319,8 +319,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.12.0'
-$script:TunoBuild = 10583
+$script:ScriptVersion = '1.12.1'
+$script:TunoBuild = 10584
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1429,6 +1429,59 @@ function Get-AppLockerEventData {
 # ══════════════════════════════════════════════════════════════════════════════
 # Effective policy
 # ══════════════════════════════════════════════════════════════════════════════
+function ConvertFrom-MdmPolicyBytes {
+    <#
+      Decode one MDM store Policy file. The CSP writes the policy string as the
+      OMA-URI value arrived; on the 4 Sep health log every collection came back
+      "mode=? rules=?" because a plain ReadAllText + [xml] cast did not survive
+      whatever the on-disk shape is. So: sniff the BOM, then UTF-16 by the NUL
+      pattern, strip stray NULs, cut to the first '<', parse - and when even that
+      fails, count the rule elements and the EnforcementMode by regex and say
+      exactly what was seen (first bytes as hex) so the next log settles it.
+    #>
+    param([string]$Path)
+    $r = [pscustomobject]@{ text = $null; xml = $null; mode = '?'; rules = '?'; type = ''; encoding = '?'; parsed = $false; error = ''; head = '' }
+    $bytes = $null
+    try { $bytes = [System.IO.File]::ReadAllBytes($Path) } catch { $r.error = $_.Exception.Message; return $r }
+    if (-not $bytes -or $bytes.Length -eq 0) { $r.error = 'empty file'; return $r }
+    $r.head = (($bytes | Select-Object -First 16 | ForEach-Object { $_.ToString('x2') }) -join ' ')
+    $enc = $null
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $enc = [System.Text.Encoding]::UTF8; $r.encoding = 'utf-8 bom' }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $enc = [System.Text.Encoding]::Unicode; $r.encoding = 'utf-16le bom' }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $enc = [System.Text.Encoding]::BigEndianUnicode; $r.encoding = 'utf-16be bom' }
+    else {
+        $n = [Math]::Min($bytes.Length, 256); $oddNul = 0; $evenNul = 0
+        for ($i = 0; $i -lt $n; $i++) { if ($bytes[$i] -eq 0) { if ($i % 2 -eq 1) { $oddNul++ } else { $evenNul++ } } }
+        if ($oddNul -gt ($n / 4)) { $enc = [System.Text.Encoding]::Unicode; $r.encoding = 'utf-16le (sniffed)' }
+        elseif ($evenNul -gt ($n / 4)) { $enc = [System.Text.Encoding]::BigEndianUnicode; $r.encoding = 'utf-16be (sniffed)' }
+        else { $enc = New-Object System.Text.UTF8Encoding($false); $r.encoding = 'utf-8' }
+    }
+    $text = $enc.GetString($bytes)
+    $text = $text -replace "`0", ''
+    $lt = $text.IndexOf('<')
+    if ($lt -lt 0) { $r.error = 'no XML start tag in decoded text'; return $r }
+    $text = $text.Substring($lt).Trim([char]0xFEFF, ' ', "`r", "`n", "`t")
+    $r.text = $text
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.LoadXml($text)
+        $rc = $doc.DocumentElement
+        if ($rc -and $rc.LocalName -eq 'AppLockerPolicy') { $rc = $rc.SelectSingleNode('RuleCollection') }
+        if ($rc -and $rc.LocalName -eq 'RuleCollection') {
+            $r.xml = $rc; $r.parsed = $true
+            $r.mode = $rc.GetAttribute('EnforcementMode'); $r.type = $rc.GetAttribute('Type')
+            $r.rules = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count
+            return $r
+        }
+        $r.error = ('root element is <{0}>, not RuleCollection' -f $(if ($doc.DocumentElement) { $doc.DocumentElement.LocalName } else { '' }))
+    } catch { $r.error = 'XML parse: ' + $_.Exception.Message }
+    # regex fallback - good enough for mode and a rule count
+    $m = [regex]::Match($text, 'EnforcementMode\s*=\s*"([^"]+)"'); if ($m.Success) { $r.mode = $m.Groups[1].Value }
+    $m = [regex]::Match($text, '<RuleCollection[^>]*\sType\s*=\s*"([^"]+)"'); if ($m.Success) { $r.type = $m.Groups[1].Value }
+    $r.rules = [regex]::Matches($text, '<(FilePublisherRule|FilePathRule|FileHashRule)\b').Count
+    return $r
+}
+
 function Get-MdmAppLockerPolicy {
     <#
     .SYNOPSIS
@@ -1458,16 +1511,16 @@ function Get-MdmAppLockerPolicy {
             foreach ($typeDir in @(Get-ChildItem -LiteralPath $grp.FullName -Directory -ErrorAction SilentlyContinue)) {
                 $policyFile = Join-Path $typeDir.FullName 'Policy'
                 if (-not (Test-Path -LiteralPath $policyFile -PathType Leaf)) { continue }
-                $text = $null
-                try { $text = [System.IO.File]::ReadAllText($policyFile) } catch { $warnings.Add(("MDM cache {0}\{1}\{2}\Policy could not be read: {3}" -f $enr.Name, $grp.Name, $typeDir.Name, $_.Exception.Message)); continue }
-                $text = $text.Trim([char]0xFEFF, ' ', "`r", "`n", "`t")
-                if (-not $text) { continue }
-                $doc = $null
-                try { $doc = [xml]$text } catch { $warnings.Add(("MDM cache {0}\{1}\{2}\Policy is not XML" -f $enr.Name, $grp.Name, $typeDir.Name)); continue }
-                $rc = $doc.DocumentElement
-                if (-not $rc) { continue }
-                if ($rc.LocalName -eq 'AppLockerPolicy') { $rc = $rc.SelectSingleNode('RuleCollection') }
-                if (-not $rc -or $rc.LocalName -ne 'RuleCollection') { continue }
+                $dec = ConvertFrom-MdmPolicyBytes -Path $policyFile
+                if (-not $dec.parsed) {
+                    $warnings.Add(("MDM cache {0}\{1}\{2}\Policy: {3} (encoding {4}; first bytes {5}){6}" -f $enr.Name, $grp.Name, $typeDir.Name, $dec.error, $dec.encoding, $dec.head, $(if ($dec.rules -ne '?') { '; mode/rules taken by text match' } else { '' })))
+                    if ($dec.rules -eq '?') { continue }
+                    $types.Add($typeDir.Name)
+                    $t = $dec.type; if (-not $t) { $key = $typeDir.Name.ToUpperInvariant(); if ($typeMap.ContainsKey($key)) { $t = $typeMap[$key] } }
+                    $cols.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $grp.Name; type = $t; mode = $dec.mode; ruleCount = $dec.rules; xml = $dec.text })
+                    continue
+                }
+                $rc = $dec.xml
                 $t = $rc.GetAttribute('Type')
                 if (-not $t) { $key = $typeDir.Name.ToUpperInvariant(); if ($typeMap.ContainsKey($key)) { $t = $typeMap[$key] } }
                 $types.Add($typeDir.Name)

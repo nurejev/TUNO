@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 155, title: "\ud83d\udd10 T01 \u2014 MDM store Policy files decoded robustly (health check 1.1.1, scanner 1.12.1)",
+      tools: ["T01 AppLocker"], builds: [10584], risk: "low",
+      why: "Mihai, 4 Sep: the health check's first Live Response run printed mode=? rules=? for all four Intune-delivered collections; the catch swallowed the reason. Both readers now sniff BOM/UTF-16, strip NULs, cut to the first tag, fall back to a regex count, and log reason + encoding + first bytes when parsing fails. Read-only; nothing in the policy path changes.",
+      test: [
+        "Run Get-TunoAppLockerPolicyHealth.ps1 1.1.1 on the 4 Sep device: MDM store lines carry a real mode and rule count (Script Enabled, 14) or, failing that, a WARN naming the reason, the encoding and the first 16 bytes.",
+        "Scanner 1.12.1 on the same device: the bundle's effective policy sources.mdm lists the grouping with per-type mode and rule counts; warnings carry the decode reason when a file cannot be parsed.",
+        "check-script-versions: both scripts bumped; every script stamped 10584.",
+      ],
+      files: ["scripts/Get-TunoAppLockerPolicyHealth.ps1", "scripts/Invoke-TunoAppLockerScan.ps1", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 154, title: "\ud83d\udd10 T01 \u2014 Get-TunoAppLockerPolicyHealth.ps1 joins the companions; each script's note under its own row",
       tools: ["T01 AppLocker"], builds: [10583], risk: "low",
       why: "Mihai, 3 Sep: add his policy health check as a download, and put each script's explanation under that script instead of one paragraph for all. The script is taken into the house with its verdict fixed: its first run said 'AppID never processed it' on a device that was blocking scripts, because it trusted Get-AppLockerPolicy -Effective (which does not see CSP policy) and a 0 x 8001 count from an EXE and DLL log that had rolled over. It now reads the MDM store per collection, reports the log's reach, and takes AppLocker decisions after the store's newest write as proof the policy runs.",

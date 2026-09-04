@@ -52,7 +52,7 @@ run Get-TunoAppLockerPolicyHealth.ps1
 getfile "C:\ProgramData\IT-TOOLS\LOGS\AppLockerPolicyHealth_<host>_<stamp>.log"
 
 .NOTES
-Version   : 1.1.0
+Version   : 1.1.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Run as    : SYSTEM (Live Response) or a local administrator. No changes are made.
@@ -71,8 +71,8 @@ param(
     [string]$OutputDir = "$env:ProgramData\IT-TOOLS\LOGS"
 )
 
-$script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10583
+$script:ScriptVersion = '1.1.1'
+$script:TunoBuild = 10584
 
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -169,6 +169,59 @@ foreach ($svcName in 'AppIDSvc', 'AppLockerFltr') {
 }
 Log "  (AppIDSvc is trigger-start; 'Stopped' with recent 8001 events is fine. 'Stopped' + policy never effective = kick it with: appidtel start)"
 
+function ConvertFrom-MdmPolicyBytes {
+    <#
+      Decode one MDM store Policy file. The CSP writes the policy string as the
+      OMA-URI value arrived; on the 4 Sep health log every collection came back
+      "mode=? rules=?" because a plain ReadAllText + [xml] cast did not survive
+      whatever the on-disk shape is. So: sniff the BOM, then UTF-16 by the NUL
+      pattern, strip stray NULs, cut to the first '<', parse - and when even that
+      fails, count the rule elements and the EnforcementMode by regex and say
+      exactly what was seen (first bytes as hex) so the next log settles it.
+    #>
+    param([string]$Path)
+    $r = [pscustomobject]@{ text = $null; xml = $null; mode = '?'; rules = '?'; type = ''; encoding = '?'; parsed = $false; error = ''; head = '' }
+    $bytes = $null
+    try { $bytes = [System.IO.File]::ReadAllBytes($Path) } catch { $r.error = $_.Exception.Message; return $r }
+    if (-not $bytes -or $bytes.Length -eq 0) { $r.error = 'empty file'; return $r }
+    $r.head = (($bytes | Select-Object -First 16 | ForEach-Object { $_.ToString('x2') }) -join ' ')
+    $enc = $null
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $enc = [System.Text.Encoding]::UTF8; $r.encoding = 'utf-8 bom' }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $enc = [System.Text.Encoding]::Unicode; $r.encoding = 'utf-16le bom' }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $enc = [System.Text.Encoding]::BigEndianUnicode; $r.encoding = 'utf-16be bom' }
+    else {
+        $n = [Math]::Min($bytes.Length, 256); $oddNul = 0; $evenNul = 0
+        for ($i = 0; $i -lt $n; $i++) { if ($bytes[$i] -eq 0) { if ($i % 2 -eq 1) { $oddNul++ } else { $evenNul++ } } }
+        if ($oddNul -gt ($n / 4)) { $enc = [System.Text.Encoding]::Unicode; $r.encoding = 'utf-16le (sniffed)' }
+        elseif ($evenNul -gt ($n / 4)) { $enc = [System.Text.Encoding]::BigEndianUnicode; $r.encoding = 'utf-16be (sniffed)' }
+        else { $enc = New-Object System.Text.UTF8Encoding($false); $r.encoding = 'utf-8' }
+    }
+    $text = $enc.GetString($bytes)
+    $text = $text -replace "`0", ''
+    $lt = $text.IndexOf('<')
+    if ($lt -lt 0) { $r.error = 'no XML start tag in decoded text'; return $r }
+    $text = $text.Substring($lt).Trim([char]0xFEFF, ' ', "`r", "`n", "`t")
+    $r.text = $text
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.LoadXml($text)
+        $rc = $doc.DocumentElement
+        if ($rc -and $rc.LocalName -eq 'AppLockerPolicy') { $rc = $rc.SelectSingleNode('RuleCollection') }
+        if ($rc -and $rc.LocalName -eq 'RuleCollection') {
+            $r.xml = $rc; $r.parsed = $true
+            $r.mode = $rc.GetAttribute('EnforcementMode'); $r.type = $rc.GetAttribute('Type')
+            $r.rules = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count
+            return $r
+        }
+        $r.error = ('root element is <{0}>, not RuleCollection' -f $(if ($doc.DocumentElement) { $doc.DocumentElement.LocalName } else { '' }))
+    } catch { $r.error = 'XML parse: ' + $_.Exception.Message }
+    # regex fallback - good enough for mode and a rule count
+    $m = [regex]::Match($text, 'EnforcementMode\s*=\s*"([^"]+)"'); if ($m.Success) { $r.mode = $m.Groups[1].Value }
+    $m = [regex]::Match($text, '<RuleCollection[^>]*\sType\s*=\s*"([^"]+)"'); if ($m.Success) { $r.type = $m.Groups[1].Value }
+    $r.rules = [regex]::Matches($text, '<(FilePublisherRule|FilePathRule|FileHashRule)\b').Count
+    return $r
+}
+
 # --- 4) MDM store + compiled cache inventory ----------------------------------------
 $mdmDir = Join-Path $env:SystemRoot 'System32\AppLocker\MDM'
 $mdmCols = New-Object System.Collections.Generic.List[object]
@@ -181,13 +234,9 @@ if (Test-Path $mdmDir) {
         $collection = Split-Path -Leaf $p.DirectoryName
         $grouping   = Split-Path -Leaf (Split-Path -Parent $p.DirectoryName)
         if (-not $mdmLatest -or $p.LastWriteTime -gt $mdmLatest) { $mdmLatest = $p.LastWriteTime }
-        $mode = '?'; $cnt = '?'
-        try {
-            [xml]$doc = ([System.IO.File]::ReadAllText($p.FullName)).Trim([char]0xFEFF, ' ', "`r", "`n", "`t")
-            $rc = $doc.DocumentElement
-            if ($rc.LocalName -eq 'AppLockerPolicy') { $rc = $rc.SelectSingleNode('RuleCollection') }
-            if ($rc) { $mode = $rc.GetAttribute('EnforcementMode'); $cnt = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count }
-        } catch { }
+        $dec = ConvertFrom-MdmPolicyBytes -Path $p.FullName
+        $mode = $dec.mode; $cnt = $dec.rules
+        if (-not $dec.parsed) { Log ("    ({0}: {1}; encoding {2}; first bytes {3}){4}" -f $p.FullName, $dec.error, $dec.encoding, $dec.head, $(if ($dec.rules -ne '?') { ' - mode/rules above come from a text match' } else { '' })) 'WARN' }
         $mdmCols.Add([pscustomobject]@{ grouping = $grouping; collection = $collection; mode = $mode; rules = $cnt; written = $p.LastWriteTime })
         Log ("  grouping '{0}'  collection '{1,-9}'  mode={2,-13} rules={3,-4} {4} bytes  written {5}" -f $grouping, $collection, $mode, $cnt, $p.Length, $p.LastWriteTime)
     }
