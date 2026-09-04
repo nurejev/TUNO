@@ -923,7 +923,42 @@ const PlatformBaseline = (() => {
       updates: null,
     };
     const deletePathFor = (p) => (p.section in DELETE_PATH) ? (DELETE_PATH[p.section] || p.surface || null) : null;
-    function housekeeping(vms) {
+    // TWO GROUPS, TWO DEFAULTS (§4.5, build 10593).
+    //
+    //   1 SAME KEY, OLDER RELEASE OR VERSION — a re-cut kept beside its
+    //     old copy. The newest wins; ties go to the one with more
+    //     assignments, then the older creation. Proposed for deletion and
+    //     TICKED: this is the tenant's own housekeeping, and the answer is
+    //     not in doubt.
+    //
+    //   2 SAME CONTENT, DIFFERENT KEY — the same canonical body under a
+    //     second name. Which name is the right one is a judgement, so the
+    //     rows are proposed and left UNTICKED. If neither wears the
+    //     convention the newest is kept and the group is flagged `review`.
+    //     A default that deletes on a judgement call is not a default.
+    //
+    // Refusals are the same for both, and none of them can be ticked at
+    // all: assigned to anything, no delete path on this surface, a default
+    // enrolment configuration, or the copy the repo catalog itself keeps.
+    function housekeeping(vms, repoCatalog) {
+      const nAsg = (p) => (p.assignments || []).length;
+      // the names the committed catalog keeps — deleting one of those from
+      // the reference tenant would delete the baseline's own copy
+      const catalogKeeps = new Set(((repoCatalog && !isCommunity(repoCatalog) && repoCatalog.policies) || []).map((p) => keyOf(p.name) + "|" + (p.version || "")));
+      const refusalFor = (p) => nAsg(p) ? `assigned to ${nAsg(p)} target${nAsg(p) === 1 ? "" : "s"} — move the reach to the kept copy in ✏️ the editor first`
+        : !deletePathFor(p) ? `its surface (${p.sectionLabel || p.section}) has no delete path here — retire it in the portal`
+          : p.isDefault ? "a default enrolment configuration — the tenant made it, and it cannot be deleted"
+            : catalogKeeps.has(keyOf(p.name) + "|" + (versionOf(p.name) || "")) ? "this exact copy is the one the committed catalog keeps — deleting it here would delete the baseline's own copy"
+              : "";
+      const row = (p, extra) => ({
+        p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, assignments: nAsg(p),
+        rel: releaseOf(p.name), ver: versionOf(p.name), hash: p.hash || "", path: deletePathFor(p),
+        refused: refusalFor(p), ...extra,
+      });
+      const claimed = new Set();
+      const groups = [];
+
+      // ---- group 1: one identity, more than one copy ----
       const byKey = new Map();
       for (const p of vms) {
         if (!looksBaseline(p.name)) continue;
@@ -931,23 +966,47 @@ const PlatformBaseline = (() => {
         if (!byKey.has(k)) byKey.set(k, []);
         byKey.get(k).push(p);
       }
-      const groups = [];
       for (const [k, list] of byKey) {
         if (list.length < 2) continue;
-        const nAsg = (p) => (p.assignments || []).length;
         const sorted = list.slice().sort((a, b) =>
           -(cmpRelVer(releaseOf(a.name), versionOf(a.name), releaseOf(b.name), versionOf(b.name)) || 0)
           || (nAsg(b) - nAsg(a))
           || String(a.created || "").localeCompare(String(b.created || "")));
         const keep = sorted[0];
-        const retire = sorted.slice(1).map((p) => ({
-          p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, assignments: nAsg(p),
-          rel: releaseOf(p.name), ver: versionOf(p.name), path: deletePathFor(p),
-          refused: nAsg(p) ? `assigned to ${nAsg(p)} target${nAsg(p) === 1 ? "" : "s"} — move the reach to the kept copy in ✏️ the editor first` : !deletePathFor(p) ? `its surface (${p.sectionLabel || p.section}) has no delete path here — retire it in the portal` : "",
-        }));
-        groups.push({ key: k, keep, keepRel: releaseOf(keep.name), keepVer: versionOf(keep.name), keepAssignments: nAsg(keep), retire });
+        sorted.forEach((p) => claimed.add(p));
+        groups.push({ kind: "supersededed", key: k, keep, keepRel: releaseOf(keep.name), keepVer: versionOf(keep.name),
+          keepAssignments: nAsg(keep), ticked: true,
+          why: "one identity, more than one copy — the newest is kept",
+          retire: sorted.slice(1).map((p) => row(p)) });
       }
-      groups.sort((a, b) => String(a.key).localeCompare(String(b.key)));
+
+      // ---- group 2: one body, more than one identity ----
+      const byHash = new Map();
+      for (const p of vms) {
+        if (!p.hash || claimed.has(p)) continue;
+        if (!byHash.has(p.hash)) byHash.set(p.hash, []);
+        byHash.get(p.hash).push(p);
+      }
+      for (const [hash, list] of byHash) {
+        const keys = new Set(list.map((p) => keyOf(p.name)));
+        if (list.length < 2 || keys.size < 2) continue;
+        const inConvention = list.filter((p) => looksBaseline(p.name));
+        const sorted = (inConvention.length ? inConvention : list).slice().sort((a, b) =>
+          -(cmpRelVer(releaseOf(a.name), versionOf(a.name), releaseOf(b.name), versionOf(b.name)) || 0)
+          || String(b.created || "").localeCompare(String(a.created || "")));
+        const keep = sorted[0];
+        const rest = list.filter((p) => p !== keep);
+        rest.forEach((p) => claimed.add(p));
+        claimed.add(keep);
+        groups.push({ kind: "duplicate", key: hash, keep, keepRel: releaseOf(keep.name), keepVer: versionOf(keep.name),
+          keepAssignments: nAsg(keep), ticked: false, review: inConvention.length === 0,
+          why: inConvention.length
+            ? "one body, two names — the copy in the convention is kept, and the rest are a judgement, so they are NOT ticked"
+            : "one body, two names, and NEITHER is in the convention — the newest is kept and this needs a person; nothing is ticked",
+          retire: rest.map((p) => row(p, { sameContentAs: keep.name })) });
+      }
+
+      groups.sort((a, b) => (a.kind === "supersededed" ? 0 : 1) - (b.kind === "supersededed" ? 0 : 1) || String(a.key).localeCompare(String(b.key)));
       return groups;
     }
 
@@ -1305,25 +1364,86 @@ const PlatformBaseline = (() => {
       if (base.bySurface) return p.surface ? { endpoint: p.surface, field: base.field, typed: false } : null;
       return { endpoint: base.endpoint, field: base.field, typed: !!base.typed, viaFilters: !!base.viaFilters };
     }
-    function renameProposals(vms, community) {
+    // COMMUNITY NAMES: KEPT, OR CONVERTED — and the token decides (§8.4/§8.5).
+    // A community baseline that stamps its OWN identity into every policy
+    // (OpenIntuneBaseline's OIBID) can go on maintaining what TUNO created
+    // from it, and it can only do that if the name and the token survive —
+    // so those names are never proposed. A community baseline with no
+    // token and no convention (intune-my-macs) will never come back to
+    // update anything, so its policies may as well wear ours: Rename
+    // proposes the full convention name, with the folder they lived in
+    // upstream as the area and the release cut from the upstream's own
+    // publication date. One rule, read off the catalog rather than
+    // hard-coded per platform.
+    const keepsCommunityNames = () => !!spec.upstream.idToken;
+    const releaseOfSourceDate = (cat) => {
+      const d = cat && (cat.sourceDate || cat.release);
+      const m = /^(\d{4})-(\d{2})/.exec(String(d || ""));
+      return m ? { y: +m[1] % 100, m: +m[2] } : null;
+    };
+    // cmp: the current comparison, so a policy the COMMUNITY catalog
+    // matched can be offered the convention name (§8.5). Optional — the
+    // release-stamp proposals below never needed it.
+    function renameProposals(vms, community, cmp) {
       const commRe = community && community.nameRe ? new RegExp(community.nameRe, "i") : null;
+      const commCat = cmp && cmp.catalog && isCommunity(cmp.catalog) ? cmp.catalog : null;
+      // tenant policy id -> the community row that claimed it
+      const claimed = new Map();
+      if (commCat) for (const r of cmp.rows) if (r.tenant && r.baseline) claimed.set(String(r.tenant.id), r.baseline);
       const out = [];
       for (const p of vms) {
-        if (!spec.prefixRe.test(p.name || "")) continue;
-        if (releaseOf(p.name)) continue;                       // already stamped
-        const base = { p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, modified: p.modified || "" };
+        const wears = spec.prefixRe.test(p.name || "");
+        const match = claimed.get(String(p.id)) || null;
+        const base = { p, name: p.name, section: p.section, sectionLabel: p.sectionLabel, modified: p.modified || "", du: p.du || "" };
+
+        // ---- a policy the community catalog claimed (§8.4, §8.5) ----
+        if (match && !looksBaseline(p.name)) {
+          if (keepsCommunityNames() || (commRe && commRe.test(p.name))) {
+            out.push({ ...base, status: "community", why: `${community.label}'s own name — kept, so its deployer can still maintain it` });
+            continue;
+          }
+          const rel = releaseOfSourceDate(commCat) || releaseOfDate(p.modified) || currentRelease();
+          const path = renamePathFor(p);
+          const du = p.du || (DEVICE_ONLY_SECTIONS.has(p.section) ? "D" : "");
+          out.push({ ...base, status: path ? (du ? "propose" : "needsdu") : "nopath", rel, du, path, odataType: p.odataType || "",
+            from: "community",
+            proposed: proposeName({ name: match.name, section: match.section, folder: match.folder, du: du || "D" }, rel),
+            why: !path ? `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal`
+              : du ? `matched ${community.label} — proposed in the ${spec.prefix} convention, release from the upstream cut`
+                : "the surface can target devices or users — pick which before this can be written" });
+          continue;
+        }
+
+        if (!wears) continue;                                  // not ours, and no community match claimed it
+        if (looksBaseline(p.name) && versionOf(p.name)) continue;   // already stamped and versioned
         if (commRe && commRe.test(p.name)) { out.push({ ...base, status: "community", why: `${community.label}'s own name — kept, so its deployer can still maintain it` }); continue; }
-        const ver = versionOf(p.name);
-        if (!ver) { out.push({ ...base, status: "noversion", why: "no version at the end of the name — nothing to put the tag before" }); continue; }
+
         const rel = releaseOfDate(p.modified);
-        if (!rel) { out.push({ ...base, status: "nodate", ver, why: "the read carries no last-modified date for it" }); continue; }
         const path = renamePathFor(p);
-        out.push({ ...base, status: path ? "propose" : "nopath", ver, rel, proposed: stampRelease(p.name, rel), path, odataType: p.odataType || "",
-          why: path ? "" : (RENAME_PATH[p.section] && RENAME_PATH[p.section].bySurface
-            ? "the read did not say which endpoint this item came from — re-read the tenant (the surface rides along since build 10586)"
-            : `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal`) });
+        const pathWhy = path ? "" : (RENAME_PATH[p.section] && RENAME_PATH[p.section].bySurface
+          ? "the read did not say which endpoint this item came from — re-read the tenant (the surface rides along since build 10586)"
+          : `its surface (${p.sectionLabel || p.section}) has no rename path here — rename it in the portal`);
+        const ver = versionOf(p.name);
+        const hasRel = !!releaseOf(p.name);
+
+        // ---- prefix + version, no release tag: stamp it (any tenant) ----
+        if (ver && !hasRel) {
+          if (!rel) { out.push({ ...base, status: "nodate", ver, why: "the read carries no last-modified date for it" }); continue; }
+          out.push({ ...base, status: path ? "propose" : "nopath", ver, rel, path, odataType: p.odataType || "",
+            proposed: stampRelease(p.name, rel), why: pathWhy });
+          continue;
+        }
+        // ---- prefix, no version at all: it gets both (§4.3) ----
+        // v1.0.0, not v1.0: the strict form is what the parser writes back,
+        // and a first cut saying so is worth more than one digit saved.
+        if (!ver) {
+          if (!rel) { out.push({ ...base, status: "nodate", why: "the read carries no last-modified date for it" }); continue; }
+          out.push({ ...base, status: path ? "propose" : "nopath", rel, path, odataType: p.odataType || "",
+            proposed: `${String(p.name).trim().replace(/\s*-\s*$/, "")} - R${rel.y}.${rel.m} - v1.0.0`,
+            why: pathWhy || "no version and no release — both are proposed; edit before writing" });
+        }
       }
-      return out.sort((a, b) => (a.status === "propose" ? 0 : 1) - (b.status === "propose" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+      return out.sort((a, b) => (a.status === "propose" ? 0 : a.status === "needsdu" ? 1 : 2) - (b.status === "propose" ? 0 : b.status === "needsdu" ? 1 : 2) || String(a.name).localeCompare(String(b.name)));
     }
 
     // ---- fetch the upstream repo IN THE BROWSER (10572) ----
@@ -2206,22 +2326,29 @@ const PlatformBaseline = (() => {
     function renderRename() {
       const host = $(ID("Rename"));
       if (!host || !S.res) return;
-      const rows = E.renameProposals(vms(), communityCatalog());
+      const rows = E.renameProposals(vms(), communityCatalog(), S.cmp);
       host.dataset.for = String(rows.length);
       S.rnPlanned = null; S.rnPlanKey = null;
       const n = rows.filter((r) => r.status === "propose").length;
+      const nDu = rows.filter((r) => r.status === "needsdu").length;
       const row = (r, i) => {
         const act = r.status === "propose";
+        // A row that needs a D/U is EDITABLE but NOT TICKED: the name it
+        // would take depends on an answer nobody has given yet, and a
+        // guessed D or U on a policy name is a lie the catalog then
+        // carries forever (§4.3).
+        const asks = r.status === "needsdu";
         const when = r.modified ? esc(String(r.modified).slice(0, 10)) : "—";
         return `<tr>
-          <td style="width:30px">${act ? `<input type="checkbox" data-rntick="${i}" checked>` : ""}</td>
-          <td class="mini"><b>${esc(r.name)}</b><div class="mini muted">${esc(r.sectionLabel || r.section)} · modified ${when}${act ? ` → <b>${esc(E.relLabel(r.rel))}</b>` : ""}${r.why ? ` · ${esc(r.why)}` : ""}</div></td>
-          <td>${act ? `<input data-rnname="${i}" value="${esc(r.proposed)}" style="width:100%">` : `<span class="mini muted">${r.status === "community" ? "kept" : "not proposed"}</span>`}</td>
+          <td style="width:30px">${act ? `<input type="checkbox" data-rntick="${i}" checked>` : asks ? `<input type="checkbox" data-rntick="${i}" disabled title="Pick D or U first">` : ""}</td>
+          <td class="mini"><b>${esc(r.name)}</b><div class="mini muted">${esc(r.sectionLabel || r.section)} · modified ${when}${act || asks ? ` → <b>${esc(E.relLabel(r.rel))}</b>` : ""}${r.from === "community" ? ` · <span class="gu-how priv">matched ${esc((communityCatalog() || {}).label || "the community baseline")}</span>` : ""}${r.why ? ` · ${esc(r.why)}` : ""}</div>
+            ${asks ? `<div class="mini" style="margin-top:4px">Targets <select data-rndu="${i}"><option value="">— pick one —</option><option value="D">D — devices</option><option value="U">U — users</option></select></div>` : ""}</td>
+          <td>${act || asks ? `<input data-rnname="${i}" value="${esc(r.proposed || "")}" style="width:100%"${asks ? " disabled" : ""}>` : `<span class="mini muted">${r.status === "community" ? "kept" : "not proposed"}</span>`}</td>
         </tr>`;
       };
       host.innerHTML = `<div class="list-card">
-        <h4 style="margin:0 0 6px">✏️ ${n} to stamp <span class="mini muted">— of ${rows.length} unstamped ${esc(spec.prefix)} names on the read</span></h4>
-        ${rows.length ? "" : `<p class="mini muted" style="margin:0">Every ${esc(spec.prefix)} policy already carries its release tag.</p>`}
+        <h4 style="margin:0 0 6px">✏️ ${n} proposed${nDu ? ` · ${nDu} waiting on a D/U` : ""} <span class="mini muted">— of ${rows.length} name${rows.length === 1 ? "" : "s"} this read can offer something for</span></h4>
+        ${rows.length ? "" : `<p class="mini muted" style="margin:0">Nothing to propose — every ${esc(spec.prefix)} policy carries its release tag and its version.</p>`}
         <div class="tb-actions" style="margin:8px 0 8px">
           <button class="btn" id="${ID("RnAll")}">☑ Select all</button>
           <button class="btn" id="${ID("RnNone")}">☐ Select none</button>
@@ -2263,6 +2390,21 @@ const PlatformBaseline = (() => {
       $(ID("RnBarX")).addEventListener("click", () => setAll(false));
       host.addEventListener("change", (e) => { if (e.target.closest("[data-rntick]")) sync(); });
       host.addEventListener("input", (e) => { if (e.target.closest("[data-rnname]")) sync(); });
+      host.addEventListener("change", (e) => {
+        const sel = e.target.closest("[data-rndu]");
+        if (!sel) return;
+        const i = +sel.dataset.rndu, r = rows[i];
+        const nameEl = host.querySelector(`[data-rnname="${i}"]`);
+        const tickEl = host.querySelector(`[data-rntick="${i}"]`);
+        if (!sel.value) { if (nameEl) { nameEl.value = ""; nameEl.disabled = true; } if (tickEl) { tickEl.checked = false; tickEl.disabled = true; } sync(); return; }
+        const src = r.from === "community" && S.cmp ? (S.cmp.rows.find((x) => x.tenant && String(x.tenant.id) === String(r.p.id)) || {}).baseline : null;
+        if (nameEl) {
+          nameEl.value = E.proposeName({ name: (src && src.name) || r.name, section: (src && src.section) || r.section, folder: src && src.folder, du: sel.value }, r.rel);
+          nameEl.disabled = false;
+        }
+        if (tickEl) { tickEl.disabled = false; tickEl.checked = true; }
+        sync();
+      });
       $(ID("RnDry")).addEventListener("click", rnDryRun);
       $(ID("RnApply")).addEventListener("click", rnApply);
       sync();
@@ -2329,9 +2471,41 @@ const PlatformBaseline = (() => {
       const results = [];
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
+        // ---- the drift and collision check, PER POLICY (finding 6) ----
+        // The dry run reads the tenant once and the apply then writes the
+        // whole plan against that one reading. Between the two, somebody
+        // in the portal can rename the policy being renamed — in which
+        // case this write is being made to a policy that is no longer the
+        // one that was planned — or take the target name, in which case
+        // the PATCH lands a second policy with a duplicate name and the
+        // comparison can never tell the two apart again. Both are asked
+        // again immediately before each write: a live name set, refreshed
+        // as the renames land, and a fresh read of THIS policy.
+        const areas = [...new Set(S.rnPlanned.filter((p) => !p.refused).map((p) => E.AREA_OF_SECTION[p.section]).filter((a) => a && a !== "AssignmentFilters"))];
+        prog("Re-reading the names in use…");
+        const liveNames = areas.length ? await Restore.existingNames(areas, (m) => prog(m)) : {};
+        let liveFilters = new Set();
+        if (S.rnPlanned.some((p) => !p.refused && p.section === "filters")) {
+          try { liveFilters = new Set((await Filters.list()).map((f) => String(f.displayName || "").toLowerCase())); } catch { liveFilters = null; }
+        }
+        const nameSetFor = (p) => p.section === "filters" ? liveFilters : (liveNames[E.AREA_OF_SECTION[p.section]] || new Set());
         for (const p of S.rnPlanned) {
           if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
           try {
+            // 1. is the target name still free, as of this moment?
+            const set = nameSetFor(p);
+            if (set === null) throw new Error("the tenant's filters could not be re-read — not renaming into a name set that is unknown");
+            if (set.has(String(p.target).toLowerCase())) throw new Error("a policy took this name since the dry run — the collision stop, re-checked at the write");
+            // 2. is this still the policy the plan named?
+            if (!p.path.viaFilters) {
+              prog(`${p.target} — checking it has not moved…`);
+              let now = null;
+              try { now = await Graph.readOne(`${Graph.BETA}${p.path.endpoint}/${encodeURIComponent(p.id)}`, { scopes: Graph.SCOPES.config }); }
+              catch (e) { if (e && e.kind === "notfound") throw new Error("the policy is gone since the dry run"); throw e; }
+              const nameNow = now ? String(now[p.path.field] || now.name || now.displayName || "") : "";
+              if (!now) throw new Error("the policy is gone since the dry run");
+              if (nameNow !== p.name) throw new Error(`the policy is now named “${nameNow}” — not the one the plan named, so it was left alone`);
+            }
             prog(`${p.target} — renaming…`);
             if (p.path.viaFilters) {
               await Filters.update(p.id, p.modified || null, { displayName: p.target });
@@ -2343,7 +2517,10 @@ const PlatformBaseline = (() => {
               const back = await Graph.readOne(url, { scopes: Graph.SCOPES.profiles });
               if (!back || String(back[p.path.field] || "") !== p.target) throw new Error("the rename returned, but the read-back does not carry the new name — check the portal");
             }
-            results.push({ ...p, outcome: "renamed", detail: "verified by read-back" });
+            // the name it just took is in use now, for the rows after it
+            const set2 = nameSetFor(p);
+            if (set2) { set2.add(String(p.target).toLowerCase()); set2.delete(String(p.name).toLowerCase()); }
+            results.push({ ...p, outcome: "renamed", detail: "drift and collision re-checked at the write, then verified by read-back" });
           } catch (e) {
             results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
           }
@@ -2372,21 +2549,21 @@ const PlatformBaseline = (() => {
     function renderHousekeeping() {
       const host = $(ID("Housekeeping"));
       if (!host || !S.res) return;
-      const groups = E.housekeeping(vms());
+      const groups = E.housekeeping(vms(), cfCatalog());
       host.dataset.for = String(groups.length);
       S.hkPlanned = null; S.hkPlanKey = null;
       const flat = []; groups.forEach((g) => g.retire.forEach((r) => flat.push({ g, r })));
       const relver = (rel, ver) => `${esc(E.relLabel(rel))}${ver ? ` · v${esc(ver)}` : ""}`;
       let i = 0;
       const rows = groups.map((g) => `
-        <tr><td></td><td class="mini" colspan="2"><b>${esc(g.keep.name)}</b> <span class="gu-how inc">keep</span> <span class="mini muted">${relver(g.keepRel, g.keepVer)} · ${esc(g.keep.sectionLabel || g.keep.section)}${g.keepAssignments ? ` · assigned to ${g.keepAssignments}` : " · unassigned"}</span></td></tr>
+        <tr><td></td><td class="mini" colspan="2"><b>${esc(g.keep.name)}</b> <span class="gu-how inc">keep</span>${g.kind === "duplicate" ? ` <span class="gu-how ${g.review ? "exc" : "priv"}">${g.review ? "review — neither is in the convention" : "same content, second name"}</span>` : ""} <span class="mini muted">${relver(g.keepRel, g.keepVer)} · ${esc(g.keep.sectionLabel || g.keep.section)}${g.keepAssignments ? ` · assigned to ${g.keepAssignments}` : " · unassigned"} — ${esc(g.why)}</span></td></tr>
         ${g.retire.map((r) => { const idx = i++; return `<tr>
-          <td style="width:30px">${r.refused ? "" : `<input type="checkbox" data-hktick="${idx}" checked>`}</td>
-          <td class="mini" style="padding-left:24px">${esc(r.name)} <span class="gu-how ${r.refused ? "priv" : "exc"}">${r.refused ? "kept" : "retire"}</span><div class="mini muted">${relver(r.rel, r.ver)} · ${esc(r.sectionLabel || r.section)}${r.refused ? ` · ${esc(r.refused)}` : r.assignments ? "" : " · unassigned"}</div></td>
+          <td style="width:30px">${r.refused ? "" : `<input type="checkbox" data-hktick="${idx}"${g.ticked ? " checked" : ""}>`}</td>
+          <td class="mini" style="padding-left:24px">${esc(r.name)} <span class="gu-how ${r.refused ? "priv" : "exc"}">${r.refused ? "kept" : "retire"}</span><div class="mini muted">${relver(r.rel, r.ver)} · ${esc(r.sectionLabel || r.section)}${r.refused ? ` · ${esc(r.refused)}` : r.assignments ? "" : " · unassigned"}${r.sameContentAs ? ` · byte-for-byte the same policy as “${esc(r.sameContentAs)}”` : ""}</div></td>
           <td class="mini muted">${r.refused ? "" : "DELETE"}</td></tr>`; }).join("")}`).join("");
       host.innerHTML = `<div class="list-card">
-        <h4 style="margin:0 0 6px">🧹 ${flat.filter((x) => !x.r.refused).length} to retire <span class="mini muted">— ${groups.length} identit${groups.length === 1 ? "y" : "ies"} carried more than once</span></h4>
-        ${groups.length ? "" : `<p class="mini muted" style="margin:0">Every identity is carried once — nothing to tidy.</p>`}
+        <h4 style="margin:0 0 6px">🧹 ${flat.filter((x) => !x.r.refused).length} could be retired <span class="mini muted">— ${groups.filter((g) => g.kind === "supersededed").length} identit${groups.filter((g) => g.kind === "supersededed").length === 1 ? "y" : "ies"} carried more than once, ${groups.filter((g) => g.kind === "duplicate").length} bod${groups.filter((g) => g.kind === "duplicate").length === 1 ? "y" : "ies"} carried under two names</span></h4>
+        ${groups.length ? `<p class="mini muted" style="margin:0 0 8px">A copy superseded by a newer one is <b>ticked</b>: the answer is not in doubt. A copy that is the same BODY under a second name is <b>not</b> — which of two names is the right one is a judgement, so those rows are listed and left for you to tick. An assigned copy is refused outright, and so is the exact copy the committed catalog keeps.</p>` : `<p class="mini muted" style="margin:0">Every identity is carried once and no two bodies match — nothing to tidy.</p>`}
         <div class="tb-actions" style="margin:8px 0 8px">
           <button class="btn" id="${ID("HkAll")}">☑ Select all</button>
           <button class="btn" id="${ID("HkNone")}">☐ Select none</button>
@@ -2401,7 +2578,8 @@ const PlatformBaseline = (() => {
         <button class="btn primary" id="${ID("HkDry")}">🔍 Dry run the ticked <span class="tag block">plans deletes</span></button>
         <button class="btn primary" id="${ID("HkApply")}" style="display:none">🗑 Delete in THIS tenant <span class="tag block">deletes from the tenant</span></button>
         <button class="ae-selbar-x" id="${ID("HkBarX")}" title="Clear the selection">✕</button></div>`;
-      host.dataset.rows = JSON.stringify(flat.map((x) => ({ id: x.r.p.id, name: x.r.name, section: x.r.section, path: x.r.path, keep: x.g.keep.name })));
+      host.dataset.rows = JSON.stringify(flat.map((x) => ({ id: x.r.p.id, name: x.r.name, section: x.r.section, path: x.r.path,
+        keep: x.g.keep.name, keepId: x.g.keep.id, keepPath: x.r.path, kind: x.g.kind })));
       const ticks = () => [...host.querySelectorAll("[data-hktick]")];
       const master = $(ID("HkMaster"));
       const sync = () => {
@@ -2433,9 +2611,16 @@ const PlatformBaseline = (() => {
     }
     // the fresh per-policy read before a delete: still there, still that
     // name, still unassigned — the tenant may have moved since the read
-    async function hkFresh(p) {
+    // THE KEPT COPY IS RE-READ TOO (§4.5, finding 3). Deleting the older
+    // copy is only safe because a newer one is there; if the newer one has
+    // been renamed, deleted or overtaken since the plan was made, the
+    // delete stops. Checking only the copy being deleted answers half the
+    // question.
+    async function hkFresh(p, keepName, keepPath, keepId) {
       const url = `${Graph.BETA}${p.path}/${encodeURIComponent(p.id)}`;
-      const now = await Graph.readOne(url, { scopes: Graph.SCOPES.config });
+      let now = null;
+      try { now = await Graph.readOne(url, { scopes: Graph.SCOPES.config }); }
+      catch (e) { if (e && e.kind === "notfound") return { refused: "already gone" }; throw e; }
       if (!now) return { refused: "already gone" };
       const nameNow = now.name || now.displayName || "";
       if (nameNow !== p.name) return { refused: `the policy is now named “${nameNow}” — not the copy that was planned` };
@@ -2443,6 +2628,14 @@ const PlatformBaseline = (() => {
       try { asg = await Graph.readAll(`${url}/assignments`, { scopes: Graph.SCOPES.config }); } catch { asg = null; }
       if (asg === null) return { refused: "its assignments could not be read — not deleting a policy whose reach is unknown" };
       if (asg.length) return { refused: `assigned to ${asg.length} target${asg.length === 1 ? "" : "s"} since the read — move the reach first` };
+      if (keepId && keepPath) {
+        let keep = null;
+        try { keep = await Graph.readOne(`${Graph.BETA}${keepPath}/${encodeURIComponent(keepId)}`, { scopes: Graph.SCOPES.config }); }
+        catch (e) { if (e && e.kind === "notfound") return { refused: `the copy that would be kept (“${keepName}”) is gone — nothing to keep this in favour of` }; throw e; }
+        if (!keep) return { refused: `the copy that would be kept (“${keepName}”) is gone — nothing to keep this in favour of` };
+        const kn = keep.name || keep.displayName || "";
+        if (kn !== keepName) return { refused: `the copy that would be kept is now named “${kn}” — the plan named “${keepName}”` };
+      }
       return { refused: "" };
     }
     async function hkDryRun() {
@@ -2459,7 +2652,7 @@ const PlatformBaseline = (() => {
         for (let i = 0; i < picked.length; i++) {
           const p = picked[i];
           prog(`${p.name} — reading again (${i + 1}/${picked.length})…`);
-          const f = p.path ? await hkFresh(p) : { refused: "no delete path here" };
+          const f = p.path ? await hkFresh(p, p.keep, p.keepPath, p.keepId) : { refused: "no delete path here" };
           out.push({ ...p, refused: f.refused });
         }
         prog("");
@@ -2490,27 +2683,42 @@ const PlatformBaseline = (() => {
           try {
             // the tenant may have moved since the dry run: read THIS one again
             prog(`${p.name} — checking again…`);
-            const f = await hkFresh(p);
+            const f = await hkFresh(p, p.keep, p.keepPath, p.keepId);
             if (f.refused) { results.push({ ...p, outcome: "skipped", detail: `${f.refused} (at delete time)` }); continue; }
             const url = `${Graph.BETA}${p.path}/${encodeURIComponent(p.id)}`;
             prog(`${p.name} — deleting…`);
             await Graph.del(url, { scopes: Graph.SCOPES.profiles });
-            let back = null;
-            try { back = await Graph.readOne(url, { scopes: Graph.SCOPES.config }); } catch { back = null; }
-            if (back) throw new Error("the delete returned, but the policy still reads back — check the portal");
-            results.push({ ...p, outcome: "deleted", detail: "verified gone" });
+            // ONLY "NOT FOUND" VERIFIES A DELETE (finding 3). The read-back
+            // used to be wrapped in a bare catch, so a 429, a 403 or a
+            // dropped connection all read as "gone" — the tool reporting
+            // a policy deleted on the strength of an error it never
+            // looked at. A throttled read-back is not evidence of
+            // anything, and it is now reported as exactly that.
+            let verified = false, doubt = "";
+            try {
+              const back = await Graph.readOne(url, { scopes: Graph.SCOPES.config });
+              doubt = back ? "the delete returned, but the policy still reads back" : "";
+              verified = !back;
+            } catch (e) {
+              if (e && e.kind === "notfound") verified = true;
+              else doubt = `the read-back did not answer (${(e && e.kind) || "error"}: ${GroupUse.shortErr(e, 120)})`;
+            }
+            if (verified) results.push({ ...p, outcome: "deleted", detail: "verified gone — the read-back could not find it" });
+            else results.push({ ...p, outcome: "unverified", detail: `${doubt} — unverified, check manually in the portal` });
           } catch (e) {
             results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
           }
         }
         prog("");
-        const good = results.filter((r) => r.outcome === "deleted").length, bad = results.filter((r) => r.outcome === "failed").length;
+        const good = results.filter((r) => r.outcome === "deleted").length,
+          bad = results.filter((r) => r.outcome === "failed").length,
+          unver = results.filter((r) => r.outcome === "unverified").length;
         $(ID("HkResult")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} deleted</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant.</p>
-          ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
+          <p class="mini" style="margin:0 0 6px"><b>${good} deleted and verified gone</b>${unver ? ` · <b style="color:var(--report)">${unver} unverified — check manually</b>` : ""}${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant.</p>
+          ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail${r.outcome === "unverified" ? " gu-skip" : ""}"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         S.hkPlanned = null; S.hkPlanKey = null;
-        rereadAfter(`🧹 Housekeeping: <b>${good} deleted</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
+        rereadAfter(`🧹 Housekeeping: <b>${good} deleted</b>${unver ? `, <b style="color:var(--report)">${unver} unverified</b>` : ""}${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
       } catch (e) {
         prog("");
         $(ID("HkResult")).innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;

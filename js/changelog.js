@@ -26,6 +26,17 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10593, date: "2026-09-04", title: "Baselines: a delete is only verified by not finding it, and Rename re-checks at the write",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Housekeeping's read-back after a delete was wrapped in a bare catch, so a throttled read, a permission error or a dropped connection all read as gone — the tool reported policies deleted on the strength of an error it never looked at. Only a genuine not-found verifies now. Anything else is its own outcome, unverified, counted separately and telling you to check the portal." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "The dry run re-reads the copy that would be KEPT as well as the one being deleted. Deleting the older copy is only safe because a newer one is there; if that one has been renamed or removed since the plan was made, the delete stops." },
+      { kind: "new", tool: "🪟 Windows baseline", text: "Housekeeping's second group: the same policy body under a second name. Those rows are listed but NOT ticked — which of two names is the right one is a judgement, and a default that deletes on a judgement is not a default. A superseded copy stays ticked, because that answer is not in doubt. And the exact copy the committed catalog keeps is refused outright." },
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Rename wrote a whole plan against one reading taken minutes earlier. It now re-reads the names in use at apply, re-checks the target name immediately before each write, and re-reads the policy itself to be sure it is still the one the plan named — a policy renamed in the portal in between is left alone rather than renamed over." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Rename also proposes a release AND a v1.0.0 for a policy that wears the prefix with no version at all; and it never proposes a new name for an OpenIntuneBaseline policy, because keeping the name and its token is what lets OIB's own deployer maintain what TUNO created." },
+      { kind: "new", tool: "🍎 macOS baseline", text: "The other half of that rule: an intune-my-macs policy IS proposed the full MACOS convention name — the folder it lived in upstream becomes the area and the release is cut from the upstream's own publication date. Nothing upstream will ever come back to update it, so the name may as well be ours. Where the D or U cannot be read the row asks, and cannot be ticked until it is answered." },
+    ],
+  },
+  {
     build: 10592, date: "2026-09-04", title: "Baselines: Export refuses to cut a catalog from an incomplete read",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "Export ran on whatever the read had. A surface that came back 403, a settings read that threw, a body that came back empty — none of it stopped the export, so the catalog committed to the repository could be quietly short, and every other tenant would then read that short catalog as the baseline and see policies as missing that the reference tenant has had all along. Export is now disabled while anything is unknown, and says exactly what: read against expected for every surface, and every row that cannot be exported named in red with its own reason. The button re-checks at the click too, because a re-read can land in between." },
