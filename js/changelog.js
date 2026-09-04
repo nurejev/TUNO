@@ -26,6 +26,16 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10592, date: "2026-09-04", title: "Baselines: Export refuses to cut a catalog from an incomplete read",
+    items: [
+      { kind: "fixed", tool: "🪟 Windows baseline", text: "Export ran on whatever the read had. A surface that came back 403, a settings read that threw, a body that came back empty — none of it stopped the export, so the catalog committed to the repository could be quietly short, and every other tenant would then read that short catalog as the baseline and see policies as missing that the reference tenant has had all along. Export is now disabled while anything is unknown, and says exactly what: read against expected for every surface, and every row that cannot be exported named in red with its own reason. The button re-checks at the click too, because a re-read can land in between." },
+      { kind: "new", tool: "🪟 Windows baseline", text: "The export table has a tick per policy and a tick per surface, with select all and none — so a cut can leave something out deliberately." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "A policy that starts with the platform prefix but carries no release tag is listed greyed with a Rename first button, rather than being silently dropped from the export." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Two policies with identical bodies under different names are both kept and listed in the README. Which of two names is the baseline is not a question an export can answer; Housekeeping settles it in the tenant, and then you re-cut." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "The same Export — one engine." },
+    ],
+  },
+  {
     build: 10591, date: "2026-09-04", title: "Baselines: Import plans the gap, and can put what it creates in front of a pilot",
     items: [
       { kind: "fixed", tool: "🪟 Windows baseline", text: "The import plan was built from the whole catalog and filtered afterwards, so a policy this tenant already had a newer copy of could reach the create pipeline. The plan is the comparison's rows now — missing and outdated, nothing else — and every other row carries the reason it is not importable." },

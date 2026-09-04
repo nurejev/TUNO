@@ -665,15 +665,70 @@ const PlatformBaseline = (() => {
       kept.sort((a, b) => String(a.key || keyOf(a.name)).localeCompare(String(b.key || keyOf(b.name))));
       return { kept, superseded };
     }
-    async function buildExport(res, tenantName) {
+    // ================================================================
+    // EXPORT FAILS CLOSED (§4.4, finding 2, build 10592)
+    // ================================================================
+    // Export used to run on whatever the read had. A surface that 403'd,
+    // a settings read that threw, a body that came back empty — none of it
+    // stopped the export, so the catalog committed to the repository could
+    // be QUIETLY SHORT, and every other tenant would then read that short
+    // catalog as the baseline and see policies as `missing` that the
+    // reference tenant has had all along. A catalog cut from a partial
+    // read is worse than no catalog: it is confidently wrong, and it
+    // spreads.
+    //
+    // So Export is disabled while anything is unknown, and it says
+    // exactly what — per surface, expected against read, with the rows
+    // that carry a detail error or an empty body named. The fix is always
+    // the same and is always the user's: read the tenant again.
+    const bodyLooksEmpty = (secId, raw) => {
+      if (!raw) return true;
+      if (secId === "settingsCatalog") return !Array.isArray(raw.__detail) || raw.__detail.length === 0;
+      if (secId === "admx") return !Array.isArray(raw.__detail) || raw.__detail.length === 0;
+      // every other surface: the body IS the object, so "empty" means it
+      // carries nothing but the identity fields the list read returns
+      return Object.keys(raw).filter((k) => !/^(id|__|@odata)/.test(k) && k !== "displayName" && k !== "name").length === 0;
+    };
+    // One row's reason it cannot be exported, or "" — the same rule the
+    // table paints red and the button reads.
+    function rowIssue(secId, it, raw) {
+      if (!raw) return "no body in the read — export from a cache-backed read";
+      if (raw.__detailError) return `its settings could not be read: ${raw.__detailError}`;
+      if (bodyLooksEmpty(secId, raw)) return "its body came back empty — it would be exported as a policy that configures nothing";
+      return "";
+    }
+    // What the read knows, surface by surface, and what stops the export.
+    function exportReadiness(res) {
+      const surfaces = [], blockers = [];
+      for (const sec of (res && res.sections) || []) {
+        const raws = new Map((sec.raw || []).map((r) => [String(r.id).toLowerCase(), r]));
+        let baseline = 0, bad = 0;
+        for (const it of sec.items || []) {
+          if (!looksBaseline(it.name)) continue;
+          baseline++;
+          const why = rowIssue(sec.id, it, raws.get(String(it.id).toLowerCase()) || null);
+          if (why) { bad++; blockers.push({ kind: "row", label: it.name, why, section: sec.id }); }
+        }
+        surfaces.push({ id: sec.id, label: sec.label, expected: (sec.items || []).length, read: (sec.raw || []).length, baseline, bad });
+      }
+      for (const f of (res && res.failed) || []) blockers.push({ kind: "surface", label: f.label, why: f.error || "the surface could not be read" });
+      for (const p of (res && res.partial) || []) blockers.push({ kind: "surface", label: p.label, why: (p.notes || []).join("; ") || "read in part" });
+      return { surfaces, blockers, ready: blockers.length === 0 };
+    }
+
+    // `wanted` — the ids ticked on the Export table, or null for all of
+    // them (§4.4's per-row and per-section selection).
+    async function buildExport(res, tenantName, wanted) {
       const policies = [], skipped = [];
       const surfaces = {};
       for (const sec of res.sections || []) {
         for (const it of sec.items || []) {
           if (!looksBaseline(it.name)) continue;
+          if (wanted && !wanted.has(String(it.id))) continue;
           const raw = (sec.raw || []).find((r) => String(r.id).toLowerCase() === String(it.id).toLowerCase()) || null;
           const area = AREA_OF_SECTION[sec.id] || null;
-          if (!raw) { skipped.push({ name: it.name, why: "raw body not in the read — export from a cache-backed read" }); continue; }
+          const issue = rowIssue(sec.id, it, raw);
+          if (issue) { skipped.push({ name: it.name, why: issue }); continue; }
           const body = Object.assign({}, raw);
           delete body.__detail; delete body.__detailError; delete body.__surface;
           if (sec.id === "settingsCatalog" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
@@ -717,6 +772,16 @@ const PlatformBaseline = (() => {
       const { kept, superseded } = dedupeCatalog(policies);
       const dupKeys = superseded.map((x) => x.key);
       const { release, mix } = releaseOfSet(kept);
+      // SAME CONTENT, DIFFERENT IDENTITY — NOT FOLDED (§4.4). Two policies
+      // with one key are one identity re-cut, and the newest wins. Two
+      // policies with the same HASH under DIFFERENT keys are a different
+      // problem: somebody made a copy and renamed it, and which of the two
+      // names is the baseline is not a question an export can answer. Both
+      // are kept, both are listed, and Housekeeping is where it is settled
+      // — in the tenant, by a person, before the next cut.
+      const byHash = new Map();
+      for (const p of kept) { if (!p.hash) continue; if (!byHash.has(p.hash)) byHash.set(p.hash, []); byHash.get(p.hash).push(p); }
+      const duplicates = [...byHash.values()].filter((g) => g.length > 1).map((g) => ({ hash: g[0].hash, names: g.map((p) => p.name) }));
       return {
         file: {
           schema: CATALOG_SCHEMA,
@@ -742,6 +807,7 @@ const PlatformBaseline = (() => {
         skipped,
         duplicateKeys: dupKeys,
         superseded,
+        duplicates,
       };
     }
     // The newest release worn by a set, with the census beside it.
@@ -809,6 +875,12 @@ const PlatformBaseline = (() => {
         L.push(`## Superseded on the tenant at export time (${built.superseded.length})`, "");
         L.push("Older copies still present beside their re-cut — left out of the catalog; 🧹 Housekeeping on the baseline tenant retires them.", "");
         for (const x of built.superseded) L.push(`- **${x.kept}** supersedes ${x.dropped.map((d) => `\`${d}\``).join(", ")}`);
+        L.push("");
+      }
+      if ((built.duplicates || []).length) {
+        L.push(`## Same content under two names (${built.duplicates.length})`, "");
+        L.push("Both are kept — which name is the baseline is not a question an export can answer. 🧹 Housekeeping settles it in the tenant, then re-cut.", "");
+        for (const d of built.duplicates) L.push(`- ${d.names.map((n) => `\`${n}\``).join(" and ")} have identical canonical bodies`);
         L.push("");
       }
       if (built.skipped.length) {
@@ -1358,6 +1430,7 @@ const PlatformBaseline = (() => {
       releaseOf, normRel, relCmp, currentRelease, versionOf, looksBaseline, keyOf, relLabel, cmpVersion, cmpRelVer,
       STATUS, bundled, community, isCommunity, catLooks, tokenOf, parseCatalog, compare, buildExport, importEntries, AREA_OF_SECTION,
       CATALOG_SCHEMA, COMMUNITY_KIND, canonicalBody, canonicalJson, hashBody, hashAll, duOf,
+      exportReadiness, rowIssue, bodyLooksEmpty,
       shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
       SIMILARITY_MIN, REVIEW_MARGIN, ATTENTION, jaccard, anchorOf, kindOfSection,
       PILOT_GROUPS, DEVICE_ONLY_SECTIONS, duFor, assignPathFor, findPilotGroups, assignToGroup,
@@ -1701,11 +1774,47 @@ const PlatformBaseline = (() => {
       if (mode === "help") parts.push(helpHtml());
 
       if (mode === "export") {
+        const ready = S.res ? E.exportReadiness(S.res) : null;
+        const all = S.res ? vms() : [];
+        const wearing = all.filter((v) => E.looksBaseline(v.name));
+        const notWearing = all.filter((v) => !E.looksBaseline(v.name) && spec.prefixRe.test(v.name || ""));
+        const raws = new Map();
+        for (const sec of (S.res && S.res.sections) || []) for (const r of sec.raw || []) raws.set(String(r.id).toLowerCase(), r);
+        const bySec = new Map();
+        for (const v of wearing) { if (!bySec.has(v.section)) bySec.set(v.section, []); bySec.get(v.section).push(v); }
+
         parts.push(`<div class="list-card"><h4 style="margin:0 0 6px">📤 Export the catalog <span class="mini muted">— the reference tenant authors it, so only here</span></h4>
-          <p class="mini muted" style="margin:0 0 8px">Cuts the catalog from this tenant's ${esc(spec.prefix)} policies. Bodies go through the canonical cleaner first — ids, timestamps, assignments and scope tags come off — and each carries the SHA-256 of what is written. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} is the new reference on the next push.</p>
-          ${S.res ? `<div class="tb-actions"><button class="btn primary" id="${ID("ExportZip")}" title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button><button class="btn" id="${ID("Export")}">⬇ Catalog file (JSON)</button></div>` : `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>`}
-          <p class="mini muted" style="margin:8px 0 0">Each identity is exported <b>once, the newest</b>; an older copy still on the tenant is listed as superseded in the README, and 🧹 Housekeeping retires it. The release is derived from the policies, never typed.</p>
-          <span class="mini muted" id="${ID("ExportNote")}"></span></div>`);
+          <p class="mini muted" style="margin:0 0 8px">Cuts the catalog from this tenant's ${esc(spec.prefix)} policies. Bodies go through the canonical cleaner first — ids, timestamps, assignments and scope tags come off — and each carries the SHA-256 of what is written. <b>The folder is the catalog</b>: unzip 📁 Repo folder at the repository root and ${esc(spec.catalogPath)} is the new reference on the next push. Each identity is exported <b>once, the newest</b>; the release is derived from the policies, never typed.</p>
+          ${!S.res ? `<p class="mini muted" style="margin:0">${esc(spec.readLabel)} first — the export is cut from the read.</p>` : `
+            <div class="gu-tw"><table class="cg-table"><thead><tr><th>Surface</th><th style="width:110px">Read</th><th style="width:130px">Wears ${esc(spec.prefix)}</th><th style="width:130px">Not exportable</th></tr></thead><tbody>
+              ${ready.surfaces.filter((s) => s.baseline || s.bad).map((s) => `<tr><td class="mini">${esc(s.label)}</td><td class="mini">${s.read} of ${s.expected}</td><td class="mini">${s.baseline}</td><td class="mini${s.bad ? '" style="color:var(--off)' : ""}">${s.bad || "—"}</td></tr>`).join("") || `<tr><td colspan="4" class="mini muted">No policy on any surface wears the convention.</td></tr>`}
+            </tbody></table></div>
+            ${ready.ready ? "" : `<div class="gu-fail"><b>Export is disabled: this read is incomplete.</b><span class="why">A catalog cut from a partial read is confidently wrong and every other tenant would then read it as the baseline. ${ready.blockers.slice(0, 6).map((b) => `<br>• <b>${esc(b.label)}</b> — ${esc(b.why)}`).join("")}${ready.blockers.length > 6 ? `<br>• …and ${ready.blockers.length - 6} more` : ""}<br><br>${esc(spec.readLabel)} again; if a surface keeps failing it is a permission, not a glitch.</span></div>`}
+            <div class="tb-actions" style="margin:10px 0 0">
+              <button class="btn primary" id="${ID("ExportZip")}" ${ready.ready ? "" : "disabled"} title="baseline/${esc(spec.platform.toLowerCase())}/ with catalog.json, one JSON per policy and a README index — unzip at the repo root">📁 Repo folder (zip)</button>
+              <button class="btn" id="${ID("Export")}" ${ready.ready ? "" : "disabled"}>⬇ Catalog file (JSON)</button>
+              <button class="btn" id="${ID("ExAll")}">☑ Select all</button>
+              <button class="btn" id="${ID("ExNone")}">☐ Select none</button>
+              <span class="mini muted" id="${ID("ExCount")}"></span>
+            </div>
+            <span class="mini muted" id="${ID("ExportNote")}"></span>
+            <div class="gu-tw" style="margin-top:10px"><table class="cg-table"><thead><tr><th style="width:30px"><input type="checkbox" id="${ID("ExMaster")}" checked></th><th>Policy</th><th style="width:110px">Release</th><th style="width:90px">Version</th><th style="width:60px">D/U</th></tr></thead><tbody>
+              ${[...bySec.entries()].map(([secId, list]) => `
+                <tr><td><input type="checkbox" data-${P}exsec="${esc(secId)}" checked title="Every policy on this surface"></td><td class="mini" colspan="4"><b>${esc(list[0].sectionLabel || secId)}</b> <span class="muted">(${list.length})</span></td></tr>
+                ${list.map((v) => {
+                  const why = E.rowIssue(secId, v, raws.get(String(v.id).toLowerCase()) || null);
+                  return `<tr${why ? ` style="color:var(--off)"` : ""}>
+                    <td style="padding-left:20px">${why ? "" : `<input type="checkbox" data-${P}extick="${esc(v.id)}" data-${P}exsecof="${esc(secId)}" checked>`}</td>
+                    <td class="mini" style="padding-left:20px">${esc(v.name)}${why ? ` <span class="gu-how exc">${esc(why)}</span>` : ""}</td>
+                    <td class="mini">${esc(E.relLabel(E.releaseOf(v.name)))}</td>
+                    <td class="mini">${E.versionOf(v.name) ? `v${esc(E.versionOf(v.name))}` : `<span class="muted">—</span>`}</td>
+                    <td class="mini">${esc(v.du || "")}</td></tr>`;
+                }).join("")}`).join("") || `<tr><td colspan="5" class="mini muted">Nothing wears the convention yet.</td></tr>`}
+            </tbody></table></div>
+            ${notWearing.length ? `<h4 style="margin:16px 0 6px">Wears <code>${esc(spec.prefix)}</code> but not the convention (${notWearing.length})</h4>
+              <p class="mini muted" style="margin:0 0 6px">Not exported — a policy with no release tag has no place in an ordered catalog. <button class="btn sm" id="${ID("ExRename")}">✏️ Rename first</button></p>
+              <ul class="mini muted" style="margin:0">${notWearing.slice(0, 40).map((v) => `<li>${esc(v.name)}</li>`).join("")}${notWearing.length > 40 ? `<li>…and ${notWearing.length - 40} more</li>` : ""}</ul>` : ""}
+          `}</div>`);
       }
 
       if (mode === "import") {
@@ -1888,11 +1997,63 @@ const PlatformBaseline = (() => {
         download(`tuno-${spec.platform.toLowerCase()}-baseline-gap-${new Date().toISOString().slice(0, 10)}.md`,
           E.toMd(S.cmp, tenantName(), filteredRows()), "text/markdown");
       });
+      // THE READ IS RE-CHECKED AT THE CLICK, not only when the pane was
+      // painted (finding 2). A re-read can land between the two, and a
+      // disabled button is a hint, never the enforcement.
+      const exportGuard = () => {
+        const r = E.exportReadiness(S.res);
+        if (r.ready) return true;
+        $(ID("ExportNote")).innerHTML = `<span style="color:var(--off)"><b>Not exported — the read is incomplete.</b> ${esc(r.blockers[0].label)}: ${esc(r.blockers[0].why)}${r.blockers.length > 1 ? ` (and ${r.blockers.length - 1} more)` : ""}. Read the tenant again.</span>`;
+        return false;
+      };
+      // what the export left out, said on the note line rather than buried
+      const exportTail = (built) =>
+        (built.superseded.length ? ` · ${built.superseded.length} identit${built.superseded.length === 1 ? "y" : "ies"} exported once, older copies listed as superseded — 🧹 Housekeeping retires them` : "")
+        + ((built.duplicates || []).length ? ` · ${built.duplicates.length} pair${built.duplicates.length === 1 ? "" : "s"} share content under different names, listed in the README and NOT folded — settle them in 🧹 Housekeeping, then re-cut` : "")
+        + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((x) => x.why)[0]})` : "");
+
+      // ---- export: the per-row and per-section selection (§4.4) ----
+      const exTicks = () => [...document.querySelectorAll(`[data-${P}extick]`)];
+      const exWanted = () => new Set(exTicks().filter((c) => c.checked).map((c) => c.dataset[`${P}extick`]));
+      const exSync = () => {
+        const t = exTicks(), on = t.filter((c) => c.checked).length;
+        const m = $(ID("ExMaster"));
+        if (m) { m.checked = on > 0 && on === t.length; m.indeterminate = on > 0 && on < t.length; }
+        document.querySelectorAll(`[data-${P}exsec]`).forEach((sc) => {
+          const sec = sc.dataset[`${P}exsec`];
+          const mine = t.filter((c) => c.dataset[`${P}exsecof`] === sec);
+          const n = mine.filter((c) => c.checked).length;
+          sc.checked = n > 0 && n === mine.length;
+          sc.indeterminate = n > 0 && n < mine.length;
+        });
+        const c2 = $(ID("ExCount")); if (c2) c2.textContent = t.length ? `${on} of ${t.length} policies ticked` : "";
+        for (const id of ["ExportZip", "Export"]) {
+          const b = $(ID(id));
+          if (b && !b.hasAttribute("data-locked")) b.disabled = b.disabled ? b.disabled : !on;
+        }
+      };
+      const exMaster = $(ID("ExMaster"));
+      if (exMaster) exMaster.addEventListener("change", () => { exTicks().forEach((c) => { c.checked = exMaster.checked; }); exSync(); });
+      const exAll = $(ID("ExAll"));
+      if (exAll) exAll.addEventListener("click", () => { exTicks().forEach((c) => { c.checked = true; }); exSync(); });
+      const exNone = $(ID("ExNone"));
+      if (exNone) exNone.addEventListener("click", () => { exTicks().forEach((c) => { c.checked = false; }); exSync(); });
+      const exBody = $(ID("Body"));
+      if (exBody && mode === "export") exBody.addEventListener("change", (e) => {
+        const sc = e.target.closest(`[data-${P}exsec]`);
+        if (sc) { exTicks().filter((c) => c.dataset[`${P}exsecof`] === sc.dataset[`${P}exsec`]).forEach((c) => { c.checked = sc.checked; }); }
+        if (sc || e.target.closest(`[data-${P}extick]`)) exSync();
+      });
+      const exRn = $(ID("ExRename"));
+      if (exRn) exRn.addEventListener("click", () => { mode = "rename"; render(); });
+      if (mode === "export" && S.res) exSync();
+
       // ---- export ----
       const ez = $(ID("ExportZip"));
       if (ez) ez.addEventListener("click", async () => {
         if (!isCfdev()) { $(ID("ExportNote")).innerHTML = refusedHtml("Export"); return; }
-        const built = await E.buildExport(S.res, tenantName());
+        if (!exportGuard()) return;
+        const built = await E.buildExport(S.res, tenantName(), exWanted());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         try {
           const z = new JSZip();
@@ -1901,7 +2062,7 @@ const PlatformBaseline = (() => {
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob); a.download = `tuno-${spec.platform.toLowerCase()}-baseline-repo-${new Date().toISOString().slice(0, 10)}.zip`; a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/, release ${built.file.release}`
+          $(ID("ExportNote")).textContent = `${built.file.policies.length} policies as baseline/${spec.platform.toLowerCase()}/, release ${built.file.release}` + exportTail(built)
             + (built.superseded.length ? ` · ${built.superseded.length} identit${built.superseded.length === 1 ? "y" : "ies"} exported once, older copies listed as superseded — 🧹 Housekeeping retires them` : "")
             + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((x) => x.why)[0]})` : "");
         } catch (e) { $(ID("ExportNote")).textContent = `The zip could not be written: ${(e && e.message) || e}`; }
@@ -1909,10 +2070,11 @@ const PlatformBaseline = (() => {
       const ex = $(ID("Export"));
       if (ex) ex.addEventListener("click", async () => {
         if (!isCfdev()) { $(ID("ExportNote")).innerHTML = refusedHtml("Export"); return; }
-        const built = await E.buildExport(S.res, tenantName());
+        if (!exportGuard()) return;
+        const built = await E.buildExport(S.res, tenantName(), exWanted());
         if (!built.file.policies.length) { $(ID("ExportNote")).textContent = "Nothing to export — no policy wears the convention."; return; }
         download(`tuno-${spec.platform.toLowerCase()}-baseline-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(built.file, null, 2));
-        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once, release ${built.file.release}`
+        $(ID("ExportNote")).textContent = `${built.file.policies.length} policies exported, each identity once, release ${built.file.release}` + exportTail(built)
           + (built.superseded.length ? ` · ${built.superseded.length} older cop${built.superseded.length === 1 ? "y" : "ies"} left out as superseded` : "")
           + (built.skipped.length ? ` · ${built.skipped.length} skipped (${built.skipped.map((s) => s.why)[0]})` : "");
       });
