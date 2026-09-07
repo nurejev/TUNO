@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10598, date: "2026-09-07", title: "T01 — the removal menu survives a single pick and lets the hive go",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Remove-TunoUserInstalledApps.ps1 1.0.1. Picking one app ended in 'The property Count cannot be found' — a one-element selection unrolled to a scalar under strict mode; every array-returning call is wrapped. The hive of a logged-off user then refused to unload (Access is denied) because the Registry:: provider held handles on it; the Uninstall keys are now read through the .NET registry API, each key closed, and the unload retries." },
+    ],
+  },
+  {
     build: 10597, date: "2026-09-07", title: "T01 — the cleanup script names the real MDM groupings",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Clear-TunoAppLockerPolicy.ps1 1.2.1 read the second folder level of the AppLocker CSP cache as the grouping and would have logged the CSP area GUID; it now finds every Policy file and names the grouping two folders above it. The removal itself deletes whole enrollment folders and was never wrong. Get-TunoAppLockerPolicyHealth.ps1 1.1.2: header corrected to the real layout (its code already walked to the Policy files)." },

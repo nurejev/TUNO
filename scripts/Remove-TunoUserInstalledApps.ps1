@@ -88,7 +88,7 @@ PS> .\Remove-TunoUserInstalledApps.ps1 -List
 run Remove-TunoUserInstalledApps.ps1 -parameters "-Name PowerToys -Force -Quiet -Leftovers"
 
 .NOTES
-Version   : 1.0.0
+Version   : 1.0.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Run as    : a local administrator, elevated. Refuses otherwise - the whole point is
@@ -109,8 +109,8 @@ param(
     [string]$LogFolder = "$env:ProgramData\IT-TOOLS\LOGS"
 )
 
-$script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10597
+$script:ScriptVersion = '1.0.1'
+$script:TunoBuild = 10598
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
@@ -144,6 +144,7 @@ $script:ProtectedLeafNames = @('AppData', 'Local', 'LocalLow', 'Roaming', 'Progr
 function Get-UserProfiles {
     $out = New-Object System.Collections.Generic.List[object]
     $pl = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList'
+    $script:HkuNames = @([Microsoft.Win32.Registry]::Users.GetSubKeyNames())
     foreach ($k in @(Get-ChildItem -Path $pl -ErrorAction SilentlyContinue)) {
         $sid = $k.PSChildName
         if ($sid -match '^S-1-5-(18|19|20)$') { continue }
@@ -153,7 +154,7 @@ function Get-UserProfiles {
         if (-not (Test-Path -LiteralPath $path -PathType Container)) { continue }
         $name = Split-Path -Leaf $path
         try { $name = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate([System.Security.Principal.NTAccount]).Value } catch {}
-        $out.Add([pscustomobject]@{ sid = $sid; path = $path; user = $name; loaded = (Test-Path -LiteralPath "Registry::HKEY_USERS\$sid"); temporary = $false })
+        $out.Add([pscustomobject]@{ sid = $sid; path = $path; user = $name; loaded = ($script:HkuNames -contains $sid); temporary = $false })
     }
     return $out.ToArray()
 }
@@ -170,40 +171,68 @@ function Mount-UserHive {
 }
 
 function Dismount-UserHives {
-    [gc]::Collect(); [gc]::WaitForPendingFinalizers()
-    foreach ($sid in @($script:LoadedHives)) {
-        $r = & reg.exe unload "HKU\$sid" 2>&1
-        if ($LASTEXITCODE -ne 0) { Log ("  hive HKU\{0} did not unload cleanly: {1} - it will unload at next reboot" -f $sid, ($r -join ' ')) 'WARN' }
+    foreach ($sid in @($script:LoadedHives.ToArray())) {
+        $ok = $false; $r = $null
+        for ($try = 1; $try -le 5 -and -not $ok; $try++) {
+            [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+            $r = & reg.exe unload "HKU\$sid" 2>&1
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Milliseconds (300 * $try) }
+        }
+        if (-not $ok) { Log ("  hive HKU\{0} did not unload after 5 tries: {1} - it will unload at next reboot" -f $sid, ($r -join ' ')) 'WARN' }
     }
     $script:LoadedHives.Clear()
+}
+
+# The registry is read through Microsoft.Win32.RegistryKey, opened and DISPOSED
+# per key, never through the Registry:: provider: the provider keeps handles on
+# HKU\<SID> after Get-ChildItem, and "reg unload" then answers Access is denied
+# (Mihai's first run, 7 Sep). Every key opened here is closed before the hive
+# is unloaded.
+function Open-HiveRoot {
+    param([string]$Root)
+    if ($Root -eq 'HKEY_LOCAL_MACHINE') { return [Microsoft.Win32.Registry]::LocalMachine }
+    $sid = $Root -replace '^HKEY_USERS\\', ''
+    return [Microsoft.Win32.Registry]::Users.OpenSubKey($sid, $true)
 }
 
 function Read-UninstallKeys {
     param([string]$Root, $Profile, [string]$Kind)
     $out = New-Object System.Collections.Generic.List[object]
-    foreach ($view in @('Software\Microsoft\Windows\CurrentVersion\Uninstall', 'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
-        $base = "Registry::$Root\$view"
-        foreach ($k in @(Get-ChildItem -Path $base -ErrorAction SilentlyContinue)) {
-            $p = Get-ItemProperty -Path $k.PSPath -ErrorAction SilentlyContinue
-            if (-not $p) { continue }
-            $dn = $null; try { $dn = $p.DisplayName } catch {}
-            if (-not $dn) { continue }
-            $sc = 0; try { $sc = [int]$p.SystemComponent } catch {}
-            if ($sc -eq 1) { continue }
-            $g = @{}
-            foreach ($n in 'UninstallString', 'QuietUninstallString', 'InstallLocation', 'DisplayVersion', 'Publisher', 'DisplayIcon', 'WindowsInstaller') { $v = $null; try { $v = $p.$n } catch {}; $g[$n] = $v }
-            $loc = $g.InstallLocation
-            if (-not $loc -and $g.DisplayIcon) { $loc = Split-Path -Parent (($g.DisplayIcon -replace ',\s*-?\d+$', '').Trim('"')) }
-            if (-not $loc -and $g.UninstallString) { $exe = Get-CommandExe $g.UninstallString; if ($exe) { $loc = Split-Path -Parent $exe } }
-            $out.Add([pscustomobject]@{
-                user = $Profile.user; sid = $Profile.sid; profile = $Profile.path; kind = $Kind
-                name = [string]$dn; version = [string]$g.DisplayVersion; publisher = [string]$g.Publisher
-                location = [string]$loc; uninstall = [string]$g.UninstallString; quiet = [string]$g.QuietUninstallString
-                msi = ([string]$g.UninstallString -match '(?i)msiexec' -or $g.WindowsInstaller -eq 1)
-                key = $k.PSPath
-            })
+    $hive = $null
+    try { $hive = Open-HiveRoot $Root } catch { $hive = $null }
+    if (-not $hive) { return @() }
+    try {
+        foreach ($view in @('Software\Microsoft\Windows\CurrentVersion\Uninstall', 'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+            $base = $null
+            try { $base = $hive.OpenSubKey($view, $false) } catch { $base = $null }
+            if (-not $base) { continue }
+            try {
+                foreach ($sub in @($base.GetSubKeyNames())) {
+                    $k = $null
+                    try { $k = $base.OpenSubKey($sub, $false) } catch { $k = $null }
+                    if (-not $k) { continue }
+                    try {
+                        $dn = [string]$k.GetValue('DisplayName', '')
+                        if (-not $dn) { continue }
+                        $sc = 0; try { $sc = [int]$k.GetValue('SystemComponent', 0) } catch {}
+                        if ($sc -eq 1) { continue }
+                        $g = @{}
+                        foreach ($n in 'UninstallString', 'QuietUninstallString', 'InstallLocation', 'DisplayVersion', 'Publisher', 'DisplayIcon', 'WindowsInstaller') { $v = $null; try { $v = $k.GetValue($n, $null) } catch {}; $g[$n] = $v }
+                        $loc = [string]$g.InstallLocation
+                        if (-not $loc -and $g.DisplayIcon) { $loc = Split-Path -Parent (([string]$g.DisplayIcon -replace ',\s*-?\d+$', '').Trim('"')) }
+                        if (-not $loc -and $g.UninstallString) { $exe = Get-CommandExe ([string]$g.UninstallString); if ($exe) { $loc = Split-Path -Parent $exe } }
+                        $out.Add([pscustomobject]@{
+                            user = $Profile.user; sid = $Profile.sid; profile = $Profile.path; kind = $Kind
+                            name = $dn; version = [string]$g.DisplayVersion; publisher = [string]$g.Publisher
+                            location = $loc; uninstall = [string]$g.UninstallString; quiet = [string]$g.QuietUninstallString
+                            msi = ([string]$g.UninstallString -match '(?i)msiexec' -or ([string]$g.WindowsInstaller) -eq '1')
+                            root = $Root; subkey = ($view + '\' + $sub)
+                        })
+                    } finally { $k.Close() }
+                }
+            } finally { $base.Close() }
         }
-    }
+    } finally { if ($Root -ne 'HKEY_LOCAL_MACHINE') { $hive.Close() } }
     return $out.ToArray()
 }
 
@@ -252,16 +281,16 @@ function Get-Inventory {
 function Show-Menu {
     param([object[]]$Items)
     Write-Host ''
-    Write-Host ('  {0,3}  {1,-22} {2,-38} {3,-14} {4,-24} {5}' -f '#', 'User', 'App', 'Version', 'Publisher', 'Lives in') -ForegroundColor Cyan
+    Write-Host ('  {0,3}  {1,-26} {2,-38} {3,-14} {4,-24} {5}' -f '#', 'User', 'App', 'Version', 'Publisher', 'Lives in') -ForegroundColor Cyan
     Write-Host ('  ' + ('-' * 120)) -ForegroundColor DarkGray
     for ($i = 0; $i -lt $Items.Count; $i++) {
         $it = $Items[$i]
-        $u = $it.user; if ($u.Length -gt 22) { $u = $u.Substring($u.Length - 22) }
+        $u = $it.user; if ($u.Length -gt 26) { $u = $u.Substring(0, 25) + '…' }
         $n = $it.name; if ($n.Length -gt 38) { $n = $n.Substring(0, 37) + '…' }
         $pub = $it.publisher; if ($pub.Length -gt 24) { $pub = $pub.Substring(0, 23) + '…' }
         $loc = $it.location; if ($it.profile -and $loc -like "$($it.profile)\*") { $loc = '~' + $loc.Substring($it.profile.Length) }
         $tag = ''; if ($it.msi) { $tag = ' [MSI]' } elseif (-not $it.uninstall -and -not $it.quiet) { $tag = ' [no uninstaller]' }
-        Write-Host ('  {0,3}  {1,-22} {2,-38} {3,-14} {4,-24} {5}{6}' -f ($i + 1), $u, $n, $it.version, $pub, $loc, $tag)
+        Write-Host ('  {0,3}  {1,-26} {2,-38} {3,-14} {4,-24} {5}{6}' -f ($i + 1), $u, $n, $it.version, $pub, $loc, $tag)
     }
     Write-Host ''
     Write-Host '  numbers to uninstall (e.g. 2 or 1,3 or 2-5)   l <n> = leftovers only   r = rescan   q = quit' -ForegroundColor DarkGray
@@ -290,14 +319,17 @@ function Get-QuietArgs {
 
 function Test-EntryGone {
     param($Item)
-    return -not (Test-Path -LiteralPath $Item.key)
+    $hive = $null; $k = $null
+    try { $hive = Open-HiveRoot $Item.root; if (-not $hive) { return $false }; $k = $hive.OpenSubKey($Item.subkey, $false); return ($null -eq $k) }
+    catch { return $false }
+    finally { if ($k) { $k.Close() }; if ($hive -and $Item.root -ne 'HKEY_LOCAL_MACHINE') { $hive.Close() } }
 }
 
 function Invoke-Uninstall {
     param($Item)
     $cmd = $Item.quiet; if (-not $cmd) { $cmd = $Item.uninstall }
     if (-not $cmd) { Log ("  {0}: no uninstaller registered" -f $Item.name) 'WARN'; return 'no-uninstaller' }
-    $exeArgs = Split-Command $cmd
+    $exeArgs = @(Split-Command $cmd)
     $exe = $exeArgs[0]; $argLine = $exeArgs[1]
     if ($exe -match '(?i)msiexec') { $exe = Join-Path $env:SystemRoot 'System32\msiexec.exe'; $argLine = $argLine -replace '(?i)/I\{', '/X{' }
     if ($Quiet -and -not $Item.quiet) { $argLine = Get-QuietArgs -Exe $exe -ExistingArgs $argLine }
@@ -359,10 +391,12 @@ function Remove-Leftovers {
             }
         }
     }
-    if (Test-Path -LiteralPath $Item.key) {
-        if ($PSCmdlet.ShouldProcess($Item.key, 'remove uninstall key')) {
-            try { Remove-Item -Path $Item.key -Recurse -Force -ErrorAction Stop; Log ("  removed uninstall key for {0}" -f $Item.name); $done = $true }
+    if (-not (Test-EntryGone $Item)) {
+        if ($PSCmdlet.ShouldProcess(($Item.root + '\' + $Item.subkey), 'remove uninstall key')) {
+            $hive = $null
+            try { $hive = Open-HiveRoot $Item.root; $hive.DeleteSubKeyTree($Item.subkey, $false); Log ("  removed uninstall key for {0}" -f $Item.name); $done = $true }
             catch { Log ("  uninstall key not removed: {0}" -f $_.Exception.Message) 'WARN' }
+            finally { if ($hive -and $Item.root -ne 'HKEY_LOCAL_MACHINE') { $hive.Close() } }
         }
     }
     return $done
@@ -416,14 +450,14 @@ try {
             if ($ans -match '^(q|quit|exit)$') { break }
             if ($ans -match '^(r|rescan)$') { Dismount-UserHives; $items = @(Get-Inventory); if ($items.Count -eq 0) { Log 'Nothing left.'; break }; continue }
             if ($ans -match '^l\s*(.+)$') {
-                foreach ($n in (Resolve-Selection -Text $Matches[1] -Max $items.Count)) {
+                foreach ($n in @(Resolve-Selection -Text $Matches[1] -Max $items.Count)) {
                     $it = $items[$n - 1]
                     Log ("--- leftovers only: {0} for {1}" -f $it.name, $it.user)
                     if (Confirm-Yes ("remove folder {0}, the uninstall key and shortcuts?" -f $it.location)) { Remove-Leftovers $it | Out-Null }
                 }
                 Dismount-UserHives; $items = @(Get-Inventory); if ($items.Count -eq 0) { Log 'Nothing left.'; break }; continue
             }
-            $sel = Resolve-Selection -Text $ans -Max $items.Count
+            $sel = @(Resolve-Selection -Text $ans -Max $items.Count)
             if ($sel.Count -eq 0) { Write-Host '  (nothing selected)' -ForegroundColor DarkGray; continue }
             foreach ($n in $sel) { Write-Host ('    {0}  ({1})' -f $items[$n - 1].name, $items[$n - 1].user) }
             if (-not (Confirm-Yes ("uninstall {0} app{1}?" -f $sel.Count, $(if ($sel.Count -eq 1) { '' } else { 's' })))) { continue }

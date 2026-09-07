@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 169, title: "\ud83d\udd10 T01 \u2014 Remove-TunoUserInstalledApps 1.0.1: single pick works, loaded hives unload",
+      tools: ["T01 AppLocker"], builds: [10598], risk: "low",
+      why: "First run on CPC-mihai-FK1D1: choosing entry 2 threw 'Count cannot be found' (scalar under StrictMode), and the logged-off admin's hive answered Access is denied on reg unload (provider handles). Registry reads moved to Microsoft.Win32.RegistryKey with explicit Close; array wrappers; unload retried five times.",
+      test: [
+        "Menu with two entries, type 2: the uninstaller runs (no red line); after the run the entry is gone from that user's hive and the menu rescans.",
+        "A logged-off user's hive is loaded for the inventory and unloads cleanly at exit — no WARN, and no HKU\\S-1-12-1-… left mounted.",
+        "check-script-versions green.",
+      ],
+      files: ["scripts/Remove-TunoUserInstalledApps.ps1", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 168, title: "\ud83d\udd10 T01 \u2014 Clear-TunoAppLockerPolicy 1.2.1 names the real MDM groupings; health check header corrected",
       tools: ["T01 AppLocker"], builds: [10597], risk: "low",
       why: "Follow-up to 167: the cleanup's grouping list came from the second folder level of the CSP cache (the CSP area GUID), same wrong assumption as the scanner. Log-only change; the removal path is unchanged.",
