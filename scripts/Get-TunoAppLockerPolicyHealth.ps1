@@ -20,7 +20,9 @@ places, and says which of them can lie:
   3. Services - AppIDSvc and AppLockerFltr (policies are not processed without
      AppID; it is trigger-start, so Stopped with recent 8001s is fine).
   4. MDM store inventory - every Policy file under
-     %SystemRoot%\System32\AppLocker\MDM\<enrollment>\<grouping>\<collection>, with
+     %SystemRoot%\System32\AppLocker\MDM\<enrollment>\<CSP area>\AppLocker\
+     ApplicationLaunchRestrictions\<grouping>\<collection>\Policy (found by walking
+     to the Policy files, so the depth does not matter), with
      size and write time, plus the compiled *.AppLocker cache files.
   5. Effective policy - from Get-AppLockerPolicy -Effective (local + Group Policy
      ONLY - it does not include what the CSP delivered) AND from the MDM store,
@@ -52,7 +54,7 @@ run Get-TunoAppLockerPolicyHealth.ps1
 getfile "C:\ProgramData\IT-TOOLS\LOGS\AppLockerPolicyHealth_<host>_<stamp>.log"
 
 .NOTES
-Version   : 1.1.1
+Version   : 1.1.2
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Run as    : SYSTEM (Live Response) or a local administrator. No changes are made.
@@ -71,8 +73,8 @@ param(
     [string]$OutputDir = "$env:ProgramData\IT-TOOLS\LOGS"
 )
 
-$script:ScriptVersion = '1.1.1'
-$script:TunoBuild = 10596
+$script:ScriptVersion = '1.1.2'
+$script:TunoBuild = 10597
 
 $ErrorActionPreference = 'SilentlyContinue'
 

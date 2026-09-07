@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10597, date: "2026-09-07", title: "T01 — the cleanup script names the real MDM groupings",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Clear-TunoAppLockerPolicy.ps1 1.2.1 read the second folder level of the AppLocker CSP cache as the grouping and would have logged the CSP area GUID; it now finds every Policy file and names the grouping two folders above it. The removal itself deletes whole enrollment folders and was never wrong. Get-TunoAppLockerPolicyHealth.ps1 1.1.2: header corrected to the real layout (its code already walked to the Policy files)." },
+    ],
+  },
+  {
     build: 10596, date: "2026-09-07", title: "T01 — the scanner reads the Intune AppLocker cache at its real depth",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Scanner 1.12.2. The AppLocker CSP cache lives at MDM\\<enrollment>\\<CSP area>\\AppLocker\\ApplicationLaunchRestrictions\\<grouping>\\<type>\\Policy; 1.12.0 and 1.12.1 walked three folders down, met 'AppLocker' where they expected 'EXE', reported the CSP area GUID as a grouping with no collections and merged nothing — so a device enforcing 51 Exe rules from Intune read as the local Managed Installer stub, with 43 breaks and every Microsoft app uncovered. The scanner now walks to every Policy file and reads grouping and type from the folders above it." },

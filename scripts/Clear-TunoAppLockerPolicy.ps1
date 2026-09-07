@@ -85,7 +85,7 @@ Expect a reboot to fully settle CSP state, and run it only after the old profile
 unassigned - against an assigned profile it is a loop, not a fix.
 
 .NOTES
-Version   : 1.2.0
+Version   : 1.2.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppLockerPolicy.ps1), run as
@@ -107,8 +107,8 @@ param(
 
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
-$script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10596
+$script:ScriptVersion = '1.2.1'
+$script:TunoBuild = 10597
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
@@ -204,10 +204,12 @@ else { Write-Log 'INFO: no SrpV2 key present - nothing tattooed' }
 # is the arbiter - if anything still merges into the effective policy, exit 1.
 $mdmRoot = Join-Path $env:windir 'System32\AppLocker\MDM'
 if (Test-Path $mdmRoot) {
-    # Layout: MDM\<enrollment GUID>\<grouping>\<EXE|MSI|...>. Name the groupings.
-    $names = @(Get-ChildItem -Path $mdmRoot -Directory -ErrorAction SilentlyContinue |
-        ForEach-Object { Get-ChildItem -Path $_.FullName -Directory -ErrorAction SilentlyContinue } |
-        ForEach-Object { $_.Name } | Sort-Object -Unique)
+    # Layout (Mihai's 7 Sep listing; 1.2.0 assumed three levels and named the
+    # CSP area GUID as the grouping):
+    #   MDM\<enrollment>\<CSP area GUID>\AppLocker\ApplicationLaunchRestrictions\<grouping>\<EXE|MSI|...>\Policy
+    # So: find every Policy file, and the grouping is two folders above it.
+    $names = @(Get-ChildItem -Path $mdmRoot -Recurse -File -Filter 'Policy' -ErrorAction SilentlyContinue |
+        ForEach-Object { Split-Path -Leaf (Split-Path -Parent $_.DirectoryName) } | Sort-Object -Unique)
     if ($names.Count -gt 0) {
         Write-Log ("FOUND: {0} MDM grouping(s) cached on this device: {1}" -f $names.Count, ($names -join ', '))
         if ($RemoveMdmGroupings) {

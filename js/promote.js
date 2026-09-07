@@ -100,6 +100,16 @@ const PROMOTE = {
 
   items: [
     {
+      n: 168, title: "\ud83d\udd10 T01 \u2014 Clear-TunoAppLockerPolicy 1.2.1 names the real MDM groupings; health check header corrected",
+      tools: ["T01 AppLocker"], builds: [10597], risk: "low",
+      why: "Follow-up to 167: the cleanup's grouping list came from the second folder level of the CSP cache (the CSP area GUID), same wrong assumption as the scanner. Log-only change; the removal path is unchanged.",
+      test: [
+        "Clear-TunoAppLockerPolicy.ps1 on a device with an Intune AppLocker profile: FOUND line names AppLocker-<guid>, not 36486506-BDC9-4FF1-BA75-745721C6A371.",
+        "check-script-versions green.",
+      ],
+      files: ["scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/Get-TunoAppLockerPolicyHealth.ps1", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 167, title: "\ud83d\udd10 T01 \u2014 scanner 1.12.2 reads the AppLocker CSP cache at its real depth; a hollow grouping is never 'included'",
       tools: ["T01 AppLocker"], builds: [10596], risk: "medium",
       why: "Mihai, 7 Sep: judging against the device's effective policy showed 43 breaks and all Microsoft coverage off while the Intune Exe collection carried everything. The bundle had sources.mdm = [{ grouping: <CSP area GUID>, types: [] }] and the cmdlet-only note: the cache walk was three levels deep against a six-level layout. Read-only change in the scanner; T01 stops calling an empty grouping included.",
