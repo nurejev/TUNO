@@ -226,7 +226,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
 .NOTES
-Version    : 1.12.1
+Version    : 1.12.2
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -319,8 +319,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.12.1'
-$script:TunoBuild = 10587
+$script:ScriptVersion = '1.12.2'
+$script:TunoBuild = 10596
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -1505,33 +1505,45 @@ function Get-MdmAppLockerPolicy {
     $typeMap = @{ 'EXE' = 'Exe'; 'MSI' = 'Msi'; 'SCRIPT' = 'Script'; 'DLL' = 'Dll'; 'STOREAPPS' = 'Appx'; 'APPX' = 'Appx' }
     $groupings = New-Object System.Collections.Generic.List[object]
     $cols = New-Object System.Collections.Generic.List[object]
-    foreach ($enr in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
-        foreach ($grp in @(Get-ChildItem -LiteralPath $enr.FullName -Directory -ErrorAction SilentlyContinue)) {
-            $types = New-Object System.Collections.Generic.List[string]
-            foreach ($typeDir in @(Get-ChildItem -LiteralPath $grp.FullName -Directory -ErrorAction SilentlyContinue)) {
-                $policyFile = Join-Path $typeDir.FullName 'Policy'
-                if (-not (Test-Path -LiteralPath $policyFile -PathType Leaf)) { continue }
-                $dec = ConvertFrom-MdmPolicyBytes -Path $policyFile
-                if (-not $dec.parsed) {
-                    $warnings.Add(("MDM cache {0}\{1}\{2}\Policy: {3} (encoding {4}; first bytes {5}){6}" -f $enr.Name, $grp.Name, $typeDir.Name, $dec.error, $dec.encoding, $dec.head, $(if ($dec.rules -ne '?') { '; mode/rules taken by text match' } else { '' })))
-                    if ($dec.rules -eq '?') { continue }
-                    $types.Add($typeDir.Name)
-                    $t = $dec.type; if (-not $t) { $key = $typeDir.Name.ToUpperInvariant(); if ($typeMap.ContainsKey($key)) { $t = $typeMap[$key] } }
-                    $cols.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $grp.Name; type = $t; mode = $dec.mode; ruleCount = $dec.rules; xml = $dec.text })
-                    continue
-                }
-                $rc = $dec.xml
-                $t = $rc.GetAttribute('Type')
-                if (-not $t) { $key = $typeDir.Name.ToUpperInvariant(); if ($typeMap.ContainsKey($key)) { $t = $typeMap[$key] } }
-                $types.Add($typeDir.Name)
-                $cols.Add([pscustomobject]@{
-                    enrollment = $enr.Name; grouping = $grp.Name; type = $t
-                    mode = $rc.GetAttribute('EnforcementMode'); ruleCount = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count
-                    xml = $rc.OuterXml
-                })
+    # THE CACHE IS DEEPER THAN THREE LEVELS (Mihai, 7 Sep, the listing):
+    #   MDM\<enrollment>\<CSP area GUID>\AppLocker\ApplicationLaunchRestrictions\<grouping>\<EXE|MSI|Script|DLL|StoreApps>\Policy
+    # 1.12.0/1.12.1 walked exactly three directories down, met a folder named
+    # "AppLocker" where they expected "EXE", and reported the CSP area GUID as
+    # a grouping with no collections - so the bundle said "includes Intune
+    # grouping 36486506-..." and merged NOTHING, and the draft judged against
+    # the effective policy was the local Managed Installer stub alone (43
+    # breaks, coverage off). Now: walk to every Policy file, and read the
+    # grouping and the type from the two folders above it, wherever they sit.
+    $enrollments = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)
+    foreach ($enr in $enrollments) {
+        $seen = [ordered]@{}
+        $policyFiles = @(Get-ChildItem -LiteralPath $enr.FullName -Recurse -File -Filter 'Policy' -ErrorAction SilentlyContinue)
+        foreach ($pf in $policyFiles) {
+            $typeDirName = Split-Path -Leaf $pf.DirectoryName
+            $grpName     = Split-Path -Leaf (Split-Path -Parent $pf.DirectoryName)
+            $key = $typeDirName.ToUpperInvariant()
+            if (-not $typeMap.ContainsKey($key)) { $warnings.Add(("MDM cache {0}: a Policy file under an unknown collection folder '{1}' ({2}) was skipped" -f $enr.Name, $typeDirName, $pf.FullName)); continue }
+            if (-not $seen.Contains($grpName)) { $seen[$grpName] = New-Object System.Collections.Generic.List[string] }
+            $dec = ConvertFrom-MdmPolicyBytes -Path $pf.FullName
+            if (-not $dec.parsed) {
+                $warnings.Add(("MDM cache {0}\{1}\{2}\Policy: {3} (encoding {4}; first bytes {5}){6}" -f $enr.Name, $grpName, $typeDirName, $dec.error, $dec.encoding, $dec.head, $(if ($dec.rules -ne '?') { '; mode/rules taken by text match' } else { '' })))
+                if ($dec.rules -eq '?') { continue }
+                $seen[$grpName].Add($typeDirName)
+                $t = $dec.type; if (-not $t) { $t = $typeMap[$key] }
+                $cols.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $grpName; type = $t; mode = $dec.mode; ruleCount = $dec.rules; xml = $dec.text })
+                continue
             }
-            $groupings.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $grp.Name; types = @($types) })
+            $rc = $dec.xml
+            $t = $rc.GetAttribute('Type'); if (-not $t) { $t = $typeMap[$key] }
+            $seen[$grpName].Add($typeDirName)
+            $cols.Add([pscustomobject]@{
+                enrollment = $enr.Name; grouping = $grpName; type = $t
+                mode = $rc.GetAttribute('EnforcementMode'); ruleCount = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count
+                xml = $rc.OuterXml
+            })
         }
+        foreach ($g in $seen.Keys) { $groupings.Add([pscustomobject]@{ enrollment = $enr.Name; grouping = $g; types = @($seen[$g].ToArray()) }) }
+        if (-not $policyFiles.Count) { $warnings.Add(("MDM cache {0}: the enrollment folder exists but holds no Policy file" -f $enr.Name)) }
     }
     return [pscustomobject]@{ present = $true; groupings = @($groupings.ToArray()); collections = @($cols.ToArray()); warnings = @($warnings.ToArray()) }
 }

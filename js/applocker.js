@@ -2443,8 +2443,15 @@ const AppLockerTool = (() => {
           if (!ep.available) return "";
           const src = ep.sources;
           if (!src) return ` · <b>effective policy read without the Intune (CSP) part</b> — scanner 1.12+ reads it`;
-          const mdm = Array.isArray(src.mdm) ? src.mdm : [];
-          return mdm.length ? ` · effective policy includes Intune grouping${mdm.length === 1 ? "" : "s"} ${mdm.map((g) => esc(g.grouping)).join(", ")}` : ` · no Intune AppLocker policy cached on the device`;
+          const all = Array.isArray(src.mdm) ? src.mdm : [];
+          // A grouping with NO collections was never merged (scanner 1.12.0/1.12.1
+          // walked the MDM cache three levels deep and reported the CSP area GUID
+          // as a grouping with types: []) — say "nothing read", never "includes".
+          const mdm = all.filter((g) => Array.isArray(g.types) && g.types.length);
+          const hollow = all.length - mdm.length;
+          if (mdm.length) return ` · effective policy includes Intune grouping${mdm.length === 1 ? "" : "s"} ${mdm.map((g) => `${esc(g.grouping)} (${esc(g.types.join(", "))})`).join(", ")}`;
+          if (hollow) return ` · <b style="color:var(--off)">Intune AppLocker cache present on the device but NO collection was read from it</b> — scanner ${esc((scan.generator && scan.generator.version) || "?")} walked it too shallow; re-scan with 1.12.2 or later, this effective policy is missing the Intune part`;
+          return ` · no Intune AppLocker policy cached on the device`;
         })()}</td></tr>`);
     } else {
       rows.push(`<tr><td class="muted">🛰 Scan bundle</td><td class="mini muted">—</td><td></td><td class="mini muted">Invoke-TunoAppLockerScan.ps1 on a clean reference image (Help &amp; scripts) — the ACLs and the event log a browser cannot see</td></tr>`);
@@ -2522,13 +2529,17 @@ const AppLockerTool = (() => {
       // Intune-delivered (CSP) policy the device enforces — so a deployed
       // Script collection read as empty. The bundle says which it was.
       const src = scan && scan.effectivePolicy && scan.effectivePolicy.sources;
-      const mdm = src && Array.isArray(src.mdm) ? src.mdm : null;
+      const mdmAll = src && Array.isArray(src.mdm) ? src.mdm : null;
+      const mdm = mdmAll ? mdmAll.filter((g) => Array.isArray(g.types) && g.types.length) : null;
+      const hollowCache = !!(mdmAll && mdmAll.length && !mdm.length);
       const oldRead = !src;
       const sourceLine = oldRead
         ? ` <b>This bundle's effective policy was read with Get-AppLockerPolicy -Effective alone, which does NOT include the policy Intune delivers through the AppLocker CSP</b> — the very policy this device enforces. That is why deployed collections read as empty here. Re-scan with scanner 1.12.0 or later: it reads the CSP cache under System32\\AppLocker\\MDM and merges it in.`
         : mdm && mdm.length
           ? ` It includes the Intune-delivered policy from the CSP cache: ${mdm.map((g) => `<code>${esc(g.grouping)}</code> (${esc((g.types || []).join(", "))})`).join(", ")}.`
-          : ` No Intune-delivered AppLocker policy was cached on the device at ${esc(when)} — the deployed profile had not reached it.`;
+          : hollowCache
+            ? ` <b>The device HAS an Intune AppLocker cache, but this bundle read no collection from it</b> — scanner ${esc((scan.generator && scan.generator.version) || "?")} walked the cache three levels deep, and the real layout is <code>MDM\\&lt;enrollment&gt;\\&lt;CSP area&gt;\\AppLocker\\ApplicationLaunchRestrictions\\&lt;grouping&gt;\\&lt;type&gt;\\Policy</code>. What you are judging against here is the local policy alone (the Managed Installer stub), so every Intune rule reads as missing. Re-scan with scanner 1.12.2 or later.`
+            : ` No Intune-delivered AppLocker policy was cached on the device at ${esc(when)} — the deployed profile had not reached it.`;
       return `<div class="al-gate" style="border-color:var(--border);background:var(--soft)">ℹ️ <b>You are judging against the policy the device was actually running at ${esc(when)}</b> — the merge of every AppLocker source on it (Intune, GPO${mi ? ", and the Managed Installer policy, whose dummy rules are what sits in Exe and Dll" : ""}). It is evidence, not a draft.${sourceLine}${empty.length && !oldRead ? ` It carries <b>no ${empty.join(", ")} rules</b>: if the deployed profile has them, the device had not received it by ${esc(when)} — check the assignment and the device's last sync, then re-scan.` : ""}${gen ? ` To work on the rules themselves, switch to <b>the rule set the scan generated</b> on the Evidence screen.` : ""}</div>`;
     })() : "";
     const unresolved = gaps.length + undecided.length;

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10596, date: "2026-09-07", title: "T01 — the scanner reads the Intune AppLocker cache at its real depth",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "Scanner 1.12.2. The AppLocker CSP cache lives at MDM\\<enrollment>\\<CSP area>\\AppLocker\\ApplicationLaunchRestrictions\\<grouping>\\<type>\\Policy; 1.12.0 and 1.12.1 walked three folders down, met 'AppLocker' where they expected 'EXE', reported the CSP area GUID as a grouping with no collections and merged nothing — so a device enforcing 51 Exe rules from Intune read as the local Managed Installer stub, with 43 breaks and every Microsoft app uncovered. The scanner now walks to every Policy file and reads grouping and type from the folders above it." },
+      { kind: "improved", tool: "AppLocker", text: "A grouping with no collections is never reported as 'included' again. A bundle from 1.12.0/1.12.1 with that shape now says on Evidence and in the What breaks? note that the cache is on the device but nothing was read from it, and to re-scan with 1.12.2." },
+    ],
+  },
+  {
     build: 10595, date: "2026-09-04", title: "The baseline test suites are tracked, and run on every push",
     items: [
       { kind: "new", tool: "\ud83e\ude9f Windows baseline", text: "The headless suites for these tools are in the repository now, under tests/platformbaseline: an engine suite for the matching, the canonical bodies, the hashes, the catalog loading, Housekeeping's groups and Rename's proposals, and a screen suite for the session, the rail, the filters, the panes and the bookkeeping every build owes. Three hundred and fifty-five assertions, each block named for the rule it defends." },

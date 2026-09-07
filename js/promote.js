@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 167, title: "\ud83d\udd10 T01 \u2014 scanner 1.12.2 reads the AppLocker CSP cache at its real depth; a hollow grouping is never 'included'",
+      tools: ["T01 AppLocker"], builds: [10596], risk: "medium",
+      why: "Mihai, 7 Sep: judging against the device's effective policy showed 43 breaks and all Microsoft coverage off while the Intune Exe collection carried everything. The bundle had sources.mdm = [{ grouping: <CSP area GUID>, types: [] }] and the cmdlet-only note: the cache walk was three levels deep against a six-level layout. Read-only change in the scanner; T01 stops calling an empty grouping included.",
+      test: [
+        "Scanner 1.12.2 elevated on a device with an Intune AppLocker profile: the bundle's effectivePolicy.sources.mdm names the real grouping (AppLocker-<guid>) with its types, the note says merged, and the draft judged as the effective policy carries the Intune rules (coverage green, breaks in single digits).",
+        "A 1.12.1 bundle with types: [] loaded in T01: Evidence says the cache is present but nothing was read and names 1.12.2; the What breaks? note says the same with the layout.",
+        "check-script-versions green; scan-intune suite green (3 new).",
+      ],
+      files: ["scripts/Invoke-TunoAppLockerScan.ps1", "js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 166, title: "\ud83e\uddea The baseline suites are tracked \u2014 tests/platformbaseline/, npm test, and CI on every push",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10595], risk: "low",
       why: "Finding 13 of the T24 review \u2014 the last of the design's eight steps. Every headless suite in this repository has lived in _to_delete/, untracked, on one laptop: nothing but that laptop could tell whether a commit broke one, which is exactly how several of them drifted red without anybody noticing (graph-read-tests carries twelve failures at 10587, before any of this work; layout-tests throws on a missing crypto in its own harness). The baseline suites move into tests/platformbaseline/ as two files \u2014 an engine suite (159 assertions: matching order, similarity, canonical bodies, hashes, catalog loading and refusal, Housekeeping's two groups, Rename's proposals) and a screen suite (196: the session and sign-out, the rail, the card filters and the search, the panes, the popout, and the bookkeeping every build owes) \u2014 each block named for the finding or section it defends, so a red line says which RULE broke rather than which line moved. `npm test` runs them; .github/workflows/tests.yml runs the same thing on every push to beta and main, syntax-checking every source file first. A new suite dropped into tests/<tool>/ as *.test.js is picked up without editing either. LOW: it adds no behaviour and touches no tool. The one thing to look at is package.json arriving in a repository that has deliberately never had one \u2014 it declares jsdom for the suites and nothing else; TUNO is still static files with no build step and nothing in it is served.",
