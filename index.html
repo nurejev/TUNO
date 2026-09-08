@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10603"></script>
+<script src="js/popup-guard.js?v=10604"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10603">
+<link rel="stylesheet" href="css/app.css?v=10604">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10603"></script>
+<script src="js/selfhost-boot.js?v=10604"></script>
 </head>
 <body>
 
@@ -157,7 +157,7 @@
       </div>
       <div class="tool" id="toolAssignEdit">
         <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag block">writes to the tenant</span></h3>
-        <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance and administrative templates; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
+        <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance, administrative templates and the Windows feature, quality and driver update profiles; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
       </div>
       <div class="tool" id="toolFilters">
         <div class="tool-ic">🧩</div><h3>Assignment filters <span class="tag block">writes to the tenant</span></h3>
@@ -234,7 +234,7 @@
       </div>
       <div class="tool" id="toolGroupMigrate">
         <div class="tool-ic">🔄</div><h3>Group migration</h3>
-        <p>A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the role-assignable costs: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined; a group that is both is a group whose members <b>nobody</b> can edit. Because <code>isAssignableToRole</code> is immutable this is a <b>recreate</b>, so the new group has a new object id: the tool repoints the four Intune surfaces it is already permitted to write, <b>names every reference it cannot</b>, and says out loud that anything outside Intune is invisible to it. The original is renamed aside as your rollback, never deleted. <b>Writes to the tenant.</b></p>
+        <p>A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the role-assignable costs: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined; a group that is both is a group whose members <b>nobody</b> can edit. Because <code>isAssignableToRole</code> is immutable this is a <b>recreate</b>, so the new group has a new object id: the tool repoints the seven Intune surfaces it is already permitted to write, <b>names every reference it cannot</b>, with the reason beside each one, and says out loud that anything outside Intune is invisible to it. The original is renamed aside as your rollback, never deleted. <b>Writes to the tenant.</b></p>
       </div>
     </div>
     <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
@@ -913,7 +913,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div id="vfImportWrap" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
         <h3 style="margin:0 0 6px">⇄ Import assignments <span class="tag block">writes to the tenant</span></h3>
         <p class="mini" id="vfImportInfo" style="margin:0 0 6px"></p>
-        <p class="mini muted" style="margin:0 0 10px"><b>Same tenant only, four surfaces, all-or-nothing per policy.</b> The archive's <code>assignments.json</code> is written back through the assignment editor's own machinery: the import targets the <b>same policy ids</b> (never a namesake), refuses outright when the archive came from another tenant — group ids do not translate, and one that happens to resolve is worse than one that fails — and refuses any policy whose archived list names a group that has since been deleted, because writing the list without it would change its meaning and a dropped exclusion widens. Device configurations, settings catalog, compliance and administrative templates import; everything else in the file is export-only and says why. Dry run first; each policy re-read at apply and skipped as <b>drifted</b> if it changed; every write verified by read-back.</p>
+        <p class="mini muted" style="margin:0 0 10px"><b>Same tenant only, seven surfaces, all-or-nothing per policy.</b> The archive's <code>assignments.json</code> is written back through the assignment editor's own machinery: the import targets the <b>same policy ids</b> (never a namesake), refuses outright when the archive came from another tenant — group ids do not translate, and one that happens to resolve is worse than one that fails — and refuses any policy whose archived list names a group that has since been deleted, because writing the list without it would change its meaning and a dropped exclusion widens. Device configurations, settings catalog, compliance, administrative templates and the feature, quality and driver update profiles import; everything else in the file is export-only and says why. Dry run first; each policy re-read at apply and skipped as <b>drifted</b> if it changed; every write verified by read-back.</p>
         <div id="vfTenantWrap" style="display:none;margin:0 0 8px">
           <label class="wi-f"><span>This archive predates tenant identity — type this tenant's domain to continue</span>
             <input id="vfTenantConfirm" autocomplete="off" spellcheck="false"></label>
@@ -1137,7 +1137,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <h2 style="margin:0 0 6px">🔄 Group migration <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
       <p class="mini" style="margin:0">Turn a <b>role-assignable</b> security group into a plain one inside a <b>restricted management administrative unit</b>. Role-assignable was only ever a way to keep membership away from tenant-wide group administrators; a restricted unit does that and lets you <b>name</b> who may manage it, without the 500-per-tenant cap, the ban on dynamic membership or the loss of nesting control. Ported from the sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s ⑦ Migrate, Intune-side-out.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>The two can never be combined, and that is the state this tool exists to get you out of.</b> A role-assignable group admits only Global Administrator or Privileged Role Administrator; a restricted unit blocks exactly those two; and neither can be assigned at administrative-unit scope. A group that is both is a group whose members <b>nobody</b> can edit — 🧊 frozen. This tool refuses to create that state and names it where it already exists.</p>
-      <p class="mini muted" style="margin:8px 0 0"><b><code>isAssignableToRole</code> is immutable, so this is a recreate and the new group has a NEW OBJECT ID.</b> That single fact is the whole risk. What TUNO may write it repoints — the four surfaces T11 already writes, using T11's own engine so the drift check and the verify read-back are the ones in production. What it may not write it <b>names</b>: applications, scripts, app protection and configuration, enrolment restrictions, Autopilot, update rings. Each would need a write scope this registration does not declare, and adding one is a decision taken in the open rather than a side effect of a feature.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b><code>isAssignableToRole</code> is immutable, so this is a recreate and the new group has a NEW OBJECT ID.</b> That single fact is the whole risk. What TUNO may write it repoints — the seven surfaces T11 already writes, using T11's own engine so the drift check and the verify read-back are the ones in production. What it may not write it <b>names, with the reason beside each row</b>: applications, scripts, app protection and configuration, enrolment restrictions, Autopilot. Those need a write scope this registration does not declare, and adding one is a decision taken in the open rather than a side effect of a feature. <b>Windows update profiles used to be on that list and should not have been</b> — feature, quality and driver profiles take the same write scope the tool already holds, and sat in the remainder only because the surface table had not listed them (beta 10604). A reason that covers a set by construction cannot be checked; each row now carries its own.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>And everything outside Intune is invisible here</b> — Conditional Access, group-based licensing, Azure RBAC, app role assignments all address a group by object id. TUNO does not read them and will not pretend to. <b>The original is renamed aside, never deleted</b>: it keeps its members, stays role-assignable, and is your rollback until you have checked them.</p>
     </div>
 
@@ -1525,7 +1525,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
   <section id="screen-assignedit" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">✏️ Assignment editor <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
-      <p class="mini" style="margin:0">Bulk assignment changes across device configurations, settings catalog, compliance policies and administrative templates — after Maxime Guillemin's <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> (MIT), whose question this is. The write discipline is TUNO's own: <b>read → plan → backup → confirm → apply → verify</b>, in that order, enforced by the screen and not by your care. The write permission is asked for at the apply click and never before — reading and planning cost nothing but reads.</p>
+      <p class="mini" style="margin:0">Bulk assignment changes across device configurations, settings catalog, compliance policies, administrative templates and the Windows feature, quality and driver update profiles — after Maxime Guillemin's <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> (MIT), whose question this is. The write discipline is TUNO's own: <b>read → plan → backup → confirm → apply → verify</b>, in that order, enforced by the screen and not by your care. The write permission is asked for at the apply click and never before — reading and planning cost nothing but reads.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>What it will not do.</b> Scripts and applications each need a write permission the registration does not hold, and adding one is a decision to take in the open, not a feature's side effect — they are absent, not forgotten. Deleting and renaming policies stay in the Toolkit's own “Advanced Actions”; neither belongs in a browser tool whose whole argument is that it cannot do much harm. And the assign call <b>replaces the whole list</b>, so every policy is re-read at apply time: one that changed since the plan was made is skipped as <b>drifted</b> rather than overwritten, because replacing a list somebody else just edited is how two admins erase each other.</p>
     </div>
 
@@ -1663,7 +1663,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:0">After <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> by <b>Maxime Guillemin</b> (MIT) — a WPF application that does the thing every admin wants and the portal makes slow: <b>add and remove assignments in bulk</b>, across settings catalog, device configuration, compliance, administrative templates, endpoint security intents, Autopilot, app configuration, every application type and every script type. With filters and install intent. Plus backup and restore of <i>the assignments themselves</i>, which is a smaller and more useful thing than <span class="rm-ref">R08</span>'s full configuration archive: you can put assignments back without touching the policies.</p>
             <p class="mini" style="margin:6px 0 0"><b>This would be the second thing in TUNO that writes, and the first that writes at scale.</b> T01 creates one profile after a read that refuses to overwrite. This changes what lands on real devices, in bulk, and the mistake it enables is not a duplicate policy but a policy reaching the wrong population — which is invisible until somebody's laptop behaves differently. It gets T01's rules and more: <code>ReadWrite</code> asked on the click and never at sign-in, a dry run listing every operation with the group NAME and its member count before anything is sent, removals confirmed separately from additions, and the assignment state captured to a file first so there is always a way back.</p>
             <p class="mini" style="margin:6px 0 0"><b>Two of its features are deliberately not on this card.</b> It can hard-delete policies and rename them; both are behind its own “Advanced Actions” toggle and neither belongs in a browser tool whose whole argument is that it cannot do much harm. If TUNO ever deletes a policy it will be its own decision, not one inherited.</p>
-            <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Four surfaces — device configurations, settings catalog, compliance, administrative templates — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Shipped narrower than the card promised, on purpose.</b> Seven surfaces — device configurations, settings catalog, compliance, administrative templates, and the Windows feature, quality and driver update profiles (the last three added at beta 10604) — because they are the ones under the write permission the registration already holds. Scripts, applications, app configuration and endpoint security intents each need a write scope TUNO does not carry, and adding one is a decision to take in the open (the <span class="rm-ref">R18</span> rule), not a feature's side effect. <b>Narrow is a decision; narrow by oversight is a bug.</b> The update profiles were outside for three months on no decision at all — nobody had listed them — and 🔄 Group migration, which derives "cannot be repointed" by subtracting this table, told operators those rows needed a consent their tenant did not need. The promised rules all arrived, plus two the card did not name: every write is preceded by a fresh read, so a policy edited by somebody else between plan and apply is skipped as <b>drifted</b> rather than overwritten; and every write is followed by a read-back, so “done” is the tenant's word. Filters on untouched assignments survive the round trip — the assign call replaces the whole list, and dropping one would silently widen an assignment nobody meant to touch.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R21</span> 🧩 Assignment filters <span class="tag grant">live · beta 10384 · production 8</span> <span class="tag block">writes to the tenant</span></h4>
@@ -1697,7 +1697,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>And an archive you can check.</b> TenuVault writes a SHA-256 per policy file and a <code>verify</code> that reports modified, missing and untracked files — entirely offline, no tenant. An archive nobody can verify is a file you hope is a backup. <b>Its atomicity trick is worth copying exactly</b>: <code>metadata.json</code> is written LAST, so its presence is what marks a backup complete, and a folder without one is hidden rather than offered. TUNO builds its zip in memory and hands it to the browser in one act, so a half-written archive is less likely — but "less likely" is not "cannot", and a manifest that only exists when the run finished is a better guarantee than a promise.</p>
             <p class="mini" style="margin:6px 0 0">Assignments captured optionally with a <code>groups.json</code> beside them, read-only and for auditing rather than restore — group ids are tenant-specific and copying them across tenants is meaningless, which TenuVault says plainly and <span class="rm-ref">R09</span> already agrees with.</p>
             <p class="mini" style="margin:6px 0 0"><b>Shipped inside 📦 Backup configuration (R08's tool, T04, v0.3) — one screen, not a second tool.</b> Nineteen new export areas joined the interop five; the five keep the PowerShell original's folder names exactly, the new folders are TUNO's own, because TenuVault is a Go binary with its own layout and claiming byte-interop with it would be a claim nothing verifies — what is TenuVault's here is the coverage, the checksum per file and the manifest-written-last rule, credited. Every file carries a SHA-256 in the manifest; <b>verify runs offline in the tab</b> — modified, missing and untracked named, no manifest called what it is, an older archive called unverifiable rather than quietly passed.</p>
-            <p class="mini" style="margin:6px 0 0"><b>And one departure from this card, decided by Mihai: assignments are exportable AND IMPORTABLE.</b> The card said <code>assignments.json</code> would be read-only for auditing. It is now also a restore path — <b>same tenant only</b> (the archive carries the tenant's id and a mismatch is refused outright, no override; cross-tenant is <span class="rm-ref">R17</span>'s problem, deliberately unbuilt), the four surfaces under the held write scope, targeting the <b>same policy ids</b> never a namesake, all-or-nothing per policy when a group in the archived list has since been deleted — writing the list without it would change its meaning, and a dropped exclusion widens. The write runs through the assignment editor's own machinery: dry run, drift skip, read-back verify. <code>groups.json</code> stays what it was — names resolved at backup time, for the audit question the directory can no longer answer.</p>
+            <p class="mini" style="margin:6px 0 0"><b>And one departure from this card, decided by Mihai: assignments are exportable AND IMPORTABLE.</b> The card said <code>assignments.json</code> would be read-only for auditing. It is now also a restore path — <b>same tenant only</b> (the archive carries the tenant's id and a mismatch is refused outright, no override; cross-tenant is <span class="rm-ref">R17</span>'s problem, deliberately unbuilt), T11's surfaces under the held write scope — read from its table, so the update profiles added at 10604 arrived here too — targeting the <b>same policy ids</b> never a namesake, all-or-nothing per policy when a group in the archived list has since been deleted — writing the list without it would change its meaning, and a dropped exclusion widens. The write runs through the assignment editor's own machinery: dry run, drift skip, read-back verify. <code>groups.json</code> stays what it was — names resolved at backup time, for the audit question the directory can no longer answer.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R11</span> 🔮 Assignment what-if <span class="tag grant">live · beta 10357 · production 9</span></h4>
@@ -1780,7 +1780,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R33</span> 🔄 Group migration <span class="tag grant">live · beta 10558 · production 12</span></h4>
             <p class="mini" style="margin:0">The sister tool <a href="https://enca.limon-it.nl" target="_blank" rel="noopener">ENCA</a>'s ⑦ Migrate, Intune-side-out. A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the costs role-assignable carries: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined, because a restricted unit blocks exactly the two roles a role-assignable group admits, so a group that is both is a group whose members <b>nobody</b> can edit.</p>
-            <p class="mini" style="margin:6px 0 0"><b>The new group has a new object id, and the tool can only move half the references.</b> <code>isAssignableToRole</code> is immutable, so this is a recreate rather than a patch. The four surfaces <span class="rm-ref">R13</span>'s assignment editor already writes are repointed with that tool's own engine — the fresh-read drift check and the verify read-back come along rather than being written a second time. Applications, scripts, app protection and configuration, enrolment restrictions, Autopilot and update rings are <b>read and named</b>, never moved: each would need a write scope this registration does not declare, and adding one is a decision taken in the open rather than a side effect of a feature.</p>
+            <p class="mini" style="margin:6px 0 0"><b>The new group has a new object id, and the tool can only move half the references.</b> <code>isAssignableToRole</code> is immutable, so this is a recreate rather than a patch. The seven surfaces <span class="rm-ref">R13</span>'s assignment editor writes are repointed with that tool's own engine — the fresh-read drift check and the verify read-back come along rather than being written a second time. Applications, scripts, app protection and configuration, enrolment restrictions and Autopilot are <b>read and named</b>, never moved: each would need a write scope this registration does not declare, and adding one is a decision taken in the open rather than a side effect of a feature. Update profiles were named alongside them until beta 10604, wrongly — they take the scope already held.</p>
             <p class="mini" style="margin:6px 0 0"><b>And the sentence the tool says out loud rather than leaving to be discovered:</b> everything outside Intune is invisible to it. Conditional Access, group-based licensing, Azure RBAC and app role assignments all address a group by object id. The original is renamed aside and never deleted — it keeps its members, stays role-assignable, and is the rollback until those have been checked.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
@@ -2169,49 +2169,49 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10603"></script>
-<script src="js/selfhost.js?v=10603"></script>
-<script src="js/version.js?v=10603"></script>
-<script src="js/promote.js?v=10603"></script>
-<script src="js/authConfig.js?v=10603"></script>
-<script src="js/changelog.js?v=10603"></script>
-<script src="js/msappcatalog.js?v=10603"></script>
-<script src="js/demo.js?v=10603"></script>
-<script src="js/graph.js?v=10603"></script>
-<script src="js/suggest.js?v=10603"></script>
-<script src="js/progress.js?v=10603"></script>
-<script src="js/groupuse.js?v=10603"></script>
-<script src="js/audit.js?v=10603"></script>
-<script src="js/devicecleanup.js?v=10603"></script>
-<script src="js/backup.js?v=10603"></script>
-<script src="js/document.js?v=10603"></script>
-<script src="js/policycache.js?v=10603"></script>
-<script src="js/overview.js?v=10603"></script>
-<script src="js/devicewhy.js?v=10603"></script>
-<script src="js/whatif.js?v=10603"></script>
-<script src="js/health.js?v=10603"></script>
-<script src="js/settingsearch.js?v=10603"></script>
-<script src="js/conflict.js?v=10603"></script>
-<script src="js/compliance.js?v=10603"></script>
-<script src="js/filterrules.js?v=10603"></script>
-<script src="js/filters.js?v=10603"></script>
-<script src="js/restore.js?v=10603"></script>
-<script src="js/platformbaseline.js?v=10603"></script>
-<script src="js/complianceevidence.js?v=10603"></script>
-<script src="js/macbaseline.js?v=10603"></script>
-<script src="js/winbaseline.js?v=10603"></script>
-<script src="js/assignedit.js?v=10603"></script>
-<script src="js/restrictedau.js?v=10603"></script>
-<script src="js/groupmigrate.js?v=10603"></script>
-<script src="js/roles.js?v=10603"></script>
-<script src="js/defender.js?v=10603"></script>
-<script src="js/endpointsec.js?v=10603"></script>
-<script src="js/report.js?v=10603"></script>
-<script src="js/securescore.js?v=10603"></script>
-<script src="js/endpointposture.js?v=10603"></script>
-<script src="js/maa.js?v=10603"></script>
-<script src="js/laps.js?v=10603"></script>
-<script src="js/applocker.js?v=10603"></script>
-<script src="js/app.js?v=10603"></script>
+<script src="js/branding.js?v=10604"></script>
+<script src="js/selfhost.js?v=10604"></script>
+<script src="js/version.js?v=10604"></script>
+<script src="js/promote.js?v=10604"></script>
+<script src="js/authConfig.js?v=10604"></script>
+<script src="js/changelog.js?v=10604"></script>
+<script src="js/msappcatalog.js?v=10604"></script>
+<script src="js/demo.js?v=10604"></script>
+<script src="js/graph.js?v=10604"></script>
+<script src="js/suggest.js?v=10604"></script>
+<script src="js/progress.js?v=10604"></script>
+<script src="js/groupuse.js?v=10604"></script>
+<script src="js/audit.js?v=10604"></script>
+<script src="js/devicecleanup.js?v=10604"></script>
+<script src="js/backup.js?v=10604"></script>
+<script src="js/document.js?v=10604"></script>
+<script src="js/policycache.js?v=10604"></script>
+<script src="js/overview.js?v=10604"></script>
+<script src="js/devicewhy.js?v=10604"></script>
+<script src="js/whatif.js?v=10604"></script>
+<script src="js/health.js?v=10604"></script>
+<script src="js/settingsearch.js?v=10604"></script>
+<script src="js/conflict.js?v=10604"></script>
+<script src="js/compliance.js?v=10604"></script>
+<script src="js/filterrules.js?v=10604"></script>
+<script src="js/filters.js?v=10604"></script>
+<script src="js/restore.js?v=10604"></script>
+<script src="js/platformbaseline.js?v=10604"></script>
+<script src="js/complianceevidence.js?v=10604"></script>
+<script src="js/macbaseline.js?v=10604"></script>
+<script src="js/winbaseline.js?v=10604"></script>
+<script src="js/assignedit.js?v=10604"></script>
+<script src="js/restrictedau.js?v=10604"></script>
+<script src="js/groupmigrate.js?v=10604"></script>
+<script src="js/roles.js?v=10604"></script>
+<script src="js/defender.js?v=10604"></script>
+<script src="js/endpointsec.js?v=10604"></script>
+<script src="js/report.js?v=10604"></script>
+<script src="js/securescore.js?v=10604"></script>
+<script src="js/endpointposture.js?v=10604"></script>
+<script src="js/maa.js?v=10604"></script>
+<script src="js/laps.js?v=10604"></script>
+<script src="js/applocker.js?v=10604"></script>
+<script src="js/app.js?v=10604"></script>
 </body>
 </html>

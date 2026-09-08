@@ -13,12 +13,33 @@
 //     mistake it enables is not a duplicate policy but a policy reaching
 //     the wrong population — invisible until somebody's laptop behaves
 //     differently.
-//   * FOUR SURFACES, ALL UNDER THE ONE WRITE SCOPE the registration already
-//     declares (DeviceManagementConfiguration.ReadWrite.All): device
-//     configurations, settings catalog, compliance, administrative
-//     templates. Scripts and applications are deliberately ABSENT — each
-//     would be a NEW write scope, and adding a write scope is a decision
-//     to take in the open (the R18 rule), not a side effect of a feature.
+//   * SEVEN SURFACES, ALL UNDER THE ONE WRITE SCOPE the registration
+//     already declares (DeviceManagementConfiguration.ReadWrite.All):
+//     device configurations, settings catalog, compliance, administrative
+//     templates, and the three Windows update profile collections —
+//     feature, quality, driver. Scripts and applications are deliberately
+//     ABSENT — each would be a NEW write scope, and adding a write scope
+//     is a decision to take in the open (the R18 rule), not a side effect
+//     of a feature.
+//   * THE UPDATE PROFILES ARRIVED AT 10604, and the reason they were
+//     missing is worth keeping. T22 splits "can repoint" from "must be
+//     moved by hand" by SUBTRACTION from this table, and then explains the
+//     remainder with one sentence: each needs a write scope this
+//     registration does not declare. For apps, scripts, app protection,
+//     app configuration, enrolment and Autopilot that is true. For update
+//     profiles it never was — /assign on windowsFeatureUpdateProfiles,
+//     windowsQualityUpdateProfiles and windowsDriverUpdateProfiles takes
+//     DeviceManagementConfiguration.ReadWrite.All, the scope already held.
+//     They were absent because nobody had listed them, and the report
+//     inherited a reason from its neighbours. Absence from a table is not
+//     a permission boundary, and a tool that says it is has told the
+//     operator something false about their tenant.
+//   * UPDATE PROFILES ARE GROUP-TARGETED ONLY (`groupsOnly`). Feature
+//     update policies are evaluated against the SECURITY GROUPS assigned
+//     to them; Graph's tenant-wide targets are not offered on these
+//     collections. The plan refuses allDevices/allUsers there rather than
+//     posting a body the service will reject — the T09 habit, refusing
+//     before the mistake instead of reporting after it.
 //   * /assign REPLACES the whole assignment list. There is no "add one"
 //     API: the tool reads the current list, edits its copy, and writes the
 //     whole list back. Everything it does not touch must survive the round
@@ -56,25 +77,62 @@ const AssignEdit = (() => {
   const READ = () => S().config;
   const WRITE = () => S().profiles;
 
-  // The four surfaces. `assign` is the action path; every one of them takes
+  // The seven surfaces. `assign` is the action path; every one of them takes
   // { assignments: [...] } and REPLACES the list.
+  //
+  // `section` is T05's section id — the one home of the surface→section
+  // mapping, read forwards by the warm start and backwards by the handoff.
+  // `collection` is set ONLY where a T05 section folds several endpoints
+  // into one list (the three update profile collections share `updates`):
+  // there the cache's items carry `__surface`, stamped at 10586 for exactly
+  // this, and the warm start filters on it. A single-endpoint section
+  // stamps nothing, so those surfaces must not declare a collection.
+  //
+  // `assignmentType` is the envelope @odata.type the collection's assign
+  // action documents. The four original surfaces accept a bare
+  // { target: … }; the update profiles type their assignment collection
+  // (windowsFeatureUpdateProfileAssignment and friends), so the envelope is
+  // stamped at WRITE time only — `sig` compares targets, and a body field
+  // that never comes back from a read must not enter the comparison.
   const SURFACES = [
     { id: "deviceConfig", label: "Device configuration", icon: "⚙️", nameField: "displayName",
+      section: "deviceConfigurations",
       list: "/deviceManagement/deviceConfigurations?$expand=assignments",
       assign: (id) => `/deviceManagement/deviceConfigurations/${id}/assign`,
       read1: (id) => `/deviceManagement/deviceConfigurations/${id}/assignments` },
     { id: "settingsCatalog", label: "Settings catalog", icon: "🎛", nameField: "name",
+      section: "settingsCatalog",
       list: "/deviceManagement/configurationPolicies?$expand=assignments",
       assign: (id) => `/deviceManagement/configurationPolicies/${id}/assign`,
       read1: (id) => `/deviceManagement/configurationPolicies/${id}/assignments` },
     { id: "compliance", label: "Compliance policy", icon: "✅", nameField: "displayName",
+      section: "compliance",
       list: "/deviceManagement/deviceCompliancePolicies?$expand=assignments",
       assign: (id) => `/deviceManagement/deviceCompliancePolicies/${id}/assign`,
       read1: (id) => `/deviceManagement/deviceCompliancePolicies/${id}/assignments` },
     { id: "admx", label: "Administrative template", icon: "📋", nameField: "displayName",
+      section: "admx",
       list: "/deviceManagement/groupPolicyConfigurations?$expand=assignments",
       assign: (id) => `/deviceManagement/groupPolicyConfigurations/${id}/assign`,
       read1: (id) => `/deviceManagement/groupPolicyConfigurations/${id}/assignments` },
+    { id: "featureUpdate", label: "Feature update profile", icon: "🔄", nameField: "displayName",
+      section: "updates", collection: "/deviceManagement/windowsFeatureUpdateProfiles",
+      assignmentType: "#microsoft.graph.windowsFeatureUpdateProfileAssignment", groupsOnly: true,
+      list: "/deviceManagement/windowsFeatureUpdateProfiles?$expand=assignments",
+      assign: (id) => `/deviceManagement/windowsFeatureUpdateProfiles/${id}/assign`,
+      read1: (id) => `/deviceManagement/windowsFeatureUpdateProfiles/${id}/assignments` },
+    { id: "qualityUpdate", label: "Quality update profile", icon: "🩹", nameField: "displayName",
+      section: "updates", collection: "/deviceManagement/windowsQualityUpdateProfiles",
+      assignmentType: "#microsoft.graph.windowsQualityUpdateProfileAssignment", groupsOnly: true,
+      list: "/deviceManagement/windowsQualityUpdateProfiles?$expand=assignments",
+      assign: (id) => `/deviceManagement/windowsQualityUpdateProfiles/${id}/assign`,
+      read1: (id) => `/deviceManagement/windowsQualityUpdateProfiles/${id}/assignments` },
+    { id: "driverUpdate", label: "Driver update profile", icon: "🔌", nameField: "displayName",
+      section: "updates", collection: "/deviceManagement/windowsDriverUpdateProfiles",
+      assignmentType: "#microsoft.graph.windowsDriverUpdateProfileAssignment", groupsOnly: true,
+      list: "/deviceManagement/windowsDriverUpdateProfiles?$expand=assignments",
+      assign: (id) => `/deviceManagement/windowsDriverUpdateProfiles/${id}/assign`,
+      read1: (id) => `/deviceManagement/windowsDriverUpdateProfiles/${id}/assignments` },
   ];
   const surfaceById = (id) => SURFACES.find((s) => s.id === id) || null;
 
@@ -93,6 +151,14 @@ const AssignEdit = (() => {
     return o;
   }
   const cleanAssignments = (list) => (list || []).map((a) => ({ target: cleanTarget(a.target || {}) }));
+  // THE BODY IS THE CANONICAL LIST PLUS THE ENVELOPE TYPE THE COLLECTION
+  // DEMANDS — and nothing else. Kept separate from cleanAssignments on
+  // purpose: `sig` is built from the canonical shape and compares what the
+  // tenant gives back, so a field that exists only in the request would
+  // make every verify read-back mismatch. Applied at the POST, once.
+  const bodyAssignments = (sf, list) => (sf && sf.assignmentType
+    ? (list || []).map((a) => ({ "@odata.type": sf.assignmentType, ...a }))
+    : (list || []));
   // Canonical string for set comparison — drift and verify both hang off it.
   const sig = (list) => cleanAssignments(list)
     .map((a) => JSON.stringify(Object.keys(a.target).sort().reduce((o, k) => (o[k] = a.target[k], o), {})))
@@ -186,7 +252,14 @@ const AssignEdit = (() => {
     for (const p of policies) {
       const before = p.assignments || [];
       let op = null;
-      if (tw) {
+      if (tw && (surfaceById(p.surface) || {}).groupsOnly) {
+        // Refused where the mistake is, not after the service rejects it.
+        // Windows update profiles are evaluated against the SECURITY GROUPS
+        // assigned to them; Graph's two tenant-wide targets are not offered
+        // on these collections, so the request would 400 and the operator
+        // would learn it from an error rather than from the plan.
+        op = { change: "refused", reason: `${p.surfaceLabel}s are targeted by security group only — Intune does not offer ${group.displayName} on this surface. Name the groups instead.` };
+      } else if (tw) {
         const has = before.some((a) => isTW(a, tw));
         const want = wantSig(filter);
         const sameF = before.some((a) => isTW(a, tw) && filterSig(a) === want);
@@ -247,12 +320,19 @@ const AssignEdit = (() => {
       tool: "TUNO T11 assignment editor",
       build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
       takenUtc: new Date().toISOString(),
-      note: "Current assignments of every policy this plan would change, captured BEFORE applying. To restore one: POST the surface's /assign action with { assignments: [...] } exactly as recorded here.",
+      note: "Current assignments of every policy this plan would change, captured BEFORE applying. To restore one: POST the `assign` path recorded with it and the `assignments` array exactly as recorded here — the body is already in the shape that collection's assign action takes, envelope @odata.type included where one is required.",
       action: plan.action, group: { id: plan.group.id, name: plan.group.displayName },
-      policies: plan.changes.map((o) => ({
-        surface: o.policy.surface, id: o.policy.id, name: o.policy.name,
-        assignments: o.before,
-      })),
+      policies: plan.changes.map((o) => {
+        const sf = surfaceById(o.policy.surface);
+        return {
+          surface: o.policy.surface, id: o.policy.id, name: o.policy.name,
+          // The path was implicit before — recoverable only by knowing which
+          // collection a surface id meant. Seven surfaces is too many to
+          // carry in the reader's head at the moment they are restoring.
+          assign: sf ? sf.assign(o.policy.id) : "",
+          assignments: bodyAssignments(sf, o.before),
+        };
+      }),
     }, null, 2);
   }
 
@@ -279,7 +359,7 @@ const AssignEdit = (() => {
         }
         // 2. the write — full replacement, no retry
         status(`${label} — writing…`);
-        await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: op.after }, { scopes: WRITE() });
+        await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: bodyAssignments(sf, op.after) }, { scopes: WRITE() });
         // 3. read it back: the tenant's word, not the request's status code
         status(`${label} — verifying…`);
         let verified = false, verifyError = "";
@@ -299,7 +379,7 @@ const AssignEdit = (() => {
 
   return {
     SURFACES, setFilterNames, surfaceById, READ, WRITE,
-    cleanTarget, cleanAssignments, sig, readPolicies, planFor, backupJson, applyPlan,
+    cleanTarget, cleanAssignments, bodyAssignments, sig, readPolicies, planFor, backupJson, applyPlan,
   };
 })();
 
@@ -434,10 +514,12 @@ const AssignEditTool = (() => {
   // would print — not a summary that could drift from it. The tick box
   // beside the name stays the selection; the name is the look inside.
   //
-  // T11's four surfaces are four of T05's thirteen, by construction (both
-  // are the write scope's read side), so the mapping is a lookup, not a
-  // guess.
-  const SEC_OF = { deviceConfig: "deviceConfigurations", settingsCatalog: "settingsCatalog", compliance: "compliance", admx: "admx" };
+  // T11's surfaces are a subset of T05's thirteen sections, by construction
+  // (both are the write scope's read side), so the mapping is a lookup, not
+  // a guess — and it is READ OFF THE SURFACE TABLE rather than repeated
+  // here. It stopped being one-to-one at 10604: the three update profile
+  // collections are three surfaces inside T05's single `updates` section.
+  const SEC_OF = Object.fromEntries(AssignEdit.SURFACES.map((s) => [s.id, s.section]));
 
   // Cached per read: opening the same policy twice must not re-ask the
   // tenant, but a FRESH read is a fresh tenant and clears it — a popout
@@ -446,13 +528,18 @@ const AssignEditTool = (() => {
   const popCache = new Map();
 
   // ------------------------------------------------------- warm start --
-  // The shared policy cache (build 10520) covers T11's four surfaces —
-  // they are four of T05's thirteen, and collect() keeps the RAW objects
+  // The shared policy cache (build 10520) covers T11's surfaces — they are
+  // a subset of T05's thirteen, and collect() keeps the RAW objects
   // (keepRaw) precisely so this pipeline can consume untouched assignment
   // targets. Opening the screen shows the list; ✏️ Read the policies stays
   // the fresh read, because a plan should be cut from the newest list the
   // tenant will give — and every WRITE path re-reads per policy anyway
   // (drift check), so a stale row can never become a stale write.
+  //
+  // A SECTION THAT FOLDS SEVERAL COLLECTIONS IS SPLIT BACK APART HERE, on
+  // `__surface`. Without the filter the three update surfaces would each
+  // take the whole `updates` section, and the rail would offer to write a
+  // driver profile through the feature profile's assign path.
   function policiesFromCache(c) {
     const out = [], failed = [];
     for (const [sfId, secId] of Object.entries(SEC_OF)) {
@@ -464,6 +551,7 @@ const AssignEditTool = (() => {
         continue;
       }
       for (const it of sec.raw) {
+        if (sf.collection && it.__surface !== sf.collection) continue;
         out.push({
           surface: sfId, surfaceLabel: sf.label, icon: sf.icon,
           id: it.id, name: it[sf.nameField] || it.displayName || it.name || it.id,
@@ -492,24 +580,34 @@ const AssignEditTool = (() => {
   // the tile's own handler, the 10398 click-through rule, so crumb, tab
   // and sidebar all follow. The section→surface mapping lives HERE, its
   // one home, next to SEC_OF (the same table read the other way).
-  const SURFACE_OF_SEC = Object.fromEntries(Object.entries(SEC_OF).map(([sf, sec]) => [sec, sf]));
+  // ONE SECTION CAN NOW MEAN SEVERAL SURFACES (10604), so the reverse map
+  // holds a list and the handoff no longer names a surface at all: it
+  // carries the section and the object id, and the tick is resolved against
+  // the list once the list exists. Guessing a surface here would have been
+  // a guess that fails silently — applyPending drops a key it cannot find,
+  // so a driver profile handed over as a feature profile would simply not
+  // tick, with nothing on screen to say why.
+  const SURFACE_OF_SEC = Object.entries(SEC_OF).reduce((m, [sf, sec]) => {
+    (m[sec] = m[sec] || []).push(sf); return m;
+  }, {});
   const canEdit = (secId) => !!SURFACE_OF_SEC[secId];
   // A handoff into a cold list waits for the list: consumed by onShow (the
   // warm start) and readAll (the fresh read), whichever builds it first.
   let pendingSelect = null;
   function applyPending() {
     if (!pendingSelect || !read) return;
-    const key = pendingSelect; pendingSelect = null;
-    if (!read.policies.some((p) => keyOf(p) === key)) return;   // gone since the other tool read — the tick would lie
+    const want = pendingSelect; pendingSelect = null;
+    const hit = read.policies.find((p) => SEC_OF[p.surface] === want.secId && lcq(p.id) === lcq(want.id));
+    if (!hit) return;                           // gone since the other tool read — the tick would lie
+    const key = keyOf(hit);
     sel.add(key);
     renderPolicies();
     const cb = [...$("aeList").querySelectorAll("[data-aepol]")].find((c) => c.dataset.aepol === key);
     if (cb && cb.scrollIntoView) cb.scrollIntoView({ block: "center" });
   }
   function openWith(secId, id) {
-    const sfId = SURFACE_OF_SEC[secId];
-    if (!sfId) return false;                    // not one of the four editable surfaces
-    pendingSelect = `${sfId}|${id}`;
+    if (!canEdit(secId)) return false;          // not one of the editable surfaces
+    pendingSelect = { secId, id };
     const tile = $("toolAssignEdit");
     if (tile) tile.click();                     // show() runs the screen hook, which applies the pending tick
     applyPending();                             // and a list that already existed applies it now

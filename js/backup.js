@@ -381,7 +381,7 @@ const Backup = (() => {
 
   // assignments.json — every policy that carries assignments, with the
   // targets serialised to exactly what /assign accepts. EXPORTABLE by being
-  // here; IMPORTABLE (same tenant, four surfaces) through the import panel.
+  // here; IMPORTABLE (same tenant, T11's surfaces) through the import panel.
   function assignmentsExport(out) {
     const policies = [];
     for (const a of out.areas) for (const f of a.files) {
@@ -549,7 +549,9 @@ const Backup = (() => {
 //     list minus the dead id would change its meaning, and dropping a dead
 //     EXCLUSION silently widens the assignment. The T11 sentence, applied
 //     to time instead of to a filter.
-//   * T11'S WRITE DISCIPLINE WHOLE: four surfaces under the held write
+//   * T11'S WRITE DISCIPLINE WHOLE: its surface table, read not copied, so
+//     a collection added there (the update profiles, 10604) arrives here
+//     too — under the held write
 //     scope, /assign replaces the list so the archived targets go over the
 //     wire exactly as cleaned at backup time, every write preceded by a
 //     fresh read (changed since the dry run = DRIFTED, skipped), followed
@@ -638,7 +640,13 @@ const AssignImport = (() => {
           continue;
         }
         onStatus && onStatus(`${label} — writing…`);
-        await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: op.want }, { scopes: AssignEdit.WRITE() });
+        // Through AssignEdit's body shaper, not the raw array (10604): the
+        // surface table now spans collections whose assign action types its
+        // assignment envelope, and this loop reuses that table. A restore
+        // that skipped the envelope would be a write path diverging from
+        // the one T11 verifies — the exact split reusing the table exists
+        // to prevent.
+        await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: AssignEdit.bodyAssignments(sf, op.want) }, { scopes: AssignEdit.WRITE() });
         onStatus && onStatus(`${label} — verifying…`);
         let verified = false, verifyError = "";
         try {

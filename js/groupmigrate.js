@@ -27,19 +27,29 @@
 // The new group has a new object id, and that single fact is the whole
 // risk of the tool. Everything below is arranged around it:
 //
-//   * WHAT TUNO CAN REPOINT, IT REPOINTS. The four surfaces T11 already
-//     writes under DeviceManagementConfiguration.ReadWrite.All — device
+//   * WHAT TUNO CAN REPOINT, IT REPOINTS. The seven surfaces T11 writes
+//     under DeviceManagementConfiguration.ReadWrite.All — device
 //     configuration, settings catalog, compliance, administrative
-//     templates. AssignEdit's engine does the writing, so the drift check,
+//     templates, and (from 10604) the feature, quality and driver update
+//     profiles. AssignEdit's engine does the writing, so the drift check,
 //     the verify read-back and the filter-preserving serialisation are the
 //     ones that have been in production since build 8 rather than a second
 //     copy of them.
 //   * WHAT IT CANNOT, IT NAMES. Applications, scripts, app protection, app
-//     configuration, enrolment restrictions, Autopilot and update rings
-//     each need a write scope this registration does not declare, and
-//     adding a write scope is a decision taken in the open (the R18 rule),
-//     not a side effect of a feature. They are read — T02's reader answers
-//     for all nine surfaces — and listed as work the operator must finish.
+//     configuration, enrolment restrictions and Autopilot each need a write
+//     scope this registration does not declare, and adding a write scope is
+//     a decision taken in the open (the R18 rule), not a side effect of a
+//     feature. They are read — T02's reader answers for all nine surfaces —
+//     and listed as work the operator must finish.
+//   * UPDATE PROFILES USED TO BE ON THAT LIST AND SHOULD NEVER HAVE BEEN.
+//     They sat in the remainder because AssignEdit had not listed them, and
+//     the remainder is explained by ONE SENTENCE naming a missing write
+//     scope — so the report told operators their tenant needed a consent it
+//     did not need. The subtraction was right; the sentence was a guess
+//     about why, applied to everything the subtraction left. It is now
+//     phrased per surface (`whyManual`), because a reason that covers a set
+//     by construction cannot be checked, and this one was wrong for three
+//     of the nine from the day it was written.
 //   * WHAT IT CANNOT EVEN SEE, IT SAYS SO. Conditional Access, group-based
 //     licensing, Azure RBAC, app role assignments. TUNO is an Intune tool
 //     and the report says that in the same breath as the new object id.
@@ -340,12 +350,42 @@ const GroupMigrate = (() => {
   //
   //   repointable — AssignEdit.readPolicies(), which is BY DEFINITION the
   //                 set this tool can write. Not "the config sources", not
-  //                 "probably these": the exact four surfaces whose /assign
-  //                 action rides the scope the registration declares.
+  //                 "probably these": the exact seven surfaces whose
+  //                 /assign action rides the scope the registration
+  //                 declares.
   //   other       — everything else T02's reader finds. Apps, scripts, app
   //                 protection, app configuration, enrolment, Autopilot,
-  //                 update rings. Read so they can be NAMED, never written.
+  //                 and settings-catalog compliance. Read so they can be
+  //                 NAMED, never written.
   //
+  // WHY A ROW IS MANUAL, PER SOURCE — never one sentence over the whole
+  // remainder. The single sentence read "each needs a write scope this
+  // registration does not declare", and for three of the nine sources it
+  // was false: the update profile collections take the SAME
+  // DeviceManagementConfiguration.ReadWrite.All the tool already holds, and
+  // sat in the remainder only because AssignEdit had not listed them (fixed
+  // at 10604, which is why `updates` is absent below). A reason derived
+  // from set membership rather than from the surface cannot be checked
+  // against anything, and this one went unchecked from the day it shipped.
+  //
+  // An unknown source gets an honest unknown, not the old blanket guess.
+  const WHY_MANUAL = {
+    apps: "applications are written under DeviceManagementApps.ReadWrite.All",
+    appProtection: "app protection policies are written under DeviceManagementApps.ReadWrite.All",
+    appConfig: "app configuration policies are written under DeviceManagementApps.ReadWrite.All",
+    scripts: "scripts and remediations are written under DeviceManagementScripts.ReadWrite.All",
+    enrolment: "enrolment restrictions are written under DeviceManagementServiceConfig.ReadWrite.All",
+    autopilot: "Autopilot profiles are written under DeviceManagementServiceConfig.ReadWrite.All",
+    // NOT a scope. The settings-catalog compliance collection
+    // (/deviceManagement/compliancePolicies) takes the write scope this
+    // tool already holds; AssignEdit lists deviceCompliancePolicies only,
+    // so a policy from the other collection lands here. Said plainly
+    // rather than dressed as a permission — it is the same defect the
+    // update profiles had, still open, and naming it is how it gets fixed.
+    compliance: "settings-catalog compliance policies are not yet one of AssignEdit's surfaces — no new scope is needed, the collection is simply not wired",
+  };
+  const whyManual = (src) => WHY_MANUAL[src] || "this surface is not one TUNO writes";
+
   // Deriving `other` by subtraction rather than by listing source ids is
   // deliberate: GroupUse's "config" source covers three collections and its
   // "compliance" source covers two, only one of which AssignEdit writes. A
@@ -394,8 +434,9 @@ const GroupMigrate = (() => {
       (res.rows || []).forEach((h) => {
         if (writableKeys.has(lc(h.id))) return;   // already in the repointable half
         out.other.push({
-          sourceLabel: h.sourceLabel, sub: h.sub || "", id: h.id, name: h.name,
+          source: h.source, sourceLabel: h.sourceLabel, sub: h.sub || "", id: h.id, name: h.name,
           how: h.how === "excluded" ? "excluded" : "assigned",
+          why: whyManual(h.source),
         });
       });
       (res.failed || []).forEach((f) => out.failed.push({ id: f.id, label: f.label, error: f.error || "" }));
@@ -637,7 +678,7 @@ const GroupMigrate = (() => {
 
     const warnings = [
       "**The new group has a new object id.** Everything that names the group by id and is not repointed below keeps pointing at the archived one.",
-      ...(refs.other.length ? [`**${refs.other.length} Intune assignment${refs.other.length === 1 ? "" : "s"} cannot be repointed by this tool** and must be moved by hand — each needs a write scope this registration does not declare.`] : []),
+      ...(refs.other.length ? [`**${refs.other.length} Intune assignment${refs.other.length === 1 ? "" : "s"} cannot be repointed by this tool** and must be moved by hand — the reason is listed per surface below.`] : []),
       "**Anything outside Intune is invisible here** — Conditional Access, group-based licensing, Azure RBAC, app role assignments. TUNO does not read them and cannot say whether they exist.",
       ...(refs.failed.length ? [`**${refs.failed.length} surface${refs.failed.length === 1 ? "" : "s"} could not be read** (${refs.failed.map((f) => f.label).join(", ")}). References there are neither repointed nor listed — they are unknown, which is not the same as absent.`] : []),
       ...(!toUnit ? ["**Nothing is protecting the new group.** Migrating off role-assignable without placing the replacement in a restricted unit makes its membership MORE reachable than before, not less."] : []),
@@ -927,9 +968,9 @@ const GroupMigrate = (() => {
     // group is the rollback until it is done.
     L.push("## Still pointing at the ARCHIVED group — move these by hand", "");
     if (p.refs.other.length) {
-      L.push(`${p.refs.other.length} Intune assignment${p.refs.other.length === 1 ? "" : "s"} name${p.refs.other.length === 1 ? "s" : ""} the old group and could not be moved here — each needs a write scope this app does not declare.`, "",
-        "| Surface | Object | How |", "| --- | --- | --- |");
-      p.refs.other.forEach((r) => L.push(`| ${mdCell(r.sourceLabel)}${r.sub ? ` (${mdCell(r.sub)})` : ""} | ${mdCell(r.name)} | ${mdCell(r.how)} |`));
+      L.push(`${p.refs.other.length} Intune assignment${p.refs.other.length === 1 ? "" : "s"} name${p.refs.other.length === 1 ? "s" : ""} the old group and could not be moved here. The reason is per surface, not one reason for the list — most need a write scope this app does not declare, and where that is not the reason the row says so.`, "",
+        "| Surface | Object | How | Why not moved |", "| --- | --- | --- | --- |");
+      p.refs.other.forEach((r) => L.push(`| ${mdCell(r.sourceLabel)}${r.sub ? ` (${mdCell(r.sub)})` : ""} | ${mdCell(r.name)} | ${mdCell(r.how)} | ${mdCell(r.why || "")} |`));
       L.push("");
     } else {
       L.push("No other Intune assignment names this group.", "");
@@ -1235,7 +1276,7 @@ const GroupMigrateTool = (() => {
         ${step(migrated && migrated >= examined ? "done" : planReady ? "now" : "", `3 · Plan and apply`, `${migrated} migrated${planReady ? ` · ${planReady} plan${planReady === 1 ? "" : "s"} ready` : ""}${refused ? ` · ${refused} refused` : ""}`,
           "Pick or create the destination unit, name its administrator, confirm: rename aside → create → copy members → repoint what TUNO can write.")}
         ${step("", "4 · Finish by hand", "what TUNO cannot write",
-          "Apps, scripts, app protection, app configuration, enrolment, Autopilot and update rings need write scopes this registration does not declare; Conditional Access, licensing, Azure RBAC and app roles it cannot even see. Each report lists them. Then delete the archived rollback from 🧹 Archived.")}
+          "Apps, scripts, app protection, app configuration, enrolment and Autopilot need write scopes this registration does not declare; Conditional Access, licensing, Azure RBAC and app roles it cannot even see. Each report lists them, with the reason beside each row. Then delete the archived rollback from 🧹 Archived.")}
       </div>
       <p class="mini" style="margin:12px 0 0;padding:6px 10px;border-left:3px solid var(--accent2);background:var(--soft2);border-radius:0 8px 8px 0"><b>Nothing has been changed.</b> Reading is free; every write sits behind Examine → Migrate, one group at a time, and each migration ends with the list of references you must move yourself.</p>
     </div>
@@ -1604,11 +1645,14 @@ const GroupMigrateTool = (() => {
           <td class="mini" style="width:190px">${esc(r.icon || "")} ${esc(r.surfaceLabel)}</td>
           <td class="mini"><b>${esc(r.name)}</b></td>
           <td class="mini" style="width:90px">${esc(r.how)}</td></tr>`).join("")}</tbody></table>`
-      : '<p class="mini muted" style="margin:0">Nothing on the four writable surfaces names this group.</p>';
+      : '<p class="mini muted" style="margin:0">Nothing on the seven writable surfaces names this group.</p>';
+    // THE REASON RIDES ON THE ROW, not under the table. A single sentence
+    // under a mixed list is how "needs a scope we do not declare" came to
+    // be printed against update profiles that needed no such thing.
     const other = p.refs.other.length
       ? `<table class="plist"><tbody>${p.refs.other.map((r) => `<tr>
           <td class="mini" style="width:190px">${esc(r.sourceLabel)}</td>
-          <td class="mini"><b>${esc(r.name)}</b></td>
+          <td class="mini"><b>${esc(r.name)}</b><br><span class="mini muted">${esc(r.why || "")}</span></td>
           <td class="mini" style="width:90px">${esc(r.how)}</td></tr>`).join("")}</tbody></table>`
       : '<p class="mini" style="margin:0">No other Intune assignment names this group.</p>';
 
@@ -1621,7 +1665,8 @@ const GroupMigrateTool = (() => {
 
       <h4 style="margin:18px 0 6px;font-size:13.5px">Assignments this tool will repoint <span class="tag grant">${p.refs.repointable.length}</span></h4>
       ${rep}
-      <p class="mini muted" style="margin:6px 0 0">The four surfaces T11 already writes, under the
+      <p class="mini muted" style="margin:6px 0 0">The seven surfaces T11 writes — device configuration, settings catalog,
+        compliance, administrative templates, and the feature, quality and driver update profiles — all under the one
         <code>DeviceManagementConfiguration.ReadWrite.All</code> scope this registration declares. No new write scope.
         AssignEdit does the writing, so the drift check and the verify read-back are the ones in production.</p>
 
@@ -1629,8 +1674,8 @@ const GroupMigrateTool = (() => {
         <h4 style="margin:0 0 6px;font-size:13.5px;color:var(--off)">Assignments this tool will NOT repoint <span class="tag block">${p.refs.other.length}</span></h4>
         ${other}
         <p class="mini" style="margin:8px 0 0"><b>These keep pointing at the archived group and must be moved by hand.</b>
-          Each needs a write scope this registration does not declare, and adding one is a decision taken in the open rather
-          than a side effect of this tool.</p>
+          The reason is beside each row. Where it is a missing write scope, adding one is a decision taken in the open
+          rather than a side effect of this tool.</p>
         <p class="mini" style="margin:6px 0 0"><b>And everything outside Intune is invisible here</b> — Conditional Access,
           group-based licensing, Azure RBAC, app role assignments. The archived group is your rollback until you have checked them.</p>
         ${p.refs.failed.length ? `<p class="mini" style="margin:6px 0 0">⚠ <b>${p.refs.failed.length} surface${p.refs.failed.length === 1 ? "" : "s"} could not be read</b>

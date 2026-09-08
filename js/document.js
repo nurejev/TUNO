@@ -716,7 +716,11 @@ const Docs = (() => {
     // admx joined autopilot at 10522: an administrative template is Windows
     // group policy, and "not platform-specific" was the normaliser's gap,
     // not the policy's claim — found when T11's filter counted one.
-    if (!out.size && sec && (sec.id === "autopilot" || sec.id === "admx")) out.add("Windows");
+    // `updates` joined at 10604 for the same reason and on the same
+    // evidence: a Windows feature, quality or driver update profile is
+    // Windows by construction, and T11 began filtering these the moment it
+    // could write them.
+    if (!out.size && sec && (sec.id === "autopilot" || sec.id === "admx" || sec.id === "updates")) out.add("Windows");
     return [...out].sort((a, b) => PLATFORM_ORDER.indexOf(a) - PLATFORM_ORDER.indexOf(b));
   }
 

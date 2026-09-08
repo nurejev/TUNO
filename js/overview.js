@@ -250,7 +250,7 @@ const OverviewTool = (() => {
   // acts you would take on it — the pcard-actions row from ENCA's policy
   // detail, ported Intune-side-out and narrowed to the acts TUNO has.
   // ✏️ hands over to the Assignment editor with the policy selected (only
-  // for the four surfaces T11 edits — an act that would be refused is not
+  // for the surfaces T11 edits — an act that would be refused is not
   // offered). 📄 downloads the documenter's own single-policy Markdown —
   // the same Docs.markdown T05's popout copies, one implementation. 🗄
   // downloads the policy as Graph returned it (the raw object the shared
