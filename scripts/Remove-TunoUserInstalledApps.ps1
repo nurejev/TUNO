@@ -110,7 +110,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.1'
-$script:TunoBuild = 10602
+$script:TunoBuild = 10603
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2

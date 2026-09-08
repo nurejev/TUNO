@@ -104,6 +104,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 175, title: "\ud83d\udd10 T01 \u2014 cleanup pair 1.3.1/1.1.1: Managed Installer companions recognised by mode + action, rule names printed",
+      tools: ["T01 AppLocker"], builds: [10603], risk: "medium",
+      why: "Mihai, 8 Sep, second screenshot after 10600: the pair still reported 4 legacy rules on a Managed Installer device because the companions carry two allow rules each, not the single allow-* 10600 keyed on. Classification now: AuditOnly + all-Allow Exe/Dll beside a ManagedInstaller collection = companion (0). Verified on that shape and on Enabled, Deny, no-MI and Script-rule variants.",
+      test: [
+        "The three Vietnamese devices: detect exits 0 with 'Managed Installer policy present' and the companion rule names in the output; no more Recurred/Failed.",
+        "A device with a real legacy policy (Enabled Exe, or Script/Msi rules) still detects 1 and is cleaned; the cleanup verifies clean and writes the marker.",
+        "check-script-versions: both scripts bumped and the page says changed in build 10603.",
+      ],
+      files: ["scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/Detect-TunoAppLockerPolicy.ps1", "js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 174, title: "\ud83d\ude9a Help \u2014 the promotion queue folds related items into one row; each keeps its tick to be held back",
       tools: ["Help"], builds: [10602], risk: "low",
       what: "PROMOTE.groups reads relatedness off tools[] (shared tool, transitive, items naming more than three tools stand alone) and PROMOTE.queueRows interleaves groups and singles by first number. The Help table draws a group row with one tick, a fold, the worst risk and the build span over its member rows, which keep their own ticks; the group box derives from the members (whole, partial, none) and the order file gains a GROUPS section naming held-back numbers, in prose and in the JSON block.",

@@ -3212,8 +3212,8 @@ const AppLockerTool = (() => {
   const SCRIPT_VERSIONS = {
     "Invoke-TunoAppLockerScan.ps1":         { v: "1.12.2", changed: 10596 },
     "Convert-TunoAppLockerToIntune.ps1":    { v: "1.4.1",  changed: 10370 },
-    "Clear-TunoAppLockerPolicy.ps1":        { v: "1.3.0",  changed: 10600 },
-    "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.0",  changed: 10600 },
+    "Clear-TunoAppLockerPolicy.ps1":        { v: "1.3.1",  changed: 10603 },
+    "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.1",  changed: 10603 },
     "Initialize-TunoItToolsFolders.ps1":    { v: "1.1.0",  changed: 10374 },
     "Detect-TunoItToolsFolders.ps1":        { v: "1.0.0",  changed: 10374 },
     "Get-TunoAppControlEvents.ps1":         { v: "1.0.2",  changed: 10386 },

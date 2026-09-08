@@ -23,14 +23,14 @@ later is a deliberate act: raise $script:CleanupGeneration in BOTH scripts, and 
 device whose marker is from an older generation is cleaned once more.
 
 .NOTES
-Version   : 1.1.0
+Version   : 1.1.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell.
 #>
 
-$script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10602
+$script:ScriptVersion = '1.1.1'
+$script:TunoBuild = 10603
 
 # Raise this together with the same number in Clear-TunoAppLockerPolicy.ps1 to run a
 # new cleanup campaign on devices already marked by an older one.
@@ -76,33 +76,54 @@ if ($markerGen -ge $script:CleanupGeneration) {
 function Get-TunoAppLockerState {
     $srp = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
     $st = [pscustomobject]@{ effectiveRules = 0; effectiveDetail = @(); srpPresent = $false; srpRules = 0; srpDetail = @(); managedInstaller = $false; cmdletError = $null }
+    $modeName = @{ '0' = 'NotConfigured'; '1' = 'Enabled'; '2' = 'AuditOnly' }
+    # THE COMPANION RULE (Detect 1.1.1 / Clear 1.3.1, Mihai's 8 Sep output:
+    # "Dll=AuditOnly/2, Exe=AuditOnly/2, ManagedInstaller=AuditOnly/1" counted
+    # as 4 legacy rules, so the loop went on). The Managed Installer policy's
+    # Exe/Dll companions are not always one allow-* rule. What IS always true:
+    # an AuditOnly collection blocks nothing, and on a device that carries a
+    # ManagedInstaller collection those two are Intune's. So when Managed
+    # Installer is present, an AuditOnly Exe/Dll collection whose rules are all
+    # Allow is a companion and counts 0 - and its rule names are printed, so
+    # the day that assumption is wrong the output says which rule broke it.
+    # Legacy state is: any Enabled collection with rules, any rule in
+    # Msi/Script/Appx, any Deny, or Exe/Dll rules with no Managed Installer.
+    $names = { param($rules) (@($rules | ForEach-Object { $n = $_.GetAttribute('Name'); if ($n.Length -gt 40) { $n.Substring(0, 39) + '…' } else { $n } }) -join ' | ') }
     try {
         [xml]$eff = Get-AppLockerPolicy -Effective -Xml -ErrorAction Stop
-        foreach ($rc in @($eff.SelectNodes('/AppLockerPolicy/RuleCollection'))) {
+        $cols = @($eff.SelectNodes('/AppLockerPolicy/RuleCollection'))
+        $mi = @($cols | Where-Object { $_.GetAttribute('Type') -eq 'ManagedInstaller' }).Count -gt 0
+        if ($mi) { $st.managedInstaller = $true }
+        foreach ($rc in $cols) {
             $t = $rc.GetAttribute('Type'); $mode = $rc.GetAttribute('EnforcementMode')
             $rules = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
-            $stub = ($t -in 'Exe', 'Dll') -and $rules.Count -eq 1 -and $rules[0].LocalName -eq 'FilePathRule' -and (@($rules[0].SelectNodes('Conditions/FilePathCondition[@Path="*"]')).Count -eq 1)
-            if ($t -eq 'ManagedInstaller') { $st.managedInstaller = $true }
-            $counted = if ($t -eq 'ManagedInstaller' -or $stub) { 0 } else { $rules.Count }
+            $allAllow = ($rules.Count -gt 0) -and (@($rules | Where-Object { $_.GetAttribute('Action') -ne 'Allow' }).Count -eq 0)
+            $companion = $mi -and ($t -in 'Exe', 'Dll') -and $mode -eq 'AuditOnly' -and $allAllow
+            $counted = if ($t -eq 'ManagedInstaller' -or $companion) { 0 } else { $rules.Count }
             $st.effectiveRules += $counted
-            $st.effectiveDetail += ('{0}={1}/{2}{3}' -f $t, $mode, $rules.Count, $(if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($stub) { ' (Managed Installer stub)' } else { '' }))
+            $tag = if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($companion) { ' (Managed Installer companion: ' + (& $names $rules) + ')' } elseif ($rules.Count) { ' [' + (& $names $rules) + ']' } else { '' }
+            $st.effectiveDetail += ('{0}={1}/{2}{3}' -f $t, $mode, $rules.Count, $tag)
         }
     } catch { $st.cmdletError = $_.Exception.Message }
     if (Test-Path $srp) {
         $st.srpPresent = $true
-        foreach ($col in @(Get-ChildItem -Path $srp -ErrorAction SilentlyContinue)) {
+        $srpCols = @(Get-ChildItem -Path $srp -ErrorAction SilentlyContinue)
+        $mi = @($srpCols | Where-Object { $_.PSChildName -eq 'ManagedInstaller' }).Count -gt 0
+        if ($mi) { $st.managedInstaller = $true }
+        foreach ($col in $srpCols) {
             $t = $col.PSChildName
-            $mode = ''; try { $mode = [string](Get-ItemProperty -Path $col.PSPath -Name EnforcementMode -ErrorAction SilentlyContinue).EnforcementMode } catch {}
+            $raw = ''; try { $raw = [string](Get-ItemProperty -Path $col.PSPath -Name EnforcementMode -ErrorAction SilentlyContinue).EnforcementMode } catch {}
+            $mode = if ($modeName.ContainsKey($raw)) { $modeName[$raw] } elseif ($raw) { $raw } else { 'NotConfigured' }
             $ruleKeys = @(Get-ChildItem -Path $col.PSPath -ErrorAction SilentlyContinue)
-            $stub = $false
-            if (($t -in 'Exe', 'Dll') -and $ruleKeys.Count -eq 1) {
-                $v = ''; try { $v = [string](Get-ItemProperty -Path $ruleKeys[0].PSPath -Name Value -ErrorAction SilentlyContinue).Value } catch {}
-                if ($v -match 'FilePathCondition Path="\*"') { $stub = $true }
-            }
-            if ($t -eq 'ManagedInstaller') { $st.managedInstaller = $true }
-            $counted = if ($t -eq 'ManagedInstaller' -or $stub) { 0 } else { $ruleKeys.Count }
+            $ruleXml = @()
+            foreach ($rk in $ruleKeys) { $v = ''; try { $v = [string](Get-ItemProperty -Path $rk.PSPath -Name Value -ErrorAction SilentlyContinue).Value } catch {}; $ruleXml += $v }
+            $allAllow = ($ruleKeys.Count -gt 0) -and (@($ruleXml | Where-Object { $_ -notmatch 'Action="Allow"' }).Count -eq 0)
+            $companion = $mi -and ($t -in 'Exe', 'Dll') -and $mode -eq 'AuditOnly' -and $allAllow
+            $counted = if ($t -eq 'ManagedInstaller' -or $companion) { 0 } else { $ruleKeys.Count }
             $st.srpRules += $counted
-            $st.srpDetail += ('{0}={1}/{2}{3}' -f $t, $(if ($mode) { $mode } else { '?' }), $ruleKeys.Count, $(if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($stub) { ' (Managed Installer stub)' } else { '' }))
+            $rn = @($ruleXml | ForEach-Object { $m = [regex]::Match($_, 'Name="([^"]*)"'); if ($m.Success) { $n = $m.Groups[1].Value; if ($n.Length -gt 40) { $n.Substring(0, 39) + '…' } else { $n } } else { '?' } }) -join ' | '
+            $tag = if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($companion) { ' (Managed Installer companion: ' + $rn + ')' } elseif ($ruleKeys.Count) { ' [' + $rn + ']' } else { '' }
+            $st.srpDetail += ('{0}={1}/{2}{3}' -f $t, $mode, $ruleKeys.Count, $tag)
         }
     }
     return $st

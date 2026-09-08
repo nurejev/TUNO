@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10603, date: "2026-09-08", title: "T01 — the cleanup pair recognises the Managed Installer companions by what they cannot do",
+    items: [
+      { kind: "fixed", tool: "AppLocker", text: "The 8 Sep detection output (Dll=AuditOnly/2, Exe=AuditOnly/2, ManagedInstaller=AuditOnly/1) was still counted as four legacy rules: the Managed Installer's Exe/Dll companions are not always one allow-* rule. Detect 1.1.1 and Clear 1.3.1 now use what is always true — an AuditOnly collection blocks nothing, and beside a ManagedInstaller collection an AuditOnly Exe/Dll collection whose rules are all Allow is Intune's — count them 0 and print their rule names. Enabled collections, Msi/Script/Appx rules, any Deny, or Exe/Dll rules with no Managed Installer are still legacy. SrpV2 modes print as words." },
+    ],
+  },
+  {
     build: 10602, date: "2026-09-08", title: "Help — the promotion queue folds related changes into one row, with a tick per item to hold one back",
     items: [
       { kind: "improved", tool: "All tools", text: "Waiting for production (beta only) had grown to 42 rows, of which seventeen were T01 builds and nineteen were baseline builds, and saying 'push all of T01' meant ticking seventeen boxes. Items that name the same tool now sit under one group row — T01 AppLocker, T24 macOS baseline + T27 Windows baseline, T16 — with a single tick that ticks every item in the run, a fold button, the worst risk in the group and its build span. Related is read off each item's own tools list (an item naming more than three tools, like the layout round, stands alone), so there is nothing new to maintain by hand." },
