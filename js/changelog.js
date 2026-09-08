@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10600, date: "2026-09-08", title: "T01 — the cleanup Remediation leaves a marker, so the new policy is never cleaned away",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "Clear-TunoAppLockerPolicy.ps1 1.3.0 records that it ran — a registry key HKLM\\SOFTWARE\\TUNO\\AppLockerCleanup and a .done file in IT-TOOLS\\LOGS — only when the device verified clean, and refuses to run again on a marked device unless -Force. Detect-TunoAppLockerPolicy.ps1 1.1.0 reads the marker first and reports compliant from then on, whatever policy the device carries: that policy is the new one. The pair can stay assigned; before this, a pair left assigned would have wiped the profile you deployed next. A second cleanup campaign is a deliberate act: raise CleanupGeneration in both scripts." },
+      { kind: "fixed", tool: "AppLocker", text: "The same pair judged AppLocker state by the SrpV2 key existing and the effective policy having any rule at all — and a device where Intune keeps the App Control Managed Installer policy (a ManagedInstaller collection plus Exe/Dll allow-* stubs, rewritten every sync) can never satisfy that, so three devices sat on Recurred/Failed with 'SrpV2 registry key present (5 subkeys)'. Both halves now count legacy RULES per collection, skip the Managed Installer collection and its stubs, treat an empty collection subkey as nothing, and say what they saw; the cleanup leaves SrpV2\\ManagedInstaller alone." },
+    ],
+  },
+  {
     build: 10599, date: "2026-09-08", title: "Baselines: the community source belongs to the reference tenant, and a tool stops listing the other platform's policies",
     items: [
       { kind: "fixed", tool: "\ud83c\udf4e macOS baseline", text: "Housekeeping was listing Windows policies. The read is the whole tenant by design and nothing in these tools narrowed it \u2014 the first group of duplicates got away with it because a name has to carry the platform prefix, but the second groups by content and has no opinion about names, so every Windows policy the tenant carried twice arrived here offering to be deleted. Each tool now settles a policy's platform once, where the read becomes policies, so Compare, Import, Rename, Export and Housekeeping all inherit it." },

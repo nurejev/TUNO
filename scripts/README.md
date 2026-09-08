@@ -14,8 +14,8 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
-| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean | Intune Remediation or an elevated shell; exits 1 if not clean |
-| `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair | Exit 1 = AppLocker state present, run the cleanup |
+| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean; on a verified-clean result writes the marker (`HKLM\SOFTWARE\TUNO\AppLockerCleanup` + `IT-TOOLS\LOGS\AppLocker-Cleanup.done`) the detection half honours | Intune Remediation or an elevated shell; exits 1 if not clean; `-Force` cleans a marked device once |
+| `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair; reads the cleanup marker first, so a device already cleaned this generation stays compliant whatever policy it carries now | Exit 1 = AppLocker state present and no marker, run the cleanup |
 | `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
 | `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
 | `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |

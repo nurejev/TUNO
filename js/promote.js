@@ -100,6 +100,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 172, title: "\ud83d\udd10 T01 \u2014 the cleanup pair leaves a marker (Clear 1.3.0, Detect 1.1.0); generation for a second campaign",
+      tools: ["T01 AppLocker"], builds: [10600], risk: "medium",
+      why: "Mihai, 8 Sep, the deployed Remediation '[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings': detection said any AppLocker state = run the cleanup, so once the new profile landed the pair would have cleaned it. The cleanup now writes a marker on a verified-clean result and detection honours it; -Force and CleanupGeneration for the deliberate cases.",
+      test: [
+        "Fresh device with a legacy policy: detect exits 1; cleanup runs, verifies clean, writes HKLM\\SOFTWARE\\TUNO\\AppLockerCleanup and AppLocker-Cleanup.done, exits 0.",
+        "Same device after the new profile is delivered (rules in the effective policy): detect exits 0 with 'already ran ... left alone'; the cleanup, if forced through Intune, exits 0 with STOP and changes nothing.",
+        "Cleanup that ends NOT clean writes no marker, so the next detection cycle retries it.",
+        "Raise CleanupGeneration to 2 in both scripts: a device marked with generation 1 is detected non-compliant again and cleaned once.",
+        "Elevated shell on a marked device: Clear without -Force stops; with -Force it runs and re-marks.",
+        "Device with the Intune Managed Installer policy and no legacy rules (VNMPF5Z6B97 / VNMGM0VJSBY shape): detect exits 0 naming 'Managed Installer policy present'; the cleanup verifies clean with SrpV2\\ManagedInstaller untouched and writes the marker.",
+      ],
+      files: ["scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/Detect-TunoAppLockerPolicy.ps1", "scripts/README.md", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 171, title: "\ud83c\udf4e T24 + \ud83e\ude9f T27 \u2014 each tool only ever speaks about its own platform",
       tools: ["T24 macOS baseline", "T27 Windows baseline"], builds: [10599], risk: "high",
       why: "Mihai, 8 Sep, with a screenshot of \ud83e\uddf9 Housekeeping on the macOS baseline full of `Win - OIB - ES - Defender Antivirus Updates` and five `WIN-DHS-DeviceConfiguration-\u2026` remediations, several assigned. The read is the whole tenant \u2014 that is the point of one shared read \u2014 and NOTHING in these tools ever narrowed it. Housekeeping's group 1 got away with it because looksBaseline() demands the platform prefix; group 2 (added at 10593) groups by CONTENT HASH and has no opinion about names, so every Windows policy the tenant carries twice arrived in the macOS tool offering to delete it. Compare's duplicate and extra rows had the same hole. HIGH because the surface it showed up on was a DELETE list: the refusals held (every one of those rows was assigned, so none could be ticked), but a tool proposing to delete another platform's policies is one unassigned duplicate away from doing it. A policy's platform is now settled ONCE, in vms() \u2014 the single place the read becomes policies \u2014 so Compare, Import, Rename, Export and Housekeeping all inherit it. The order is: the surface where that is single-platform by definition (deviceShellScripts is macOS, deviceHealthScripts and deviceManagementScripts are Windows, and none of them says so in any field), then what the policy declares (`platforms`, `platform`, @odata.type) through T05's own normPlatform so this tool and the documenter cannot disagree about one policy, then NOTHING \u2014 and nothing means keep it, because a platform that cannot be established is not evidence the policy belongs elsewhere.",

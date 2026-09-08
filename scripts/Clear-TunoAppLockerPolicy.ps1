@@ -84,8 +84,12 @@ either mode, so the log answers "what was on this device" even when nothing is r
 Expect a reboot to fully settle CSP state, and run it only after the old profiles are
 unassigned - against an assigned profile it is a loop, not a fix.
 
+.PARAMETER Force
+Clean even when the marker says this generation already ran here. For a shell, by
+hand, once. A Remediation never needs it: the detection half gates it by the marker.
+
 .NOTES
-Version   : 1.2.1
+Version   : 1.3.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppLockerPolicy.ps1), run as
@@ -102,13 +106,22 @@ param(
     [string]$LogFolder = "$env:ProgramData\IT-TOOLS\LOGS",
     [switch]$ClearEventLogs,
     [switch]$DisableAppIdService,
-    [switch]$RemoveMdmGroupings
+    [switch]$RemoveMdmGroupings,
+    [switch]$Force
 )
+
+# THE MARKER (1.3.0). When this script verifies the device clean it records that it
+# ran - HKLM\SOFTWARE\TUNO\AppLockerCleanup and IT-TOOLS\LOGS\AppLocker-Cleanup.done -
+# and Detect-TunoAppLockerPolicy.ps1 reads that marker first, so a device that
+# received the NEW policy afterwards is never cleaned again by a pair left assigned.
+# Raise CleanupGeneration in BOTH scripts to run a deliberate second campaign; pass
+# -Force in a shell to clean a marked device once, by hand.
+$script:CleanupGeneration = 1
 
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
-$script:ScriptVersion = '1.2.1'
-$script:TunoBuild = 10598
+$script:ScriptVersion = '1.3.0'
+$script:TunoBuild = 10600
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
@@ -128,6 +141,67 @@ Write-Log "Computer: $env:COMPUTERNAME  User: $env:USERNAME"
 Write-Log "REMINDER: if the old Intune profile or GPO is still assigned, what this removes returns at the next sync. Unassign first."
 
 $failures = 0
+
+# ── What counts as "AppLocker state" (Clear 1.3.0 / Detect 1.1.0, Mihai's 8 Sep
+# screenshot: three devices Recurred/Failed forever on "SrpV2 registry key
+# present (5 subkeys)"). Two things live in SrpV2 and in the effective policy
+# that are NOT legacy policy and must never fail the cleanup:
+#   * the App Control MANAGED INSTALLER policy Intune keeps on the device - a
+#     ManagedInstaller collection plus Exe/Dll stubs (AuditOnly, one Allow-*
+#     path rule each), rewritten by Intune at every sync; and
+#   * collection subkeys with NO rules in them - the empty policy this very
+#     script applies creates five of those.
+# So: count RULES, per collection, skipping the ManagedInstaller collection and
+# the stub shape; report the key's existence as information, never as a fault.
+function Get-TunoAppLockerState {
+    $srp = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
+    $st = [pscustomobject]@{ effectiveRules = 0; effectiveDetail = @(); srpPresent = $false; srpRules = 0; srpDetail = @(); managedInstaller = $false; cmdletError = $null }
+    try {
+        [xml]$eff = Get-AppLockerPolicy -Effective -Xml -ErrorAction Stop
+        foreach ($rc in @($eff.SelectNodes('/AppLockerPolicy/RuleCollection'))) {
+            $t = $rc.GetAttribute('Type'); $mode = $rc.GetAttribute('EnforcementMode')
+            $rules = @($rc.ChildNodes | Where-Object { $_.NodeType -eq 'Element' })
+            $stub = ($t -in 'Exe', 'Dll') -and $rules.Count -eq 1 -and $rules[0].LocalName -eq 'FilePathRule' -and (@($rules[0].SelectNodes('Conditions/FilePathCondition[@Path="*"]')).Count -eq 1)
+            if ($t -eq 'ManagedInstaller') { $st.managedInstaller = $true }
+            $counted = if ($t -eq 'ManagedInstaller' -or $stub) { 0 } else { $rules.Count }
+            $st.effectiveRules += $counted
+            $st.effectiveDetail += ('{0}={1}/{2}{3}' -f $t, $mode, $rules.Count, $(if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($stub) { ' (Managed Installer stub)' } else { '' }))
+        }
+    } catch { $st.cmdletError = $_.Exception.Message }
+    if (Test-Path $srp) {
+        $st.srpPresent = $true
+        foreach ($col in @(Get-ChildItem -Path $srp -ErrorAction SilentlyContinue)) {
+            $t = $col.PSChildName
+            $mode = ''; try { $mode = [string](Get-ItemProperty -Path $col.PSPath -Name EnforcementMode -ErrorAction SilentlyContinue).EnforcementMode } catch {}
+            $ruleKeys = @(Get-ChildItem -Path $col.PSPath -ErrorAction SilentlyContinue)
+            $stub = $false
+            if (($t -in 'Exe', 'Dll') -and $ruleKeys.Count -eq 1) {
+                $v = ''; try { $v = [string](Get-ItemProperty -Path $ruleKeys[0].PSPath -Name Value -ErrorAction SilentlyContinue).Value } catch {}
+                if ($v -match 'FilePathCondition Path="\*"') { $stub = $true }
+            }
+            if ($t -eq 'ManagedInstaller') { $st.managedInstaller = $true }
+            $counted = if ($t -eq 'ManagedInstaller' -or $stub) { 0 } else { $ruleKeys.Count }
+            $st.srpRules += $counted
+            $st.srpDetail += ('{0}={1}/{2}{3}' -f $t, $(if ($mode) { $mode } else { '?' }), $ruleKeys.Count, $(if ($t -eq 'ManagedInstaller') { ' (Managed Installer, Intune)' } elseif ($stub) { ' (Managed Installer stub)' } else { '' }))
+        }
+    }
+    return $st
+}
+
+# ── 0. The marker - refuse to clean a device this generation already cleaned ──
+$markerKey  = 'HKLM:\SOFTWARE\TUNO\AppLockerCleanup'
+$markerFile = Join-Path $LogFolder 'AppLocker-Cleanup.done'
+$markerGen = -1; $markerWhen = ''
+try { if (Test-Path $markerKey) { $m = Get-ItemProperty -Path $markerKey; $markerGen = [int]$m.Generation; $markerWhen = [string]$m.RanUtc } } catch { }
+if ($markerGen -lt 0 -and (Test-Path $markerFile)) {
+    try { $line = Get-Content -Path $markerFile -TotalCount 1; if ($line -match 'Generation=(\d+)') { $markerGen = [int]$Matches[1] }; if ($line -match 'RanUtc=(\S+)') { $markerWhen = $Matches[1] } } catch { }
+}
+if ($markerGen -ge $script:CleanupGeneration -and -not $Force) {
+    Write-Log ("STOP: cleanup generation {0} already ran on this device at {1}. Whatever AppLocker policy is here now arrived AFTER that and is the new one - not touching it. Pass -Force to clean once more by hand, or raise CleanupGeneration in both scripts for a new campaign." -f $markerGen, $markerWhen)
+    Write-Output 'AppLocker cleanup already done on this device - nothing changed'
+    exit 0
+}
+if ($markerGen -ge 0) { Write-Log ("INFO: an older cleanup marker is present (generation {0}, {1}); this run is generation {2}{3}." -f $markerGen, $markerWhen, $script:CleanupGeneration, $(if ($Force) { ', forced' } else { '' })) }
 
 # ── 1. Backup - removal should be reversible ─────────────────────────────────
 try {
@@ -185,11 +259,16 @@ if (Test-Path $SrpV2) {
         }
         catch { Write-Log "WARN: could not fully clear ${ruleType}: $($_.Exception.Message)" }
     }
-    try {
-        Remove-Item -Path $SrpV2 -Recurse -Force -ErrorAction Stop
-        Write-Log 'OK: removed the SrpV2 key'
+    if (Test-Path (Join-Path $SrpV2 'ManagedInstaller')) {
+        Write-Log 'INFO: SrpV2\ManagedInstaller is the App Control Managed Installer policy Intune keeps here - left in place, and the SrpV2 root stays for it.'
     }
-    catch { Write-Log "WARN: could not remove the SrpV2 key itself: $($_.Exception.Message)" }
+    else {
+        try {
+            Remove-Item -Path $SrpV2 -Recurse -Force -ErrorAction Stop
+            Write-Log 'OK: removed the SrpV2 key'
+        }
+        catch { Write-Log "WARN: could not remove the SrpV2 key itself: $($_.Exception.Message)" }
+    }
 }
 else { Write-Log 'INFO: no SrpV2 key present - nothing tattooed' }
 
@@ -266,23 +345,33 @@ else {
 
 # ── 6. Verify, and tell the truth about it ───────────────────────────────────
 Write-Log '========== Verification =========='
-$ruleCount = -1
-try {
-    [xml]$after = Get-AppLockerPolicy -Effective -Xml
-    $ruleCount = @($after.SelectNodes('/AppLockerPolicy/RuleCollection/*')).Count
-    Write-Log "Effective policy now carries $ruleCount rule(s)"
-}
-catch { Write-Log "WARN: could not read the effective policy back: $($_.Exception.Message)" }
-
-if (Test-Path $SrpV2) {
-    Write-Log 'WARN: the SrpV2 key still exists - a GPO or profile is likely still applying. Unassign it, or this returns.'
-    $failures++
-}
-if ($ruleCount -ne 0) { $failures++ }
+$st = Get-TunoAppLockerState
+if ($st.cmdletError) { Write-Log "WARN: could not read the effective policy back: $($st.cmdletError)"; $failures++ }
+else { Write-Log ("Effective policy: {0} legacy rule(s) [{1}]" -f $st.effectiveRules, ($st.effectiveDetail -join ', ')) }
+if ($st.srpPresent) { Write-Log ("SrpV2: {0} legacy rule(s) [{1}]" -f $st.srpRules, ($st.srpDetail -join ', ')) } else { Write-Log 'SrpV2: key gone' }
+if ($st.managedInstaller) { Write-Log 'INFO: the Managed Installer policy (Intune, App Control) is on this device and is not legacy policy - it does not count against the cleanup.' }
+if ($st.effectiveRules -gt 0) { Write-Log 'WARN: legacy rules remain in the effective policy - a GPO or profile is likely still applying. Unassign it, or this returns.'; $failures++ }
+if ($st.srpRules -gt 0)       { Write-Log 'WARN: legacy rules remain tattooed under SrpV2.'; $failures++ }
 
 if ($failures -eq 0) {
-    Write-Log 'RESULT: device is clean. Deploy the new policy under a NEW grouping now.'
-    Write-Output 'AppLocker policy removed - device clean'
+    # Write the marker ONLY on a clean result: a half-clean device must be retried,
+    # and the marker is what stops the retry.
+    $ranUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    try {
+        if (-not (Test-Path $markerKey)) { New-Item -Path $markerKey -Force | Out-Null }
+        Set-ItemProperty -Path $markerKey -Name Generation -Value $script:CleanupGeneration -Type DWord
+        Set-ItemProperty -Path $markerKey -Name RanUtc -Value $ranUtc
+        Set-ItemProperty -Path $markerKey -Name ScriptVersion -Value $script:ScriptVersion
+        Set-ItemProperty -Path $markerKey -Name TunoBuild -Value $script:TunoBuild -Type DWord
+        Set-ItemProperty -Path $markerKey -Name Computer -Value $env:COMPUTERNAME
+        Write-Log "MARKER: $markerKey written (generation $script:CleanupGeneration, $ranUtc)"
+    } catch { Write-Log "WARN: could not write the registry marker: $($_.Exception.Message)" }
+    try {
+        Set-Content -Path $markerFile -Value ("Generation={0} RanUtc={1} ScriptVersion={2} TunoBuild={3} Computer={4}" -f $script:CleanupGeneration, $ranUtc, $script:ScriptVersion, $script:TunoBuild, $env:COMPUTERNAME) -Encoding ASCII
+        Write-Log "MARKER: $markerFile written"
+    } catch { Write-Log "WARN: could not write the marker file: $($_.Exception.Message)" }
+    Write-Log 'RESULT: device is clean and marked. Deploy the new policy under a NEW grouping now; the detection half will leave it alone.'
+    Write-Output 'AppLocker policy removed - device clean, marker written'
     exit 0
 }
 else {
