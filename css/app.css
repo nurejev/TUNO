@@ -2066,6 +2066,13 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
 .pq-test[open] summary::before{transform:rotate(90deg)}
 .pq-steps{margin:6px 0 0;padding-left:20px;line-height:1.65}
 .pq-steps li{margin-bottom:5px}
+/* related items fold (10602): a group row over its member rows */
+.cg-table tr.pq-group td{background:var(--soft);border-top:2px solid var(--border)}
+.cg-table tr.pq-group.pq-partial td:first-child{box-shadow:inset 3px 0 0 var(--report)}
+.cg-table tr.pq-member td:nth-child(2),.cg-table tr.pq-member td:nth-child(3){padding-left:26px}
+.cg-table tr.pq-member td:first-child{box-shadow:inset 3px 0 0 var(--line)}
+.cg-table tr.pq-member.pq-folded{display:none}
+.pq-fold{border:0;background:none;cursor:pointer;color:var(--accent2);font-size:13px;padding:0 4px 0 0;line-height:1}
 
 /* ---- "What's new" on sign-in ----
    Only the releases you have not seen, and never on a first visit. It sits over

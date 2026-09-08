@@ -1301,36 +1301,26 @@ const Fs = (() => {
         return new Set(kept);
       } catch { return new Set(); }
     })();
-
-    box.innerHTML = `
-      <h3>🚚 Waiting for production <span class="tag new">BETA CHANNEL</span></h3>
-      <p>Production is <b>${esc(PROMOTE.productionBuild)}</b>; this site is <b>${esc(APP_BUILD.label)}</b>.
-        <b>This is the gap, and only the gap</b> — what exists here and not there. Nothing that has already
-        shipped appears below; for that, read <b>📋 What's new</b>. Each row is one promotable <b>change to the
-        tools</b> with a <b>stable number</b>, so <i>“push number 3 to main”</i> means exactly one thing.
-        Roadmap cards, changelog entries and this table itself are not listed: they describe the work rather
-        than being it, and they travel with whatever promotion happens next.</p>
-      <p class="mini muted" style="margin:-6px 0 10px"><b>Every row carries a test checklist.</b> <i>Why</i> says what the
-        risk is and what would have to be true for the item to graduate; it does not say how to find out. The steps
-        under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
-        step can fail rather than be nodded through. Where a check needs a tenant nobody has to hand, the step says
-        so: knowing which check was skipped is worth more than a list that pretends all of them were run.</p>
-      ${items.length ? `<div class="tb-actions" style="margin:0 0 8px">
-        <span class="mini" id="pqPickCount"><b>${picked.size}</b> of ${items.length} ticked for promotion</span>
-        <button class="btn sm" id="pqExport" ${picked.size ? "" : "disabled"}>⭳ Export promotion order</button>
-        <button class="btn sm" id="pqClear" ${picked.size ? "" : "disabled"}>Clear ticks</button>
-        <span class="mini muted">tick what you have verified, export, and hand the file to the working session — it is the order, not the verification</span>
-      </div><div class="cg-tablewrap"><table class="cg-table">
-        <thead><tr><th style="width:34px" title="Tick to include in the promotion order"></th><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
-        <tbody>${items.map((it) => {
-          const r = RISK[it.risk] || RISK.low;
-          const test = it.test || [];
-          return `<tr>
+    // Related items fold (10602): the rows are groups and singles interleaved
+    // by first number. A group row carries one tick for all its members and
+    // each member keeps its own, so "all of T01 except 170" is two clicks.
+    // (Guarded the same way — the pq harness may hand in a queue without it.)
+    const rows = typeof PROMOTE.queueRows === "function" ? PROMOTE.queueRows(items) : items.map((it) => ({ kind: "item", item: it }));
+    const groups = rows.filter((r) => r.kind === "group").map((r) => r.group);
+    const groupState = (g) => {
+      const on = g.ns.filter((n) => picked.has(n)).length;
+      return { on, all: on === g.ns.length, none: on === 0 };
+    };
+    const partial = groups.filter((g) => { const s = groupState(g); return !s.all && !s.none; }).length;
+    const itemRow = (it, g) => {
+      const r = RISK[it.risk] || RISK.low;
+      const test = it.test || [];
+      return `<tr class="${g ? "pq-member" : ""}" ${g ? `data-pqof="${g.key}"` : ""}>
             <td><input type="checkbox" data-pqpick="${it.n}" ${picked.has(it.n) ? "checked" : ""} title="Include item ${it.n} in the promotion order"></td>
             <td><b style="font-size:15px">${it.n}</b></td>
             <td><b>${esc(it.title)}</b>
               <div class="mini muted">${(it.tools || []).map(esc).join(" · ")}</div>
-              <div class="mini" style="margin-top:4px">${esc(it.what)}</div>
+              ${it.what ? `<div class="mini" style="margin-top:4px">${esc(it.what)}</div>` : ""}
               <div class="mini" style="margin-top:4px;color:var(--report)"><b>Why:</b> ${esc(it.why)}</div>
               ${test.length ? `<details class="pq-test"><summary class="mini"><b>How to test it</b> — ${test.length} step${test.length === 1 ? "" : "s"}</summary>
                 <ol class="mini pq-steps">${test.map((t) => `<li>${esc(t)}</li>`).join("")}</ol></details>`
@@ -1339,7 +1329,48 @@ const Fs = (() => {
             <td><span class="tag ${r.cls}">${r.label}</span><div class="mini muted" style="margin-top:4px">${r.note}</div></td>
             <td class="mini">${(it.builds || []).join(", ")}</td>
           </tr>`;
-        }).join("")}</tbody></table></div>`
+    };
+    const groupRow = (g) => {
+      const r = RISK[g.risk] || RISK.low;
+      const s = groupState(g);
+      return `<tr class="pq-group" data-pqgroup="${g.key}">
+            <td><input type="checkbox" data-pqgrouppick="${g.key}" ${s.all ? "checked" : ""} title="Tick every item in this group — untick a row below to hold it back"></td>
+            <td><b style="font-size:13px">${g.minN}–${g.maxN}</b></td>
+            <td><button class="pq-fold" data-pqfold="${g.key}" aria-expanded="true" title="Fold or unfold the group's rows">▾</button>
+              <b>${esc(g.title)}</b> — ${g.ns.length} related changes, promote together
+              <span class="mini pq-gcount" data-pqgcount="${g.key}"></span>
+              ${g.also.length ? `<div class="mini muted">also touches ${g.also.map(esc).join(" · ")}</div>` : ""}
+              <div class="mini muted">one tick for the run; untick any row under it to hold that item back — the group then reads <i>partial</i> and the order file says which number stayed behind</div></td>
+            <td><span class="tag ${r.cls}">${r.label}</span><div class="mini muted" style="margin-top:4px">worst in the group</div></td>
+            <td class="mini">${g.minBuild} … ${g.maxBuild}</td>
+          </tr>`;
+    };
+
+    box.innerHTML = `
+      <h3>🚚 Waiting for production <span class="tag new">BETA CHANNEL</span></h3>
+      <p>Production is <b>${esc(PROMOTE.productionBuild)}</b>; this site is <b>${esc(APP_BUILD.label)}</b>.
+        <b>This is the gap, and only the gap</b> — what exists here and not there. Nothing that has already
+        shipped appears below; for that, read <b>📋 What's new</b>. Each row is one promotable <b>change to the
+        tools</b> with a <b>stable number</b>, so <i>“push number 3 to main”</i> means exactly one thing.
+        Roadmap cards, changelog entries and this table itself are not listed: they describe the work rather
+        than being it, and they travel with whatever promotion happens next.
+        <b>Related changes fold into one row</b> — items naming the same tool sit under a group row with a single
+        tick, so <i>“push all of T01”</i> is one click; every row under it keeps its own tick to hold one back.</p>
+      <p class="mini muted" style="margin:-6px 0 10px"><b>Every row carries a test checklist.</b> <i>Why</i> says what the
+        risk is and what would have to be true for the item to graduate; it does not say how to find out. The steps
+        under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
+        step can fail rather than be nodded through. Where a check needs a tenant nobody has to hand, the step says
+        so: knowing which check was skipped is worth more than a list that pretends all of them were run.</p>
+      ${items.length ? `<div class="tb-actions" style="margin:0 0 8px">
+        <span class="mini" id="pqPickCount"><b>${picked.size}</b> of ${items.length} ticked for promotion${groups.length ? ` · ${groups.length} group${groups.length === 1 ? "" : "s"}${partial ? `, ${partial} partial` : ""}` : ""}</span>
+        <button class="btn sm" id="pqExport" ${picked.size ? "" : "disabled"}>⭳ Export promotion order</button>
+        <button class="btn sm" id="pqClear" ${picked.size ? "" : "disabled"}>Clear ticks</button>
+        <span class="mini muted">tick what you have verified, export, and hand the file to the working session — it is the order, not the verification</span>
+      </div><div class="cg-tablewrap"><table class="cg-table">
+        <thead><tr><th style="width:34px" title="Tick to include in the promotion order"></th><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
+        <tbody>${rows.map((row) => row.kind === "group"
+          ? groupRow(row.group) + row.group.members.map((it) => itemRow(it, row.group)).join("")
+          : itemRow(row.item, null)).join("")}</tbody></table></div>`
         : '<p class="mini">The queue is empty — this channel and production match.</p>'}
       ${(PROMOTE.staying || []).length ? `
         <h4 style="margin-top:18px">Staying on this channel</h4>
@@ -1353,10 +1384,33 @@ const Fs = (() => {
       try { return JSON.parse(localStorage.getItem("TUNO_PQ_PICK") || "[]").map(Number); } catch { return []; }
     };
     const writePicks = (ns) => { try { localStorage.setItem("TUNO_PQ_PICK", JSON.stringify(ns)); } catch { /* private mode — ticks live for the session only */ } };
+    // Group ticks (10602). The group box is DERIVED from its members' ticks —
+    // all on = checked, none = clear, some = indeterminate and the row says
+    // "partial". Only member numbers are ever stored.
+    const syncGroups = () => {
+      const on = new Set(readPicks());
+      let partialNow = 0;
+      for (const g of groups) {
+        const k = g.ns.filter((n) => on.has(n)).length;
+        const gb = box.querySelector(`[data-pqgrouppick="${g.key}"]`);
+        if (gb) { gb.checked = k === g.ns.length; gb.indeterminate = k > 0 && k < g.ns.length; }
+        const gc = box.querySelector(`[data-pqgcount="${g.key}"]`);
+        const isPartial = k > 0 && k < g.ns.length;
+        if (isPartial) partialNow += 1;
+        if (gc) {
+          gc.textContent = `· ${k} of ${g.ns.length} ticked${isPartial ? " — partial" : ""}`;
+          gc.style.color = isPartial ? "var(--report)" : "";
+        }
+        const gr = box.querySelector(`[data-pqgroup="${g.key}"]`);
+        if (gr) gr.classList.toggle("pq-partial", isPartial);
+      }
+      return partialNow;
+    };
     const syncBar = () => {
       const ns = readPicks();
+      const partialNow = syncGroups();
       const c = $("pqPickCount"), ex = $("pqExport"), cl = $("pqClear");
-      if (c) c.innerHTML = `<b>${ns.length}</b> of ${(PROMOTE.items || []).length} ticked for promotion`;
+      if (c) c.innerHTML = `<b>${ns.length}</b> of ${(PROMOTE.items || []).length} ticked for promotion${groups.length ? ` · ${groups.length} group${groups.length === 1 ? "" : "s"}${partialNow ? `, ${partialNow} partial` : ""}` : ""}`;
       if (ex) ex.disabled = !ns.length;
       if (cl) cl.disabled = !ns.length;
     };
@@ -1366,6 +1420,28 @@ const Fs = (() => {
       cb.checked ? ns.add(n) : ns.delete(n);
       writePicks([...ns]);
       syncBar();
+    }));
+    box.querySelectorAll("[data-pqgrouppick]").forEach((gb) => gb.addEventListener("change", () => {
+      const g = groups.find((x) => x.key === gb.dataset.pqgrouppick);
+      if (!g) return;
+      const ns = new Set(readPicks());
+      // a partial group ticks UP to whole (the click means "all of it"); a
+      // whole group unticks to none
+      const want = gb.checked;
+      for (const n of g.ns) {
+        want ? ns.add(n) : ns.delete(n);
+        const cb = box.querySelector(`[data-pqpick="${n}"]`);
+        if (cb) cb.checked = want;
+      }
+      writePicks([...ns]);
+      syncBar();
+    }));
+    box.querySelectorAll("[data-pqfold]").forEach((btn) => btn.addEventListener("click", () => {
+      const key = btn.dataset.pqfold;
+      const open = btn.getAttribute("aria-expanded") !== "false";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      btn.textContent = open ? "▸" : "▾";
+      box.querySelectorAll(`[data-pqof="${key}"]`).forEach((tr) => tr.classList.toggle("pq-folded", open));
     }));
     const exBtn = $("pqExport");
     if (exBtn) exBtn.addEventListener("click", () => {
@@ -1382,8 +1458,9 @@ const Fs = (() => {
     if (clBtn) clBtn.addEventListener("click", () => {
       writePicks([]);
       box.querySelectorAll("[data-pqpick]").forEach((cb) => { cb.checked = false; });
-      syncBar();
+      syncBar();   // also clears the group boxes — they derive from the members
     });
+    syncGroups();   // paint the derived group state once, from the stored ticks
   }
 
   // ---------- the popout ----------

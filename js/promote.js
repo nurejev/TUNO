@@ -16,7 +16,11 @@
 //     ("push number 3 to main"). NEVER renumbered, never reused after an
 //     item ships; the next new item takes the next free number.
 //   * ONE ITEM PER CHANGE — only work that must ship together shares a
-//     number. "Push 3" has to mean one decision.
+//     number. "Push 3" has to mean one decision. The Help table FOLDS
+//     related items (same tool, read off tools[] — see PROMOTE.groups) so
+//     "all of T01" is one tick; that is a view, and each item under it
+//     keeps its own tick so one can be held back. It never changes what an
+//     item is.
 //   * Never queue documentation (roadmap cards, changelog entries, this
 //     file): it travels with whatever promotion happens next.
 //   * PROMOTING AN ITEM IS FIVE STEPS: 1) delete the item here and bump
@@ -99,6 +103,21 @@ const PROMOTE = {
   productionBuild: "v1.0.13",
 
   items: [
+    {
+      n: 174, title: "\ud83d\ude9a Help \u2014 the promotion queue folds related items into one row; each keeps its tick to be held back",
+      tools: ["Help"], builds: [10602], risk: "low",
+      what: "PROMOTE.groups reads relatedness off tools[] (shared tool, transitive, items naming more than three tools stand alone) and PROMOTE.queueRows interleaves groups and singles by first number. The Help table draws a group row with one tick, a fold, the worst risk and the build span over its member rows, which keep their own ticks; the group box derives from the members (whole, partial, none) and the order file gains a GROUPS section naming held-back numbers, in prose and in the JSON block.",
+      why: "Mihai, 8 Sep: 'the waiting for production list should group related items as one for promotion with the option to deselect from the grouping'. At 42 items the queue was two long runs and 'all of T01' was seventeen ticks. Beta-only surface (the queue never renders in production) and nothing tenant-facing; the one thing that changes shape is the promotion order file, which gains a section rather than changing its existing lines. Low \u2014 but the file is what a working session promotes from, so the held-back line has to be right.",
+      test: [
+        "Help, on beta: the table shows a group row 'T01 AppLocker \u2014 N related changes, promote together' with the T01 rows under it, and the same for 'T24 macOS baseline + T27 Windows baseline'; item 135 (the layout round, twenty tools) is a single row.",
+        "Tick the T01 group box: every T01 row ticks, the toolbar reads N of 42 ticked \u00b7 3 groups. Untick one T01 row: the group box goes half, its row reads 'partial' in the report colour, the toolbar says '1 partial'. Tick the group box again: whole. Untick it: none.",
+        "Hold one number back and Export promotion order: the file's GROUPS section names the group with its items and 'HELD BACK: <n>', and the JSON block's groups[] carries the same; the held-back number is absent from PROMOTE ITEMS.",
+        "Click the fold arrow on a group: its member rows hide and the arrow turns; click again: back. Reload: ticks survive (per item number, as before); folds do not, by design.",
+        "Clear ticks: every member box and every group box clears. pq-tests 368/368, including the synthetic seven-item queue that proves the >3-tools rule and the naming rule.",
+        "No row prints 'undefined' under its tools line any more (every live item lacks the optional what field; the renderer used to write it regardless).",
+      ],
+      files: ["js/promote.js", "js/app.js", "css/app.css", "index.html", "js/version.js", "js/changelog.js"],
+    },
     {
       n: 173, title: "\ud83d\udd10 T01 \u2014 script rows show version + last-changed build; cleanup Remediation panel matches the marker",
       tools: ["T01 AppLocker"], builds: [10601], risk: "low",
@@ -791,6 +810,98 @@ PROMOTE.applyTileFlags = function (doc, toolVersions, opts) {
   });
 };
 
+// ======================================================================
+// RELATED ITEMS FOLD (build 10602, Mihai's ask: "the waiting for production
+// list should group related items as one for promotion, with the option
+// to deselect from the grouping"). At 42 items the queue had become two
+// long runs — seventeen T01 builds and nineteen baseline builds — and
+// ticking them one by one to say "all of T01" was the wrong unit of
+// decision.
+//
+// A group is a VIEW over the items, never a replacement for them: every
+// item keeps its number, its why, its checklist and its own tick, and
+// the header's ONE ITEM PER CHANGE rule is untouched. What makes items
+// related is read off the data that is already there — tools[] — so
+// there is no group field to hand-maintain and nothing that can rot:
+// items sharing a tool fold together (transitively: T01+T04 joins the
+// T01 run, T05+T27+T24 joins the baseline run). An item that names more
+// than THREE tools stands alone — a layout round that touched twenty
+// tools is not "related" to any of them, it would fold the whole queue
+// into one row.
+// ======================================================================
+PROMOTE.GROUP_TOOL_CAP = 3;
+
+PROMOTE.groups = function (items) {
+  const list = (items || PROMOTE.items || []).slice().sort((a, b) => a.n - b.n);
+  const toolNo = (t) => { const m = /^T(\d+)\b/.exec(String(t)); return m ? Number(m[1]) : null; };
+  // union-find over item index, joined through tool number
+  const parent = list.map((_, i) => i);
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[b] = a; };
+  const firstByTool = {};
+  list.forEach((it, i) => {
+    const tools = it.tools || [];
+    if (tools.length > PROMOTE.GROUP_TOOL_CAP) return;   // stands alone
+    for (const t of tools) {
+      const n = toolNo(t);
+      if (n === null) continue;
+      if (firstByTool[n] === undefined) firstByTool[n] = i; else union(firstByTool[n], i);
+    }
+  });
+  const buckets = {};
+  list.forEach((it, i) => { const r = find(i); (buckets[r] = buckets[r] || []).push(it); });
+  const RANK = { high: 3, medium: 2, low: 1 };
+  const out = [];
+  for (const members of Object.values(buckets)) {
+    if (members.length < 2) continue;
+    members.sort((a, b) => a.n - b.n);
+    // core = tools EVERY member names; also = the rest, by how often they appear
+    const count = {};
+    const order = [];
+    for (const it of members) for (const t of it.tools || []) {
+      if (count[t] === undefined) { count[t] = 0; order.push(t); }
+      count[t] += 1;
+    }
+    // the name is the tools MOST members name, most common first — a
+    // single T24-only item must not un-name T27 from the baseline run;
+    // the rest are "also touches"
+    const byFreq = order.slice().sort((a, b) => count[b] - count[a]);
+    const core = byFreq.filter((t) => count[t] * 2 > members.length);
+    const also = byFreq.filter((t) => count[t] * 2 <= members.length);
+    const builds = [].concat(...members.map((m) => m.builds || [])).map(Number).sort((a, b) => a - b);
+    const risk = members.reduce((w, m) => (RANK[m.risk] || 0) > (RANK[w] || 0) ? m.risk : w, "low");
+    const ns = members.map((m) => m.n);
+    out.push({
+      key: "g" + ns[0],
+      title: core.join(" + "),
+      core, also,
+      ns, members, risk,
+      minN: ns[0], maxN: ns[ns.length - 1],
+      minBuild: builds[0], maxBuild: builds[builds.length - 1],
+    });
+  }
+  return out.sort((a, b) => a.minN - b.minN);
+};
+
+// The table's reading order: groups and single items interleaved by their
+// first number, so a group sits where its earliest item would have.
+PROMOTE.queueRows = function (items) {
+  const list = (items || PROMOTE.items || []).slice().sort((a, b) => a.n - b.n);
+  const groups = PROMOTE.groups(list);
+  const inGroup = new Map();
+  for (const g of groups) for (const n of g.ns) inGroup.set(n, g);
+  const rows = [];
+  const seen = new Set();
+  for (const it of list) {
+    const g = inGroup.get(it.n);
+    if (!g) { rows.push({ kind: "item", item: it }); continue; }
+    if (seen.has(g.key)) continue;
+    seen.add(g.key);
+    rows.push({ kind: "group", group: g });
+  }
+  return rows;
+};
+
 PROMOTE.buildOrder = function (pickedNs, appBuild) {
   const ns = [...new Set((pickedNs || []).map(Number))].sort((a, b) => a - b);
   if (!ns.length) throw new Error("Nothing is ticked — an empty order is not an order.");
@@ -801,6 +912,13 @@ PROMOTE.buildOrder = function (pickedNs, appBuild) {
   });
   const when = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const beta = appBuild ? appBuild.label : "";
+  // the groups the ticks touch — whole or partial, both are said out loud
+  const picked = new Set(ns);
+  const groups = PROMOTE.groups(PROMOTE.items).map((g) => ({
+    title: g.title,
+    items: g.ns.filter((n) => picked.has(n)),
+    heldBack: g.ns.filter((n) => !picked.has(n)),
+  })).filter((g) => g.items.length);
   const L = [];
   L.push("# TUNO promotion order");
   L.push("");
@@ -808,6 +926,15 @@ PROMOTE.buildOrder = function (pickedNs, appBuild) {
   L.push("");
   L.push(`PROMOTE ITEMS: ${ns.join(", ")}`);
   L.push("");
+  if (groups.length) {
+    L.push("GROUPS — related items ticked together (a group is a view over the");
+    L.push("items above, not a promotion unit of its own; a held-back number is");
+    L.push("a decision, and the session must not promote it as part of the run):");
+    for (const g of groups) {
+      L.push(`- ${g.title}: ${g.items.join(", ")}` + (g.heldBack.length ? ` — HELD BACK: ${g.heldBack.join(", ")}` : " — whole group"));
+    }
+    L.push("");
+  }
   L.push("For the working session: this file is the ORDER, not the verification.");
   L.push("Verify each item against what main actually contains before building");
   L.push("the production commit — the queue's own rule. Items promote together");
@@ -822,7 +949,7 @@ PROMOTE.buildOrder = function (pickedNs, appBuild) {
     L.push("");
   }
   L.push("```json");
-  L.push(JSON.stringify({ order: ns, generated: when, betaBuild: appBuild ? appBuild.build : null, productionBuild: PROMOTE.productionBuild }));
+  L.push(JSON.stringify({ order: ns, groups, generated: when, betaBuild: appBuild ? appBuild.build : null, productionBuild: PROMOTE.productionBuild }));
   L.push("```");
   return {
     filename: `tuno-promotion-order-${when.slice(0, 10)}.md`,

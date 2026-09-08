@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10602, date: "2026-09-08", title: "Help — the promotion queue folds related changes into one row, with a tick per item to hold one back",
+    items: [
+      { kind: "improved", tool: "All tools", text: "Waiting for production (beta only) had grown to 42 rows, of which seventeen were T01 builds and nineteen were baseline builds, and saying 'push all of T01' meant ticking seventeen boxes. Items that name the same tool now sit under one group row — T01 AppLocker, T24 macOS baseline + T27 Windows baseline, T16 — with a single tick that ticks every item in the run, a fold button, the worst risk in the group and its build span. Related is read off each item's own tools list (an item naming more than three tools, like the layout round, stands alone), so there is nothing new to maintain by hand." },
+      { kind: "improved", tool: "All tools", text: "Every row under a group keeps its own tick. Untick one and the group reads 'partial' with the count, the toolbar counts the partial groups, and the exported promotion order names the number that was held back — a deselection is a decision the working session can read, not a gap it has to notice. Ticking a partial group ticks it up to whole; unticking a whole group clears it. The ticks are still stored per item number, so nothing about the order file's items changed." },
+      { kind: "fixed", tool: "All tools", text: "Every queue row printed the word 'undefined' under its tools — the renderer wrote the optional what field whether or not the item had one, and none of the 42 did. The line is drawn only when there is something to draw." },
+    ],
+  },
+  {
     build: 10601, date: "2026-09-08", title: "T01 — every script row says its version and when it last changed",
     items: [
       { kind: "improved", tool: "AppLocker", text: "Under Help & scripts every download row carries 'vX.Y.Z · changed in build N', and 'changed in this build' in red on the build that changed it — the visible signal to re-download and replace a deployed copy. The build stamp inside a script moves every release; this line moves only when the behaviour does, and the version guard holds it to the files." },
