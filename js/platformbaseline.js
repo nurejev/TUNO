@@ -298,6 +298,62 @@ const PlatformBaseline = (() => {
       return out;
     }
 
+    // ================================================================
+    // THIS TOOL ONLY EVER SPEAKS ABOUT ITS OWN PLATFORM (build 10599)
+    // ================================================================
+    // Mihai, 8 Sep, from 🧹 Housekeeping on the macOS baseline: a screenshot
+    // full of `Win - OIB - ES - Defender Antivirus Updates` and
+    // `WIN-DHS-DeviceConfiguration-…`. The read is the whole tenant — that
+    // is the point of one shared read — and NOTHING in these tools ever
+    // narrowed it. Group 1 of Housekeeping got away with it because
+    // looksBaseline() demands the platform prefix; group 2 groups by content
+    // hash and has no opinion about names, so every Windows policy the
+    // tenant carries twice arrived in the macOS tool, offering to delete it.
+    //
+    // Three questions, in order, and the FIRST one that answers wins:
+    //   1 the surface it came from, where that is single-platform by
+    //     definition — a deviceShellScript is macOS and a deviceHealthScript
+    //     is Windows, and neither says so in any field
+    //   2 what the policy declares — `platforms` on a settings catalog
+    //     policy, `platform` on an assignment filter, the @odata.type
+    //     everywhere else, all through T05's ONE normaliser so this tool and
+    //     the documenter cannot disagree about one policy
+    //   3 nothing — and nothing means KEEP IT. A policy whose platform
+    //     cannot be established is not evidence that it belongs to the other
+    //     tool, and dropping it would hide a real baseline policy rather
+    //     than a foreign one.
+    const SURFACE_PLATFORM = {
+      deviceshellscripts: "macOS",
+      devicecustomattributeshellscripts: "macOS",
+      deponboardingsettings: "macOS",
+      devicemanagementscripts: "Windows",
+      devicehealthscripts: "Windows",
+      windowsfeatureupdateprofiles: "Windows",
+      windowsqualityupdateprofiles: "Windows",
+      windowsdriverupdateprofiles: "Windows",
+      windowsautopilotdeploymentprofiles: "Windows",
+    };
+    const SECTION_PLATFORM = {
+      admx: "Windows", autopilot: "Windows", updates: "Windows", driverUpdates: "Windows", esp: "Windows",
+      customAttributes: "macOS", ade: "macOS",
+    };
+    function platformOfPolicy(p) {
+      const surf = String((p && p.surface) || "").split("/").filter(Boolean).pop();
+      if (surf && SURFACE_PLATFORM[surf.toLowerCase()]) return SURFACE_PLATFORM[surf.toLowerCase()];
+      if (p && SECTION_PLATFORM[p.section]) return SECTION_PLATFORM[p.section];
+      const b = (p && p.body) || {};
+      const say = (v) => {
+        for (const tok of String(v || "").split(/[,;]/)) {
+          const n = (typeof Docs !== "undefined" && Docs.normPlatform) ? Docs.normPlatform(tok.trim()) : null;
+          if (n) return n;
+        }
+        return "";
+      };
+      return say(b.platforms) || say(b.platform) || say(b["@odata.type"]) || say(p && p.odataType) || "";
+    }
+    // Unknown is not "somebody else's" — see rule 3 above.
+    const isOurPlatform = (p) => { const plat = platformOfPolicy(p); return !plat || plat === spec.platform; };
+
     // The D/U token the convention carries, which is what Import reads to
     // pick a PRE-PILOT group (§8.3). It is a SEGMENT of the name, never a
     // letter found inside a word: "Win - SEC - Defender - D - Real-time …"
@@ -1609,6 +1665,7 @@ const PlatformBaseline = (() => {
       exportReadiness, rowIssue, bodyLooksEmpty, LIST_ONLY, BODY_SECTIONS,
       shapeErrors, verifyHashes, loadCatalog, releaseOfSet,
       SIMILARITY_MIN, REVIEW_MARGIN, ATTENTION, jaccard, anchorOf, kindOfSection,
+      platformOfPolicy, isOurPlatform, SURFACE_PLATFORM, SECTION_PLATFORM,
       PILOT_GROUPS, DEVICE_ONLY_SECTIONS, duFor, assignPathFor, findPilotGroups, assignToGroup,
       defIdsOf, cleanBody, kindOf, parseUpstream, buildCommunity,
       proposeName, diffPolicies, toMd,
@@ -1720,13 +1777,19 @@ const PlatformBaseline = (() => {
             if (sec.id === "admx" && Array.isArray(raw.__detail)) body.definitionValues = raw.__detail;
             if (sec.id === "intents" && Array.isArray(raw.__detail)) body.settings = raw.__detail;
           }
-          out.push({ id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body,
+          const vm = { id: it.id, name: it.name, section: sec.id, sectionLabel: sec.label, description: it.description || "", modified: it.modified || "", created: it.created || "", assignments: it.assignments || [], body,
             // The content hash of this policy as the tenant holds it —
             // computed ONCE when the read lands (crypto.subtle is async and
             // compare() is not), and carried on every view of it since.
             hash: (S.hashes && S.hashes.get(it.id)) || "",
             du: E.duOf(it.name),
-            surface: (raw && raw.__surface) || "", odataType: (raw && raw["@odata.type"]) || "" });
+            surface: (raw && raw.__surface) || "", odataType: (raw && raw["@odata.type"]) || "" };
+          // THE ONE GATE (build 10599). Every act — Compare, Import, Rename,
+          // Export, Housekeeping — reads the tenant through here, so this is
+          // the single place that can say "not this tool's platform" once
+          // instead of five times, each slightly differently.
+          if (!E.isOurPlatform(vm)) continue;
+          out.push(vm);
         }
       }
       return out;
@@ -1738,12 +1801,33 @@ const PlatformBaseline = (() => {
     // the community catalog: fetched from github.com this session (10572),
     // else the bundle
     const communityCatalog = () => S.fetchedCat || E.community();
+    // THE COMMUNITY BASELINE IS A SOURCE FOR THE REFERENCE TENANT ONLY
+    // (Mihai, 8 Sep, correcting the design's §4.1: "intune-my-macs should
+    // only be shown in cloudfellows; other tenants is vs the catalog only").
+    //
+    // It reads as a restriction and it is the opposite. The community
+    // baseline is an UPSTREAM, not a baseline anybody deploys from: it is
+    // what cloudfellows.dev compares its own catalog against, imports from,
+    // curates, and re-exports. What a customer tenant is measured against
+    // is the CURATED result — the committed catalog — and offering it a
+    // second, uncurated source to compare against was offering it a
+    // different answer to the same question with nothing to say which one
+    // counts.
+    //
+    // The catalog is still LOADED on every tenant, and deliberately: ✏️
+    // Rename reads it to know which names belong to the community and must
+    // be kept verbatim, and that rule holds wherever OIB's own deployer
+    // might come back. It is the SOURCE PICKER it leaves, not the session.
+    const communityOffered = () => isCfdev() && !!communityCatalog();
     const catalogs = () => {
       const out = [];
       const cf = cfCatalog();
       if (cf) out.push({ id: "cfdev", cat: cf, icon: "🧬", label: `CloudFellows ${cf.release || "(no release)"}`, sub: cfSource() === "file" ? "loaded file" : "bundled" });
-      const co = communityCatalog();
-      if (co) out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`, sub: S.fetchedCat ? "fetched from github.com" : "community" });
+      if (communityOffered()) {
+        const co = communityCatalog();
+        out.push({ id: "community", cat: co, icon: co.icon || "🧩", label: `${co.label}${co.release ? ` v${co.release}` : ""}`,
+          sub: S.fetchedCat ? "fetched from github.com" : "the copy in this repository" });
+      }
       return out;
     };
     function activeCatalog() {
@@ -1888,7 +1972,14 @@ const PlatformBaseline = (() => {
       if (S.lastSource) parts.push(`<p class="mini muted" style="margin:0 0 8px">${S.lastSource}</p>`);
 
       const comm = E.isCommunity(c);
-      if (mode === "compare" || mode === "import") parts.push(sourcePicker());
+      if (mode === "compare" || mode === "import") {
+        parts.push(sourcePicker());
+        // Say why the community source is absent rather than leaving it to
+        // be noticed — it was there in earlier builds.
+        if (!communityOffered() && communityCatalog()) {
+          parts.push(`<p class="mini muted" style="margin:-4px 0 10px">${esc(communityCatalog().label)} is a source on the reference tenant only, where the catalog is curated from it. Here you compare against the catalog that curation produced. <button type="button" class="btn sm" id="${ID("WhyComm")}" style="padding:1px 6px">why</button></p>`);
+        }
+      }
       if (c) { if (mode === "compare" || mode === "import") parts.push(catalogLine(c)); }
       else parts.push(`<div class="list-card"><p class="mini" style="margin:0">${isCfdev()
         ? `<b>No catalog could be read — and this is the tenant that makes it.</b> ${esc(spec.readLabel)}, ✏️ Rename what lacks its tag, 🧹 retire the old copies, then 📤 Export → Repo folder: unzipped at the repo root it becomes ${esc(spec.catalogPath)}, the file this screen reads.`
@@ -2108,7 +2199,8 @@ const PlatformBaseline = (() => {
         ${sec("How a policy is matched", `In this order, and a tenant policy is claimed exactly once. <b>1 The author's token</b> — a community baseline that stamps its own id into the description is identified by it first, so a renamed copy still identifies. <b>2 The name</b>, with the release tag and version stripped and separators normalised. <b>3 The content</b> — the canonical body hashed with SHA-256; two policies with the same hash are the same policy whatever they are called. <b>4 Similarity</b> — the Jaccard overlap of what the two configure, at least ${Math.round(E.SIMILARITY_MIN * 100)}% of their union, and only between two policies of the same kind. If the runner-up is within ${Math.round(E.REVIEW_MARGIN * 100)} points of the winner nothing is claimed and the row reads <b>Review</b>: a coin-flip dressed as a match is worse than an open question.`)}
         ${sec("What the statuses mean", `<ul style="margin:6px 0 0">${Object.keys(E.STATUS).sort((a, b) => E.STATUS[a].order - E.STATUS[b].order).map((k) => `<li><b>${E.STATUS[k].icon} ${esc(E.STATUS[k].label)}</b> — ${esc(E.STATUS[k].why)}</li>`).join("")}</ul>`)}
         ${sec("What each act does", `<b>📥 Import</b> creates what is <i>missing</i> or <i>outdated</i>, and nothing else; content is never patched, so an outdated row gets a new copy and the old one is Housekeeping's. <b>✏️ Rename</b> brings names into the convention, re-checking drift and collisions immediately before each write. <b>📤 Export</b> cuts the catalog, on the reference tenant only, and refuses to run on an incomplete read. <b>🧹 Housekeeping</b> deletes older copies and same-content duplicates, never an assigned one, and verifies each delete by failing to read it back.`)}
-        ${sec("Where the catalogs come from", `<b>${esc(spec.catalogPath)}</b> — this site's own copy of the reference tenant's export, written by 📤 Export and never by hand. <b>${esc(spec.communityPath)}</b> — ${esc(spec.upstream.label)} by ${esc(spec.upstream.author)}, cut verbatim from ${esc(spec.upstream.repo)}; <i>Fetch latest</i> reads that repository live instead. <b>📄 File…</b> — any catalog export you have. Every one of them goes through the same strict loader: a file whose schema, platform, catalog id or sections do not check out is refused whole, and a policy whose body no longer matches its hash is flagged and can never be imported.`)}
+        ${sec("Where the catalogs come from", `<b>${esc(spec.catalogPath)}</b> — this site's own copy of the reference tenant's export, written by 📤 Export and never by hand. This is what every tenant is measured against. <b>📄 File…</b> — any catalog export you have, for a cut that is not the committed one. Both go through the same strict loader: a file whose schema, platform, catalog id or sections do not check out is refused whole, and a policy whose body no longer matches its hash is flagged and can never be imported.`)}
+        ${sec(`${esc(spec.upstream.label)} — on the reference tenant only`, `${esc(spec.upstream.label)} by ${esc(spec.upstream.author)} (<code>${esc(spec.communityPath)}</code>, cut verbatim from ${esc(spec.upstream.repo)}; <i>Fetch latest</i> reads that repository live instead) is an <b>upstream</b>, not a baseline anybody deploys from. It is offered as a comparison source on the reference tenant, where the job is to see what it has that the catalog lacks, import what is wanted, curate it, and 📤 re-export — so the next push updates the catalog every other tenant reads. ${isCfdev() ? "This IS that tenant, so it is in the source picker above." : "This is not that tenant, so it is not in the source picker: what you compare against here is the curated result, and a second uncurated source would be a second answer to the same question with nothing to say which one counts."} It is still read on every tenant for one purpose — ✏️ Rename uses it to know which names belong to the community and must be kept verbatim, so its own deployer can still maintain what it created.`)}
         ${h.extra ? sec("On this platform", h.extra) : ""}
         <p class="mini muted" style="margin:16px 0 0">The reference tenant is ${isCfdev() ? "<b>this one</b>" : "not this one"} — it is gated on the tenant's immutable Entra ID, and it is a convenience gate, not a security boundary: what a tenant will actually let you do is decided by Graph permissions.</p>
       </div>`;
@@ -2127,6 +2219,8 @@ const PlatformBaseline = (() => {
         S.planned = null; S.plannedFilters = null;   // a plan belongs to the catalog it was made for
         recompare(); render();
       });
+      const why = $(ID("WhyComm"));
+      if (why) why.addEventListener("click", () => { mode = "help"; render(); });
       const fi = $(ID("File"));
       if (fi) fi.addEventListener("change", async (e) => {
         const f = e.target.files && e.target.files[0];

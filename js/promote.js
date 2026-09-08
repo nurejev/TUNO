@@ -100,6 +100,36 @@ const PROMOTE = {
 
   items: [
     {
+      n: 171, title: "\ud83c\udf4e T24 + \ud83e\ude9f T27 \u2014 each tool only ever speaks about its own platform",
+      tools: ["T24 macOS baseline", "T27 Windows baseline"], builds: [10599], risk: "high",
+      why: "Mihai, 8 Sep, with a screenshot of \ud83e\uddf9 Housekeeping on the macOS baseline full of `Win - OIB - ES - Defender Antivirus Updates` and five `WIN-DHS-DeviceConfiguration-\u2026` remediations, several assigned. The read is the whole tenant \u2014 that is the point of one shared read \u2014 and NOTHING in these tools ever narrowed it. Housekeeping's group 1 got away with it because looksBaseline() demands the platform prefix; group 2 (added at 10593) groups by CONTENT HASH and has no opinion about names, so every Windows policy the tenant carries twice arrived in the macOS tool offering to delete it. Compare's duplicate and extra rows had the same hole. HIGH because the surface it showed up on was a DELETE list: the refusals held (every one of those rows was assigned, so none could be ticked), but a tool proposing to delete another platform's policies is one unassigned duplicate away from doing it. A policy's platform is now settled ONCE, in vms() \u2014 the single place the read becomes policies \u2014 so Compare, Import, Rename, Export and Housekeeping all inherit it. The order is: the surface where that is single-platform by definition (deviceShellScripts is macOS, deviceHealthScripts and deviceManagementScripts are Windows, and none of them says so in any field), then what the policy declares (`platforms`, `platform`, @odata.type) through T05's own normPlatform so this tool and the documenter cannot disagree about one policy, then NOTHING \u2014 and nothing means keep it, because a platform that cannot be established is not evidence the policy belongs elsewhere.",
+      test: [
+        "THE REPORT: cloudfellows.dev, \ud83c\udf4e macOS baseline, \ud83e\uddf9 Housekeeping. No `Win -`, `WIN-` or OIB row appears at all. Before this build there were at least seven.",
+        "Same tenant, \ud83e\ude9f Windows baseline, Housekeeping: those Windows rows ARE there, grouped as before, and no MACOS row is.",
+        "Compare on both: the macOS tool's table carries no Windows policy in any status \u2014 check `extra`, `duplicate` and `unversioned` in particular, since those are the rows that come from the tenant rather than the catalog.",
+        "\u2699 a script row on each tool and confirm the surface it names is that platform's.",
+        "A policy whose platform genuinely cannot be established (a custom OMA-URI profile with no platforms field) is still LISTED in both tools rather than vanishing from both \u2014 that is the deliberate half of the rule and the one that would be missed.",
+        "\ud83d\udce4 Export on cloudfellows.dev: the counts per surface drop by whatever the other platform contributed, and the catalog that comes out is unchanged from 10598's (Export already filtered by the name prefix, so this should be a no-op there \u2014 if it is not, say so).",
+        "Headless: tests/platformbaseline engine 181/181, screen 216/216. Both new blocks were mutation-checked: removing the gate turns the screen suite red.",
+      ],
+      files: ["js/platformbaseline.js", "tests/platformbaseline/engine.test.js", "tests/platformbaseline/screen.test.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
+      n: 170, title: "\ud83c\udf4e T24 + \ud83e\ude9f T27 \u2014 the community baseline is a comparison source on the reference tenant only",
+      tools: ["T24 macOS baseline", "T27 Windows baseline"], builds: [10599], risk: "medium",
+      why: "Mihai, 8 Sep: \u201cintune-my-macs should only be shown in cloudfellows. other tenants is vs the catalog only. in cloudfellows the options to update the catalog from intune-my-macs.\u201d This corrects \u00a74.1 of the design, which had the community catalog on the picker everywhere and even defaulted the reference tenant to it. It reads as a restriction and is the opposite: the community baseline is an UPSTREAM, not a baseline anybody deploys from \u2014 the reference tenant compares its own catalog against it, imports what is wanted, curates and re-exports, and what a customer tenant is measured against is the curated result. Offering that tenant a second, uncurated source was offering a different answer to the same question with nothing on the screen to say which one counted. The picker now carries it on the reference tenant only, and says where it went. The catalog is still LOADED on every tenant and deliberately so: \u270f\ufe0f Rename reads it to know which names belong to the community and must be kept verbatim, and that rule holds wherever OIB's own deployer might come back \u2014 it is the source picker it leaves, not the session. MEDIUM: it removes a capability customer tenants had since 10571 (importing OIB directly). If anybody was relying on that, this is the build that stops them, and the answer is that the reference tenant imports it, curates it and ships it in the catalog.",
+      test: [
+        "cloudfellows.dev, either tool: the source picker shows \ud83e\uddec CloudFellows, the community baseline, and \ud83d\udcc4 File\u2026 \u2014 unchanged. Fetch latest from github.com still works and \ud83d\udcc1 Community folder (zip) still writes baseline/community/<id>/.",
+        "Any other tenant: the picker shows CloudFellows and File\u2026 only, with one muted line saying the community baseline is a reference-tenant source and a `why` button that opens \u2753 How it works.",
+        "That pane explains it in full and says the catalog is the curated result.",
+        "\u270f\ufe0f Rename on a NON-reference tenant that has OIB deployed: the OIB policies are still listed as `kept` with the deployer reason, and no convention name is proposed for them. This is the check that the catalog is still loaded \u2014 if these rows changed, the gate went too far.",
+        "\ud83d\udce5 Import on a customer tenant creates from the committed catalog as before.",
+        "Sign out of cloudfellows.dev and into a customer tenant without reloading: the picker loses the community entry and the comparison re-cuts against the catalog (the session is dropped on sign-out since 10588, so this should be clean).",
+        "Headless: engine 181/181, screen 216/216; mutation-checked (offering it everywhere turns the screen suite red).",
+      ],
+      files: ["js/platformbaseline.js", "tests/platformbaseline/screen.test.js", "js/version.js", "js/changelog.js", "js/promote.js", "index.html"],
+    },
+    {
       n: 169, title: "\ud83d\udd10 T01 \u2014 Remove-TunoUserInstalledApps 1.0.1: single pick works, loaded hives unload",
       tools: ["T01 AppLocker"], builds: [10598], risk: "low",
       why: "First run on CPC-mihai-FK1D1: choosing entry 2 threw 'Count cannot be found' (scalar under StrictMode), and the logged-off admin's hive answered Access is denied on reg unload (provider handles). Registry reads moved to Microsoft.Win32.RegistryKey with explicit Close; array wrappers; unload retried five times.",

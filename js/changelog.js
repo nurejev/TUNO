@@ -26,6 +26,15 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10599, date: "2026-09-08", title: "Baselines: the community source belongs to the reference tenant, and a tool stops listing the other platform's policies",
+    items: [
+      { kind: "fixed", tool: "\ud83c\udf4e macOS baseline", text: "Housekeeping was listing Windows policies. The read is the whole tenant by design and nothing in these tools narrowed it \u2014 the first group of duplicates got away with it because a name has to carry the platform prefix, but the second groups by content and has no opinion about names, so every Windows policy the tenant carried twice arrived here offering to be deleted. Each tool now settles a policy's platform once, where the read becomes policies, so Compare, Import, Rename, Export and Housekeeping all inherit it." },
+      { kind: "fixed", tool: "\ud83e\ude9f Windows baseline", text: "The same gate, the other way round: no macOS policy reaches it. A policy's platform comes from the surface it came from where that settles it \u2014 a shell script is macOS, a remediation is Windows, and neither says so in any field \u2014 then from what the policy declares, and a policy whose platform cannot be established is kept rather than dropped, because unknown is not evidence that it belongs to the other tool." },
+      { kind: "improved", tool: "\ud83c\udf4e macOS baseline", text: "intune-my-macs is offered as a comparison source on the reference tenant only. It is an upstream, not a baseline anybody deploys from: the reference tenant compares its catalog against it, imports what is wanted, curates it and re-exports, and what every other tenant is measured against is that curated result. A second uncurated source elsewhere was a second answer to the same question with nothing to say which one counts. The screen says so where the source used to be." },
+      { kind: "improved", tool: "\ud83e\ude9f Windows baseline", text: "The same for OpenIntuneBaseline. It is still read on every tenant for one purpose \u2014 Rename uses it to know which names belong to the community and must be kept verbatim, so its own deployer can still maintain what it created." },
+    ],
+  },
+  {
     build: 10598, date: "2026-09-07", title: "T01 — the removal menu survives a single pick and lets the hive go",
     items: [
       { kind: "fixed", tool: "AppLocker", text: "Remove-TunoUserInstalledApps.ps1 1.0.1. Picking one app ended in 'The property Count cannot be found' — a one-element selection unrolled to a scalar under strict mode; every array-returning call is wrapped. The hive of a logged-off user then refused to unload (Access is denied) because the Registry:: provider held handles on it; the Uninstall keys are now read through the .NET registry API, each key closed, and the unload retries." },

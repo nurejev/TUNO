@@ -507,6 +507,104 @@ head("§3 — the read covers the surface table, and bodies are asked for");
 }
 
 // =====================================================================
+head("10599 — the community baseline is a source on the reference tenant only");
+{
+  const w = boot();
+  const D = w.document, T = w.TunoTenant;
+  const comm = { schema: 2, kind: "tuno-community", platform: "macos", catalogId: "imm", label: "intune-my-macs",
+    icon: "🍏", author: "Microsoft", url: "https://github.com/microsoft/intune-my-macs",
+    release: "2026-08-07", sourceDate: "2026-08-07", nameRe: null, idToken: null, policies: [] };
+  const cf = { schema: 2, kind: "tuno-macos-baseline", platform: "macos", catalogId: "cloudfellows",
+    release: "R26.9", releaseMix: { "R26.9": 1 }, policies: [] };
+
+  // ---- the reference tenant: both sources ----
+  T._setForTest("cloudfellows.dev", "CloudFellows BV", "aaaa1111-0000-0000-0000-000000000001");
+  w.MacBaselineTool.init();
+  w.MacBaselineTool._catalogsForTest(cf, comm);
+  await w.MacBaselineTool._setForTest(readOf("MACOS - DCP - X - D - Y - R26.6 - v1.0"), null, "compare", "cfdev");
+  let picks = [...D.querySelectorAll("#mbCat [data-mbcat]")].map((b) => b.dataset.mbcat);
+  ok("the reference tenant is offered the community source", picks.includes("community"), picks.join(","));
+  ok("along with the catalog and a file", picks.includes("cfdev") && picks.includes("file"));
+  ok("and no note explaining an absence", !/source on the reference tenant only/.test(D.getElementById("mbBody").textContent));
+
+  // ---- any other tenant: the catalog, and a file ----
+  const w2 = boot();
+  const D2 = w2.document;
+  w2.TunoTenant._setForTest("contoso.com", "Contoso BV", "bbbb2222-0000-0000-0000-000000000002");
+  w2.MacBaselineTool.init();
+  w2.MacBaselineTool._catalogsForTest(cf, comm);
+  await w2.MacBaselineTool._setForTest(readOf("MACOS - DCP - X - D - Y - R26.6 - v1.0"), null, "compare", null);
+  picks = [...D2.querySelectorAll("#mbCat [data-mbcat]")].map((b) => b.dataset.mbcat);
+  ok("a customer tenant is NOT offered the community source", !picks.includes("community"), picks.join(","));
+  ok("it still has the catalog and a file", picks.includes("cfdev") && picks.includes("file"));
+  ok("the active catalog is the committed one", w2.MacBaseline.isCommunity(w2.MacBaselineTool._session().cmp.catalog) === false);
+  ok("and the screen says why the community source is absent", /source on the reference tenant only/.test(D2.getElementById("mbBody").textContent));
+  ok("with a way to read the reason", !!D2.getElementById("mbWhyComm"));
+  D2.getElementById("mbWhyComm").click();
+  ok("which opens How it works", /How .* works/i.test(D2.getElementById("mbBody").textContent));
+  ok("and that pane says the catalog is the curated result", /curated/.test(D2.getElementById("mbBody").textContent));
+
+  // the catalog is still LOADED everywhere — Rename needs it to keep the
+  // community's own names verbatim, on any tenant
+  ok("the community catalog is still in the session on a customer tenant", !!w2.MacBaseline.community());
+  const src = fs.readFileSync(path.join(ROOT, "js/platformbaseline.js"), "utf8");
+  ok("Rename still reads it, not the source picker", /E\.renameProposals\(vms\(\), communityCatalog\(\)/.test(src));
+  ok("only the picker is gated", /const communityOffered = \(\) => isCfdev\(\) && !!communityCatalog\(\);/.test(src));
+}
+
+// =====================================================================
+head("10599 — the platform gate is in vms(), so every act inherits it");
+{
+  const w = boot();
+  const D = w.document;
+  w.TunoTenant._setForTest("cloudfellows.dev", "CloudFellows BV", "aaaa1111-0000-0000-0000-000000000001");
+  w.MacBaselineTool.init();
+  w.MacBaselineTool._catalogsForTest({ schema: 2, kind: "tuno-macos-baseline", platform: "macos",
+    catalogId: "cloudfellows", release: "R26.6", policies: [] }, null);
+  // one macOS policy and two Windows remediations that share a body — the
+  // exact shape of the Housekeeping screenshot
+  const read = {
+    sections: [
+      { id: "settingsCatalog", label: "Settings catalog policies",
+        items: [{ id: "m1", name: "MACOS - DCP - Authentication - U - Platform SSO - R26.6 - v3.1.1", description: "", modified: "", created: "", assignments: [] },
+                { id: "w1", name: "Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4", description: "", modified: "", created: "", assignments: [] }],
+        raw: [{ id: "m1", name: "MACOS - DCP - Authentication - U - Platform SSO - R26.6 - v3.1.1", platforms: "macOS", __detail: [] },
+              { id: "w1", name: "Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4", platforms: "windows10", __detail: [] }] },
+      { id: "scripts", label: "Scripts & remediations",
+        items: [{ id: "w2", name: "WIN-DHS-DeviceConfiguration-U-Drive_And_PrinterMapping-BRA-L_DRIVE-v2.6", description: "", modified: "", created: "", assignments: [] },
+                { id: "w3", name: "WIN-DHS-DeviceConfiguration-D-SAPGUI8.0-XML-GLO-v1.5", description: "", modified: "", created: "", assignments: [] }],
+        raw: [{ id: "w2", displayName: "WIN-DHS-DeviceConfiguration-U-Drive_And_PrinterMapping-BRA-L_DRIVE-v2.6", __surface: "/deviceManagement/deviceHealthScripts", runAsAccount: "system", scriptContent: "YQ==" },
+              { id: "w3", displayName: "WIN-DHS-DeviceConfiguration-D-SAPGUI8.0-XML-GLO-v1.5", __surface: "/deviceManagement/deviceHealthScripts", runAsAccount: "system", scriptContent: "YQ==" }] },
+    ], failed: [], partial: [],
+  };
+  await w.MacBaselineTool._setForTest(read, null, "housekeeping", "cfdev");
+  const hk = D.getElementById("mbHousekeeping").textContent;
+  ok("no Windows policy reaches the macOS Housekeeping list", !/WIN-DHS|Win - OIB/.test(hk), hk.slice(0, 200));
+  ok("and it says there is nothing to tidy", /nothing to tidy/i.test(hk));
+
+  // the same read, the Windows tool: the pair IS its business
+  const w2 = boot();
+  w2.TunoTenant._setForTest("cloudfellows.dev", "CloudFellows BV", "aaaa1111-0000-0000-0000-000000000001");
+  w2.WinBaselineTool.init();
+  w2.WinBaselineTool._catalogsForTest({ schema: 2, kind: "tuno-windows-baseline", platform: "windows",
+    catalogId: "cloudfellows", release: "R26.6", policies: [] }, null);
+  await w2.WinBaselineTool._setForTest(read, null, "housekeeping", "cfdev");
+  const hk2 = w2.document.getElementById("wbHousekeeping").textContent;
+  ok("the Windows tool sees the pair", /WIN-DHS/.test(hk2));
+  ok("and no macOS policy reaches it", !/MACOS - DCP/.test(hk2));
+
+  // Compare inherits the same gate
+  await w.MacBaselineTool._setForTest(read, null, "compare", "cfdev");
+  D.getElementById("mbClear").click();
+  const cmpText = D.getElementById("mbBody").textContent;
+  ok("Compare shows no Windows policy in the macOS tool", !/WIN-DHS|Win - OIB/.test(cmpText));
+  ok("but does show the macOS one", /Platform SSO/.test(cmpText));
+
+  const src = fs.readFileSync(path.join(ROOT, "js/platformbaseline.js"), "utf8");
+  ok("the gate is in vms(), once, and not repeated per act", (src.match(/if \(!E\.isOurPlatform\(vm\)\) continue;/g) || []).length === 1);
+}
+
+// =====================================================================
 head("Bookkeeping travels in the same commit");
 {
   const w = boot();

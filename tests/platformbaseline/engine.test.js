@@ -12,6 +12,61 @@ const { ok, head, run, ROOT, fs, path, boot, readOf, CAT } = suite("engine");
 run(async () => {
 
 // =====================================================================
+head("10599 — a tool only ever speaks about its own platform");
+{
+  const w = boot();
+  const mac = w.MacBaseline, win = w.WinBaseline;
+  const P = (extra) => Object.assign({ id: "x", name: "n", section: "settingsCatalog", body: {}, surface: "" }, extra);
+
+  // 1 — the surface, where it is single-platform by definition and says so nowhere
+  ok("a shell script is macOS", mac.platformOfPolicy(P({ section: "scripts", surface: "/deviceManagement/deviceShellScripts" })) === "macOS");
+  ok("a remediation is Windows", mac.platformOfPolicy(P({ section: "scripts", surface: "/deviceManagement/deviceHealthScripts" })) === "Windows");
+  ok("a platform script is Windows", mac.platformOfPolicy(P({ section: "scripts", surface: "/deviceManagement/deviceManagementScripts" })) === "Windows");
+  ok("a custom attribute script is macOS", mac.platformOfPolicy(P({ section: "customAttributes" })) === "macOS");
+  ok("an ADE token is macOS", mac.platformOfPolicy(P({ section: "ade" })) === "macOS");
+  ok("an administrative template is Windows", mac.platformOfPolicy(P({ section: "admx" })) === "Windows");
+  ok("an Autopilot profile is Windows", mac.platformOfPolicy(P({ section: "autopilot" })) === "Windows");
+  ok("an update ring is Windows", mac.platformOfPolicy(P({ section: "updates", surface: "/deviceManagement/windowsQualityUpdateProfiles" })) === "Windows");
+
+  // 2 — what the policy declares, through T05's one normaliser
+  ok("a settings catalog policy declares its platforms", mac.platformOfPolicy(P({ body: { platforms: "windows10" } })) === "Windows");
+  ok("macOS declared reads as macOS", mac.platformOfPolicy(P({ body: { platforms: "macOS" } })) === "macOS");
+  ok("a compliance policy is read off its @odata.type",
+    mac.platformOfPolicy(P({ section: "compliance", body: { "@odata.type": "#microsoft.graph.macOSCompliancePolicy" } })) === "macOS");
+  ok("an assignment filter declares `platform`", mac.platformOfPolicy(P({ section: "filters", body: { platform: "windows10AndLater" } })) === "Windows");
+  ok("the surface beats the declaration — it is the more specific fact",
+    mac.platformOfPolicy(P({ section: "scripts", surface: "/deviceManagement/deviceShellScripts", body: { platforms: "windows10" } })) === "macOS");
+
+  // 3 — unknown is not "somebody else's"
+  ok("a policy that says nothing has no platform", mac.platformOfPolicy(P({})) === "");
+  ok("and is KEPT rather than dropped", mac.isOurPlatform(P({})) === true && win.isOurPlatform(P({})) === true);
+
+  // the gate itself
+  ok("the macOS tool keeps a macOS policy", mac.isOurPlatform(P({ body: { platforms: "macOS" } })) === true);
+  ok("and refuses a Windows one", mac.isOurPlatform(P({ body: { platforms: "windows10" } })) === false);
+  ok("the Windows tool is the mirror of it",
+    win.isOurPlatform(P({ body: { platforms: "windows10" } })) === true && win.isOurPlatform(P({ body: { platforms: "macOS" } })) === false);
+
+  // THE BUG MIHAI SAW: Housekeeping group 2 groups by content hash and has
+  // no opinion about names, so Windows policies carried twice arrived in
+  // the macOS tool offering to be deleted. The gate is in vms(), so the
+  // engine still groups whatever it is handed — this is the proof that what
+  // it is handed is filtered, and the screen suite proves the handing.
+  const V = (id, name, surface) => ({ id, name, section: "scripts", sectionLabel: "Scripts & remediations",
+    description: "", body: {}, hash: "sha256:same", du: "D", modified: "", created: "", assignments: [], surface });
+  const winPair = [
+    V("a", "WIN-DHS-DeviceConfiguration-U-Drive_And_PrinterMapping-BRA-L_DRIVE-v2.6", "/deviceManagement/deviceHealthScripts"),
+    V("b", "WIN-DHS-DeviceConfiguration-D-SAPGUI8.0-XML-GLO-v1.5", "/deviceManagement/deviceHealthScripts"),
+  ];
+  ok("those two Windows remediations are not the macOS tool's business", winPair.every((p) => mac.isOurPlatform(p) === false));
+  ok("but they ARE the Windows tool's", winPair.every((p) => win.isOurPlatform(p) === true));
+  ok("and once filtered out there is nothing for macOS Housekeeping to group",
+    mac.housekeeping(winPair.filter((p) => mac.isOurPlatform(p))).length === 0);
+  ok("while the Windows tool still finds the pair",
+    win.housekeeping(winPair.filter((p) => win.isOurPlatform(p))).length === 1);
+}
+
+// =====================================================================
 head("Finding 5 — the canonical body is one rule, and it strips the tenant");
 {
   const w = boot();
