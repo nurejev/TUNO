@@ -100,6 +100,17 @@ const PROMOTE = {
 
   items: [
     {
+      n: 173, title: "\ud83d\udd10 T01 \u2014 script rows show version + last-changed build; cleanup Remediation panel matches the marker",
+      tools: ["T01 AppLocker"], builds: [10601], risk: "low",
+      why: "Mihai, 8 Sep: when scripts change the page must show it. SCRIPT_VERSIONS in applocker.js rendered on every row, held to the files by check-script-versions (v equals the file's ScriptVersion; a bumped script must name the current build). The deploy panel's stale unassign-or-lose-the-policy text replaced.",
+      test: [
+        "Help & scripts: ten rows each with 'vX.Y.Z · changed in build N'; on a build that bumps a script the tag reads 'changed in this build' in red.",
+        "check-script-versions fails when a script's version moves without the map moving, or the map names a version the file does not carry.",
+        "Deploy the pairs fold: the cleanup blurb says the pair can stay assigned and to replace script bodies in an older Remediation.",
+      ],
+      files: ["js/applocker.js", "css/app.css", "index.html", "CLAUDE.md", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 172, title: "\ud83d\udd10 T01 \u2014 the cleanup pair leaves a marker (Clear 1.3.0, Detect 1.1.0); generation for a second campaign",
       tools: ["T01 AppLocker"], builds: [10600], risk: "medium",
       why: "Mihai, 8 Sep, the deployed Remediation '[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings': detection said any AppLocker state = run the cleanup, so once the new profile landed the pair would have cleaned it. The cleanup now writes a marker on a verified-clean result and detection honours it; -Force and CleanupGeneration for the deliberate cases.",

@@ -2467,3 +2467,7 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 .al-fc-head .al-decide{display:inline;margin:0 0 0 6px}
 .al-rule-find .al-decide{display:inline;margin:0 0 0 6px}
 .al-dl-note{margin:2px 0 8px 4px;padding-left:10px;border-left:2px solid var(--border);line-height:1.45}
+
+/* 10601: every script row says its version and the build its behaviour last changed in */
+.al-dl-ver{color:var(--muted);white-space:nowrap}
+.al-dl-ver.fresh{color:var(--off);border:1px solid var(--off);border-radius:999px;padding:1px 8px}

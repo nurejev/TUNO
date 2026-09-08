@@ -3201,6 +3201,42 @@ const AppLockerTool = (() => {
   // survives the beta site living under a /tuno-beta/ path.
   const scriptUrl = (file) => new URL("scripts/" + file, document.baseURI).href;
 
+  // EVERY SCRIPT ROW SAYS ITS VERSION AND THE BUILD IT LAST CHANGED IN (10601,
+  // Mihai: "when updating scripts or a pair, make sure to update the page
+  // also, because it needs to be visual that it has changed"). The TunoBuild
+  // stamp inside a script moves every build, so it cannot say when the
+  // BEHAVIOUR changed; this map does, and _to_delete/check-script-versions.js
+  // holds it to the files: v must equal the script's $script:ScriptVersion,
+  // and a script whose version moved in this build must name this build here.
+  // A row whose change is THIS build wears the "changed in this build" tag.
+  const SCRIPT_VERSIONS = {
+    "Invoke-TunoAppLockerScan.ps1":         { v: "1.12.2", changed: 10596 },
+    "Convert-TunoAppLockerToIntune.ps1":    { v: "1.4.1",  changed: 10370 },
+    "Clear-TunoAppLockerPolicy.ps1":        { v: "1.3.0",  changed: 10600 },
+    "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.0",  changed: 10600 },
+    "Initialize-TunoItToolsFolders.ps1":    { v: "1.1.0",  changed: 10374 },
+    "Detect-TunoItToolsFolders.ps1":        { v: "1.0.0",  changed: 10374 },
+    "Get-TunoAppControlEvents.ps1":         { v: "1.0.2",  changed: 10386 },
+    "Detect-TunoAppControlEvents.ps1":      { v: "1.0.0",  changed: 10378 },
+    "Compress-TunoAppControlReport.ps1":    { v: "1.0.0",  changed: 10378 },
+    "Get-TunoAppLockerPolicyHealth.ps1":    { v: "1.1.2",  changed: 10597 },
+    "Remove-TunoUserInstalledApps.ps1":     { v: "1.0.1",  changed: 10598 },
+  };
+  function renderScriptVersions() {
+    const build = (typeof APP_BUILD !== "undefined" && APP_BUILD.build) || 0;
+    document.querySelectorAll(".al-dl-row a[download][href^='scripts/']").forEach((a) => {
+      const file = a.getAttribute("href").replace(/^scripts\//, "");
+      const sv = SCRIPT_VERSIONS[file];
+      if (!sv) return;
+      let tag = a.parentElement.querySelector(".al-dl-ver");
+      if (!tag) { tag = document.createElement("span"); tag.className = "al-dl-ver mini"; a.insertAdjacentElement("afterend", tag); }
+      const fresh = sv.changed === build;
+      tag.classList.toggle("fresh", fresh);
+      tag.innerHTML = `v${esc(sv.v)} · ${fresh ? "<b>changed in this build</b>" : `changed in build ${sv.changed}`}`;
+      tag.title = fresh ? `This script's behaviour changed in build ${build} — re-download it, and replace it wherever it is deployed.` : `Script version ${sv.v}; its behaviour last changed in build ${sv.changed}. The build stamp inside the file moves every build; this does not.`;
+    });
+  }
+
   function flash(btn, text) {
     const was = btn.textContent;
     btn.textContent = text;
@@ -3418,6 +3454,7 @@ const AppLockerTool = (() => {
 
     const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
     document.querySelectorAll(".al-dl-cmd").forEach((el) => { el.textContent = cmdFor(el.dataset.file); });
+    renderScriptVersions();
     document.querySelectorAll(".al-dl-copy").forEach((b) => b.addEventListener("click", (e) => {
       copyToClipboard(e.currentTarget, cmdFor(e.currentTarget.dataset.file));
     }));
@@ -3482,9 +3519,9 @@ const AppLockerTool = (() => {
       detect: "Detect-TunoAppLockerPolicy.ps1",
       remediate: "Clear-TunoAppLockerPolicy.ps1",
       button: "Create the cleanup Remediation",
-      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal, and this pair must be <b>scoped to the migration window and unassigned once the new policy is live</b> — left assigned, its detection reads the new policy as state to remove.`,
-      description: `AppLocker migration cleanup, deployed from {SITE}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean. SCOPE THIS TO THE MIGRATION WINDOW and unassign it once the new policy is live — left assigned, the detection reads the new policy as state to remove.`,
-      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule, and put its unassignment date in the change ticket now — after the new policy lands, this pair would remove it.`,
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerPolicy.ps1</code> and <code>Clear-TunoAppLockerPolicy.ps1</code> — the exact bytes this site serves — running as SYSTEM, 64-bit. Created <b>unassigned</b>: assignment (and its schedule) is a deliberate act in the portal. Since build 10600 the pair <b>can stay assigned</b>: the cleanup leaves a marker on a verified-clean device (<code>HKLM\\SOFTWARE\\TUNO\\AppLockerCleanup</code>) and detection reports compliant from then on, so the new policy is never read as state to remove; Intune's Managed Installer policy is recognised and left alone. A Remediation created from an older build carries the old scripts — <b>replace both script bodies in it</b>, or create it again from here.`,
+      description: `AppLocker migration cleanup, deployed from {SITE}. Detection: AppLocker state present (rules in the effective policy, or a tattooed SrpV2 key). Remediation: backs up, clears the local policy and the GPO tattoo, names cached MDM groupings, verifies, exit 1 when not clean, and on a clean result writes the marker HKLM\\SOFTWARE\\TUNO\\AppLockerCleanup that the detection honours from then on. Safe to leave assigned. Managed Installer policy (Intune) is not counted as legacy state.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the MIGRATION group with a schedule. It can stay assigned after the new policy lands — the marker keeps detection compliant — so the only date for the change ticket is when to unassign it for tidiness.`,
     },
     ittools: {
       detect: "Detect-TunoItToolsFolders.ps1",

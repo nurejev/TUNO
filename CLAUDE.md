@@ -200,3 +200,18 @@ bookkeeping (version, changelog, `?v=`, promotion queue) in the same commit;
 verify headlessly and report the pass count; prepare push commands but never
 push — Mihai pushes; R-numbers, T-numbers and queue numbers are permanent.
 The long versions live in the project memory files named above.
+
+## A script change is a page change
+
+Every T01 companion script has a row under Help & scripts, and every row
+shows `vX.Y.Z · changed in build N` from `SCRIPT_VERSIONS` in
+`js/applocker.js`. When a script's behaviour changes (its
+`$script:ScriptVersion` moves), in the SAME build: update its
+`SCRIPT_VERSIONS` entry (`v` = the new version, `changed` = this build),
+re-read its `.al-dl-note` under the row and any deploy-panel blurb that
+describes the pair (`REMEDY` in applocker.js) and fix what the change made
+untrue, and add the README row change. `_to_delete/check-script-versions.js`
+fails the build when the map and the files disagree, or when a bumped script
+does not name the current build. Learned at 10600: the cleanup pair gained a
+marker and the deploy panel still told people to unassign it "or it removes
+the new policy" (Mihai: "it needs to be visual that it has changed").

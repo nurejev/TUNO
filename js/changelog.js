@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10601, date: "2026-09-08", title: "T01 — every script row says its version and when it last changed",
+    items: [
+      { kind: "improved", tool: "AppLocker", text: "Under Help & scripts every download row carries 'vX.Y.Z · changed in build N', and 'changed in this build' in red on the build that changed it — the visible signal to re-download and replace a deployed copy. The build stamp inside a script moves every release; this line moves only when the behaviour does, and the version guard holds it to the files." },
+      { kind: "fixed", tool: "AppLocker", text: "The cleanup Remediation panel still said to unassign the pair once the new policy is live or it removes it — untrue since 10600's marker. It now says the pair can stay assigned, why, and that a Remediation created from an older build needs both script bodies replaced. The IT-TOOLS pair's 'unlike the cleanup pair' is gone with it." },
+    ],
+  },
+  {
     build: 10600, date: "2026-09-08", title: "T01 — the cleanup Remediation leaves a marker, so the new policy is never cleaned away",
     items: [
       { kind: "improved", tool: "AppLocker", text: "Clear-TunoAppLockerPolicy.ps1 1.3.0 records that it ran — a registry key HKLM\\SOFTWARE\\TUNO\\AppLockerCleanup and a .done file in IT-TOOLS\\LOGS — only when the device verified clean, and refuses to run again on a marked device unless -Force. Detect-TunoAppLockerPolicy.ps1 1.1.0 reads the marker first and reports compliant from then on, whatever policy the device carries: that policy is the new one. The pair can stay assigned; before this, a pair left assigned would have wiped the profile you deployed next. A second cleanup campaign is a deliberate act: raise CleanupGeneration in both scripts." },

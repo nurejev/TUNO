@@ -30,7 +30,7 @@ Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell.
 #>
 
 $script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10600
+$script:TunoBuild = 10601
 
 # Raise this together with the same number in Clear-TunoAppLockerPolicy.ps1 to run a
 # new cleanup campaign on devices already marked by an older one.
