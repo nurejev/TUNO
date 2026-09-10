@@ -98,12 +98,18 @@ const GroupMigrate = (() => {
     // only on that path — a run that files groups into an existing unit
     // never touches it, and the plan says which of the two it is.
     roleWrite: ["RoleManagement.ReadWrite.Directory"],
+    // set disableNesting on the replacement (10609, ENCA's nesting work
+    // ported). Asked for only when the tick is on — off by default, see
+    // NESTING_GA — and Group.ReadWrite.All comes along because the fallback
+    // route is a PATCH on the group after the create. A NEW SCOPE on the
+    // registration (New-TunoAppRegistration.ps1), added in the open per R18.
+    nestWrite: ["Group-NestingSupport.ReadWrite.All", "Group.ReadWrite.All"],
   };
   // Everything a migration that creates its own unit needs. A migration into
   // an existing unit is the same list minus roleWrite; plan() reports which.
   const ALL_SCOPES = [...new Set([
     ...SCOPES.groupWrite, ...SCOPES.rolesRead, ...SCOPES.auRead,
-    ...SCOPES.auWrite, ...SCOPES.roleWrite,
+    ...SCOPES.auWrite, ...SCOPES.roleWrite, ...SCOPES.nestWrite,
   ])];
   // What the tool asks for BEFORE it can write anything — the read pass.
   const READ_SCOPES = () => [...new Set([
@@ -150,6 +156,7 @@ const GroupMigrate = (() => {
             why: "repoint the four Intune assignment surfaces TUNO is permitted to write" },
           { s: SCOPES.auWrite[0], why: "create the restricted administrative unit and put the new group in it" },
           { s: SCOPES.roleWrite[0], why: "grant Groups Administrator scoped to a unit this tool creates — without it the unit is a vault nobody can open" },
+          { s: SCOPES.nestWrite[0], why: "set disableNesting on the replacement when 🚫 Disable nesting is ticked — off by default, because the property is not generally available; reading the state needs nothing new" },
         ],
       },
     ];
@@ -182,6 +189,115 @@ const GroupMigrate = (() => {
   // ------------------------------------------------------ archive naming ---
   const isoDay = () => new Date().toISOString().slice(0, 10);
   const MIGRATED_TAG = "migrated";
+
+  // ---------------------------------------------- nesting (ENCA's, ported) --
+  // ENCA's js/cagroups.js NESTING block and js/assign.js confirmNesting,
+  // brought across at 10609 for the one group this tool creates.
+  const NESTING = {
+    disabled: { icon: "🚫", label: "Nesting disabled", cls: "ok" },
+    allowed:  { icon: "↪", label: "Nesting allowed", cls: "warn" },
+    unknown:  { icon: "?", label: "Not reported", cls: "muted" },
+  };
+  // ---- Is this property actually shipped? ---------------------------------
+  // On 2026-08-19 a real tenant answered every disableNesting write with
+  //
+  //   400 Request_BadRequest — "Unexpected request made to property
+  //   'disableNesting' of resource 'Group'"
+  //
+  // both on PATCH and in the CREATE body. That wording is the directory
+  // saying it does not know the property NAME. Checking Learn: v1.0 PATCH
+  // /groups names it, but only in the permissions note; NEITHER version's
+  // group resource carries it in the property table. So the permission is
+  // documented and the property is not on any published schema: it is not
+  // generally available. Two consequences, both here:
+  //
+  //  1. The property is addressed at v1.0 explicitly (NEST_V1) — the only
+  //     page that names it — even where a caller talks to /beta.
+  //  2. Until it is GA, no create asks for it by default. A security setting
+  //     that fails on every group is not a safeguard, it is a red line
+  //     under every create — and it made every create promise something the
+  //     tenant would not do.
+  const NESTING_GA = false;              // flip to true when Microsoft ships it
+  const NEST_V1 = (path) => `https://graph.microsoft.com/v1.0${path}`;
+  // The refusal above is a statement about the TENANT, not about one group.
+  // It has to be told apart from an ordinary failure, because it is the
+  // difference between "try the other route" and "there is no route".
+  function nestingUnsupported(err) {
+    const s = String((err && (err.message || err.code)) || err || "").toLowerCase();
+    if (!s.includes("disablenesting")) return false;
+    return s.includes("unexpected request made to property")
+        || s.includes("request_badrequest")
+        || s.includes("unrecognized") || s.includes("unknown propert") || s.includes("invalid propert");
+  }
+  // Remembered for the session, deliberately NOT persisted — a new sign-in
+  // re-tests, so the day Microsoft enables it nobody has to clear anything.
+  let nestUnsupported = false;
+  const nestingSupported = () => !nestUnsupported;
+  function noteNestingUnsupported(err) {
+    if (nestingUnsupported(err)) { nestUnsupported = true; return true; }
+    return false;
+  }
+  const NESTING_UNSUPPORTED_TEXT = "this tenant's directory does not recognise the disableNesting property — it is not generally available yet, and no route here can set it";
+  // g is whatever came back from ?$select=id,disableNesting.
+  function nestingState(g) {
+    if (!g) return "unknown";
+    if (g.disableNesting === true) return "disabled";
+    if (g.disableNesting === false) return "allowed";
+    return "unknown";   // property absent — a tenant without the feature
+  }
+  // disableNesting is invisible to a plain GET, so it is asked for by name,
+  // on v1.0 (the route the create verifies on — ENCA 25307), in one batch.
+  // Fills row.nesting in place: "disabled" | "allowed" | "unknown" |
+  // "unreported" (the batch itself failed). Never throws — a tenant without
+  // the property must not take the list down with it.
+  async function loadNestingStates(rows) {
+    const targets = (rows || []).filter((r) => r && r.id);
+    if (!targets.length) return;
+    let res = null;
+    try {
+      res = await Graph.batch(targets.map((r, i) => ({ id: String(i), url: `/groups/${encodeURIComponent(r.id)}?$select=id,disableNesting` })),
+        { scopes: Graph.SCOPES.groups });
+    } catch { res = null; }
+    targets.forEach((r, i) => {
+      const v = res && res[String(i)];
+      if (!v) { r.nesting = "unreported"; return; }
+      if (v.error) { if (nestingUnsupported({ message: v.error, code: v.code })) nestUnsupported = true; r.nesting = "unreported"; return; }
+      r.nesting = nestingState(v.body);
+    });
+  }
+  // Did the create actually take disableNesting? A plain GET never returns
+  // the property, so it is asked for by name — and "absent" is ambiguous:
+  // either not set, or a tenant without the feature. When it is not
+  // confirmed, PATCH once (the route Learn documents) and read it back again.
+  // Nothing here is allowed to lose the group: every failure returns
+  // nesting: "failed" with the reason, so the caller can report it.
+  async function confirmNesting(groupId, createNote) {
+    const read = async () => {
+      try {
+        const r = await Graph.get(NEST_V1(`/groups/${encodeURIComponent(groupId)}?$select=id,disableNesting`), { scopes: Graph.SCOPES.groups });
+        return r && r.disableNesting === true;
+      } catch (e) {
+        if (noteNestingUnsupported(e)) return "unsupported";
+        return null;                    // null = could not tell
+      }
+    };
+    const first = await read();
+    if (first === true) return { nesting: "disabled" };
+    if (first === "unsupported") return { nesting: "unsupported", nestingError: NESTING_UNSUPPORTED_TEXT, nestingNote: createNote || null };
+    try {
+      await Graph.patch(NEST_V1(`/groups/${encodeURIComponent(groupId)}`), { disableNesting: true }, { scopes: SCOPES.nestWrite });
+    } catch (e) {
+      if (noteNestingUnsupported(e)) return { nesting: "unsupported", nestingError: NESTING_UNSUPPORTED_TEXT, nestingNote: createNote || null };
+      return { nesting: "failed", nestingError: GroupUse.shortErr(e, 300), nestingNote: createNote || null };
+    }
+    if (await read() === true) return { nesting: "disabled" };
+    return { nesting: "failed",
+      nestingError: "the tenant accepted the change but does not report disableNesting as set — it may not have the feature yet",
+      nestingNote: createNote || null };
+  }
+  const nestingWord = (r) => r.nesting === "disabled" ? "nesting disabled"
+    : r.nesting === "unsupported" ? "nesting not available in this tenant"
+    : r.nesting === "failed" ? `nesting STILL ALLOWED — ${r.nestingError || "not confirmed"}` : "";
   // ENCA's ARCHIVE_SUFFIX, narrowed to the one suffix THIS tool writes plus
   // the ones ENCA leaves in a shared tenant — a group already wearing one is
   // the archived half of an earlier run and must never be migrated again.
@@ -614,6 +730,8 @@ const GroupMigrate = (() => {
       unitName: toUnit ? unitName : "", unitId: toUnit ? unitId : null,
       toUnit, createsUnit: !!(toUnit && unitName && !unitId),
       scopedAdmin: String(opts.scopedAdmin || "").trim(),
+      // 10609: set disableNesting on the replacement — opt-in (NESTING_GA)
+      nesting: opts.nesting === true,
     };
 
     // ---- the refusals, in the order they matter ----
@@ -674,7 +792,7 @@ const GroupMigrate = (() => {
     //     vanishes is an outage, not a gap in a report.
     const steps = [
       { key: "rename", text: `Rename “${group.name}” to “${archiveName}” — kept as the rollback, still role-assignable, still holding its members` },
-      { key: "create", text: `Create “${group.name}” again as a plain security group` },
+      { key: "create", text: `Create “${group.name}” again as a plain security group${base.nesting ? " — with nesting disabled, verified by reading the property back after the create" : ""}` },
       { key: "members", text: members.users.length
           ? `Copy ${members.users.length} member${members.users.length === 1 ? "" : "s"} across — the archived group keeps its own copy`
           : `No members to copy — the group is empty` },
@@ -719,6 +837,7 @@ const GroupMigrate = (() => {
       membersMoved: 0, memberTotal: p.members.users.length,
       refsMoved: 0, refsTotal: p.refs.repointable.length,
       refsRefused: [],        // 10608: the policies whose swap Graph refused — still naming the archive
+      nesting: "n/a", nestingError: "",   // 10609: what the create VERIFIED about disableNesting
       warning: "",            // 10608: what is left to do by hand, when the migration itself went through
       unitId: p.unitId || null, unitName: p.unitName || "", inUnit: false,
       unitCreated: false, scopedAdminOk: false, scopedAdminError: "",
@@ -742,15 +861,31 @@ const GroupMigrate = (() => {
     // starting: every assignment still resolves, so nothing breaks, but the
     // group is called something an operator will not recognise at 2am.
     let created = null;
+    let nestNote = null;     // what the create said about disableNesting, if anything
     try {
-      created = await Graph.post("/groups", {
+      let payload = {
         displayName: p.name,
         description: p.group.description || "",
         mailEnabled: false,
         mailNickname: mailNickname(p.name),
         securityEnabled: true,
         isAssignableToRole: false,
-      }, { scopes: SCOPES.groupWrite });
+      };
+      if (p.nesting) payload.disableNesting = true;
+      try {
+        created = await Graph.post("/groups", payload, { scopes: p.nesting ? [...SCOPES.groupWrite, ...SCOPES.nestWrite] : SCOPES.groupWrite });
+      } catch (e) {
+        // A tenant that does not know the property must still get its
+        // group (ENCA's createGroup, ported). Only retry when the create
+        // complained about THIS field — retrying blindly would swallow a
+        // real validation error and create a group the plan did not
+        // describe.
+        if (!p.nesting || !/disablenesting|unknown|not recognized|invalid propert/i.test((e && e.message) || "")) throw e;
+        noteNestingUnsupported(e);
+        nestNote = GroupUse.shortErr(e, 200);
+        payload = { ...payload }; delete payload.disableNesting;
+        created = await Graph.post("/groups", payload, { scopes: SCOPES.groupWrite });
+      }
     } catch (e) {
       result.error = GroupUse.shortErr(e, 300);
       try {
@@ -771,7 +906,22 @@ const GroupMigrate = (() => {
       return result;
     }
     result.newId = created.id;
-    note(true, `Created “${p.name}” as a plain security group`, `id ${created.id} (was ${p.id})`);
+    // What the create VERIFIED, not what was asked for: disabled (read
+    // back), failed (still allowed — reason kept), unsupported (the
+    // directory lacks the property), n/a (not requested). The report
+    // prints it, and the group is never lost over it.
+    if (p.nesting) {
+      const c = nestUnsupported && nestNote
+        ? { nesting: "unsupported", nestingError: NESTING_UNSUPPORTED_TEXT, nestingNote: nestNote }
+        : await confirmNesting(created.id, nestNote);
+      result.nesting = c.nesting; result.nestingError = c.nestingError || "";
+    } else { result.nesting = "n/a"; result.nestingError = ""; }
+    const nw = nestingWord(result);
+    note(true, `Created “${p.name}” as a plain security group${nw ? ` (${nw})` : ""}`, `id ${created.id} (was ${p.id})`);
+    if (result.nesting === "failed" || result.nesting === "unsupported") {
+      note(false, result.nesting === "failed" ? "Nesting is STILL ALLOWED on the new group" : "Nesting could not be disabled — the property is not available in this tenant",
+        result.nestingError);
+    }
 
     // 3. members, while the new group is still ordinary
     let memberFailures = 0;
@@ -972,6 +1122,7 @@ const GroupMigrate = (() => {
     L.push(`| New group id | \`${mdCell(result.newId || "—")}\` |`);
     L.push(`| Archived as | ${mdCell(result.archiveName)} (id \`${mdCell(result.oldId)}\`) |`);
     L.push(`| Members copied | ${result.membersMoved} / ${result.memberTotal} |`);
+    L.push(`| Nesting on the new group | ${result.nesting === "disabled" ? "**disabled** — verified by read-back" : result.nesting === "failed" ? `**STILL ALLOWED** — ${mdCell(result.nestingError || "not confirmed")}` : result.nesting === "unsupported" ? `not available in this tenant — ${mdCell(result.nestingError || "")}` : "_not requested_"} |`);
     L.push(`| Intune assignments repointed | ${result.refsMoved} / ${result.refsTotal} |`);
     L.push(`| Restricted unit | ${result.inUnit ? `${mdCell(result.unitName)}${result.unitCreated ? " _(created by this run)_" : ""}` : (p.toUnit ? "**NOT placed** — see below" : "_deliberately none_")} |`);
     if (result.unitCreated) {
@@ -1028,6 +1179,8 @@ const GroupMigrate = (() => {
 
   return {
     SCOPES, ALL_SCOPES, READ_SCOPES, UNIT_PREFIX, AU, ARCHIVE_SUFFIX, MIGRATED_TAG,
+    NESTING, NESTING_GA, NEST_V1, nestingState, nestingUnsupported, nestingSupported, noteNestingUnsupported,
+    NESTING_UNSUPPORTED_TEXT, loadNestingStates, confirmNesting, nestingWord,
     GROUPS_ADMIN_TEMPLATE,
     segments, tenantPrefix, unitNameFor, migratedName, mailNickname,
     permissionPlan, allPermissions,
@@ -1076,6 +1229,7 @@ const GroupMigrateTool = (() => {
   let pickedUnitId = null;        // the chosen existing unit, likewise
   let unitNameIn = "";            // the typed unit name — seeded from the suggestion
   let adminIn = "";               // the typed scoped administrator
+  let nestIn = GroupMigrate.NESTING_GA;   // 🚫 disable nesting on the replacement — opt-in until GA (10609)
   let unitsError = "";            // the unit read failed; the group list still stands
   let search = "";                // the group filter — local, over the list in hand
   let filter = "all";             // which chip is in force
@@ -1206,6 +1360,12 @@ const GroupMigrateTool = (() => {
     prog("");
     renderList();
     busy = false;
+    // disableNesting is invisible to the list read, so it is filled in
+    // AFTER the list is on the screen, on its own batch (10609, ENCA's
+    // loadNestingStates): the rows redraw when it lands, and a tenant
+    // without the property costs the list nothing.
+    const mine = list;
+    GroupMigrate.loadNestingStates(list.groups).then(() => { if (list === mine && $("gmBody") && $("gmBody").innerHTML) renderList(); }).catch(() => {});
   }
 
   // A refusal that names the permission it wanted is the difference between
@@ -1239,7 +1399,13 @@ const GroupMigrateTool = (() => {
     nodest: { label: () => "no destination worked out", of: (live) => live.filter((g) => !g.suggestedUnit) },
     prefix: { label: () => `prefix ${list.prefix.toUpperCase()}-`, of: (live) => list.prefix ? live.filter(wearsPrefix) : [] },
     noprefix: { label: () => `no ${list.prefix.toUpperCase()}- prefix`, of: (live) => list.prefix ? live.filter((g) => !wearsPrefix(g)) : [] },
+    // 10609 (ENCA 25304): a property of a group the list can see once the
+    // nesting read has landed — shown only where a tenant reports it
+    nest: { label: () => "🚫 nesting disabled", of: (live) => live.filter((g) => g.nesting === "disabled") },
+    nestallow: { label: () => "↪ nesting allowed", of: (live) => live.filter((g) => g.nesting === "allowed") },
   };
+  const nestMark = (g) => (g.nesting === "disabled" || g.nesting === "allowed")
+    ? ` <span class="gu-how ${g.nesting === "disabled" ? "inc" : "priv"}" title="${g.nesting === "disabled" ? "disableNesting is true — no group can be added as a member of this group" : "disableNesting is false — a group can be nested inside this one, and the nested group's members inherit whatever this group is assigned"}">${GroupMigrate.NESTING[g.nesting].icon} ${esc(GroupMigrate.NESTING[g.nesting].label.toLowerCase())}</span>` : "";
   function chipsHtml(live) {
     const out = [];
     for (const [k, f] of Object.entries(FILTERS)) {
@@ -1340,7 +1506,7 @@ const GroupMigrateTool = (() => {
     const rows = shown.map((g) => {
       const st = stateOf(g.id);
       return `<tr>
-      <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div>
+      <td><b>${esc(g.name)}</b>${nestMark(g)}<div class="mini muted">${esc(g.id)}</div>
         ${g.dynamic ? '<div class="mini" style="color:var(--report)">⚠ carries a membership rule — Entra forbids dynamic membership on a role-assignable group, so this group is in a state worth checking</div>' : ""}</td>
       <td class="mini">${esc(g.suggestedUnit || "—")}</td>
       <td class="mini">${stateHtml(g)}</td>
@@ -1622,6 +1788,7 @@ const GroupMigrateTool = (() => {
       roles: chosen.roles, holding: chosen.holding,
       refs: chosen.refs, members: chosen.members,
       scopedAdmin: String(adminIn || "").trim(),
+      nesting: !!nestIn,
     });
     return plan;
   }
@@ -1680,6 +1847,11 @@ const GroupMigrateTool = (() => {
           manageable by <b>any</b> tenant-wide Groups or User Administrator — which is <b>less</b> protection than the group has
           right now, not more. Only sensible as a first half, with the unit placed straight afterwards.</p>
       </div>
+      <label class="chk mini" style="display:block;margin:14px 0 0"><input type="checkbox" id="gmNest" ${nestIn ? "checked" : ""} ${GroupMigrate.nestingSupported() ? "" : "disabled"}>
+        🚫 <b>Disable nesting</b> on the replacement — no group can be added as a member of it</label>
+      <p class="mini muted" style="margin:6px 0 0 22px">${GroupMigrate.nestingSupported()
+        ? `<b>Off by default:</b> <code>disableNesting</code> is not generally available — Microsoft documents the permission but publishes the property on no group schema, and a directory that lacks it refuses the create outright. Ticked, the create carries it, the property is <b>read back</b> on v1.0 to confirm, a PATCH is tried once where the create did not take it, and the report says which of the three happened. A refusal never loses the group. Asks <code>Group-NestingSupport.ReadWrite.All</code> at the click, and only then.${chosen && chosen.nesting && chosen.nesting !== "unknown" && chosen.nesting !== "unreported" ? ` The original reports <b>${esc(GroupMigrate.NESTING[chosen.nesting].label.toLowerCase())}</b>.` : ""}`
+        : `<b>Not available in this tenant</b> — ${esc(GroupMigrate.NESTING_UNSUPPORTED_TEXT)}. The directory said so this session; a fresh sign-in asks again.`}</p>
     </div>`;
 
     const body = p.ok ? renderOkPlan(p) : `<div class="list-card" style="margin-top:14px">
@@ -1778,6 +1950,7 @@ const GroupMigrateTool = (() => {
       // to this screen must not leave the session holding Group.ReadWrite.All.
       const want = [...GroupMigrate.SCOPES.groupWrite, ...GroupMigrate.SCOPES.auWrite, ...AssignEdit.WRITE()];
       if (p.createsUnit) want.push(...GroupMigrate.SCOPES.roleWrite);
+      if (p.nesting) want.push(...GroupMigrate.SCOPES.nestWrite);   // the new scope, only when ticked (10609)
       await Graph.ensureScopes([...new Set(want)]);
       result = await GroupMigrate.apply(p, { onStatus: (m) => mprog(m) });
       setState(chosen.id, result.ok
@@ -1798,7 +1971,7 @@ const GroupMigrateTool = (() => {
       <h3 style="margin:0 0 6px">${r.ok ? "✅" : "❌"} ${esc(r.name)}</h3>
       <p class="mini muted" style="margin:0 0 12px">${r.ok ? "Migrated" : "Failed"} ·
         new id <code>${esc(r.newId || "—")}</code> · archived as <b>${esc(r.archiveName)}</b> ·
-        ${r.membersMoved}/${r.memberTotal} members · ${r.refsMoved}/${r.refsTotal} assignments repointed</p>
+        ${r.membersMoved}/${r.memberTotal} members · ${r.refsMoved}/${r.refsTotal} assignments repointed${r.nesting && r.nesting !== "n/a" ? ` · ${esc(GroupMigrate.nestingWord(r) || "nesting " + r.nesting)}` : ""}</p>
       ${r.error ? `<p class="mini" style="margin:0 0 12px;color:var(--off)"><b>⚠ ${esc(r.error)}</b></p>` : ""}
       ${r.warning ? `<p class="mini" style="margin:0 0 12px;color:var(--report)"><b>⚠ ${esc(r.warning)}</b></p>` : ""}
       ${lines}
@@ -1828,7 +2001,7 @@ const GroupMigrateTool = (() => {
     const reset = $("gmReset");
     if (reset) reset.addEventListener("click", () => {
       list = null; units = null; chosen = null; plan = null; result = null;
-      unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; unitsError = "";
+      unitMode = "new"; pickedUnitId = null; unitNameIn = ""; adminIn = ""; nestIn = GroupMigrate.NESTING_GA; unitsError = "";
       search = ""; filter = "all"; archSel.clear(); archRefs = null; pane = "overview"; gstate.clear(); closeModal();
       $("gmBody").innerHTML = ""; $("gmProg").innerHTML = "";
     });
@@ -1877,6 +2050,7 @@ const GroupMigrateTool = (() => {
       if (e.target.closest("[data-gmback]")) { closeModal(); return; }
       const mode = e.target.closest("[data-gmmode]");
       if (mode) { if (!mode.disabled) { unitMode = mode.dataset.gmmode; renderPlan(); } return; }
+      if (e.target.id === "gmNest") { nestIn = !!e.target.checked; renderPlan(); return; }
       if (e.target.closest("#gmApply")) { run(); return; }
       if (e.target.closest("#gmPlanMd")) {
         const p = rebuildPlan();

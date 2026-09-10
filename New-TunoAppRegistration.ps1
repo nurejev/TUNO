@@ -251,7 +251,25 @@ param(
     "AdministrativeUnit.Read.All",
     "AdministrativeUnit.ReadWrite.All",
     "RoleManagement.Read.Directory",
-    "RoleManagement.ReadWrite.Directory"
+    "RoleManagement.ReadWrite.Directory",
+    # --- T22 Group migration — build 10609 (ENCA's nesting work ported) ---
+    #
+    #   Group-NestingSupport.ReadWrite.All  set disableNesting on the
+    #                                  replacement group, so no group can be
+    #                                  nested inside it. OPT-IN: asked for at
+    #                                  the click and only when the tick is on,
+    #                                  which is off by default because the
+    #                                  property is not generally available —
+    #                                  Microsoft documents this permission but
+    #                                  publishes the property on no group
+    #                                  schema, and a directory that lacks it
+    #                                  refuses the write. Reading the state
+    #                                  ($select=disableNesting) needs nothing
+    #                                  beyond Group.Read.All. Listed here so
+    #                                  the consent screen can show it the day
+    #                                  a tenant has the feature; a tenant
+    #                                  without it never sees the request.
+    "Group-NestingSupport.ReadWrite.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent

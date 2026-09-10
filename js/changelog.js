@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10609, date: "2026-09-10", title: "Group migration: nesting in sight, and disabled on the replacement when you ask",
+    items: [
+      { kind: "improved", tool: "🔄 Group migration", text: "The groups table now says whether a group allows nesting. disableNesting is invisible to a plain read, so it is asked for by name — on v1.0, in one batch, after the list is on the screen — and the row wears nesting disabled or nesting allowed, with a chip for each to filter on. A directory that does not know the property costs the list nothing: the rows stay silent and the session remembers not to ask again. Ported from the sister tool ENCA, its builds 25304 and 25307." },
+      { kind: "new", tool: "🔄 Group migration", text: "One tick on the plan: Disable nesting on the replacement, so no group can ever be added as a member of the new group. Off by default, on purpose: Microsoft documents the permission but publishes the property on no group schema, and a directory that lacks it refuses the write outright — a safeguard that fails on every create is a red line under every create, which is what ENCA's 25166 withdrew. Ticked, the create carries the property and the tool reports what it VERIFIED rather than what it asked: the property is read back, a PATCH is tried once where the create did not take it, and the result is disabled and verified, still allowed with the reason, or not available in this tenant — in which case the create is retried without it and the group is never lost. The report has the row." },
+      { kind: "improved", tool: "🔄 Group migration", text: "A new delegated scope, added in the open: Group-NestingSupport.ReadWrite.All joins New-TunoAppRegistration.ps1 and the Grant permissions list, with what it buys written beside it. Migrate asks for it only when the tick is on; reading the state needs nothing beyond the group read the tool already holds." },
+    ],
+  },
+  {
     build: 10608, date: "2026-09-10", title: "Group migration: the repoint finishes past a refusal, and an archive still in policies says so",
     items: [
       { kind: "fixed", tool: "🔄 Group migration", text: "The repoint stopped at the first policy Graph refused, which left the archived group in every policy after it — policies that would have taken the swap — and the report could only say stopped. Each policy is its own swap with its own drift check and read-back, so one refusal says nothing about the next: all of them are now tried, the refusals are collected and named together, and the migration carries on to the unit step. Nothing is uncovered, because the archived group still exists with its members; the result says which policies still name it and what to do next — fix the policy in the portal or swap the group in the Assignment editor, then delete the archive. Ported from the sister tool ENCA, its build 25318." },
