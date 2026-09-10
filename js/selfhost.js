@@ -1,5 +1,6 @@
 // ======================================================================
-// Self-host branding — the ⚙ gear next to Sign out. ENCA's implementation
+// Self-host branding — Branding settings, in the account menu (the ⚙ gear
+// next to Sign out until 10607). ENCA's implementation
 // (js/selfhost.js, R06/S02), ported verbatim per the house rule; only the
 // storage keys, the event name and the product words are TUNO's.
 //
@@ -309,19 +310,34 @@
     return bg;
   }
 
+  // The row's tooltip says how far the look reaches — not a gate: the row
+  // is offered on every host (10462's rule), production included.
+  const gearTitle = () => isProd()
+    ? "Branding — changes the look in this browser only"
+    : "Branding settings for this self-hosted deployment";
   function addGear() {
-    const out = document.getElementById("signOutBtn");
-    if (!out || document.getElementById("selfhostGearBtn")) return;
+    // Since 10607 (ENCA's 25259) the entry point is the "Branding settings"
+    // row of the account menu (index.html) rather than a ⚙ button in the
+    // header; the row is static markup, so this only wires the click. The
+    // old injected button is kept as a fallback for a page that lacks the
+    // row.
+    if (document.getElementById("selfhostGearBtn")) return;
+    const row = document.getElementById("brandingBtn");
+    if (row) {
+      row.title = gearTitle();
+      row.addEventListener("click", () => buildModal().classList.add("open"));
+      return;
+    }
+    const out = document.getElementById("acctBtn") || document.getElementById("signOutBtn");
+    if (!out) return;
     const b = document.createElement("button");
     b.className = "btn";
     b.id = "selfhostGearBtn";
     b.textContent = "⚙";
-    // The glyph at the .btn default size rendered near-invisible next to
-    // Sign out; drawn at 21px (same button, no label) it reads as a control.
     b.style.fontSize = "21px";
     b.style.lineHeight = "1";
     b.style.padding = "3px 10px 5px";
-    b.title = "Branding settings for this self-hosted deployment";
+    b.title = "Branding settings";
     b.addEventListener("click", () => buildModal().classList.add("open"));
     out.insertAdjacentElement("afterend", b);
   }

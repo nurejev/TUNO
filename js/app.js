@@ -756,11 +756,8 @@ const Fs = (() => {
     // about who the pretend tenant is.
     orgInfo = { id: "d0e1f2a3-4b5c-6d7e-8f90-abcdef012345", displayName: tenantName, verifiedDomains: [] };
     $("tenantName").textContent = tenantName;
-    $("tenantUser").textContent = "demo@contoso.onmicrosoft.com";
-    $("avatar").textContent = "DM";
+    setAccountBox("demo@contoso.onmicrosoft.com", "Demo Mode");
     $("cfdevBadge").style.display = "none";
-    $("tenantBox").style.display = "flex";
-    $("homeBtn").style.display = "";
     document.body.classList.add("demo-mode");
     const bar = $("demoBar");
     if (bar) {
@@ -851,15 +848,12 @@ const Fs = (() => {
         applyBranding(activeBrand());
       }
     }
-    $("tenantUser").textContent = account ? account.username : "";
-    const nm = account && (account.name || account.username) || "?";
-    $("avatar").textContent = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
     // ENCA's way, ported: the stylesheet keeps .tenant at display:none and the
-    // app shows it directly. The previous classList.add("on") toggled a class
-    // no CSS rule has ever mentioned, so the tenant identity — name, avatar,
-    // the SIGN OUT button, the cfdev badge — never rendered for anybody.
-    $("tenantBox").style.display = "flex";
-    $("homeBtn").style.display = "";
+    // app shows it directly (setAccountBox does). The previous
+    // classList.add("on") toggled a class no CSS rule has ever mentioned, so
+    // the tenant identity — name, avatar, Sign out, the cfdev badge — never
+    // rendered for anybody.
+    setAccountBox(account ? account.username : "", account ? (account.name || "") : "");
     buildToolNav();
     // the sidebar and the wide shell exist only signed in — the sign-in
     // screen keeps its centred card
@@ -905,9 +899,9 @@ const Fs = (() => {
     // held its own copy — comparisons, plans, fetched catalogs — and went
     // on rendering the previous tenant's policies to whoever signed in next.
     fireSignOut();
+    closeAcctMenu();
     $("cfdevBadge").style.display = "none";
     $("tenantBox").style.display = "none";
-    $("homeBtn").style.display = "none";
     $("toolNav").style.display = "none";
     $("sideNav").style.display = "none";
     document.body.classList.remove("with-side");
@@ -1151,7 +1145,68 @@ const Fs = (() => {
     clearTimeout(peekTimer);
     $("sideNav").classList.remove("peek");
   });
-  $("homeBtn").addEventListener("click", () => { crumb(""); show("screen-home"); });
+  // ---------- account button + menu (10607 — ENCA's 25258/25259, ported) ----------
+  // The header carries only the initials circle; its menu shows the tenant
+  // and the signed-in user and holds Copy tenant ID, Branding settings (the
+  // former ⚙ gear — js/selfhost.js owns the dialog and wires the row) and
+  // Sign out. $("tenantName") is set by the caller (the org read rewrites it
+  // when /organization answers, and the demo sets its own); this fills the
+  // rest. The Tools button that used to sit beside the logo is gone: the tab
+  // bar under the header carries the same home icon.
+  function setAccountBox(upn, displayName) {
+    const nm = displayName || upn || "?";
+    const initials = nm.split(/[\s.@]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
+    $("tenantUser").textContent = upn;
+    $("avatar").textContent = initials;
+    $("acctMenuName").textContent = displayName || upn || "";
+    $("copyTenantBtn").style.display = tenantId ? "" : "none";
+    $("acctBtn").title = `${$("tenantName").textContent}\n${upn}`;
+    $("tenantBox").style.display = "flex";
+    closeAcctMenu();
+  }
+  function openAcctMenu() {
+    const m = $("acctMenu"), b = $("acctBtn");
+    m.hidden = false; b.setAttribute("aria-expanded", "true");
+    // Anchored under the button's right edge; fixed so it clears the sticky
+    // header and the tab bar under it.
+    const r = b.getBoundingClientRect();
+    m.style.top = `${r.bottom + 6}px`;
+    m.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    setTimeout(() => document.addEventListener("click", acctMenuAway), 0);
+    document.addEventListener("keydown", acctMenuKey);
+  }
+  function closeAcctMenu() {
+    const m = $("acctMenu"), b = $("acctBtn");
+    if (!m || m.hidden) return;
+    m.hidden = true; b.setAttribute("aria-expanded", "false");
+    document.removeEventListener("click", acctMenuAway);
+    document.removeEventListener("keydown", acctMenuKey);
+  }
+  function acctMenuAway(e) { if (!$("acctMenu").contains(e.target) && !$("acctBtn").contains(e.target)) closeAcctMenu(); }
+  function acctMenuKey(e) { if (e.key === "Escape") { closeAcctMenu(); $("acctBtn").focus(); } }
+  $("acctBtn").addEventListener("click", () => { $("acctMenu").hidden ? openAcctMenu() : closeAcctMenu(); });
+  // Any row closes the menu — including Branding settings, whose handler
+  // lives in js/selfhost.js and knows nothing about the menu. Copy tenant
+  // ID is the exception: it answers on its own row (TUNO has no toast; T01's
+  // flash() is the house pattern), so the menu stays until the answer is
+  // read — and where the clipboard is refused, the row shows the id itself.
+  $("acctMenu").addEventListener("click", (e) => {
+    const row = e.target.closest("button[role=menuitem]");
+    if (row && row.id !== "copyTenantBtn") closeAcctMenu();
+  });
+  $("copyTenantBtn").addEventListener("click", async () => {
+    if (!tenantId) return;
+    const btn = $("copyTenantBtn");
+    try {
+      await navigator.clipboard.writeText(tenantId);
+      btn.textContent = "✓ Tenant ID copied";
+      setTimeout(() => { btn.textContent = "Copy tenant ID"; closeAcctMenu(); }, 1200);
+    } catch {
+      btn.textContent = tenantId;
+      btn.title = "The clipboard is not available here — select the id and copy it";
+      setTimeout(() => { btn.textContent = "Copy tenant ID"; btn.title = ""; }, 8000);
+    }
+  });
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });

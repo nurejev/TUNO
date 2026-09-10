@@ -104,6 +104,23 @@ const PROMOTE = {
 
   items: [
     {
+      n: 179, title: "\ud83d\udc64 The header keeps only your initials \u2014 one account button, its menu holds tenant, account, Copy tenant ID, Branding settings and Sign out; the Tools button goes",
+      tools: ["All tools"], builds: [10607], risk: "low",
+      what: "index.html: the tenant box becomes #acctBtn (the avatar alone) + #acctMenu (role=menu, hidden) with #tenantName / #acctMenuName / #tenantUser in its head and three menuitem rows; #homeBtn removed. css: .acct/.acct-menu rules (ENCA 25259 verbatim), .btn.home-btn rules dropped, the 680px breakpoint no longer gives the tenant box a row. app.js: setAccountBox(upn, displayName) fills both sign-in paths (real and demo), open/close/away/Escape handlers, Copy tenant ID with T01's flash() pattern instead of ENCA's toast (TUNO has none). selfhost.js: addGear() wires the static Branding settings row and keeps the injected \u2699 as a fallback for a page without it. The Help paragraph on branding names the new entry point. New tracked suite tests/shell/header.test.js.",
+      why: "Mihai, 10 Sep: read ENCA for updates to the machinery TUNO shares and apply them; the header was one of the four he picked, and option A (initials only) was his pick from the mockup, per the layout-first rule. ENCA's reasoning holds here unchanged: none of the tenant name, the account, Sign out or the gear is needed more than once a session, and the header is for the tools.",
+      test: [
+        "Sign in: the header shows logo, TUNO tag, theme toggle, the \ud83e\uddea badge on the reference tenant, and the initials circle. No Tools button. Hover the circle: tenant name and UPN in the tooltip.",
+        "Click the circle: the menu opens under it with Tenant / Signed in as, Copy tenant ID, Branding settings, Sign out. Escape closes it; a click on the page closes it; a click on the circle toggles it.",
+        "Copy tenant ID: the row reads \u2713 Tenant ID copied, the clipboard holds the GUID, the menu closes by itself. On http://localhost:8080 (no clipboard) the row shows the GUID instead.",
+        "Branding settings opens the same dialog the \u2699 gear did, on production and beta alike (the production copy still says this browser only).",
+        "Sign out from the menu: the box hides, the sign-in screen shows, the menu is closed on the next sign-in.",
+        "Demo mode: DM initials, Demo Mode / demo@contoso.onmicrosoft.com in the menu, Copy tenant ID offered (the demo has a fake id by design).",
+        "Narrow window (< 680px) and dark theme: the header wraps to one row, the menu fits the viewport.",
+        "Headless: npm test \u2014 tests/shell/header.test.js 25/25, the rest unchanged.",
+      ],
+      files: ["index.html", "css/app.css", "js/app.js", "js/selfhost.js", "tests/shell/header.test.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 178, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the run ledger on Rename, Housekeeping and Import; the finished box survives the re-read",
       tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10606], risk: "medium",
       what: "The three baseline writes create a RunLedger over their plan (refused rows included as skips), report each row's phase and verdict, and honour Stop between rows. Import hands its ledger to Restore.apply (rows 0..n-1) and numbers the filters after the policies; the pilot assignment writes onto the policy's row. S.lastLedger (per act, in blankSession so sign-out drops it) keeps the finished box and the pane shows it again after rereadAfter(). No write, read or read-back changed.",

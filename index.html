@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10606"></script>
+<script src="js/popup-guard.js?v=10607"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10606">
+<link rel="stylesheet" href="css/app.css?v=10607">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10606"></script>
+<script src="js/selfhost-boot.js?v=10607"></script>
 </head>
 <body>
 
@@ -27,17 +27,34 @@
       <b id="brandOrg">Limon-<span>IT</span></b>
     </div>
     <span class="app-tag" id="brandTag">TUNO</span>
-    <button class="btn home-btn" id="homeBtn" style="display:none">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.2 9.4V20.4h13.6V9.4"/><path d="M9.6 20.4v-6.2h4.8v6.2"/>
-      </svg>Tools</button>
+    <!-- The header's Tools button went at 10607 (ENCA 25258): the tab bar
+         under it carries the same home icon, so the two sat one above the
+         other doing one job. -->
     <div class="spacer"></div>
     <button class="btn" id="themeBtn" title="Theme: Auto (follows your device)"><span class="tico">🌗</span></button>
     <div class="tenant" id="tenantBox">
-      <div><div id="tenantName" style="font-weight:600"></div><div class="mini" id="tenantUser"></div></div>
+      <!-- The account button is the initials circle alone (10607, ENCA's
+           25258/25259 ported). Tenant, signed-in user, Copy tenant ID,
+           Branding settings and Sign out all live in its menu — none of them
+           is needed more than once a session, and the header is for the
+           tools. The reference-tenant badge stays beside it: it is a fact
+           about the session, not an action. -->
       <span class="tag ok" id="cfdevBadge" style="display:none;cursor:help" title="Reference tenant detected — the acts that author the baseline are available in this session. Hover after signing in: the tooltip is rewritten with the signed-in tenant's immutable Entra ID and says which half of the gate answered. The gate compares that ID against the reference-tenant list, because a display name is not an identity — any tenant can call itself CloudFellows; while that list is still empty the older UPN-domain and org-name check answers instead, and says so. On any other tenant TUNO behaves exactly as documented and this badge does not exist. A UX gate, not a security boundary: the write acts re-check it at Apply, and anything genuinely sensitive is enforced by Graph permissions.">🧪 cfdev — extra features</span>
-      <div class="avatar" id="avatar"></div>
-      <button class="btn" id="signOutBtn">Sign out</button>
+      <button class="acct" id="acctBtn" aria-haspopup="menu" aria-expanded="false" title="Account">
+        <span class="avatar" id="avatar"></span>
+      </button>
+      <div class="acct-menu" id="acctMenu" role="menu" hidden>
+        <div class="acct-menu-head">
+          <span class="acct-menu-lbl">Tenant</span>
+          <b id="tenantName"></b>
+          <span class="acct-menu-lbl">Signed in as</span>
+          <b id="acctMenuName"></b><span class="mini" id="tenantUser"></span>
+        </div>
+        <button type="button" role="menuitem" id="copyTenantBtn">Copy tenant ID</button>
+        <button type="button" role="menuitem" id="brandingBtn">Branding settings</button>
+        <div class="acct-menu-sep"></div>
+        <button type="button" role="menuitem" id="signOutBtn">Sign out</button>
+      </div>
     </div>
   </div>
 </header>
@@ -1737,7 +1754,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R24</span> ⚙ Self-host branding <span class="tag grant">live · beta 10408 · production 9</span></h4>
-            <p class="mini" style="margin:0">ENCA's mechanism, ported whole: the ⚙ gear next to Sign out, on any non-production host — product and organisation names, logos, login text and light/dark identity colours, through the same override mechanism as the hosted per-audience looks. Chrome only; exports keep the neutral product credit. <b>Apply</b> keeps the look in this browser; <b>Download</b> produces <code>selfhost-branding.json</code>, <b>Import</b> reads one back into the form for review — and serving that file next to index.html gives every visitor the branding and softens the red BETA ribbon to a neutral SELF-HOSTED one, because a deliberately configured instance is not a test site. What the gear will never configure is the canonical host: that drives the production check and the export credit, and a settings dialog must not be able to make a copy claim to be production.</p>
+            <p class="mini" style="margin:0">ENCA's mechanism, ported whole: <b>Branding settings</b>, in the account menu behind your initials (the ⚙ gear next to Sign out until beta 10607), on any host — product and organisation names, logos, login text and light/dark identity colours, through the same override mechanism as the hosted per-audience looks. Chrome only; exports keep the neutral product credit. <b>Apply</b> keeps the look in this browser; <b>Download</b> produces <code>selfhost-branding.json</code>, <b>Import</b> reads one back into the form for review — and serving that file next to index.html gives every visitor the branding and softens the red BETA ribbon to a neutral SELF-HOSTED one, because a deliberately configured instance is not a test site. What the gear will never configure is the canonical host: that drives the production check and the export credit, and a settings dialog must not be able to make a copy claim to be production.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R25</span> 🦠 Defender status report <span class="tag grant">live · beta 10420 · production 9</span></h4>
@@ -2169,50 +2186,50 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10606"></script>
-<script src="js/selfhost.js?v=10606"></script>
-<script src="js/version.js?v=10606"></script>
-<script src="js/promote.js?v=10606"></script>
-<script src="js/authConfig.js?v=10606"></script>
-<script src="js/changelog.js?v=10606"></script>
-<script src="js/msappcatalog.js?v=10606"></script>
-<script src="js/demo.js?v=10606"></script>
-<script src="js/graph.js?v=10606"></script>
-<script src="js/suggest.js?v=10606"></script>
-<script src="js/progress.js?v=10606"></script>
-<script src="js/runledger.js?v=10606"></script>
-<script src="js/groupuse.js?v=10606"></script>
-<script src="js/audit.js?v=10606"></script>
-<script src="js/devicecleanup.js?v=10606"></script>
-<script src="js/backup.js?v=10606"></script>
-<script src="js/document.js?v=10606"></script>
-<script src="js/policycache.js?v=10606"></script>
-<script src="js/overview.js?v=10606"></script>
-<script src="js/devicewhy.js?v=10606"></script>
-<script src="js/whatif.js?v=10606"></script>
-<script src="js/health.js?v=10606"></script>
-<script src="js/settingsearch.js?v=10606"></script>
-<script src="js/conflict.js?v=10606"></script>
-<script src="js/compliance.js?v=10606"></script>
-<script src="js/filterrules.js?v=10606"></script>
-<script src="js/filters.js?v=10606"></script>
-<script src="js/restore.js?v=10606"></script>
-<script src="js/platformbaseline.js?v=10606"></script>
-<script src="js/complianceevidence.js?v=10606"></script>
-<script src="js/macbaseline.js?v=10606"></script>
-<script src="js/winbaseline.js?v=10606"></script>
-<script src="js/assignedit.js?v=10606"></script>
-<script src="js/restrictedau.js?v=10606"></script>
-<script src="js/groupmigrate.js?v=10606"></script>
-<script src="js/roles.js?v=10606"></script>
-<script src="js/defender.js?v=10606"></script>
-<script src="js/endpointsec.js?v=10606"></script>
-<script src="js/report.js?v=10606"></script>
-<script src="js/securescore.js?v=10606"></script>
-<script src="js/endpointposture.js?v=10606"></script>
-<script src="js/maa.js?v=10606"></script>
-<script src="js/laps.js?v=10606"></script>
-<script src="js/applocker.js?v=10606"></script>
-<script src="js/app.js?v=10606"></script>
+<script src="js/branding.js?v=10607"></script>
+<script src="js/selfhost.js?v=10607"></script>
+<script src="js/version.js?v=10607"></script>
+<script src="js/promote.js?v=10607"></script>
+<script src="js/authConfig.js?v=10607"></script>
+<script src="js/changelog.js?v=10607"></script>
+<script src="js/msappcatalog.js?v=10607"></script>
+<script src="js/demo.js?v=10607"></script>
+<script src="js/graph.js?v=10607"></script>
+<script src="js/suggest.js?v=10607"></script>
+<script src="js/progress.js?v=10607"></script>
+<script src="js/runledger.js?v=10607"></script>
+<script src="js/groupuse.js?v=10607"></script>
+<script src="js/audit.js?v=10607"></script>
+<script src="js/devicecleanup.js?v=10607"></script>
+<script src="js/backup.js?v=10607"></script>
+<script src="js/document.js?v=10607"></script>
+<script src="js/policycache.js?v=10607"></script>
+<script src="js/overview.js?v=10607"></script>
+<script src="js/devicewhy.js?v=10607"></script>
+<script src="js/whatif.js?v=10607"></script>
+<script src="js/health.js?v=10607"></script>
+<script src="js/settingsearch.js?v=10607"></script>
+<script src="js/conflict.js?v=10607"></script>
+<script src="js/compliance.js?v=10607"></script>
+<script src="js/filterrules.js?v=10607"></script>
+<script src="js/filters.js?v=10607"></script>
+<script src="js/restore.js?v=10607"></script>
+<script src="js/platformbaseline.js?v=10607"></script>
+<script src="js/complianceevidence.js?v=10607"></script>
+<script src="js/macbaseline.js?v=10607"></script>
+<script src="js/winbaseline.js?v=10607"></script>
+<script src="js/assignedit.js?v=10607"></script>
+<script src="js/restrictedau.js?v=10607"></script>
+<script src="js/groupmigrate.js?v=10607"></script>
+<script src="js/roles.js?v=10607"></script>
+<script src="js/defender.js?v=10607"></script>
+<script src="js/endpointsec.js?v=10607"></script>
+<script src="js/report.js?v=10607"></script>
+<script src="js/securescore.js?v=10607"></script>
+<script src="js/endpointposture.js?v=10607"></script>
+<script src="js/maa.js?v=10607"></script>
+<script src="js/laps.js?v=10607"></script>
+<script src="js/applocker.js?v=10607"></script>
+<script src="js/app.js?v=10607"></script>
 </body>
 </html>

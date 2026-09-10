@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10607, date: "2026-09-10", title: "The header keeps only your initials",
+    items: [
+      { kind: "improved", tool: "All tools", text: "The account button is the initials circle alone — the tenant name and the signed-in account moved into its menu, under Tenant and Signed in as, so the top right of every tool is the theme toggle, the reference-tenant badge where it applies, and one small button. Sign out lives in the menu too, with Copy tenant ID (the immutable tenant id, the one every gate and every tool's session keys on) and Branding settings, the former ⚙ gear. Nothing was taken away; it is one click further in, and hovering the initials still shows the tenant and the account. Ported from the sister tool ENCA, its builds 25258 and 25259, chosen from a mockup of both." },
+      { kind: "improved", tool: "All tools", text: "The header's Tools button is gone. The tab bar under it carries the same home icon, and the sidebar's Overview row is a third way to the same place — three controls stacked over one another for one job. The keyboard route is unchanged." },
+      { kind: "improved", tool: "All tools", text: "Copy tenant ID answers on its own row — ✓ Tenant ID copied — and closes the menu a moment later; where the clipboard is refused (a plain http origin, a denied permission) the row shows the id itself to select and copy, rather than being a button that silently does nothing. The menu closes on Escape, on a click anywhere else, and on any other row; on a narrow screen it fits the viewport." },
+    ],
+  },
+  {
     build: 10606, date: "2026-09-10", title: "The baseline acts show their run ledger too",
     items: [
       { kind: "improved", tool: "🪟 Windows baseline", text: "Rename, Housekeeping and Import wear the run ledger that 10605 gave the other batch writes: the whole plan on the screen before the first write, refused rows included as grey skips with their reason; each row shows its phase — checking the name, checking it has not moved, renaming, deleting, verifying, creating, the definition values of an administrative template, assigning to the pilot group — and turns as it lands; Stop between rows. A Housekeeping delete the read-back could not confirm is a red row that says unverified, never a green one." },
