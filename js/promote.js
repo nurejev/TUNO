@@ -104,6 +104,18 @@ const PROMOTE = {
 
   items: [
     {
+      n: 183, title: "\ud83d\udcc4 The policy id in every popout head, click-to-select; a crumb that matches no tab warns off production",
+      tools: ["T05 Documenter", "T19 Policy overview", "T11 Assignment editor", "T20 Endpoint security posture", "All tools"], builds: [10611], risk: "low",
+      what: "Docs.popoutHtml prints `ID: <code data-selall>` beside the source when the item has an id; one delegated document click handler selects the node's contents. app.js crumb(): a non-empty name that idForCrumb() cannot resolve console.warns on a non-production host. New tracked suite tests/shell/smalldeltas.test.js (the head, the escaping, the selection in jsdom, and every tile's crumb resolving in demo mode).",
+      why: "The two small ENCA deltas Mihai's 10 Sep sweep still owed. The id one is the same bug ENCA had: the string you need to paste is on the card you close to read the policy. The crumb one is the silent-string lesson \u2014 an exact-match lookup with a quiet fallback ships, so the fallback should say something where a developer is looking.",
+      test: [
+        "T19: open a policy card: the head reads 'Source: \u2026 \u00b7 ID: <guid>'; click the id: the whole GUID is selected; Ctrl+C pastes it. Same in T05's popout, T11's, T20's and the baseline tools'.",
+        "On the beta host, rename a tile's crumb in app.js to something TOOL_TABS does not carry, click the tile: the console warns with the label. On production (or with the label restored) nothing is logged.",
+        "Headless: npm test \u2014 tests/shell/smalldeltas.test.js 8/8.",
+      ],
+      files: ["js/document.js", "js/app.js", "tests/shell/smalldeltas.test.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 182, title: "\ud83d\udee1 T23 \u2014 the member and administrator boxes suggest from the tenant (archived originals never offered), a ;-list completes the entry being typed, a redraw keeps the scroll",
       tools: ["T23 Restricted AUs", "All tools"], builds: [10610], risk: "low",
       what: "js/suggest.js: a groupUser kind (groups then users, four each; GroupMigrate.ARCHIVE_SUFFIX filters the groups, with a copy of the regex as the fallback when T22 is not loaded) and a `multi` option \u2014 entryBounds() finds the entry around the caret between ; or , separators, termOf() searches only that entry, pick() replaces only that entry; the textarea rule now goes through the same helper unchanged. js/restrictedau.js: render() attaches Suggest to every [data-raaddbox] (groupUser) and [data-raadminbox] (user, multi) after each redraw, openEditor attaches it to #raNewAdmin (user); render() keeps window.scrollY across the innerHTML swap. New tracked suite tests/restrictedau/catchup.test.js.",

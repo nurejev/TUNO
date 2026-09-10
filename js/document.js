@@ -735,6 +735,24 @@ const Docs = (() => {
   // the redactValue lesson (T10), applied to markup. The FOOT is deliberately
   // not here: what you can do with an open policy is each tool's own claim
   // (T05 ticks it into the document; T19 just closes).
+  // THE ID SURVIVES OPENING THE CARD (10611, ENCA 25120 ported). The compact
+  // card in T19 prints the policy id and the popout did not, so opening a
+  // policy to look at it properly took away the one string that identifies
+  // it — on the panel that gets screenshotted and pasted into a ticket. Two
+  // policies can share a name; the portal is reached by id. It sits in the
+  // head beside the source, and ONE CLICK SELECTS THE WHOLE GUID, because
+  // the reason to read an id is to paste it somewhere. Delegated once, on
+  // the document: the popout is rebuilt on every open, in six tools.
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest && e.target.closest("[data-selall]");
+    if (!el) return;
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges(); sel.addRange(range);
+    } catch { /* an old engine without Selection — the id is still readable */ }
+  });
   function popoutHtml(sec, it) {
     return `
       <div class="gu-m-head">
@@ -744,7 +762,7 @@ const Docs = (() => {
         <div class="mini" style="margin-top:8px">${it.assignments.length
           ? it.assignments.map((a) => `<span class="gu-how ${a.kind === "Excluded" ? "exc" : "inc"}"${a.filterId ? ` title="An assignment filter narrows this target — the service evaluates it against inventory a browser cannot see"` : ""}>${esc(assignmentText(a))}</span>`).join(" ")
           : `<span class="gu-how exc">Not assigned to anything</span>`}</div>
-        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code></div>
+        <div class="mini muted" style="margin-top:6px">Source: <code>${esc(sec.endpoint)}</code>${it.id ? ` · ID: <code data-selall title="Click to select the whole id — the portal is reached by id">${esc(it.id)}</code>` : ""}</div>
       </div>
       <div class="gu-m-body">
         ${it.detailError

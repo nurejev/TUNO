@@ -1043,7 +1043,15 @@ const Fs = (() => {
   function crumb(name) {
     const id = name ? idForCrumb(name) : null;
     if (id) { if (!openTabs.includes(id)) openTabs.push(id); activeTab = id; }
-    else { activeTab = null; }
+    else {
+      // A crumb name that resolves to NO tab is a tool that opens without a
+      // tab (10611, ENCA 25172 ported): an exact-match lookup with a quiet
+      // fallback ships, because the fallback (no active tab) is a legitimate
+      // state for the home screen. Said in the console on any non-production
+      // host, where the rename that caused it is being made.
+      if (name && !isProduction()) console.warn(`crumb("${name}") matches no tool tab — the label in TOOL_TABS differs from the one passed here`);
+      activeTab = null;
+    }
     renderTabs();
   }
 

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10611, date: "2026-09-10", title: "The policy id survives opening the card, and a crumb that misses its tab says so",
+    items: [
+      { kind: "fixed", tool: "📄 Documenter", text: "The compact card in the policy overview showed the policy id and the opened card did not, so opening a policy to look at it properly took away the one string that identifies it — on the panel that gets screenshotted and pasted into a ticket. Two policies can share a name; the portal is reached by id. It now sits in the head of the popout beside the source, in every tool that opens one, and one click selects the whole GUID because the reason to read an id is to paste it somewhere. Ported from the sister tool ENCA, its build 25120." },
+      { kind: "improved", tool: "All tools", text: "A tool that opens without a tab now says so in the console on any non-production host. The tab bar finds a tool by the exact label its tile passes, and a quiet fallback for a label that matches nothing is a legitimate state for the home screen — which is exactly why a renamed label shipped silently in ENCA. The warning names the label; production stays quiet. ENCA 25172." },
+    ],
+  },
+  {
     build: 10610, date: "2026-09-10", title: "Restricted AUs: the boxes suggest from the tenant, and a redraw keeps your place",
     items: [
       { kind: "improved", tool: "🛡 Restricted AUs", text: "The member box and the scoped-administrator boxes type-ahead from the tenant through the app's one suggestion component: groups and users for a member, users for an administrator. A migrated group's renamed-aside original is never offered as a member — it is the migration tool's rollback, and putting it in a unit is how the frozen state gets recreated. Typing an object id, or a UPN the suggestions never offered, keeps working; the boxes are not pickers. Ported from the sister tool ENCA, its builds 25103 and 25310." },

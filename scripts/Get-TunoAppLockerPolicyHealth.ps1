@@ -74,7 +74,7 @@ param(
 )
 
 $script:ScriptVersion = '1.1.2'
-$script:TunoBuild = 10610
+$script:TunoBuild = 10611
 
 $ErrorActionPreference = 'SilentlyContinue'
 
