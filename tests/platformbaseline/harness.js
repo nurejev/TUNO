@@ -52,7 +52,7 @@ function boot() {
   w.fetch = () => Promise.reject(new Error("no network in tests"));
   const src = FILES.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
   const bridge = ";Object.assign(window,{APP_BUILD,TOOL_VERSIONS,CHANGELOG,PROMOTE,Graph,PolicyCache,Docs,"
-    + "PlatformBaseline,MacBaseline,MacBaselineTool,WinBaseline,WinBaselineTool,Restore,Filters});";
+    + "PlatformBaseline,MacBaseline,MacBaselineTool,WinBaseline,WinBaselineTool,Restore,Filters,RunLedger});";
   const errs = [];
   const realErr = console.error, realLog = console.log;
   console.error = () => {}; console.log = () => {};      // MSAL's own init noise

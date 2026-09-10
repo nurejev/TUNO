@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10606, date: "2026-09-10", title: "The baseline acts show their run ledger too",
+    items: [
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Rename, Housekeeping and Import wear the run ledger that 10605 gave the other batch writes: the whole plan on the screen before the first write, refused rows included as grey skips with their reason; each row shows its phase — checking the name, checking it has not moved, renaming, deleting, verifying, creating, the definition values of an administrative template, assigning to the pilot group — and turns as it lands; Stop between rows. A Housekeeping delete the read-back could not confirm is a red row that says unverified, never a green one." },
+      { kind: "improved", tool: "🍎 macOS baseline", text: "The same three acts, the same box — one implementation behind both platforms, as the engine has been since 10571. Import is one ledger: the policies first and the assignment filters numbered after them, so a filter that fails is on the same list as the policy that succeeded, and the pilot assignment writes its outcome onto the policy's own row." },
+      { kind: "improved", tool: "🪟 Windows baseline", text: "Every write is followed by a re-read that redraws the whole tool, and until now that redraw took the results with it. The finished ledger of each act is kept in the tenant session and shown again on its pane after the re-read — the run you just watched is still there when the fresh comparison lands, and sign-out drops it with everything else the tenant produced." },
+    ],
+  },
+  {
     build: 10605, date: "2026-09-10", title: "Every batch write shows its run ledger — the whole list first, then one row at a time",
     items: [
       { kind: "new", tool: "All tools", text: "The run ledger, ported whole from the sister tool ENCA (its build 25301): the one progress box every batch write shows. A tool that walks a list and writes used to say what it was doing on a single line and print the table when it was over. Now the whole list is on the screen BEFORE the first write, the row being written is marked, each row turns green with its verdict or red with Graph's reason inline as it lands, the row in flight is kept in view, the footer counts done, failed and waiting with a clock, and a Stop button finishes the row in flight and skips the rest — never mid-write, because half a write is the one thing worse than a slow one. The finished ledger stays as the results table, so nothing is drawn twice." },

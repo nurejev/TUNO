@@ -1714,6 +1714,10 @@ const PlatformBaseline = (() => {
       rnPlanned: null, rnPlanKey: null,
       hkPlanned: null, hkPlanKey: null,
       lastWrite: null,       // the last import's failures, shown on the Import pane after the re-read
+      // the finished run ledger of the last Rename / Housekeeping / Import
+      // (10606, ENCA's run ledger): the re-read redraws every pane, and a
+      // run somebody just watched should still be on the screen afterwards
+      lastLedger: { rename: "", housekeeping: "", import: "" },
       lastSource: "",
     });
     const currentTenantId = () => { const t = window.TunoTenant; return (t && t.tenantId && t.tenantId()) || ""; };
@@ -2105,7 +2109,7 @@ const PlatformBaseline = (() => {
             <button class="btn" id="${ID("Dry")}" ${gap.length ? "" : "disabled"}>🔍 Dry run — ${gap.length} to create</button>
           </div>
           ${S.cmp ? "" : `<p class="mini muted" style="margin:8px 0 0">${esc(spec.readLabel)} first — the plan is cut from the comparison.</p>`}
-          <div id="${ID("Plan")}" style="margin-top:10px">${S.lastWrite && S.lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${S.lastWrite.failedHtml}` : ""}</div></div>`);
+          <div id="${ID("Plan")}" style="margin-top:10px">${S.lastWrite && S.lastWrite.failedHtml ? `<p class="mini" style="margin:0 0 6px">From the last import:</p>${S.lastWrite.failedHtml}` : ""}${lastLedgerHtml("import")}</div></div>`);
       }
 
       if (mode === "housekeeping") {
@@ -2509,7 +2513,7 @@ const PlatformBaseline = (() => {
         <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col style="width:50%"><col></colgroup>
           <thead><tr><th><input type="checkbox" id="${ID("RnMaster")}" title="Select or deselect every row below"></th><th>Policy now — surface, last modified, the tag it earns</th><th>New name (edit before renaming)</th></tr></thead>
           <tbody>${rows.map(row).join("")}</tbody></table></div>
-        <div id="${ID("RnPlan")}" style="margin-top:10px"></div>
+        <div id="${ID("RnPlan")}" style="margin-top:10px">${lastLedgerHtml("rename")}</div>
       </div>
       <div class="ae-selbar" id="${ID("RnBar")}"><b id="${ID("RnBarCount")}"></b>
         <button class="btn primary" id="${ID("RnDry")}">🔍 Dry run the ticked <span class="tag block">plans writes</span></button>
@@ -2641,16 +2645,22 @@ const PlatformBaseline = (() => {
           try { liveFilters = new Set((await Filters.list()).map((f) => String(f.displayName || "").toLowerCase())); } catch { liveFilters = null; }
         }
         const nameSetFor = (p) => p.section === "filters" ? liveFilters : (liveNames[E.AREA_OF_SECTION[p.section]] || new Set());
-        for (const p of S.rnPlanned) {
-          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
+        prog("");
+        const L = ledgerIn($(ID("RnResult")), "policies", "renaming", S.rnPlanned.map((p) => ({ label: p.name, sub: `→ ${p.target}` })));
+        for (let i = 0; i < S.rnPlanned.length; i++) {
+          const p = S.rnPlanned[i];
+          if (L && L.stopped) { results.push({ ...p, outcome: "skipped", detail: "stopped" }); L.skip(i, "stopped"); continue; }
+          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); if (L) L.skip(i, p.refused, "refused"); continue; }
           try {
             // 1. is the target name still free, as of this moment?
+            if (L) L.start(i, "checking the name…");
             const set = nameSetFor(p);
             if (set === null) throw new Error("the tenant's filters could not be re-read — not renaming into a name set that is unknown");
             if (set.has(String(p.target).toLowerCase())) throw new Error("a policy took this name since the dry run — the collision stop, re-checked at the write");
             // 2. is this still the policy the plan named?
             if (!p.path.viaFilters) {
               prog(`${p.target} — checking it has not moved…`);
+              if (L) L.start(i, "checking it has not moved…");
               let now = null;
               try { now = await Graph.readOne(`${Graph.BETA}${p.path.endpoint}/${encodeURIComponent(p.id)}`, { scopes: Graph.SCOPES.config }); }
               catch (e) { if (e && e.kind === "notfound") throw new Error("the policy is gone since the dry run"); throw e; }
@@ -2659,6 +2669,7 @@ const PlatformBaseline = (() => {
               if (nameNow !== p.name) throw new Error(`the policy is now named “${nameNow}” — not the one the plan named, so it was left alone`);
             }
             prog(`${p.target} — renaming…`);
+            if (L) L.start(i, "renaming…");
             if (p.path.viaFilters) {
               await Filters.update(p.id, p.modified || null, { displayName: p.target });
             } else {
@@ -2673,15 +2684,19 @@ const PlatformBaseline = (() => {
             const set2 = nameSetFor(p);
             if (set2) { set2.add(String(p.target).toLowerCase()); set2.delete(String(p.name).toLowerCase()); }
             results.push({ ...p, outcome: "renamed", detail: "drift and collision re-checked at the write, then verified by read-back" });
+            if (L) L.done(i, "", "renamed · verified");
           } catch (e) {
-            results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
+            const detail = String((e && e.message) || e);
+            results.push({ ...p, outcome: "failed", detail });
+            if (L) L.fail(i, detail);
           }
         }
         prog("");
+        if (L) { L.finish(); S.lastLedger.rename = L.el.outerHTML; }
         const good = results.filter((r) => r.outcome === "renamed").length, bad = results.filter((r) => r.outcome === "failed").length;
         $(ID("RnResult")).innerHTML = `
           <p class="mini" style="margin:0 0 6px"><b>${good} renamed</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant; the list is cut again from the fresh read.</p>
-          ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
+          ${results.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}${S.lastLedger.rename}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         S.rnPlanned = null; S.rnPlanKey = null;
         rereadAfter(`✏️ Rename: <b>${good} renamed</b>${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
@@ -2724,7 +2739,7 @@ const PlatformBaseline = (() => {
         <div class="gu-tw"><table class="cg-table" style="table-layout:fixed;width:100%"><colgroup><col style="width:34px"><col><col style="width:90px"></colgroup>
           <thead><tr><th><input type="checkbox" id="${ID("HkMaster")}" title="Select or deselect every row below"></th><th>Kept copy — then the older copies under it</th><th>Op</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
-        <div id="${ID("HkPlan")}" style="margin-top:10px"></div>
+        <div id="${ID("HkPlan")}" style="margin-top:10px">${lastLedgerHtml("housekeeping")}</div>
       </div>
       <div class="ae-selbar" id="${ID("HkBar")}"><b id="${ID("HkBarCount")}"></b>
         <button class="btn primary" id="${ID("HkDry")}">🔍 Dry run the ticked <span class="tag block">plans deletes</span></button>
@@ -2830,16 +2845,22 @@ const PlatformBaseline = (() => {
       const results = [];
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        for (const p of S.hkPlanned) {
-          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); continue; }
+        const L = ledgerIn($(ID("HkResult")), "old copies", "deleting", S.hkPlanned.map((p) => ({ label: p.name, sub: `kept: ${p.keep}` })));
+        for (let i = 0; i < S.hkPlanned.length; i++) {
+          const p = S.hkPlanned[i];
+          if (L && L.stopped) { results.push({ ...p, outcome: "skipped", detail: "stopped" }); L.skip(i, "stopped"); continue; }
+          if (p.refused) { results.push({ ...p, outcome: "skipped", detail: p.refused }); if (L) L.skip(i, p.refused, "refused"); continue; }
           try {
             // the tenant may have moved since the dry run: read THIS one again
             prog(`${p.name} — checking again…`);
+            if (L) L.start(i, "checking again…");
             const f = await hkFresh(p, p.keep, p.keepPath, p.keepId);
-            if (f.refused) { results.push({ ...p, outcome: "skipped", detail: `${f.refused} (at delete time)` }); continue; }
+            if (f.refused) { const detail = `${f.refused} (at delete time)`; results.push({ ...p, outcome: "skipped", detail }); if (L) L.skip(i, detail, "refused"); continue; }
             const url = `${Graph.BETA}${p.path}/${encodeURIComponent(p.id)}`;
             prog(`${p.name} — deleting…`);
+            if (L) L.start(i, "deleting…");
             await Graph.del(url, { scopes: Graph.SCOPES.profiles });
+            if (L) L.start(i, "verifying…");
             // ONLY "NOT FOUND" VERIFIES A DELETE (finding 3). The read-back
             // used to be wrapped in a bare catch, so a 429, a 403 or a
             // dropped connection all read as "gone" — the tool reporting
@@ -2855,19 +2876,22 @@ const PlatformBaseline = (() => {
               if (e && e.kind === "notfound") verified = true;
               else doubt = `the read-back did not answer (${(e && e.kind) || "error"}: ${GroupUse.shortErr(e, 120)})`;
             }
-            if (verified) results.push({ ...p, outcome: "deleted", detail: "verified gone — the read-back could not find it" });
-            else results.push({ ...p, outcome: "unverified", detail: `${doubt} — unverified, check manually in the portal` });
+            if (verified) { results.push({ ...p, outcome: "deleted", detail: "verified gone — the read-back could not find it" }); if (L) L.done(i, "", "deleted · verified gone"); }
+            else { const detail = `${doubt} — unverified, check manually in the portal`; results.push({ ...p, outcome: "unverified", detail }); if (L) L.fail(i, detail, "unverified"); }
           } catch (e) {
-            results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
+            const detail = String((e && e.message) || e);
+            results.push({ ...p, outcome: "failed", detail });
+            if (L) L.fail(i, detail);
           }
         }
         prog("");
+        if (L) { L.finish(); S.lastLedger.housekeeping = L.el.outerHTML; }
         const good = results.filter((r) => r.outcome === "deleted").length,
           bad = results.filter((r) => r.outcome === "failed").length,
           unver = results.filter((r) => r.outcome === "unverified").length;
         $(ID("HkResult")).innerHTML = `
           <p class="mini" style="margin:0 0 6px"><b>${good} deleted and verified gone</b>${unver ? ` · <b style="color:var(--report)">${unver} unverified — check manually</b>` : ""}${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} — re-reading the tenant.</p>
-          ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail${r.outcome === "unverified" ? " gu-skip" : ""}"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}`;
+          ${results.filter((r) => r.outcome !== "deleted").map((r) => `<div class="gu-fail${r.outcome === "unverified" ? " gu-skip" : ""}"><b>${esc(r.name)}</b><span class="why">${esc(r.detail)}</span></div>`).join("")}${S.lastLedger.housekeeping}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         S.hkPlanned = null; S.hkPlanKey = null;
         rereadAfter(`🧹 Housekeeping: <b>${good} deleted</b>${unver ? `, <b style="color:var(--report)">${unver} unverified</b>` : ""}${bad ? `, <b style="color:var(--off)">${bad} failed</b>` : ""}`);
@@ -3033,7 +3057,13 @@ const PlatformBaseline = (() => {
       running = true; $(ID("Apply")).disabled = true;
       try {
         await Graph.ensureScopes(Graph.SCOPES.profiles);
-        const results = doPolicies.length ? await Restore.apply(doPolicies.map((x) => x.p), (m) => prog(m)) : [];
+        // one ledger for the whole import: the policies first (Restore.apply
+        // reports rows 0..n-1), then the filters (this loop, offset by n)
+        const L = ledgerIn($(ID("Result")), "objects", "importing", [
+          ...doPolicies.map((x) => ({ label: x.p.target, sub: x.p.area })),
+          ...doFilters.map((x) => ({ label: x.f.body.displayName, sub: "assignment filter" })),
+        ]);
+        const results = doPolicies.length ? await Restore.apply(doPolicies.map((x) => x.p), (m) => prog(m), L) : [];
         // ---- the assignment, one POST per created policy (§8.3) ----
         // AFTER the create, never inside it: a create that succeeded and an
         // assignment that failed is a policy that exists and reaches
@@ -3050,24 +3080,36 @@ const PlatformBaseline = (() => {
             if (!g) { assigned.set(r.target, du ? `created, not assigned — ${E.PILOT_GROUPS[du]} is not in this tenant` : "created, not assigned — no D/U"); continue; }
             try {
               prog(`${r.target} — assigning to ${g.displayName}…`);
+              if (L) L.start(i, `assigning to ${g.displayName}…`);
               await E.assignToGroup(x.p.area, r.newId, g.id);
               assigned.set(r.target, `assigned to ${g.displayName}`);
+              if (L) L.done(i, `assigned to ${g.displayName}`, "created · assigned");
             } catch (e) {
-              assigned.set(r.target, `created, NOT assigned — ${GroupUse.shortErr(e, 160)}`);
+              const why = `created, NOT assigned — ${GroupUse.shortErr(e, 160)}`;
+              assigned.set(r.target, why);
+              if (L) L.fail(i, why, "created · NOT assigned");
             }
           }
         }
         const filterResults = [];
-        for (const { f } of doFilters) {
+        for (let k = 0; k < doFilters.length; k++) {
+          const { f } = doFilters[k];
+          const i = doPolicies.length + k;
+          if (L && L.stopped) { filterResults.push({ target: f.body.displayName, outcome: "skipped", detail: "stopped" }); L.skip(i, "stopped"); continue; }
           try {
             prog(`${f.body.displayName} — creating the filter…`);
+            if (L) L.start(i, "creating the filter…");
             await Filters.create(f.body);
             filterResults.push({ target: f.body.displayName, outcome: "created", detail: "verified by read-back" });
+            if (L) L.done(i, "", "created");
           } catch (e) {
-            filterResults.push({ target: f.body.displayName, outcome: "failed", detail: String((e && e.message) || e) });
+            const detail = String((e && e.message) || e);
+            filterResults.push({ target: f.body.displayName, outcome: "failed", detail });
+            if (L) L.fail(i, detail);
           }
         }
         prog("");
+        if (L) { L.finish(); S.lastLedger.import = L.el.outerHTML; }
         const all = [...results, ...filterResults];
         const good = all.filter((r) => r.outcome === "created").length;
         const bad = all.filter((r) => r.outcome === "failed").length;
@@ -3075,7 +3117,7 @@ const PlatformBaseline = (() => {
         const failedHtml = all.filter((r) => r.outcome === "failed").map((r) => `<div class="gu-fail"><b>${esc(r.target || "")}</b><span class="why">${esc(r.detail || "")}</span></div>`).join("")
           + notAssigned.map(([t, v]) => `<div class="gu-fail"><b>${esc(t)}</b><span class="why">${esc(v)} — the policy exists and reaches nobody; assign it in ✏️ the Assignment editor.</span></div>`).join("");
         $(ID("Result")).innerHTML = `
-          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""}${assignMode === "pilot" ? ` · ${[...assigned.values()].filter((v) => /^assigned/.test(v)).length} assigned to a pilot group${notAssigned.length ? `, <b style="color:var(--off)">${notAssigned.length} not assigned</b>` : ""}` : " — unassigned, as asked"}. Re-reading the tenant…</p>${failedHtml}`;
+          <p class="mini" style="margin:0 0 6px"><b>${good} created</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""}${assignMode === "pilot" ? ` · ${[...assigned.values()].filter((v) => /^assigned/.test(v)).length} assigned to a pilot group${notAssigned.length ? `, <b style="color:var(--off)">${notAssigned.length} not assigned</b>` : ""}` : " — unassigned, as asked"}. Re-reading the tenant…</p>${failedHtml}${S.lastLedger.import}`;
         if (typeof PolicyCache !== "undefined") PolicyCache.invalidate();
         S.planned = null; S.plannedFilters = null;
         S.lastWrite = { failedHtml };
@@ -3127,6 +3169,15 @@ const PlatformBaseline = (() => {
     // `running` is still held by the write when this is scheduled, so it
     // waits a tick for the write to let go.
     const rereadAfter = (note) => { setTimeout(() => { if (!running) run(false, note); }, 0); };
+    // The run ledger (10606, ENCA's, js/runledger.js): every batch write
+    // of this tool shows the whole plan before the first write and turns a
+    // row as it lands; the finished box is kept per act (S.lastLedger) so
+    // the re-read that follows a write does not take it off the screen.
+    const ledgerIn = (host, unit, title, items) => (host && typeof RunLedger !== "undefined")
+      ? RunLedger.create(host, { unit, title, items })
+      : null;
+    const lastLedgerHtml = (act) => (S.lastLedger && S.lastLedger[act])
+      ? `<p class="mini muted" style="margin:0 0 6px">The last run, as it happened:</p>${S.lastLedger[act]}` : "";
     const srcNote = () =>
       `From ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())} — ${esc(spec.readLabel)} re-reads.`;
 

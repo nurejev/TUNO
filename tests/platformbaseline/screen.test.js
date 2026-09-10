@@ -103,7 +103,7 @@ head("Finding 1 — every tenant-derived field is in the session, none outside")
   w.MacBaselineTool.init();
   const keys = Object.keys(w.MacBaselineTool._session());
   for (const k of ["tenantId", "res", "cmp", "fileCat", "fetchedCat", "hashes", "planned", "plannedFilters",
-    "rnPlanned", "rnPlanKey", "hkPlanned", "hkPlanKey", "lastWrite", "lastSource"]) {
+    "rnPlanned", "rnPlanKey", "hkPlanned", "hkPlanKey", "lastWrite", "lastSource", "lastLedger"]) {
     ok(`the session declares ${k}`, keys.includes(k));
   }
   const src = fs.readFileSync(path.join(ROOT, "js/platformbaseline.js"), "utf8");
@@ -111,7 +111,7 @@ head("Finding 1 — every tenant-derived field is in the session, none outside")
   // Anything tenant-derived left as a bare `let` in screen() is a field
   // sign-out would not drop — the exact shape of the bug this fixes.
   for (const stray of ["let res ", "let cmp ", "let planned", "let fetchedCat",
-    "let rnPlanned", "let hkPlanned", "let lastWrite", "let lastSource", "let fileCat"]) {
+    "let rnPlanned", "let hkPlanned", "let lastWrite", "let lastSource", "let fileCat", "let lastLedger"]) {
     ok(`no bare '${stray.trim()}' survives in screen()`, !screenSrc.includes(stray));
   }
   ok("app.js fires tuno:signout", /new CustomEvent\("tuno:signout"\)/.test(fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8")));
@@ -602,6 +602,40 @@ head("10599 — the platform gate is in vms(), so every act inherits it");
 
   const src = fs.readFileSync(path.join(ROOT, "js/platformbaseline.js"), "utf8");
   ok("the gate is in vms(), once, and not repeated per act", (src.match(/if \(!E\.isOurPlatform\(vm\)\) continue;/g) || []).length === 1);
+}
+
+
+// =====================================================================
+head("10606 — every baseline write shows the run ledger, and keeps it through the re-read");
+{
+  const w = boot();
+  const src = fs.readFileSync(path.join(ROOT, "js/platformbaseline.js"), "utf8");
+  const screenSrc = src.slice(src.indexOf("function screen(spec, E) {"));
+  ok("the module is on the page", typeof w.RunLedger === "object" && typeof w.RunLedger.create === "function");
+  ok("one helper makes every ledger, and survives a page without the module", /const ledgerIn = \(host, unit, title, items\) => \(host && typeof RunLedger !== "undefined"\)/.test(screenSrc));
+  // the three acts
+  ok("Rename builds its ledger over the whole plan, refused rows included", /ledgerIn\(\$\(ID\("RnResult"\)\), "policies", "renaming", S\.rnPlanned\.map/.test(screenSrc));
+  ok("Housekeeping builds its ledger over the whole plan", /ledgerIn\(\$\(ID\("HkResult"\)\), "old copies", "deleting", S\.hkPlanned\.map/.test(screenSrc));
+  ok("Import builds ONE ledger — policies first, then filters", /ledgerIn\(\$\(ID\("Result"\)\), "objects", "importing", \[\s*\.\.\.doPolicies\.map[\s\S]{0,200}\.\.\.doFilters\.map/.test(screenSrc));
+  ok("Import hands the ledger to Restore.apply so the rows are the same", /Restore\.apply\(doPolicies\.map\(\(x\) => x\.p\), \(m\) => prog\(m\), L\)/.test(screenSrc));
+  ok("the filters continue the numbering after the policies", /const i = doPolicies\.length \+ k;/.test(screenSrc));
+  // a refused row is a skip with its reason, not silence
+  ok("Rename: a refused row is skipped on the ledger with the reason", /if \(p\.refused\) \{ results\.push\(\{ \.\.\.p, outcome: "skipped", detail: p\.refused \}\); if \(L\) L\.skip\(i, p\.refused, "refused"\); continue; \}/.test(screenSrc));
+  ok("Housekeeping: a refusal at delete time is skipped on the ledger too", /L\.skip\(i, detail, "refused"\)/.test(screenSrc));
+  ok("Housekeeping: an unverified delete is a red row, not a green one", /L\.fail\(i, detail, "unverified"\)/.test(screenSrc));
+  // Stop is honoured between rows in all three loops
+  ok("Rename honours Stop between rows", /for \(let i = 0; i < S\.rnPlanned\.length; i\+\+\) \{\s*const p = S\.rnPlanned\[i\];\s*if \(L && L\.stopped\)/.test(screenSrc));
+  ok("Housekeeping honours Stop between rows", /for \(let i = 0; i < S\.hkPlanned\.length; i\+\+\) \{\s*const p = S\.hkPlanned\[i\];\s*if \(L && L\.stopped\)/.test(screenSrc));
+  ok("Import's filter loop honours Stop between rows", /if \(L && L\.stopped\) \{ filterResults\.push/.test(screenSrc));
+  // the finished ledger outlives the re-read, per act, in the session
+  ok("each act keeps its finished ledger in the session", /S\.lastLedger\.rename = L\.el\.outerHTML/.test(screenSrc) && /S\.lastLedger\.housekeeping = L\.el\.outerHTML/.test(screenSrc) && /S\.lastLedger\.import = L\.el\.outerHTML/.test(screenSrc));
+  ok("and the redrawn pane shows it", /lastLedgerHtml\("rename"\)/.test(screenSrc) && /lastLedgerHtml\("housekeeping"\)/.test(screenSrc) && /lastLedgerHtml\("import"\)/.test(screenSrc));
+  ok("the pilot assignment writes its outcome onto the row", /L\.done\(i, `assigned to \$\{g\.displayName\}`, "created · assigned"\)/.test(screenSrc) && /L\.fail\(i, why, "created · NOT assigned"\)/.test(screenSrc));
+  // sign-out drops it with everything else
+  w.TunoTenant._setForTest("cloudfellows.dev", "CloudFellows BV", "aaaa1111-0000-0000-0000-000000000001");
+  w.MacBaselineTool.init();
+  const S0 = w.MacBaselineTool._session();
+  ok("lastLedger starts empty per act", S0.lastLedger && S0.lastLedger.rename === "" && S0.lastLedger.housekeeping === "" && S0.lastLedger.import === "");
 }
 
 // =====================================================================

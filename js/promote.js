@@ -104,6 +104,20 @@ const PROMOTE = {
 
   items: [
     {
+      n: 178, title: "\ud83e\ude9f T27 + \ud83c\udf4e T24 \u2014 the run ledger on Rename, Housekeeping and Import; the finished box survives the re-read",
+      tools: ["T27 Windows baseline", "T24 macOS baseline"], builds: [10606], risk: "medium",
+      what: "The three baseline writes create a RunLedger over their plan (refused rows included as skips), report each row's phase and verdict, and honour Stop between rows. Import hands its ledger to Restore.apply (rows 0..n-1) and numbers the filters after the policies; the pilot assignment writes onto the policy's row. S.lastLedger (per act, in blankSession so sign-out drops it) keeps the finished box and the pane shows it again after rereadAfter(). No write, read or read-back changed.",
+      why: "Item 177's last piece \u2014 ENCA put the ledger on Import at 25314, a build after the rest, for the same reason: the import is the longest write in the tool and the one most often watched. And the baseline tool is the one place in TUNO where a write is followed by a full redraw, which until now erased the result it had just printed.",
+      test: [
+        "T27 on the reference tenant: \u270f\ufe0f Rename, tick three, dry run, apply. The ledger appears with all three rows (a refused one already grey with its reason), each shows checking \u2192 renaming, turns 'renamed \u00b7 verified'; after the automatic re-read the Rename pane still shows the finished box under 'The last run, as it happened'.",
+        "\ud83e\uddf9 Housekeeping: same shape; delete one old copy, watch the row go deleting \u2192 verifying \u2192 'deleted \u00b7 verified gone'. Throttle the read-back (or pick a policy that reads back) and the row is RED 'unverified' with the doubt inline.",
+        "\ud83d\udce5 Import on a test tenant with pilot assignment: one ledger, policies then filters; a policy row ends 'created \u00b7 assigned' with the group name, a filter row ends 'created'. Press Stop mid-run: the row in flight finishes, the rest are 'stopped', the summary line and the failures list agree.",
+        "Sign out, sign in: the Rename/Housekeeping/Import panes show no old ledger.",
+        "Headless: npm test \u2014 screen 235/235 (the 10606 block: one helper, three acts, Stop in every loop, lastLedger in the session), engine 181/181, runledger 58/58.",
+      ],
+      files: ["js/platformbaseline.js", "tests/platformbaseline/screen.test.js", "tests/platformbaseline/harness.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 177, title: "\u2705 The run ledger \u2014 ENCA's progress box on every batch write: T11 apply, T04 restore and import, T25 disable/enable/delete, T22 archived cleanup",
       tools: ["T11 Assignment editor", "T04 Backup & restore", "T25 Entra device cleanup", "T22 Group migration"], builds: [10605], risk: "medium",
       what: "js/runledger.js ported whole from ENCA 25301 (one correction: a plain-string item no longer prints String.prototype.sub as its subtitle), its .rl stylesheet block, and a `ledger` option on the four engines \u2014 AssignEdit.applyPlan, AssignImport.apply, Restore.apply, DeviceCleanup.apply, GroupMigrate.deleteArchived. Each engine reports start/done/fail/skip per row index and honours Stop BETWEEN rows; the screens create the ledger before the call and keep the finished box as the results table. No write path changed: the same reads, writes and read-backs, in the same order \u2014 the ledger is a second listener on outcomes the result list already carried.",
