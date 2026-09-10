@@ -627,19 +627,28 @@ const AssignImport = (() => {
   }
 
   // ---- apply: T11's loop, fed from the archive ----
-  async function apply(planned, onStatus) {
+  // `ledger` (10605): the run ledger the screen created, or nothing — the
+  // engine reports each row to it and honours Stop between rows.
+  async function apply(planned, onStatus, ledger) {
     const results = [];
-    for (const op of planned.replace) {
+    const L = ledger || null;
+    for (let i = 0; i < planned.replace.length; i++) {
+      const op = planned.replace[i];
+      if (L && L.stopped) { results.push({ op, skipped: "stopped" }); L.skip(i, "stopped"); continue; }
       const sf = AssignEdit.surfaceById(op.surface);
       const label = op.policy.name;
       try {
         onStatus && onStatus(`${label} — checking the tenant has not moved…`);
+        if (L) L.start(i, "checking…");
         const now = await Graph.readAll(sf.read1(op.policy.id), { scopes: AssignEdit.READ(), beta: true, retry: true });
         if (AssignEdit.sig(now) !== op.currentSig) {
-          results.push({ op, drifted: true, error: "the assignments changed since the dry run — not overwriting somebody else's edit" });
+          const error = "the assignments changed since the dry run — not overwriting somebody else's edit";
+          results.push({ op, drifted: true, error });
+          if (L) L.fail(i, error, "drifted — not written");
           continue;
         }
         onStatus && onStatus(`${label} — writing…`);
+        if (L) L.start(i, "writing…");
         // Through AssignEdit's body shaper, not the raw array (10604): the
         // surface table now spans collections whose assign action types its
         // assignment envelope, and this loop reuses that table. A restore
@@ -648,6 +657,7 @@ const AssignImport = (() => {
         // to prevent.
         await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: AssignEdit.bodyAssignments(sf, op.want) }, { scopes: AssignEdit.WRITE() });
         onStatus && onStatus(`${label} — verifying…`);
+        if (L) L.start(i, "verifying…");
         let verified = false, verifyError = "";
         try {
           const back = await Graph.readAll(sf.read1(op.policy.id), { scopes: AssignEdit.READ(), beta: true, retry: true });
@@ -655,8 +665,11 @@ const AssignImport = (() => {
           if (!verified) verifyError = "the read-back does not match the archive — check the policy in the portal";
         } catch (e) { verifyError = "written but the verify read failed: " + String((e && e.message) || e); }
         results.push({ op, ok: true, verified, verifyError });
+        if (L) { if (verified) L.done(i, "", "written · verified"); else L.fail(i, verifyError, "written · NOT verified"); }
       } catch (e) {
-        results.push({ op, error: String((e && e.message) || e).slice(0, 300) });
+        const error = String((e && e.message) || e).slice(0, 300);
+        results.push({ op, error });
+        if (L) L.fail(i, error);
       }
     }
     return results;
@@ -903,15 +916,18 @@ const BackupTool = (() => {
     running = true; $("vfImportApply").disabled = true;
     try {
       await Graph.ensureScopes(AssignEdit.WRITE());
-      const results = await AssignImport.apply(vfPlan, prog2);
+      // The run ledger (10605): every policy on the screen before the first
+      // write, the verdict landing per row, Stop between rows. The finished
+      // ledger stays as the results table.
+      $("vfImportPlanOut").innerHTML = `<p class="mini" id="vfRunSum"></p><div id="vfLedger"></div>`;
+      const L = (typeof RunLedger !== "undefined")
+        ? RunLedger.create($("vfLedger"), { unit: "assignment lists", title: "replacing from the archive", items: vfPlan.replace.map((op) => { const sf = AssignEdit.surfaceById(op.surface); return { label: op.policy.name, sub: (sf && sf.label) || "" }; }) })
+        : null;
+      const results = await AssignImport.apply(vfPlan, prog2, L);
       prog2("");
+      if (L) L.finish();
       const good = results.filter((r) => r.ok && r.verified).length;
-      $("vfImportPlanOut").innerHTML = `
-        <p class="mini"><b>${good} written and verified</b> · ${results.length - good} not clean. “Verified” is the tenant's read-back matching the archive, never the write's status code.</p>
-        <div class="gu-tw"><table class="cg-table"><tbody>${results.map((r) => `<tr>
-          <td><b>${esc(r.op.policy.name)}</b></td>
-          <td>${r.ok && r.verified ? '<span class="gu-how inc">written · verified</span>' : r.drifted ? '<span class="gu-how exc">drifted — not written</span>' : r.error ? '<span class="gu-how exc">FAILED</span>' : '<span class="gu-how exc">written · NOT verified</span>'}</td>
-          <td class="mini">${esc(r.error || r.verifyError || "")}</td></tr>`).join("")}</tbody></table></div>`;
+      $("vfRunSum").innerHTML = `<b>${good} written and verified</b> · ${results.length - good} not clean. “Verified” is the tenant's read-back matching the archive, never the write's status code.`;
       $("vfImportApply").style.display = "none"; $("vfConfirmWrap").style.display = "none";
       vfPlan = null;
     } catch (e) {

@@ -182,17 +182,25 @@ const Restore = (() => {
   }
 
   // ---- apply: sequential, fresh per-object collision check, read-back ----
-  async function apply(planned, onStatus) {
+  // `ledger` (10605): the run ledger the screen created, or nothing — one
+  // row per planned object, reported as it lands; Stop honoured between rows.
+  async function apply(planned, onStatus, ledger) {
     const results = [];
-    for (const p of planned) {
-      if (p.collided) { results.push({ ...p, outcome: "skipped", detail: "name existed at dry run" }); continue; }
+    const L = ledger || null;
+    for (let i = 0; i < planned.length; i++) {
+      const p = planned[i];
+      if (L && L.stopped) { results.push({ ...p, outcome: "skipped", detail: "stopped" }); L.skip(i, "stopped"); continue; }
+      if (p.collided) { results.push({ ...p, outcome: "skipped", detail: "name existed at dry run" }); if (L) L.skip(i, "name existed at dry run"); continue; }
       const info = AREA_INFO[p.area];
       onStatus && onStatus(`${p.target} — checking the name is still free…`);
+      if (L) L.start(i, "checking the name…");
       try {
         // the tenant may have changed since the dry run: check THIS name now
         const fresh = await existingNames([p.area]);
         if (fresh[p.area].has(p.target.toLowerCase())) {
-          results.push({ ...p, outcome: "skipped", detail: "COLLIDED — the name appeared in the tenant after the dry run" });
+          const detail = "COLLIDED — the name appeared in the tenant after the dry run";
+          results.push({ ...p, outcome: "skipped", detail });
+          if (L) L.skip(i, detail, "collided");
           continue;
         }
         const endpoint = p.area === "PlatformScripts"
@@ -200,34 +208,42 @@ const Restore = (() => {
           : info.endpoint;
         const scopes = p.area === "PlatformScripts" ? Graph.SCOPES.scriptsWrite : Graph.SCOPES.profiles;
         onStatus && onStatus(`${p.target} — creating…`);
+        if (L) L.start(i, "creating…");
         const created = await Graph.post(`${Graph.BETA}${endpoint}`, bodyFor(p.entry, p.target), { scopes });
         const newId = created && created.id;
         if (!newId) throw new Error("the create returned without an id — check the portal before assuming either outcome");
 
         if (p.area === "AdmxPolicies") {
           const kids = admxChildBodies(p.entry);
-          for (let i = 0; i < kids.length; i++) {
-            onStatus && onStatus(`${p.target} — definition value ${i + 1}/${kids.length}…`);
+          for (let k = 0; k < kids.length; k++) {
+            onStatus && onStatus(`${p.target} — definition value ${k + 1}/${kids.length}…`);
+            if (L) L.start(i, `definition value ${k + 1}/${kids.length}…`);
             try {
-              await Graph.post(`${Graph.BETA}/deviceManagement/groupPolicyConfigurations/${newId}/definitionValues`, kids[i], { scopes });
+              await Graph.post(`${Graph.BETA}/deviceManagement/groupPolicyConfigurations/${newId}/definitionValues`, kids[k], { scopes });
             } catch (e) {
               // TenuVault's one exception: roll back the half we created —
               // our mess, not yours.
               onStatus && onStatus(`${p.target} — child write failed, rolling back the half-created template…`);
+              if (L) L.start(i, "rolling back…");
               try { await Graph.del(`${Graph.BETA}/deviceManagement/groupPolicyConfigurations/${newId}`, { scopes }); }
               catch { /* the rollback itself failing is reported below */ }
-              throw new Error(`definition value ${i + 1}/${kids.length} failed (${(e && e.message) || e}) — the half-created template was rolled back; nothing of it should remain, verify in the portal`);
+              throw new Error(`definition value ${k + 1}/${kids.length} failed (${(e && e.message) || e}) — the half-created template was rolled back; nothing of it should remain, verify in the portal`);
             }
           }
         }
 
         // read-back: created means the tenant can hand it back
         onStatus && onStatus(`${p.target} — verifying…`);
+        if (L) L.start(i, "verifying…");
         const back = await Graph.readOne(`${Graph.BETA}${endpoint}/${newId}`, { scopes });
         if (!back) throw new Error("created but not readable back — check the portal");
-        results.push({ ...p, outcome: "created", newId, detail: `verified by read-back${p.children ? ` · ${p.children} definition values written` : ""} · unassigned` });
+        const detail = `verified by read-back${p.children ? ` · ${p.children} definition values written` : ""} · unassigned`;
+        results.push({ ...p, outcome: "created", newId, detail });
+        if (L) L.done(i, detail, "created");
       } catch (e) {
-        results.push({ ...p, outcome: "failed", detail: String((e && e.message) || e) });
+        const detail = String((e && e.message) || e);
+        results.push({ ...p, outcome: "failed", detail });
+        if (L) L.fail(i, detail);
       }
     }
     return results;
@@ -371,18 +387,19 @@ const RestoreTool = (() => {
     try {
       const areas = [...new Set(planned.map((p) => p.area))];
       await Graph.ensureScopes([...new Set(areas.flatMap((a) => a === "PlatformScripts" ? Graph.SCOPES.scriptsWrite : Graph.SCOPES.profiles))]);
-      const results = await Restore.apply(planned, prog);
+      // The run ledger (10605): the plan on the screen before the first
+      // create, each row's verdict as it lands, Stop between rows; the
+      // finished ledger stays as the results table.
+      $("rsPlan").innerHTML = `<p class="mini" id="rsRunSum"></p><div id="rsLedger"></div>`;
+      const L = (typeof RunLedger !== "undefined")
+        ? RunLedger.create($("rsLedger"), { unit: "objects", title: "creating from the archive", items: planned.map((p) => ({ label: p.target, sub: p.area })) })
+        : null;
+      const results = await Restore.apply(planned, prog, L);
       prog("");
+      if (L) L.finish();
       const good = results.filter((r) => r.outcome === "created").length;
       const bad = results.filter((r) => r.outcome === "failed").length;
-      $("rsPlan").innerHTML = `
-        <p class="mini"><b>${good} created and verified, ${results.length - good - bad} skipped, ${bad} failed.</b> “Created” is the tenant's word — each object was read back after its create. Everything arrived unassigned.</p>
-        <div class="gu-tw"><table class="cg-table"><thead><tr><th>Object</th><th style="width:110px">Outcome</th><th>Detail</th></tr></thead>
-        <tbody>${results.map((r) => `<tr>
-          <td><b>${esc(r.target)}</b></td>
-          <td><span class="gu-how ${r.outcome === "created" ? "inc" : (r.outcome === "failed" ? "exc" : "priv")}">${esc(r.outcome)}</span></td>
-          <td class="mini">${esc(r.detail)}</td>
-        </tr>`).join("")}</tbody></table></div>`;
+      $("rsRunSum").innerHTML = `<b>${good} created and verified, ${results.length - good - bad} skipped, ${bad} failed.</b> “Created” is the tenant's word — each object was read back after its create. Everything arrived unassigned.`;
       $("rsApply").style.display = "none";
       planned = null;
     } catch (e) {

@@ -27,7 +27,7 @@ catch {
 
 const FILES = [
   "js/branding.js", "js/selfhost.js", "js/version.js", "js/authConfig.js", "js/promote.js", "js/changelog.js",
-  "js/msappcatalog.js", "js/demo.js", "js/graph.js", "js/suggest.js", "js/progress.js",
+  "js/msappcatalog.js", "js/demo.js", "js/graph.js", "js/suggest.js", "js/progress.js", "js/runledger.js",
   "js/groupuse.js", "js/document.js", "js/policycache.js", "js/filterrules.js", "js/filters.js",
   "js/restore.js", "js/platformbaseline.js", "js/macbaseline.js", "js/winbaseline.js",
   "js/applocker.js", "js/app.js",

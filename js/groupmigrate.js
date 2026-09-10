@@ -531,16 +531,25 @@ const GroupMigrate = (() => {
     return { items, deletable: items.filter((x) => x.ok), refused: items.filter((x) => !x.ok) };
   }
 
+  // `ledger` (10605, ENCA's run ledger): the screen's RunLedger or nothing —
+  // one row per deletable group, Stop honoured between rows.
   async function deleteArchived(plan, opts = {}) {
     const status = opts.onStatus || (() => {});
+    const L = opts.ledger || null;
     const results = [];
-    for (const g of plan.deletable) {
+    for (let i = 0; i < plan.deletable.length; i++) {
+      const g = plan.deletable[i];
+      if (L && L.stopped) { results.push({ id: g.id, name: g.name, ok: false, stopped: true, error: "stopped" }); L.skip(i, "stopped"); continue; }
       status(`Deleting ${g.name}…`);
+      if (L) L.start(i, "deleting…");
       try {
         await Graph.del(`/groups/${encodeURIComponent(g.id)}`, { scopes: SCOPES.groupWrite });
         results.push({ id: g.id, name: g.name, ok: true });
+        if (L) L.done(i, "", "deleted");
       } catch (e) {
-        results.push({ id: g.id, name: g.name, ok: false, error: GroupUse.shortErr(e, 300) });
+        const error = GroupUse.shortErr(e, 300);
+        results.push({ id: g.id, name: g.name, ok: false, error });
+        if (L) L.fail(i, error);
       }
     }
     return results;
@@ -1432,8 +1441,18 @@ const GroupMigrateTool = (() => {
     busy = true;
     try {
       await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
-      if (msg) msg.innerHTML = '<span class="muted">Deleting…</span>';
-      const res = await GroupMigrate.deleteArchived(p, { onStatus: (m) => { if (msg) msg.innerHTML = `<span class="muted">${esc(m)}</span>`; } });
+      // The run ledger (10605): every group to be deleted is on the screen
+      // before the first delete, each row turns as it lands, Stop between
+      // rows. It lives in the message slot under the table, and the finished
+      // ledger stays there after the list is redrawn.
+      let L = null;
+      if (msg && typeof RunLedger !== "undefined") {
+        msg.innerHTML = "";
+        L = RunLedger.create(msg, { unit: "archived groups", title: "deleting", items: p.deletable.map((g) => ({ label: g.name, sub: g.id })) });
+      } else if (msg) msg.innerHTML = '<span class="muted">Deleting…</span>';
+      const res = await GroupMigrate.deleteArchived(p, { ledger: L, onStatus: (m) => { if (msg && !L) msg.innerHTML = `<span class="muted">${esc(m)}</span>`; } });
+      if (L) L.finish();
+      const ledgerHtml = L ? L.el.outerHTML : "";
       const gone = new Set(res.filter((r) => r.ok).map((r) => r.id));
       list.groups = list.groups.filter((g) => !gone.has(g.id));
       gone.forEach((id) => archSel.delete(id));
@@ -1441,10 +1460,12 @@ const GroupMigrateTool = (() => {
       renderList();
       const el = $("gmArchMsg");
       if (el) {
-        const bad = res.filter((r) => !r.ok);
+        const bad = res.filter((r) => !r.ok && !r.stopped);
         el.innerHTML = `<span style="color:var(--on)">Deleted ${gone.size}.</span>`
           + (bad.length ? ` <span style="color:var(--off)">${bad.length} failed: ${esc(bad.map((b) => `${b.name} — ${b.error}`).join("; "))}</span>` : "")
-          + (p.refused.length ? `<br><span class="mini muted">${p.refused.length} left alone — still referenced.</span>` : "");
+          + (res.some((r) => r.stopped) ? ` <span class="muted">${res.filter((r) => r.stopped).length} not reached — stopped.</span>` : "")
+          + (p.refused.length ? `<br><span class="mini muted">${p.refused.length} left alone — still referenced.</span>` : "")
+          + ledgerHtml;
       }
     } catch (e) {
       if (msg) msg.innerHTML = `<span style="color:var(--off)">${esc(GroupUse.shortErr(e, 300))}</span>`;

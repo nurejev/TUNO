@@ -102,58 +102,77 @@ const DeviceCleanup = (() => {
 
   // ---- apply: fresh per-device read, then the write, then the read-back --
   // ops: [{ kind: "disable"|"delete"|"enable", d, days }]
+  // `ledger` (10605, ENCA's run ledger): the screen's RunLedger or nothing —
+  // every op is a row, reported as it lands, and Stop is honoured between
+  // rows. The outcomes are unchanged; the ledger is a second listener.
   async function apply(ops, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
     const disableDays = (o.thresholds || DEFAULTS).disableDays;
+    const L = o.ledger || null;
     const results = [];
-    for (const op of ops) {
+    // one exit for every outcome, so the ledger can never disagree with the
+    // result list: what goes in `results` is what the row says
+    const out = (i, r) => {
+      results.push(r);
+      if (!L) return;
+      if (r.outcome === "failed") L.fail(i, r.detail);
+      else if (r.outcome === "skipped" || r.outcome === "refused") L.skip(i, r.detail, r.outcome);
+      else L.done(i, r.detail, r.outcome);
+    };
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (L && L.stopped) { out(i, { op, outcome: "skipped", detail: "stopped" }); continue; }
       const name = op.d.displayName || op.d.id;
       try {
         o.onStatus && o.onStatus(`${name} — fresh read…`);
+        if (L) L.start(i, "fresh read…");
         const fresh = await Graph.readOne(`/devices/${op.d.id}?$select=id,accountEnabled,approximateLastSignInDateTime`, { scopes: Graph.SCOPES.deviceObjects });
-        if (!fresh) { results.push({ op, outcome: "skipped", detail: "gone from the directory since the plan" }); continue; }
+        if (!fresh) { out(i, { op, outcome: "skipped", detail: "gone from the directory since the plan" }); continue; }
         if (op.kind === "enable") {
           // the way back: no wake-up check — a disabled device cannot sign
           // in, and wanting it back is the whole reason for the click
-          if (fresh.accountEnabled !== false) { results.push({ op, outcome: "skipped", detail: "already enabled" }); continue; }
+          if (fresh.accountEnabled !== false) { out(i, { op, outcome: "skipped", detail: "already enabled" }); continue; }
           o.onStatus && o.onStatus(`${name} — re-enabling…`);
+          if (L) L.start(i, "re-enabling…");
           await Graph.patch(`/devices/${op.d.id}`, { accountEnabled: true }, { scopes: Graph.SCOPES.deviceObjectsWrite });
           const back = await Graph.readOne(`/devices/${op.d.id}?$select=accountEnabled`, { scopes: Graph.SCOPES.deviceObjects });
           if (!back || back.accountEnabled !== true) throw new Error("the write went through but the read-back does not say enabled — check the portal");
-          results.push({ op, outcome: "enabled", detail: "verified by read-back" });
+          out(i, { op, outcome: "enabled", detail: "verified by read-back" });
           continue;
         }
         const freshDays = daysSince(fresh.approximateLastSignInDateTime, now);
         // it WOKE UP: a sign-in since the plan withdraws every claim
         if (freshDays !== null && freshDays < disableDays) {
-          results.push({ op, outcome: "skipped", detail: `signed in ${freshDays} day${freshDays === 1 ? "" : "s"} ago — the device woke up; the plan's claim no longer holds` });
+          out(i, { op, outcome: "skipped", detail: `signed in ${freshDays} day${freshDays === 1 ? "" : "s"} ago — the device woke up; the plan's claim no longer holds` });
           continue;
         }
         if (op.kind === "disable") {
-          if (fresh.accountEnabled === false) { results.push({ op, outcome: "skipped", detail: "already disabled" }); continue; }
+          if (fresh.accountEnabled === false) { out(i, { op, outcome: "skipped", detail: "already disabled" }); continue; }
           o.onStatus && o.onStatus(`${name} — disabling…`);
+          if (L) L.start(i, "disabling…");
           await Graph.patch(`/devices/${op.d.id}`, { accountEnabled: false }, { scopes: Graph.SCOPES.deviceObjectsWrite });
           const back = await Graph.readOne(`/devices/${op.d.id}?$select=accountEnabled`, { scopes: Graph.SCOPES.deviceObjects });
           if (!back || back.accountEnabled !== false) throw new Error("the write went through but the read-back does not say disabled — check the portal");
-          results.push({ op, outcome: "disabled", detail: "verified by read-back" });
+          out(i, { op, outcome: "disabled", detail: "verified by read-back" });
         } else {
           // DELETE COMES AFTER DISABLE — a re-enabled device is somebody's
           // decision, and this tool does not overrule people
           if (fresh.accountEnabled !== false) {
-            results.push({ op, outcome: "refused", detail: "not disabled any more — re-enabled since the plan; somebody wants it back" });
+            out(i, { op, outcome: "refused", detail: "not disabled any more — re-enabled since the plan; somebody wants it back" });
             continue;
           }
           o.onStatus && o.onStatus(`${name} — deleting…`);
+          if (L) L.start(i, "deleting…");
           await Graph.del(`/devices/${op.d.id}`, { scopes: Graph.SCOPES.deviceObjectsWrite });
           let stillThere = null;
           try { stillThere = await Graph.readOne(`/devices/${op.d.id}?$select=id`, { scopes: Graph.SCOPES.deviceObjects }); } catch { stillThere = null; }
           if (stillThere) throw new Error("the delete returned but the device still reads back — check the portal");
-          results.push({ op, outcome: "deleted", detail: "verified — the directory no longer returns it" });
+          out(i, { op, outcome: "deleted", detail: "verified — the directory no longer returns it" });
         }
       } catch (e) {
         const msg = String((e && e.message) || e);
-        results.push({ op, outcome: "failed",
+        out(i, { op, outcome: "failed",
           detail: /403|authoriz|forbidden/i.test(msg)
             ? `${msg} — consent is in place; this is Graph's DIRECTORY-ROLE gate on device writes (who you are, not what TUNO may do)`
             : msg });
@@ -427,8 +446,19 @@ const DeviceCleanupTool = (() => {
       // the write scope at the click that writes — TUNO's first directory-
       // device write, new at this build, the R18 rule honoured in the open
       await Graph.ensureScopes(Graph.SCOPES.deviceObjectsWrite);
-      const results = await DeviceCleanup.apply(ops, { onStatus: prog, thresholds: buckets.thresholds });
+      // The run ledger (10605): the Results pane opens BEFORE the first
+      // write with every ticked device listed, and each row turns as its
+      // read-back lands. The finished ledger is kept as this run's table.
+      dcuPane = "results"; render();
+      const host = $("dcuResults");
+      const verb = kind === "disable" ? "disabling" : kind === "enable" ? "re-enabling" : "deleting";
+      const L = (host && typeof RunLedger !== "undefined")
+        ? RunLedger.create(host, { unit: "devices", title: verb, items: ops.map((op) => ({ label: op.d.displayName || op.d.id, sub: op.d.operatingSystem || "" })) })
+        : null;
+      const results = await DeviceCleanup.apply(ops, { onStatus: prog, thresholds: buckets.thresholds, ledger: L });
       prog("");
+      if (L) L.finish();
+      const ledgerHtml = L ? L.el.outerHTML : "";
       lastResults = (lastResults || []).concat(results);
       const good = results.filter((r) => r.outcome === "disabled" || r.outcome === "deleted" || r.outcome === "enabled").length;
       const bad = results.filter((r) => r.outcome === "failed").length;
@@ -449,7 +479,7 @@ const DeviceCleanupTool = (() => {
       buckets = DeviceCleanup.bucketize(devices, buckets.thresholds);
       resultsHtml = `
         <p class="mini" style="margin:0 0 6px"><b>${good} ${kind === "disable" ? "disabled" : kind === "enable" ? "re-enabled" : "deleted"}</b>${bad ? ` · <b style="color:var(--off)">${bad} failed</b>` : ""} · ${results.length - good - bad} skipped/refused — every verdict is a read-back, not a status code. The buckets and the rail already reflect the verified outcomes; 📝 the report carries all of it.</p>
-        ${results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted" && r.outcome !== "enabled").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}` + resultsHtml;
+        ${ledgerHtml || results.filter((r) => r.outcome !== "disabled" && r.outcome !== "deleted" && r.outcome !== "enabled").map((r) => `<div class="gu-fail"><b>${esc(r.op.d.displayName || r.op.d.id)}</b><span class="why">${esc(r.outcome)}: ${esc(r.detail)}</span></div>`).join("")}` + resultsHtml;
       dcuPane = "results";
       render();
     } catch (e) {

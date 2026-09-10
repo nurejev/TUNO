@@ -339,29 +339,48 @@ const AssignEdit = (() => {
   // ----------------------------------------------------------------- apply --
   // Sequential, never parallel: writes to a tenant are not a place for a
   // pool. Per op: FRESH READ → drift check → write → VERIFY read-back.
+  //
+  // `ledger` (build 10605, ENCA's run ledger): an object with start(i, st) /
+  // done(i, note, st) / fail(i, why) / skip(i, why) and a `stopped` getter —
+  // RunLedger.create() makes one, the tests pass a fake. The engine drives
+  // it row by row and honours Stop between rows; it never builds one, so a
+  // caller with no screen (T22's repoint) passes nothing and loses nothing.
   async function applyPlan(plan, opts) {
     const o = opts || {};
     const status = o.onStatus || (() => {});
+    const L = o.ledger || null;
     const results = [];
     let stopped = false;
-    for (const op of plan.changes) {
-      if (stopped) { results.push({ op, skipped: "stopped after an earlier failure" }); continue; }
+    for (let i = 0; i < plan.changes.length; i++) {
+      const op = plan.changes[i];
+      if (L && L.stopped && !stopped) stopped = true;
+      if (stopped) {
+        const why = L && L.stopped ? "stopped" : "stopped after an earlier failure";
+        results.push({ op, skipped: why });
+        if (L) L.skip(i, why);
+        continue;
+      }
       const sf = surfaceById(op.policy.surface);
       const label = `${op.policy.name}`;
       try {
         // 1. the tenant as it is NOW, not as it was at dry-run time
         status(`${label} — checking the tenant has not moved…`);
+        if (L) L.start(i, "checking…");
         const now = await Graph.readAll(sf.read1(op.policy.id), { scopes: READ(), beta: true, retry: true });
         if (sig(now) !== op.beforeSig) {
-          results.push({ op, drifted: true, error: "the assignments changed since the plan was made — not overwriting somebody else's edit" });
+          const error = "the assignments changed since the plan was made — not overwriting somebody else's edit";
+          results.push({ op, drifted: true, error });
+          if (L) L.fail(i, error, "drifted — not written");
           if (o.stopOnFail) stopped = true;
           continue;
         }
         // 2. the write — full replacement, no retry
         status(`${label} — writing…`);
+        if (L) L.start(i, "writing…");
         await Graph.post(Graph.BETA + sf.assign(op.policy.id), { assignments: bodyAssignments(sf, op.after) }, { scopes: WRITE() });
         // 3. read it back: the tenant's word, not the request's status code
         status(`${label} — verifying…`);
+        if (L) L.start(i, "verifying…");
         let verified = false, verifyError = "";
         try {
           const after = await Graph.readAll(sf.read1(op.policy.id), { scopes: READ(), beta: true, retry: true });
@@ -369,8 +388,11 @@ const AssignEdit = (() => {
           if (!verified) verifyError = "the read-back does not match what was sent — check the policy in the portal";
         } catch (e) { verifyError = "the write went through but the verify read failed: " + GroupUse.shortErr(e); }
         results.push({ op, ok: true, verified, verifyError });
+        if (L) { if (verified) L.done(i, "", "written · verified"); else L.fail(i, verifyError, "written · NOT verified"); }
       } catch (e) {
-        results.push({ op, error: GroupUse.shortErr(e, 300) });
+        const error = GroupUse.shortErr(e, 300);
+        results.push({ op, error });
+        if (L) L.fail(i, error);
         if (o.stopOnFail) stopped = true;
       }
     }
@@ -756,27 +778,26 @@ const AssignEditTool = (() => {
       // The write scope is asked for HERE, on this click, never earlier —
       // reading and planning must be possible without ever holding it.
       await Graph.ensureScopes(AssignEdit.WRITE());
-      const r = await AssignEdit.applyPlan(plan, { onStatus: prog, stopOnFail: $("aeStop").checked });
-      prog("");
-      const row = (x) => {
-        const o = x.op;
-        let st, note = "";
-        if (x.skipped) { st = `<span class="mini muted">skipped</span>`; note = x.skipped; }
-        else if (x.drifted) { st = `<span class="gu-how exc">drifted — not written</span>`; note = x.error; }
-        else if (x.error) { st = `<span class="gu-how exc">FAILED</span>`; note = x.error; }
-        else if (x.ok && x.verified) st = `<span class="gu-how inc">written · verified</span>`;
-        else { st = `<span class="gu-how exc">written · NOT verified</span>`; note = x.verifyError; }
-        return `<tr><td><b>${esc(o.policy.name)}</b></td><td>${esc(o.policy.surfaceLabel)}</td><td>${st}</td><td class="mini">${esc(note)}</td></tr>`;
-      };
-      const okN = r.results.filter((x) => x.ok && x.verified).length;
+      // THE RUN LEDGER (build 10605, ENCA's): the whole plan is on the
+      // screen before the first write, each row turns as it lands, and
+      // Stop finishes the row in flight and skips the rest. The finished
+      // ledger IS the results table — the same rows, with the verdict and
+      // the reason inline — so nothing is drawn twice.
       $("aeResults").innerHTML = `<div class="list-card" style="margin-top:12px">
-        <div class="gu-sum">
+        <div class="gu-sum" id="aeRunSum"></div>
+        <div id="aeLedger"></div>
+        <p class="mini muted" style="margin:8px 0 0">Every “verified” is the tenant's own read-back, not the write's status code. The backup file from step ① is the way back for all of it.</p></div>`;
+      const L = (typeof RunLedger !== "undefined")
+        ? RunLedger.create($("aeLedger"), { unit: "policies", title: `${plan.action === "remove" ? "removing" : plan.action === "add-exclude" ? "excluding" : "including"} ${plan.group.displayName}`, items: plan.changes.map((o) => ({ label: o.policy.name, sub: o.policy.surfaceLabel })) })
+        : null;
+      const r = await AssignEdit.applyPlan(plan, { onStatus: prog, stopOnFail: $("aeStop").checked, ledger: L });
+      prog("");
+      if (L) L.finish();
+      const okN = r.results.filter((x) => x.ok && x.verified).length;
+      $("aeRunSum").innerHTML = `
           <span class="gu-stat ${okN ? "" : "zero"}"><b>${okN}</b> written &amp; verified</span>
           <span class="gu-stat ${r.results.length - okN ? "" : "zero"}" ${r.results.length - okN ? 'style="border-color:var(--off)"' : ""}><b>${r.results.length - okN}</b> not clean</span>
-          ${r.stopped ? `<span class="gu-stat" style="border-color:var(--off)">stopped early</span>` : ""}
-        </div>
-        <div style="overflow-x:auto;margin-top:8px"><table class="plist"><thead><tr><th>Policy</th><th>Surface</th><th>Result</th><th>Note</th></tr></thead><tbody>${r.results.map(row).join("")}</tbody></table></div>
-        <p class="mini muted" style="margin:8px 0 0">Every “verified” is the tenant's own read-back, not the write's status code. The backup file from step ① is the way back for all of it.</p></div>`;
+          ${r.stopped ? `<span class="gu-stat" style="border-color:var(--off)">stopped early</span>` : ""}`;
       // A used plan is a spent plan — the tenant has moved, by us.
       plan = null; backupTaken = false; $("aeApplyWrap").style.display = "none"; $("aePlanOut").innerHTML = "";
       // And the shared cache now describes the tenant BEFORE this apply —
