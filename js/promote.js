@@ -104,6 +104,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 180, title: "\ud83d\udd04 T22 \u2014 the repoint runs every policy past a refusal; an archive still in policies is called out with the way out; the tab is guarded mid-run",
+      tools: ["T22 Group migration"], builds: [10608], risk: "medium",
+      what: "repoint(): stopOnFail false; failures carry the policy id. apply() step 4: a refusal sets result.refsRefused + result.warning and CARRIES ON to the unit step instead of returning; result.ok stays true. report(): the work list opens with the refused swaps; the warning is a callout. Screen: the result panel lists them with \u270f\ufe0f Open in T11 (AssignEditTool.openWith through a delegated [data-gmt11] click, modal closed first); the Archived pane's referenced rows say 'Still in policies \u2014 the repoint did not finish' with the same hand-off per repointable policy and the by-hand surfaces named; referencesMany() keeps p.surface for it; the Overview counts archives still in policies; the State column shows 'N still name the archive'; beforeunload guard added at Migrate and removed in finally. New tracked suite tests/groupmigrate/repoint.test.js.",
+      why: "Mihai, 10 Sep: catch T22 up with ENCA's \u2467 Migrate. ENCA's 25318 (today) is the one that matters: a refusal on one policy is not a reason to leave the old group in the policies after it, and a migration that stops there leaves MORE to do by hand than one that finishes. 25317 and 25130 are the two that make the leftover visible and the run safe to watch.",
+      test: [
+        "Test tenant, a role-assignable group assigned to three writable policies; make the second refuse (e.g. edit its assignments in the portal between Examine and Migrate so the drift check trips). Migrate: the log shows 'Repointed 2/3' then '1 refused \u2014 carrying on with the unit step', the unit step runs, the result is \u2705 with a \u26a0 warning naming the policy, and the yellow box lists it with \u270f\ufe0f Open in T11. Click it: T11 opens with that policy ticked.",
+        "Portal: the two other policies name the new group, the refused one still names the '(migrated \u2026)' group.",
+        "Groups pane: the migrated row reads 'migrated' + '1 still name the archive'. Archived pane \u2192 tick the archive \u2192 Check: the row says 'Still in policies \u2014 the repoint did not finish' with the policy and the T11 button; Delete stays refused for it. Overview: 'worth a look first' counts it.",
+        "Swap the group in T11, re-check on the Archived pane: 'nothing points at it', Delete allowed.",
+        "Start a migration and try to close the tab while it runs: the browser asks. Close the modal on an idle screen: no prompt.",
+        "Headless: npm test \u2014 tests/groupmigrate/repoint.test.js 24/24 (three policies with the middle one refusing: all three posted, two swapped, one named; clean run unchanged; the screen parts as source).",
+      ],
+      files: ["js/groupmigrate.js", "tests/groupmigrate/repoint.test.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 179, title: "\ud83d\udc64 The header keeps only your initials \u2014 one account button, its menu holds tenant, account, Copy tenant ID, Branding settings and Sign out; the Tools button goes",
       tools: ["All tools"], builds: [10607], risk: "low",
       what: "index.html: the tenant box becomes #acctBtn (the avatar alone) + #acctMenu (role=menu, hidden) with #tenantName / #acctMenuName / #tenantUser in its head and three menuitem rows; #homeBtn removed. css: .acct/.acct-menu rules (ENCA 25259 verbatim), .btn.home-btn rules dropped, the 680px breakpoint no longer gives the tenant box a row. app.js: setAccountBox(upn, displayName) fills both sign-in paths (real and demo), open/close/away/Escape handlers, Copy tenant ID with T01's flash() pattern instead of ENCA's toast (TUNO has none). selfhost.js: addGear() wires the static Branding settings row and keeps the injected \u2699 as a fallback for a page without it. The Help paragraph on branding names the new entry point. New tracked suite tests/shell/header.test.js.",

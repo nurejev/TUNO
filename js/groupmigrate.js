@@ -470,7 +470,7 @@ const GroupMigrate = (() => {
           const gid = lc((a.target || {}).groupId);
           if (!ids.has(gid)) continue;
           const e = byId.get(gid);
-          e.repointable.push({ surfaceLabel: p.surfaceLabel, name: p.name, id: p.id });
+          e.repointable.push({ surfaceLabel: p.surfaceLabel, name: p.name, id: p.id, surface: p.surface });
           e.total++;
         }
       }
@@ -697,9 +697,12 @@ const GroupMigrate = (() => {
   }
 
   // ------------------------------------------------------------ apply ------
-  // Sequential and stop-at-first-failure. Half a migration is recoverable —
-  // the archived group is still there with its members — but a wrong ORDER
-  // is not, so nothing continues past a step that did not do what it said.
+  // Sequential and stop-at-first-failure BETWEEN steps. Half a migration is
+  // recoverable — the archived group is still there with its members — but
+  // a wrong ORDER is not, so nothing continues past a step that did not do
+  // what it said. WITHIN step 4 (the repoint) every policy is its own swap
+  // and one refusal says nothing about the next, so all of them are tried
+  // and the refused ones are named (10608, ENCA 25318).
   //
   // Every step logs, and the log is the report. A step that is skipped says
   // why; a step that fails says what was already done, because "it failed"
@@ -715,6 +718,8 @@ const GroupMigrate = (() => {
       name: p.name, oldId: p.id, newId: null, archiveName: p.archiveName,
       membersMoved: 0, memberTotal: p.members.users.length,
       refsMoved: 0, refsTotal: p.refs.repointable.length,
+      refsRefused: [],        // 10608: the policies whose swap Graph refused — still naming the archive
+      warning: "",            // 10608: what is left to do by hand, when the migration itself went through
       unitId: p.unitId || null, unitName: p.unitName || "", inUnit: false,
       unitCreated: false, scopedAdminOk: false, scopedAdminError: "",
       log, ok: false, error: "",
@@ -799,12 +804,17 @@ const GroupMigrate = (() => {
     if (p.refs.repointable.length) {
       const r = await repoint(p, created.id, status);
       result.refsMoved = r.moved;
+      result.refsRefused = r.failed;
       note(r.failed.length === 0, `Repointed ${r.moved}/${p.refs.repointable.length} Intune assignments`,
         r.failed.length ? r.failed.map((f) => `${f.name}: ${f.error}`).join(" · ") : r.names.join(", "));
       if (r.failed.length) {
-        result.error = `${r.failed.length} assignment${r.failed.length === 1 ? "" : "s"} could not be moved. The archived group is still assigned to ${r.failed.length === 1 ? "it" : "them"}, so nothing is uncovered — but the two groups are now both in play. Fix and finish by hand.`;
-        note(false, "Stopped before the unit step", result.error);
-        return result;
+        // Not a stop any more (ENCA 25318, ported): every other policy has
+        // already taken the swap, and the unit step below does not depend
+        // on these. The refused ones still name the ARCHIVED group — which
+        // still exists and holds its members, so nothing is uncovered —
+        // and the report says which and what to do next.
+        result.warning = `${r.failed.length} assignment${r.failed.length === 1 ? "" : "s"} could not be repointed and still name${r.failed.length === 1 ? "s" : ""} the archived group: ${r.failed.map((f) => f.name).join(", ")}. Nothing is uncovered — the archived group still exists with its members — but the migration is not finished until ${r.failed.length === 1 ? "it is" : "they are"} moved: fix the policy in the portal or swap the group in ✏️ T11, then delete the archived group under 🧹 Archived.`;
+        note(false, `${r.failed.length} refused — carrying on with the unit step; the refused ${r.failed.length === 1 ? "policy keeps" : "policies keep"} the archived group for now`, result.warning);
       }
     }
 
@@ -922,18 +932,26 @@ const GroupMigrate = (() => {
         after, change: "modify",
       });
     }
+    // EVERY policy is tried (ENCA 25318, ported). Until 10608 this stopped
+    // at the first policy Graph refused, which left the old group in every
+    // policy AFTER it — policies that would have taken the swap — and the
+    // report could only say "stopped". Each policy is its own swap with its
+    // own drift check and read-back; one refusal says nothing about the
+    // next. The refusals are collected and NAMED, so the only policies left
+    // naming the archived original are the ones that refused, and the
+    // caller can say which and what to do next.
     const res = await AssignEdit.applyPlan({ changes: ops }, {
       onStatus: (m) => status(m),
-      stopOnFail: true,
+      stopOnFail: false,
     });
     const moved = [], failed = [];
     for (const r of res.results) {
       const nm = r.op.policy.name;
       if (r.ok && r.verified) moved.push(nm);
-      else if (r.ok && !r.verified) failed.push({ name: nm, error: r.verifyError || "the read-back did not match what was sent" });
-      else if (r.drifted) failed.push({ name: nm, error: r.error });
-      else if (r.skipped) failed.push({ name: nm, error: r.skipped });
-      else failed.push({ name: nm, error: r.error || "unknown" });
+      else if (r.ok && !r.verified) failed.push({ name: nm, id: r.op.policy.id, error: r.verifyError || "the read-back did not match what was sent" });
+      else if (r.drifted) failed.push({ name: nm, id: r.op.policy.id, error: r.error });
+      else if (r.skipped) failed.push({ name: nm, id: r.op.policy.id, error: r.skipped });
+      else failed.push({ name: nm, id: r.op.policy.id, error: r.error || "unknown" });
     }
     return { moved: moved.length, names: moved, failed };
   }
@@ -961,6 +979,7 @@ const GroupMigrate = (() => {
     }
     L.push("");
     if (result.error) L.push(`> ⚠ ${mdCell(result.error)}`, "");
+    if (result.warning) L.push(`> ⚠ ${mdCell(result.warning)}`, "");
 
     L.push("## What was done, in order", "");
     for (const l of result.log) L.push(`- ${l.ok ? "✅" : "❌"} ${mdCell(l.text)}${l.detail ? ` — _${mdCell(l.detail)}_` : ""}`);
@@ -976,6 +995,12 @@ const GroupMigrate = (() => {
     // phrased as a note: it is a work list, and the report says the archived
     // group is the rollback until it is done.
     L.push("## Still pointing at the ARCHIVED group — move these by hand", "");
+    if (result.refsRefused && result.refsRefused.length) {
+      L.push(`${result.refsRefused.length} repointable assignment${result.refsRefused.length === 1 ? "" : "s"} REFUSED the swap during this run and still name${result.refsRefused.length === 1 ? "s" : ""} the archived group (every other policy took it). Fix the policy in the portal or swap the group in ✏️ T11 Assignment editor, then delete the archived group under 🧹 Archived.`, "",
+        "| Object | Why it was refused |", "| --- | --- |");
+      result.refsRefused.forEach((f) => L.push(`| ${mdCell(f.name)} | ${mdCell(f.error)} |`));
+      L.push("");
+    }
     if (p.refs.other.length) {
       L.push(`${p.refs.other.length} Intune assignment${p.refs.other.length === 1 ? "" : "s"} name${p.refs.other.length === 1 ? "s" : ""} the old group and could not be moved here. The reason is per surface, not one reason for the list — most need a write scope this app does not declare, and where that is not the reason the row says so.`, "",
         "| Surface | Object | How | Why not moved |", "| --- | --- | --- | --- |");
@@ -1232,7 +1257,7 @@ const GroupMigrateTool = (() => {
   function stateHtml(g) {
     const st = stateOf(g.id);
     if (!st || !st.examined) return `<span class="tag" style="background:var(--blue-bg);color:var(--blue)">not examined</span>`;
-    if (st.migrated) return `<span class="tag grant">migrated</span><div class="mini muted">archived as ${esc(st.archiveName || "")}</div>`;
+    if (st.migrated) return `<span class="tag grant">migrated</span>${st.refsRefused ? ` <span class="tag block" title="The swap was refused on these policies — they still name the archived group; the report and the Archived pane say which">${st.refsRefused} still name the archive</span>` : ""}<div class="mini muted">archived as ${esc(st.archiveName || "")}</div>`;
     if (st.verdict === "frozen") return `<span class="tag block">🧊 frozen</span><div class="mini muted">${esc(st.reason || "")}</div>`;
     if (st.verdict === "refused") return `<span class="tag block">refused</span><div class="mini muted">${esc(st.reason || "")}</div>`;
     if (st.verdict === "failed") return `<span class="tag block">migration failed</span><div class="mini muted">${esc(st.reason || "")}</div>`;
@@ -1275,6 +1300,7 @@ const GroupMigrateTool = (() => {
     // named with their counts so nobody reads a finished list as a finished
     // job.
     const step = (cls, t, h, sub) => `<div class="gm-step ${cls}"><div class="gm-step-t">${t}</div><div class="gm-step-h">${h}</div><div class="mini muted">${sub}</div></div>`;
+    const stillRef = archRefs ? archived.filter((g) => { const r = archRefs.byId.get(GroupMigrate.lc(g.id)); return r && r.total > 0; }).length : 0;
     const overview = `<div class="list-card">
       <h4 style="margin:0 0 6px">What the read found — and what is still yours to do</h4>
       <div class="gm-steps">
@@ -1295,6 +1321,10 @@ const GroupMigrateTool = (() => {
         dyn ? `⚠ <b>${dyn}</b> group${dyn === 1 ? "" : "s"} carr${dyn === 1 ? "ies" : "y"} a membership rule Entra forbids on a role-assignable group` : "",
         nodest ? `<b>${nodest}</b> ${nodest === 1 ? "has" : "have"} no destination worked out from the name — pick one at Examine` : "",
         archived.length ? `<b>${archived.length}</b> archived rollback${archived.length === 1 ? " is" : "s are"} waiting to be checked and deleted` : "",
+        // 10608: an archive the reference check found still in policies is
+        // a migration whose repoint did not finish — said here, not only on
+        // the Archived pane where the check ran
+        stillRef ? `⚠ <b>${stillRef}</b> archived group${stillRef === 1 ? " is" : "s are"} <b>still in policies</b> — a repoint that did not finish; the Archived pane says which and where` : "",
         !units.restricted.length && !unitsError ? `the tenant has <b>no restricted unit yet</b> — the first migration creates one` : "",
       ].filter(Boolean).join(" · ") || "Nothing stands out: every group has a destination, none carries a membership rule, nothing is left over from an earlier run."}</p>
     </div>`;
@@ -1363,6 +1393,16 @@ const GroupMigrateTool = (() => {
   // finish it — but on its own terms: the reference check runs first and a
   // group anything still points at is REFUSED, not warned about. A rollback
   // that something still uses is not a leftover.
+  // A policy that still names an archived group, handed to T11 with the
+  // policy selected — AssignEditTool.openWith (10521), through the tile's
+  // own handler so crumb, tab and sidebar follow. Only for the surfaces T11
+  // writes; anything else has no editor here and gets no button.
+  function t11Link(x) {
+    const sf = x && x.surface && typeof AssignEdit !== "undefined" ? AssignEdit.surfaceById(x.surface) : null;
+    if (!sf || !sf.section || typeof AssignEditTool === "undefined") return "";
+    return `<button type="button" class="btn sm" data-gmt11="${esc(sf.section)}|${esc(x.id)}" title="Open ✏️ T11 with this policy selected">✏️ Open in T11</button>`;
+  }
+
   function renderArchived(archived) {
     const rows = archived.map((g) => {
       const r = archRefs ? archRefs.byId.get(GroupMigrate.lc(g.id)) : null;
@@ -1370,9 +1410,15 @@ const GroupMigrateTool = (() => {
         : !r ? '<span class="muted">not checked</span>'
         : r.total ? `<span style="color:var(--off)">${r.total} reference${r.total === 1 ? "" : "s"}</span>`
         : '<span style="color:var(--on)">nothing points at it</span>';
+      // A referenced archive is a migration whose repoint did not finish
+      // (ENCA 25317, ported): the policy targets the old, frozen group.
+      // Say so under the name, and put the way out on the row — the
+      // repointable ones open in T11 with the policy selected; the rest
+      // name the surface that has to be done by hand.
+      const unfinished = r && r.total ? `<div class="mini" style="margin-top:4px;color:var(--report)">⚠ <b>Still in policies — the repoint did not finish.</b> ${r.repointable.length ? `Swap the group in ✏️ T11 for ${r.repointable.map((x) => `<b>${esc(x.name)}</b> ${t11Link(x)}`).join(", ")}` : ""}${r.repointable.length && r.other.length ? "; " : ""}${r.other.length ? `move by hand: ${r.other.map((x) => `${esc(x.sourceLabel)}: ${esc(x.name)}`).join(", ")}` : ""} — then delete it here.</div>` : "";
       return `<tr>
         <td style="width:34px"><input type="checkbox" data-gmarch="${esc(g.id)}" ${archSel.has(g.id) ? "checked" : ""}></td>
-        <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div></td>
+        <td><b>${esc(g.name)}</b><div class="mini muted">${esc(g.id)}</div>${unfinished}</td>
         <td class="mini" style="width:190px">${state}</td>
       </tr>`;
     }).join("");
@@ -1715,12 +1761,18 @@ const GroupMigrateTool = (() => {
   }
 
   // ------------------------------------------------------------ step 3 ----
+  // Closing the tab mid-run can leave a group renamed aside with its
+  // replacement half-built (ENCA 25130, ported): the browser asks first
+  // while a migration is in flight, and only then. The listener is added at
+  // the click and removed in finally, so an idle screen never nags.
+  const guard = (e) => { e.preventDefault(); e.returnValue = ""; };
   async function run() {
     if (busy || !plan || !plan.ok) return;
     busy = true;
     const p = rebuildPlan();
     if (!p.ok) { busy = false; renderPlan(); return; }
     mprog("Migrating…");
+    window.addEventListener("beforeunload", guard);
     try {
       // The write scopes, at the click — never at sign-in. A read-only visit
       // to this screen must not leave the session holding Group.ReadWrite.All.
@@ -1729,14 +1781,14 @@ const GroupMigrateTool = (() => {
       await Graph.ensureScopes([...new Set(want)]);
       result = await GroupMigrate.apply(p, { onStatus: (m) => mprog(m) });
       setState(chosen.id, result.ok
-        ? { examined: true, verdict: "ok", migrated: true, newId: result.newId, archiveName: result.archiveName }
+        ? { examined: true, verdict: "ok", migrated: true, newId: result.newId, archiveName: result.archiveName, refsRefused: (result.refsRefused || []).length }
         : { examined: true, verdict: "failed", reason: String(result.error || "").slice(0, 140) });
       renderResult();
     } catch (e) {
       $("gmModalBody").innerHTML = `<div class="list-card"><p class="mini" style="color:var(--off);margin:0">
         <b>The migration did not start.</b> ${esc(GroupUse.shortErr(e, 400))}</p>
         </div>`;
-    } finally { busy = false; }
+    } finally { busy = false; window.removeEventListener("beforeunload", guard); }
   }
 
   function renderResult() {
@@ -1748,7 +1800,11 @@ const GroupMigrateTool = (() => {
         new id <code>${esc(r.newId || "—")}</code> · archived as <b>${esc(r.archiveName)}</b> ·
         ${r.membersMoved}/${r.memberTotal} members · ${r.refsMoved}/${r.refsTotal} assignments repointed</p>
       ${r.error ? `<p class="mini" style="margin:0 0 12px;color:var(--off)"><b>⚠ ${esc(r.error)}</b></p>` : ""}
+      ${r.warning ? `<p class="mini" style="margin:0 0 12px;color:var(--report)"><b>⚠ ${esc(r.warning)}</b></p>` : ""}
       ${lines}
+      ${r.refsRefused && r.refsRefused.length ? `<div style="background:var(--warn-bg);border:1px solid var(--report);border-radius:10px;padding:12px 14px;margin-top:14px">
+        <p class="mini" style="margin:0 0 6px"><b>${r.refsRefused.length} assignment${r.refsRefused.length === 1 ? "" : "s"} refused the swap and still name${r.refsRefused.length === 1 ? "s" : ""} <b>${esc(r.archiveName)}</b></b> — every other policy took it. Fix the policy in the portal, or open it in the Assignment editor and swap the group there.</p>
+        <table class="plist"><tbody>${r.refsRefused.map((f) => `<tr><td class="mini"><b>${esc(f.name)}</b><br><span class="muted">${esc(f.error)}</span></td><td class="mini" style="width:170px;text-align:right">${t11Link(f)}</td></tr>`).join("")}</tbody></table></div>` : ""}
       ${plan.refs.other.length ? `<div style="background:var(--bad-bg);border:1px solid var(--off);border-radius:10px;padding:12px 14px;margin-top:14px">
         <p class="mini" style="margin:0"><b>${plan.refs.other.length} Intune assignment${plan.refs.other.length === 1 ? "" : "s"} still point${plan.refs.other.length === 1 ? "s" : ""} at the archived group</b>
         and must be moved by hand — the list is in the report. Do not delete <b>${esc(r.archiveName)}</b> until they are done and
@@ -1795,6 +1851,16 @@ const GroupMigrateTool = (() => {
       }
       const pick = e.target.closest("[data-gmpick]");
       if (pick) { examine(pick.dataset.gmpick); return; }
+      // 10608: a policy that still names an archived group opens in T11
+      // with that policy selected — from the Archived pane or the result
+      // panel of a migration whose swap was refused.
+      const t11 = e.target.closest("[data-gmt11]");
+      if (t11) {
+        const [secId, id] = t11.dataset.gmt11.split("|");
+        closeModal();
+        if (typeof AssignEditTool !== "undefined") AssignEditTool.openWith(secId, id);
+        return;
+      }
       const arch = e.target.closest("[data-gmarch]");
       if (arch) {
         const id = arch.dataset.gmarch;

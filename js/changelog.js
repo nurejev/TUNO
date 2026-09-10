@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10608, date: "2026-09-10", title: "Group migration: the repoint finishes past a refusal, and an archive still in policies says so",
+    items: [
+      { kind: "fixed", tool: "🔄 Group migration", text: "The repoint stopped at the first policy Graph refused, which left the archived group in every policy after it — policies that would have taken the swap — and the report could only say stopped. Each policy is its own swap with its own drift check and read-back, so one refusal says nothing about the next: all of them are now tried, the refusals are collected and named together, and the migration carries on to the unit step. Nothing is uncovered, because the archived group still exists with its members; the result says which policies still name it and what to do next — fix the policy in the portal or swap the group in the Assignment editor, then delete the archive. Ported from the sister tool ENCA, its build 25318." },
+      { kind: "improved", tool: "🔄 Group migration", text: "A renamed-aside original that a policy still names is a migration whose repoint did not finish — the policy targets the old, frozen group. On the Archived pane such a row now says so under its name, and the way out is on the row: an Open in T11 button per repointable policy, which opens the Assignment editor with that policy selected, and the by-hand surfaces named beside it. The Overview's worth-a-look line counts them, the State column says how many of a migrated group's policies still name the archive, and the report's work list opens with them. ENCA 25317, ported." },
+      { kind: "improved", tool: "🔄 Group migration", text: "A migration in flight guards the tab: closing it mid-run can leave a group renamed aside with its replacement half-built, so the browser asks before the tab goes — while a run is going, and only then. ENCA 25130's other half; the badge that shows a run from any screen has no place here yet, because a migration is one group in a modal, not a batch." },
+    ],
+  },
+  {
     build: 10607, date: "2026-09-10", title: "The header keeps only your initials",
     items: [
       { kind: "improved", tool: "All tools", text: "The account button is the initials circle alone — the tenant name and the signed-in account moved into its menu, under Tenant and Signed in as, so the top right of every tool is the theme toggle, the reference-tenant badge where it applies, and one small button. Sign out lives in the menu too, with Copy tenant ID (the immutable tenant id, the one every gate and every tool's session keys on) and Branding settings, the former ⚙ gear. Nothing was taken away; it is one click further in, and hovering the initials still shows the tenant and the account. Ported from the sister tool ENCA, its builds 25258 and 25259, chosen from a mockup of both." },
