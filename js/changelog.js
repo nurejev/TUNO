@@ -26,6 +26,14 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10610, date: "2026-09-10", title: "Restricted AUs: the boxes suggest from the tenant, and a redraw keeps your place",
+    items: [
+      { kind: "improved", tool: "🛡 Restricted AUs", text: "The member box and the scoped-administrator boxes type-ahead from the tenant through the app's one suggestion component: groups and users for a member, users for an administrator. A migrated group's renamed-aside original is never offered as a member — it is the migration tool's rollback, and putting it in a unit is how the frozen state gets recreated. Typing an object id, or a UPN the suggestions never offered, keeps working; the boxes are not pickers. Ported from the sister tool ENCA, its builds 25103 and 25310." },
+      { kind: "fixed", tool: "🛡 Restricted AUs", text: "The administrator box takes several people separated by a semicolon, and the type-ahead searched the whole field — so a second name never matched, and a pick replaced the whole list. Suggestions now complete the entry being typed and put the pick back after what precedes it; the same rule the compare box has used per line since it got suggestions. ENCA 25105." },
+      { kind: "fixed", tool: "🛡 Restricted AUs", text: "Every add, remove, grant and revoke redraws the list, and the redraw reset the scroll — clearing several meant scrolling back down after each one. The position is kept across the redraw; the browser clamps it when the list got shorter, which is the right answer. ENCA 25130's other half." },
+    ],
+  },
+  {
     build: 10609, date: "2026-09-10", title: "Group migration: nesting in sight, and disabled on the replacement when you ask",
     items: [
       { kind: "improved", tool: "🔄 Group migration", text: "The groups table now says whether a group allows nesting. disableNesting is invisible to a plain read, so it is asked for by name — on v1.0, in one batch, after the list is on the screen — and the row wears nesting disabled or nesting allowed, with a chip for each to filter on. A directory that does not know the property costs the list nothing: the rows stay silent and the session remembers not to ask again. Ported from the sister tool ENCA, its builds 25304 and 25307." },

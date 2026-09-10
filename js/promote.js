@@ -104,6 +104,21 @@ const PROMOTE = {
 
   items: [
     {
+      n: 182, title: "\ud83d\udee1 T23 \u2014 the member and administrator boxes suggest from the tenant (archived originals never offered), a ;-list completes the entry being typed, a redraw keeps the scroll",
+      tools: ["T23 Restricted AUs", "All tools"], builds: [10610], risk: "low",
+      what: "js/suggest.js: a groupUser kind (groups then users, four each; GroupMigrate.ARCHIVE_SUFFIX filters the groups, with a copy of the regex as the fallback when T22 is not loaded) and a `multi` option \u2014 entryBounds() finds the entry around the caret between ; or , separators, termOf() searches only that entry, pick() replaces only that entry; the textarea rule now goes through the same helper unchanged. js/restrictedau.js: render() attaches Suggest to every [data-raaddbox] (groupUser) and [data-raadminbox] (user, multi) after each redraw, openEditor attaches it to #raNewAdmin (user); render() keeps window.scrollY across the innerHTML swap. New tracked suite tests/restrictedau/catchup.test.js.",
+      why: "Mihai, 10 Sep: catch T23 up with ENCA's Restricted AUs. ENCA's own reasoning: the boxes assumed you knew the UPNs, so the fastest route was to leave and look them up (25103); the ;-list bug made the second name unfindable (25105); the archived original turned up as a candidate while the real group was already a member (25310); and deleting from a list that jumped to the top (25130).",
+      test: [
+        "T23, open a unit's Members & admins panel. Type three letters in the member box: the menu offers groups (flagged group) then users (flagged user); a group renamed '(migrated \u2026)' by T22 does not appear even when its name matches. Pick one: the box holds the display name; + Add resolves it as before.",
+        "In the scoped-administrator box type 'a@x.com; tul': the menu searches 'tul' alone; pick: the box reads 'a@x.com; tulip@contoso.com'. Grant: both are granted separately, as before.",
+        "Create a unit: the administrator box suggests users (prefilled with you).",
+        "Scroll down a long unit list, revoke a grant or remove a member: the list redraws and stays where you were.",
+        "Paste an object id in either box: it still resolves \u2014 no suggestion, no refusal.",
+        "Headless: npm test \u2014 tests/restrictedau/catchup.test.js 24/24 (multi-entry term and pick with a fake Graph in jsdom, the groupUser kind and the archive filter, the T23 wiring as source).",
+      ],
+      files: ["js/suggest.js", "js/restrictedau.js", "tests/restrictedau/catchup.test.js", "index.html", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 181, title: "\ud83d\udd04 T22 \u2014 nesting state on the groups table; \ud83d\udeab Disable nesting on the replacement, opt-in and verified; a NEW SCOPE (Group-NestingSupport.ReadWrite.All)",
       tools: ["T22 Group migration"], builds: [10609], risk: "medium",
       what: "ENCA's NESTING block (cagroups.js) and confirmNesting (assign.js) ported into GroupMigrate: NESTING_GA=false, NEST_V1, nestingUnsupported/noteNestingUnsupported (session memory), nestingState, loadNestingStates (Graph.batch on v1.0, $select=id,disableNesting, never throws), confirmNesting (read \u2192 PATCH once \u2192 read). plan() takes `nesting`; apply() puts disableNesting:true in the create when ticked, retries WITHOUT it on the wording that says the directory lacks the property, then reports what was verified: disabled / failed (STILL ALLOWED, reason) / unsupported / n/a \u2014 result.nesting, a log line, a report row. Screen: rows redraw with \ud83d\udeab / \u21aa after the batch lands, two chips, the \ud83d\udeab tick in the plan form (default NESTING_GA, disabled once the tenant said no), the scope asked at Migrate only when ticked. SCOPES.nestWrite + ALL_SCOPES + the permission plan; New-TunoAppRegistration.ps1 gains the scope with the OPT-IN note. New tracked suite tests/groupmigrate/nesting.test.js.",

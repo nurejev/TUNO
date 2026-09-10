@@ -410,6 +410,12 @@ const RestrictedAuTool = (() => {
     // The chips and the search pin (10543, the layout round — T19's rule):
     // .toolbar is sticky by the shared CSS, so re-filtering after a long
     // unit list never means scrolling back.
+    // The scroll position survives the redraw (10610, ENCA 25130): every
+    // add, remove, grant and revoke re-renders the whole list, and a
+    // redraw that reset the scroll meant scrolling back down after every
+    // one. Kept across the innerHTML swap; the browser clamps it when the
+    // list got shorter, which is the right answer.
+    const y = window.scrollY;
     $("raBody").innerHTML = `
       <div class="toolbar">${chips}<input type="text" id="raSearch" value="${esc(search)}" placeholder="Filter by name or object id…" style="flex:1;min-width:200px"></div>
       <div class="list-card">
@@ -417,6 +423,18 @@ const RestrictedAuTool = (() => {
           — ${esc(naked.map((a) => a.displayName).join(", "))}. Tenant-wide roles are blocked by design, so nobody can change what is inside ${naked.length === 1 ? "it" : "them"}.</p>` : ""}
         ${shown.length ? shown.map(card).join("") : '<p class="mini muted" style="margin:0">Nothing matches.</p>'}
       </div>`;
+    try { window.scrollTo(0, y); } catch { /* jsdom */ }
+    // Tenant-backed autofill (10610, ENCA 25103 ported): the member box
+    // suggests groups and users (the archived half of a migration never
+    // offered — it is T22's rollback), the scoped-administrator box
+    // suggests users and completes the ENTRY being typed in a ;-list.
+    // Attached after each render because the cards are rebuilt, not
+    // mutated. Typing an object id or a UPN the suggestions never offered
+    // keeps working — the boxes are not pickers.
+    if (typeof Suggest !== "undefined") {
+      $("raBody").querySelectorAll("[data-raaddbox]").forEach((el) => Suggest.attach(el, { kind: "groupUser" }));
+      $("raBody").querySelectorAll("[data-raadminbox]").forEach((el) => Suggest.attach(el, { kind: "user", multi: true }));
+    }
   }
 
   function card(au) {
@@ -640,6 +658,10 @@ const RestrictedAuTool = (() => {
            A restricted unit blocks every tenant-wide role, so one created with nobody scoped to it is a vault nobody
            can open. Change it to grant someone else instead.</p>`;
     $("raEditModal").classList.add("open");
+    // the create form's administrator box suggests users too (10610) — a
+    // single grant at creation, so no multi-entry here
+    const na = $("raNewAdmin");
+    if (na && typeof Suggest !== "undefined") Suggest.attach(na, { kind: "user" });
     setTimeout(() => $("raName").focus(), 30);
   }
   const closeEditor = () => { $("raEditModal").classList.remove("open"); editing = null; };

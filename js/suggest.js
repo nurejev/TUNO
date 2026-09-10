@@ -72,6 +72,25 @@ const Suggest = (() => {
         }));
       },
     },
+    // T23's member box takes a group OR a user (10610, ENCA 25103/25310
+    // ported) — groups first, users after, four of each. The renamed-aside
+    // original of a migrated group is never offered: it is T22's rollback,
+    // and offering it as a member is how the frozen state gets recreated.
+    groupUser: {
+      scopes: () => [...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.directory])],
+      label: "groups and users",
+      fetch: async (q) => {
+        const arch = (typeof GroupMigrate !== "undefined" && GroupMigrate.ARCHIVE_SUFFIX) || /(\s*\((?:legacy|nesting|migrated)\s+\d{4}-\d{2}-\d{2}\)|-static-[\w.-]+)\s*$/i;
+        const [g, u] = await Promise.all([
+          KINDS.group.fetch(q).catch(() => []),
+          KINDS.user.fetch(q).catch(() => []),
+        ]);
+        return [
+          ...g.filter((x) => !arch.test(x.name || "")).slice(0, 4).map((x) => ({ ...x, hint: [x.hint, "group"].filter(Boolean).join(" · ") })),
+          ...u.slice(0, 4).map((x) => ({ ...x, hint: [x.hint, "user"].filter(Boolean).join(" · ") })),
+        ];
+      },
+    },
     // T06 takes a device OR its primary user, so its box suggests both —
     // devices first, users after, four of each so neither drowns the other.
     // One kind rather than two attachments because the menu is shared and
@@ -140,18 +159,38 @@ const Suggest = (() => {
     menu.style.display = "block";
   }
 
+  // Where one box holds several entries — a textarea one per line, or a
+  // `multi` box separated by ; or , (10610, ENCA 25105: T23's scoped-admin
+  // field) — the term is the ENTRY BEING TYPED and a pick replaces only
+  // that entry, keeping whatever precedes it. Searching the whole field
+  // made "a@x.com;tul" a term that matched nothing.
+  const entryBounds = (input, opts) => {
+    const pos = input.selectionStart ?? input.value.length;
+    const before = input.value.slice(0, pos), after = input.value.slice(pos);
+    if (opts.textarea) {
+      const ls = before.lastIndexOf("\n") + 1;
+      const le = after.indexOf("\n");
+      return { start: ls, end: le === -1 ? input.value.length : pos + le, joiner: "" };
+    }
+    if (opts.multi) {
+      const m = /[;,][^;,]*$/.exec(before);
+      const start = m ? m.index + 1 : 0;
+      const n = /[;,]/.exec(after);
+      const end = n ? pos + n.index : input.value.length;
+      // keep one space after the separator the person typed, if any
+      const lead = /^\s*/.exec(input.value.slice(start))[0];
+      return { start: start + lead.length, end, joiner: "" };
+    }
+    return null;
+  };
   function pick(i) {
     const it = items[i];
     if (!it || !current) return;
     const { input, opts } = current;
-    if (opts.textarea) {
-      // complete the CURRENT LINE — the compare box is one group per line
-      const pos = input.selectionStart ?? input.value.length;
-      const before = input.value.slice(0, pos), after = input.value.slice(pos);
-      const ls = before.lastIndexOf("\n") + 1;
-      const le = after.indexOf("\n");
-      input.value = before.slice(0, ls) + it.value + (le === -1 ? "" : after.slice(le));
-      const caret = ls + it.value.length;
+    const b = entryBounds(input, opts);
+    if (b) {
+      input.value = input.value.slice(0, b.start) + it.value + input.value.slice(b.end);
+      const caret = b.start + it.value.length;
       input.setSelectionRange(caret, caret);
     } else {
       input.value = it.value;
@@ -169,10 +208,10 @@ const Suggest = (() => {
 
   const kindOf = (opts) => (typeof opts.kind === "function" ? opts.kind() : opts.kind);
   const termOf = (input, opts) => {
-    if (!opts.textarea) return input.value.trim();
+    const b = entryBounds(input, opts);
+    if (!b) return input.value.trim();
     const pos = input.selectionStart ?? input.value.length;
-    const before = input.value.slice(0, pos);
-    return before.slice(before.lastIndexOf("\n") + 1).trim();
+    return input.value.slice(b.start, Math.max(b.start, pos)).trim();
   };
 
   let seq = 0;
