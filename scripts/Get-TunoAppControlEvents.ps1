@@ -69,8 +69,16 @@ convention for everything IT writes on an endpoint.
 .PARAMETER SkipHtmlReport
 Skip the HTML report. The CSV/XML exports and the JSON bundle are still written.
 
+.PARAMETER RetentionDays
+Housekeeping window, in days. Default 30 - matches DaysBack. On every pass, before it
+collects, the script removes what earlier passes of THIS SET left behind that is older
+than this: bundles and reports in the IME Logs folder, the per-ID CSV/XML exports, the
+Live Response zips in IT-TOOLS\Apps, and it trims its own log and the detection half's
+log to the entries inside the window. Nothing else in those folders is touched. 0 keeps
+everything.
+
 .NOTES
-Version   : 1.0.2
+Version   : 1.1.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppControlEvents.ps1), run as
@@ -92,14 +100,17 @@ param(
 
     [string]$LogFolder = "$env:ProgramData\IT-TOOLS\LOGS",
 
-    [switch]$SkipHtmlReport
+    [switch]$SkipHtmlReport,
+
+    [ValidateRange(0, 3650)]
+    [int]$RetentionDays = 30
 )
 
 # Two numbers, same discipline as every house script: ScriptVersion is this file's
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
-$script:ScriptVersion = '1.0.2'
-$script:TunoBuild = 10611
+$script:ScriptVersion = '1.1.0'
+$script:TunoBuild = 10612
 
 $ErrorActionPreference = 'Stop'
 
@@ -138,8 +149,89 @@ trap {
     exit 1
 }
 
+# ── Housekeeping: nothing this set produces outlives RetentionDays (build 10612)
+# IDENTICAL in every remediation half (Clear-, Initialize-, Get-). A Remediation
+# is one self-contained file, so the function travels with each script instead of
+# being shared - edit one, edit all three. Two acts, both scoped to THIS SET'S OWN
+# OUTPUT and never a folder sweep (IME Logs and IT-TOOLS\LOGS hold other tools'
+# files too): files matching the named patterns that are older than the cutoff are
+# removed, and the set's append-only logs are trimmed to the entries inside the
+# window - a line without a timestamp belongs to the entry above it and follows
+# its fate. Markers and this run's own artefacts are never touched. 0 keeps all.
+function Remove-TunoStaleOutput {
+    param(
+        [int]$Days,
+        [object[]]$FilePatterns,    # [pscustomobject]@{ Folder = ...; Pattern = ... } each
+        [string[]]$LogFiles,        # append-only logs to trim in place
+        [string[]]$Keep             # exact paths never removed
+    )
+    $result = [pscustomobject]@{ Removed = 0; Trimmed = 0; Bytes = [long]0; Errors = (New-Object System.Collections.Generic.List[string]) }
+    if ($Days -le 0) { return $result }
+    $cutoff = (Get-Date).AddDays(-$Days)
+    foreach ($fp in @($FilePatterns)) {
+        $folder = [string]$fp.Folder
+        $pattern = [string]$fp.Pattern
+        if (-not (Test-Path -LiteralPath $folder -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter $pattern -File -Force -ErrorAction SilentlyContinue)) {
+            if (@($Keep) -contains $f.FullName) { continue }
+            if ($f.LastWriteTime -ge $cutoff) { continue }
+            try {
+                $len = [long]$f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                $result.Removed = $result.Removed + 1
+                $result.Bytes = $result.Bytes + $len
+            }
+            catch { $result.Errors.Add("remove $($f.FullName): $($_.Exception.Message)") }
+        }
+    }
+    $formats = [string[]]@('yyyy-MM-dd HH:mm:ss', 'yyyy-MM-ddTHH:mm:ss')
+    foreach ($lf in @($LogFiles)) {
+        if (-not $lf) { continue }
+        if (-not (Test-Path -LiteralPath $lf -PathType Leaf)) { continue }
+        try {
+            $lines = @(Get-Content -LiteralPath $lf -ErrorAction Stop)
+            $out = New-Object System.Collections.Generic.List[string]
+            $keepLine = $true
+            $dropped = 0
+            foreach ($line in $lines) {
+                $m = [regex]::Match([string]$line, '^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})')
+                if ($m.Success) {
+                    $t = [datetime]::MinValue
+                    if ([datetime]::TryParseExact($m.Groups[1].Value, $formats, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$t)) {
+                        $keepLine = ($t -ge $cutoff)
+                    }
+                }
+                if ($keepLine) { $out.Add([string]$line) } else { $dropped++ }
+            }
+            if ($dropped -gt 0) {
+                Set-Content -LiteralPath $lf -Value $out.ToArray() -Encoding UTF8 -ErrorAction Stop
+                $result.Trimmed = $result.Trimmed + $dropped
+            }
+        }
+        catch { $result.Errors.Add("trim ${lf}: $($_.Exception.Message)") }
+    }
+    return $result
+}
+
+# Before collecting: yesterday's harvest is not evidence for ever. The patterns
+# are this set's own file names; the zip is Compress-TunoAppControlReport.ps1's
+# output, cleaned here because that script is a Live Response one-off and never
+# runs on a schedule. The detection half's log is trimmed here for the same
+# reason - detection is a one-liner that should stay one.
+$hk = Remove-TunoStaleOutput -Days $RetentionDays -FilePatterns @(
+    [pscustomobject]@{ Folder = $ImeLogs;                          Pattern = 'AppControlEvents_Bundle_*.log' }
+    [pscustomobject]@{ Folder = $ImeLogs;                          Pattern = 'AppControlEvents_Report_*.log' }
+    [pscustomobject]@{ Folder = $EventLogFolder;                   Pattern = 'CodeIntegrity_*.csv' }
+    [pscustomobject]@{ Folder = $EventLogFolder;                   Pattern = 'CodeIntegrity_*.xml' }
+    [pscustomobject]@{ Folder = $EventLogFolder;                   Pattern = 'AppLocker_*.csv' }
+    [pscustomobject]@{ Folder = $EventLogFolder;                   Pattern = 'AppLocker_*.xml' }
+    [pscustomobject]@{ Folder = "$env:ProgramData\IT-TOOLS\Apps"; Pattern = 'ACB-Report_*.zip' }
+) -LogFiles @($LogFile, (Join-Path $LogFolder 'AppControlEvents-Detect.log')) -Keep @()
+
 Write-Log "========== TUNO App Control events collection v$script:ScriptVersion (build $script:TunoBuild) =========="
 Write-Log "Computer: $env:COMPUTERNAME  User: $env:USERNAME  Window: last $DaysBack day(s), cap $MaxEvents per provider"
+if ($RetentionDays -gt 0) { Write-Log ("HOUSEKEEPING: retention {0} day(s) - removed {1} file(s) ({2:N0} bytes), trimmed {3} log line(s){4}" -f $RetentionDays, $hk.Removed, $hk.Bytes, $hk.Trimmed, $(if ($hk.Errors.Count) { '; ' + ($hk.Errors -join '; ') } else { '' })) }
+else { Write-Log 'HOUSEKEEPING: off (RetentionDays 0) - earlier harvests are kept' }
 
 $Since    = (Get-Date).AddDays(-$DaysBack)
 $Warnings = New-Object System.Collections.Generic.List[string]

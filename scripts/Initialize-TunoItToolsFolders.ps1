@@ -33,6 +33,10 @@ WHAT IT DOES, idempotently:
      AppLocker cleanup, this pair) log there as SYSTEM, so an ACL that verifies
      clean but cannot take a log line is still a failure - and it is found by
      doing the thing, not by reasoning about it.
+  5. Housekeeping (build 10612): trims that log to the last RetentionDays (default
+     30) before appending - a standing pair that writes one line a day must not
+     grow a file for ever. This script produces nothing else, so nothing else is
+     removed.
 
 The scan double-checks this on every run (a user-writable directory inside a house
 folder raises its loudest warning); this script is what makes that check come back
@@ -45,8 +49,11 @@ Unlike the AppLocker cleanup pair, this pair is a STANDING assignment: leave it
 scheduled on the estate, because a folder that drifts writable after provisioning
 is exactly what it exists to catch and re-tighten.
 
+.PARAMETER RetentionDays
+Housekeeping window for this script's own log, in days. Default 30; 0 keeps every line.
+
 .NOTES
-Version   : 1.1.0
+Version   : 1.2.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation remediation script (with Detect-TunoItToolsFolders.ps1
@@ -57,13 +64,16 @@ Deploy as : Intune Remediation remediation script (with Detect-TunoItToolsFolder
 
 [CmdletBinding()]
 param(
-    [string]$Root = "$env:ProgramData\IT-TOOLS"
+    [string]$Root = "$env:ProgramData\IT-TOOLS",
+
+    [ValidateRange(0, 3650)]
+    [int]$RetentionDays = 30
 )
 
 # Same discipline as the other scripts: ScriptVersion is this file's history,
 # TunoBuild the site build that served it, held to js/version.js by the guard.
-$script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10611
+$script:ScriptVersion = '1.2.0'
+$script:TunoBuild = 10612
 
 $ErrorActionPreference = 'Stop'
 
@@ -120,6 +130,75 @@ foreach ($f in $folders) {
     }
 }
 
+# ── Housekeeping: nothing this set produces outlives RetentionDays (build 10612)
+# IDENTICAL in every remediation half (Clear-, Initialize-, Get-). A Remediation
+# is one self-contained file, so the function travels with each script instead of
+# being shared - edit one, edit all three. Two acts, both scoped to THIS SET'S OWN
+# OUTPUT and never a folder sweep (IME Logs and IT-TOOLS\LOGS hold other tools'
+# files too): files matching the named patterns that are older than the cutoff are
+# removed, and the set's append-only logs are trimmed to the entries inside the
+# window - a line without a timestamp belongs to the entry above it and follows
+# its fate. Markers and this run's own artefacts are never touched. 0 keeps all.
+function Remove-TunoStaleOutput {
+    param(
+        [int]$Days,
+        [object[]]$FilePatterns,    # [pscustomobject]@{ Folder = ...; Pattern = ... } each
+        [string[]]$LogFiles,        # append-only logs to trim in place
+        [string[]]$Keep             # exact paths never removed
+    )
+    $result = [pscustomobject]@{ Removed = 0; Trimmed = 0; Bytes = [long]0; Errors = (New-Object System.Collections.Generic.List[string]) }
+    if ($Days -le 0) { return $result }
+    $cutoff = (Get-Date).AddDays(-$Days)
+    foreach ($fp in @($FilePatterns)) {
+        $folder = [string]$fp.Folder
+        $pattern = [string]$fp.Pattern
+        if (-not (Test-Path -LiteralPath $folder -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter $pattern -File -Force -ErrorAction SilentlyContinue)) {
+            if (@($Keep) -contains $f.FullName) { continue }
+            if ($f.LastWriteTime -ge $cutoff) { continue }
+            try {
+                $len = [long]$f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                $result.Removed = $result.Removed + 1
+                $result.Bytes = $result.Bytes + $len
+            }
+            catch { $result.Errors.Add("remove $($f.FullName): $($_.Exception.Message)") }
+        }
+    }
+    $formats = [string[]]@('yyyy-MM-dd HH:mm:ss', 'yyyy-MM-ddTHH:mm:ss')
+    foreach ($lf in @($LogFiles)) {
+        if (-not $lf) { continue }
+        if (-not (Test-Path -LiteralPath $lf -PathType Leaf)) { continue }
+        try {
+            $lines = @(Get-Content -LiteralPath $lf -ErrorAction Stop)
+            $out = New-Object System.Collections.Generic.List[string]
+            $keepLine = $true
+            $dropped = 0
+            foreach ($line in $lines) {
+                $m = [regex]::Match([string]$line, '^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})')
+                if ($m.Success) {
+                    $t = [datetime]::MinValue
+                    if ([datetime]::TryParseExact($m.Groups[1].Value, $formats, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$t)) {
+                        $keepLine = ($t -ge $cutoff)
+                    }
+                }
+                if ($keepLine) { $out.Add([string]$line) } else { $dropped++ }
+            }
+            if ($dropped -gt 0) {
+                Set-Content -LiteralPath $lf -Value $out.ToArray() -Encoding UTF8 -ErrorAction Stop
+                $result.Trimmed = $result.Trimmed + $dropped
+            }
+        }
+        catch { $result.Errors.Add("trim ${lf}: $($_.Exception.Message)") }
+    }
+    return $result
+}
+
+# Trim first, then append: the write-proof line below is this run's, and the
+# housekeeping result rides on it so the log says what was cut.
+$hk = Remove-TunoStaleOutput -Days $RetentionDays -FilePatterns @() -LogFiles @((Join-Path $Root 'LOGS\Initialize-TunoItToolsFolders.log')) -Keep @()
+$hkNote = $(if ($RetentionDays -gt 0) { " - housekeeping: trimmed $($hk.Trimmed) log line(s) older than $RetentionDays day(s)" + $(if ($hk.Errors.Count) { ' (' + ($hk.Errors -join '; ') + ')' } else { '' }) } else { ' - housekeeping off' })
+
 # ── Prove SYSTEM can write by writing ────────────────────────────────────────
 # The house scripts log to IT-TOOLS\LOGS as SYSTEM (the AppLocker cleanup, this
 # pair). An ACL that reads back clean but cannot take a log line is still a
@@ -129,7 +208,7 @@ try {
     $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
     $line = "{0:yyyy-MM-dd HH:mm:ss}Z  Initialize-TunoItToolsFolders {1} (TUNO build {2}) ran as {3} - {4}" -f
         [DateTime]::UtcNow, $script:ScriptVersion, $script:TunoBuild, $who,
-        $(if ($bad.Count -eq 0) { 'ACL verified clean' } else { 'ACL verification FAILED: ' + ($bad -join '; ') })
+        $(if ($bad.Count -eq 0) { 'ACL verified clean' } else { 'ACL verification FAILED: ' + ($bad -join '; ') }) + $hkNote
     Add-Content -LiteralPath (Join-Path $Root 'LOGS\Initialize-TunoItToolsFolders.log') -Value $line -Encoding UTF8 -ErrorAction Stop
 }
 catch {

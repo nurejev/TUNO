@@ -14,12 +14,12 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds | Upload the `.json` bundle to T01 |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
-| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean; on a verified-clean result writes the marker (`HKLM\SOFTWARE\TUNO\AppLockerCleanup` + `IT-TOOLS\LOGS\AppLocker-Cleanup.done`) the detection half honours | Intune Remediation or an elevated shell; exits 1 if not clean; `-Force` cleans a marked device once |
-| `Detect-TunoAppLockerPolicy.ps1` | Detection half of that Remediation pair; reads the cleanup marker first, so a device already cleaned this generation stays compliant whatever policy it carries now | Exit 1 = AppLocker state present and no marker, run the cleanup |
-| `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
-| `Detect-TunoItToolsFolders.ps1` | Detection half of that Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
-| `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
-| `Detect-TunoAppControlEvents.ps1` | Detection half of that pair — **always exits 1 on purpose**: the "remediation" IS the collection | Its compliance numbers mean "the collector ran", never "the device is fine" |
+| `Detect-TunoAppLockerPolicy.ps1` | Detection half of the cleanup Remediation pair (listed first, as Intune runs it); reads the cleanup marker first, so a device already cleaned this generation stays compliant whatever policy it carries now | Exit 1 = AppLocker state present and no marker, run the cleanup |
+| `Clear-TunoAppLockerPolicy.ps1` | Removes the policy a device already carries, so the new one lands clean; on a verified-clean result writes the marker (`HKLM\SOFTWARE\TUNO\AppLockerCleanup` + `IT-TOOLS\LOGS\AppLocker-Cleanup.done`) the detection half honours; removes its own backups and log entries older than 30 days on each run (`-RetentionDays`, marker excluded) | Intune Remediation or an elevated shell; exits 1 if not clean; `-Force` cleans a marked device once |
+| `Detect-TunoItToolsFolders.ps1` | Detection half of the IT-TOOLS Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
+| `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on; trims its own log to 30 days (`-RetentionDays`) | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
+| `Detect-TunoAppControlEvents.ps1` | Detection half of the events pair — **always exits 1 on purpose**: the "remediation" IS the collection | Its compliance numbers mean "the collector ran", never "the device is fine" |
+| `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle; first removes this set's own output older than 30 days (bundles, reports, per-ID exports, Live Response zips) and trims both halves' logs (`-RetentionDays`, 0 keeps all) | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
 | `Get-TunoAppLockerPolicyHealth.ps1` | Read-only policy health check for a device where the policy is delivered but does not seem to bite: 8000/8001 with the log's own reach, CSP delivery events, services, the MDM store per collection (mode, rules), the effective policy from the cmdlet AND the MDM store, and the AppLocker decisions logged after the store's newest write. Built for MDE Live Response. |
 | `Remove-TunoUserInstalledApps.ps1` | Admin menu to remove per-user installs the enforced policy stopped users from uninstalling: inventories every profile's Uninstall keys (hives of logged-off users loaded), runs the uninstaller under the administrator allow rule, verifies, and offers guarded leftover removal when the uninstaller cannot do it (per-user MSI, missing uninstaller) | Transcript in `%ProgramData%\IT-TOOLS\LOGS`; `-List` reads only; `-Name <app> -Force -Quiet -Leftovers` for Live Response |
 | `Compress-TunoAppControlReport.ps1` | Zips the newest report + bundle for MDE Live Response `getfile` | `%ProgramData%\IT-TOOLS\Apps\ACB-Report_<HOST>_<stamp>.zip`; final line is `ARCHIVE: <path>` |
@@ -46,6 +46,13 @@ the last two are named `.log` so Intune's **Collect diagnostics** brings them ho
 bundle to T01 and every blocked or audited event is matched against the policy draft on
 screen — covered, stays-blocked-by-design, or missing-rule, with a recommendation per
 file.
+
+Every remediation half keeps house (since build 10612): before it does its work it
+removes what earlier runs of the same set produced that is older than 30 days —
+bundles, reports and per-ID exports for the collector; policy XML, `.reg` and `.evtx`
+backups for the cleanup — and trims the set's append-only logs to the same window. The
+sweep is by the set's own file names, never a folder, so Intune's own logs and the
+cleanup marker are never touched. `-RetentionDays 0` keeps everything.
 
 It replaces the CloudFlows/michaelsendpoint `Remedate_ACB.ps1` set, with three defects
 fixed: MSI/Script event IDs 8005/8007 were never collected (an ENFORCED block on an MSI

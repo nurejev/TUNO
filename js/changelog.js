@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10612, date: "2026-09-16", title: "T01: detect before remediate on the script rows, and every remediation half keeps house",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Under Help & scripts the three Remediation pairs listed the remediation script above its detection script; Intune runs detection first, so the rows now read in that order — Detect, then Clear; Detect, then Initialize; Detect, then Get — and each note says which half it is. The same pair on the Deploy screen is reordered too, and its Detect note no longer tells you to unassign the pair or it removes what you just deployed: that stopped being true at build 10600, when the cleanup gained its marker." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Every remediation half now removes what its own earlier runs produced once it is older than 30 days, before doing its work. Clear-TunoAppLockerPolicy 1.4.0 removes its backups — the policy XML pair, the SrpV2 .reg export, exported .evtx — and trims its log; the cleanup marker is excluded by name. Initialize-TunoItToolsFolders 1.2.0 trims its own log, because a standing pair writes a line a day for ever. Get-TunoAppControlEvents 1.1.0 removes earlier bundles, reports, per-ID CSV/XML exports and the Live Response zips, and trims both halves' logs, before it collects. The sweep matches the set's own file names and never a folder — the IME Logs folder and IT-TOOLS\\LOGS hold other tools' files. Each script takes -RetentionDays; 0 keeps everything. The rows under Help & scripts, the deploy panel blurbs and the README say so." },
+    ],
+  },
+  {
     build: 10611, date: "2026-09-10", title: "The policy id survives opening the card, and a crumb that misses its tab says so",
     items: [
       { kind: "fixed", tool: "📄 Documenter", text: "The compact card in the policy overview showed the policy id and the opened card did not, so opening a policy to look at it properly took away the one string that identifies it — on the panel that gets screenshotted and pasted into a ticket. Two policies can share a name; the portal is reached by id. It now sits in the head of the popout beside the source, in every tool that opens one, and one click selects the whole GUID because the reason to read an id is to paste it somewhere. Ported from the sister tool ENCA, its build 25120." },

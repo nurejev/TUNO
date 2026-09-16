@@ -104,6 +104,19 @@ const PROMOTE = {
 
   items: [
     {
+      n: 184, title: "\ud83d\udd10 T01 \u2014 Detect before Remediate on every script row, and each remediation half removes its own output older than 30 days",
+      tools: ["T01 AppLocker builder & validator"], builds: [10612], risk: "low",
+      what: "index.html: the three pairs under Help & scripts and the pair on Deploy list the detection script first, notes say which half is which, the Deploy-screen Detect note drops the pre-10600 'unassign it or it removes the new policy'. scripts/: Remove-TunoStaleOutput (byte-identical in Clear 1.4.0, Initialize 1.2.0, Get 1.1.0) removes files matching the set's OWN name patterns older than -RetentionDays (default 30) and trims the set's append-only logs to the window (a line without a timestamp follows the entry above it); Clear keeps the marker by name; Get also cleans the per-ID exports and Compress's zips and trims the detection half's log. SCRIPT_VERSIONS, row notes, REMEDY_PAIRS blurbs and descriptions, scripts/README.md updated.",
+      why: "Mihai, 16 Sep: the remediation scripts were listed before detect \u2014 reverse it; and every remediation tool should clean up logs and other produced data older than 30 days. A daily collector on a ring of devices writes a bundle and a report a day plus dozens of per-ID exports; nothing removed them. The Deploy-screen note was the 10600 lesson ('it needs to be visual that it has changed') still owed on one row.",
+      test: [
+        "Help & scripts \u2192 9 companion scripts: the rows read Detect-TunoAppLockerPolicy, Clear-TunoAppLockerPolicy; Detect-TunoItToolsFolders, Initialize-TunoItToolsFolders; Detect-TunoAppControlEvents, Get-TunoAppControlEvents \u2014 each with 'changed in this build' on the three remediation halves. Deploy: the brownfield pair reads Detect, then Clear.",
+        "On a device with a month of harvests: run Get-TunoAppControlEvents.ps1; its log's HOUSEKEEPING line names the files removed and lines trimmed; bundles/reports newer than 30 days and IntuneManagementExtension.log are untouched. -RetentionDays 0: the line says 'off' and nothing is removed.",
+        "Clear-TunoAppLockerPolicy.ps1 on a cleaned device: AppLocker-Cleanup.done survives, backups older than 30 days are gone, the STOP-by-marker path still exits 0.",
+        "Headless: node _to_delete/check-script-versions.js green (three versions moved, three rows say 10612); npm test; t01 scratch suites; pwsh parse of all eleven scripts; the housekeeping function's own 10-case harness (old/new/foreign/marker files, log trimming with continuation lines, Days 0).",
+      ],
+      files: ["index.html", "scripts/Clear-TunoAppLockerPolicy.ps1", "scripts/Initialize-TunoItToolsFolders.ps1", "scripts/Get-TunoAppControlEvents.ps1", "scripts/README.md", "js/applocker.js", "js/version.js", "js/changelog.js", "js/promote.js"],
+    },
+    {
       n: 183, title: "\ud83d\udcc4 The policy id in every popout head, click-to-select; a crumb that matches no tab warns off production",
       tools: ["T05 Documenter", "T19 Policy overview", "T11 Assignment editor", "T20 Endpoint security posture", "All tools"], builds: [10611], risk: "low",
       what: "Docs.popoutHtml prints `ID: <code data-selall>` beside the source when the item has an id; one delegated document click handler selects the node's contents. app.js crumb(): a non-empty name that idForCrumb() cannot resolve console.warns on a non-production host. New tracked suite tests/shell/smalldeltas.test.js (the head, the escaping, the selection in jsdom, and every tile's crumb resolving in demo mode).",

@@ -84,12 +84,18 @@ either mode, so the log answers "what was on this device" even when nothing is r
 Expect a reboot to fully settle CSP state, and run it only after the old profiles are
 unassigned - against an assigned profile it is a loop, not a fix.
 
+.PARAMETER RetentionDays
+Housekeeping window, in days. Default 30. Backups this script wrote on earlier runs -
+the policy XML pair, the SrpV2 .reg, exported .evtx - older than this are removed at
+the start of a run, and its log is trimmed to the entries inside the window. The
+marker file is never touched. 0 keeps everything.
+
 .PARAMETER Force
 Clean even when the marker says this generation already ran here. For a shell, by
 hand, once. A Remediation never needs it: the detection half gates it by the marker.
 
 .NOTES
-Version   : 1.3.1
+Version   : 1.4.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppLockerPolicy.ps1), run as
@@ -107,7 +113,13 @@ param(
     [switch]$ClearEventLogs,
     [switch]$DisableAppIdService,
     [switch]$RemoveMdmGroupings,
-    [switch]$Force
+    [switch]$Force,
+
+    # Housekeeping window (build 10612): backups this script wrote on earlier runs
+    # (policy XML, SrpV2 .reg, exported .evtx) older than this are removed, and its
+    # log is trimmed to the window. The marker file is never touched. 0 keeps all.
+    [ValidateRange(0, 3650)]
+    [int]$RetentionDays = 30
 )
 
 # THE MARKER (1.3.0). When this script verifies the device clean it records that it
@@ -120,8 +132,8 @@ $script:CleanupGeneration = 1
 
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
-$script:ScriptVersion = '1.3.1'
-$script:TunoBuild = 10611
+$script:ScriptVersion = '1.4.0'
+$script:TunoBuild = 10612
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'
@@ -136,8 +148,85 @@ function Write-Log {
     Write-Output $line
 }
 
+# ── Housekeeping: nothing this set produces outlives RetentionDays (build 10612)
+# IDENTICAL in every remediation half (Clear-, Initialize-, Get-). A Remediation
+# is one self-contained file, so the function travels with each script instead of
+# being shared - edit one, edit all three. Two acts, both scoped to THIS SET'S OWN
+# OUTPUT and never a folder sweep (IME Logs and IT-TOOLS\LOGS hold other tools'
+# files too): files matching the named patterns that are older than the cutoff are
+# removed, and the set's append-only logs are trimmed to the entries inside the
+# window - a line without a timestamp belongs to the entry above it and follows
+# its fate. Markers and this run's own artefacts are never touched. 0 keeps all.
+function Remove-TunoStaleOutput {
+    param(
+        [int]$Days,
+        [object[]]$FilePatterns,    # [pscustomobject]@{ Folder = ...; Pattern = ... } each
+        [string[]]$LogFiles,        # append-only logs to trim in place
+        [string[]]$Keep             # exact paths never removed
+    )
+    $result = [pscustomobject]@{ Removed = 0; Trimmed = 0; Bytes = [long]0; Errors = (New-Object System.Collections.Generic.List[string]) }
+    if ($Days -le 0) { return $result }
+    $cutoff = (Get-Date).AddDays(-$Days)
+    foreach ($fp in @($FilePatterns)) {
+        $folder = [string]$fp.Folder
+        $pattern = [string]$fp.Pattern
+        if (-not (Test-Path -LiteralPath $folder -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter $pattern -File -Force -ErrorAction SilentlyContinue)) {
+            if (@($Keep) -contains $f.FullName) { continue }
+            if ($f.LastWriteTime -ge $cutoff) { continue }
+            try {
+                $len = [long]$f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                $result.Removed = $result.Removed + 1
+                $result.Bytes = $result.Bytes + $len
+            }
+            catch { $result.Errors.Add("remove $($f.FullName): $($_.Exception.Message)") }
+        }
+    }
+    $formats = [string[]]@('yyyy-MM-dd HH:mm:ss', 'yyyy-MM-ddTHH:mm:ss')
+    foreach ($lf in @($LogFiles)) {
+        if (-not $lf) { continue }
+        if (-not (Test-Path -LiteralPath $lf -PathType Leaf)) { continue }
+        try {
+            $lines = @(Get-Content -LiteralPath $lf -ErrorAction Stop)
+            $out = New-Object System.Collections.Generic.List[string]
+            $keepLine = $true
+            $dropped = 0
+            foreach ($line in $lines) {
+                $m = [regex]::Match([string]$line, '^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})')
+                if ($m.Success) {
+                    $t = [datetime]::MinValue
+                    if ([datetime]::TryParseExact($m.Groups[1].Value, $formats, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$t)) {
+                        $keepLine = ($t -ge $cutoff)
+                    }
+                }
+                if ($keepLine) { $out.Add([string]$line) } else { $dropped++ }
+            }
+            if ($dropped -gt 0) {
+                Set-Content -LiteralPath $lf -Value $out.ToArray() -Encoding UTF8 -ErrorAction Stop
+                $result.Trimmed = $result.Trimmed + $dropped
+            }
+        }
+        catch { $result.Errors.Add("trim ${lf}: $($_.Exception.Message)") }
+    }
+    return $result
+}
+
+# The backups exist so a removal is reversible; a month on, what they would
+# restore is the policy this pair was deployed to remove. The marker file
+# (AppLocker-Cleanup.done) is what keeps a cleaned device compliant and is
+# excluded by name - it is not a backup.
+$hk = Remove-TunoStaleOutput -Days $RetentionDays -FilePatterns @(
+    [pscustomobject]@{ Folder = $LogFolder; Pattern = 'AppLockerPolicy-Effective-*.xml' }
+    [pscustomobject]@{ Folder = $LogFolder; Pattern = 'AppLockerPolicy-Local-*.xml' }
+    [pscustomobject]@{ Folder = $LogFolder; Pattern = 'SrpV2-*.reg' }
+    [pscustomobject]@{ Folder = $LogFolder; Pattern = 'Microsoft-Windows-AppLocker-*.evtx' }
+) -LogFiles @($LogFile) -Keep @((Join-Path $LogFolder 'AppLocker-Cleanup.done'))
+
 Write-Log "========== TUNO AppLocker cleanup v$script:ScriptVersion (build $script:TunoBuild) =========="
 Write-Log "Computer: $env:COMPUTERNAME  User: $env:USERNAME"
+if ($RetentionDays -gt 0) { Write-Log ("HOUSEKEEPING: retention {0} day(s) - removed {1} backup file(s) ({2:N0} bytes), trimmed {3} log line(s){4}" -f $RetentionDays, $hk.Removed, $hk.Bytes, $hk.Trimmed, $(if ($hk.Errors.Count) { '; ' + ($hk.Errors -join '; ') } else { '' })) }
+else { Write-Log 'HOUSEKEEPING: off (RetentionDays 0) - earlier backups are kept' }
 Write-Log "REMINDER: if the old Intune profile or GPO is still assigned, what this removes returns at the next sync. Unassign first."
 
 $failures = 0
