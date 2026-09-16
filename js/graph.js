@@ -159,6 +159,14 @@ const Graph = (() => {
     appsWrite: ["Application.ReadWrite.All"],
     appRoleWrite: ["AppRoleAssignment.ReadWrite.All"],
     sitesFull: ["Sites.FullControl.All"],
+    // read — T01's "📁 From the harvest site" (build 10617, Mihai: "add an
+    // option to fetch the scan json from the sp site"): list the device
+    // folders under Harvest/ and download one bundle. Sites.Read.All,
+    // DELEGATED — bounded by what the signed-in admin can already open, no
+    // admin consent required, and read only; taken instead of leaning on
+    // Sites.FullControl.All (already here for one write) because a read must
+    // never be bought with a write scope. Taken in the open per R18.
+    sitesRead: ["Sites.Read.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,
@@ -798,6 +806,37 @@ const Graph = (() => {
   const siteByUrl = (url) => { const u = new URL(url); return get(`/sites/${u.hostname}:${u.pathname.replace(/\/+$/, "")}`, { scopes: SCOPES.sitesFull }); };
   const sitePermissions = (siteId) => get(`/sites/${encodeURIComponent(siteId)}/permissions`, { scopes: SCOPES.sitesFull }).then((r) => (r && r.value) || []);
   const grantSitePermission = (siteId, appId, displayName, roles) => post(`/sites/${encodeURIComponent(siteId)}/permissions`, { roles, grantedToIdentities: [{ application: { id: appId, displayName } }] }, { scopes: SCOPES.sitesFull });
+  // ---------- reading the harvest (T01, build 10617) ----------
+  // The site by URL under the READ scope (siteByUrl above costs the write
+  // one, because it serves the grant), then the children of a folder in
+  // the default drive by path, every page. A folder's children are the
+  // device folders under Harvest/; a device folder's children are its
+  // bundles. Download goes through the item's pre-authenticated URL, which
+  // SharePoint serves with CORS and no token — the Graph /content route
+  // answers a redirect a browser cannot carry the bearer across.
+  const siteByUrlRead = (url) => { const u = new URL(url); return get(`/sites/${u.hostname}:${u.pathname.replace(/\/+$/, "")}`, { scopes: SCOPES.sitesRead, retry: true }); };
+  const driveChildren = async (siteId, folderPath) => {
+    const enc = String(folderPath || "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
+    let url = `/sites/${encodeURIComponent(siteId)}/drive/root${enc ? `:/${enc}:` : ""}/children?$select=id,name,size,folder,file,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl&$top=200`;
+    const out = [];
+    while (url) {
+      const page = await get(url, { scopes: SCOPES.sitesRead, retry: true });
+      for (const it of (page && page.value) || []) out.push(it);
+      url = (page && page["@odata.nextLink"]) || "";
+    }
+    return out;
+  };
+  const driveItem = (siteId, itemId) => get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}?$select=id,name,size,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl`, { scopes: SCOPES.sitesRead, retry: true });
+  const driveItemText = async (siteId, itemId) => {
+    const it = await driveItem(siteId, itemId);
+    const dl = it && it["@microsoft.graph.downloadUrl"];
+    if (!dl) throw new GraphError("graph", "The site did not hand out a download URL for that file.");
+    let res;
+    try { res = await fetch(dl, { method: "GET" }); }
+    catch (e) { throw new GraphError("network", `The download did not complete (${(e && e.message) || "network error"}). Open the file in SharePoint and upload it here by hand.`); }
+    if (!res.ok) throw new GraphError("graph", `The download answered HTTP ${res.status}. Open the file in SharePoint and upload it here by hand.`, { status: res.status });
+    return res.text();
+  };
 
   const assignProfile = (profileId, groupId) => post(
     `/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/assign`,
@@ -810,6 +849,7 @@ const Graph = (() => {
     remediations, createRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,
+    siteByUrlRead, driveChildren, driveItem, driveItemText,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,

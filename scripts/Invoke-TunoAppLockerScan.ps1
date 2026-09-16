@@ -64,6 +64,26 @@ WHAT IT DOES
      and the machine's current effective policy. That single file is what you upload to
      T01. The two .xml files are written alongside it for GPO use.
 
+  6. HARVEST (1.13.0). With a harvest target configured, the bundle is also uploaded to
+     the TUNO harvest SharePoint site under Harvest/<COMPUTERNAME>/, so T01 can fetch it
+     from the tenant with the device off. The target comes from -Harvest* parameters,
+     HKLM\SOFTWARE\TUNO\Harvest, or the HARVEST TARGET block below - the same three
+     sources, in the same order, as Get-TunoAppControlEvents.ps1.
+
+AS AN INTUNE REMEDIATION (1.13.0)
+
+  Deployed as the remediation half of a pair (T01's Deploy panel creates it with
+  Detect-TunoAppLockerScan.ps1 as detection), this script runs as SYSTEM with no
+  parameters. It notices that - SYSTEM, and no -OutputPath - and switches to
+  REMEDIATION MODE: output goes to %ProgramData%\IT-TOOLS\LOGS\AppLockerScan, the
+  console is transcribed to AppLockerScan-<stamp>.log next to the bundle, its own
+  output older than 30 days is removed first (-RetentionDays), the bundle is uploaded
+  to the harvest site when a target is configured, and the run ends with ONE summary
+  line and exit code 0 (1 on a fatal error) so Intune can read it. Nothing else changes:
+  the scan is the same scan, and the device is still not modified. The detection half
+  triggers a run when no bundle younger than its window exists - a scan-on-schedule
+  pump, not a health check; read its console numbers as "the scan ran".
+
 HOW IT DIFFERS FROM AaronLocker
 
   * No AccessChk.exe. Write access is evaluated natively from the DACL, with Deny ACEs
@@ -193,6 +213,29 @@ explicit parameters win. See the .EXAMPLE section for the shape.
 .PARAMETER Quiet
 Suppress progress output. Errors and warnings are still written.
 
+.PARAMETER RetentionDays
+Remove this script's OWN output in the output folder that is older than this many
+days before scanning - earlier TunoAppLockerScan-*.json bundles, the two policy XML
+files and AppLockerScan-*.log transcripts, by name; never a folder sweep. Default: 30
+in remediation mode (a scheduled scan must not fill the disk), 0 (keep everything)
+in an interactive run, where the output folder is yours. 0 keeps all.
+
+.PARAMETER HarvestSiteUrl
+.PARAMETER HarvestTenantId
+.PARAMETER HarvestClientId
+.PARAMETER HarvestCertSubject
+.PARAMETER HarvestCertThumbprint
+.PARAMETER HarvestClientSecret
+.PARAMETER HarvestFolder
+.PARAMETER HarvestRetentionDays
+The harvest target (1.13.0): the SharePoint site the bundle is uploaded to, the
+tenant and client id of the uploader app, and its credential - a certificate in
+LocalMachine\My (by subject or thumbprint) or a client secret. Parameters win over
+HKLM\SOFTWARE\TUNO\Harvest, which wins over the embedded HARVEST TARGET block that
+T01 fills in when it creates the scan Remediation. All-or-nothing: a partial target
+warns and uploads nothing. HarvestRetentionDays > 0 prunes THIS device's older scan
+bundles on the site; -1 (default) leaves the configured value alone.
+
 .INPUTS
 None.
 
@@ -200,6 +243,9 @@ None.
   <OutputPath>\TunoAppLockerScan-<COMPUTER>-<yyyyMMdd-HHmm>.json   <- upload this to T01
   <OutputPath>\AppLockerRules-Audit-<yyyyMMdd-HHmm>.xml
   <OutputPath>\AppLockerRules-Enforce-<yyyyMMdd-HHmm>.xml
+  Remediation mode: %ProgramData%\IT-TOOLS\LOGS\AppLockerScan\ holds the bundle and
+  AppLockerScan-<stamp>.log; with a harvest target the bundle is also at
+  <site>/Harvest/<COMPUTER>/ on the SharePoint site, where T01 fetches it from.
 
 .EXAMPLE
 # The normal run. Elevated PowerShell, on a representative build of your standard image.
@@ -225,8 +271,14 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -SkipRuleGeneration -OutputPath C:\Temp\AppLo
 #   }
 PS> .\Invoke-TunoAppLockerScan.ps1 -ConfigPath .\tuno-scan.json
 
+.EXAMPLE
+# Upload the bundle to the harvest site as well, proving the device with the
+# uploader certificate an Intune PKCS profile put in LocalMachine\My.
+PS> .\Invoke-TunoAppLockerScan.ps1 -HarvestSiteUrl https://contoso.sharepoint.com/sites/TUNO-AppControl-Harvest `
+        -HarvestTenantId <tenant guid> -HarvestClientId <app id> -HarvestCertSubject 'CN=TUNO Harvest Uploader'
+
 .NOTES
-Version    : 1.12.2
+Version    : 1.13.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -293,7 +345,24 @@ param(
     [string]$ConfigPath,
 
     [Parameter()]
-    [switch]$Quiet
+    [switch]$Quiet,
+
+    # 1.13.0 - housekeeping and the harvest target. -1 means "the mode's
+    # default": 30 as a Remediation, 0 (keep) interactively.
+    [Parameter()]
+    [ValidateRange(-1, 3650)]
+    [int]$RetentionDays = -1,
+
+    [Parameter()]
+    [string]$HarvestSiteUrl,
+    [string]$HarvestTenantId,
+    [string]$HarvestClientId,
+    [string]$HarvestCertSubject,
+    [string]$HarvestCertThumbprint,
+    [string]$HarvestClientSecret,
+    [string]$HarvestFolder,
+    [ValidateRange(-1, 3650)]
+    [int]$HarvestRetentionDays = -1
 )
 
 Set-StrictMode -Version Latest
@@ -308,6 +377,13 @@ trap {
     Write-Host ''
     Write-Host ("  [fail] {0}" -f $_.Exception.Message) -ForegroundColor Red
     Write-Host ("  {0}" -f (($_.ScriptStackTrace -split "`r?`n" | Where-Object { $_ }) -join "`n  ")) -ForegroundColor DarkGray
+    # A Remediation reads the exit code and the last output line, not the
+    # console colours (1.13.0): say what failed, on one line, and exit 1.
+    if ($script:RemediationMode) {
+        Write-Output ("TUNO scan FAILED at line {0}: {1}" -f $_.InvocationInfo.ScriptLineNumber, $_.Exception.Message)
+        try { Stop-Transcript | Out-Null } catch { }
+        exit 1
+    }
     break
 }
 
@@ -319,8 +395,52 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.12.2'
-$script:TunoBuild = 10616
+$script:ScriptVersion = '1.13.0'
+$script:TunoBuild = 10617
+
+# ── HARVEST TARGET ─────────────────────────────────────────────────────────
+# Filled in by T01 when the scan Remediation is created from a page with a
+# harvest site set; a downloaded copy carries the empty defaults and reads
+# HKLM\SOFTWARE\TUNO\Harvest instead. Keep the assignments on their own lines
+# exactly as they are - T01 stamps them by pattern. The device proves itself with
+# the certificate where one is configured; ClientSecret is the 📁 panel's
+# on-request alternative and is a shared credential on every device that
+# carries this file. Same block, same three sources, same order as
+# Get-TunoAppControlEvents.ps1 - one target, two pumps.
+$script:HarvestTarget = [pscustomobject]@{
+    SiteUrl        = ''
+    TenantId       = ''
+    ClientId       = ''
+    CertSubject    = ''
+    CertThumbprint = ''
+    ClientSecret   = ''
+    Folder         = 'Harvest'
+    RetentionDays  = 0
+}
+
+# ── REMEDIATION MODE (1.13.0) ──────────────────────────────────────────────
+# SYSTEM, and nobody said where to write: that is the Intune Management
+# Extension running this file as the remediation half of a pair, and the
+# current directory is System32. So the output goes to the house folder, the
+# console is transcribed next to the bundle (the IME keeps 2 KB of output; a
+# scan says more than that), and the run's own older output is removed first.
+# An admin who runs the file from an elevated prompt is not SYSTEM and sees
+# none of this; -OutputPath switches it off for a SYSTEM run that wants its
+# own folder.
+$script:RemediationMode = $false
+try {
+    $script:RemediationMode = (-not $PSBoundParameters.ContainsKey('OutputPath')) -and
+        ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq 'S-1-5-18')
+}
+catch { $script:RemediationMode = $false }
+$script:TranscriptPath = ''
+if ($script:RemediationMode) {
+    $OutputPath = Join-Path $env:ProgramData 'IT-TOOLS\LOGS\AppLockerScan'
+    if (-not (Test-Path -LiteralPath $OutputPath)) { New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null }
+    $script:TranscriptPath = Join-Path $OutputPath ("AppLockerScan-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmm'))
+    try { Start-Transcript -Path $script:TranscriptPath -Force | Out-Null } catch { $script:TranscriptPath = '' }
+}
+if ($RetentionDays -lt 0) { $RetentionDays = $(if ($script:RemediationMode) { 30 } else { 0 }) }
 
 # WHICH CHANNEL SERVED THIS COPY.
 #
@@ -2269,6 +2389,230 @@ function ConvertTo-AppLockerPolicyXml {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Housekeeping (1.13.0): nothing this script produces outlives RetentionDays
+#
+# IDENTICAL in every remediation half (Clear-, Initialize-, Get-, and this one).
+# A Remediation is one self-contained file, so the function travels with each
+# script instead of being shared - edit one, edit all four. Scoped to THIS
+# SCRIPT'S OWN OUTPUT by name and never a folder sweep; the transcript this run
+# is writing is kept by path. 0 keeps all.
+# ══════════════════════════════════════════════════════════════════════════════
+function Remove-TunoStaleOutput {
+    param(
+        [int]$Days,
+        [object[]]$FilePatterns,    # [pscustomobject]@{ Folder = ...; Pattern = ... } each
+        [string[]]$LogFiles,        # append-only logs to trim in place
+        [string[]]$Keep             # exact paths never removed
+    )
+    $result = [pscustomobject]@{ Removed = 0; Trimmed = 0; Bytes = [long]0; Errors = (New-Object System.Collections.Generic.List[string]) }
+    if ($Days -le 0) { return $result }
+    $cutoff = (Get-Date).AddDays(-$Days)
+    foreach ($fp in @($FilePatterns)) {
+        $folder = [string]$fp.Folder
+        $pattern = [string]$fp.Pattern
+        if (-not (Test-Path -LiteralPath $folder -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter $pattern -File -Force -ErrorAction SilentlyContinue)) {
+            if (@($Keep) -contains $f.FullName) { continue }
+            if ($f.LastWriteTime -ge $cutoff) { continue }
+            try {
+                $len = [long]$f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                $result.Removed = $result.Removed + 1
+                $result.Bytes = $result.Bytes + $len
+            }
+            catch { $result.Errors.Add("remove $($f.FullName): $($_.Exception.Message)") }
+        }
+    }
+    $formats = [string[]]@('yyyy-MM-dd HH:mm:ss', 'yyyy-MM-ddTHH:mm:ss')
+    foreach ($lf in @($LogFiles)) {
+        if (-not $lf) { continue }
+        if (-not (Test-Path -LiteralPath $lf -PathType Leaf)) { continue }
+        try {
+            $lines = @(Get-Content -LiteralPath $lf -ErrorAction Stop)
+            $out = New-Object System.Collections.Generic.List[string]
+            $keepLine = $true
+            $dropped = 0
+            foreach ($line in $lines) {
+                $m = [regex]::Match([string]$line, '^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})')
+                if ($m.Success) {
+                    $t = [datetime]::MinValue
+                    if ([datetime]::TryParseExact($m.Groups[1].Value, $formats, [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$t)) {
+                        $keepLine = ($t -ge $cutoff)
+                    }
+                }
+                if ($keepLine) { $out.Add([string]$line) } else { $dropped++ }
+            }
+            if ($dropped -gt 0) {
+                Set-Content -LiteralPath $lf -Value $out.ToArray() -Encoding UTF8 -ErrorAction Stop
+                $result.Trimmed = $result.Trimmed + $dropped
+            }
+        }
+        catch { $result.Errors.Add("trim ${lf}: $($_.Exception.Message)") }
+    }
+    return $result
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Harvest (1.13.0): upload the bundle to the SharePoint site, when one is set
+#
+# The collector's functions (Get-TunoAppControlEvents.ps1 1.3.0), carried here
+# so the scan can run as a Remediation and still land in the tenant. Two
+# differences, both because this file runs under Set-StrictMode Latest: an
+# absent property is tested by name before it is read, and the prune filter
+# is this script's own bundle names.
+# ══════════════════════════════════════════════════════════════════════════════
+function Get-HarvestConfig {
+    $cfg = [pscustomobject]@{
+        SiteUrl = [string]$script:HarvestTarget.SiteUrl; TenantId = [string]$script:HarvestTarget.TenantId
+        ClientId = [string]$script:HarvestTarget.ClientId; CertSubject = [string]$script:HarvestTarget.CertSubject
+        CertThumbprint = [string]$script:HarvestTarget.CertThumbprint; ClientSecret = [string]$script:HarvestTarget.ClientSecret
+        Folder = [string]$script:HarvestTarget.Folder
+        RetentionDays = [int]$script:HarvestTarget.RetentionDays; Source = 'embedded'
+    }
+    $regPath = 'HKLM:\SOFTWARE\TUNO\Harvest'
+    if (Test-Path -LiteralPath $regPath) {
+        $reg = Get-ItemProperty -LiteralPath $regPath -ErrorAction SilentlyContinue
+        foreach ($name in @('SiteUrl', 'TenantId', 'ClientId', 'CertSubject', 'CertThumbprint', 'ClientSecret', 'Folder')) {
+            $v = $null
+            try { if ($reg.PSObject.Properties.Name -contains $name) { $v = [string]$reg.$name } } catch { }
+            if ($v) { $cfg.$name = $v.Trim(); $cfg.Source = 'registry' }
+        }
+        try { if ($reg.PSObject.Properties.Name -contains 'RetentionDays') { $cfg.RetentionDays = [int]$reg.RetentionDays; $cfg.Source = 'registry' } } catch { }
+    }
+    if ($HarvestSiteUrl)        { $cfg.SiteUrl = $HarvestSiteUrl.Trim();               $cfg.Source = 'parameter' }
+    if ($HarvestTenantId)       { $cfg.TenantId = $HarvestTenantId.Trim();             $cfg.Source = 'parameter' }
+    if ($HarvestClientId)       { $cfg.ClientId = $HarvestClientId.Trim();             $cfg.Source = 'parameter' }
+    if ($HarvestCertSubject)    { $cfg.CertSubject = $HarvestCertSubject.Trim();       $cfg.Source = 'parameter' }
+    if ($HarvestCertThumbprint) { $cfg.CertThumbprint = $HarvestCertThumbprint.Trim(); $cfg.Source = 'parameter' }
+    if ($HarvestClientSecret)   { $cfg.ClientSecret = $HarvestClientSecret.Trim();     $cfg.Source = 'parameter' }
+    if ($HarvestFolder)         { $cfg.Folder = $HarvestFolder.Trim();                 $cfg.Source = 'parameter' }
+    if ($HarvestRetentionDays -ge 0) { $cfg.RetentionDays = $HarvestRetentionDays;     $cfg.Source = 'parameter' }
+    if (-not $cfg.Folder) { $cfg.Folder = 'Harvest' }
+    $cfg
+}
+
+# base64url, the JWT alphabet - no padding, - and _ for + and /.
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+    [Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+}
+
+# The uploader certificate: by thumbprint when given, else the newest valid one
+# with the subject that has a private key SYSTEM can use. LocalMachine\My is
+# where an Intune PKCS-import profile lands it.
+function Get-HarvestCertificate {
+    param([string]$Subject, [string]$Thumbprint)
+    $all = @(Get-ChildItem -Path 'Cert:\LocalMachine\My' -ErrorAction Stop | Where-Object { $_.HasPrivateKey })
+    if ($Thumbprint) {
+        $t = ($Thumbprint -replace '\s', '').ToUpperInvariant()
+        return @($all | Where-Object { $_.Thumbprint -eq $t }) | Select-Object -First 1
+    }
+    $now = Get-Date
+    @($all | Where-Object { $_.Subject -eq $Subject -and $_.NotAfter -gt $now } | Sort-Object NotAfter -Descending) | Select-Object -First 1
+}
+
+# Client-credentials with a certificate: a JWT signed by the private key is the
+# client assertion. RS256 via GetRSAPrivateKey covers both CAPI and CNG keys,
+# which matters because an imported PFX usually lands as CNG.
+function Get-HarvestToken {
+    param([string]$TenantId, [string]$ClientId, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert, [string]$Secret)
+    $aud = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+    if (-not $Cert) {
+        # The secret route (1.3.0): plain client credentials. The secret goes to
+        # the token endpoint and nowhere else - not the log, not the output.
+        if (-not $Secret) { throw 'neither a certificate nor a client secret is configured' }
+        $r = Invoke-RestMethod -Method Post -Uri $aud -Body @{ client_id = $ClientId; client_secret = $Secret; scope = 'https://graph.microsoft.com/.default'; grant_type = 'client_credentials' } -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
+        if (-not ($r.PSObject.Properties.Name -contains 'access_token')) { throw 'the token endpoint answered without an access token' }
+        return [string]$r.access_token
+    }
+    $now = [DateTimeOffset]::UtcNow
+    $header = @{ alg = 'RS256'; typ = 'JWT'; x5t = (ConvertTo-Base64Url -Bytes $Cert.GetCertHash()) } | ConvertTo-Json -Compress
+    $claims = @{
+        aud = $aud; iss = $ClientId; sub = $ClientId; jti = [guid]::NewGuid().ToString()
+        nbf = $now.AddMinutes(-2).ToUnixTimeSeconds(); exp = $now.AddMinutes(8).ToUnixTimeSeconds()
+    } | ConvertTo-Json -Compress
+    $unsigned = (ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($header))) + '.' + (ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($claims)))
+    $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Cert)
+    if (-not $rsa) { throw 'the certificate has no usable RSA private key' }
+    $sig = $rsa.SignData([Text.Encoding]::UTF8.GetBytes($unsigned), [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    $assertion = $unsigned + '.' + (ConvertTo-Base64Url -Bytes $sig)
+    $body = @{
+        client_id = $ClientId; scope = 'https://graph.microsoft.com/.default'; grant_type = 'client_credentials'
+        client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'; client_assertion = $assertion
+    }
+    $r = Invoke-RestMethod -Method Post -Uri $aud -Body $body -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
+    if (-not ($r.PSObject.Properties.Name -contains 'access_token')) { throw 'the token endpoint answered without an access token' }
+    [string]$r.access_token
+}
+
+# The site by URL, not by id: the id is a triple the admin would have to copy
+# out of Graph; the URL is what the panel shows and what the admin can open.
+function Get-HarvestSiteId {
+    param([string]$SiteUrl, [hashtable]$Headers)
+    $u = [uri]$SiteUrl
+    $path = $u.AbsolutePath.TrimEnd('/')
+    $site = Invoke-RestMethod -Method Get -Uri ("https://graph.microsoft.com/v1.0/sites/{0}:{1}" -f $u.Host, $path) -Headers $Headers -ErrorAction Stop
+    if (-not ($site.PSObject.Properties.Name -contains 'id')) { throw "the site $SiteUrl could not be resolved" }
+    [string]$site.id
+}
+
+# Simple PUT under 4 MB; an upload session in 5 MiB chunks (a multiple of the
+# 320 KiB Graph requires) above it. Parent folders are created by the path
+# itself - Graph makes them on a PUT to a path that does not exist yet.
+function Send-HarvestFile {
+    param([string]$SiteId, [string]$RemotePath, [string]$LocalPath, [hashtable]$Headers)
+    $item = Get-Item -LiteralPath $LocalPath -ErrorAction Stop
+    $enc = ($RemotePath -split '/' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
+    $base = "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/root:/$enc"
+    if ($item.Length -lt 4000000) {
+        $r = Invoke-RestMethod -Method Put -Uri "${base}:/content" -Headers $Headers -InFile $LocalPath -ContentType 'application/octet-stream' -ErrorAction Stop
+        return [long]$r.size
+    }
+    $session = Invoke-RestMethod -Method Post -Uri "${base}:/createUploadSession" -Headers $Headers -ContentType 'application/json' -Body (@{ item = @{ '@microsoft.graph.conflictBehavior' = 'replace' } } | ConvertTo-Json -Compress) -ErrorAction Stop
+    $chunk = 5242880
+    $fs = [System.IO.File]::OpenRead($LocalPath)
+    try {
+        $buf = New-Object byte[] $chunk
+        $pos = [long]0
+        $total = [long]$item.Length
+        while ($pos -lt $total) {
+            $n = $fs.Read($buf, 0, $chunk)
+            if ($n -le 0) { break }
+            $part = if ($n -eq $chunk) { $buf } else { $buf[0..($n - 1)] }
+            $range = "bytes $pos-$($pos + $n - 1)/$total"
+            # The session URL is pre-authorised: no Authorization header on it.
+            $null = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
+            $pos += $n
+        }
+    }
+    finally { $fs.Dispose() }
+    [long]$item.Length
+}
+
+# This device's folder only, this set's names only, older than the window.
+function Remove-HarvestStale {
+    param([string]$SiteId, [string]$DeviceFolder, [int]$Days, [hashtable]$Headers)
+    if ($Days -le 0) { return 0 }
+    $enc = ($DeviceFolder -split '/' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
+    $cutoff = (Get-Date).ToUniversalTime().AddDays(-$Days)
+    $removed = 0
+    $uri = "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/root:/${enc}:/children?`$select=id,name,file,lastModifiedDateTime&`$top=200"
+    while ($uri) {
+        $page = Invoke-RestMethod -Method Get -Uri $uri -Headers $Headers -ErrorAction Stop
+        foreach ($it in @($page.value)) {
+            if (-not ($it.PSObject.Properties.Name -contains 'file')) { continue }
+            if ($it.name -notlike 'TunoAppLockerScan-*') { continue }
+            if ([datetime]$it.lastModifiedDateTime -ge $cutoff) { continue }
+            Invoke-RestMethod -Method Delete -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/items/$($it.id)" -Headers $Headers -ErrorAction Stop | Out-Null
+            $removed++
+        }
+        $uri = $null
+        try { if ($page.PSObject.Properties.Name -contains '@odata.nextLink') { $uri = [string]$page.'@odata.nextLink' } } catch { }
+    }
+    $removed
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 $started = Get-Date
@@ -2276,10 +2620,27 @@ $started = Get-Date
 Merge-ScanConfig -FilePath $ConfigPath -BoundParameterName @($PSBoundParameters.Keys) -ValidParameterName @(
     'OutputPath', 'Scope', 'Path', 'KnownAdmin', 'PublisherRuleGranularity', 'IncludeEvents',
     'EventDaysBack', 'MaxArtifacts', 'MaxEvents', 'DeepScan', 'SniffUnknownExtensions', 'NoPeSniff', 'SkipWritableFiles',
-    'NoMicrosoftCoverage', 'JSHashRules', 'SkipRuleGeneration', 'WriteXml', 'Quiet', 'ConfigPath')
+    'NoMicrosoftCoverage', 'JSHashRules', 'SkipRuleGeneration', 'WriteXml', 'Quiet', 'ConfigPath', 'RetentionDays',
+    'HarvestSiteUrl', 'HarvestTenantId', 'HarvestClientId', 'HarvestCertSubject', 'HarvestCertThumbprint', 'HarvestClientSecret',
+    'HarvestFolder', 'HarvestRetentionDays')
 
 Write-Section ("TUNO AppLocker device scan  ·  v{0}  ·  {1} build {2}" -f $script:ScriptVersion, $(if ($script:TunoIsBeta) { 'BETA' } else { 'production' }), $script:TunoBuild)
 Write-Info ("Served by  : {0}" -f $script:TunoSite)
+if ($script:RemediationMode) {
+    Write-Info ("Mode       : Intune Remediation (SYSTEM, no -OutputPath) - output {0}{1}" -f $OutputPath, $(if ($script:TranscriptPath) { ", transcript $script:TranscriptPath" } else { '' }))
+}
+
+# Before scanning: last month's bundle is not evidence for ever. Own names only,
+# in the output folder only; this run's transcript is kept by path.
+if ($RetentionDays -gt 0 -and (Test-Path -LiteralPath $OutputPath -PathType Container)) {
+    $hk = Remove-TunoStaleOutput -Days $RetentionDays -FilePatterns @(
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'TunoAppLockerScan-*.json' }
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerRules-Audit-*.xml' }
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerRules-Enforce-*.xml' }
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerScan-*.log' }
+    ) -LogFiles @() -Keep @($script:TranscriptPath)
+    Write-Info ("Housekeeping: retention {0} day(s) - removed {1} file(s) ({2:N0} bytes){3}" -f $RetentionDays, $hk.Removed, $hk.Bytes, $(if ($hk.Errors.Count) { '; ' + ($hk.Errors -join '; ') } else { '' }))
+}
 
 if (($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -and ($PSVersionTable.Platform -ne 'Win32NT')) {
     throw 'This script scans Windows AppLocker configuration and must run on Windows.'
@@ -2725,6 +3086,48 @@ $json = $bundle | ConvertTo-Json -Depth 12 -Compress:$false
 [System.IO.File]::WriteAllText($bundlePath, $json, (New-Object System.Text.UTF8Encoding($false)))
 Write-Ok "bundle  -> $bundlePath"
 
+# ---- harvest (1.13.0) ----
+# After the bundle is on disk, never before: the local file is the copy that
+# exists whatever the network does. Upload failure is a warning - the scan
+# is complete, the bundle is here, the next scheduled pass retries.
+$HarvestNote = 'harvest: not configured'
+$harvestCfg = Get-HarvestConfig
+$useCert = [bool]($harvestCfg.CertSubject -or $harvestCfg.CertThumbprint)
+if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and ($useCert -or $harvestCfg.ClientSecret)) {
+    Write-Info ("Harvest target ({0}): {1} folder {2} as app {3}, {4}" -f $harvestCfg.Source, $harvestCfg.SiteUrl, $harvestCfg.Folder, $harvestCfg.ClientId, $(if ($harvestCfg.CertThumbprint) { "certificate $($harvestCfg.CertThumbprint)" } elseif ($harvestCfg.CertSubject) { "certificate $($harvestCfg.CertSubject)" } else { 'client secret (value not logged)' }))
+    try {
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+        $cert = $null
+        if ($useCert) {
+            $cert = Get-HarvestCertificate -Subject $harvestCfg.CertSubject -Thumbprint $harvestCfg.CertThumbprint
+            if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject })) }
+        }
+        $token = Get-HarvestToken -TenantId $harvestCfg.TenantId -ClientId $harvestCfg.ClientId -Cert $cert -Secret $harvestCfg.ClientSecret
+        $hdr = @{ Authorization = "Bearer $token" }
+        $siteId = Get-HarvestSiteId -SiteUrl $harvestCfg.SiteUrl -Headers $hdr
+        $deviceFolder = "{0}/{1}" -f $harvestCfg.Folder.Trim('/'), $env:COMPUTERNAME
+        $bytes = Send-HarvestFile -SiteId $siteId -RemotePath ("{0}/{1}" -f $deviceFolder, (Split-Path -Leaf $bundlePath)) -LocalPath $bundlePath -Headers $hdr
+        $pruned = 0
+        if ($harvestCfg.RetentionDays -gt 0) {
+            try { $pruned = Remove-HarvestStale -SiteId $siteId -DeviceFolder $deviceFolder -Days $harvestCfg.RetentionDays -Headers $hdr }
+            catch { Add-ScanWarning "Harvest prune failed: $($_.Exception.Message)" }
+        }
+        $HarvestNote = ("harvest: uploaded bundle ({0} bytes) to {1}/{2}{3}" -f $bytes, $harvestCfg.SiteUrl.TrimEnd('/'), $deviceFolder, $(if ($pruned) { ", pruned $pruned older than $($harvestCfg.RetentionDays) day(s)" } else { '' }))
+        Write-Ok $HarvestNote
+    }
+    catch {
+        $HarvestNote = "harvest: upload FAILED - $($_.Exception.Message)"
+        Add-ScanWarning $HarvestNote
+    }
+}
+elseif ($harvestCfg.SiteUrl -or $harvestCfg.TenantId -or $harvestCfg.ClientId -or $harvestCfg.CertSubject -or $harvestCfg.CertThumbprint -or $harvestCfg.ClientSecret) {
+    $HarvestNote = 'harvest: PARTIALLY configured - SiteUrl, TenantId, ClientId and a certificate (CertSubject or CertThumbprint) or a ClientSecret are all required; nothing uploaded'
+    Add-ScanWarning $HarvestNote
+}
+elseif ($script:RemediationMode) {
+    Write-Note "$HarvestNote - the bundle is on this device only; set a harvest site in T01 (📁 panel) and create the scan Remediation again to have it uploaded."
+}
+
 $written = @($bundlePath)
 # Gated on $generated, not on -SkipRuleGeneration: rule generation can also have
 # been ATTEMPTED and failed, in which case $auditXml is null and WriteAllText
@@ -2762,5 +3165,14 @@ if ($script:Warnings.Count -gt 0) {
 }
 Write-Host ''
 
-# Emit the paths so the script composes.
+# Emit the paths so the script composes - or, as a Remediation, the one line
+# Intune keeps: what the scan found, where the bundle is, whether it was
+# uploaded. The transcript next to the bundle has the rest.
+if ($script:RemediationMode) {
+    try { Stop-Transcript | Out-Null } catch { }
+    Write-Output ("TUNO scan v{0} on {1}: {2} writable dir(s), {3} executable(s), {4} rule(s){5}; bundle {6} | {7}{8}" -f $script:ScriptVersion, $machine.name,
+        @($writable).Count, @($artifacts).Count, $(if ($generated) { $generated.ruleCount } else { 0 }), $(if ($generated) { '' } else { ' (no policy generated)' }),
+        $bundlePath, $HarvestNote, $(if ($script:Warnings.Count) { " | $($script:Warnings.Count) warning(s) - see $script:TranscriptPath" } else { '' }))
+    exit 0
+}
 $written

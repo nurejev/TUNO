@@ -3156,6 +3156,17 @@ const AppLockerTool = (() => {
     if (typeof autoTenantCheck === "function") autoTenantCheck().catch(() => {});
   }
 
+  // After any import — the picker or the harvest site: render, and land where
+  // the upload points (10577): a fresh policy → Policy; an events bundle onto
+  // an existing draft → What breaks?; nothing usable → stay on Evidence and
+  // read why. No alert for the events-first case: the evidence card lives
+  // outside the policy-only body, renders immediately, and itself offers the
+  // ways to get a policy under the evidence.
+  function afterImport(hadPolicy) {
+    if (policy) loadFresh(); else render();
+    showScreen(policy && !hadPolicy ? "policy" : policy && eventsEvidence ? "breaks" : policy ? "policy" : "evidence");
+  }
+
   // One upload button, two file types. The scan bundle is JSON and carries the
   // policy INSIDE it, so asking the admin which button to press would be asking
   // them to know something the file already says.
@@ -3210,7 +3221,8 @@ const AppLockerTool = (() => {
   // and a script whose version moved in this build must name this build here.
   // A row whose change is THIS build wears the "changed in this build" tag.
   const SCRIPT_VERSIONS = {
-    "Invoke-TunoAppLockerScan.ps1":         { v: "1.12.2", changed: 10596 },
+    "Invoke-TunoAppLockerScan.ps1":         { v: "1.13.0", changed: 10617 },
+    "Detect-TunoAppLockerScan.ps1":         { v: "1.0.0",  changed: 10617 },
     "Convert-TunoAppLockerToIntune.ps1":    { v: "1.4.1",  changed: 10370 },
     "Clear-TunoAppLockerPolicy.ps1":        { v: "1.4.0",  changed: 10612 },
     "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.1",  changed: 10603 },
@@ -3295,16 +3307,7 @@ const AppLockerTool = (() => {
       try {
         const hadPolicy = !!policy;
         importFile(await f.text(), f.name);
-        // No alert for the events-first case any more: the evidence card lives
-        // OUTSIDE the policy-only body now, renders immediately, and itself
-        // offers the two ways to get a policy under the evidence — including
-        // pulling the deployed profile from the tenant. The alert told people
-        // to go hunt for a file the tenant already had.
-        if (policy) loadFresh(); else render();
-        // Land where the upload points (10577): a fresh policy → Policy; an
-        // events bundle onto an existing draft → What breaks?; nothing
-        // usable → stay on Evidence and read why.
-        showScreen(policy && !hadPolicy ? "policy" : policy && eventsEvidence ? "breaks" : policy ? "policy" : "evidence");
+        afterImport(hadPolicy);
       }
       catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
@@ -3313,6 +3316,9 @@ const AppLockerTool = (() => {
     // The events entrance — same picker, same content-routed import. The
     // second button exists for the READER: two acts, two buttons.
     $("alImportEv").addEventListener("click", () => $("alFile").click());
+    // The third entrance (10617): the harvest site, for a bundle a device
+    // uploaded — same importFile, same landing, no file on disk.
+    if ($("alImportSp")) $("alImportSp").addEventListener("click", toggleHarvestFetch);
     // Start over: everything off the table in one act — policy, scan, events
     // evidence, the tenant-pull state, the loop's manual marks, the undo
     // stack. Confirmed first because there is no undo past this, and the
@@ -3511,6 +3517,7 @@ const AppLockerTool = (() => {
       cleanup: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8", created: null, coll: null },
       ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
       events: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9", created: null, coll: null },
+      scan: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - AppLocker Device Scan - R27.1 - v1.0", created: null, coll: null },
     },
     // The harvest site (10613): where the events collector uploads each pass
     // so the evidence is retrievable with the device off. `site` is what was
@@ -3557,6 +3564,21 @@ const AppLockerTool = (() => {
       blurb: `Creates one Remediation carrying <code>Detect-TunoAppControlEvents.ps1</code> and <code>Get-TunoAppControlEvents.ps1</code> — the evidence pump. Its detection <b>always reports non-compliant on purpose</b>: the "remediation" IS the harvest, reading the CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report, and a <b>JSON events bundle this tool imports</b> — upload that bundle here and every blocked or audited event is matched against the draft on screen, with a recommendation per file. The report and bundle land in the Intune Management Extension Logs folder named <code>.log</code> so <b>Collect diagnostics</b> gathers them; MDE Live Response users zip them with <code>Compress-TunoAppControlReport.ps1</code>. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every pass also uploads the bundle and report to <code>Harvest/&lt;device&gt;/</code> on that site, so the evidence is in the tenant with the device off. Since build 10612 every pass first <b>removes this set's own output older than 30 days</b> — earlier bundles, reports, per-ID exports, Live Response zips — and trims both halves' logs to the window (<code>-RetentionDays</code>, 0 keeps all), so a daily schedule does not fill the disk. Know the console cost: every device shows "Issue fixed" every pass — this pair's numbers mean "the collector ran", never "the device is fine".`,
       description: `App Control events collection, deployed from {SITE}. Detection: always non-compliant (the remediation IS the collection). Remediation: harvests CodeIntegrity and AppLocker events (30 days) into CSV/XML exports, an HTML report, and the TUNO JSON events bundle, all retrievable via Intune device diagnostics or MDE Live Response; removes its own output older than 30 days on each pass.{HARVEST} Collection cadence pair - do not read its compliance numbers as device health, and unassign it when the campaign ends.`,
       createdNote: `In the portal: Devices → Scripts and remediations → assign it to the AUDIT ring with a recurring schedule (daily during the audit month is the usual cadence). Retrieve the harvest per device via Collect diagnostics, upload the <code>AppControlEvents_Bundle_*.log</code> file here, and the evidence card fills in. Unassign when the collection campaign ends — its "Issue fixed" numbers are cadence, not health.`,
+      harvest: true,
+    },
+    // 10617 (Mihai: "the scan must also be able to run as a remediation with
+    // the app secret and upload function"): the device scan itself as a
+    // pair. The scanner notices it is SYSTEM with no -OutputPath and switches
+    // to its Remediation mode; the detection half is a window on the newest
+    // bundle, so the pair is a scan-on-schedule pump like the events pair.
+    scan: {
+      detect: "Detect-TunoAppLockerScan.ps1",
+      remediate: "Invoke-TunoAppLockerScan.ps1",
+      button: "Create the device-scan Remediation",
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule (scanner 1.13.0). Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site — the <b>📁 From the harvest site</b> button on Evidence then fetches it straight into this page, device off or on. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
+      description: `AppLocker device scan on a schedule, deployed from {SITE}. Detection: no TunoAppLockerScan-*.json younger than 7 days in %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan. Remediation: Invoke-TunoAppLockerScan.ps1 in Remediation mode (SYSTEM, output to that folder, transcript next to the bundle, own output older than 30 days removed, one summary line). The device is NOT changed; the bundle is what T01 imports.{HARVEST} Assign to the REFERENCE ring only. Cadence pair - do not read its compliance numbers as device health.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Evidence</b>: 📁 From the harvest site → the device → its newest bundle, or Live Response for a device without a harvest target.`,
+      harvest: true,
     },
   };
 
@@ -3603,7 +3625,7 @@ const AppLockerTool = (() => {
       // HARVEST TARGET block is filled in from the panel, because a
       // Remediation takes no parameters and a target the admin has to type
       // into a script body by hand is a target that gets typed wrong.
-      const hv = key === "events" ? harvestConfig() : null;
+      const hv = p.harvest ? harvestConfig() : null;
       const [detect, remediate] = await Promise.all([
         fetchScriptB64(p.detect),
         fetchScriptB64(p.remediate, hv ? (text) => stampHarvestConfig(text, hv) : null),
@@ -3727,7 +3749,8 @@ const AppLockerTool = (() => {
   }
   // The tenant's SharePoint host from its initial *.onmicrosoft.com domain,
   // which the org read at sign-in already fetched. A guess the admin can edit,
-  // never a call: TUNO has no scope that reads SharePoint, on purpose.
+  // never a call: the one SharePoint read TUNO has (Sites.Read.All, 10617) is
+  // asked for by the 📁 fetch on Evidence at the click, never here.
   function guessSharePointHost() {
     const org = window.TunoTenant && window.TunoTenant.org && window.TunoTenant.org();
     const doms = (org && org.verifiedDomains) || [];
@@ -3735,6 +3758,148 @@ const AppLockerTool = (() => {
     if (!initial) return "";
     return `https://${String(initial.name).replace(/\.onmicrosoft\.com$/i, "").toLowerCase()}.sharepoint.com`;
   }
+  // ================================================================
+  // 📁 FROM THE HARVEST SITE (10617) — the way back from the site to Evidence
+  // ================================================================
+  // Mihai: "add an option to fetch the scan json from the sp site". The two
+  // pumps (events collector, scan Remediation) upload to Harvest/<device>/;
+  // this reads it: the site by URL, the device folders, one device's files
+  // newest first, and one click imports a bundle through the same
+  // content-routed importFile() the file picker uses. Read under
+  // Sites.Read.All (delegated: what the signed-in admin can open anyway),
+  // asked for at the click. Nothing here writes.
+  const evHarvest = { open: false, busy: "", error: null, siteUrl: "", site: null, devices: null, device: null, files: null, note: "" };
+  const HARVEST_FILE_KINDS = [
+    { kind: "scan",   re: /^TunoAppLockerScan-.*\.json$/i,      label: "🛰 scan bundle",   importable: true },
+    { kind: "events", re: /^AppControlEvents_Bundle_.*\.json$/i, label: "📡 events bundle", importable: true },
+    { kind: "report", re: /^AppControlEvents_Report_.*\.html$/i, label: "📄 events report", importable: false },
+  ];
+  const harvestFileKind = (name) => HARVEST_FILE_KINDS.find((k) => k.re.test(String(name || ""))) || { kind: "other", label: "file", importable: /\.json$/i.test(String(name || "")) };
+  function harvestDefaultSiteUrl() {
+    const h = loadHarvest();
+    if (h.site && h.site.url) return h.site.url;
+    const host = (h.host || guessSharePointHost() || "").replace(/\/+$/, "");
+    return host ? `${host}/sites/${h.name || "TUNO-AppControl-Harvest"}` : "";
+  }
+  function harvestFail(e) {
+    evHarvest.busy = "";
+    evHarvest.error = e && e.kind ? e : { kind: "graph", message: (e && e.message) || String(e) };
+    renderHarvestFetch();
+  }
+  async function harvestReadSite() {
+    const url = (evHarvest.siteUrl || "").trim();
+    evHarvest.error = null; evHarvest.note = "";
+    if (!/^https:\/\/[^/]+\.sharepoint\.com\/sites\/[^/?#]+/i.test(url)) { harvestFail(new Error("That is not a SharePoint site URL — it looks like https://<tenant>.sharepoint.com/sites/<name>.")); return; }
+    evHarvest.busy = "site"; evHarvest.devices = null; evHarvest.device = null; evHarvest.files = null;
+    renderHarvestFetch();
+    try {
+      if (typeof Graph.isDemo === "function" && Graph.isDemo()) {
+        evHarvest.site = { id: "demo.sharepoint.com,0000,1111", webUrl: url, displayName: "TUNO-AppControl-Harvest (demo)" };
+        const d = (n) => new Date(Date.now() - n * 864e5).toISOString();
+        evHarvest.devices = [
+          { id: "demo-dev-1", name: "REF-IMAGE-01", folder: { childCount: 9 }, lastModifiedDateTime: d(1) },
+          { id: "demo-dev-2", name: "LT-DEMO-0042", folder: { childCount: 31 }, lastModifiedDateTime: d(0) },
+        ];
+        evHarvest.busy = ""; renderHarvestFetch(); return;
+      }
+      const site = await Graph.siteByUrlRead(url);
+      evHarvest.site = site;
+      const kids = await Graph.driveChildren(site.id, "Harvest");
+      evHarvest.devices = kids.filter((k) => k.folder).sort((a, b) => String(b.lastModifiedDateTime || "").localeCompare(String(a.lastModifiedDateTime || "")));
+      evHarvest.busy = "";
+      renderHarvestFetch();
+    } catch (e) { harvestFail(e); }
+  }
+  async function harvestOpenDevice(dev) {
+    evHarvest.error = null; evHarvest.note = ""; evHarvest.device = dev; evHarvest.files = null; evHarvest.busy = "device";
+    renderHarvestFetch();
+    try {
+      let kids;
+      if (typeof Graph.isDemo === "function" && Graph.isDemo()) {
+        const d = (n) => new Date(Date.now() - n * 864e5).toISOString();
+        kids = [
+          { id: "demo-f1", name: `TunoAppLockerScan-${dev.name}-20260915-0902.json`, size: 1843200, file: {}, lastModifiedDateTime: d(1), webUrl: "#" },
+          { id: "demo-f2", name: "AppControlEvents_Bundle_20260916-0301.json", size: 240100, file: {}, lastModifiedDateTime: d(0), webUrl: "#" },
+          { id: "demo-f3", name: "AppControlEvents_Report_20260916-0301.html", size: 91000, file: {}, lastModifiedDateTime: d(0), webUrl: "#" },
+          { id: "demo-f4", name: "AppControlEvents_Bundle_20260915-0301.json", size: 231000, file: {}, lastModifiedDateTime: d(1), webUrl: "#" },
+        ];
+      }
+      else kids = await Graph.driveChildren(evHarvest.site.id, `Harvest/${dev.name}`);
+      evHarvest.files = kids.filter((k) => k.file).sort((a, b) => String(b.lastModifiedDateTime || "").localeCompare(String(a.lastModifiedDateTime || "")));
+      evHarvest.busy = "";
+      renderHarvestFetch();
+    } catch (e) { harvestFail(e); }
+  }
+  async function harvestImport(file) {
+    evHarvest.error = null; evHarvest.note = ""; evHarvest.busy = "import-" + file.id;
+    renderHarvestFetch();
+    try {
+      if (typeof Graph.isDemo === "function" && Graph.isDemo()) throw new Error("Demo tenant — nothing is downloaded. Load the sample policy, or upload a real bundle.");
+      const text = await Graph.driveItemText(evHarvest.site.id, file.id);
+      const hadPolicy = !!policy;
+      importFile(text, file.name);
+      evHarvest.busy = "";
+      evHarvest.note = `Imported ${file.name} from ${evHarvest.device ? evHarvest.device.name : "the site"}.`;
+      afterImport(hadPolicy);
+      renderHarvestFetch();
+    } catch (e) { harvestFail(e); }
+  }
+  // The newest of each importable kind in the open device folder — what
+  // the two big buttons offer, so the usual case is one click.
+  function harvestNewest() {
+    const out = {};
+    for (const f of evHarvest.files || []) { const k = harvestFileKind(f.name).kind; if ((k === "scan" || k === "events") && !out[k]) out[k] = f; }
+    return out;
+  }
+  function renderHarvestFetch() {
+    const host = $("alHarvestFetch");
+    if (!host) return;
+    const btn = $("alImportSp");
+    if (btn) btn.classList.toggle("active", evHarvest.open);
+    if (!evHarvest.open) { host.style.display = "none"; host.innerHTML = ""; return; }
+    host.style.display = "";
+    const signedIn = typeof Graph !== "undefined" && Graph.signedIn && Graph.signedIn();
+    const h = evHarvest;
+    const fmtWhen = (t) => t ? String(t).replace("T", " ").slice(0, 16) : "";
+    const fmtSize = (n) => n == null ? "" : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+    const err = h.error ? `<div class="al-dep-err"><b>${esc(h.error.kind === "admin" ? "The tenant refused this" : h.error.kind === "consent" ? "Consent was not granted" : h.error.kind === "notfound" ? "Not found" : "Could not read the site")}.</b><div style="margin-top:4px">${esc(h.error.message)}</div>${h.error.kind === "notfound" ? `<div class="mini muted" style="margin-top:4px">No site at that URL, or no <code>Harvest</code> folder in it yet — the folder appears with the first upload from a device.</div>` : ""}${h.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${esc(h.error.code)}</code></div>` : ""}</div>` : "";
+    if (!signedIn) {
+      host.innerHTML = `<h3 style="margin:0 0 6px">📁 From the harvest site</h3><p class="mini muted" style="margin:0">Sign in first. The harvest site is read with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself), asked for when you press Read; nothing is written.</p>`;
+      return;
+    }
+    const devices = h.devices || [];
+    const newest = harvestNewest();
+    const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Files</th><th>Last upload</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
+      : h.devices ? `<p class="mini muted" style="margin:6px 0 0">The <code>Harvest</code> folder on ${esc((h.site && h.site.displayName) || "the site")} has no device folders yet — nothing has uploaded. A device folder appears with the first pass of the events or scan Remediation that carries this site.</p>` : "";
+    const files = h.files || [];
+    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px"><b>${esc(h.device.name)}</b> — newest first. ${newest.scan ? `<button class="btn primary sm" data-hvimport="${esc(newest.scan.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + newest.scan.id ? "Fetching…" : "🛰 Import newest scan bundle"}</button> ` : `<span class="muted">no scan bundle here yet</span> `}${newest.events ? `<button class="btn primary sm" data-hvimport="${esc(newest.events.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + newest.events.id ? "Fetching…" : "📡 Import newest events bundle"}</button>` : `<span class="muted">no events bundle here yet</span>`}</p>
+        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td>${k.importable ? `<button class="btn sm" data-hvimport="${esc(f.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + f.id ? "Fetching…" : "Import"}</button>` : f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
+      : h.files ? `<p class="mini muted" style="margin:10px 0 0"><b>${esc(h.device.name)}</b> has an empty folder.</p>` : "") : "";
+    host.innerHTML = `<h3 style="margin:0 0 6px">📁 From the harvest site</h3>
+      <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. Read with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself); nothing here writes. One click imports a bundle exactly as the upload buttons do.</p>
+      ${err}
+      <div class="al-dep-row">
+        <input id="alHvUrl" class="al-dep-in" style="flex:1;min-width:320px" value="${esc(h.siteUrl)}" placeholder="https://<tenant>.sharepoint.com/sites/TUNO-AppControl-Harvest" spellcheck="false">
+        <button class="btn primary sm" id="alHvRead" ${h.busy ? "disabled" : ""}>${h.busy === "site" ? "Reading…" : "🔎 Read the site"}</button>
+      </div>
+      ${h.site && h.devices ? `<p class="mini muted" style="margin:6px 0 4px">${esc(h.site.displayName || h.site.name || "site")} · <code>Harvest/</code> · ${devices.length} device folder${devices.length === 1 ? "" : "s"}</p>` : ""}
+      ${rowsDev}
+      ${rowsFiles}
+      ${h.note ? `<div class="al-dep-ok" style="margin-top:8px">${esc(h.note)}</div>` : ""}`;
+    const url = host.querySelector("#alHvUrl");
+    if (url) url.addEventListener("input", (e) => { evHarvest.siteUrl = e.target.value; });
+    const rd = host.querySelector("#alHvRead");
+    if (rd) rd.addEventListener("click", () => harvestReadSite());
+    host.querySelectorAll("[data-hvdev]").forEach((b) => b.addEventListener("click", () => { const d = (evHarvest.devices || [])[+b.dataset.hvdev]; if (d) harvestOpenDevice(d); }));
+    host.querySelectorAll("[data-hvimport]").forEach((b) => b.addEventListener("click", () => { const f = (evHarvest.files || []).find((x) => x.id === b.dataset.hvimport); if (f) harvestImport(f); }));
+  }
+  function toggleHarvestFetch() {
+    evHarvest.open = !evHarvest.open;
+    if (evHarvest.open && !evHarvest.siteUrl) evHarvest.siteUrl = harvestDefaultSiteUrl();
+    renderHarvestFetch();
+    if (evHarvest.open && evHarvest.siteUrl && !evHarvest.devices && !evHarvest.busy && typeof Graph !== "undefined" && Graph.signedIn && Graph.signedIn()) harvestReadSite();
+  }
+
   // Everything the events script needs, or null while any part is missing —
   // the stamp is all-or-nothing, because a half-configured target makes the
   // collector warn on every pass without uploading anything.
@@ -3752,7 +3917,7 @@ const AppLockerTool = (() => {
   // block, only the four keyed lines, values single-quoted the PowerShell way.
   function stampHarvestConfig(text, cfg) {
     const start = text.indexOf("$script:HarvestTarget = [pscustomobject]@{");
-    if (start < 0) throw new Error("Get-TunoAppControlEvents.ps1 has no HARVEST TARGET block — the script this site serves is older than this page.");
+    if (start < 0) throw new Error("The script has no HARVEST TARGET block — the script this site serves is older than this page.");
     const end = text.indexOf("\n}", start);
     if (end < 0) throw new Error("The HARVEST TARGET block is not closed.");
     let block = text.slice(start, end);
@@ -4010,7 +4175,7 @@ const AppLockerTool = (() => {
       const r = d.remedy[key];
       return `<div${i ? ` style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"` : ""}>
       <p class="mini muted" style="margin:0 0 6px">${p.blurb}</p>
-      ${key === "events" ? `<p class="mini" style="margin:0 0 6px">${harvestConfig() ? `📁 <b>Harvest target set:</b> <code>${escq(harvestConfig().siteUrl)}</code> — the Remediation created here carries it.` : `📁 <b>Harvest target not set</b> — the pair created here keeps the bundle on the device only. The 📁 Harvest site panel above sets it.`}</p>` : ""}
+      ${p.harvest ? `<p class="mini" style="margin:0 0 6px">${harvestConfig() ? `📁 <b>Harvest target set:</b> <code>${escq(harvestConfig().siteUrl)}</code> — the Remediation created here carries it.` : `📁 <b>Harvest target not set</b> — the pair created here keeps the bundle on the device only. The 📁 Harvest site panel above sets it.`}</p>` : ""}
       <div class="al-dep-row">
         <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name)}" spellcheck="false">
         <button class="btn primary sm al-dep-remedy" data-pair="${key}" ${d.busy ? "disabled" : ""}>${d.busy === "remedy-" + key ? "Creating…" : "🚀 " + escq(p.button)}</button>
@@ -4018,7 +4183,7 @@ const AppLockerTool = (() => {
       ${r.coll && r.coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
         <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
         <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
-      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}${key === "events" ? (r.created._harvest ? ` <b>Harvest target carried:</b> uploads go to <code>${escq(r.created._harvest.siteUrl)}</code>.` : ` <b>No harvest target</b> — the bundle stays on the device; set one in the 📁 panel and create the pair again to carry it.`) : ""}</div>` : ""}
+      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}${p.harvest ? (r.created._harvest ? ` <b>Harvest target carried:</b> uploads go to <code>${escq(r.created._harvest.siteUrl)}</code>.` : ` <b>No harvest target</b> — the bundle stays on the device; set one in the 📁 panel and create the pair again to carry it.`) : ""}</div>` : ""}
       </div>`;
     }).join("");
 
@@ -4696,6 +4861,7 @@ const AppLockerTool = (() => {
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
-    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState },
+    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState,
+      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestImport, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS },
   };
 })();

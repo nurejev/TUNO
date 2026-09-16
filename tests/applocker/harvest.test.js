@@ -8,6 +8,8 @@ const { ok, head, run, ROOT, fs, path, boot } = suite("harvest");
 
 const SCRIPT = fs.readFileSync(path.join(ROOT, "scripts/Get-TunoAppControlEvents.ps1"), "utf8");
 const HELPER = fs.readFileSync(path.join(ROOT, "scripts/New-TunoHarvestUploaderApp.ps1"), "utf8");
+const SCANNER = fs.readFileSync(path.join(ROOT, "scripts/Invoke-TunoAppLockerScan.ps1"), "utf8");
+const SCAN_DETECT = fs.readFileSync(path.join(ROOT, "scripts/Detect-TunoAppLockerScan.ps1"), "utf8");
 const CFG = { siteUrl: "https://contoso.sharepoint.com/sites/TUNO-AppControl-Harvest", tenantId: "11111111-2222-3333-4444-555555555555", clientId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", certSubject: "CN=TUNO Harvest Uploader" };
 
 const nodeTextCodecs = (w) => { w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder; };
@@ -95,7 +97,7 @@ head("the panel: signed out it explains, signed in it offers; the events pair sa
   ok("its summary says it writes to the tenant", /writes to your tenant/.test(panel.querySelector("summary").textContent));
   const box = D.getElementById("alHarvestBox");
   ok("signed out: the scope is named and there is no button", /Sites\.Create\.All/.test(box.textContent) && !box.querySelector("button"));
-  ok("the summary counts ten companion scripts", /10 companion scripts/.test(D.querySelector(".al-dl-more summary").textContent));
+  ok("the summary counts eleven companion scripts", /11 companion scripts/.test(D.querySelector(".al-dl-more summary").textContent));
   ok("the helper has its download row", !!D.querySelector('.al-dl-row a[href="scripts/New-TunoHarvestUploaderApp.ps1"]'));
   // Signed in (demo), the button appears and the events blurb names the state.
   w.Graph.useDemo();
@@ -195,6 +197,88 @@ head("the scope is taken in the open (R18), and the scripts keep their promises"
   ok("the helper asks Sites.Selected as an APPLICATION role and grants one site", /AllowedMemberTypes -contains 'Application'/.test(HELPER) && /\/sites\/\$siteId\/permissions/.test(HELPER));
   ok("the helper never writes the PFX password to disk", !/(Set-Content|Out-File|WriteAllText)[^\n]*plainPassword/.test(HELPER) && /shown ONCE, not saved anywhere/.test(HELPER));
   ok("the helper carries the two build numbers", /\$script:ScriptVersion = '1\.0\.0'/.test(HELPER) && /\$script:TunoBuild = \d+/.test(HELPER));
+}
+
+// =====================================================================
+head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation mode, the pair");
+{
+  const w = boot();
+  const H = w.AppLockerTool._harvest;
+  ok("the scanner is 1.13.0 with the HARVEST TARGET block and empty defaults", /\$script:ScriptVersion = '1\.13\.0'/.test(SCANNER) && /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCANNER) && /^\s*ClientSecret\s*=\s*''$/m.test(SCANNER));
+  const out = H.stampHarvestConfig(SCANNER, Object.assign({}, CFG, { certSubject: "", clientSecret: "s3cr3t~value" }));
+  ok("the stamp fills the scanner's block the same way", /^\s*SiteUrl\s*=\s*'https:\/\/contoso\.sharepoint\.com\/sites\/TUNO-AppControl-Harvest'$/m.test(out) && /^\s*ClientSecret\s*=\s*'s3cr3t~value'$/m.test(out) && /^\s*CertSubject\s*=\s*''$/m.test(out));
+  ok("Remediation mode is SYSTEM without -OutputPath, and only that", /\$PSBoundParameters\.ContainsKey\('OutputPath'\)\) -and\s*\n\s*\(\[System\.Security\.Principal\.WindowsIdentity\]::GetCurrent\(\)\.User\.Value -eq 'S-1-5-18'\)/.test(SCANNER));
+  ok("in that mode the output goes to the house folder with a transcript, and the run ends in one line and exit 0", /IT-TOOLS\\LOGS\\AppLockerScan'/.test(SCANNER) && /Start-Transcript -Path \$script:TranscriptPath/.test(SCANNER) && /if \(\$script:RemediationMode\) \{\s*\n\s*try \{ Stop-Transcript \| Out-Null \} catch \{ \}\s*\n\s*Write-Output \("TUNO scan v\{0\} on \{1\}/.test(SCANNER) && /exit 0\s*\n\}\s*\n\$written\s*$/.test(SCANNER));
+  ok("a fatal in that mode exits 1 with the line named", /Write-Output \("TUNO scan FAILED at line \{0\}: \{1\}"/.test(SCANNER) && /exit 1\s*\n\s*\}\s*\n\s*break/.test(SCANNER));
+  ok("retention: 30 as a Remediation, 0 interactively, own names only", /if \(\$RetentionDays -lt 0\) \{ \$RetentionDays = \$\(if \(\$script:RemediationMode\) \{ 30 \} else \{ 0 \}\) \}/.test(SCANNER) && /Pattern = 'TunoAppLockerScan-\*\.json'/.test(SCANNER) && /-Keep @\(\$script:TranscriptPath\)/.test(SCANNER));
+  // the housekeeping function is byte-identical across every remediation half
+  const fn = (src) => { const a = src.indexOf("function Remove-TunoStaleOutput {"); return a < 0 ? null : src.slice(a, src.indexOf("\n}\n", a) + 3); };
+  const clear = fs.readFileSync(path.join(ROOT, "scripts/Clear-TunoAppLockerPolicy.ps1"), "utf8");
+  ok("Remove-TunoStaleOutput is byte-identical in the scanner, the collector and the cleanup", fn(SCANNER) !== null && fn(SCANNER) === fn(SCRIPT) && fn(SCANNER) === fn(clear));
+  ok("the upload happens AFTER the bundle is on disk, and a failure is a warning", SCANNER.indexOf("[System.IO.File]::WriteAllText($bundlePath") < SCANNER.indexOf("$harvestCfg = Get-HarvestConfig") && /\$HarvestNote = "harvest: upload FAILED - \$\(\$_\.Exception\.Message\)"\s*\n\s*Add-ScanWarning \$HarvestNote/.test(SCANNER));
+  ok("the scanner uploads its own bundle name and prunes only its own names", /Send-HarvestFile -SiteId \$siteId -RemotePath \("\{0\}\/\{1\}" -f \$deviceFolder, \(Split-Path -Leaf \$bundlePath\)\)/.test(SCANNER) && /\$it\.name -notlike 'TunoAppLockerScan-\*'/.test(SCANNER));
+  ok("strict mode: absent properties are tested by name, not read", /PSObject\.Properties\.Name -contains 'file'/.test(SCANNER) && /PSObject\.Properties\.Name -contains 'access_token'/.test(SCANNER));
+  ok("the secret is never written to the console or transcript", !/Write-(Info|Ok|Note|Host)[^\n]*\$harvestCfg\.ClientSecret/.test(SCANNER) && /client secret \(value not logged\)/.test(SCANNER));
+  ok("the detection half looks for a bundle younger than 7 days in the same folder", /\$MaxAgeDays = 7/.test(SCAN_DETECT) && /IT-TOOLS\\LOGS\\AppLockerScan'/.test(SCAN_DETECT) && /Filter 'TunoAppLockerScan-\*\.json'/.test(SCAN_DETECT) && /exit 1/.test(SCAN_DETECT) && /exit 0\s*$/.test(SCAN_DETECT));
+  ok("the detection half carries the two build numbers", /\$script:ScriptVersion = '1\.0\.0'/.test(SCAN_DETECT) && /\$script:TunoBuild = \d+/.test(SCAN_DETECT));
+  ok("the scanner stays under Intune's 200 KB script limit", Buffer.byteLength(SCANNER, "utf8") < 200 * 1024, String(Buffer.byteLength(SCANNER, "utf8")));
+  const P = H.REMEDY_PAIRS;
+  ok("the deploy panel has a fourth pair, scan, carrying the harvest target", !!P.scan && P.scan.detect === "Detect-TunoAppLockerScan.ps1" && P.scan.remediate === "Invoke-TunoAppLockerScan.ps1" && P.scan.harvest === true && P.events.harvest === true && !P.cleanup.harvest && !P.ittools.harvest);
+  ok("its blurb says the device is not changed and names the reference ring", /not changed/.test(P.scan.blurb) && /reference ring/.test(P.scan.blurb));
+  const D = w.document;
+  ok("Help & scripts has the detection row and the scanner's Remediation-mode note", !!D.querySelector('.al-dl-row a[href="scripts/Detect-TunoAppLockerScan.ps1"]') && /Remediation mode/.test(D.querySelector('.al-dl-row a[href="scripts/Invoke-TunoAppLockerScan.ps1"]').parentElement.nextElementSibling.textContent));
+  const versions = fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8");
+  ok("SCRIPT_VERSIONS names both", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.13\.0"/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.0\.0"/.test(versions));
+  ok("README has the rows", /Detect-TunoAppLockerScan\.ps1/.test(fs.readFileSync(path.join(ROOT, "scripts/README.md"), "utf8")));
+}
+
+// =====================================================================
+head("10617 — 📁 From the harvest site: the read scope, the entrance, the listing, the import");
+{
+  const reg = fs.readFileSync(path.join(ROOT, "New-TunoAppRegistration.ps1"), "utf8");
+  const sec = fs.readFileSync(path.join(ROOT, "SECURITY.md"), "utf8");
+  const graph = fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8");
+  ok("Sites.Read.All is on the registration and in SECURITY.md (R18)", /"Sites\.Read\.All",/.test(reg) && /`Sites\.Read\.All`/.test(sec));
+  ok("graph.js names it as its own read entry, and the drive reads cost only that", /sitesRead: \["Sites\.Read\.All"\]/.test(graph) && /driveChildren = async \(siteId, folderPath\)/.test(graph) && !/driveChildren[\s\S]{0,600}scopes: SCOPES\.sitesFull/.test(graph.slice(graph.indexOf("const driveChildren"))));
+  ok("the download uses the pre-authenticated URL with no token on it", /const dl = it && it\["@microsoft\.graph\.downloadUrl"\]/.test(graph) && /fetch\(dl, \{ method: "GET" \}\)/.test(graph));
+  const w = boot();
+  const D = w.document;
+  const H = w.AppLockerTool._harvest;
+  const btn = D.getElementById("alImportSp");
+  ok("the entrance sits with the two upload buttons", !!btn && btn.previousElementSibling && btn.previousElementSibling.id === "alImportEv");
+  ok("file kinds are told apart by name", H.harvestFileKind("TunoAppLockerScan-PC1-20260916-0900.json").kind === "scan" && H.harvestFileKind("AppControlEvents_Bundle_20260916-0301.json").kind === "events" && H.harvestFileKind("AppControlEvents_Report_20260916-0301.html").kind === "report" && !H.harvestFileKind("AppControlEvents_Report_20260916-0301.html").importable && H.harvestFileKind("other.json").importable);
+  btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const card = D.getElementById("alHarvestFetch");
+  ok("signed out: the card opens and asks for a sign-in, naming the read scope", card.style.display !== "none" && /Sign in first/.test(card.textContent) && /Sites\.Read\.All/.test(card.textContent) && !card.querySelector("#alHvRead"));
+  btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("a second click closes it", card.style.display === "none");
+  // signed in (demo): the URL is prefilled from the harvest state, the site read lists devices, a device lists files newest first
+  w.Graph.useDemo();
+  w.TunoTenant._setForTest("contoso.com", "Contoso", CFG.tenantId);
+  const d = H.deployState().harvest; d.loadedFor = CFG.tenantId; d.site = { url: CFG.siteUrl, id: "x", status: "succeeded" };
+  H.evHarvest.siteUrl = "";
+  btn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
+  ok("the site URL is prefilled from the 📁 panel's site", D.getElementById("alHvUrl").value === CFG.siteUrl);
+  ok("the site was read on opening and the device folders are listed", Array.isArray(H.evHarvest.devices) && H.evHarvest.devices.length === 2 && card.querySelectorAll("[data-hvdev]").length === 2);
+  card.querySelector("[data-hvdev='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
+  ok("a device's files are listed newest first", Array.isArray(H.evHarvest.files) && H.evHarvest.files.length === 4 && H.evHarvest.files[0].lastModifiedDateTime >= H.evHarvest.files[1].lastModifiedDateTime);
+  const nw = H.harvestNewest();
+  ok("the newest scan and events bundles are the two big buttons", nw.scan && /^TunoAppLockerScan-/.test(nw.scan.name) && nw.events && nw.events.name === "AppControlEvents_Bundle_20260916-0301.json" && /Import newest scan bundle/.test(card.textContent) && /Import newest events bundle/.test(card.textContent));
+  ok("the report is opened, not imported", !card.querySelector(`[data-hvimport="demo-f3"]`));
+  H.evHarvest.siteUrl = "https://contoso-admin.sharepoint.com/sites/x"; await H.harvestReadSite();
+  ok("a URL that is not a /sites/ URL is refused before any call", !!H.evHarvest.error && /not a SharePoint site URL/.test(H.evHarvest.error.message) || (H.evHarvest.siteUrl = "nonsense", await H.harvestReadSite(), /not a SharePoint site URL/.test((H.evHarvest.error || {}).message || "")));
+  // the import goes through importFile: hand the demo item real bundle text
+  H.evHarvest.error = null; H.evHarvest.siteUrl = CFG.siteUrl; await H.harvestReadSite(); await H.harvestOpenDevice(H.evHarvest.devices[0]);
+  w.Graph.isDemo = () => false;
+  const eventsText = JSON.stringify({ schema: "tuno.applocker.events/1", generator: { generatedUtc: "2026-09-16T03:01:00Z" }, events: { available: true, daysBack: 30, summary: { total: 0, allowed: 0, audited: 0, blocked: 0 }, entries: [] } });
+  w.Graph.driveItemText = async (siteId, itemId) => { if (itemId !== "demo-f2") throw new Error("wrong item " + itemId); return eventsText; };
+  await H.harvestImport(H.evHarvest.files.find((f) => f.id === "demo-f2"));
+  ok("importing the events bundle lands it on the table like an upload", !H.evHarvest.error && /Imported AppControlEvents_Bundle_20260916-0301\.json from REF-IMAGE-01/.test(card.textContent) && /📡 Events/.test(D.getElementById("alEvidence").textContent) && /loaded/.test(D.getElementById("alEvidence").textContent), (H.evHarvest.error || {}).message);
+  w.Graph.driveItemText = async () => { const e = new w.Graph.GraphError("graph", "The download answered HTTP 403."); return Promise.reject(e); };
+  await H.harvestImport(H.evHarvest.files[0]);
+  ok("a failed download is shown on the card, nothing else changes", !!H.evHarvest.error && /HTTP 403/.test(H.evHarvest.error.message) && /Could not read the site/.test(card.textContent));
 }
 
 });

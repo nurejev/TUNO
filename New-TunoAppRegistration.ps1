@@ -256,6 +256,21 @@ param(
     "Application.ReadWrite.All",
     "AppRoleAssignment.ReadWrite.All",
     "Sites.FullControl.All",
+    # --- T01 "From the harvest site" — build 10617 -------------------------
+    #
+    #   Sites.Read.All     READ the harvest site: list the device folders
+    #                      under Harvest/ and download one bundle into T01's
+    #                      Evidence screen (Mihai: "add an option to fetch the
+    #                      scan json from the sp site"). Delegated, so bounded
+    #                      by what the signed-in admin can open in SharePoint
+    #                      anyway; no admin consent required; read only. Taken
+    #                      as its own scope rather than leaning on the
+    #                      Sites.FullControl.All above — a read is never bought
+    #                      with a write scope, however convenient the one
+    #                      already here would be. The blast radius of this
+    #                      consent is "TUNO can read what you can read in
+    #                      SharePoint", said here.
+    "Sites.Read.All",
     # --- T22 Group migration (R33) — builds 10506-10508 -------------------
     #
     # FIVE SCOPES, AND THEY ARE THE BIGGEST ASK IN THIS FILE. Three of them

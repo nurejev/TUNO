@@ -2061,6 +2061,8 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
 .al-dep-ok{margin:8px 0 0;padding:9px 11px;border:1px solid var(--ok-bd);background:var(--ok-bg2);
   border-radius:10px;font-size:12.5px;line-height:1.55}
 .al-dep-ok b{color:var(--on)}
+/* 10617: the 📁 From the harvest site entrance on Evidence shows it is open */
+#alImportSp.active{border-color:var(--accent2);background:var(--soft)}
 .al-dep-confirm{margin:8px 0 0;padding:9px 11px;border:1px solid var(--warn-bd);background:var(--surface);
   border-radius:10px;font-size:12.5px;line-height:1.55}
 .al-dep-locked{margin:2px 0 6px;color:var(--muted)}
