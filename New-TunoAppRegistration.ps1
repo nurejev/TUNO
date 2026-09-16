@@ -221,6 +221,41 @@ param(
     #                      signed-in person's token. The blast radius of this
     #                      consent is "TUNO can create sites", said here.
     "Sites.Create.All",
+    # --- T01 harvest uploader app — build 10615 ----------------------------
+    #
+    # THREE BROAD DIRECTORY WRITES, THE WIDEST ASKS IN THIS FILE, bought by
+    # one button in the T01 📁 Harvest panel (Mihai: "the harvest site
+    # creation may also create an app secret") and nothing else:
+    #
+    #   Application.ReadWrite.All      create the "TUNO Harvest Uploader" app
+    #                                  registration (single-tenant, ONE
+    #                                  application permission: Sites.Selected)
+    #                                  and add a client secret to it — the
+    #                                  secret is shown once in the panel and
+    #                                  stamped into the events collector; it
+    #                                  is never stored by TUNO.
+    #   AppRoleAssignment.ReadWrite.All  admin-consent that one permission —
+    #                                  an appRoleAssignment on the Microsoft
+    #                                  Graph service principal, which is what
+    #                                  the portal's "Grant admin consent"
+    #                                  button writes.
+    #   Sites.FullControl.All          grant the uploader app `write` on the
+    #                                  harvest site and no other — the only
+    #                                  scope Graph accepts for POST
+    #                                  /sites/{id}/permissions. Graph also
+    #                                  gates that call on the caller's role
+    #                                  (SharePoint Administrator, or site
+    #                                  collection administrator); consent
+    #                                  alone does not open it.
+    #
+    # The blast radius of consenting these is "TUNO can create app
+    # registrations, consent application permissions, and change site
+    # permissions" — say so to whoever consents. A tenant that would rather
+    # not can omit the three and run scripts/New-TunoHarvestUploaderApp.ps1
+    # as an administrator instead; the panel then takes its output.
+    "Application.ReadWrite.All",
+    "AppRoleAssignment.ReadWrite.All",
+    "Sites.FullControl.All",
     # --- T22 Group migration (R33) — builds 10506-10508 -------------------
     #
     # FIVE SCOPES, AND THEY ARE THE BIGGEST ASK IN THIS FILE. Three of them

@@ -26,6 +26,13 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10615, date: "2026-09-16", title: "T01: the harvest uploader app — and its secret — from the panel",
+    items: [
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The 📁 Harvest site panel can now create the uploader app itself. A second block, ② The uploader app, does what the helper script does, as Graph calls from the browser: the TUNO Harvest Uploader registration with Sites.Selected as its only permission, its service principal, the admin consent, a client secret when that is the credential picked, and write on the harvest site and no other. Each step is a chip; every step but the secret is skipped when already done, so a refused step is retried by pressing again. The secret is shown once and kept in memory for the page session only — never in localStorage; after a reload the panel asks you to paste it or rotate. Three broad delegated scopes buy this and nothing else: Application.ReadWrite.All, AppRoleAssignment.ReadWrite.All and Sites.FullControl.All, asked once at the click and taken in the open on the registration and in SECURITY.md. The panel says, before the button, what a secret in a Remediation means: a shared credential on every device in the ring, readable by any local administrator and in the IME script cache, and write on the site implies read of the whole harvest. The certificate route is the other radio and stays the recommended one." },
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Get-TunoAppControlEvents.ps1 1.3.0 takes a client secret as the alternative to the certificate: a ClientSecret line in the HARVEST TARGET block (stamped by the 🚀 panel), HKLM\\SOFTWARE\\TUNO\\Harvest, or -HarvestClientSecret. A certificate wins when both are set. The secret goes to the token endpoint and nowhere else — the log names the credential kind, never the value. Every companion script also picks up the TunoBuild stamp 10614 skipped." },
+    ],
+  },
+  {
     "build": 10614,
     "date": "2026-09-16",
     "title": "T20: a reviewed user brief grounded in settings and confirmed assignment evidence",

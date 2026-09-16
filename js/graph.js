@@ -140,6 +140,25 @@ const Graph = (() => {
     // Taken in the open per the R18 rule — registration script and
     // SECURITY.md move in the same commit.
     sitesCreate: ["Sites.Create.All"],
+    // write — T01's harvest uploader app (build 10615, Mihai: "the harvest
+    // site creation may also create an app secret"). THREE BROAD DIRECTORY
+    // WRITES, the widest asks on this registration, each bought by one act
+    // of the 📁 panel and nothing else:
+    //   Application.ReadWrite.All   create the uploader app registration
+    //                               and add a client secret to it
+    //   AppRoleAssignment.ReadWrite.All  admin-consent its ONE application
+    //                               permission (Sites.Selected) — an app
+    //                               role assignment on the Graph SP, which
+    //                               is what the portal's consent button is
+    //   Sites.FullControl.All       grant that app `write` on the harvest
+    //                               site — the only call Graph accepts for
+    //                               a site permission. Graph also gates it
+    //                               on the caller's role (SharePoint
+    //                               Administrator, or site collection admin).
+    // Asked at the click, only by the 📁 panel; taken in the open per R18.
+    appsWrite: ["Application.ReadWrite.All"],
+    appRoleWrite: ["AppRoleAssignment.ReadWrite.All"],
+    sitesFull: ["Sites.FullControl.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,
@@ -761,6 +780,22 @@ const Graph = (() => {
   // the org read — the account is there from sign-in, the org read is
   // best-effort.
   const tenantId = () => { try { const a = account(); return (a && (a.tenantId || (a.idTokenClaims || {}).tid)) || ""; } catch { return ""; } };
+  // ---------- the harvest uploader app (T01, build 10615) ----------
+  // Every call names the one scope it costs. The app-role consent and the
+  // site grant are POSTs that Graph refuses with 403 when the caller lacks
+  // the directory role — reported verbatim, never retried.
+  const GRAPH_APP_ID = "00000003-0000-0000-c000-000000000000";
+  const SITES_SELECTED_ROLE = "883ea226-0bf2-4a8f-9f9d-92c9162a727d";   // Sites.Selected (Application), per the permissions reference
+  const findApplications = (name) => get(odata`/applications?$filter=displayName eq '${name}'&$select=id,appId,displayName,passwordCredentials,requiredResourceAccess`, { scopes: SCOPES.appsWrite }).then((r) => (r && r.value) || []);
+  const createApplication = (body) => post("/applications", body, { scopes: SCOPES.appsWrite });
+  const addAppPassword = (appObjectId, passwordCredential) => post(`/applications/${encodeURIComponent(appObjectId)}/addPassword`, { passwordCredential }, { scopes: SCOPES.appsWrite });
+  const servicePrincipalByAppId = (appId) => get(odata`/servicePrincipals?$filter=appId eq '${appId}'&$select=id,appId,displayName,appRoles`, { scopes: SCOPES.appsWrite }).then((r) => ((r && r.value) || [])[0] || null);
+  const createServicePrincipal = (appId) => post("/servicePrincipals", { appId }, { scopes: SCOPES.appsWrite });
+  const appRoleAssignments = (spId) => get(`/servicePrincipals/${encodeURIComponent(spId)}/appRoleAssignments`, { scopes: SCOPES.appRoleWrite }).then((r) => (r && r.value) || []);
+  const assignAppRole = (spId, resourceId, appRoleId) => post(`/servicePrincipals/${encodeURIComponent(spId)}/appRoleAssignments`, { principalId: spId, resourceId, appRoleId }, { scopes: SCOPES.appRoleWrite });
+  const siteByUrl = (url) => { const u = new URL(url); return get(`/sites/${u.hostname}:${u.pathname.replace(/\/+$/, "")}`, { scopes: SCOPES.sitesFull }); };
+  const sitePermissions = (siteId) => get(`/sites/${encodeURIComponent(siteId)}/permissions`, { scopes: SCOPES.sitesFull }).then((r) => (r && r.value) || []);
+  const grantSitePermission = (siteId, appId, displayName, roles) => post(`/sites/${encodeURIComponent(siteId)}/permissions`, { roles, grantedToIdentities: [{ application: { id: appId, displayName } }] }, { scopes: SCOPES.sitesFull });
 
   const assignProfile = (profileId, groupId) => post(
     `/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/assign`,
@@ -772,6 +807,7 @@ const Graph = (() => {
     get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
     remediations, createRemediation,
     createSite, siteOperation, tenantId,
+    GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,

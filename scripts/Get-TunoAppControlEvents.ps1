@@ -35,16 +35,24 @@ the bag or not. T01's "Harvest site" panel creates the site; the companion
 New-TunoHarvestUploaderApp.ps1 creates the uploader app registration (Sites.Selected,
 APPLICATION permission, granted write on THAT SITE ONLY), a certificate, and the
 PFX you deploy to the devices; T01 stamps the target into this script when it creates
-the Remediation. The device authenticates with the certificate from LocalMachine\My -
-no secret in this file, ever. Upload failures are warnings: the local harvest is
-complete either way, and the next pass uploads again.
+the Remediation. The device authenticates as that app - with the certificate from
+LocalMachine\My (the recommended route), or, since 1.3.0, with a CLIENT SECRET the
+📁 panel created and stamped into this file (T01 build 10615, on request). A secret in
+a Remediation is a shared credential on every device in the ring, readable by any
+local administrator and in the IME script cache, and `write` on the site implies read
+of the whole harvest: choose it knowingly, rotate it from the panel, and keep the site
+free of anything confidential. The certificate is preferred where the PFX can be
+deployed. Upload failures are warnings: the local harvest is complete either way, and
+the next pass uploads again.
 
   Configuration, first match wins:
     1. the -Harvest* parameters (a shell run)
     2. HKLM\SOFTWARE\TUNO\Harvest  (SiteUrl, TenantId, ClientId, CertSubject,
-       CertThumbprint, Folder, RetentionDays) - for a script deployed by hand
+       CertThumbprint, ClientSecret, Folder, RetentionDays) - for a script
+       deployed by hand
     3. the HARVEST TARGET block below, which T01 fills in at deploy
-  Nothing configured = no upload, and the log says "harvest: not configured".
+  A certificate wins over a secret when both are present. Nothing configured = no
+  upload, and the log says "harvest: not configured". The secret is never logged.
 
 WHAT IT COLLECTS
 
@@ -105,6 +113,10 @@ Uploader. The newest certificate with that subject and a private key is used.
 .PARAMETER HarvestCertThumbprint
 Alternative to the subject: the exact certificate by thumbprint.
 
+.PARAMETER HarvestClientSecret
+Alternative to the certificate: the uploader app's client secret (1.3.0). Used only
+when no certificate is configured. See the DESCRIPTION for what that trade means.
+
 .PARAMETER HarvestFolder
 Library folder under the site's default document library. Default Harvest; the device
 name is a subfolder under it.
@@ -123,7 +135,7 @@ log to the entries inside the window. Nothing else in those folders is touched. 
 everything.
 
 .NOTES
-Version   : 1.2.0
+Version   : 1.3.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppControlEvents.ps1), run as
@@ -155,6 +167,7 @@ param(
     [string]$HarvestClientId,
     [string]$HarvestCertSubject,
     [string]$HarvestCertThumbprint,
+    [string]$HarvestClientSecret,
     [string]$HarvestFolder,
     [ValidateRange(-1, 3650)]
     [int]$HarvestRetentionDays = -1
@@ -163,21 +176,24 @@ param(
 # Two numbers, same discipline as every house script: ScriptVersion is this file's
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
-$script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10613
+$script:ScriptVersion = '1.3.0'
+$script:TunoBuild = 10615
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the events Remediation is created from a page with a
 # harvest site set; a downloaded copy carries the empty defaults and reads
 # HKLM\SOFTWARE\TUNO\Harvest instead. Keep the assignments on their own lines
-# exactly as they are - T01 stamps them by pattern. NO SECRET BELONGS HERE: the
-# device proves itself with the certificate, not with a string.
+# exactly as they are - T01 stamps them by pattern. The device proves itself with
+# the certificate where one is configured; ClientSecret is the 📁 panel's
+# on-request alternative (1.3.0) and is a shared credential on every device
+# that carries this file - see the DESCRIPTION before choosing it.
 $script:HarvestTarget = [pscustomobject]@{
     SiteUrl        = ''
     TenantId       = ''
     ClientId       = ''
     CertSubject    = ''
     CertThumbprint = ''
+    ClientSecret   = ''
     Folder         = 'Harvest'
     RetentionDays  = 0
 }
@@ -599,13 +615,14 @@ function Get-HarvestConfig {
     $cfg = [pscustomobject]@{
         SiteUrl = [string]$script:HarvestTarget.SiteUrl; TenantId = [string]$script:HarvestTarget.TenantId
         ClientId = [string]$script:HarvestTarget.ClientId; CertSubject = [string]$script:HarvestTarget.CertSubject
-        CertThumbprint = [string]$script:HarvestTarget.CertThumbprint; Folder = [string]$script:HarvestTarget.Folder
+        CertThumbprint = [string]$script:HarvestTarget.CertThumbprint; ClientSecret = [string]$script:HarvestTarget.ClientSecret
+        Folder = [string]$script:HarvestTarget.Folder
         RetentionDays = [int]$script:HarvestTarget.RetentionDays; Source = 'embedded'
     }
     $regPath = 'HKLM:\SOFTWARE\TUNO\Harvest'
     if (Test-Path -LiteralPath $regPath) {
         $reg = Get-ItemProperty -LiteralPath $regPath -ErrorAction SilentlyContinue
-        foreach ($name in @('SiteUrl', 'TenantId', 'ClientId', 'CertSubject', 'CertThumbprint', 'Folder')) {
+        foreach ($name in @('SiteUrl', 'TenantId', 'ClientId', 'CertSubject', 'CertThumbprint', 'ClientSecret', 'Folder')) {
             $v = $null
             try { if ($reg.PSObject.Properties.Name -contains $name) { $v = [string]$reg.$name } } catch { }
             if ($v) { $cfg.$name = $v.Trim(); $cfg.Source = 'registry' }
@@ -617,6 +634,7 @@ function Get-HarvestConfig {
     if ($HarvestClientId)       { $cfg.ClientId = $HarvestClientId.Trim();             $cfg.Source = 'parameter' }
     if ($HarvestCertSubject)    { $cfg.CertSubject = $HarvestCertSubject.Trim();       $cfg.Source = 'parameter' }
     if ($HarvestCertThumbprint) { $cfg.CertThumbprint = $HarvestCertThumbprint.Trim(); $cfg.Source = 'parameter' }
+    if ($HarvestClientSecret)   { $cfg.ClientSecret = $HarvestClientSecret.Trim();     $cfg.Source = 'parameter' }
     if ($HarvestFolder)         { $cfg.Folder = $HarvestFolder.Trim();                 $cfg.Source = 'parameter' }
     if ($HarvestRetentionDays -ge 0) { $cfg.RetentionDays = $HarvestRetentionDays;     $cfg.Source = 'parameter' }
     if (-not $cfg.Folder) { $cfg.Folder = 'Harvest' }
@@ -647,8 +665,16 @@ function Get-HarvestCertificate {
 # client assertion. RS256 via GetRSAPrivateKey covers both CAPI and CNG keys,
 # which matters because an imported PFX usually lands as CNG.
 function Get-HarvestToken {
-    param([string]$TenantId, [string]$ClientId, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    param([string]$TenantId, [string]$ClientId, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert, [string]$Secret)
     $aud = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+    if (-not $Cert) {
+        # The secret route (1.3.0): plain client credentials. The secret goes to
+        # the token endpoint and nowhere else - not the log, not the output.
+        if (-not $Secret) { throw 'neither a certificate nor a client secret is configured' }
+        $r = Invoke-RestMethod -Method Post -Uri $aud -Body @{ client_id = $ClientId; client_secret = $Secret; scope = 'https://graph.microsoft.com/.default'; grant_type = 'client_credentials' } -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
+        if (-not $r.access_token) { throw 'the token endpoint answered without an access token' }
+        return [string]$r.access_token
+    }
     $now = [DateTimeOffset]::UtcNow
     $header = @{ alg = 'RS256'; typ = 'JWT'; x5t = (ConvertTo-Base64Url -Bytes $Cert.GetCertHash()) } | ConvertTo-Json -Compress
     $claims = @{
@@ -738,13 +764,17 @@ function Remove-HarvestStale {
 
 $HarvestNote = 'harvest: not configured'
 $harvestCfg = Get-HarvestConfig
-if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and ($harvestCfg.CertSubject -or $harvestCfg.CertThumbprint)) {
-    Write-Log ("Harvest target ({0}): {1} folder {2} as app {3}, certificate {4}" -f $harvestCfg.Source, $harvestCfg.SiteUrl, $harvestCfg.Folder, $harvestCfg.ClientId, $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject }))
+$useCert = [bool]($harvestCfg.CertSubject -or $harvestCfg.CertThumbprint)
+if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and ($useCert -or $harvestCfg.ClientSecret)) {
+    Write-Log ("Harvest target ({0}): {1} folder {2} as app {3}, {4}" -f $harvestCfg.Source, $harvestCfg.SiteUrl, $harvestCfg.Folder, $harvestCfg.ClientId, $(if ($harvestCfg.CertThumbprint) { "certificate $($harvestCfg.CertThumbprint)" } elseif ($harvestCfg.CertSubject) { "certificate $($harvestCfg.CertSubject)" } else { 'client secret (value not logged)' }))
     try {
         try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
-        $cert = Get-HarvestCertificate -Subject $harvestCfg.CertSubject -Thumbprint $harvestCfg.CertThumbprint
-        if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject })) }
-        $token = Get-HarvestToken -TenantId $harvestCfg.TenantId -ClientId $harvestCfg.ClientId -Cert $cert
+        $cert = $null
+        if ($useCert) {
+            $cert = Get-HarvestCertificate -Subject $harvestCfg.CertSubject -Thumbprint $harvestCfg.CertThumbprint
+            if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject })) }
+        }
+        $token = Get-HarvestToken -TenantId $harvestCfg.TenantId -ClientId $harvestCfg.ClientId -Cert $cert -Secret $harvestCfg.ClientSecret
         $hdr = @{ Authorization = "Bearer $token" }
         $siteId = Get-HarvestSiteId -SiteUrl $harvestCfg.SiteUrl -Headers $hdr
         $deviceFolder = "{0}/{1}" -f $harvestCfg.Folder.Trim('/'), $env:COMPUTERNAME
@@ -770,8 +800,8 @@ if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and
         Add-CollectWarning $HarvestNote
     }
 }
-elseif ($harvestCfg.SiteUrl -or $harvestCfg.TenantId -or $harvestCfg.ClientId -or $harvestCfg.CertSubject -or $harvestCfg.CertThumbprint) {
-    $HarvestNote = 'harvest: PARTIALLY configured - SiteUrl, TenantId, ClientId and CertSubject or CertThumbprint are all required; nothing uploaded'
+elseif ($harvestCfg.SiteUrl -or $harvestCfg.TenantId -or $harvestCfg.ClientId -or $harvestCfg.CertSubject -or $harvestCfg.CertThumbprint -or $harvestCfg.ClientSecret) {
+    $HarvestNote = 'harvest: PARTIALLY configured - SiteUrl, TenantId, ClientId and a certificate (CertSubject or CertThumbprint) or a ClientSecret are all required; nothing uploaded'
     Add-CollectWarning $HarvestNote
 }
 else { Write-Log "INFO: $HarvestNote (the local files above are the only copy - retrieve via Collect diagnostics or Live Response)" }

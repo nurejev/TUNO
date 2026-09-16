@@ -3216,7 +3216,7 @@ const AppLockerTool = (() => {
     "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.1",  changed: 10603 },
     "Initialize-TunoItToolsFolders.ps1":    { v: "1.2.0",  changed: 10612 },
     "Detect-TunoItToolsFolders.ps1":        { v: "1.0.0",  changed: 10374 },
-    "Get-TunoAppControlEvents.ps1":         { v: "1.2.0",  changed: 10613 },
+    "Get-TunoAppControlEvents.ps1":         { v: "1.3.0",  changed: 10615 },
     "Detect-TunoAppControlEvents.ps1":      { v: "1.0.0",  changed: 10378 },
     "Compress-TunoAppControlReport.ps1":    { v: "1.0.0",  changed: 10378 },
     "New-TunoHarvestUploaderApp.ps1":       { v: "1.0.0",  changed: 10613 },
@@ -3518,7 +3518,13 @@ const AppLockerTool = (() => {
     // localStorage because the site outlives the session; clientId and
     // certSubject are what New-TunoHarvestUploaderApp.ps1 printed, pasted
     // back here so the events pair can carry them.
-    harvest: { loadedFor: null, name: "TUNO-AppControl-Harvest", host: "", clientId: "", certSubject: "", busy: "", error: null, site: null },
+    // 10615: the uploader app can be created from here too (Mihai: "may also
+    // create an app secret"). `app` is what was created or found; `cred` is
+    // the credential the events pair carries — "cert" (the subject, PFX by
+    // the helper) or "secret" (created here, shown once). The secret lives
+    // in THIS variable for the session and is never written to localStorage:
+    // a reload forgets it, and the panel says so — rotate, or paste it.
+    harvest: { loadedFor: null, name: "TUNO-AppControl-Harvest", host: "", appName: "TUNO Harvest Uploader", cred: "cert", clientId: "", certSubject: "", secret: "", busy: "", error: null, site: null, app: null },
   };
 
   // The Remediations T01 can create — one definition each. deployRemedyPair()
@@ -3605,7 +3611,7 @@ const AppLockerTool = (() => {
       const made = await Graph.createRemediation({
         displayName: name,
         description: p.description.replace("{SITE}", `${BRANDING.name} ${APP_BUILD.label}`)
-          .replace("{HARVEST}", hv ? ` Uploads each pass to ${hv.siteUrl} (Harvest/<device>/) as app ${hv.clientId} with certificate ${hv.certSubject}.` : ""),
+          .replace("{HARVEST}", hv ? ` Uploads each pass to ${hv.siteUrl} (Harvest/<device>/) as app ${hv.clientId} ${hv.clientSecret ? "with a client secret carried in the script body" : `with certificate ${hv.certSubject}`}.` : ""),
         publisher: BRANDING.name,
         runAsAccount: "system",
         runAs32Bit: false,
@@ -3709,14 +3715,15 @@ const AppLockerTool = (() => {
     h.loadedFor = tid;
     try {
       const j = JSON.parse(localStorage.getItem(HARVEST_KEY(tid)) || "null");
-      if (j && typeof j === "object") { h.site = j.site || null; h.clientId = j.clientId || ""; h.certSubject = j.certSubject || ""; if (j.name) h.name = j.name; if (j.host) h.host = j.host; }
+      if (j && typeof j === "object") { h.site = j.site || null; h.clientId = j.clientId || ""; h.certSubject = j.certSubject || ""; if (j.name) h.name = j.name; if (j.host) h.host = j.host; if (j.appName) h.appName = j.appName; if (j.cred) h.cred = j.cred; h.app = j.app || null; }
     } catch { /* private mode, or a malformed entry — start clean */ }
     if (!h.host) h.host = guessSharePointHost();
     return h;
   }
   function saveHarvest() {
     const h = deployState.harvest;
-    try { localStorage.setItem(HARVEST_KEY(harvestTenant()), JSON.stringify({ site: h.site, clientId: h.clientId, certSubject: h.certSubject, name: h.name, host: h.host })); } catch { /* private mode */ }
+    // never the secret
+    try { localStorage.setItem(HARVEST_KEY(harvestTenant()), JSON.stringify({ site: h.site, clientId: h.clientId, certSubject: h.certSubject, name: h.name, host: h.host, appName: h.appName, cred: h.cred, app: h.app })); } catch { /* private mode */ }
   }
   // The tenant's SharePoint host from its initial *.onmicrosoft.com domain,
   // which the org read at sign-in already fetched. A guess the admin can edit,
@@ -3735,9 +3742,10 @@ const AppLockerTool = (() => {
     const h = loadHarvest();
     const siteUrl = h.site && h.site.url;
     const tenantId = harvestTenant();
-    const clientId = (h.clientId || "").trim(), certSubject = (h.certSubject || "").trim();
-    if (!siteUrl || !tenantId || !isGuidLike(clientId) || !certSubject) return null;
-    return { siteUrl, tenantId, clientId, certSubject };
+    const clientId = (h.clientId || "").trim(), certSubject = (h.certSubject || "").trim(), secret = (h.secret || "").trim();
+    if (!siteUrl || !tenantId || !isGuidLike(clientId)) return null;
+    if (h.cred === "secret") return secret ? { siteUrl, tenantId, clientId, certSubject: "", clientSecret: secret } : null;
+    return certSubject ? { siteUrl, tenantId, clientId, certSubject, clientSecret: "" } : null;
   }
   const isGuidLike = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || "").trim());
   // Fill the HARVEST TARGET block of Get-TunoAppControlEvents.ps1 — only that
@@ -3754,7 +3762,10 @@ const AppLockerTool = (() => {
       if (!re.test(block)) throw new Error(`The HARVEST TARGET block has no ${key} line.`);
       block = block.replace(re, (m, p) => p + q(val));
     };
-    set("SiteUrl", cfg.siteUrl); set("TenantId", cfg.tenantId); set("ClientId", cfg.clientId); set("CertSubject", cfg.certSubject);
+    set("SiteUrl", cfg.siteUrl); set("TenantId", cfg.tenantId); set("ClientId", cfg.clientId); set("CertSubject", cfg.certSubject || "");
+    // The secret line exists since script 1.3.0; an older served script has
+    // no such line and is refused only when a secret is what has to go in.
+    if (cfg.clientSecret) set("ClientSecret", cfg.clientSecret);
     return text.slice(0, start) + block + text.slice(end);
   }
   const HARVEST_NAME_OK = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -3798,15 +3809,86 @@ const AppLockerTool = (() => {
     }
     h.busy = ""; renderHarvest(); renderRemedy();
   }
+  // THE UPLOADER APP FROM THE PANEL (10615). The same five steps the helper
+  // script does, as delegated Graph calls: find-or-create the registration
+  // with Sites.Selected (Application) as its only permission; a service
+  // principal; admin consent (an appRoleAssignment on the Graph SP); a
+  // client secret when that is the credential picked; `write` on the
+  // harvest site and no other. Every step is idempotent except the secret,
+  // which is a rotation by design — a second run adds a second secret and
+  // the panel shows the new one. Three broad scopes buy this and nothing
+  // else (SCOPES.appsWrite / appRoleWrite / sitesFull), asked once, here.
+  async function createHarvestApp() {
+    const h = loadHarvest();
+    h.error = null;
+    const name = (h.appName || "").trim();
+    if (!h.site || !h.site.url) { h.error = { kind: "graph", message: "Create the harvest site first — the app is granted write on it, so the site has to exist." }; renderHarvest(); return; }
+    if (!name || name.length > 120) { h.error = { kind: "graph", message: "The uploader app needs a name (up to 120 characters)." }; renderHarvest(); return; }
+    h.busy = "app"; renderHarvest();
+    const when = new Date().toISOString();
+    const secretDays = 365;
+    try {
+      if (typeof Graph.isDemo === "function" && Graph.isDemo()) {
+        const fakeId = "d3a1c0de-0000-4000-8000-" + String(Date.now()).slice(-12).padStart(12, "0");
+        h.app = { id: "demo-app", appId: fakeId, spId: "demo-sp", consented: "granted", granted: "granted", secretUntil: h.cred === "secret" ? new Date(Date.now() + secretDays * 864e5).toISOString() : "", when, name, appState: "created" };
+        h.clientId = fakeId; if (h.cred === "secret") h.secret = "demo~secret~" + fakeId.slice(-6);
+        saveHarvest(); h.busy = ""; renderHarvest(); renderRemedy(); return;
+      }
+      await Graph.ensureScopes([...Graph.SCOPES.appsWrite, ...Graph.SCOPES.appRoleWrite, ...Graph.SCOPES.sitesFull]);
+      // 1. the registration, found by name or created — Sites.Selected only
+      const graphSp = await Graph.servicePrincipalByAppId(Graph.GRAPH_APP_ID);
+      if (!graphSp) throw new Error("The Microsoft Graph service principal was not found in this tenant.");
+      const role = (graphSp.appRoles || []).find((r) => r.value === "Sites.Selected" && (r.allowedMemberTypes || []).includes("Application"));
+      const roleId = (role && role.id) || Graph.SITES_SELECTED_ROLE;
+      const found = await Graph.findApplications(name);
+      if (found.length > 1) throw new Error(`${found.length} app registrations are named "${name}" — rename or remove the extras in the portal, then try again.`);
+      let app = found[0] || null;
+      let appState = app ? "found" : "created";
+      if (!app) app = await Graph.createApplication({
+        displayName: name, signInAudience: "AzureADMyOrg",
+        requiredResourceAccess: [{ resourceAppId: Graph.GRAPH_APP_ID, resourceAccess: [{ id: roleId, type: "Role" }] }],
+        notes: `TUNO T01 harvest uploader. The events collector on every device authenticates as this app and uploads its bundle to the harvest site ${h.site.url}. Sites.Selected only; write on that site only. Created from ${BRANDING.name} ${APP_BUILD.label}.`,
+      });
+      h.app = { id: app.id, appId: app.appId, spId: "", consented: "", granted: "", secretUntil: "", when, name, appState };
+      h.clientId = app.appId; saveHarvest(); renderHarvest();
+      // 2. the service principal
+      let sp = await Graph.servicePrincipalByAppId(app.appId);
+      if (!sp) sp = await Graph.createServicePrincipal(app.appId);
+      h.app.spId = sp.id; saveHarvest();
+      // 3. admin consent for the one application permission
+      const have = await Graph.appRoleAssignments(sp.id);
+      if (have.some((a) => a.appRoleId === roleId && a.resourceId === graphSp.id)) h.app.consented = "already";
+      else { await Graph.assignAppRole(sp.id, graphSp.id, roleId); h.app.consented = "granted"; }
+      saveHarvest(); renderHarvest();
+      // 4. the secret, when that is the credential — shown once, kept in memory only
+      if (h.cred === "secret") {
+        const pw = await Graph.addAppPassword(app.id, { displayName: `TUNO harvest · ${APP_BUILD.label} · ${when.slice(0, 10)}`, endDateTime: new Date(Date.now() + secretDays * 864e5).toISOString() });
+        if (!pw || !pw.secretText) throw new Error("Graph created the secret but did not return its value — remove it in the portal and try again.");
+        h.secret = pw.secretText; h.app.secretUntil = pw.endDateTime || ""; h.app.secretHint = pw.hint || "";
+      }
+      // 5. write on the harvest site — and no other
+      let siteId = h.site.id;
+      if (!siteId) { const site = await Graph.siteByUrl(h.site.url); siteId = site && site.id; if (!siteId) throw new Error(`The site ${h.site.url} could not be resolved — it may still be provisioning. Open it, then try again.`); h.site.id = siteId; }
+      const perms = await Graph.sitePermissions(siteId);
+      const mine = perms.filter((p) => [...(p.grantedToIdentitiesV2 || []), ...(p.grantedToIdentities || [])].some((g) => g && g.application && String(g.application.id).toLowerCase() === String(app.appId).toLowerCase()));
+      if (mine.length) h.app.granted = "already";
+      else { await Graph.grantSitePermission(siteId, app.appId, name, ["write"]); h.app.granted = "granted"; }
+      saveHarvest();
+    } catch (e) {
+      h.error = (e && e.name === "GraphError") ? e : { kind: "graph", message: (e && e.message) || String(e), code: "" };
+    }
+    h.busy = ""; renderHarvest(); renderRemedy();
+  }
+
   function renderHarvest() {
     const box = $("alHarvestBox");
     if (!box) return;
     const noGraph = typeof Graph === "undefined";
     const signedIn = !noGraph && Graph.signedIn();
     const h = loadHarvest();
-    const intro = `<p class="mini muted" style="margin:0 0 8px">Every way of retrieving a device's events bundle today needs the device <b>on</b> — Collect diagnostics, Live Response. A harvest site is one SharePoint site the collector uploads to on every pass, under <code>Harvest/&lt;device&gt;/</code>, so the evidence is in the tenant whether the laptop is in the bag or not. <b>Three parts, in order:</b> ① this panel creates the site (<code>Sites.Create.All</code> — the one SharePoint scope TUNO carries: it creates a site and cannot read or write any other); ② <code>New-TunoHarvestUploaderApp.ps1</code> creates the uploader app (<code>Sites.Selected</code>, application, <b>write on this site only</b>), a certificate and the PFX you deploy to the devices with an Intune PKCS-import profile — no secret in any script; ③ paste its two values below, and the events Remediation created in the 🚀 panel <b>carries the target</b>. The device authenticates with the certificate from <code>LocalMachine\\My</code>, never with TUNO's token.</p>`;
+    const intro = `<p class="mini muted" style="margin:0 0 8px">Every way of retrieving a device's events bundle today needs the device <b>on</b> — Collect diagnostics, Live Response. A harvest site is one SharePoint site the collector uploads to on every pass, under <code>Harvest/&lt;device&gt;/</code>, so the evidence is in the tenant whether the laptop is in the bag or not. <b>Three parts, in order:</b> ① this panel creates the site (<code>Sites.Create.All</code> — the one SharePoint scope TUNO carries: it creates a site and cannot read or write any other); ② the uploader app (<code>Sites.Selected</code>, application, <b>write on this site only</b>) — created from this panel with a client secret, or by <code>New-TunoHarvestUploaderApp.ps1</code> with a certificate and the PFX you deploy to the devices with an Intune PKCS-import profile; ③ with its values below, the events Remediation created in the 🚀 panel <b>carries the target</b>. The device authenticates as that app — a certificate from <code>LocalMachine\\My</code>, or the secret stamped into the script — never with TUNO's token.</p>`;
     if (!signedIn) {
-      box.innerHTML = intro + `<p class="mini muted" style="margin:0">Sign in with an account in the tenant that gets the site and this becomes a button. TUNO asks for <code>Sites.Create.All</code> at the moment you press it; the scope must be consented on the app registration first (<code>New-TunoAppRegistration.ps1</code> carries it since build 10613).</p>`;
+      box.innerHTML = intro + `<p class="mini muted" style="margin:0">Sign in with an account in the tenant that gets the site and this becomes a button. TUNO asks for <code>Sites.Create.All</code> at the moment you press it, and the uploader-app button for <code>Application.ReadWrite.All</code>, <code>AppRoleAssignment.ReadWrite.All</code> and <code>Sites.FullControl.All</code>; the scopes must be consented on the app registration first (<code>New-TunoAppRegistration.ps1</code> carries them since builds 10613 and 10615).</p>`;
       return;
     }
     const err = h.error ? `<div class="al-dep-err"><b>${escq(h.error.kind === "admin" ? "The tenant refused this" : h.error.kind === "consent" ? "Consent was not granted" : h.error.kind === "throttled" ? "The tenant is throttling" : "Not done")}.</b>
@@ -3818,15 +3900,40 @@ const AppLockerTool = (() => {
         <a href="${escq(s.url)}" target="_blank" rel="noopener">${escq(s.url)}</a>${s.id ? ` · id <code>${escq(s.id)}</code>` : ""}${s.when ? ` · ${escq(String(s.when).replace("T", " ").slice(0, 16))} UTC` : ""}
         ${s.detail ? `<div class="mini" style="margin-top:4px">${escq(s.detail)}</div>` : ""}
         ${s.status === "pending" ? `<div class="mini" style="margin-top:4px">SharePoint takes a minute or two. Open the URL; when it answers, the site exists and the helper below can grant on it.</div>` : ""}
-        ${s.status !== "failed" ? `<div class="mini" style="margin-top:6px"><b>Next, in PowerShell as an administrator</b> (Microsoft.Graph module; asks <code>Application.ReadWrite.All</code>, <code>AppRoleAssignment.ReadWrite.All</code>, <code>Sites.FullControl.All</code> of <i>you</i>, once):</div>
+        ${s.status !== "failed" ? `<div class="mini" style="margin-top:6px"><b>Next:</b> the uploader app — ② below creates it from here with a client secret, or, for the certificate route, in PowerShell as an administrator (Microsoft.Graph module; asks the same three scopes of <i>you</i>, once):</div>
         <pre class="al-code" style="margin:4px 0 0">irm ${escq(scriptUrl("New-TunoHarvestUploaderApp.ps1"))} -OutFile .\\New-TunoHarvestUploaderApp.ps1
 .\\New-TunoHarvestUploaderApp.ps1 -SiteUrl "${escq(s.url)}"</pre>
         <div class="mini" style="margin-top:4px">It prints the uploader's client id and the certificate subject — paste them below — and writes the PFX to deploy.</div>` : ""}
       </div>`;
     const cfg = harvestConfig();
+    const a = h.app;
+    const stepChip = (label, state) => `<span class="pill ${state === "granted" || state === "created" ? "sg-pill green" : state === "already" || state === "found" ? "sg-pill" : "sg-pill amber"}" style="display:inline-block;margin:0 4px 4px 0">${escq(label)}: ${escq(state || "pending")}</span>`;
+    const appBox = !a ? "" : `<div class="${h.error && h.busy === "" && !a.granted ? "al-dep-err" : "al-dep-ok"}" style="margin-top:8px">
+        <b>${a.granted ? "Uploader app ready." : "Uploader app — partly done."}</b> ${escq(a.name)} · client id <code>${escq(a.appId)}</code>${a.when ? ` · ${escq(String(a.when).replace("T", " ").slice(0, 16))} UTC` : ""}
+        <div style="margin-top:6px">${stepChip("registration", a.appState)}${stepChip("service principal", a.spId ? "found" : "")}${stepChip("Sites.Selected consent", a.consented)}${h.cred === "secret" ? stepChip("client secret", a.secretUntil ? "created" : "") : ""}${stepChip("write on the site", a.granted)}</div>
+        ${h.cred === "secret" ? (h.secret ? `<div class="mini" style="margin-top:6px"><b>Client secret</b> (shown now, kept for this page session only — copy it into your vault; a reload forgets it and the panel then asks you to paste it or rotate): <code style="user-select:all">${escq(h.secret)}</code>${a.secretUntil ? ` · expires ${escq(String(a.secretUntil).slice(0, 10))}` : ""}</div>` : `<div class="mini" style="margin-top:6px;color:var(--off)"><b>The secret is not on this page</b> — paste it below, or press the button again to rotate (a new secret is added, the old one keeps working until you remove it in the portal).</div>`) : ""}
+        ${!a.granted ? `<div class="mini" style="margin-top:6px">A step was refused; press the button again — every step but the secret is skipped when already done.</div>` : ""}
+      </div>`;
+    const credSeg = `<span class="mini muted">credential</span>
+      <label class="mini" style="display:inline-flex;gap:4px;align-items:center"><input type="radio" name="alHarvestCred" value="cert" ${h.cred !== "secret" ? "checked" : ""}> certificate <span class="muted">(PFX via the helper — recommended)</span></label>
+      <label class="mini" style="display:inline-flex;gap:4px;align-items:center"><input type="radio" name="alHarvestCred" value="secret" ${h.cred === "secret" ? "checked" : ""}> client secret <span class="muted">(created here, in the script on every device)</span></label>`;
+    const appBlock = `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <p class="mini muted" style="margin:0 0 6px"><b>② The uploader app</b> — the identity the devices upload as. Create it here (asks <code>Application.ReadWrite.All</code>, <code>AppRoleAssignment.ReadWrite.All</code> and <code>Sites.FullControl.All</code> at the click — three broad directory writes, each for one step: the registration with <code>Sites.Selected</code> as its only permission, its admin consent, and <b>write on this site only</b>; Graph also gates the site grant on a SharePoint Administrator role) — or run <code>New-TunoHarvestUploaderApp.ps1</code> and paste its output. <b>A client secret is a shared credential on every device in the ring</b>, readable by any local administrator and in the IME script cache, and write on the site implies read of the whole harvest: pick it knowingly, rotate it from here, keep the site free of anything confidential. The certificate route keeps the private key non-exportable on the device.</p>
+      <div class="al-dep-row">
+        <input id="alHarvestAppName" class="al-dep-in" style="flex:1;min-width:240px" value="${escq(h.appName)}" spellcheck="false" title="Display name of the uploader app registration">
+        ${credSeg}
+        <button id="alHarvestApp" class="btn primary sm" ${h.busy || !s ? "disabled" : ""} title="${!s ? "Create the harvest site first" : ""}">${h.busy === "app" ? "Creating…" : a ? (h.cred === "secret" ? "🔐 Run again / rotate the secret" : "🔐 Run again") : "🔐 Create the uploader app" + (h.cred === "secret" ? " + secret" : "")}</button>
+      </div>
+      ${appBox}
+      <div class="al-dep-row" style="margin-top:10px">
+        <input id="alHarvestClient" class="al-dep-in" style="flex:1;min-width:300px" value="${escq(h.clientId)}" placeholder="uploader app (client) id — filled in above, or from the helper's output" spellcheck="false">
+        ${h.cred === "secret"
+          ? `<input id="alHarvestSecret" class="al-dep-in" type="password" style="flex:1;min-width:240px" value="${escq(h.secret)}" placeholder="client secret — created above, or paste one" spellcheck="false" autocomplete="off">`
+          : `<input id="alHarvestCert" class="al-dep-in" style="flex:1;min-width:240px" value="${escq(h.certSubject)}" placeholder="certificate subject, e.g. CN=TUNO Harvest Uploader" spellcheck="false">`}
+      </div></div>`;
     const ready = `<div class="mini" style="margin-top:10px">${cfg
-      ? `✅ <b>Harvest target complete.</b> Tenant <code>${escq(cfg.tenantId)}</code> · app <code>${escq(cfg.clientId)}</code> · certificate <code>${escq(cfg.certSubject)}</code> · site <code>${escq(cfg.siteUrl)}</code>. Create (or re-create) the <b>events-collection Remediation</b> in the 🚀 panel below and it carries this target. A Remediation created before this point does not — replace its remediation script body, or create it again.`
-      : `⏳ <b>Target incomplete:</b> ${!s ? "no site yet" : !isGuidLike(h.clientId) ? "the uploader client id (a GUID from the helper's output)" : !(h.certSubject || "").trim() ? "the certificate subject (the helper's CertSubject, default CN=TUNO Harvest Uploader)" : "the tenant id (sign in again)"}. Until it is complete the events pair is created without a target and the bundle stays on the device.`}</div>`;
+      ? `✅ <b>Harvest target complete.</b> Tenant <code>${escq(cfg.tenantId)}</code> · app <code>${escq(cfg.clientId)}</code> · ${cfg.clientSecret ? "<b>client secret</b> (goes into the script body)" : `certificate <code>${escq(cfg.certSubject)}</code>`} · site <code>${escq(cfg.siteUrl)}</code>. Create (or re-create) the <b>events-collection Remediation</b> in the 🚀 panel below and it carries this target. A Remediation created before this point does not — replace its remediation script body, or create it again.`
+      : `⏳ <b>Target incomplete:</b> ${!s ? "no site yet" : !isGuidLike(h.clientId) ? "the uploader client id (create the app above, or paste the helper's output)" : h.cred === "secret" ? (!(h.secret || "").trim() ? "the client secret (create it above, or paste it)" : "the tenant id (sign in again)") : !(h.certSubject || "").trim() ? "the certificate subject (the helper's CertSubject, default CN=TUNO Harvest Uploader)" : "the tenant id (sign in again)"}. Until it is complete the events pair is created without a target and the bundle stays on the device.`}</div>`;
     box.innerHTML = intro + err + `
       <div class="al-dep-row">
         <input id="alHarvestHost" class="al-dep-in" style="flex:1;min-width:260px" value="${escq(h.host)}" placeholder="https://contoso.sharepoint.com" spellcheck="false" ${s ? "disabled" : ""} title="Your tenant's SharePoint host — guessed from the initial onmicrosoft.com domain, editable">
@@ -3837,21 +3944,20 @@ const AppLockerTool = (() => {
       </div>
       <p class="mini muted" style="margin:6px 0 0">Team site without a group (template <code>sts</code>), you as owner, sharing by email off. TUNO never deletes a site: if the name is taken the tenant says so and you pick another.</p>
       ${siteBox}
-      <div class="al-dep-row" style="margin-top:12px">
-        <input id="alHarvestClient" class="al-dep-in" style="flex:1;min-width:300px" value="${escq(h.clientId)}" placeholder="uploader app (client) id — from the helper's output" spellcheck="false">
-        <input id="alHarvestCert" class="al-dep-in" style="flex:1;min-width:240px" value="${escq(h.certSubject)}" placeholder="certificate subject, e.g. CN=TUNO Harvest Uploader" spellcheck="false">
-      </div>
+      ${appBlock}
       ${ready}`;
     const bind = (id, key) => { const el = $(id); if (el) el.addEventListener("input", () => { h[key] = el.value; saveHarvest(); }); };
-    bind("alHarvestHost", "host"); bind("alHarvestName", "name");
-    ["alHarvestClient", "alHarvestCert"].forEach((id) => {
+    bind("alHarvestHost", "host"); bind("alHarvestName", "name"); bind("alHarvestAppName", "appName");
+    [["alHarvestClient", "clientId"], ["alHarvestCert", "certSubject"], ["alHarvestSecret", "secret"]].forEach(([id, key]) => {
       const el = $(id); if (!el) return;
-      el.addEventListener("input", () => { h[id === "alHarvestClient" ? "clientId" : "certSubject"] = el.value; saveHarvest(); });
+      el.addEventListener("input", () => { h[key] = el.value; if (key !== "secret") saveHarvest(); });
       // Redraw on blur, not on every keystroke — the readiness line changes,
       // and the box being typed into would lose focus mid-word.
       el.addEventListener("change", () => { renderHarvest(); renderRemedy(); });
     });
+    box.querySelectorAll('input[name="alHarvestCred"]').forEach((r) => r.addEventListener("change", () => { h.cred = r.value; saveHarvest(); renderHarvest(); renderRemedy(); }));
     const create = $("alHarvestCreate"); if (create) create.addEventListener("click", createHarvestSite);
+    const mkApp = $("alHarvestApp"); if (mkApp) mkApp.addEventListener("click", createHarvestApp);
     const forget = $("alHarvestForget"); if (forget) forget.addEventListener("click", () => {
       if (!window.confirm("Forget this harvest site on this page? The site itself stays in the tenant; only TUNO's memory of it goes, so the events pair is created without a target until a site is set again.")) return;
       h.site = null; h.error = null; saveHarvest(); renderHarvest(); renderRemedy();
@@ -4570,6 +4676,6 @@ const AppLockerTool = (() => {
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
-    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, deployState: () => deployState },
+    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, deployState: () => deployState },
   };
 })();

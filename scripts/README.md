@@ -19,7 +19,7 @@ itself, so the copy you download always matches the build of T01 you are looking
 | `Detect-TunoItToolsFolders.ps1` | Detection half of the IT-TOOLS Remediation pair | Exit 1 = folders missing, writable by a non-admin, or SYSTEM cannot log — run the provisioning |
 | `Initialize-TunoItToolsFolders.ps1` | Creates the IT-TOOLS house folders with the admin-only ACL the standing allows depend on; trims its own log to 30 days (`-RetentionDays`) | Deploy BEFORE the policy, as SYSTEM; exits 1 if a non-admin can still write |
 | `Detect-TunoAppControlEvents.ps1` | Detection half of the events pair — **always exits 1 on purpose**: the "remediation" IS the collection | Its compliance numbers mean "the collector ran", never "the device is fine" |
-| `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle; with a harvest target (stamped in by T01, `HKLM\SOFTWARE\TUNO\Harvest`, or `-Harvest*` parameters) uploads bundle + report to the harvest site as `Harvest/<device>/`, authenticating with the uploader certificate; first removes this set's own output older than 30 days (bundles, reports, per-ID exports, Live Response zips) and trims both halves' logs (`-RetentionDays`, 0 keeps all) | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
+| `Get-TunoAppControlEvents.ps1` | Harvests CodeIntegrity + AppLocker events from a device into CSV/XML, an HTML report, and the T01 events bundle; with a harvest target (stamped in by T01, `HKLM\SOFTWARE\TUNO\Harvest`, or `-Harvest*` parameters) uploads bundle + report to the harvest site as `Harvest/<device>/`, authenticating with the uploader certificate or, since 1.3.0, a client secret the 📁 panel created (a certificate wins when both are set; the secret is never logged); first removes this set's own output older than 30 days (bundles, reports, per-ID exports, Live Response zips) and trims both halves' logs (`-RetentionDays`, 0 keeps all) | IME Logs folder, named `.log` so **Collect diagnostics** gathers it; upload the `AppControlEvents_Bundle_*.log` to T01 |
 | `Get-TunoAppLockerPolicyHealth.ps1` | Read-only policy health check for a device where the policy is delivered but does not seem to bite: 8000/8001 with the log's own reach, CSP delivery events, services, the MDM store per collection (mode, rules), the effective policy from the cmdlet AND the MDM store, and the AppLocker decisions logged after the store's newest write. Built for MDE Live Response. |
 | `Remove-TunoUserInstalledApps.ps1` | Admin menu to remove per-user installs the enforced policy stopped users from uninstalling: inventories every profile's Uninstall keys (hives of logged-off users loaded), runs the uninstaller under the administrator allow rule, verifies, and offers guarded leftover removal when the uninstaller cannot do it (per-user MSI, missing uninstaller) | Transcript in `%ProgramData%\IT-TOOLS\LOGS`; `-List` reads only; `-Name <app> -Force -Quiet -Leftovers` for Live Response |
 | `Compress-TunoAppControlReport.ps1` | Zips the newest report + bundle for MDE Live Response `getfile` | `%ProgramData%\IT-TOOLS\Apps\ACB-Report_<HOST>_<stamp>.zip`; final line is `ARCHIVE: <path>` |
@@ -64,7 +64,7 @@ the bag or not. Three parts, in order:
 
 1. **T01's 📁 Harvest site panel** creates the site (`POST /beta/sites`, template `sts`,
    under `Sites.Create.All` — the one SharePoint scope TUNO carries).
-2. **`New-TunoHarvestUploaderApp.ps1 -SiteUrl <the site>`**, run once by an administrator,
+2. **The uploader app** — from the 📁 panel itself (build 10615: creates the registration with `Sites.Selected`, consents it, adds a **client secret** shown once, and grants `write` on the site — three broad delegated writes on TUNO's registration, see SECURITY.md; the secret then travels in the collector's script body on every device, which the panel says before the button) — or **`New-TunoHarvestUploaderApp.ps1 -SiteUrl <the site>`**, run once by an administrator,
    creates the *TUNO Harvest Uploader* app registration with `Sites.Selected` as an
    application permission, a self-signed certificate (or registers your CA's with
    `-ExistingCerPath`), puts the public half on the app, and grants the app `write` on
@@ -80,7 +80,8 @@ On the device the collector signs a JWT with the certificate's private key (RS25
 token, resolves the site by URL, and PUTs the two files (an upload session above 4 MB).
 Upload failures are warnings — the local harvest is complete either way, and the next
 pass uploads again. The cloud copy is kept for ever unless `HarvestRetentionDays` is set;
-the 30-day rule is about the device. **No secret is ever placed in a script.**
+the 30-day rule is about the device. **The certificate route places no secret in any
+script; the secret route places one, knowingly.**
 
 It replaces the CloudFlows/michaelsendpoint `Remedate_ACB.ps1` set, with three defects
 fixed: MSI/Script event IDs 8005/8007 were never collected (an ENFORCED block on an MSI

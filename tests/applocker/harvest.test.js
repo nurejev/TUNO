@@ -11,6 +11,7 @@ const HELPER = fs.readFileSync(path.join(ROOT, "scripts/New-TunoHarvestUploaderA
 const CFG = { siteUrl: "https://contoso.sharepoint.com/sites/TUNO-AppControl-Harvest", tenantId: "11111111-2222-3333-4444-555555555555", clientId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", certSubject: "CN=TUNO Harvest Uploader" };
 
 const nodeTextCodecs = (w) => { w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder; };
+const isGuidLike = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || ""));
 
 run(async () => {
 
@@ -24,14 +25,14 @@ head("the stamp fills the HARVEST TARGET block and touches nothing else");
   ok("TenantId is set", /^\s*TenantId\s*=\s*'11111111-2222-3333-4444-555555555555'$/m.test(out));
   ok("ClientId is set", /^\s*ClientId\s*=\s*'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'$/m.test(out));
   ok("CertSubject is set", /^\s*CertSubject\s*=\s*'CN=TUNO Harvest Uploader'$/m.test(out));
-  ok("CertThumbprint and Folder are left as they were", /^\s*CertThumbprint\s*=\s*''$/m.test(out) && /^\s*Folder\s*=\s*'Harvest'$/m.test(out));
+  ok("CertThumbprint, ClientSecret and Folder are left as they were", /^\s*CertThumbprint\s*=\s*''$/m.test(out) && /^\s*ClientSecret\s*=\s*''$/m.test(out) && /^\s*Folder\s*=\s*'Harvest'$/m.test(out));
   // Everything outside the block is byte-identical: split both at the block
   // and compare the halves.
   const cut = (s) => { const a = s.indexOf("$script:HarvestTarget = [pscustomobject]@{"); const b = s.indexOf("\n}", a); return [s.slice(0, a), s.slice(b)]; };
   const [b1, a1] = cut(SCRIPT), [b2, a2] = cut(out);
   ok("nothing before the block changed", b1 === b2);
   ok("nothing after the block changed", a1 === a2);
-  ok("the script's own ScriptVersion survives", /\$script:ScriptVersion = '1\.2\.0'/.test(out));
+  ok("the script's own ScriptVersion survives", /\$script:ScriptVersion = '1\.3\.0'/.test(out));
   const quoted = H.stampHarvestConfig(SCRIPT, Object.assign({}, CFG, { certSubject: "CN=O'Brien" }));
   ok("a quote in a value is doubled the PowerShell way", /CertSubject\s*=\s*'CN=O''Brien'/.test(quoted));
   let threw = "";
@@ -55,6 +56,17 @@ head("the config is all-or-nothing, remembered per tenant");
   ok("all four present: the config", !!c && c.siteUrl === CFG.siteUrl && c.tenantId === CFG.tenantId && c.clientId === CFG.clientId && c.certSubject === CFG.certSubject);
   d.clientId = "not-a-guid";
   ok("a client id that is not a GUID does not count", H.harvestConfig() === null);
+  // 10615: the secret is the other credential — and never persisted
+  d.clientId = CFG.clientId; d.cred = "secret"; d.secret = "";
+  ok("secret mode without a secret: no config", H.harvestConfig() === null);
+  d.secret = "s3cr3t~value";
+  const cs = H.harvestConfig();
+  ok("secret mode: the config carries the secret and no certificate", !!cs && cs.clientSecret === "s3cr3t~value" && cs.certSubject === "");
+  const saved = JSON.parse(w.localStorage.getItem("tuno.t01.harvest." + CFG.tenantId) || "{}");
+  ok("localStorage never holds the secret", !JSON.stringify(saved).includes("s3cr3t"));
+  const stamped = H.stampHarvestConfig(SCRIPT, cs);
+  ok("the stamp writes ClientSecret and leaves CertSubject empty", /^\s*ClientSecret\s*=\s*'s3cr3t~value'$/m.test(stamped) && /^\s*CertSubject\s*=\s*''$/m.test(stamped));
+  d.cred = "cert"; d.secret = "";
   ok("the SharePoint host is guessed from the initial onmicrosoft.com domain", (() => {
     const real = w.TunoTenant.org;
     w.TunoTenant.org = () => ({ verifiedDomains: [{ name: "contoso.com", isInitial: false }, { name: "Contoso.onmicrosoft.com", isInitial: true }] });
@@ -128,17 +140,44 @@ head("creating the events pair carries the target, BOM kept, detection untouched
 }
 
 // =====================================================================
+head("10615 — the uploader app from the panel (demo), secret shown once and never saved");
+{
+  const w = boot();
+  const D = w.document;
+  w.Graph.useDemo();
+  w.TunoTenant._setForTest("contoso.com", "Contoso", CFG.tenantId);
+  const H = w.AppLockerTool._harvest;
+  const d = H.deployState().harvest;
+  d.loadedFor = CFG.tenantId; d.site = { url: CFG.siteUrl, id: "x", status: "succeeded" }; d.cred = "secret";
+  H.renderHarvest();
+  ok("the app button is offered once a site exists", !!D.getElementById("alHarvestApp") && !D.getElementById("alHarvestApp").disabled);
+  ok("the secret radio is on and the secret box is a password field", D.querySelector('input[name="alHarvestCred"][value="secret"]').checked && D.getElementById("alHarvestSecret").type === "password");
+  await H.createHarvestApp();
+  ok("the demo run fills the client id and a secret", isGuidLike(d.clientId) && /^demo~secret~/.test(d.secret));
+  const box = D.getElementById("alHarvestBox");
+  ok("the panel shows the secret once, with the vault warning", box.textContent.includes(d.secret) && /kept for this page session only/.test(box.textContent));
+  ok("every step chip is done", /Sites\.Selected consent: granted/.test(box.textContent) && /write on the site: granted/.test(box.textContent) && /client secret: created/.test(box.textContent));
+  ok("the readiness line is complete and names the secret route", /Harvest target complete/.test(box.textContent) && /client secret/.test(box.textContent));
+  const saved = JSON.parse(w.localStorage.getItem("tuno.t01.harvest." + CFG.tenantId) || "{}");
+  ok("the app record is remembered, the secret is not", saved.app && saved.app.appId === d.clientId && !JSON.stringify(saved).includes(d.secret));
+  ok("the events pair says the target is set", (D.getElementById("alRemedyDetails").open = true, D.getElementById("alRemedyDetails").dispatchEvent(new w.Event("toggle")), /Harvest target set/.test(D.getElementById("alRemedyBox").textContent)));
+}
+// =====================================================================
 head("the scope is taken in the open (R18), and the scripts keep their promises");
 {
   const reg = fs.readFileSync(path.join(ROOT, "New-TunoAppRegistration.ps1"), "utf8");
   const sec = fs.readFileSync(path.join(ROOT, "SECURITY.md"), "utf8");
   const graph = fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8");
   ok("the registration script carries Sites.Create.All", /"Sites\.Create\.All",/.test(reg));
+  ok("10615: the three uploader-app scopes are on the registration and in SECURITY.md", ["Application.ReadWrite.All", "AppRoleAssignment.ReadWrite.All", "Sites.FullControl.All"].every((sc) => reg.includes(`"${sc}",`) && sec.includes(sc)));
+  ok("graph.js names them as their own SCOPES entries", /appsWrite: \["Application\.ReadWrite\.All"\]/.test(graph) && /appRoleWrite: \["AppRoleAssignment\.ReadWrite\.All"\]/.test(graph) && /sitesFull: \["Sites\.FullControl\.All"\]/.test(graph));
+  ok("the uploader app asks for Sites.Selected (Application) and nothing else", /SITES_SELECTED_ROLE = "883ea226-0bf2-4a8f-9f9d-92c9162a727d"/.test(graph) && /resourceAccess: \[\{ id: roleId, type: "Role" \}\]/.test(fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8")));
+  ok("the collector takes a secret only when no certificate is configured, and never logs it", /if \(-not \$Cert\) \{/.test(SCRIPT) && /client_secret = \$Secret/.test(SCRIPT) && /client secret \(value not logged\)/.test(SCRIPT) && !/Write-Log[^\n]*ClientSecret\b/.test(SCRIPT));
   ok("SECURITY.md explains it as a write, and says the devices never hold TUNO's identity", /Sites\.Create\.All/.test(sec) && /devices never hold TUNO's identity/.test(sec));
   ok("graph.js names it as its own SCOPES entry, apart from the Intune writes", /sitesCreate: \["Sites\.Create\.All"\]/.test(graph));
   ok("createSite posts to /beta/sites with that scope and asks for the Location", /createSite = \(site\) => call\("POST", `\$\{BETA\}\/sites`, \{ body: site, scopes: SCOPES\.sitesCreate, withLocation: true \}\)/.test(graph));
   ok("the collector has the HARVEST TARGET block with empty defaults", /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCRIPT));
-  ok("the collector never carries a client secret", !/client_secret/i.test(SCRIPT) && /client_assertion/.test(SCRIPT));
+  ok("the collector's HARVEST TARGET block ships with an EMPTY secret line", /^\s*ClientSecret\s*=\s*''$/m.test(SCRIPT) && /client_assertion/.test(SCRIPT));
   ok("the collector reads the registry override and the parameters", /HKLM:\\SOFTWARE\\TUNO\\Harvest/.test(SCRIPT) && /\[string\]\$HarvestSiteUrl/.test(SCRIPT));
   ok("the collector says which half wins", /parameters, then the registry,\s*\n\s*# then the embedded block/.test(SCRIPT));
   ok("an upload failure is a warning, not an exit 1", /\$HarvestNote = "harvest: upload FAILED - \$\(\$_\.Exception\.Message\)"\s*\n\s*Add-CollectWarning \$HarvestNote/.test(SCRIPT));
