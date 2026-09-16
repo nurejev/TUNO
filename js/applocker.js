@@ -3775,14 +3775,33 @@ const AppLockerTool = (() => {
     h.error = null;
     const host = (h.host || "").trim().replace(/\/+$/, ""), name = (h.name || "").trim();
     if (!HARVEST_HOST_OK.test(host)) { h.error = { kind: "graph", message: `The SharePoint host has to look like https://contoso.sharepoint.com — got "${host || "(empty)"}".` }; renderHarvest(); return; }
+    // The admin centre host is where the first real run went (16 Sep,
+    // devcf-admin.sharepoint.com → "One of the provided arguments is not
+    // acceptable"): sites cannot be created there. Say so and offer the fix.
+    if (/-admin\.sharepoint\.com$/i.test(host)) {
+      const fixed = host.replace(/-admin\.sharepoint\.com$/i, ".sharepoint.com");
+      h.host = fixed; saveHarvest();
+      h.error = { kind: "graph", message: `${host} is the SharePoint admin centre — sites are created on the tenant's content host. The box now reads ${fixed}; press Create again.` };
+      renderHarvest(); return;
+    }
+    if (/-my\.sharepoint\.com$/i.test(host)) { h.error = { kind: "graph", message: `${host} is the OneDrive host — use the tenant's SharePoint host, https://<tenant>.sharepoint.com.` }; renderHarvest(); return; }
     if (!HARVEST_NAME_OK.test(name)) { h.error = { kind: "graph", message: "The site name is the last part of the URL: letters, digits, - and _ only, up to 64." }; renderHarvest(); return; }
     const webUrl = `${host}/sites/${name}`;
     h.busy = "create"; renderHarvest();
     try {
-      const r = await Graph.createSite({
-        name, webUrl, template: "sts", shareByEmailEnabled: false,
+      // The documented shape, field for field: name, webUrl, locale,
+      // shareByEmailEnabled, description, template, and the owner as the
+      // signed-in person (Graph resolves the email). A field the beta
+      // endpoint does not accept comes back as invalidRequest with no name,
+      // so the request stays exactly what the reference shows.
+      const owner = (typeof Graph.accountUpn === "function" && Graph.accountUpn()) || "";
+      const body = {
+        name, webUrl, locale: "en-US", shareByEmailEnabled: false,
         description: `TUNO T01 harvest site. Get-TunoAppControlEvents.ps1 uploads each device's App Control events bundle and report here (Harvest/<device>/), as the TUNO Harvest Uploader app with write on this site only. Created from ${BRANDING.name} ${APP_BUILD.label}.`,
-      });
+        template: "sts",
+      };
+      if (owner) body.ownerIdentityToResolve = { email: owner };
+      const r = await Graph.createSite(body);
       h.site = { url: webUrl, id: "", status: "accepted", when: new Date().toISOString(), detail: "" };
       saveHarvest(); renderHarvest();
       const loc = r && r.location;
@@ -3893,6 +3912,7 @@ const AppLockerTool = (() => {
     }
     const err = h.error ? `<div class="al-dep-err"><b>${escq(h.error.kind === "admin" ? "The tenant refused this" : h.error.kind === "consent" ? "Consent was not granted" : h.error.kind === "throttled" ? "The tenant is throttling" : "Not done")}.</b>
         <div style="margin-top:4px">${escq(h.error.message)}</div>
+        ${/invalidRequest/i.test(h.error.code || "") ? `<div class="mini" style="margin-top:4px">Graph does not name the argument. The usual ones for a site create: the host is the admin centre (<code>-admin.sharepoint.com</code>) or OneDrive (<code>-my.</code>) instead of the content host; the site name is taken or reserved (try another); or the tenant does not allow site creation by this account (SharePoint admin centre → Settings → Site creation).</div>` : ""}
         ${h.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(h.error.code)}</code>${h.error.requestId ? ` · request-id <code>${escq(h.error.requestId)}</code>` : ""}</div>` : ""}</div>` : "";
     const s = h.site;
     const siteBox = !s ? "" : `<div class="${s.status === "failed" ? "al-dep-err" : "al-dep-ok"}">
@@ -4676,6 +4696,6 @@ const AppLockerTool = (() => {
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
-    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, deployState: () => deployState },
+    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState },
   };
 })();

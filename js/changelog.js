@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10616, date: "2026-09-16", title: "T01: the harvest site panel catches the admin-centre host",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The first real run of the 📁 panel pasted the SharePoint admin centre's address, https://<tenant>-admin.sharepoint.com, as the host, and Graph answered “One of the provided arguments is not acceptable” without naming which. Sites are created on the tenant's content host, https://<tenant>.sharepoint.com — an -admin host is now corrected in the box before any call goes out and the panel says so; a -my host is refused as OneDrive. The create request is the reference example field for field (locale, the signed-in person as owner) so nothing the beta endpoint might refuse is left to chance, and an invalidRequest answer now lists the usual causes under the tenant's own words." },
+    ],
+  },
+  {
     build: 10615, date: "2026-09-16", title: "T01: the harvest uploader app — and its secret — from the panel",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "The 📁 Harvest site panel can now create the uploader app itself. A second block, ② The uploader app, does what the helper script does, as Graph calls from the browser: the TUNO Harvest Uploader registration with Sites.Selected as its only permission, its service principal, the admin consent, a client secret when that is the credential picked, and write on the harvest site and no other. Each step is a chip; every step but the secret is skipped when already done, so a refused step is retried by pressing again. The secret is shown once and kept in memory for the page session only — never in localStorage; after a reload the panel asks you to paste it or rotate. Three broad delegated scopes buy this and nothing else: Application.ReadWrite.All, AppRoleAssignment.ReadWrite.All and Sites.FullControl.All, asked once at the click and taken in the open on the registration and in SECURITY.md. The panel says, before the button, what a secret in a Remediation means: a shared credential on every device in the ring, readable by any local administrator and in the IME script cache, and write on the site implies read of the whole harvest. The certificate route is the other radio and stays the recommended one." },

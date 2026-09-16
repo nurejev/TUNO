@@ -67,6 +67,17 @@ head("the config is all-or-nothing, remembered per tenant");
   const stamped = H.stampHarvestConfig(SCRIPT, cs);
   ok("the stamp writes ClientSecret and leaves CertSubject empty", /^\s*ClientSecret\s*=\s*'s3cr3t~value'$/m.test(stamped) && /^\s*CertSubject\s*=\s*''$/m.test(stamped));
   d.cred = "cert"; d.secret = "";
+  // 10616: the admin-centre host is corrected, not sent
+  {
+    const D = w.document; w.Graph.useDemo();
+    const dd = H.deployState().harvest; dd.site = null; dd.host = "https://contoso-admin.sharepoint.com"; dd.name = "TUNO-AppControl-Harvest";
+    H.renderHarvest();
+    await H.createHarvestSite();
+    ok("an -admin host is refused before any call, and the box is corrected", dd.site === null && dd.host === "https://contoso.sharepoint.com" && /admin centre/.test((dd.error || {}).message || ""));
+    dd.host = "https://contoso-my.sharepoint.com"; await H.createHarvestSite();
+    ok("a -my host is refused as OneDrive", dd.site === null && /OneDrive host/.test((dd.error || {}).message || ""));
+    dd.host = "https://contoso.sharepoint.com"; dd.error = null;
+  }
   ok("the SharePoint host is guessed from the initial onmicrosoft.com domain", (() => {
     const real = w.TunoTenant.org;
     w.TunoTenant.org = () => ({ verifiedDomains: [{ name: "contoso.com", isInitial: false }, { name: "Contoso.onmicrosoft.com", isInitial: true }] });

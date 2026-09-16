@@ -780,6 +780,8 @@ const Graph = (() => {
   // the org read — the account is there from sign-in, the org read is
   // best-effort.
   const tenantId = () => { try { const a = account(); return (a && (a.tenantId || (a.idTokenClaims || {}).tid)) || ""; } catch { return ""; } };
+  // The signed-in UPN, for a create that names its owner (the site create).
+  const accountUpn = () => { try { const a = account(); return (a && (a.username || (a.idTokenClaims || {}).preferred_username)) || ""; } catch { return ""; } };
   // ---------- the harvest uploader app (T01, build 10615) ----------
   // Every call names the one scope it costs. The app-role consent and the
   // site grant are POSTs that Graph refuses with 403 when the caller lacks
@@ -806,7 +808,7 @@ const Graph = (() => {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
     get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
     remediations, createRemediation,
-    createSite, siteOperation, tenantId,
+    createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
