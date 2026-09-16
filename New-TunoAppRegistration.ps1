@@ -205,6 +205,22 @@ param(
     # endpoint on the caller's directory role (Intune Administrator among
     # them): consent alone does not open it, and T18's screen says so.
     "DeviceLocalCredential.ReadBasic.All",
+    # --- T01 harvest site — build 10613 -----------------------------------
+    #
+    #   Sites.Create.All   TUNO's FIRST SharePoint scope, and the narrowest
+    #                      write Graph offers there: it creates a site
+    #                      collection and nothing else — it reads no existing
+    #                      site and writes into none. The T01 Harvest panel
+    #                      uses it once per tenant to create the site the
+    #                      events collector uploads to. Graph grants the
+    #                      creating app Sites.Selected on the NEW site only;
+    #                      TUNO never uses that grant — the devices upload
+    #                      with their own app registration (Sites.Selected,
+    #                      application, a certificate; see scripts/
+    #                      New-TunoHarvestUploaderApp.ps1), never with a
+    #                      signed-in person's token. The blast radius of this
+    #                      consent is "TUNO can create sites", said here.
+    "Sites.Create.All",
     # --- T22 Group migration (R33) — builds 10506-10508 -------------------
     #
     # FIVE SCOPES, AND THEY ARE THE BIGGEST ASK IN THIS FILE. Three of them

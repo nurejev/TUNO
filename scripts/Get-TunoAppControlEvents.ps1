@@ -27,6 +27,25 @@ behind, each for a different consumer:
 Retrieval: Intune "Collect diagnostics" on the device, or MDE Live Response with the
 companion Compress-TunoAppControlReport.ps1, or just copy the files off the device.
 
+THE HARVEST SITE (1.2.0, build 10613). Every retrieval above needs the device ON. With
+a harvest target configured, each pass also uploads the bundle and the report to a
+SharePoint site - Harvest\<COMPUTERNAME>\AppControlEvents_Bundle_<stamp>.json and
+..._Report_<stamp>.html - so the evidence is in the tenant whether the laptop is in
+the bag or not. T01's "Harvest site" panel creates the site; the companion
+New-TunoHarvestUploaderApp.ps1 creates the uploader app registration (Sites.Selected,
+APPLICATION permission, granted write on THAT SITE ONLY), a certificate, and the
+PFX you deploy to the devices; T01 stamps the target into this script when it creates
+the Remediation. The device authenticates with the certificate from LocalMachine\My -
+no secret in this file, ever. Upload failures are warnings: the local harvest is
+complete either way, and the next pass uploads again.
+
+  Configuration, first match wins:
+    1. the -Harvest* parameters (a shell run)
+    2. HKLM\SOFTWARE\TUNO\Harvest  (SiteUrl, TenantId, ClientId, CertSubject,
+       CertThumbprint, Folder, RetentionDays) - for a script deployed by hand
+    3. the HARVEST TARGET block below, which T01 fills in at deploy
+  Nothing configured = no upload, and the log says "harvest: not configured".
+
 WHAT IT COLLECTS
 
   CodeIntegrity (Microsoft-Windows-CodeIntegrity/Operational): the WDAC/App Control
@@ -69,6 +88,32 @@ convention for everything IT writes on an endpoint.
 .PARAMETER SkipHtmlReport
 Skip the HTML report. The CSV/XML exports and the JSON bundle are still written.
 
+.PARAMETER HarvestSiteUrl
+The harvest site, e.g. https://contoso.sharepoint.com/sites/TUNO-AppControl-Harvest.
+Overrides the registry and the embedded target.
+
+.PARAMETER HarvestTenantId
+The tenant the uploader app lives in (a GUID).
+
+.PARAMETER HarvestClientId
+The uploader app registration's application (client) id - the one with Sites.Selected.
+
+.PARAMETER HarvestCertSubject
+Subject of the uploader certificate in Cert:\LocalMachine\My, e.g. CN=TUNO Harvest
+Uploader. The newest certificate with that subject and a private key is used.
+
+.PARAMETER HarvestCertThumbprint
+Alternative to the subject: the exact certificate by thumbprint.
+
+.PARAMETER HarvestFolder
+Library folder under the site's default document library. Default Harvest; the device
+name is a subfolder under it.
+
+.PARAMETER HarvestRetentionDays
+Prune THIS DEVICE'S uploads older than this many days from the harvest site. Default 0
+= keep everything in the cloud - the site is the archive; the 30-day rule applies to
+the device.
+
 .PARAMETER RetentionDays
 Housekeeping window, in days. Default 30 - matches DaysBack. On every pass, before it
 collects, the script removes what earlier passes of THIS SET left behind that is older
@@ -78,7 +123,7 @@ log to the entries inside the window. Nothing else in those folders is touched. 
 everything.
 
 .NOTES
-Version   : 1.1.0
+Version   : 1.2.0
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppControlEvents.ps1), run as
@@ -103,14 +148,39 @@ param(
     [switch]$SkipHtmlReport,
 
     [ValidateRange(0, 3650)]
-    [int]$RetentionDays = 30
+    [int]$RetentionDays = 30,
+
+    [string]$HarvestSiteUrl,
+    [string]$HarvestTenantId,
+    [string]$HarvestClientId,
+    [string]$HarvestCertSubject,
+    [string]$HarvestCertThumbprint,
+    [string]$HarvestFolder,
+    [ValidateRange(-1, 3650)]
+    [int]$HarvestRetentionDays = -1
 )
 
 # Two numbers, same discipline as every house script: ScriptVersion is this file's
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
-$script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10612
+$script:ScriptVersion = '1.2.0'
+$script:TunoBuild = 10613
+
+# ── HARVEST TARGET ─────────────────────────────────────────────────────────
+# Filled in by T01 when the events Remediation is created from a page with a
+# harvest site set; a downloaded copy carries the empty defaults and reads
+# HKLM\SOFTWARE\TUNO\Harvest instead. Keep the assignments on their own lines
+# exactly as they are - T01 stamps them by pattern. NO SECRET BELONGS HERE: the
+# device proves itself with the certificate, not with a string.
+$script:HarvestTarget = [pscustomobject]@{
+    SiteUrl        = ''
+    TenantId       = ''
+    ClientId       = ''
+    CertSubject    = ''
+    CertThumbprint = ''
+    Folder         = 'Harvest'
+    RetentionDays  = 0
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -521,11 +591,196 @@ if (-not $SkipHtmlReport) {
     Write-Log "HTML report written: $HtmlPath"
 }
 
+# ── Harvest: upload this pass to the SharePoint site, when one is set ────────
+# Resolution order is documented in the header: parameters, then the registry,
+# then the embedded block. A value that is present wins field by field, so a
+# registry that only carries the site URL still leaves the embedded ids alone.
+function Get-HarvestConfig {
+    $cfg = [pscustomobject]@{
+        SiteUrl = [string]$script:HarvestTarget.SiteUrl; TenantId = [string]$script:HarvestTarget.TenantId
+        ClientId = [string]$script:HarvestTarget.ClientId; CertSubject = [string]$script:HarvestTarget.CertSubject
+        CertThumbprint = [string]$script:HarvestTarget.CertThumbprint; Folder = [string]$script:HarvestTarget.Folder
+        RetentionDays = [int]$script:HarvestTarget.RetentionDays; Source = 'embedded'
+    }
+    $regPath = 'HKLM:\SOFTWARE\TUNO\Harvest'
+    if (Test-Path -LiteralPath $regPath) {
+        $reg = Get-ItemProperty -LiteralPath $regPath -ErrorAction SilentlyContinue
+        foreach ($name in @('SiteUrl', 'TenantId', 'ClientId', 'CertSubject', 'CertThumbprint', 'Folder')) {
+            $v = $null
+            try { if ($reg.PSObject.Properties.Name -contains $name) { $v = [string]$reg.$name } } catch { }
+            if ($v) { $cfg.$name = $v.Trim(); $cfg.Source = 'registry' }
+        }
+        try { if ($reg.PSObject.Properties.Name -contains 'RetentionDays') { $cfg.RetentionDays = [int]$reg.RetentionDays; $cfg.Source = 'registry' } } catch { }
+    }
+    if ($HarvestSiteUrl)        { $cfg.SiteUrl = $HarvestSiteUrl.Trim();               $cfg.Source = 'parameter' }
+    if ($HarvestTenantId)       { $cfg.TenantId = $HarvestTenantId.Trim();             $cfg.Source = 'parameter' }
+    if ($HarvestClientId)       { $cfg.ClientId = $HarvestClientId.Trim();             $cfg.Source = 'parameter' }
+    if ($HarvestCertSubject)    { $cfg.CertSubject = $HarvestCertSubject.Trim();       $cfg.Source = 'parameter' }
+    if ($HarvestCertThumbprint) { $cfg.CertThumbprint = $HarvestCertThumbprint.Trim(); $cfg.Source = 'parameter' }
+    if ($HarvestFolder)         { $cfg.Folder = $HarvestFolder.Trim();                 $cfg.Source = 'parameter' }
+    if ($HarvestRetentionDays -ge 0) { $cfg.RetentionDays = $HarvestRetentionDays;     $cfg.Source = 'parameter' }
+    if (-not $cfg.Folder) { $cfg.Folder = 'Harvest' }
+    $cfg
+}
+
+# base64url, the JWT alphabet - no padding, - and _ for + and /.
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+    [Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+}
+
+# The uploader certificate: by thumbprint when given, else the newest valid one
+# with the subject that has a private key SYSTEM can use. LocalMachine\My is
+# where an Intune PKCS-import profile lands it.
+function Get-HarvestCertificate {
+    param([string]$Subject, [string]$Thumbprint)
+    $all = @(Get-ChildItem -Path 'Cert:\LocalMachine\My' -ErrorAction Stop | Where-Object { $_.HasPrivateKey })
+    if ($Thumbprint) {
+        $t = ($Thumbprint -replace '\s', '').ToUpperInvariant()
+        return @($all | Where-Object { $_.Thumbprint -eq $t }) | Select-Object -First 1
+    }
+    $now = Get-Date
+    @($all | Where-Object { $_.Subject -eq $Subject -and $_.NotAfter -gt $now } | Sort-Object NotAfter -Descending) | Select-Object -First 1
+}
+
+# Client-credentials with a certificate: a JWT signed by the private key is the
+# client assertion. RS256 via GetRSAPrivateKey covers both CAPI and CNG keys,
+# which matters because an imported PFX usually lands as CNG.
+function Get-HarvestToken {
+    param([string]$TenantId, [string]$ClientId, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    $aud = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+    $now = [DateTimeOffset]::UtcNow
+    $header = @{ alg = 'RS256'; typ = 'JWT'; x5t = (ConvertTo-Base64Url -Bytes $Cert.GetCertHash()) } | ConvertTo-Json -Compress
+    $claims = @{
+        aud = $aud; iss = $ClientId; sub = $ClientId; jti = [guid]::NewGuid().ToString()
+        nbf = $now.AddMinutes(-2).ToUnixTimeSeconds(); exp = $now.AddMinutes(8).ToUnixTimeSeconds()
+    } | ConvertTo-Json -Compress
+    $unsigned = (ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($header))) + '.' + (ConvertTo-Base64Url -Bytes ([Text.Encoding]::UTF8.GetBytes($claims)))
+    $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Cert)
+    if (-not $rsa) { throw 'the certificate has no usable RSA private key' }
+    $sig = $rsa.SignData([Text.Encoding]::UTF8.GetBytes($unsigned), [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    $assertion = $unsigned + '.' + (ConvertTo-Base64Url -Bytes $sig)
+    $body = @{
+        client_id = $ClientId; scope = 'https://graph.microsoft.com/.default'; grant_type = 'client_credentials'
+        client_assertion_type = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'; client_assertion = $assertion
+    }
+    $r = Invoke-RestMethod -Method Post -Uri $aud -Body $body -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
+    if (-not $r.access_token) { throw 'the token endpoint answered without an access token' }
+    [string]$r.access_token
+}
+
+# The site by URL, not by id: the id is a triple the admin would have to copy
+# out of Graph; the URL is what the panel shows and what the admin can open.
+function Get-HarvestSiteId {
+    param([string]$SiteUrl, [hashtable]$Headers)
+    $u = [uri]$SiteUrl
+    $path = $u.AbsolutePath.TrimEnd('/')
+    $site = Invoke-RestMethod -Method Get -Uri ("https://graph.microsoft.com/v1.0/sites/{0}:{1}" -f $u.Host, $path) -Headers $Headers -ErrorAction Stop
+    if (-not $site.id) { throw "the site $SiteUrl could not be resolved" }
+    [string]$site.id
+}
+
+# Simple PUT under 4 MB; an upload session in 5 MiB chunks (a multiple of the
+# 320 KiB Graph requires) above it. Parent folders are created by the path
+# itself - Graph makes them on a PUT to a path that does not exist yet.
+function Send-HarvestFile {
+    param([string]$SiteId, [string]$RemotePath, [string]$LocalPath, [hashtable]$Headers)
+    $item = Get-Item -LiteralPath $LocalPath -ErrorAction Stop
+    $enc = ($RemotePath -split '/' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
+    $base = "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/root:/$enc"
+    if ($item.Length -lt 4000000) {
+        $r = Invoke-RestMethod -Method Put -Uri "${base}:/content" -Headers $Headers -InFile $LocalPath -ContentType 'application/octet-stream' -ErrorAction Stop
+        return [long]$r.size
+    }
+    $session = Invoke-RestMethod -Method Post -Uri "${base}:/createUploadSession" -Headers $Headers -ContentType 'application/json' -Body (@{ item = @{ '@microsoft.graph.conflictBehavior' = 'replace' } } | ConvertTo-Json -Compress) -ErrorAction Stop
+    $chunk = 5242880
+    $fs = [System.IO.File]::OpenRead($LocalPath)
+    try {
+        $buf = New-Object byte[] $chunk
+        $pos = [long]0
+        $total = [long]$item.Length
+        while ($pos -lt $total) {
+            $n = $fs.Read($buf, 0, $chunk)
+            if ($n -le 0) { break }
+            $part = if ($n -eq $chunk) { $buf } else { $buf[0..($n - 1)] }
+            $range = "bytes $pos-$($pos + $n - 1)/$total"
+            # The session URL is pre-authorised: no Authorization header on it.
+            $null = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
+            $pos += $n
+        }
+    }
+    finally { $fs.Dispose() }
+    [long]$item.Length
+}
+
+# This device's folder only, this set's names only, older than the window.
+function Remove-HarvestStale {
+    param([string]$SiteId, [string]$DeviceFolder, [int]$Days, [hashtable]$Headers)
+    if ($Days -le 0) { return 0 }
+    $enc = ($DeviceFolder -split '/' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
+    $cutoff = (Get-Date).ToUniversalTime().AddDays(-$Days)
+    $removed = 0
+    $uri = "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/root:/${enc}:/children?`$select=id,name,file,lastModifiedDateTime&`$top=200"
+    while ($uri) {
+        $page = Invoke-RestMethod -Method Get -Uri $uri -Headers $Headers -ErrorAction Stop
+        foreach ($it in @($page.value)) {
+            if (-not $it.file) { continue }
+            if ($it.name -notlike 'AppControlEvents_*') { continue }
+            if ([datetime]$it.lastModifiedDateTime -ge $cutoff) { continue }
+            Invoke-RestMethod -Method Delete -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/drive/items/$($it.id)" -Headers $Headers -ErrorAction Stop | Out-Null
+            $removed++
+        }
+        $uri = $null
+        try { if ($page.PSObject.Properties.Name -contains '@odata.nextLink') { $uri = [string]$page.'@odata.nextLink' } } catch { }
+    }
+    $removed
+}
+
+$HarvestNote = 'harvest: not configured'
+$harvestCfg = Get-HarvestConfig
+if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and ($harvestCfg.CertSubject -or $harvestCfg.CertThumbprint)) {
+    Write-Log ("Harvest target ({0}): {1} folder {2} as app {3}, certificate {4}" -f $harvestCfg.Source, $harvestCfg.SiteUrl, $harvestCfg.Folder, $harvestCfg.ClientId, $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject }))
+    try {
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+        $cert = Get-HarvestCertificate -Subject $harvestCfg.CertSubject -Thumbprint $harvestCfg.CertThumbprint
+        if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject })) }
+        $token = Get-HarvestToken -TenantId $harvestCfg.TenantId -ClientId $harvestCfg.ClientId -Cert $cert
+        $hdr = @{ Authorization = "Bearer $token" }
+        $siteId = Get-HarvestSiteId -SiteUrl $harvestCfg.SiteUrl -Headers $hdr
+        $deviceFolder = "{0}/{1}" -f $harvestCfg.Folder.Trim('/'), $env:COMPUTERNAME
+        $sent = New-Object System.Collections.Generic.List[string]
+        # The cloud copy gets the honest extension: .log was a trick for device
+        # diagnostics, and SharePoint previews .json and .html.
+        $bytes = Send-HarvestFile -SiteId $siteId -RemotePath ("{0}/AppControlEvents_Bundle_{1}.json" -f $deviceFolder, $Stamp) -LocalPath $BundlePath -Headers $hdr
+        $sent.Add("bundle ($bytes bytes)")
+        if ($HtmlPath) {
+            $bytes = Send-HarvestFile -SiteId $siteId -RemotePath ("{0}/AppControlEvents_Report_{1}.html" -f $deviceFolder, $Stamp) -LocalPath $HtmlPath -Headers $hdr
+            $sent.Add("report ($bytes bytes)")
+        }
+        $pruned = 0
+        if ($harvestCfg.RetentionDays -gt 0) {
+            try { $pruned = Remove-HarvestStale -SiteId $siteId -DeviceFolder $deviceFolder -Days $harvestCfg.RetentionDays -Headers $hdr }
+            catch { Add-CollectWarning "Harvest prune failed: $($_.Exception.Message)" }
+        }
+        $HarvestNote = ("harvest: uploaded {0} to {1}/{2}{3}" -f ($sent -join ', '), $harvestCfg.SiteUrl.TrimEnd('/'), $deviceFolder, $(if ($pruned) { ", pruned $pruned older than $($harvestCfg.RetentionDays) day(s)" } else { '' }))
+        Write-Log "HARVEST: $HarvestNote"
+    }
+    catch {
+        $HarvestNote = "harvest: upload FAILED - $($_.Exception.Message)"
+        Add-CollectWarning $HarvestNote
+    }
+}
+elseif ($harvestCfg.SiteUrl -or $harvestCfg.TenantId -or $harvestCfg.ClientId -or $harvestCfg.CertSubject -or $harvestCfg.CertThumbprint) {
+    $HarvestNote = 'harvest: PARTIALLY configured - SiteUrl, TenantId, ClientId and CertSubject or CertThumbprint are all required; nothing uploaded'
+    Add-CollectWarning $HarvestNote
+}
+else { Write-Log "INFO: $HarvestNote (the local files above are the only copy - retrieve via Collect diagnostics or Live Response)" }
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 Write-Log "SUMMARY: AppLocker $($alEvents.Count) unique ($($blocked.Count) blocked / $($audited.Count) audited / $($allowed.Count) allowed), CodeIntegrity $($ciEvents.Count) unique, warnings $($Warnings.Count)"
 Write-Log "========== Collection complete =========="
 
-$msg = "Collected $($alEvents.Count) AppLocker ($($blocked.Count) blocked, $($audited.Count) audited) and $($ciEvents.Count) CodeIntegrity events from last $DaysBack day(s). T01 bundle: $BundlePath"
+$msg = "Collected $($alEvents.Count) AppLocker ($($blocked.Count) blocked, $($audited.Count) audited) and $($ciEvents.Count) CodeIntegrity events from last $DaysBack day(s). T01 bundle: $BundlePath | $HarvestNote"
 if ($Warnings.Count) { $msg += " | $($Warnings.Count) warning(s) - see $LogFile" }
 Write-Output $msg
 exit 0

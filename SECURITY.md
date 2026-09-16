@@ -11,10 +11,11 @@ TUNO shares ENCA's architecture one-for-one; this document states the model and 
 
 ### What TUNO writes
 
-Two write surfaces, both in the AppLocker tool, each under its own scope — Graph separates them, so the registration must too:
+Three write surfaces in the AppLocker tool, each under its own scope — Graph separates them, so the registration must too (T22 and T25 add directory writes of their own, listed with the read scopes below):
 
 * **Step 5** can create the Intune custom profile in your tenant, under **`DeviceManagementConfiguration.ReadWrite.All`** (plus read-only **`Group.Read.All`** to find the pilot group and read its member count). Graph offers no narrower split — the read that checks for an existing profile and the write that creates one are the same scope.
 * **Step 1's collapsed panel** can create the AppLocker cleanup pair as an Intune Remediation, under **`DeviceManagementScripts.ReadWrite.All`** — the only scope Graph accepts for creating a `deviceHealthScript`; the Configuration write scope does not cover it. The Remediation is created unassigned, and TUNO has no path that assigns it.
+* **The 📁 Harvest site panel** (build 10613) can create one SharePoint site — the place the events collector uploads its bundles so they are retrievable with the device off — under **`Sites.Create.All`**, TUNO's only SharePoint scope and the narrowest write Graph offers there: it creates a site collection and cannot read or write any existing site. Graph grants the creating app `Sites.Selected` on the new site only; TUNO never uses it. **The devices never hold TUNO's identity.** They upload as a separate app registration (`Sites.Selected`, *application* permission, granted `write` on that one site) authenticating with a certificate in the device's `LocalMachine\My` store — created by `scripts/New-TunoHarvestUploaderApp.ps1`, run by an administrator, whose own delegated asks (`Application.ReadWrite.All`, `AppRoleAssignment.ReadWrite.All`, `Sites.FullControl.All`) are for that run and are not on TUNO's registration. No secret is placed in any script.
 
 Constraints deliberately narrower than the permission allows:
 
@@ -24,7 +25,7 @@ Constraints deliberately narrower than the permission allows:
 * **Writes are never retried.** A request that fails mid-flight is reported as ambiguous — it may or may not have reached the tenant — rather than sent again.
 * **Nothing is deleted.** TUNO has no delete path and no scope that would permit one.
 
-If you would rather TUNO could not write at all, omit the write scopes when you register it — keep the read scopes and drop `DeviceManagementConfiguration.ReadWrite.All` and `DeviceManagementScripts.ReadWrite.All`:
+If you would rather TUNO could not write at all, omit the write scopes when you register it — keep the read scopes and drop `DeviceManagementConfiguration.ReadWrite.All`, `DeviceManagementScripts.ReadWrite.All` and `Sites.Create.All`:
 
 ```powershell
 ./New-TunoAppRegistration.ps1 -DelegatedScopes `
@@ -53,6 +54,7 @@ Eight delegated **read-only** scopes cover the Intune tools, added together at b
 | `User.Read.All` | Turning member and actor GUIDs into names, and the primary user's group memberships |
 | `Device.Read.All` | The Entra device object — which groups a machine is in, which the Intune record does not say |
 | `Device.ReadWrite.All` | The device cleanup's two writes (build 10532): **disable** a stale device object, **delete** a disabled one — two-stage by construction, delete only after disable. Graph additionally gates these writes on the signed-in user's directory role (Cloud Device Administrator / Intune Administrator among the allowed), so consent alone does not open them |
+| `Sites.Create.All` | **Write:** creates the T01 harvest site (build 10613) — one site collection, nothing read or written elsewhere in SharePoint. See "What TUNO writes" above |
 | `DeviceLocalCredential.ReadBasic.All` | Windows LAPS escrow **metadata** — device name and backup time, for the LAPS audit (build 10429). Graph cannot return a password value through this scope; the `Read.All` variant, which can, is deliberately not taken. Graph additionally gates the endpoint on the signed-in user's directory role (Intune Administrator among the allowed), so consent alone does not open it |
 
 `DeviceManagementConfiguration.Read.All` is listed even though the `ReadWrite` variant above would functionally cover it. Entra consents scopes by name — a token requested for `Read.All` is refused unless `Read.All` itself is consented. The alternative, pointing the read-only tools at the write scope, would mean a tool that only reports could, on any future bug, write.

@@ -3216,9 +3216,10 @@ const AppLockerTool = (() => {
     "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.1",  changed: 10603 },
     "Initialize-TunoItToolsFolders.ps1":    { v: "1.2.0",  changed: 10612 },
     "Detect-TunoItToolsFolders.ps1":        { v: "1.0.0",  changed: 10374 },
-    "Get-TunoAppControlEvents.ps1":         { v: "1.1.0",  changed: 10612 },
+    "Get-TunoAppControlEvents.ps1":         { v: "1.2.0",  changed: 10613 },
     "Detect-TunoAppControlEvents.ps1":      { v: "1.0.0",  changed: 10378 },
     "Compress-TunoAppControlReport.ps1":    { v: "1.0.0",  changed: 10378 },
+    "New-TunoHarvestUploaderApp.ps1":       { v: "1.0.0",  changed: 10613 },
     "Get-TunoAppLockerPolicyHealth.ps1":    { v: "1.1.2",  changed: 10597 },
     "Remove-TunoUserInstalledApps.ps1":     { v: "1.0.1",  changed: 10598 },
   };
@@ -3451,6 +3452,11 @@ const AppLockerTool = (() => {
     renderRemedy();
     const remedyDetails = document.getElementById("alRemedyDetails");
     if (remedyDetails) remedyDetails.addEventListener("toggle", () => { if (remedyDetails.open) renderRemedy(); });
+    // The harvest site panel (10613) — its own write, its own panel, the
+    // same open-deliberately rule. Redrawn on open for the same reason.
+    renderHarvest();
+    const harvestDetails = document.getElementById("alHarvestDetails");
+    if (harvestDetails) harvestDetails.addEventListener("toggle", () => { if (harvestDetails.open) renderHarvest(); });
 
     const cmdFor = (file) => `irm ${scriptUrl(file)} -OutFile .\\${file}`;
     document.querySelectorAll(".al-dl-cmd").forEach((el) => { el.textContent = cmdFor(el.dataset.file); });
@@ -3506,6 +3512,13 @@ const AppLockerTool = (() => {
       ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
       events: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9", created: null, coll: null },
     },
+    // The harvest site (10613): where the events collector uploads each pass
+    // so the evidence is retrievable with the device off. `site` is what was
+    // created (or found) THIS tenant, remembered per tenant id in
+    // localStorage because the site outlives the session; clientId and
+    // certSubject are what New-TunoHarvestUploaderApp.ps1 printed, pasted
+    // back here so the events pair can carry them.
+    harvest: { loadedFor: null, name: "TUNO-AppControl-Harvest", host: "", clientId: "", certSubject: "", busy: "", error: null, site: null },
   };
 
   // The Remediations T01 can create — one definition each. deployRemedyPair()
@@ -3535,8 +3548,8 @@ const AppLockerTool = (() => {
       detect: "Detect-TunoAppControlEvents.ps1",
       remediate: "Get-TunoAppControlEvents.ps1",
       button: "Create the events-collection Remediation",
-      blurb: `Creates one Remediation carrying <code>Detect-TunoAppControlEvents.ps1</code> and <code>Get-TunoAppControlEvents.ps1</code> — the evidence pump. Its detection <b>always reports non-compliant on purpose</b>: the "remediation" IS the harvest, reading the CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report, and a <b>JSON events bundle this tool imports</b> — upload that bundle here and every blocked or audited event is matched against the draft on screen, with a recommendation per file. The report and bundle land in the Intune Management Extension Logs folder named <code>.log</code> so <b>Collect diagnostics</b> gathers them; MDE Live Response users zip them with <code>Compress-TunoAppControlReport.ps1</code>. Since build 10612 every pass first <b>removes this set's own output older than 30 days</b> — earlier bundles, reports, per-ID exports, Live Response zips — and trims both halves' logs to the window (<code>-RetentionDays</code>, 0 keeps all), so a daily schedule does not fill the disk. Know the console cost: every device shows "Issue fixed" every pass — this pair's numbers mean "the collector ran", never "the device is fine".`,
-      description: `App Control events collection, deployed from {SITE}. Detection: always non-compliant (the remediation IS the collection). Remediation: harvests CodeIntegrity and AppLocker events (30 days) into CSV/XML exports, an HTML report, and the TUNO JSON events bundle, all retrievable via Intune device diagnostics or MDE Live Response; removes its own output older than 30 days on each pass. Collection cadence pair - do not read its compliance numbers as device health, and unassign it when the campaign ends.`,
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppControlEvents.ps1</code> and <code>Get-TunoAppControlEvents.ps1</code> — the evidence pump. Its detection <b>always reports non-compliant on purpose</b>: the "remediation" IS the harvest, reading the CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report, and a <b>JSON events bundle this tool imports</b> — upload that bundle here and every blocked or audited event is matched against the draft on screen, with a recommendation per file. The report and bundle land in the Intune Management Extension Logs folder named <code>.log</code> so <b>Collect diagnostics</b> gathers them; MDE Live Response users zip them with <code>Compress-TunoAppControlReport.ps1</code>. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every pass also uploads the bundle and report to <code>Harvest/&lt;device&gt;/</code> on that site, so the evidence is in the tenant with the device off. Since build 10612 every pass first <b>removes this set's own output older than 30 days</b> — earlier bundles, reports, per-ID exports, Live Response zips — and trims both halves' logs to the window (<code>-RetentionDays</code>, 0 keeps all), so a daily schedule does not fill the disk. Know the console cost: every device shows "Issue fixed" every pass — this pair's numbers mean "the collector ran", never "the device is fine".`,
+      description: `App Control events collection, deployed from {SITE}. Detection: always non-compliant (the remediation IS the collection). Remediation: harvests CodeIntegrity and AppLocker events (30 days) into CSV/XML exports, an HTML report, and the TUNO JSON events bundle, all retrievable via Intune device diagnostics or MDE Live Response; removes its own output older than 30 days on each pass.{HARVEST} Collection cadence pair - do not read its compliance numbers as device health, and unassign it when the campaign ends.`,
       createdNote: `In the portal: Devices → Scripts and remediations → assign it to the AUDIT ring with a recurring schedule (daily during the audit month is the usual cadence). Retrieve the harvest per device via Collect diagnostics, upload the <code>AppControlEvents_Bundle_*.log</code> file here, and the evidence card fills in. Unassign when the collection campaign ends — its "Issue fixed" numbers are cadence, not health.`,
     },
   };
@@ -3544,10 +3557,18 @@ const AppLockerTool = (() => {
   // Fetch a script from this site and base64 it the way deviceHealthScripts
   // wants. TextEncoder first: the scripts carry a BOM and non-ASCII box
   // characters, and btoa on raw text throws on anything outside Latin-1.
-  async function fetchScriptB64(file) {
+  async function fetchScriptB64(file, transform) {
     const r = await fetch(new URL("scripts/" + file, document.baseURI).href, { cache: "no-store" });
     if (!r.ok) throw new Error(`Could not fetch ${file} from this site (HTTP ${r.status}).`);
-    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bytes = new Uint8Array(await r.arrayBuffer());
+    if (transform) {
+      // Decode, change, re-encode — keeping the BOM the file came with, since
+      // Intune wants UTF-8 and PowerShell 5.1 reads a BOM-less file as ANSI.
+      const bom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+      const text = new TextDecoder("utf-8").decode(bytes);
+      const out = new TextEncoder().encode(transform(text));
+      bytes = bom ? new Uint8Array([0xEF, 0xBB, 0xBF, ...out]) : out;
+    }
     let bin = "";
     for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
     return btoa(bin);
@@ -3571,14 +3592,20 @@ const AppLockerTool = (() => {
       r.coll = coll;
       if (coll.length) { d.busy = ""; renderDeploy(); return; }
       // The exact bytes this site serves, not a copy pasted into the code —
-      // one source, the same discipline as the download buttons.
+      // one source, the same discipline as the download buttons. The ONE
+      // exception is the harvest target (10613): the events collector's
+      // HARVEST TARGET block is filled in from the panel, because a
+      // Remediation takes no parameters and a target the admin has to type
+      // into a script body by hand is a target that gets typed wrong.
+      const hv = key === "events" ? harvestConfig() : null;
       const [detect, remediate] = await Promise.all([
         fetchScriptB64(p.detect),
-        fetchScriptB64(p.remediate),
+        fetchScriptB64(p.remediate, hv ? (text) => stampHarvestConfig(text, hv) : null),
       ]);
       const made = await Graph.createRemediation({
         displayName: name,
-        description: p.description.replace("{SITE}", `${BRANDING.name} ${APP_BUILD.label}`),
+        description: p.description.replace("{SITE}", `${BRANDING.name} ${APP_BUILD.label}`)
+          .replace("{HARVEST}", hv ? ` Uploads each pass to ${hv.siteUrl} (Harvest/<device>/) as app ${hv.clientId} with certificate ${hv.certSubject}.` : ""),
         publisher: BRANDING.name,
         runAsAccount: "system",
         runAs32Bit: false,
@@ -3587,6 +3614,7 @@ const AppLockerTool = (() => {
         remediationScriptContent: remediate,
       });
       made._name = name;
+      made._harvest = hv;
       r.created = made;
       d.busy = "";
       renderDeploy();
@@ -3662,6 +3690,174 @@ const AppLockerTool = (() => {
     return "";
   }
 
+  // ================================================================
+  // THE HARVEST SITE (10613) — where the collector uploads, device off or on
+  // ================================================================
+  // Retrieval of the events bundle needed the device ON (Collect diagnostics,
+  // Live Response). A harvest site is one SharePoint site the collector
+  // uploads to every pass, as ITS OWN app identity (New-TunoHarvestUploaderApp
+  // .ps1: Sites.Selected, write on this site only, a certificate on the
+  // device) — never with TUNO's token, which is a signed-in person's and is
+  // not on any endpoint. TUNO's part is the site: POST /beta/sites under
+  // Sites.Create.All, the one SharePoint scope it carries, then the target is
+  // stamped into the events script when the pair is created.
+  const HARVEST_KEY = (tid) => `tuno.t01.harvest.${tid || "none"}`;
+  const harvestTenant = () => (typeof Graph !== "undefined" && Graph.tenantId && Graph.tenantId()) || (window.TunoTenant && window.TunoTenant.tenantId && window.TunoTenant.tenantId()) || "";
+  function loadHarvest() {
+    const h = deployState.harvest, tid = harvestTenant();
+    if (h.loadedFor === tid) return h;
+    h.loadedFor = tid;
+    try {
+      const j = JSON.parse(localStorage.getItem(HARVEST_KEY(tid)) || "null");
+      if (j && typeof j === "object") { h.site = j.site || null; h.clientId = j.clientId || ""; h.certSubject = j.certSubject || ""; if (j.name) h.name = j.name; if (j.host) h.host = j.host; }
+    } catch { /* private mode, or a malformed entry — start clean */ }
+    if (!h.host) h.host = guessSharePointHost();
+    return h;
+  }
+  function saveHarvest() {
+    const h = deployState.harvest;
+    try { localStorage.setItem(HARVEST_KEY(harvestTenant()), JSON.stringify({ site: h.site, clientId: h.clientId, certSubject: h.certSubject, name: h.name, host: h.host })); } catch { /* private mode */ }
+  }
+  // The tenant's SharePoint host from its initial *.onmicrosoft.com domain,
+  // which the org read at sign-in already fetched. A guess the admin can edit,
+  // never a call: TUNO has no scope that reads SharePoint, on purpose.
+  function guessSharePointHost() {
+    const org = window.TunoTenant && window.TunoTenant.org && window.TunoTenant.org();
+    const doms = (org && org.verifiedDomains) || [];
+    const initial = doms.find((d) => d && d.isInitial && /\.onmicrosoft\.com$/i.test(d.name || "")) || doms.find((d) => d && /\.onmicrosoft\.com$/i.test(d.name || ""));
+    if (!initial) return "";
+    return `https://${String(initial.name).replace(/\.onmicrosoft\.com$/i, "").toLowerCase()}.sharepoint.com`;
+  }
+  // Everything the events script needs, or null while any part is missing —
+  // the stamp is all-or-nothing, because a half-configured target makes the
+  // collector warn on every pass without uploading anything.
+  function harvestConfig() {
+    const h = loadHarvest();
+    const siteUrl = h.site && h.site.url;
+    const tenantId = harvestTenant();
+    const clientId = (h.clientId || "").trim(), certSubject = (h.certSubject || "").trim();
+    if (!siteUrl || !tenantId || !isGuidLike(clientId) || !certSubject) return null;
+    return { siteUrl, tenantId, clientId, certSubject };
+  }
+  const isGuidLike = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || "").trim());
+  // Fill the HARVEST TARGET block of Get-TunoAppControlEvents.ps1 — only that
+  // block, only the four keyed lines, values single-quoted the PowerShell way.
+  function stampHarvestConfig(text, cfg) {
+    const start = text.indexOf("$script:HarvestTarget = [pscustomobject]@{");
+    if (start < 0) throw new Error("Get-TunoAppControlEvents.ps1 has no HARVEST TARGET block — the script this site serves is older than this page.");
+    const end = text.indexOf("\n}", start);
+    if (end < 0) throw new Error("The HARVEST TARGET block is not closed.");
+    let block = text.slice(start, end);
+    const q = (v) => "'" + String(v).replace(/'/g, "''") + "'";
+    const set = (key, val) => {
+      const re = new RegExp(`^(\\s*${key}\\s*=\\s*)'[^'\\n]*'`, "m");
+      if (!re.test(block)) throw new Error(`The HARVEST TARGET block has no ${key} line.`);
+      block = block.replace(re, (m, p) => p + q(val));
+    };
+    set("SiteUrl", cfg.siteUrl); set("TenantId", cfg.tenantId); set("ClientId", cfg.clientId); set("CertSubject", cfg.certSubject);
+    return text.slice(0, start) + block + text.slice(end);
+  }
+  const HARVEST_NAME_OK = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+  const HARVEST_HOST_OK = /^https:\/\/[a-z0-9-]+\.sharepoint\.com$/i;
+  async function createHarvestSite() {
+    const h = loadHarvest();
+    h.error = null;
+    const host = (h.host || "").trim().replace(/\/+$/, ""), name = (h.name || "").trim();
+    if (!HARVEST_HOST_OK.test(host)) { h.error = { kind: "graph", message: `The SharePoint host has to look like https://contoso.sharepoint.com — got "${host || "(empty)"}".` }; renderHarvest(); return; }
+    if (!HARVEST_NAME_OK.test(name)) { h.error = { kind: "graph", message: "The site name is the last part of the URL: letters, digits, - and _ only, up to 64." }; renderHarvest(); return; }
+    const webUrl = `${host}/sites/${name}`;
+    h.busy = "create"; renderHarvest();
+    try {
+      const r = await Graph.createSite({
+        name, webUrl, template: "sts", shareByEmailEnabled: false,
+        description: `TUNO T01 harvest site. Get-TunoAppControlEvents.ps1 uploads each device's App Control events bundle and report here (Harvest/<device>/), as the TUNO Harvest Uploader app with write on this site only. Created from ${BRANDING.name} ${APP_BUILD.label}.`,
+      });
+      h.site = { url: webUrl, id: "", status: "accepted", when: new Date().toISOString(), detail: "" };
+      saveHarvest(); renderHarvest();
+      const loc = r && r.location;
+      if (typeof Graph.isDemo === "function" && Graph.isDemo()) {
+        h.site.id = "demo.sharepoint.com,00000000-0000-0000-0000-000000000000,11111111-1111-1111-1111-111111111111"; h.site.status = "succeeded";
+      } else if (loc) {
+        // Provisioning takes a minute or two. Twelve polls, ten seconds apart,
+        // then the honest fallback: accepted, open the URL yourself.
+        for (let i = 0; i < 12 && h.site.status === "accepted"; i++) {
+          await new Promise((res) => setTimeout(res, 10000));
+          let st = null;
+          try { st = await Graph.siteOperation(loc); } catch (e) { h.site.detail = (e && e.message) || String(e); break; }
+          const status = String((st && st.status) || "").toLowerCase();
+          if (status === "succeeded" || status === "completed") { h.site.status = "succeeded"; h.site.id = (st && st.resourceId) || ""; }
+          else if (status === "failed") { h.site.status = "failed"; h.site.detail = (st && st.error && st.error.message) || "the operation reports failed"; }
+        }
+        if (h.site.status === "accepted") h.site.status = "pending";
+      } else {
+        h.site.status = "pending"; h.site.detail = "the tenant accepted the request without an operation to poll";
+      }
+      saveHarvest();
+    } catch (e) {
+      h.error = (e && e.name === "GraphError") ? e : { kind: "graph", message: (e && e.message) || String(e), code: "" };
+    }
+    h.busy = ""; renderHarvest(); renderRemedy();
+  }
+  function renderHarvest() {
+    const box = $("alHarvestBox");
+    if (!box) return;
+    const noGraph = typeof Graph === "undefined";
+    const signedIn = !noGraph && Graph.signedIn();
+    const h = loadHarvest();
+    const intro = `<p class="mini muted" style="margin:0 0 8px">Every way of retrieving a device's events bundle today needs the device <b>on</b> — Collect diagnostics, Live Response. A harvest site is one SharePoint site the collector uploads to on every pass, under <code>Harvest/&lt;device&gt;/</code>, so the evidence is in the tenant whether the laptop is in the bag or not. <b>Three parts, in order:</b> ① this panel creates the site (<code>Sites.Create.All</code> — the one SharePoint scope TUNO carries: it creates a site and cannot read or write any other); ② <code>New-TunoHarvestUploaderApp.ps1</code> creates the uploader app (<code>Sites.Selected</code>, application, <b>write on this site only</b>), a certificate and the PFX you deploy to the devices with an Intune PKCS-import profile — no secret in any script; ③ paste its two values below, and the events Remediation created in the 🚀 panel <b>carries the target</b>. The device authenticates with the certificate from <code>LocalMachine\\My</code>, never with TUNO's token.</p>`;
+    if (!signedIn) {
+      box.innerHTML = intro + `<p class="mini muted" style="margin:0">Sign in with an account in the tenant that gets the site and this becomes a button. TUNO asks for <code>Sites.Create.All</code> at the moment you press it; the scope must be consented on the app registration first (<code>New-TunoAppRegistration.ps1</code> carries it since build 10613).</p>`;
+      return;
+    }
+    const err = h.error ? `<div class="al-dep-err"><b>${escq(h.error.kind === "admin" ? "The tenant refused this" : h.error.kind === "consent" ? "Consent was not granted" : h.error.kind === "throttled" ? "The tenant is throttling" : "Not done")}.</b>
+        <div style="margin-top:4px">${escq(h.error.message)}</div>
+        ${h.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(h.error.code)}</code>${h.error.requestId ? ` · request-id <code>${escq(h.error.requestId)}</code>` : ""}</div>` : ""}</div>` : "";
+    const s = h.site;
+    const siteBox = !s ? "" : `<div class="${s.status === "failed" ? "al-dep-err" : "al-dep-ok"}">
+        <b>${s.status === "succeeded" ? "Site created." : s.status === "failed" ? "Site creation failed." : s.status === "accepted" ? "Creating…" : "Request accepted — provisioning."}</b>
+        <a href="${escq(s.url)}" target="_blank" rel="noopener">${escq(s.url)}</a>${s.id ? ` · id <code>${escq(s.id)}</code>` : ""}${s.when ? ` · ${escq(String(s.when).replace("T", " ").slice(0, 16))} UTC` : ""}
+        ${s.detail ? `<div class="mini" style="margin-top:4px">${escq(s.detail)}</div>` : ""}
+        ${s.status === "pending" ? `<div class="mini" style="margin-top:4px">SharePoint takes a minute or two. Open the URL; when it answers, the site exists and the helper below can grant on it.</div>` : ""}
+        ${s.status !== "failed" ? `<div class="mini" style="margin-top:6px"><b>Next, in PowerShell as an administrator</b> (Microsoft.Graph module; asks <code>Application.ReadWrite.All</code>, <code>AppRoleAssignment.ReadWrite.All</code>, <code>Sites.FullControl.All</code> of <i>you</i>, once):</div>
+        <pre class="al-code" style="margin:4px 0 0">irm ${escq(scriptUrl("New-TunoHarvestUploaderApp.ps1"))} -OutFile .\\New-TunoHarvestUploaderApp.ps1
+.\\New-TunoHarvestUploaderApp.ps1 -SiteUrl "${escq(s.url)}"</pre>
+        <div class="mini" style="margin-top:4px">It prints the uploader's client id and the certificate subject — paste them below — and writes the PFX to deploy.</div>` : ""}
+      </div>`;
+    const cfg = harvestConfig();
+    const ready = `<div class="mini" style="margin-top:10px">${cfg
+      ? `✅ <b>Harvest target complete.</b> Tenant <code>${escq(cfg.tenantId)}</code> · app <code>${escq(cfg.clientId)}</code> · certificate <code>${escq(cfg.certSubject)}</code> · site <code>${escq(cfg.siteUrl)}</code>. Create (or re-create) the <b>events-collection Remediation</b> in the 🚀 panel below and it carries this target. A Remediation created before this point does not — replace its remediation script body, or create it again.`
+      : `⏳ <b>Target incomplete:</b> ${!s ? "no site yet" : !isGuidLike(h.clientId) ? "the uploader client id (a GUID from the helper's output)" : !(h.certSubject || "").trim() ? "the certificate subject (the helper's CertSubject, default CN=TUNO Harvest Uploader)" : "the tenant id (sign in again)"}. Until it is complete the events pair is created without a target and the bundle stays on the device.`}</div>`;
+    box.innerHTML = intro + err + `
+      <div class="al-dep-row">
+        <input id="alHarvestHost" class="al-dep-in" style="flex:1;min-width:260px" value="${escq(h.host)}" placeholder="https://contoso.sharepoint.com" spellcheck="false" ${s ? "disabled" : ""} title="Your tenant's SharePoint host — guessed from the initial onmicrosoft.com domain, editable">
+        <span class="mini muted">/sites/</span>
+        <input id="alHarvestName" class="al-dep-in" style="flex:1;min-width:220px" value="${escq(h.name)}" spellcheck="false" ${s ? "disabled" : ""} title="The site's URL name">
+        <button id="alHarvestCreate" class="btn primary sm" ${h.busy || s ? "disabled" : ""}>${h.busy ? "Creating…" : "📁 Create the harvest site"}</button>
+        ${s ? `<button id="alHarvestForget" class="btn sm" title="Forget this site on this page only — nothing in the tenant changes">Forget</button>` : ""}
+      </div>
+      <p class="mini muted" style="margin:6px 0 0">Team site without a group (template <code>sts</code>), you as owner, sharing by email off. TUNO never deletes a site: if the name is taken the tenant says so and you pick another.</p>
+      ${siteBox}
+      <div class="al-dep-row" style="margin-top:12px">
+        <input id="alHarvestClient" class="al-dep-in" style="flex:1;min-width:300px" value="${escq(h.clientId)}" placeholder="uploader app (client) id — from the helper's output" spellcheck="false">
+        <input id="alHarvestCert" class="al-dep-in" style="flex:1;min-width:240px" value="${escq(h.certSubject)}" placeholder="certificate subject, e.g. CN=TUNO Harvest Uploader" spellcheck="false">
+      </div>
+      ${ready}`;
+    const bind = (id, key) => { const el = $(id); if (el) el.addEventListener("input", () => { h[key] = el.value; saveHarvest(); }); };
+    bind("alHarvestHost", "host"); bind("alHarvestName", "name");
+    ["alHarvestClient", "alHarvestCert"].forEach((id) => {
+      const el = $(id); if (!el) return;
+      el.addEventListener("input", () => { h[id === "alHarvestClient" ? "clientId" : "certSubject"] = el.value; saveHarvest(); });
+      // Redraw on blur, not on every keystroke — the readiness line changes,
+      // and the box being typed into would lose focus mid-word.
+      el.addEventListener("change", () => { renderHarvest(); renderRemedy(); });
+    });
+    const create = $("alHarvestCreate"); if (create) create.addEventListener("click", createHarvestSite);
+    const forget = $("alHarvestForget"); if (forget) forget.addEventListener("click", () => {
+      if (!window.confirm("Forget this harvest site on this page? The site itself stays in the tenant; only TUNO's memory of it goes, so the events pair is created without a target until a site is set again.")) return;
+      h.site = null; h.error = null; saveHarvest(); renderHarvest(); renderRemedy();
+    });
+  }
+
   // The Remediation deploy, in step 1's collapsed panel beside the downloads it
   // automates. Deliberately NOT gated on a loaded policy: a brownfield cleanup
   // happens BEFORE there is a policy worth uploading, and parking this in the
@@ -3688,6 +3884,7 @@ const AppLockerTool = (() => {
       const r = d.remedy[key];
       return `<div${i ? ` style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"` : ""}>
       <p class="mini muted" style="margin:0 0 6px">${p.blurb}</p>
+      ${key === "events" ? `<p class="mini" style="margin:0 0 6px">${harvestConfig() ? `📁 <b>Harvest target set:</b> <code>${escq(harvestConfig().siteUrl)}</code> — the Remediation created here carries it.` : `📁 <b>Harvest target not set</b> — the pair created here keeps the bundle on the device only. The 📁 Harvest site panel above sets it.`}</p>` : ""}
       <div class="al-dep-row">
         <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name)}" spellcheck="false">
         <button class="btn primary sm al-dep-remedy" data-pair="${key}" ${d.busy ? "disabled" : ""}>${d.busy === "remedy-" + key ? "Creating…" : "🚀 " + escq(p.button)}</button>
@@ -3695,7 +3892,7 @@ const AppLockerTool = (() => {
       ${r.coll && r.coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
         <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
         <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
-      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}</div>` : ""}
+      ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}${key === "events" ? (r.created._harvest ? ` <b>Harvest target carried:</b> uploads go to <code>${escq(r.created._harvest.siteUrl)}</code>.` : ` <b>No harvest target</b> — the bundle stays on the device; set one in the 📁 panel and create the pair again to carry it.`) : ""}</div>` : ""}
       </div>`;
     }).join("");
 
@@ -4372,5 +4569,7 @@ const AppLockerTool = (() => {
   return { init,
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
+    // the harvest target, for the headless suite (10613)
+    _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, deployState: () => deployState },
   };
 })();

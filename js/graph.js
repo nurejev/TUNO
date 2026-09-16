@@ -131,6 +131,15 @@ const Graph = (() => {
     // (Intune Administrator among them), so consent alone does not open it —
     // T18's screen says so rather than printing a bare 403.
     laps: ["DeviceLocalCredential.ReadBasic.All"],
+    // write — T01's harvest site (build 10613), TUNO's first SharePoint
+    // scope and its narrowest write: Sites.Create.All creates a site
+    // collection and nothing else — no read of any existing site, no write
+    // into one. Graph grants the creating app Sites.Selected on the NEW site
+    // only, which TUNO never uses: the devices upload with their own app
+    // (Sites.Selected, application, certificate), never with TUNO's token.
+    // Taken in the open per the R18 rule — registration script and
+    // SECURITY.md move in the same commit.
+    sitesCreate: ["Sites.Create.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,
@@ -328,7 +337,7 @@ const Graph = (() => {
   const MAX_RETRIES = 5;
 
   // `retry` is opt-in and only reads ever pass it — see rule 3 in the header.
-  async function call(method, path, { body, scopes, headers, retry } = {}) {
+  async function call(method, path, { body, scopes, headers, retry, withLocation } = {}) {
     const url = safeGraphUrl(path);
 
     // THE INTERCEPTION. Before the token, before the fetch — so a demo
@@ -398,6 +407,9 @@ const Graph = (() => {
 
     // /$count answers text/plain, so a body that will not parse is not
     // automatically a failure — hand back what came.
+    // A 202 carries the operation to poll in its Location header; a caller
+    // that asks for it gets both halves (the site create, 10613).
+    if (res.ok && withLocation) return { body: json !== null ? json : (text || null), location: res.headers.get("Location") || "" };
     if (res.ok) return json !== null ? json : (text || null);
 
     const err = (json && json.error) || {};
@@ -738,6 +750,18 @@ const Graph = (() => {
     return r;
   }
 
+  // ---------- the harvest site (T01, build 10613) ----------
+  // POST /beta/sites answers 202 with the operation in Location; the status
+  // read answers resourceId (the site id) when it says succeeded. Both under
+  // Sites.Create.All, the one SharePoint scope TUNO carries.
+  const createSite = (site) => call("POST", `${BETA}/sites`, { body: site, scopes: SCOPES.sitesCreate, withLocation: true });
+  const siteOperation = (location) => get(location, { scopes: SCOPES.sitesCreate, retry: true });
+  // The tenant id of the signed-in account, for a script that has to name
+  // the tenant it authenticates against. Read from MSAL's account, not from
+  // the org read — the account is there from sign-in, the org read is
+  // best-effort.
+  const tenantId = () => { try { const a = account(); return (a && (a.tenantId || (a.idTokenClaims || {}).tid)) || ""; } catch { return ""; } };
+
   const assignProfile = (profileId, groupId) => post(
     `/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/assign`,
     { assignments: [{ target: { "@odata.type": "#microsoft.graph.groupAssignmentTarget", groupId } }] },
@@ -747,6 +771,7 @@ const Graph = (() => {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
     get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
     remediations, createRemediation,
+    createSite, siteOperation, tenantId,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,
