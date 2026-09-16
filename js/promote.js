@@ -104,6 +104,34 @@ const PROMOTE = {
 
   items: [
     {
+      "n": 186,
+      "title": "T20 — reviewed impact brief with evidence-based claims, coverage and rollout wording",
+      "tools": [
+        "T20 Endpoint security posture"
+      ],
+      "builds": [
+        10614
+      ],
+      "risk": "medium",
+      "what": "Revised statement matching and user-facing copy; shared coverage calculations distinguish member totals from device targets; conditional rollout and interim retirement wording; read warnings and timestamps in Markdown and Word; tracked regression suite and review report.",
+      "why": "The generated user brief overstated what settings and assignments prove. This update removes unsupported operational and privacy promises before the brief is reused for employee communication. It does not read per-device application results or establish an approved rollout audience.",
+      "test": [
+        "Local: npm test must pass, including tests/endpointposture/brief.test.js. Render a Word sample and inspect every page; see docs/reviews/T20-brief-review-10614.md for completed validation.",
+        "Live tenant (pending): read T20 and compare a real ASR Block, Warn and Audit policy, disabled Hello, Edge site-only/download-only override and password-saving policy against the statements and both exports.",
+        "Live tenant (pending): check group targets, All users, exclusions and an All devices filter; only computable device sets carry counts. Confirm partial read warnings survive download.",
+        "Live rollout (pending): confirm the intended audience, effective device settings and replacement coverage before updating and distributing the employee brief. A configured unassigned policy must not claim a fleet-wide rollout or a completed replacement."
+      ],
+      "files": [
+        "js/endpointposture.js",
+        "index.html",
+        "js/version.js",
+        "js/changelog.js",
+        "js/promote.js",
+        "tests/endpointposture/brief.test.js",
+        "docs/reviews/T20-brief-review-10614.md"
+      ]
+    },
+    {
       n: 185, title: "\ud83d\udd10 T01 \u2014 the harvest site: one SharePoint site the events collector uploads to every pass, created from the page, with a certificate-based uploader app and NO secret in any script (a NEW SCOPE, Sites.Create.All, in the open)",
       tools: ["T01 AppLocker builder & validator"], builds: [10613], risk: "medium",
       what: "index.html: a \ud83d\udcc1 Harvest site panel between the downloads and the \ud83d\ude80 deploy panel (option B of the mockup), a download row for the new helper. js/graph.js: SCOPES.sitesCreate, createSite (POST /beta/sites, 202 + Location), siteOperation (getOperationStatus), tenantId(), and call() takes withLocation. js/applocker.js: loadHarvest/saveHarvest per tenant id in localStorage, guessSharePointHost from the initial onmicrosoft.com domain, createHarvestSite (validates host and name, polls the operation up to two minutes, honest 'pending' after), renderHarvest, harvestConfig (all-or-nothing), stampHarvestConfig (fills only the HARVEST TARGET block), fetchScriptB64 takes a transform and keeps the BOM; the events pair's blurb, description and created-box say whether a target was carried. scripts/Get-TunoAppControlEvents.ps1 1.2.0: the HARVEST TARGET block, -Harvest* parameters, the registry override, Get-HarvestToken (RS256 JWT client assertion via GetRSAPrivateKey), Get-HarvestSiteId by URL, Send-HarvestFile (PUT under 4 MB, upload session in 5 MiB chunks above), Remove-HarvestStale (opt-in). scripts/New-TunoHarvestUploaderApp.ps1 1.0.0 (new). New-TunoAppRegistration.ps1 + SECURITY.md: Sites.Create.All. tests/applocker/harvest.test.js (tracked, 42) and AppLockerTool bridged in the harness.",

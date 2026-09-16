@@ -26,6 +26,33 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    "build": 10614,
+    "date": "2026-09-16",
+    "title": "T20: a reviewed user brief grounded in settings and confirmed assignment evidence",
+    "items": [
+      {
+        "kind": "fixed",
+        "tool": "T20",
+        "text": "The impact brief no longer calls assignment evidence verified enforcement, turns group member totals into device coverage, or treats All users and unread exclusions as the Windows fleet. Evaluated All devices filters retain their measured counts; uncertain coverage is named in the brief, policy rows and check reach lines."
+      },
+      {
+        "kind": "fixed",
+        "tool": "T20",
+        "text": "An unassigned policy no longer supplies an invented fleet-wide rollout intention. Its audience needs confirmation. Interim retirement names the potential gap and requires replacement assignment and validation; it cannot say both no change and protection stops."
+      },
+      {
+        "kind": "fixed",
+        "tool": "T20",
+        "text": "User-facing claims follow the settings: ASR collection parents and exclusion fields cannot trigger blocking; Warn also recognises 6; Hello requires its enable setting; EDR requires onboarding evidence; Edge site and download override policies are separate. Disabling password saving leaves previously saved passwords usable. Encryption, firewall and App Control wording no longer promises silent setup, escrow, unaffected apps, blocked software or unrestricted audit behaviour without evidence."
+      },
+      {
+        "kind": "improved",
+        "tool": "T20",
+        "text": "Markdown and Word carry the policy-read time, unread-policy warnings and scope limits. The privacy paragraph no longer promises that security services never process files or activity data. The on-screen brief uses the same conditional wording. Regression coverage lives in tests/endpointposture/brief.test.js; review and validation are recorded in docs/reviews/T20-brief-review-10614.md."
+      }
+    ]
+  },
+  {
     build: 10613, date: "2026-09-16", title: "T01: a harvest site — the collector uploads every pass to SharePoint, so the evidence is there with the device off",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "A new panel under Help & scripts, 📁 Harvest site, creates one SharePoint team site for the events collector to upload to. Every way of retrieving a device's events bundle so far needed the device on — Collect diagnostics, Live Response. With a harvest site set, each pass of Get-TunoAppControlEvents.ps1 also uploads its bundle and report to Harvest/<device>/ on that site. The site is created under Sites.Create.All, TUNO's first SharePoint scope and the narrowest write Graph offers there: it creates a site collection and cannot read or write any other. Taken in the open, the R18 rule: the registration script and SECURITY.md move in the same build." },

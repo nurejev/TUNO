@@ -104,7 +104,7 @@ const EndpointPosture = (() => {
   // shortened to their last segment ("block", "1", "mode" for _audit_mode).
   const rowsOf = (doc) => (doc && doc.rows) || [];
   const findRow = (doc, re) => rowsOf(doc).find((r) => r.defId && re.test(r.defId)) || null;
-  const val = (doc, re) => { const r = findRow(doc, re); return r ? String(r.value || "").toLowerCase() : null; };
+  const val = (doc, re) => { const r = findRow(doc, re); return r ? String(r.value ?? "").toLowerCase() : null; };
   const anyDoc = (docs, re) => docs.filter((d) => rowsOf(d).some((r) => r.defId && re.test(r.defId)));
   // Value tails, normalised: catalogRows keeps the last "_" segment, so
   // "..._audit_mode" arrives as "mode" — treated as audit, deliberately.
@@ -114,21 +114,18 @@ const EndpointPosture = (() => {
   const isAuditV = (v) => v === "2" || v === "audit" || v === "mode" || v === "auditmode";
 
   // The three reach states, spoken the brief's way.
-  const STATE_WORD = { assigned: "enforced now", unassigned: "not assigned yet", excludedOnly: "excluded-only — reaches nobody" };
+  const STATE_WORD = { assigned: "assigned — device application not verified", unassigned: "not assigned yet", excludedOnly: "excluded-only — reaches nobody" };
   const stateOf = (doc) => OverviewTool.verdictOf(doc);
 
   // ---------------------------------------------- interim (build 10480) --
   // Mihai's tenant convention: a policy with (TO-BE-REMOVED) in its name
-  // is in place NOW and is PHASED OUT at rollout. That is a third
-  // temporal state, and both analyses must speak it: a brief statement
-  // carried only by interim policies is enforced today and STOPS at
-  // rollout (unless a staged replacement exists), and a best-practice
-  // check that passes only through interim policies is a pass with an
-  // expiry date — flagged, never silently green.
+  // is marked for retirement. The brief treats retirement as a coverage
+  // risk, not a verified removal date, and requires replacement assignment
+  // and validation rather than assuming a staged policy takes over.
   const isInterim = (doc) => /TO[-\s]?BE[-\s]?REMOVED/i.test(String((doc && doc.name) || ""));
   // App Control enforcement mode (10481) — read from the policy content,
-  // never assumed: the OIB baseline ships WDAC policies whose XML says
-  // "Enabled:Audit Mode", and an audit-mode policy blocks NOTHING. The
+  // the historical heuristic used by the Best practice checks. The impact
+  // brief does not infer effective app restrictions from this mode. The
   // audit flag is stamped by the documenter's catalogRows from the RAW
   // value (the display row loses the word to tail-shortening and the
   // 300-char cap). No rows readable = unknown, said as unknown.
@@ -139,51 +136,22 @@ const EndpointPosture = (() => {
 
   const stateWordOf = (doc) => {
     const st = stateOf(doc);
-    if (st === "assigned" && isInterim(doc)) return "enforced now — interim, retired at rollout";
+    if (st === "assigned" && isInterim(doc)) return "assigned — interim, marked for retirement; device application not verified";
     return STATE_WORD[st];
   };
 
-  // ------------------------------------------- device reach (build 10479) --
-  // How many Intune Windows devices a finding's policies actually target,
-  // and how many the tenant leaves out — TARGETS, NOT CHECK-INS: this is
-  // assignment arithmetic, the same claim the rest of the house makes.
-  // Tenant-wide is the whole Windows fleet; group targets are summed by
-  // member count (Graph.memberCount, the AppLocker deploy's own seam) —
-  // members as the groups are built, users or devices, overlaps NOT
-  // deduplicated, exclusions NOT subtracted, a filter capping at may.
-  // Every one of those limits is worn on the line, because a device
-  // number that hides its arithmetic is how a claim becomes a lie.
-  // `state` picks which of the statement's policies the arithmetic is about:
-  // "assigned" is what is enforced NOW, "planned" is the staged policy that
-  // is not assigned yet — the same sum over a different half of the same
-  // list, so today and the destination cannot drift into two arithmetics.
-  // A TENANT-WIDE TARGET'S FILTER, EVALUATED (10505).
-  //
-  // "All devices with an include filter" is not "the whole fleet, at most" —
-  // it is exactly the devices the rule matches, and R32's parser can count
-  // them. "All devices with an exclude filter" is exactly the fleet minus
-  // that set. Both are measurements, not bounds, and the house has been
-  // rendering them as "at most all 9964" since filters were understood.
-  //
-  // A GROUP target is different and stays a bound: the filter narrows the
-  // group, and the intersection needs the group's MEMBERSHIP, which nobody
-  // here has read — only its size. Widening this to groups would mean
-  // guessing an overlap, which is the one thing this file never does.
-  //
-  // Returns one of:
-  //   null                — no tenant-wide target
-  //   { all: true }       — an unfiltered wide target: everyone, exactly
-  //   { ok: true, test }  — every wide filter parsed; test(device) is the union
-  //   { ok: false, why }  — a rule the grammar cannot fully read, named
+  // Assignment reach, not device enforcement (10614). Only unrestricted
+  // All devices targets, or their evaluated filters on a complete inventory,
+  // establish counts. Group member totals and All users cannot establish a
+  // unique Windows-device set. Exclusions are resolved per policy; a separate
+  // unrestricted policy can still establish the whole assignment target.
   function widePredicate(assignments) {
-    const wides = (assignments || []).filter((a) => a.kind === "All devices" || a.kind === "All users");
+    const wides = (assignments || []).filter((a) => a.kind === "All devices");
     if (!wides.length) return null;
+    if (wides.some((a) => !a.filterId)) return { all: true };
     if (typeof FilterRules === "undefined") return { ok: false, why: "the filter-rule evaluator is not loaded" };
     const preds = [];
     for (const a of wides) {
-      // An unfiltered tenant-wide target reaches everybody, and the union
-      // with anything else is still everybody — so it short-circuits.
-      if (!a.filterId) return { all: true };
       if (!a.filterRule) return { ok: false, why: "the filter's rule was not read" };
       const p = FilterRules.parse(a.filterRule);
       if (!p.ok) return { ok: false, why: p.why || "the rule is outside the grammar this tool evaluates" };
@@ -197,76 +165,55 @@ const EndpointPosture = (() => {
     const want = (opts && opts.state) || "assigned";
     const devices = (opts && opts.devices) || null;
     const live = (docs || []).filter((d) => (want === "planned" ? stateOf(d) !== "assigned" : stateOf(d) === "assigned"));
-    const out = { live: live.length, wide: false, groups: 0, reached: 0, missing: null, filtered: false, excludes: 0, unknownGroups: 0, exact: false, atLeast: false, evaluated: false, wideWhy: null };
-    if (!live.length) { out.missing = deviceCount == null ? null : deviceCount; return out; }
-    const ids = new Set();
-    const fnames = new Map();
-    const wideAssignments = [];
-    for (const d of live) for (const a of (d.assignments || [])) {
-      if (a.kind === "All devices" || a.kind === "All users") { out.wide = true; wideAssignments.push(a); }
-      else if (a.kind === "Included" && a.groupId) ids.add(String(a.groupId).toLowerCase());
-      else if (a.kind === "Excluded") out.excludes++;
-      if (a.filterId && a.kind !== "Excluded") {
-        out.filtered = true;
-        const k = `${String(a.filterId).toLowerCase()}|${String(a.filterType || "").toLowerCase()}`;
-        if (!fnames.has(k)) fnames.set(k, (typeof Docs !== "undefined" && Docs.filterLabel) ? Docs.filterLabel(a) : "an assignment filter");
-      }
+    const assignments = live.flatMap((d) => d.assignments || []);
+    const ids = [...new Set(assignments.filter((a) => a.kind === "Included" && a.groupId).map((a) => String(a.groupId).toLowerCase()))];
+    const out = { live: live.length, wide: false, groups: ids.length, reached: 0, missing: deviceCount,
+      filtered: false, excludes: assignments.filter((a) => a.kind === "Excluded").length,
+      unknownGroups: 0, exact: false, atLeast: false, evaluated: false, cap: false,
+      wideWhy: null, unknownReason: null, memberTotal: 0, filterNames: [] };
+    if (!live.length) return out;
+    const fnames = new Set();
+    for (const a of assignments) if (a.filterId && a.kind !== "Excluded") {
+      out.filtered = true;
+      fnames.add(typeof Docs !== "undefined" && Docs.filterLabel ? Docs.filterLabel(a) : "an assignment filter");
     }
-    out.groups = ids.size;
-    out.filterNames = [...fnames.values()];
-    // A FILTER ONLY EVER NARROWS. Include mode keeps the devices the rule
-    // matches and drops the rest; exclude mode drops the ones it matches.
-    // Where the rule cannot be evaluated the number a browser can compute
-    // is a CEILING, never the reach — so a filtered target claims a bound,
-    // and the missing side flips with it: at most this many reached means
-    // at least that many missed. Where the rule CAN be evaluated (10505),
-    // there is no bound to claim: there is a number.
-    out.cap = out.filtered;
-
-    if (out.wide) {
-      const wp = widePredicate(wideAssignments);
-      if (wp && wp.all) {
-        // An unfiltered tenant-wide target: everyone, and no group can add
-        // to that. Exact, and it always was — this branch just stops
-        // calling it a bound when some OTHER target carried a filter.
-        out.reached = deviceCount == null ? null : deviceCount;
-        out.missing = deviceCount == null ? null : 0;
-        out.cap = false;
-        out.exact = deviceCount != null;
-        return out;
-      }
-      if (wp && wp.ok && Array.isArray(devices)) {
-        const n = devices.filter(wp.test).length;
-        out.reached = n;
-        out.missing = deviceCount == null ? null : Math.max(0, deviceCount - n);
-        out.cap = false;
-        out.evaluated = true;
-        // Group targets alongside a filtered wide one can only ADD devices,
-        // and by how many is the intersection nobody has read — so the
-        // measurement becomes a floor rather than pretending to be whole.
-        if (ids.size) { out.atLeast = true; out.exact = false; }
-        else { out.exact = true; }
-        return out;
-      }
-      // The rule could not be read: the old answer, with the reason named
-      // rather than left as a bare "at most".
-      out.wideWhy = wp && wp.why ? wp.why : (devices ? null : "the device inventory was not read");
-      out.reached = deviceCount == null ? null : deviceCount;
+    out.filterNames = [...fnames];
+    for (const id of ids) {
+      const n = counts && counts[id];
+      if (n == null || n === "" || !Number.isFinite(Number(n)) || Number(n) < 0) out.unknownGroups++;
+      else out.memberTotal += Number(n);
+    }
+    // Exclusions belong to each policy. A policy without exclusions can
+    // establish a known All devices set independently of the other policies.
+    const safeWide = live.filter((d) => !(d.assignments || []).some((a) => a.kind === "Excluded"))
+      .flatMap((d) => (d.assignments || []).filter((a) => a.kind === "All devices"));
+    out.wide = assignments.some((a) => a.kind === "All devices");
+    const wp = widePredicate(safeWide);
+    if (wp && wp.all) {
+      out.reached = deviceCount;
       out.missing = deviceCount == null ? null : 0;
+      out.exact = deviceCount != null;
+      if (deviceCount == null) out.unknownReason = "the Windows device inventory could not be read";
       return out;
     }
-    let n = 0;
-    for (const id of ids) {
-      const c = counts ? counts[id] : null;
-      if (c == null || !Number.isFinite(Number(c))) out.unknownGroups++;
-      else n += Number(c);
+    if (wp && wp.ok && Array.isArray(devices) && deviceCount === devices.length) {
+      out.reached = devices.filter(wp.test).length;
+      out.missing = deviceCount - out.reached;
+      out.evaluated = true;
+      const otherTargets = assignments.some((a) => a.kind === "Included" || a.kind === "All users")
+        || live.some((d) => (d.assignments || []).some((a) => a.kind === "Excluded")
+          && (d.assignments || []).some((a) => a.kind === "All devices"));
+      out.atLeast = otherTargets && out.missing > 0;
+      out.exact = !out.atLeast;
+      return out;
     }
-    // EVERY count unreadable is not a sum of zero — it is no sum at all.
-    // 10479 returned reached = 0 here, which rendered as "~0 devices" with a
-    // (floor) note beside it; a reader takes "~0" as a measurement and the
-    // caveat as a footnote. Nothing was measured, so nothing is claimed.
-    out.reached = (out.unknownGroups && out.unknownGroups === ids.size) ? null : n;
-    out.missing = (deviceCount == null || out.reached == null) ? null : Math.max(0, deviceCount - n);
+    if (want === "planned" && !assignments.some((a) => a.kind !== "Excluded")) return out;
+    out.reached = null; out.missing = null;
+    if (out.excludes) out.unknownReason = "excluded-group membership was not read";
+    else if (out.wide) out.unknownReason = wp && wp.why ? wp.why : "the assignment filter could not be evaluated against a complete device inventory";
+    else if (assignments.some((a) => a.kind === "All users")) out.unknownReason = "All users is a user target, not a count of enrolled Windows devices";
+    else if (ids.length) out.unknownReason = "group members are not unique enrolled Windows devices; group overlap, member types and filter matches were not resolved";
+    else out.unknownReason = "the assignment target could not be resolved";
     return out;
   }
 
@@ -302,47 +249,18 @@ const EndpointPosture = (() => {
 
   // The one sentence both the screen and the export speak.
   function reachLine(r, deviceCount) {
-    const D = deviceCount;
-    const caveats = [];
-    if (r.wide) caveats.push("tenant-wide target");
-    if (!r.wide && r.groups) caveats.push(`${r.groups} included group${r.groups === 1 ? "" : "s"} summed by member count — members as the groups are built, overlaps not deduplicated`);
-    if (r.unknownGroups && r.reached != null && !r.cap) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable, the sum is a floor`);
-    else if (r.unknownGroups) caveats.push(`${r.unknownGroups} group count${r.unknownGroups === 1 ? "" : "s"} unreadable`);
-    // Members are counted AS THE GROUPS ARE BUILT — a group of users, or two
-    // groups holding the same machine, both push the sum past the fleet. A
-    // bound larger than the thing it bounds is not a bound.
-    if (r.reached != null && deviceCount != null && r.reached > deviceCount) caveats.push(`the sum exceeds the ${deviceCount}-device fleet — overlapping groups, or groups of users rather than devices, are counted once each`);
-    if (r.excludes) caveats.push(`${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} not subtracted`);
-    if (r.evaluated) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the assignment filter"} was EVALUATED against today's inventory — the service evaluates it at assignment time, against inventory that moves`);
-    else if (r.filtered) caveats.push(`⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows this${r.wideWhy ? ` and could not be evaluated (${r.wideWhy})` : ""} — the service evaluates the rule against inventory a browser cannot see`);
-    const cav = caveats.length ? ` (${caveats.join("; ")})` : "";
-    if (!r.live || (r.reached === 0 && !r.unknownGroups)) {
-      return D == null
-        ? `0 devices targeted — and the Windows device count could not be read, so how many are missing is unknown, not zero`
-        : `0 of ${D} enrolled Windows devices targeted — all ${D} are missing this control`;
+    const fleet = deviceCount == null ? "the Windows fleet size is unknown" : `the fleet has ${deviceCount} enrolled Windows devices`;
+    if (r.unknownReason) {
+      const members = r.groups ? `; ${r.groups} included group${r.groups === 1 ? "" : "s"}, ${r.memberTotal} readable members summed before overlap${r.unknownGroups ? `, ${r.unknownGroups} counts unreadable` : ""}` : "";
+      const filter = r.filtered ? `; filters: ${r.filterNames.join("; ") || "unnamed"}` : "";
+      return `device coverage unknown — ${r.unknownReason}; ${fleet}${members}${filter}. Assignment does not verify application on the device`;
     }
-    // Reach unknown has two causes and they read differently: no member count
-    // came back at all, or the fleet size did not. Neither is a number.
-    if (r.reached == null) {
-      return r.groups
-        ? `${r.groups} group${r.groups === 1 ? "" : "s"} targeted — not one member count could be read, so how many devices this reaches is UNKNOWN, not zero${D == null ? "" : ` (the fleet is ${D})`}${cav}`
-        : `the Windows device count could not be read — reach is unknown, not zero${cav}`;
-    }
-    if (D == null) return `${r.cap ? "at most " : "~"}${r.reached} devices targeted — the Windows device count could not be read, so how many are missing is unknown${cav}`;
-    // Three verbs, and which one is honest depends on which way the
-    // uncertainty leans. A FILTER caps: at most this many, so at least that
-    // many missed. An UNREADABLE group count floors: at least this many, so
-    // at most that many missed. Both at once has no useful bound in either
-    // direction and says so rather than picking the flattering one.
-    if (r.cap && r.unknownGroups) {
-      return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted of a ${D}-device fleet — bounded on neither side: ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low, and the filter puts it high. How many devices this reaches is not computable here${cav}`;
-    }
-    // FOUR VERBS NOW. An EXACT number needs none — the filter rule was
-    // evaluated, or there is no filter at all — and dressing a measurement
-    // in "~" is as dishonest in one direction as "at most" is in the other.
-    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
-    const missing = `${r.cap ? "at least " : (r.atLeast || r.unknownGroups) ? "at most " : ""}${r.missing}`;
-    return `${verb}${r.reached} of ${D} enrolled Windows devices targeted · ${missing} not targeted — targets, not check-ins${cav}`;
+    if (!r.live || r.reached === 0 && !r.atLeast) return `0${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices targeted by these matched policies — this does not prove the control is absent on the devices`;
+    if (r.reached == null) return `device coverage unknown — ${fleet}; assignment does not verify application on the device`;
+    const count = `${r.atLeast ? "at least " : ""}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices targeted`;
+    const missing = r.missing == null ? "" : ` · ${r.atLeast ? "at most " : ""}${r.missing} not targeted by these matched policies`;
+    const filter = r.evaluated ? ` — filters evaluated against today's inventory: ${r.filterNames.join("; ")}` : "";
+    return `${count}${missing}${filter} — assignment targets, not verified device application`;
   }
 
   // ------------------------------------------------------ impact brief --
@@ -352,66 +270,72 @@ const EndpointPosture = (() => {
   // what the person notices, `lost` what stops being possible. End-user
   // language on purpose: the output is meant to be pasted into a
   // rollout mail, not read by an engineer.
+  // Only rule leaves count: collection parents and exclusion settings are not ASR modes.
+  const asrRows = (d) => rowsOf(d).filter((r) => /_attacksurfacereductionrules_[a-z0-9]+$/i.test(r.defId || ""));
   const RULES = [
-    { id: "rt", icon: "🦠", title: "Files are checked the moment they arrive",
+    { id: "rt", icon: "🦠", title: "Files are checked as you use them",
       match: (d) => isOn(val(d, /allowrealtimemonitoring/i)),
-      expect: "Every file you download, open or copy is scanned automatically in the background. A malicious file is quarantined before it can run — you see a notification, not a question.",
+      expect: "Real-time antivirus checks files as you use them. If it detects a threat, Windows may block or quarantine the file and show a notification.",
       lost: null },
     { id: "cloud", icon: "☁️", title: "Unknown files get a second opinion",
       match: (d) => isOn(val(d, /allowcloudprotection/i)),
-      expect: "A brand-new, never-seen file can be held for a few seconds while Microsoft's cloud analyses it. Rare, quick, and the reason brand-new malware does not get a head start.",
+      expect: "Microsoft's cloud protection helps assess unfamiliar files and threats. Security information, and file samples where permitted by the configured submission settings, may be sent to Microsoft for analysis.",
       lost: null },
     { id: "pua", icon: "🧩", title: "Bundled junkware is blocked",
       match: (d) => { const v = val(d, /puaprotection/i); return v !== null && isBlockV(v); },
       expect: "Installers that bundle toolbars, ad-injectors or 'PC optimizers' are blocked as potentially unwanted apps, even when they are not technically viruses.",
       lost: "Installing free-download bundles that carry adware alongside the app you wanted." },
-    { id: "np", icon: "🕸", title: "Dangerous websites are blocked system-wide",
+    { id: "np", icon: "🕸", title: "Connections to dangerous sites can be blocked",
       match: (d) => { const v = val(d, /enablenetworkprotection/i); return v !== null && isBlockV(v); },
-      expect: "Connections to known-malicious sites are blocked in every app, not just the browser. A blocked page shows a Windows notification naming the block.",
-      lost: "Reaching phishing and malware-hosting sites from any application." },
+      expect: "Network protection is configured to block connections to malicious destinations in supported apps and protocols. A needed connection can also be affected; contact IT if it is blocked.",
+      lost: "Connections identified as malicious by network protection, subject to its supported traffic and configured exceptions." },
     { id: "asrblock", icon: "⚔️", title: "Common attack tricks stop working",
-      match: (d) => rowsOf(d).some((r) => /attacksurfacereductionrules/i.test(r.defId || "") && isBlockV(String(r.value || "").toLowerCase())),
-      expect: "Office files cannot silently start programs, scripts from e-mail cannot launch downloads, and unsigned programs on USB sticks will not run. Normal documents and macros your team relies on keep working — these rules target behaviour, not file types.",
-      lost: "Macro-driven installers, executable e-mail attachments, and running unsigned tools straight from a USB stick." },
+      match: (d) => asrRows(d).some((r) => isBlockV(String(r.value ?? "").toLowerCase())),
+      expect: "Some app actions associated with attacks are set to be blocked. The effect depends on the individual rules enabled and their exceptions; a work task can also be affected. Contact IT if a needed action is blocked.",
+      lost: "App actions covered by the configured blocking rules, unless an applicable exception permits them." },
     { id: "asrwarn", icon: "⚠️", title: "Some protections warn before they block",
-      match: (d) => rowsOf(d).some((r) => /attacksurfacereductionrules/i.test(r.defId || "") && String(r.value || "").toLowerCase() === "warn"),
-      expect: "For some rules you get a warning you can click through when you genuinely need to — the bypass lasts 24 hours and is visible to IT.",
+      match: (d) => asrRows(d).some((r) => ["warn", "6"].includes(String(r.value ?? "").toLowerCase())),
+      expect: "Some attack-reduction rules are configured to warn. Where Windows offers an Unblock option, it allows a temporary bypass for 24 hours. Follow your organization's guidance before using it.",
       lost: null },
-    { id: "bde", icon: "🔐", title: "The disk encrypts itself",
+    { id: "bde", icon: "🔐", title: "Device encryption is required",
       match: (d) => isOn(val(d, /requiredeviceencryption/i)),
-      expect: "Company Windows devices encrypt silently in the background — nothing to click, no slowdown you would notice. If a laptop is lost or stolen, the data on it stays locked; the recovery key is stored centrally, not your problem to keep.",
-      lost: "Reading a lost or stolen laptop's disk by pulling it out — for anyone, including thieves." },
-    { id: "fw", icon: "🧱", title: "Unsolicited network connections are refused",
+      expect: "Windows is configured to require disk encryption to help protect data if a device is lost. Setup may need your input. IT must confirm encryption has completed and a recovery key is available before treating the device as protected.",
+      lost: null },
+    { id: "fw", icon: "🧱", title: "Windows firewall protection is configured",
       match: (d) => rowsOf(d).some((r) => /mdmstore_(domain|private|public)profile_enablefirewall/i.test(r.defId || "") && isOn(String(r.value || "").toLowerCase())),
-      expect: "The Windows firewall is on and managed. Apps you use normally are unaffected; a new app that needs to accept incoming connections may need an IT-approved rule instead of a local exception.",
-      lost: "Locally allowing an app through the firewall and having it stay that way." },
-    { id: "edr", icon: "📡", title: "The security team can see and respond to threats",
-      match: (d) => rowsOf(d).some((r) => /windowsadvancedthreatprotection/i.test(r.defId || "")) || /EndpointDetectionAndResponse/i.test(String(d.templateFamily || "")),
-      expect: "Devices report security signals to Microsoft Defender for Endpoint so a real attack can be spotted and stopped centrally. It watches for attack behaviour — it is not a productivity or activity monitor.",
+      expect: "The firewall is enabled for one or more network profiles. Which connections are allowed, and whether local exceptions work, depends on the rules for the network you are using. Contact IT if an app cannot connect.",
+      lost: null },
+    { id: "edr", icon: "📡", title: "Defender for Endpoint onboarding is configured",
+      match: (d) => rowsOf(d).some((r) => /windowsadvancedthreatprotection_onboarding$/i.test(r.defId || "") && !["", "0", "false", "disabled", "(configured)"].includes(String(r.value ?? "").toLowerCase())),
+      expect: "This policy configures onboarding to Microsoft Defender for Endpoint. Once onboarding succeeds, security information helps IT investigate threats and respond. IT must verify onboarding on the devices; the policy alone does not prove it has completed.",
       lost: null },
     { id: "edgess", icon: "🌐", title: "Edge gives risky sites and downloads a red light",
       match: (d) => isOn(val(d, /_smartscreenenabled/i)),
       expect: "Microsoft Edge checks sites and downloads against a reputation service. A known-bad page or file gets a full-page warning; a genuinely needed blocked file goes via the helpdesk.",
       lost: null },
-    { id: "edgeoverride", icon: "🚦", title: "The red light cannot be run",
-      match: (d) => isOn(val(d, /preventsmartscreenpromptoverride(forfiles)?$/i)),
-      expect: "SmartScreen warnings in Edge cannot be clicked through — the Continue anyway link is gone on flagged sites and downloads.",
-      lost: "Bypassing a SmartScreen warning on your own judgement." },
+    { id: "edgeoverride", icon: "🚦", title: "Edge site warnings cannot be bypassed",
+      match: (d) => isOn(val(d, /_preventsmartscreenpromptoverride$/i)),
+      expect: "When Edge shows a SmartScreen warning for a site, this setting prevents you from continuing to that site. Contact IT if a needed site is blocked.",
+      lost: "Bypassing an Edge SmartScreen site warning yourself." },
+    { id: "edgefileoverride", icon: "🚦", title: "Edge download warnings cannot be bypassed",
+      match: (d) => isOn(val(d, /_preventsmartscreenpromptoverrideforfiles$/i)),
+      expect: "When Edge flags a download with a SmartScreen warning, this setting prevents you from keeping it through that warning. Contact IT if a needed download is blocked.",
+      lost: "Bypassing an Edge SmartScreen download warning yourself." },
     { id: "edgepw", icon: "🔑", title: "Edge stops offering to save passwords",
       match: (d) => { const v = val(d, /passwordmanagerenabled/i); return v !== null && isOff(v); },
-      expect: "Edge no longer offers to remember passwords — use the company password manager instead. Already-saved passwords stop filling.",
-      lost: "Keeping work passwords in the browser's own store." },
-    { id: "acct", icon: "👤", title: "Signing in gets stronger than a password",
-      match: (d) => /AccountProtection/i.test(String(d.templateFamily || "")) && !/LocalUsersAndGroups|LocalUserGroupMembership/i.test(String(d.templateName || "")),
-      expect: "Windows Hello (PIN, fingerprint or face) becomes the way into the device — faster than a password and it never leaves the machine.",
+      expect: "Edge stops offering to save new passwords. Previously saved passwords can still be used; this setting does not delete them or turn off their autofill. Follow IT's guidance on where to store new work passwords.",
+      lost: "Saving new passwords in Edge's built-in password manager." },
+    { id: "acct", icon: "👤", title: "Windows Hello for Business is enabled",
+      match: (d) => isOn(val(d, /_usepassportforwork$/i)),
+      expect: "You may be asked to set up a Windows Hello PIN. Fingerprint or face sign-in depends on your device and the settings IT permits. This setting does not by itself remove password sign-in.",
       lost: null },
-    { id: "appctl", icon: "📵", title: "Only approved software runs",
+    { id: "appctl", icon: "📵", title: "App Control rules are configured",
       match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "enforce",
-      expect: "Devices in scope only run software the organization has approved. A new tool you need goes through IT rather than a download-and-run.",
-      lost: "Installing and running arbitrary downloaded software on managed devices." },
-    { id: "appctlaudit", icon: "🕵", title: "Approved-software control is inventorying, not blocking yet",
+      expect: "App Control policies can determine which software runs. The actual restrictions depend on their allow and deny rules, exceptions and effective mode. IT must confirm those restrictions before announcing that particular apps will be blocked.",
+      lost: null },
+    { id: "appctlaudit", icon: "🕵", title: "App Control audit settings are present",
       match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "audit",
-      expect: "App Control runs in audit mode: everything still runs, and what WOULD have been blocked is being recorded. Nothing changes for you today — the enforcement step comes later, announced separately.",
+      expect: "Audit settings can record software that would be blocked by an enforcing policy. They do not establish that every app is allowed: other policies and some script or code protections can still affect apps. IT must confirm effective behaviour before rollout.",
       lost: null },
     { id: "appctlunknown", icon: "❔", title: "Approved-software control whose mode could not be read",
       match: (d) => /ApplicationControl/i.test(String(d.templateFamily || "")) && appctlMode(d) === "unknown",
@@ -423,6 +347,7 @@ const EndpointPosture = (() => {
     const items = [];
     for (const rule of RULES) {
       const hits = docs.filter((d) => {
+        if (d.detailError) return false;
         if (isInterim(d) && stateOf(d) !== "assigned") return false;   // retired interim: not today, not the plan (10481)
         try { return rule.match(d); } catch (e) { return false; }
       });
@@ -431,8 +356,8 @@ const EndpointPosture = (() => {
       hits.forEach((d) => states[stateOf(d)]++);
       // The interim split (10480): a statement carried today ONLY by
       // (TO-BE-REMOVED) policies either hands over to a staged permanent
-      // policy at rollout (transition) or simply STOPS (goesAway) — two
-      // different sentences in a communication, never blurred.
+      // policy at rollout (transition) or has no configured replacement
+      // (goesAway). Both are conditional until IT verifies device coverage.
       const live = hits.filter((d) => stateOf(d) === "assigned");
       const permLive = live.filter((d) => !isInterim(d));
       const interimLive = live.filter(isInterim);
@@ -468,170 +393,44 @@ const EndpointPosture = (() => {
     return enforcedLine(r, deviceCount);
   }
 
-  // ENFORCED, OR PARTLY ENFORCED — the word carries it (10505, Mihai's
-  // pick). A statement whose policies reach one 27-device group was being
-  // headed "enforced now", with the 27 two lines below where a skim-reader
-  // never gets to. "Enforced" and "enforced on 0.3% of the fleet" are
-  // different facts about a rollout, and the leading word is the only part
-  // of a brief statement everybody actually reads.
-  //
-  // PARTIAL IS A CLAIM ABOUT THE FLEET, so it is only made when the fleet
-  // size is known. Where it is not, the line says reach without pretending
-  // to a fraction it cannot compute.
-  //
-  // ONE PREDICATE, NOT TWO (10517). The heading word and the at-rollout
-  // line have to agree about what "partly" means, or a statement heads
-  // itself "partly enforced" and then says nothing about the rest of the
-  // fleet — which is the whole complaint. partlyEnforced() is the single
-  // answer; verdictWord() picks a word from it and widenLine() writes the
-  // rollout sentence from the same call.
-  const HALF = "partly enforced";
-  const FULL = "enforced now";
+  // Retain the helper names for callers, but speak only about targeting.
+  // Unknown group membership must never become a percentage or a device sum.
+  const HALF = "partly targeted";
+  const FULL = "targeted now";
   function partlyEnforced(r, deviceCount) {
-    if (!r || !r.live) return false;
-    // A FRACTION NEEDS A DENOMINATOR. Without the fleet size there is no
-    // claim to make, so none is made — same rule as everywhere else here.
-    if (deviceCount == null) return false;
-    // A filtered wide target: "at most all N" is not all N.
-    if (r.wide && !r.evaluated) return !!r.cap;
-    // Nothing measured is unknown, not partial.
-    if (r.reached == null) return false;
-    return !!r.cap || r.reached < deviceCount;
+    return !!(r && r.live && r.exact && deviceCount != null && r.reached < deviceCount);
   }
   function verdictWord(r, deviceCount) {
+    if (!r || r.reached == null || !r.exact) return "assigned — coverage not fully known";
     return partlyEnforced(r, deviceCount) ? HALF : FULL;
   }
-
   function enforcedLine(r, deviceCount) {
-    const nar = r.evaluated
-      ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the filter"} was evaluated against today's inventory, so this is a count and not a ceiling`
-      : r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller and a browser cannot compute it` : "";
-    if (r.wide && !r.evaluated) {
-      // An unfiltered tenant-wide target, or one whose rule could not be
-      // read: the fleet, exactly or at most.
-      return deviceCount == null
-        ? `${FULL} tenant-wide (device count unreadable)${nar}`
-        : `${r.cap ? `${HALF} — at most all` : `${FULL} on all`} ${deviceCount} enrolled Windows devices${nar}`;
-    }
-    if (r.reached == null) {
-      return r.groups
-        ? `${FULL} on ${r.groups} targeted group${r.groups === 1 ? "" : "s"} — no member count could be read, so how many devices is unknown, not zero`
-        : null;
-    }
-    // Bounded on NEITHER side when a filter caps a sum that is already
-    // floored by an unreadable count: the filter pushes the true number
-    // down, the missing groups push it up, and "at most" would be a ceiling
-    // the real reach can exceed. reachLine refuses this case; so does this.
-    if (r.cap && r.unknownGroups) {
-      return `${r.groups} group${r.groups === 1 ? "" : "s"} targeted${deviceCount == null ? "" : ` of a ${deviceCount}-device fleet`} — ${r.unknownGroups} member count${r.unknownGroups === 1 ? "" : "s"} unreadable puts the sum low and the filter puts it high, so how many devices this reaches is not computable here${nar}`;
-    }
-    const D = deviceCount == null ? "an unknown number of" : deviceCount;
-    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
-    const miss = r.missing == null ? "" : ` · ${r.cap ? "at least " : (r.atLeast || r.unknownGroups) ? "at most " : ""}${r.missing} not yet targeted`;
-    const floor = r.unknownGroups && !r.cap ? " (some group counts unreadable — this counts up from the ones that were read)" : "";
-    const pctBit = (deviceCount && r.reached != null && r.reached < deviceCount)
-      ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : "";
-    return `${verdictWord(r, deviceCount)} on ${verb}${r.reached} of ${D} enrolled Windows devices${pctBit}${miss} — targets, not check-ins${floor}${nar}`;
+    return `${verdictWord(r, deviceCount)}: ${reachLine(r, deviceCount)}`;
   }
 
-  // COVERAGE AFTER ROLLOUT, BOUNDED ON BOTH SIDES (10517). Where a live
-  // statement is only partly enforced AND its staged policy is itself
-  // partial, the destination number answers the wrong question: the
-  // reader wants what the fleet looks like AFTER, which is the union of
-  // today's devices and the staged target. Nobody here has read either
-  // membership, so the union is a RANGE — at least the larger of the two,
-  // at most their sum — and it is stated as one rather than resolved in
-  // the flattering direction. A bound built on a bound is refused
-  // outright: if either side is a filter ceiling or an unread count,
-  // there is no range to state.
-  function afterRolloutClause(today, plan, deviceCount) {
-    if (deviceCount == null || !today || !plan) return "";
-    if (today.reached == null || plan.reached == null) return "";
-    if (today.cap || plan.cap || today.unknownGroups || plan.unknownGroups) return "";
-    if (plan.reached >= deviceCount) return "";      // the destination is the fleet — nothing to add
-    const lo = Math.max(plan.reached, today.reached);
-    const hi = Math.min(deviceCount, plan.reached + today.reached);
-    if (lo >= hi) return "";
-    return ` · with the ${today.reached} enforced today that is ${lo}–${hi} of ${deviceCount} after rollout — the two sets may overlap and no membership was read`;
-  }
-
-  // NOTHING STAGED IS ALSO AN ANSWER (10517, Mihai's ask). A statement
-  // headed "partly enforced on 0.4% of the fleet · 9909 not yet targeted"
-  // used to go silent about those 9909, because rolloutLine returned null
-  // when no policy was staged behind it. A rollout brief that reports a
-  // hole and not its plan is worse than one that reports neither — so the
-  // line is written, and it says what is true: nothing widens this.
+  // A configured policy with no included target has no confirmed rollout
+  // audience. The brief must not invent a fleet-wide destination or merge
+  // interim coverage into a future set after those policies are retired.
   function widenLine(r, deviceCount) {
-    const f = (r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter";
-    // A FILTER-NARROWED STATEMENT HAS NO REMAINDER TO QUOTE. The devices
-    // it leaves out are the ones the rule does not match, and a browser
-    // that could not evaluate the rule cannot count them either.
-    if (r.cap) return `at rollout: NO CHANGE — ⚑ ${f} is what narrows this, not the assignment, and nothing is staged to widen it; how many devices it leaves out cannot be computed here`;
-    if (r.missing != null && r.missing > 0) {
-      return `at rollout: NO CHANGE — nothing is staged for the remaining ${r.missing} of ${deviceCount} enrolled Windows devices${r.unknownGroups ? " (some group member counts could not be read, so that remainder is an upper bound)" : ""}, so this reaches the same machines after rollout as it does today`;
+    if (r.exact && r.missing != null && r.missing > 0) {
+      return `at rollout: no additional targeting is configured for the remaining ${r.missing} of ${deviceCount} enrolled Windows devices`;
     }
-    return `at rollout: NO CHANGE — nothing is staged to widen this, and how many devices it leaves out could not be read`;
+    return "at rollout: no additional targeting is configured; the number of devices outside the current scope is unknown";
   }
 
   function rolloutLine(item, counts, deviceCount, devices) {
-    const r = deviceReach(item.docs || [], counts, deviceCount, { state: "planned", devices });
-    const today = item.liveNow ? deviceReach(item.docs || [], counts, deviceCount, { devices }) : null;
-    const partToday = partlyEnforced(today, deviceCount);
-    // Nothing staged: a partial statement still owes the reader a
-    // sentence about the rest of the fleet. A statement already enforced
-    // everywhere owes nothing, and says nothing.
-    if (!r.live) return partToday ? widenLine(today, deviceCount) : null;
-    const after = partToday ? afterRolloutClause(today, r, deviceCount) : "";
-    const nar = r.evaluated
-      ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "the filter"} was evaluated against today's inventory`
-      : r.cap ? ` — ⚑ ${(r.filterNames && r.filterNames.length) ? r.filterNames.join("; ") : "an assignment filter"} narrows it, so the real number is smaller` : "";
-    if (r.wide) {
-      // A FILTERED TENANT-WIDE TARGET IS NOT THE WHOLE FLEET (10505). Where
-      // the rule evaluates, the destination is a number and the line says
-      // it — and says PARTIAL, because "targets All devices" over a filter
-      // matching a tenth of them is the worst sentence a rollout mail can
-      // carry: technically true, and read as everybody.
-      if (r.evaluated && deviceCount != null) {
-        const partialDest = r.reached < deviceCount;
-        return `at rollout: ${partialDest ? "STILL PARTIAL — " : ""}targets All devices, ${r.reached} of ${deviceCount} enrolled Windows devices${partialDest ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}${after}`;
-      }
-      return deviceCount == null
-        ? `at rollout: targets All devices (the fleet size could not be read)${nar}`
-        : `at rollout: targets All devices — ${r.cap ? "at most " : ""}all ${deviceCount} enrolled Windows devices in total${nar}`;
+    const staged = (item.docs || []).filter((d) => stateOf(d) !== "assigned" && !isInterim(d));
+    if (item.goesAway) return "at rollout: protection may be lost when the interim policy is retired — no replacement is configured for this statement; verify a replacement before removal";
+    if (staged.length) {
+      const excluded = staged.filter((d) => stateOf(d) === "excludedOnly").length;
+      const target = excluded === staged.length
+        ? "the replacement or staged policies have exclusions but no included target and reach nobody"
+        : `the staged policies have no included target${excluded ? "; some contain exclusions only" : ""}`;
+      return `at rollout: destination unconfirmed — ${target}. IT must confirm the rollout audience and assign and verify the policies${item.transition ? " before retiring the interim policy" : ""}`;
     }
-    if (!r.groups) {
-      // EXCLUDED-ONLY IS NOT UNASSIGNED — T09's distinction, and the whole
-      // house keeps it. A staged policy whose every target is an exclusion
-      // HAS assignments and every one of them says "not you"; calling that
-      // "no assignment yet" would report a configured contradiction as an
-      // empty field waiting to be filled in.
-      if (r.excludes) {
-        return `at rollout: the staged policy carries ${r.excludes} exclusion${r.excludes === 1 ? "" : "s"} and no include — as targeted today it would reach nobody`;
-      }
-      // THE NUMBER LEADS, THE CAVEAT FOLLOWS. "Where is this going" is the
-      // question a rollout communication exists to answer, and the fleet
-      // total is the only honest figure available when the staged policy
-      // has no target yet — so it is stated, and immediately labelled as an
-      // intention rather than a reading. Burying it behind the caveat left
-      // the brief with no destination number at all.
-      return deviceCount == null
-        ? `at rollout: destination unknown — the staged policy carries no assignment yet, and the fleet size could not be read either`
-        : `at rollout: all ${deviceCount} enrolled Windows devices in total — the staged policy carries NO assignment yet, so the fleet total is the intention, not a reading`;
-    }
-    // Below here is defence, not a path a tenant reaches today: a policy
-    // carrying an include target is "assigned" by construction, so a staged
-    // one has no groups. Kept so that a future change to stateOf() cannot
-    // silently turn a real destination into "no assignment yet".
-    if (r.reached == null) return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — no member count could be read, so the destination size is unknown, not zero`;
-    if (r.cap && r.unknownGroups) {
-      return `at rollout: targets ${r.groups} group${r.groups === 1 ? "" : "s"} — an unreadable member count puts the sum low and the filter puts it high, so the destination size is not computable here${nar}`;
-    }
-    const verb = r.exact ? "" : r.cap ? "at most " : (r.atLeast || r.unknownGroups) ? "at least " : "~";
-    // The DESTINATION is partial too, and that is worth saying twice: a
-    // rollout ending at 312 of 9964 devices is a pilot, and "at rollout:
-    // targets 2 groups" lets a reader assume otherwise.
-    const partialDest = deviceCount != null && r.reached != null && r.reached < deviceCount;
-    return `at rollout: ${partialDest ? "STILL PARTIAL — " : ""}targets ${r.groups} group${r.groups === 1 ? "" : "s"} — ${verb}${r.reached}${deviceCount == null ? "" : ` of ${deviceCount}`} enrolled Windows devices${partialDest ? ` (${Math.round((r.reached / deviceCount) * 1000) / 10}% of the fleet)` : ""}${nar}${after}`;
+    if (!item.liveNow) return null;
+    const today = deviceReach(item.docs || [], counts, deviceCount, { devices });
+    return partlyEnforced(today, deviceCount) || !today.exact ? widenLine(today, deviceCount) : null;
   }
 
   // THE IT APPENDIX (R02). The brief above is END-USER language — it is
@@ -643,31 +442,48 @@ const EndpointPosture = (() => {
   // an empty section implying nothing was found.
   const SCORE_CUT = `Everything below this line is for IT. Cut it before the brief is sent — it is administrator detail about the tenant's Microsoft Secure Score, not something to tell a person about their laptop.`;
 
-  function briefMd(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null } = {}) {
+  const BRIEF_SCOPE = "Scope: supported settings-catalog settings only. Legacy intent settings, device application results, conflicts and effective exceptions are not assessed by this brief. Missing statements are not evidence that a protection is absent.";
+  function readWarnings(r) {
+    const out = [];
+    const unread = ((r.sec && r.sec.items) || []).filter((d) => d.detailError);
+    if (unread.length) out.push(`Settings unreadable for ${unread.length} ${unread.length === 1 ? "policy" : "policies"}: ${unread.map((d) => d.name || d.id).join("; ")}. Their effects are omitted.`);
+    if ((r.partial || []).length) out.push("The policy read was incomplete; some effects may be missing.");
+    if (r.filterError) out.push("Assignment filters could not all be read; filtered coverage may be unknown.");
+    if (r.nameError) out.push("Some assignment names could not be resolved.");
+    if (r.groupCountErrors) out.push("Some group member counts could not be read.");
+    if (r.deviceCountError) out.push("The Windows device inventory could not be read; fleet coverage is unknown.");
+    if (r.intentsError || r.templatesError) out.push("Legacy intent information could not all be read; those settings are outside this brief.");
+    return out;
+  }
+  function briefMd(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null, warnings = [], readAt = null } = {}) {
     const d = new Date().toISOString().slice(0, 10);
     const out = [];
-    out.push(`# Endpoint security — what you will notice on your device`);
+    out.push(`# Endpoint security changes for your device`);
     out.push(`> ${tenantName || "This organization"} · generated ${d} from the endpoint security policies actually configured in the tenant. Draft for the communications team — review before sending.`);
     out.push(``);
-    out.push(`These protections run on the device itself — they scan files, encrypt the disk and filter dangerous sites. They watch for attack behaviour: none of this reads your mail, documents or chats, and none of it measures how you work.`);
+    out.push(`This draft describes the expected effects of supported settings-catalog policies. An assignment does not prove a device has received or applied a setting, and a configured policy is not an approved rollout plan. Security services can process file, app and connection information and, where configured, file samples. Refer to your organization’s privacy notice for how that information is used.`);
+    out.push(``);
+    out.push(`> ${BRIEF_SCOPE}${readAt ? ` Policy read: ${new Date(readAt).toISOString()}.` : ""}`);
+    warnings.forEach((w) => out.push(`> Review needed: ${w}`));
+    if (!items.length) out.push("No supported user-impact statements could be established from this read.");
     out.push(``);
     const live = items.filter((i) => i.liveNow);
     const later = items.filter((i) => !i.liveNow);
     if (live.length) {
-      out.push(`## Already enforced today`);
+      out.push(`## Currently assigned policies`);
       for (const i of live) {
         const reach = impactReachLine(i, counts, deviceCount, devices);
         const roll = rolloutLine(i, counts, deviceCount, devices);
         const marks = [];
-        if (i.transition) marks.push(`today through an interim policy — at rollout the staged replacement takes over`);
-        if (i.filtered) marks.push(`scoped by ⚑ ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
+        if (i.transition) marks.push(`interim policy assigned; the replacement must be assigned and verified before retirement`);
+        if (i.filtered) marks.push(`scoped by ⚑ ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — see the coverage line`);
         out.push(`- ${i.icon} **${i.title}** — ${i.text}${marks.length ? ` _(${marks.join("; ")})_` : ""}${reach ? `\n  - 📟 ${reach}` : ""}${roll ? `\n  - 🎯 ${roll}` : ""}`);
       }
       out.push(``);
     }
     if (later.length) {
-      out.push(`## What changes at rollout`);
-      out.push(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`);
+      out.push(`## Configured policies awaiting rollout confirmation`);
+      out.push(`These policies have no included target. IT must confirm whether, when and to whom they will be assigned before these effects are announced.`);
       for (const i of later) {
         const roll = rolloutLine(i, counts, deviceCount, devices);
         out.push(`- ${i.icon} **${i.title}** — ${i.text}${roll ? `\n  - 🎯 ${roll}` : ""}`);
@@ -676,20 +492,20 @@ const EndpointPosture = (() => {
     }
     const stops = items.filter((i) => i.goesAway);
     if (stops.length) {
-      out.push(`## What stops at rollout`);
-      out.push(`These protections run today only through interim (TO-BE-REMOVED) policies with no staged replacement — at rollout they go away. If that is not intended, stage the replacement before retiring the interim policy.`);
+      out.push(`## Potential gaps when interim policies are retired`);
+      out.push(`The matched policies are marked (TO-BE-REMOVED), and no replacement is configured for these statements. Removing them may leave a gap. IT must verify replacement coverage before retirement; the name alone does not establish when removal will happen.`);
       for (const i of stops) out.push(`- ${i.icon} **${i.title}** — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => p.name).join("; ")}`);
       out.push(``);
     }
     const lost = items.filter((i) => i.lost);
     if (lost.length) {
-      out.push(`## What will no longer be possible`);
-      out.push(`Deliberate outcomes of the security design — each one closes a route attackers actively use.`);
-      for (const i of lost) out.push(`- **${i.lost}** _(${i.liveNow ? "already in effect" : "at rollout"})_`);
+      out.push(`## Actions these settings can restrict`);
+      out.push(`These effects depend on the settings applying to your device and any relevant exceptions.`);
+      for (const i of lost) out.push(`- **${i.lost}** _(${i.liveNow ? "on assigned targets once applied" : "only after rollout is confirmed and the policy is applied"})_`);
       out.push(``);
     }
     out.push(`## If something you need is blocked`);
-    out.push(`Contact the IT helpdesk with what you were doing and the message on screen. A block is almost always: a quarantined download, an attack-surface rule, a SmartScreen warning, or a firewall rule — every one has a controlled exception process.`);
+    out.push(`Contact the IT helpdesk with the app or site, what you were doing, the time and the message on screen. IT can investigate and advise whether an approved alternative or exception is available. Do not disable a protection to work around a block.`);
     out.push(``);
     out.push(`---`);
     out.push(`### Appendix A — the policies behind each statement`);
@@ -708,9 +524,9 @@ const EndpointPosture = (() => {
 
   // ---- Word (.docx) — T32's writer, text only, no images ----
   const X = (t) => String(t).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  const P = (t, o = {}) => `<w:p><w:pPr>${o.h ? `<w:spacing w:before="${o.h === 1 ? 320 : 240}" w:after="120"/>` : `<w:spacing w:after="120"/>`}</w:pPr>` +
+  const P = (t, o = {}) => `<w:p><w:pPr>${o.h ? `<w:pStyle w:val="${o.h === 1 ? "Title" : "Heading1"}"/><w:keepNext/>` : ""}<w:widowControl/>${o.h ? `<w:spacing w:before="${o.h === 1 ? 320 : 240}" w:after="120"/>` : `<w:spacing w:after="120"/>`}</w:pPr>` +
     (Array.isArray(t) ? t : [[t, o]]).map(([txt, ro = {}]) =>
-      `<w:r><w:rPr>${ro.b || o.b || o.h ? "<w:b/>" : ""}${o.h ? `<w:sz w:val="${o.h === 1 ? 32 : 26}"/><w:color w:val="1F4729"/>` : ""}${ro.i ? "<w:i/>" : ""}</w:rPr><w:t xml:space="preserve">${X(txt)}</w:t></w:r>`).join("") + `</w:p>`;
+      `<w:r><w:rPr>${ro.b || o.b || o.h ? "<w:b/>" : ""}${o.h ? `<w:sz w:val="${o.h === 1 ? 32 : 26}"/><w:color w:val="000000"/>` : ""}${ro.i ? "<w:i/>" : ""}</w:rPr><w:t xml:space="preserve">${X(txt)}</w:t></w:r>`).join("") + `</w:p>`;
 
   // The same correlation as scoreMd, written as Word paragraphs. The
   // Markdown version leans on tables and this writer has none, so the
@@ -748,22 +564,25 @@ const EndpointPosture = (() => {
     return b;
   }
 
-  function briefDocx(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null } = {}) {
+  function briefDocx(items, { tenantName, deviceCount = null, counts = null, devices = null, corr = null, score = null, warnings = [], readAt = null } = {}) {
     if (typeof JSZip === "undefined") throw new Error("JSZip not loaded");
     const d = new Date().toISOString().slice(0, 10);
     const body = [];
-    body.push(P(`Endpoint security — what you will notice on your device`, { h: 1 }));
+    body.push(P(`Endpoint security changes for your device`, { h: 1 }));
     body.push(P(`${tenantName || "This organization"} · generated ${d} from the endpoint security policies actually configured in the tenant. Draft — review before sending.`));
-    body.push(P(`These protections run on the device itself — they scan files, encrypt the disk and filter dangerous sites. They watch for attack behaviour: none of this reads your mail, documents or chats, and none of it measures how you work.`));
+    body.push(P(`This draft describes the expected effects of supported settings-catalog policies. An assignment does not prove a device has received or applied a setting, and a configured policy is not an approved rollout plan. Security services can process file, app and connection information and, where configured, file samples. Refer to your organization’s privacy notice for how that information is used.`));
+    body.push(P(BRIEF_SCOPE + (readAt ? ` Policy read: ${new Date(readAt).toISOString()}.` : "")));
+    warnings.forEach((w) => body.push(P(`Review needed: ${w}`, { b: true })));
+    if (!items.length) body.push(P("No supported user-impact statements could be established from this read."));
     const live = items.filter((i) => i.liveNow);
     const later = items.filter((i) => !i.liveNow);
     if (live.length) {
-      body.push(P(`Already enforced today`, { h: 2 }));
+      body.push(P(`Currently assigned policies`, { h: 2 }));
       for (const i of live) {
         const reach = impactReachLine(i, counts, deviceCount, devices);
         const marks = [];
-        if (i.transition) marks.push("today through an interim policy — at rollout the staged replacement takes over");
-        if (i.filtered) marks.push(`scoped by ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — some devices, not all`);
+        if (i.transition) marks.push("interim policy assigned; the replacement must be assigned and verified before retirement");
+        if (i.filtered) marks.push(`scoped by ${(i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "an assignment filter"} — see the coverage line`);
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text + (marks.length ? ` (${marks.join("; ")})` : ""), {}]]));
         if (reach) body.push(P([[`   ${reach}`, { i: true }]]));
         const roll = rolloutLine(i, counts, deviceCount, devices);
@@ -771,8 +590,8 @@ const EndpointPosture = (() => {
       }
     }
     if (later.length) {
-      body.push(P(`What changes at rollout`, { h: 2 }));
-      body.push(P(`These policies exist but do not reach any device yet — they describe the plan, not today.${deviceCount != null ? ` The fleet they are heading for is ${deviceCount} enrolled Windows devices; each statement below says what its own staged policy actually targets.` : ""}`));
+      body.push(P(`Configured policies awaiting rollout confirmation`, { h: 2 }));
+      body.push(P(`These policies have no included target. IT must confirm whether, when and to whom they will be assigned before these effects are announced.`));
       for (const i of later) {
         body.push(P([[`• ${i.title}: `, { b: true }], [i.text, {}]]));
         const roll = rolloutLine(i, counts, deviceCount, devices);
@@ -781,17 +600,17 @@ const EndpointPosture = (() => {
     }
     const stops = items.filter((i) => i.goesAway);
     if (stops.length) {
-      body.push(P(`What stops at rollout`, { h: 2 }));
-      body.push(P(`These protections run today only through interim (TO-BE-REMOVED) policies with no staged replacement — at rollout they go away. If that is not intended, stage the replacement before retiring the interim policy.`));
+      body.push(P(`Potential gaps when interim policies are retired`, { h: 2 }));
+      body.push(P(`The matched policies are marked (TO-BE-REMOVED), and no replacement is configured for these statements. Removing them may leave a gap. IT must verify replacement coverage before retirement; the name alone does not establish when removal will happen.`));
       for (const i of stops) body.push(P([[`• ${i.title}`, { b: true }], [` — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => p.name).join("; ")}`, {}]]));
     }
     const lost = items.filter((i) => i.lost);
     if (lost.length) {
-      body.push(P(`What will no longer be possible`, { h: 2 }));
-      for (const i of lost) body.push(P([[`• ${i.lost}`, { b: true }], [` (${i.liveNow ? "already in effect" : "at rollout"})`, { i: true }]]));
+      body.push(P(`Actions these settings can restrict`, { h: 2 }));
+      for (const i of lost) body.push(P([[`• ${i.lost}`, { b: true }], [` (${i.liveNow ? "on assigned targets once applied" : "only after rollout is confirmed and the policy is applied"})`, { i: true }]]));
     }
     body.push(P(`If something you need is blocked`, { h: 2 }));
-    body.push(P(`Contact the IT helpdesk with what you were doing and the message on screen. A block is almost always: a quarantined download, an attack-surface rule, a SmartScreen warning, or a firewall rule — every one has a controlled exception process.`));
+    body.push(P(`Contact the IT helpdesk with the app or site, what you were doing, the time and the message on screen. IT can investigate and advise whether an approved alternative or exception is available. Do not disable a protection to work around a block.`));
     body.push(P(`Appendix A — the policies behind each statement`, { h: 2 }));
     for (const i of items) body.push(P(`${i.title}: ${i.pols.map((p) => `${p.name} [${p.word || STATE_WORD[p.state]}]`).join("; ")}`));
     if (corr) scoreDocxBody(corr, score).forEach((p) => body.push(p));
@@ -801,11 +620,20 @@ const EndpointPosture = (() => {
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>`);
     zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`);
+    zip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+    zip.file("word/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:rPr><w:b/><w:color w:val="000000"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:color w:val="000000"/></w:rPr></w:style>
+</w:styles>`);
     zip.file("word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
 <w:body>
@@ -1340,9 +1168,9 @@ ${body.join("\n")}
 
   return {
     NODES, countsFrom, nodeById, classify, intentNode,
-    RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx,
+    RULES, analyzeImpact, impactReachLine, rolloutLine, briefMd, briefDocx, readWarnings, BRIEF_SCOPE,
     isInterim, stateWordOf, appctlMode, enforcedLine, verdictWord,
-    partlyEnforced, widenLine, afterRolloutClause,
+    partlyEnforced, widenLine,
     CHECKS, runChecks, findings, checksMd,
     deviceReach, reachLine, widePredicate,
     STATE_WORD, stateOf,
@@ -1562,13 +1390,8 @@ const EndpointPostureTool = (() => {
   function deviceBit(it) {
     if (!res || EndpointPosture.stateOf(it) !== "assigned") return "";
     const r = EndpointPosture.deviceReach([it], res.groupCounts, res.deviceCount, { devices: res.devices });
-    const D = res.deviceCount;
-    if (r.wide) return D == null ? "" : ` · ${r.cap ? `at most all ${D}` : `all ${D}`} devices`;
-    if (r.reached == null) return r.groups ? ` · member counts unreadable — reach unknown` : "";
-    if (r.cap && r.unknownGroups) return ` · ${r.groups} group${r.groups === 1 ? "" : "s"}${D == null ? "" : ` of ${D}`} — not computable`;
-    const verb = r.cap ? "at most " : r.unknownGroups ? "at least " : "~";
-    const miss = r.missing != null ? ` · ${r.cap ? "at least " : r.unknownGroups ? "at most " : ""}${r.missing} still missing` : "";
-    return ` · ${verb}${r.reached}${D != null ? ` of ${D}` : ""} devices${miss}`;
+    if (r.reached == null) return " · device coverage unknown";
+    return ` · ${r.atLeast ? "at least " : ""}${r.reached}${res.deviceCount == null ? "" : ` of ${res.deviceCount}`} devices targeted`;
   }
 
   // T19's card, verbatim in shape — the scard classes have carried these
@@ -1654,7 +1477,8 @@ const EndpointPostureTool = (() => {
 
   function paneImpact() {
     const items = res.impact;
-    if (!items.length) return `<div class="list-card"><p class="mini muted" style="margin:0">No endpoint security policy matched any statement — there is nothing to brief, which is itself a finding.</p></div>`;
+    const warnings = EndpointPosture.readWarnings(res);
+    if (!items.length) return `<div class="list-card"><p class="mini muted">No supported user-impact statements could be established from this read.</p><p class="mini">${esc(EndpointPosture.BRIEF_SCOPE)}</p>${warnings.map((w) => `<p class="mini">Review needed: ${esc(w)}</p>`).join("")}</div>`;
     const live = items.filter((i) => i.liveNow), later = items.filter((i) => !i.liveNow);
     const stops = items.filter((i) => i.goesAway);
     const item = (i) => {
@@ -1666,11 +1490,11 @@ const EndpointPostureTool = (() => {
       // assignment rather than assumed to be the whole fleet.
       const rollout = EndpointPosture.rolloutLine(i, res.groupCounts, res.deviceCount, res.devices);
       return `<div class="ep-brief${i.liveNow ? "" : " later"}">
-      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — some devices, not all</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — staged replacement takes over</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — stops at rollout</span>` : ""}
+      <b>${i.icon} ${esc(i.title)}</b>${i.filtered ? ` <span class="tag">⚑ ${esc((i.filterNames && i.filterNames.length) ? i.filterNames.join("; ") : "filtered")} — see the coverage line</span>` : ""}${i.transition ? ` <span class="tag">⏳ interim — replacement needs assignment and verification</span>` : ""}${i.goesAway ? ` <span class="tag" style="color:var(--off)">⏳ interim — retirement may leave a gap</span>` : ""}
       <p class="mini" style="margin:4px 0 6px">${esc(i.text)}</p>
       ${reach ? `<p class="mini" style="margin:0 0 4px"><b>📟</b> ${esc(reach)}</p>` : ""}
       ${rollout ? `<p class="mini" style="margin:0 0 6px${i.liveNow ? ";color:var(--muted)" : ""}"><b>🎯</b> ${esc(rollout)}</p>` : ""}
-      ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>No longer possible:</b> ${esc(i.lost)}</p>` : ""}
+      ${i.lost ? `<p class="mini" style="margin:0 0 6px;color:var(--off)"><b>Can restrict when applied:</b> ${esc(i.lost)}</p>` : ""}
       <p class="mini muted" style="margin:0">Behind it: ${i.pols.map((p) => `${esc(p.name)} <i>[${esc(p.word || EndpointPosture.STATE_WORD[p.state])}]</i>`).join("; ")}</p>
     </div>`;
     };
@@ -1678,11 +1502,12 @@ const EndpointPostureTool = (() => {
       <div style="display:flex;gap:10px;align-items:flex-start"><h4 style="margin:0 0 4px">🗣 What people will notice on their device</h4>
         <div class="spacer" style="flex:1"></div>
         <button class="btn" type="button" data-epbrief="1">👁 Read the full brief</button></div>
-      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. 📟 is what is enforced today and 🎯 is what changes at rollout — a statement reaching only part of the fleet carries both, and says plainly when nothing is staged to widen it. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
-      ${live.length ? `<h4 class="ep-h">Already enforced today</h4>${live.map(item).join("")}` : ""}
-      ${later.length ? `<h4 class="ep-h">At rollout — these reach nobody yet</h4>${later.map(item).join("")}` : ""}
-      ${stops.length ? `<h4 class="ep-h" style="color:var(--off)">Stops at rollout — interim only, no staged replacement</h4>
-        <p class="mini muted" style="margin:0 0 8px">Carried today only by (TO-BE-REMOVED) policies. At rollout these protections go away — if that is not intended, stage the replacement before retiring the interim policy.</p>
+      <p class="mini muted" style="margin:0 0 12px">End-user language on purpose — this is a communication draft, not an engineer's view (that is the rest of this tool). Derived from the policies actually present; every statement names them. 📟 describes assignment targets, not verified device enforcement. 🎯 describes what is known about rollout; an unassigned policy has no confirmed audience. <b>Read the full brief</b> shows the finished document — intro, the blocked-what-now section, the appendix — exactly as the Markdown export writes it, readable before anything is downloaded; Word and Markdown exports sit above.</p>
+      ${warnings.map((w) => `<p class="mini">Review needed: ${esc(w)}</p>`).join("")}
+      ${live.length ? `<h4 class="ep-h">Currently assigned policies</h4>${live.map(item).join("")}` : ""}
+      ${later.length ? `<h4 class="ep-h">Configured policies awaiting rollout confirmation</h4>${later.map(item).join("")}` : ""}
+      ${stops.length ? `<h4 class="ep-h" style="color:var(--off)">Potential gaps at interim retirement</h4>
+        <p class="mini muted" style="margin:0 0 8px">Only policies marked (TO-BE-REMOVED) support these statements. No replacement is configured. Verify replacement coverage before retiring them.</p>
         ${stops.map((i) => `<p class="mini" style="margin:4px 0">${i.icon} <b>${esc(i.title)}</b> — carried by ${i.pols.filter((p) => p.state === "assigned").map((p) => esc(p.name)).join("; ")}</p>`).join("")}` : ""}
     </div>`;
   }
@@ -1893,7 +1718,7 @@ const EndpointPostureTool = (() => {
   // the Word export and the on-screen report cannot drift into three
   // slightly different documents. `corr` is null until somebody reads the
   // Secure Score, and a null correlation writes no section at all.
-  const briefOpts = () => ({ tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, devices: res.devices, corr, score });
+  const briefOpts = () => ({ tenantName: tenantName(), deviceCount: res.deviceCount, counts: res.groupCounts, devices: res.devices, corr, score, warnings: EndpointPosture.readWarnings(res), readAt: res.when });
 
   async function exportBriefDocx() {
     try {
