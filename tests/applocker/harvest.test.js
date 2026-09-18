@@ -285,6 +285,18 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   w.Graph.driveDownloadUrl = async () => { const e = new w.Graph.GraphError("graph", "The site did not hand out a download URL for x."); return Promise.reject(e); };
   await H.harvestPrepare(H.evHarvest.files[0]);
   ok("a refused link is shown on the card, nothing else changes", !!H.evHarvest.error && /download URL/.test(H.evHarvest.error.message) && /Could not read the site/.test(card.textContent) && !!card.querySelector('[data-hvdl="demo-f2"]'));
+  // 10622: an events bundle on the table with no policy — the chooser offers all three ways
+  H.importFile(JSON.stringify({ schema: "tuno.applocker.events/1", generator: { generatedUtc: "2026-09-18T09:09:00Z" }, machine: { name: "MIHAIMONTECC3F" }, events: { available: true, daysBack: 30, summary: { total: 250, allowed: 217, audited: 33, blocked: 0 }, entries: [] } }), "AppControlEvents_Bundle_20260918-110949.json");
+  H.afterImport(false);
+  const evCard = D.getElementById("alEvents") || D.querySelector("[id^='alEv']");
+  const chooserText = (D.body.textContent || "");
+  ok("the chooser names three ways and offers the file picker and the harvest site beside the tenant pull", /Three ways/.test(chooserText) && !!D.getElementById("alEvUpload") && !!D.getElementById("alEvHarvest") && !!D.getElementById("alEvTenant"));
+  let picked2 = false; D.getElementById("alFile").click = () => { picked2 = true; };
+  D.getElementById("alEvUpload").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("📂 Upload on the chooser opens the picker", picked2);
+  H.evHarvest.open = false; H.renderHarvestFetch();
+  D.getElementById("alEvHarvest").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("📁 From the harvest site on the chooser opens the harvest card on Evidence", H.evHarvest.open === true && card.style.display !== "none");
 }
 
 });

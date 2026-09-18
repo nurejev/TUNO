@@ -1001,11 +1001,13 @@ const AppLockerTool = (() => {
     const signedIn = !noGraph && Graph.signedIn();
     const chooser = policy ? "" : `
       <div class="al-dep-ok" style="margin-bottom:10px"><b>Evidence loaded — now give it a policy to judge against.</b>
-        <div class="mini" style="margin-top:4px">Two ways: <b>upload</b> the draft (scan bundle or policy XML, the 📂 button in step 2) — or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
-        <div style="margin-top:8px">
+        <div class="mini" style="margin-top:4px">Three ways: <b>upload</b> the draft from a file (a scan bundle or a policy XML), <b>take it from the harvest site</b> (a scan bundle a device uploaded), or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn sm primary" id="alEvUpload" title="The same picker as the toolbar: a scan bundle (.json) or a policy XML">📂 Upload scan bundle or policy XML</button>
           ${noGraph ? "" : !signedIn
-            ? `<span class="mini muted">Sign in (top right) and a button appears here to fetch the AppLocker profile.</span>`
-            : `<button class="btn sm primary" id="alEvTenant" ${evTenant.busy ? "disabled" : ""}>${evTenant.busy ? "Reading the tenant…" : "⤓ Load the deployed AppLocker profile"}</button>`}
+            ? `<span class="mini muted">Sign in (top right) for the harvest site and the deployed profile.</span>`
+            : `<button class="btn sm" id="alEvHarvest" title="The harvest site's device folders — download a scan bundle, then upload it">📁 From the harvest site</button>
+               <button class="btn sm primary" id="alEvTenant" ${evTenant.busy ? "disabled" : ""}>${evTenant.busy ? "Reading the tenant…" : "⤓ Load the deployed AppLocker profile"}</button>`}
         </div>
         ${evTenant.error ? `<div class="al-dep-err mini" style="margin-top:8px">${esc(evTenant.error)}</div>` : ""}
         ${evTenant.list && !evTenant.list.length ? `<div class="mini muted" style="margin-top:8px">No custom profile in this tenant carries AppLocker OMA-URIs. Upload the draft instead.</div>` : ""}
@@ -1056,6 +1058,19 @@ const AppLockerTool = (() => {
     });
     const tb = host.querySelector("#alEvTenant");
     if (tb) tb.addEventListener("click", loadTenantProfiles);
+    // 10622 (Mihai: "this should also have the option to load from file"):
+    // the two other entrances, right where the question is asked. The
+    // picker is the toolbar's; the harvest card opens (if closed) and is
+    // scrolled to, on the Evidence screen.
+    const up = host.querySelector("#alEvUpload");
+    if (up) up.addEventListener("click", () => { const inp = $("alFile"); if (inp) inp.click(); });
+    const hv = host.querySelector("#alEvHarvest");
+    if (hv) hv.addEventListener("click", () => {
+      showScreen("evidence");
+      if (!evHarvest.open) toggleHarvestFetch();
+      const card = $("alHarvestFetch");
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     host.querySelectorAll(".al-ev-adopt").forEach((b) => b.addEventListener("click", () => {
       const p = (evTenant.list || [])[+b.dataset.i];
       if (!p) return;
@@ -4880,6 +4895,6 @@ const AppLockerTool = (() => {
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
     _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState,
-      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestPrepare, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS },
+      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestPrepare, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS, importFile, afterImport },
   };
 })();

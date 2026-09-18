@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10622, date: "2026-09-18", title: "T01: the fleet events card offers all three ways to a policy",
+    items: [
+      { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "With an events bundle on the table and no policy, the “now give it a policy to judge against” box named the file upload in words and offered only the tenant pull as a button. It now offers all three side by side: 📂 Upload scan bundle or policy XML (the same picker as the toolbar), 📁 From the harvest site (opens the harvest card on Evidence, for a scan bundle a device uploaded) and ⤓ Load the deployed AppLocker profile. Mihai, after the first harvest bundle came down and went up on devcf: this should also have the option to load from file." },
+    ],
+  },
+  {
     build: 10621, date: "2026-09-18", title: "T01: the harvest-site bundle comes down as a download, then goes up as an upload (AllSites.Read withdrawn)",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "Fourth real run of 📁 From the harvest site: SharePoint's own REST refused the read across origins as well, so after Graph /content, the pre-authenticated download URL, a Graph $batch and SharePoint REST the fact stands — a browser cannot read a SharePoint file's bytes across origins. Rather than mirror every bundle into a list, the card now does the certain thing in two clicks: ⤓ Get download link fetches the file's short-lived URL through Graph and renders it as a real ⤓ Download link named after the file (a navigation, which CORS does not govern — the file lands in your Downloads folder), and 📂 Upload it beside it opens the ordinary picker, so the bundle is imported exactly as any upload. The newest scan and events bundle get the same two buttons at the top. AllSites.Read (build 10620) is withdrawn from the registration script and SECURITY.md — Sites.Read.All alone reads the listing and the URL, and TUNO's calls all go to graph.microsoft.com again." },
