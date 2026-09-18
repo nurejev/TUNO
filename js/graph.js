@@ -817,7 +817,7 @@ const Graph = (() => {
   const siteByUrlRead = (url) => { const u = new URL(url); return get(`/sites/${u.hostname}:${u.pathname.replace(/\/+$/, "")}`, { scopes: SCOPES.sitesRead, retry: true }); };
   const driveChildren = async (siteId, folderPath) => {
     const enc = String(folderPath || "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
-    let url = `/sites/${encodeURIComponent(siteId)}/drive/root${enc ? `:/${enc}:` : ""}/children?$select=id,name,size,folder,file,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl&$top=200`;
+    let url = `/sites/${encodeURIComponent(siteId)}/drive/root${enc ? `:/${enc}:` : ""}/children?$select=id,name,size,folder,file,lastModifiedDateTime,webUrl&$top=200`;
     const out = [];
     while (url) {
       const page = await get(url, { scopes: SCOPES.sitesRead, retry: true });
@@ -826,11 +826,22 @@ const Graph = (() => {
     }
     return out;
   };
-  const driveItem = (siteId, itemId) => get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}?$select=id,name,size,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl`, { scopes: SCOPES.sitesRead, retry: true });
+  // 10618 (the first real run on devcf): a $select that names the annotation
+  // came back WITHOUT it on a SharePoint item — the listing had listed the
+  // file, the item read had no URL. The full item carries the annotation for
+  // any file, so ask for the item plain; the documented alias
+  // content.downloadUrl is the second try, and the message names the file's
+  // SharePoint page when neither answers.
+  const DL = "@microsoft.graph.downloadUrl";
+  const driveItem = (siteId, itemId) => get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}`, { scopes: SCOPES.sitesRead, retry: true });
   const driveItemText = async (siteId, itemId) => {
-    const it = await driveItem(siteId, itemId);
-    const dl = it && it["@microsoft.graph.downloadUrl"];
-    if (!dl) throw new GraphError("graph", "The site did not hand out a download URL for that file.");
+    let it = await driveItem(siteId, itemId);
+    let dl = it && it[DL];
+    if (!dl) {
+      try { const alt = await get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}?$select=id,content.downloadUrl`, { scopes: SCOPES.sitesRead, retry: true }); dl = alt && alt[DL]; }
+      catch { /* the plain item's answer stands */ }
+    }
+    if (!dl) throw new GraphError("graph", `The site did not hand out a download URL for ${(it && it.name) || "that file"}${it && it.webUrl ? ` — open it in SharePoint (${it.webUrl}) and upload it here by hand` : ""}.`);
     let res;
     try { res = await fetch(dl, { method: "GET" }); }
     catch (e) { throw new GraphError("network", `The download did not complete (${(e && e.message) || "network error"}). Open the file in SharePoint and upload it here by hand.`); }

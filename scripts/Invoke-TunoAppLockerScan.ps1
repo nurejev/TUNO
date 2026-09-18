@@ -396,7 +396,7 @@ trap {
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
 $script:ScriptVersion = '1.13.0'
-$script:TunoBuild = 10617
+$script:TunoBuild = 10618
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the scan Remediation is created from a page with a

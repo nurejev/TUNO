@@ -240,7 +240,8 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   const graph = fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8");
   ok("Sites.Read.All is on the registration and in SECURITY.md (R18)", /"Sites\.Read\.All",/.test(reg) && /`Sites\.Read\.All`/.test(sec));
   ok("graph.js names it as its own read entry, and the drive reads cost only that", /sitesRead: \["Sites\.Read\.All"\]/.test(graph) && /driveChildren = async \(siteId, folderPath\)/.test(graph) && !/driveChildren[\s\S]{0,600}scopes: SCOPES\.sitesFull/.test(graph.slice(graph.indexOf("const driveChildren"))));
-  ok("the download uses the pre-authenticated URL with no token on it", /const dl = it && it\["@microsoft\.graph\.downloadUrl"\]/.test(graph) && /fetch\(dl, \{ method: "GET" \}\)/.test(graph));
+  ok("the download uses the pre-authenticated URL with no token on it", /let dl = it && it\[DL\]/.test(graph) && /fetch\(dl, \{ method: "GET" \}\)/.test(graph));
+  ok("10618: the item is read plain (no $select naming the annotation), content.downloadUrl is the second try, and the message names the SharePoint page", /drive\/items\/\$\{encodeURIComponent\(itemId\)\}`, \{ scopes: SCOPES\.sitesRead/.test(graph) && /\$select=id,content\.downloadUrl/.test(graph) && /open it in SharePoint/.test(graph) && !/\$select=[^`]*@microsoft\.graph\.downloadUrl/.test(graph));
   const w = boot();
   const D = w.document;
   const H = w.AppLockerTool._harvest;

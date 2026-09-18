@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10618, date: "2026-09-18", title: "T01: the harvest-site import fetches the file",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The first real run of 📁 From the harvest site (devcf) read the site, listed the device folder and its files — the events collector had really uploaded — and then Import stopped with “The site did not hand out a download URL for that file”. A $select that names @microsoft.graph.downloadUrl comes back without it on a SharePoint item. The item is now read plain, which carries the download URL for any file; content.downloadUrl is the second try; and when neither answers the message names the file's SharePoint page so it can be uploaded by hand. The listing no longer asks for the annotation either." },
+    ],
+  },
+  {
     build: 10617, date: "2026-09-16", title: "T01: the device scan as a Remediation, and bundles fetched from the harvest site",
     items: [
       { kind: "new", tool: "🔐 AppLocker builder & validator", text: "Invoke-TunoAppLockerScan.ps1 1.13.0 runs as an Intune Remediation. It carries the same HARVEST TARGET block as the events collector and notices when it is SYSTEM with no -OutputPath — that is the Intune Management Extension — and switches to Remediation mode: the bundle and a console transcript go under %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan, its own output older than 30 days is removed first (-RetentionDays; 0 keeps all, and an interactive run keeps everything by default), the bundle is uploaded to Harvest/<device>/ on the harvest site with the certificate or the client secret exactly as the collector does, and the run ends with one summary line and exit 0 (1 on a fatal error, with the line named). Nothing else changes: the device is still not modified. The new detection half, Detect-TunoAppLockerScan.ps1, exits 1 when the device has no bundle younger than 7 days, so a daily schedule scans each device about weekly. The 🚀 panel has the pair as a fourth entry, stamped with the harvest target like the events pair; the Help & scripts fold lists the detection script and the scanner row says what Remediation mode does." },
