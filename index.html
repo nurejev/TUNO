@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10620"></script>
+<script src="js/popup-guard.js?v=10621"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10620">
+<link rel="stylesheet" href="css/app.css?v=10621">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10620"></script>
+<script src="js/selfhost-boot.js?v=10621"></script>
 </head>
 <body>
 
@@ -309,7 +309,7 @@
         <!-- 10617: the third entrance. What the devices uploaded to the harvest
              site (📁 panel on Help & scripts), per device, newest first — the
              same content-routed import, without a file on disk. -->
-        <button class="btn" id="alImportSp" title="List what the events collector and the scan Remediation uploaded to the harvest SharePoint site, per device, and import a bundle from there — signed in; the listing under Sites.Read.All (Graph), the file under AllSites.Read (SharePoint)">📁 From the harvest site</button>
+        <button class="btn" id="alImportSp" title="List what the events collector and the scan Remediation uploaded to the harvest SharePoint site, per device, and download a bundle from there to upload — signed in, Sites.Read.All">📁 From the harvest site</button>
         <input type="file" id="alFile" accept="text/xml,application/xml,.xml,application/json,.json,.log" style="display:none">
         <button class="btn" id="alSample">🧪 Load sample policy</button>
         <button class="btn" id="alNew">➕ Start empty</button>
@@ -326,7 +326,7 @@
       <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
       Or load the sample policy to see what the audit and the Microsoft coverage check produce.<br><br>
       <b>Coming back mid-loop with only an events bundle?</b> Upload it with the same button — the fleet evidence card appears below, and it can pull the deployed AppLocker profile straight from the tenant to judge against, so nothing needs hunting for on disk.<br><br>
-      <b>Devices upload to a harvest site?</b> <b>📁 From the harvest site</b> lists them and imports the newest scan or events bundle from SharePoint — no Collect diagnostics, device off or on.</p>
+      <b>Devices upload to a harvest site?</b> <b>📁 From the harvest site</b> lists them, hands you the download link for the newest scan or events bundle, and the upload button beside it takes it from Downloads — no Collect diagnostics, device off or on.</p>
     </div>
           <div class="list-card" id="alScan" style="margin-top:14px;padding:16px 18px;display:none"></div>
         </div>
@@ -528,7 +528,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <code class="al-dl-cmd" data-file="Detect-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Detect-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <p class="mini muted al-dl-note">Exits 1 when the device has no <code>TunoAppLockerScan-*.json</code> younger than 7 days under <code>IT-TOOLS\LOGS\AppLockerScan</code>, so <code>Invoke-TunoAppLockerScan.ps1</code> runs again in its Remediation mode; 0 otherwise. A daily detection schedule with the 7-day window inside the script is one scan a week per device, and a failed scan retries the next day. "Issue fixed" here means "the scan ran" — the scan changes nothing. The 🚀 panel creates the pair, carrying the harvest target when one is set, and <b>📁 From the harvest site</b> on Evidence fetches what it uploaded.</p>
+            <p class="mini muted al-dl-note">Exits 1 when the device has no <code>TunoAppLockerScan-*.json</code> younger than 7 days under <code>IT-TOOLS\LOGS\AppLockerScan</code>, so <code>Invoke-TunoAppLockerScan.ps1</code> runs again in its Remediation mode; 0 otherwise. A daily detection schedule with the 7-day window inside the script is one scan a week per device, and a failed scan retries the next day. "Issue fixed" here means "the scan ran" — the scan changes nothing. The 🚀 panel creates the pair, carrying the harvest target when one is set, and <b>📁 From the harvest site</b> on Evidence hands you the download link for what it uploaded.</p>
             <p class="mini muted" style="margin:6px 0 2px"><b>Cleanup pair</b> — for devices that already carry an AppLocker policy. Order matters: unassign the old profile, run the cleanup, deploy under a new grouping. The full procedure is on Deploy.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Detect-TunoAppLockerPolicy.ps1" download>⭳ Detect-TunoAppLockerPolicy.ps1</a>
@@ -2214,50 +2214,50 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10620"></script>
-<script src="js/selfhost.js?v=10620"></script>
-<script src="js/version.js?v=10620"></script>
-<script src="js/promote.js?v=10620"></script>
-<script src="js/authConfig.js?v=10620"></script>
-<script src="js/changelog.js?v=10620"></script>
-<script src="js/msappcatalog.js?v=10620"></script>
-<script src="js/demo.js?v=10620"></script>
-<script src="js/graph.js?v=10620"></script>
-<script src="js/suggest.js?v=10620"></script>
-<script src="js/progress.js?v=10620"></script>
-<script src="js/runledger.js?v=10620"></script>
-<script src="js/groupuse.js?v=10620"></script>
-<script src="js/audit.js?v=10620"></script>
-<script src="js/devicecleanup.js?v=10620"></script>
-<script src="js/backup.js?v=10620"></script>
-<script src="js/document.js?v=10620"></script>
-<script src="js/policycache.js?v=10620"></script>
-<script src="js/overview.js?v=10620"></script>
-<script src="js/devicewhy.js?v=10620"></script>
-<script src="js/whatif.js?v=10620"></script>
-<script src="js/health.js?v=10620"></script>
-<script src="js/settingsearch.js?v=10620"></script>
-<script src="js/conflict.js?v=10620"></script>
-<script src="js/compliance.js?v=10620"></script>
-<script src="js/filterrules.js?v=10620"></script>
-<script src="js/filters.js?v=10620"></script>
-<script src="js/restore.js?v=10620"></script>
-<script src="js/platformbaseline.js?v=10620"></script>
-<script src="js/complianceevidence.js?v=10620"></script>
-<script src="js/macbaseline.js?v=10620"></script>
-<script src="js/winbaseline.js?v=10620"></script>
-<script src="js/assignedit.js?v=10620"></script>
-<script src="js/restrictedau.js?v=10620"></script>
-<script src="js/groupmigrate.js?v=10620"></script>
-<script src="js/roles.js?v=10620"></script>
-<script src="js/defender.js?v=10620"></script>
-<script src="js/endpointsec.js?v=10620"></script>
-<script src="js/report.js?v=10620"></script>
-<script src="js/securescore.js?v=10620"></script>
-<script src="js/endpointposture.js?v=10620"></script>
-<script src="js/maa.js?v=10620"></script>
-<script src="js/laps.js?v=10620"></script>
-<script src="js/applocker.js?v=10620"></script>
-<script src="js/app.js?v=10620"></script>
+<script src="js/branding.js?v=10621"></script>
+<script src="js/selfhost.js?v=10621"></script>
+<script src="js/version.js?v=10621"></script>
+<script src="js/promote.js?v=10621"></script>
+<script src="js/authConfig.js?v=10621"></script>
+<script src="js/changelog.js?v=10621"></script>
+<script src="js/msappcatalog.js?v=10621"></script>
+<script src="js/demo.js?v=10621"></script>
+<script src="js/graph.js?v=10621"></script>
+<script src="js/suggest.js?v=10621"></script>
+<script src="js/progress.js?v=10621"></script>
+<script src="js/runledger.js?v=10621"></script>
+<script src="js/groupuse.js?v=10621"></script>
+<script src="js/audit.js?v=10621"></script>
+<script src="js/devicecleanup.js?v=10621"></script>
+<script src="js/backup.js?v=10621"></script>
+<script src="js/document.js?v=10621"></script>
+<script src="js/policycache.js?v=10621"></script>
+<script src="js/overview.js?v=10621"></script>
+<script src="js/devicewhy.js?v=10621"></script>
+<script src="js/whatif.js?v=10621"></script>
+<script src="js/health.js?v=10621"></script>
+<script src="js/settingsearch.js?v=10621"></script>
+<script src="js/conflict.js?v=10621"></script>
+<script src="js/compliance.js?v=10621"></script>
+<script src="js/filterrules.js?v=10621"></script>
+<script src="js/filters.js?v=10621"></script>
+<script src="js/restore.js?v=10621"></script>
+<script src="js/platformbaseline.js?v=10621"></script>
+<script src="js/complianceevidence.js?v=10621"></script>
+<script src="js/macbaseline.js?v=10621"></script>
+<script src="js/winbaseline.js?v=10621"></script>
+<script src="js/assignedit.js?v=10621"></script>
+<script src="js/restrictedau.js?v=10621"></script>
+<script src="js/groupmigrate.js?v=10621"></script>
+<script src="js/roles.js?v=10621"></script>
+<script src="js/defender.js?v=10621"></script>
+<script src="js/endpointsec.js?v=10621"></script>
+<script src="js/report.js?v=10621"></script>
+<script src="js/securescore.js?v=10621"></script>
+<script src="js/endpointposture.js?v=10621"></script>
+<script src="js/maa.js?v=10621"></script>
+<script src="js/laps.js?v=10621"></script>
+<script src="js/applocker.js?v=10621"></script>
+<script src="js/app.js?v=10621"></script>
 </body>
 </html>

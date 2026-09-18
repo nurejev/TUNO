@@ -3575,9 +3575,9 @@ const AppLockerTool = (() => {
       detect: "Detect-TunoAppLockerScan.ps1",
       remediate: "Invoke-TunoAppLockerScan.ps1",
       button: "Create the device-scan Remediation",
-      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule (scanner 1.13.0). Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site — the <b>📁 From the harvest site</b> button on Evidence then fetches it straight into this page, device off or on. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule (scanner 1.13.0). Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site — the <b>📁 From the harvest site</b> button on Evidence then hands you its download link, device off or on, and the upload button beside it takes it from Downloads. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
       description: `AppLocker device scan on a schedule, deployed from {SITE}. Detection: no TunoAppLockerScan-*.json younger than 7 days in %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan. Remediation: Invoke-TunoAppLockerScan.ps1 in Remediation mode (SYSTEM, output to that folder, transcript next to the bundle, own output older than 30 days removed, one summary line). The device is NOT changed; the bundle is what T01 imports.{HARVEST} Assign to the REFERENCE ring only. Cadence pair - do not read its compliance numbers as device health.`,
-      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Evidence</b>: 📁 From the harvest site → the device → its newest bundle, or Live Response for a device without a harvest target.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Evidence</b>: 📁 From the harvest site → the device → ⤓ Download its newest bundle → 📂 Upload it; or Live Response for a device without a harvest target.`,
       harvest: true,
     },
   };
@@ -3768,7 +3768,7 @@ const AppLockerTool = (() => {
   // content-routed importFile() the file picker uses. Read under
   // Sites.Read.All (delegated: what the signed-in admin can open anyway),
   // asked for at the click. Nothing here writes.
-  const evHarvest = { open: false, busy: "", error: null, siteUrl: "", site: null, devices: null, device: null, files: null, note: "" };
+  const evHarvest = { open: false, busy: "", error: null, siteUrl: "", site: null, devices: null, device: null, files: null, note: "", links: {} };
   const HARVEST_FILE_KINDS = [
     { kind: "scan",   re: /^TunoAppLockerScan-.*\.json$/i,      label: "🛰 scan bundle",   importable: true },
     { kind: "events", re: /^AppControlEvents_Bundle_.*\.json$/i, label: "📡 events bundle", importable: true },
@@ -3830,17 +3830,23 @@ const AppLockerTool = (() => {
       renderHarvestFetch();
     } catch (e) { harvestFail(e); }
   }
-  async function harvestImport(file) {
-    evHarvest.error = null; evHarvest.note = ""; evHarvest.busy = "import-" + file.id;
+  // THE FILE COMES DOWN AS A DOWNLOAD, NOT A FETCH (10621, after four real
+  // runs on devcf: Graph /content, the pre-authenticated URL, a $batch and
+  // SharePoint's own REST all refuse a browser the bytes across origins).
+  // The click fetches the short-lived download URL through Graph and
+  // renders it as a REAL link with the file's name; the person clicks that
+  // — a navigation, which CORS does not govern — and the file lands in
+  // Downloads, where 📡 Upload beside it picks it up. Two clicks, certain.
+  // Mihai chose this over mirroring the bundle into a list.
+  async function harvestPrepare(file) {
+    evHarvest.error = null; evHarvest.note = ""; evHarvest.busy = "prepare-" + file.id;
     renderHarvestFetch();
     try {
       if (typeof Graph.isDemo === "function" && Graph.isDemo()) throw new Error("Demo tenant — nothing is downloaded. Load the sample policy, or upload a real bundle.");
-      const text = await Graph.harvestFileText((evHarvest.site && evHarvest.site.webUrl) || evHarvest.siteUrl, evHarvest.site.id, file);
-      const hadPolicy = !!policy;
-      importFile(text, file.name);
+      const dl = await Graph.driveDownloadUrl(evHarvest.site.id, file.id);
+      evHarvest.links[file.id] = { url: dl.url, name: dl.name || file.name, when: Date.now() };
       evHarvest.busy = "";
-      evHarvest.note = `Imported ${file.name} from ${evHarvest.device ? evHarvest.device.name : "the site"}.`;
-      afterImport(hadPolicy);
+      evHarvest.note = `${file.name} is ready — click ⤓ Download, then upload it with the button beside it. The link is good for a few minutes.`;
       renderHarvestFetch();
     } catch (e) { harvestFail(e); }
   }
@@ -3869,14 +3875,23 @@ const AppLockerTool = (() => {
     }
     const devices = h.devices || [];
     const newest = harvestNewest();
+    // One file's action: "Get link" until the download URL is here, then the
+    // real ⤓ Download link (a navigation: the browser saves the file) and
+    // the upload button that takes it from Downloads.
+    const hvAction = (f, big) => {
+      const link = h.links[f.id];
+      const cls = big ? "btn primary sm" : "btn sm";
+      if (link) return `<a class="${cls}" href="${esc(link.url)}" download="${esc(link.name)}" data-hvdl="${esc(f.id)}" title="Saves ${esc(link.name)} to your Downloads folder">⤓ Download${big ? ` ${esc(harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle")}` : ""}</a> <button class="btn sm" data-hvupload="${esc(f.id)}" title="Then pick the downloaded file here — it is imported exactly as any upload">📂 Upload it</button>`;
+      return `<button class="${cls}" data-hvimport="${esc(f.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "prepare-" + f.id ? "Getting the link…" : `⤓ Get ${big ? (harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle") : "download link"}`}</button>`;
+    };
     const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Files</th><th>Last upload</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
       : h.devices ? `<p class="mini muted" style="margin:6px 0 0">The <code>Harvest</code> folder on ${esc((h.site && h.site.displayName) || "the site")} has no device folders yet — nothing has uploaded. A device folder appears with the first pass of the events or scan Remediation that carries this site.</p>` : "";
     const files = h.files || [];
-    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px"><b>${esc(h.device.name)}</b> — newest first. ${newest.scan ? `<button class="btn primary sm" data-hvimport="${esc(newest.scan.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + newest.scan.id ? "Fetching…" : "🛰 Import newest scan bundle"}</button> ` : `<span class="muted">no scan bundle here yet</span> `}${newest.events ? `<button class="btn primary sm" data-hvimport="${esc(newest.events.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + newest.events.id ? "Fetching…" : "📡 Import newest events bundle"}</button>` : `<span class="muted">no events bundle here yet</span>`}</p>
-        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? `<button class="btn sm" data-hvimport="${esc(f.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "import-" + f.id ? "Fetching…" : "Import"}</button> ` : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint — the by-hand route: download there, upload here">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
+    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px"><b>${esc(h.device.name)}</b> — newest first. ${newest.scan ? hvAction(newest.scan, true) + " " : `<span class="muted">no scan bundle here yet</span> · `}${newest.events ? hvAction(newest.events, true) : `<span class="muted">no events bundle here yet</span>`}</p>
+        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? hvAction(f) + " " : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
       : h.files ? `<p class="mini muted" style="margin:10px 0 0"><b>${esc(h.device.name)}</b> has an empty folder.</p>` : "") : "";
     host.innerHTML = `<h3 style="margin:0 0 6px">📁 From the harvest site</h3>
-      <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. The listing is read through Graph (<code>Sites.Read.All</code>), the file itself through SharePoint's own REST (<code>AllSites.Read</code> on the SharePoint API — a browser cannot get the bytes through Graph); both delegated, what you can open in SharePoint yourself; nothing here writes. One click imports a bundle exactly as the upload buttons do; Open ↗ is the by-hand route.</p>
+      <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. Read through Graph with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself); nothing here writes. <b>Two clicks per file:</b> ⤓ Download saves it to your Downloads folder (a browser cannot read a SharePoint file's bytes across origins, so TUNO hands you the link instead), 📂 Upload it takes it from there — the same import as the toolbar buttons.</p>
       ${err}
       <div class="al-dep-row">
         <input id="alHvUrl" class="al-dep-in" style="flex:1;min-width:320px" value="${esc(h.siteUrl)}" placeholder="https://<tenant>.sharepoint.com/sites/TUNO-AppControl-Harvest" spellcheck="false">
@@ -3891,7 +3906,10 @@ const AppLockerTool = (() => {
     const rd = host.querySelector("#alHvRead");
     if (rd) rd.addEventListener("click", () => harvestReadSite());
     host.querySelectorAll("[data-hvdev]").forEach((b) => b.addEventListener("click", () => { const d = (evHarvest.devices || [])[+b.dataset.hvdev]; if (d) harvestOpenDevice(d); }));
-    host.querySelectorAll("[data-hvimport]").forEach((b) => b.addEventListener("click", () => { const f = (evHarvest.files || []).find((x) => x.id === b.dataset.hvimport); if (f) harvestImport(f); }));
+    host.querySelectorAll("[data-hvimport]").forEach((b) => b.addEventListener("click", () => { const f = (evHarvest.files || []).find((x) => x.id === b.dataset.hvimport); if (f) harvestPrepare(f); }));
+    // The upload button beside a download link is the ordinary picker — the
+    // same content-routed import as the toolbar's two buttons.
+    host.querySelectorAll("[data-hvupload]").forEach((b) => b.addEventListener("click", () => { const inp = $("alFile"); if (inp) inp.click(); }));
   }
   function toggleHarvestFetch() {
     evHarvest.open = !evHarvest.open;
@@ -4862,6 +4880,6 @@ const AppLockerTool = (() => {
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
     _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState,
-      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestImport, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS },
+      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestPrepare, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS },
   };
 })();

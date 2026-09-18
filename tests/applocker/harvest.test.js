@@ -240,11 +240,8 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   const graph = fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8");
   ok("Sites.Read.All is on the registration and in SECURITY.md (R18)", /"Sites\.Read\.All",/.test(reg) && /`Sites\.Read\.All`/.test(sec));
   ok("graph.js names it as its own read entry, and the drive reads cost only that", /sitesRead: \["Sites\.Read\.All"\]/.test(graph) && /driveChildren = async \(siteId, folderPath\)/.test(graph) && !/driveChildren[\s\S]{0,600}scopes: SCOPES\.sitesFull/.test(graph.slice(graph.indexOf("const driveChildren"))));
-  ok("10619: the bytes come through a Graph $batch of the one /content request, base64-decoded", /call\("POST", "https:\/\/graph\.microsoft\.com\/v1\.0\/\$batch", \{ body: \{ requests: \[\{ id: "1", method: "GET", url: rel \}\] \}, scopes: SCOPES\.sitesRead/.test(graph) && /typeof r\.body === "string"\) return b64ToText\(r\.body\)/.test(graph) && /new TextDecoder\("utf-8"\)\.decode\(bytes\)/.test(graph));
-  ok("10620: the bytes are read through SharePoint's own REST first — GetFileById on the listing's listItemUniqueId, a token minted for the site's host and sent there only — then the Graph routes", /const spoScope = \(host\) => \[`https:\/\/\$\{host\}\/AllSites\.Read`\]/.test(graph) && /_api\/web\/GetFileById\('\$\{encodeURIComponent\(uniqueId\)\}'\)\/\$value/.test(graph) && /if \(!\/\\\.sharepoint\\\.com\$\/i\.test\(u\.hostname\)\) throw/.test(graph) && /sharepointIds&\$top=200/.test(graph) && /try \{ return await spoFileText\(siteUrl, uid\); \}/.test(graph) && /return await driveItemText\(siteId, file\.id\)/.test(graph));
-  ok("10620: AllSites.Read is on the registration as the SharePoint Online resource, with its own consent grant, and in SECURITY.md", /\$SharePointAppId = "00000003-0000-0ff1-ce00-000000000000"/.test(reg) && /\[string\[\]\]\$SharePointScopes = @\(\s*"AllSites\.Read"\s*\)/.test(reg) && /ResourceAppId = \$SharePointAppId/.test(reg) && /-ResourceId \$spoSp\.Id -ConsentType "AllPrincipals"/.test(reg) && /`AllSites\.Read`/.test(sec));
-  ok("the Evidence import goes through harvestFileText with the site URL, and every listed file has the by-hand Open link", /Graph\.harvestFileText\(\(evHarvest\.site && evHarvest\.site\.webUrl\) \|\| evHarvest\.siteUrl, evHarvest\.site\.id, file\)/.test(fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8")));
-  ok("the pre-authenticated URL is the fallback, read plain and never through a $select naming the annotation, and the message names the SharePoint page", /location = it && it\[DL\]/.test(graph) && /\$select=id,content\.downloadUrl/.test(graph) && /Open it in SharePoint/.test(graph) && !/\$select=[^`]*@microsoft\.graph\.downloadUrl/.test(graph) && /drive\/items\/\$\{encodeURIComponent\(itemId\)\}`, \{ scopes: SCOPES\.sitesRead/.test(graph));
+  ok("10621: TUNO never reads the bytes — it hands the browser the short-lived download URL, read plain and never through a $select naming the annotation, and the message names the SharePoint page", /const driveDownloadUrl = async \(siteId, itemId\)/.test(graph) && /drive\/items\/\$\{encodeURIComponent\(itemId\)\}`, \{ scopes: SCOPES\.sitesRead/.test(graph) && /\$select=id,content\.downloadUrl/.test(graph) && /Open it in SharePoint/.test(graph) && !/\$select=[^`]*@microsoft\.graph\.downloadUrl/.test(graph) && !/AllSites\.Read|spoFileText|b64ToText|driveItemText/.test(graph));
+  ok("no SharePoint permission is left on the registration or in SECURITY.md (10620's AllSites.Read came off in 10621)", !/AllSites|SharePointAppId|0ff1-ce00/.test(reg) && !/AllSites/.test(sec));
   const w = boot();
   const D = w.document;
   const H = w.AppLockerTool._harvest;
@@ -269,20 +266,25 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
   ok("a device's files are listed newest first", Array.isArray(H.evHarvest.files) && H.evHarvest.files.length === 4 && H.evHarvest.files[0].lastModifiedDateTime >= H.evHarvest.files[1].lastModifiedDateTime);
   const nw = H.harvestNewest();
-  ok("the newest scan and events bundles are the two big buttons", nw.scan && /^TunoAppLockerScan-/.test(nw.scan.name) && nw.events && nw.events.name === "AppControlEvents_Bundle_20260916-0301.json" && /Import newest scan bundle/.test(card.textContent) && /Import newest events bundle/.test(card.textContent));
+  ok("the newest scan and events bundles are the two big buttons", nw.scan && /^TunoAppLockerScan-/.test(nw.scan.name) && nw.events && nw.events.name === "AppControlEvents_Bundle_20260916-0301.json" && /Get newest scan bundle/.test(card.textContent) && /Get newest events bundle/.test(card.textContent));
   ok("the report is opened, not imported", !card.querySelector(`[data-hvimport="demo-f3"]`));
   H.evHarvest.siteUrl = "https://contoso-admin.sharepoint.com/sites/x"; await H.harvestReadSite();
   ok("a URL that is not a /sites/ URL is refused before any call", !!H.evHarvest.error && /not a SharePoint site URL/.test(H.evHarvest.error.message) || (H.evHarvest.siteUrl = "nonsense", await H.harvestReadSite(), /not a SharePoint site URL/.test((H.evHarvest.error || {}).message || "")));
-  // the import goes through importFile: hand the demo item real bundle text
+  // the download link: the click fetches the URL through Graph and renders it as a real link with the upload button beside it
   H.evHarvest.error = null; H.evHarvest.siteUrl = CFG.siteUrl; await H.harvestReadSite(); await H.harvestOpenDevice(H.evHarvest.devices[0]);
   w.Graph.isDemo = () => false;
-  const eventsText = JSON.stringify({ schema: "tuno.applocker.events/1", generator: { generatedUtc: "2026-09-16T03:01:00Z" }, events: { available: true, daysBack: 30, summary: { total: 0, allowed: 0, audited: 0, blocked: 0 }, entries: [] } });
-  w.Graph.harvestFileText = async (siteUrl, siteId, file) => { if (file.id !== "demo-f2") throw new Error("wrong item " + file.id); if (!/^https:\/\/contoso\.sharepoint\.com/.test(siteUrl)) throw new Error("wrong site " + siteUrl); return eventsText; };
-  await H.harvestImport(H.evHarvest.files.find((f) => f.id === "demo-f2"));
-  ok("importing the events bundle lands it on the table like an upload", !H.evHarvest.error && /Imported AppControlEvents_Bundle_20260916-0301\.json from REF-IMAGE-01/.test(card.textContent) && /📡 Events/.test(D.getElementById("alEvidence").textContent) && /loaded/.test(D.getElementById("alEvidence").textContent), (H.evHarvest.error || {}).message);
-  w.Graph.harvestFileText = async () => { const e = new w.Graph.GraphError("graph", "The download answered HTTP 403."); return Promise.reject(e); };
-  await H.harvestImport(H.evHarvest.files[0]);
-  ok("a failed download is shown on the card, nothing else changes", !!H.evHarvest.error && /HTTP 403/.test(H.evHarvest.error.message) && /Could not read the site/.test(card.textContent));
+  w.Graph.driveDownloadUrl = async (siteId, itemId) => { if (itemId !== "demo-f2") throw new Error("wrong item " + itemId); return { url: "https://contoso.sharepoint.com/_layouts/15/download.aspx?UniqueId=abc&tempauth=xyz", name: "AppControlEvents_Bundle_20260916-0301.json", webUrl: "#" }; };
+  ok("before the click every importable row offers Get download link, none a Download link", card.querySelectorAll("[data-hvimport]").length === 5 && !card.querySelector("[data-hvdl]"));
+  await H.harvestPrepare(H.evHarvest.files.find((f) => f.id === "demo-f2"));
+  const dl = card.querySelector('[data-hvdl="demo-f2"]');
+  ok("after it the row carries a real ⤓ Download link to the pre-authenticated URL, named after the file, and 📂 Upload it beside it", !H.evHarvest.error && dl && dl.tagName === "A" && /tempauth=xyz/.test(dl.getAttribute("href")) && dl.getAttribute("download") === "AppControlEvents_Bundle_20260916-0301.json" && !!card.querySelector('[data-hvupload="demo-f2"]') && /ready — click ⤓ Download/.test(card.textContent), (H.evHarvest.error || {}).message);
+  ok("the newest-events button is that same link", card.querySelectorAll('[data-hvdl="demo-f2"]').length === 2);
+  let picked = false; D.getElementById("alFile").click = () => { picked = true; };
+  card.querySelector('[data-hvupload="demo-f2"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("📂 Upload it opens the ordinary picker", picked);
+  w.Graph.driveDownloadUrl = async () => { const e = new w.Graph.GraphError("graph", "The site did not hand out a download URL for x."); return Promise.reject(e); };
+  await H.harvestPrepare(H.evHarvest.files[0]);
+  ok("a refused link is shown on the card, nothing else changes", !!H.evHarvest.error && /download URL/.test(H.evHarvest.error.message) && /Could not read the site/.test(card.textContent) && !!card.querySelector('[data-hvdl="demo-f2"]'));
 }
 
 });

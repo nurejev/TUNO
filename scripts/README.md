@@ -11,7 +11,7 @@ itself, so the copy you download always matches the build of T01 you are looking
 
 | File | What it does | Where the output goes |
 |---|---|---|
-| `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds. Since 1.13.0 it is also the remediation half of the scan-on-schedule pair: run as SYSTEM with no `-OutputPath` it switches to **Remediation mode** (output under `%ProgramData%\IT-TOOLS\LOGS\AppLockerScan`, console transcript next to the bundle, own output older than 30 days removed first, one summary line) and, with a harvest target (stamped in by T01, `HKLM\SOFTWARE\TUNO\Harvest`, or `-Harvest*` parameters), uploads the bundle to the harvest site as `Harvest/<device>/` | Upload the `.json` bundle to T01 — or fetch it from the harvest site with **📁 From the harvest site** on Evidence |
+| `Invoke-TunoAppLockerScan.ps1` | Scans a device and builds a rule set from what it finds. Since 1.13.0 it is also the remediation half of the scan-on-schedule pair: run as SYSTEM with no `-OutputPath` it switches to **Remediation mode** (output under `%ProgramData%\IT-TOOLS\LOGS\AppLockerScan`, console transcript next to the bundle, own output older than 30 days removed first, one summary line) and, with a harvest target (stamped in by T01, `HKLM\SOFTWARE\TUNO\Harvest`, or `-Harvest*` parameters), uploads the bundle to the harvest site as `Harvest/<device>/` | Upload the `.json` bundle to T01 — or download it from the harvest site with **📁 From the harvest site** on Evidence and upload it from there |
 | `Detect-TunoAppLockerScan.ps1` | Detection half of the scan-on-schedule pair: exits 1 when the device has no `TunoAppLockerScan-*.json` younger than 7 days under `IT-TOOLS\LOGS\AppLockerScan` | Reference ring only; "Issue fixed" means "the scan ran" |
 | `Convert-TunoAppLockerToIntune.ps1` | Turns an AppLocker policy XML into an Intune custom profile | JSON on disk, or straight into the tenant |
 | `AppLocker-Implementation-Checklist.md` | Every check that has to pass before the policy is enforced | Print it, work down it, keep the completed copy |
@@ -283,7 +283,9 @@ The detection half exits 1 when the newest bundle is older than 7 days (or there
 none), so a daily detection schedule scans each device about weekly. Assign it to the
 **reference ring** only — the scan of a device someone has worked in allows everything
 they accumulated. The device is never changed. On Evidence, **📁 From the harvest site**
-lists the device folders on the site and imports the newest bundle straight into T01.
+lists the device folders on the site, hands you the download link for the newest bundle (a
+browser cannot read a SharePoint file's bytes across origins — four routes were tried on a
+real tenant), and the upload button beside it takes it from Downloads.
 | `-NoPeSniff` | off | Turn OFF the PE-header check on files with unknown extensions. Since 10553 the check is on by default — a renamed binary still runs — with a never-executable extension list keeping it cheap. (`-SniffUnknownExtensions` is accepted and ignored.) |
 | `-NoMicrosoftCoverage` | off | Leave the Microsoft app coverage rules OUT of the generated set. Since 1.10.0 every generated Exe/Dll collection carries standing allows for OneDrive (per-user, by publisher), classic Teams (by publisher) and the Defender platform folder under ProgramData (by path) — the three the tool's coverage check flags on a fresh scan. |
 | `-SkipWritableFiles` | off | Skip the user-writable FILE check. By default every executable file inside an admin-only directory has its own DACL read; a hit is excepted by exact path and inventoried for its own rule. |
