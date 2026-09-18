@@ -337,12 +337,38 @@ param(
     #                                  without it never sees the request.
     "Group-NestingSupport.ReadWrite.All"
   ),
+  # --- SharePoint Online (NOT Graph) — build 10620 -------------------------
+  #
+  # The one permission in this file that is not on Microsoft Graph. Two real
+  # runs of T01's "From the harvest site" (devcf, 18 Sep) showed that a
+  # browser cannot get a file's BYTES out of SharePoint through Graph at all:
+  # /content and the pre-authenticated @microsoft.graph.downloadUrl both land
+  # on SharePoint's download host, which answers with no CORS headers, and a
+  # $batch hands back the same redirect. SharePoint's own REST (_api) does
+  # answer CORS to a bearer token minted for that host, so the file read goes
+  # there:
+  #
+  #   AllSites.Read      read items in all site collections THE SIGNED-IN
+  #                      USER CAN READ — delegated, the same boundary as
+  #                      Sites.Read.All above, on the other API. TUNO uses
+  #                      it for one call: GetFileById('<unique id>')/$value
+  #                      on the harvest site, from the Evidence import.
+  #                      The token is minted for the site's host and sent to
+  #                      that host only.
+  #
+  # Empty the list to leave SharePoint off the registration; the import then
+  # falls back to the Graph routes (which fail on SharePoint Online today)
+  # and names the file's SharePoint page for the by-hand route.
+  [string[]]$SharePointScopes = @(
+    "AllSites.Read"
+  ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent
 )
 
 $ErrorActionPreference = "Stop"
 $GraphAppId = "00000003-0000-0000-c000-000000000000" # Microsoft Graph
+$SharePointAppId = "00000003-0000-0ff1-ce00-000000000000" # Office 365 SharePoint Online (build 10620)
 
 #--- 1. Connect (reuse existing session when possible) -------------------
 $requiredScopes = @("Application.ReadWrite.All")
@@ -368,6 +394,19 @@ $resourceAccess = foreach ($name in $DelegatedScopes) {
   @{ Id = $perm.Id; Type = "Scope" }
 }
 $requiredResourceAccess = @(@{ ResourceAppId = $GraphAppId; ResourceAccess = $resourceAccess })
+
+#--- 2b. SharePoint Online — the one non-Graph resource (build 10620) ------
+$spoSp = $null
+if ($SharePointScopes.Count) {
+  $spoSp = Get-MgServicePrincipal -Filter "appId eq '$SharePointAppId'" | Select-Object -First 1
+  if (-not $spoSp) { throw "The Office 365 SharePoint Online service principal ($SharePointAppId) is not in this tenant - a tenant without SharePoint cannot consent AllSites.Read; run with -SharePointScopes @() to leave it off." }
+  $spoAccess = foreach ($name in $SharePointScopes) {
+    $perm = $spoSp.Oauth2PermissionScopes | Where-Object Value -eq $name
+    if (-not $perm) { throw "Delegated permission '$name' not found on Office 365 SharePoint Online." }
+    @{ Id = $perm.Id; Type = "Scope" }
+  }
+  $requiredResourceAccess += @{ ResourceAppId = $SharePointAppId; ResourceAccess = @($spoAccess) }
+}
 
 #--- 3. Create or update the app registration ---------------------------
 if ($SingleTenant) {
@@ -484,6 +523,19 @@ if (-not $SkipAdminConsent) {
   } else {
     New-MgOauth2PermissionGrant -ClientId $sp.Id -ResourceId $graphSp.Id -ConsentType "AllPrincipals" -Scope $scopeString | Out-Null
     Write-Host "Admin consent granted ($scopeString)" -ForegroundColor Green
+  }
+  # The SharePoint grant is its own record: one oauth2PermissionGrant per
+  # resource service principal (build 10620).
+  if ($spoSp) {
+    $spoScopeString = $SharePointScopes -join " "
+    $spoGrant = Get-MgOauth2PermissionGrant -Filter "clientId eq '$($sp.Id)' and resourceId eq '$($spoSp.Id)' and consentType eq 'AllPrincipals'" | Select-Object -First 1
+    if ($spoGrant) {
+      Update-MgOauth2PermissionGrant -OAuth2PermissionGrantId $spoGrant.Id -Scope $spoScopeString
+      Write-Host "Admin consent updated on SharePoint Online ($spoScopeString)" -ForegroundColor Green
+    } else {
+      New-MgOauth2PermissionGrant -ClientId $sp.Id -ResourceId $spoSp.Id -ConsentType "AllPrincipals" -Scope $spoScopeString | Out-Null
+      Write-Host "Admin consent granted on SharePoint Online ($spoScopeString)" -ForegroundColor Green
+    }
   }
 }
 

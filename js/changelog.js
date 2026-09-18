@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10620, date: "2026-09-18", title: "T01: the harvest-site import reads the file from SharePoint itself (NEW PERMISSION: AllSites.Read on SharePoint Online)",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Third real run of 📁 From the harvest site: the Graph $batch of build 10619 handed back the same redirect Graph always does for a file's content, so the plain truth is that a browser cannot get a file's bytes out of SharePoint through Graph at all — /content, the pre-authenticated download URL and a $batch all end on SharePoint's download host, which answers no CORS headers. SharePoint's own REST does answer CORS to a bearer token minted for that host. The import now reads the file through it, GetFileById on the unique id the listing already carries, with a token for AllSites.Read on the SharePoint Online API — delegated, the same what-you-can-open-yourself boundary as Sites.Read.All, and TUNO's one permission that is not a Graph scope (the registration script and SECURITY.md carry it; re-run New-TunoAppRegistration.ps1, or consent it at the click). The Graph routes stay as fallbacks and the message names what each refused. Every listed file now has Open ↗ as the by-hand route." },
+    ],
+  },
+  {
     build: 10619, date: "2026-09-18", title: "T01: the harvest-site import brings the bytes through Graph",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Second real run of 📁 From the harvest site: the download URL was there and Import still stopped, this time with “The download did not complete (Failed to fetch)”. SharePoint's download.aspx answers with no CORS headers, so a browser cannot read a pre-authenticated download URL across origins, whatever the Graph docs say. The import now sends one $batch request to Graph carrying the file's /content read and decodes the base64 body Graph hands back — Graph does answer CORS. The pre-authenticated URL is kept as the fallback for tenants whose download host allows it, and when even that fails the message says the browser cannot read the link across origins and names the file's SharePoint page." },

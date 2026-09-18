@@ -168,6 +168,19 @@ const Graph = (() => {
     // never be bought with a write scope. Taken in the open per R18.
     sitesRead: ["Sites.Read.All"],
   };
+  // NOT a Graph scope — the one exception in this file (build 10620). Two
+  // real runs on devcf showed that a browser cannot get a file's BYTES out
+  // of SharePoint through Graph at all: /content and the pre-authenticated
+  // @microsoft.graph.downloadUrl both land on SharePoint's download host,
+  // which answers with no CORS headers, and a $batch hands back the same
+  // 302 instead of the body. SharePoint's own REST endpoint (_api) does
+  // answer CORS when the request carries a bearer token minted for THAT
+  // host, so the bytes are read there: AllSites.Read on the SharePoint
+  // Online resource, delegated — the same "what you can open yourself"
+  // boundary as Sites.Read.All, on the other API. The token is minted for
+  // the site's host and sent to that host only (spoFileText), never to
+  // graph.microsoft.com, and safeGraphUrl's rule stands for everything else.
+  const spoScope = (host) => [`https://${host}/AllSites.Read`];
 
   // Every Intune assignment surface these tools read — configurationPolicies,
   // deviceHealthScripts, deviceShellScripts, auditEvents, roleAssignments — is
@@ -817,7 +830,7 @@ const Graph = (() => {
   const siteByUrlRead = (url) => { const u = new URL(url); return get(`/sites/${u.hostname}:${u.pathname.replace(/\/+$/, "")}`, { scopes: SCOPES.sitesRead, retry: true }); };
   const driveChildren = async (siteId, folderPath) => {
     const enc = String(folderPath || "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
-    let url = `/sites/${encodeURIComponent(siteId)}/drive/root${enc ? `:/${enc}:` : ""}/children?$select=id,name,size,folder,file,lastModifiedDateTime,webUrl&$top=200`;
+    let url = `/sites/${encodeURIComponent(siteId)}/drive/root${enc ? `:/${enc}:` : ""}/children?$select=id,name,size,folder,file,lastModifiedDateTime,webUrl,sharepointIds&$top=200`;
     const out = [];
     while (url) {
       const page = await get(url, { scopes: SCOPES.sitesRead, retry: true });
@@ -876,6 +889,41 @@ const Graph = (() => {
     if (!res.ok) throw new GraphError("graph", `The download answered HTTP ${res.status}.${page}`, { status: res.status });
     return res.text();
   };
+  // The bytes from SharePoint's own REST (build 10620): GetFileById on the
+  // file's listItemUniqueId (Graph's sharepointIds carry it), read with a
+  // token for the site's host. The one fetch in this file that is not
+  // addressed to graph.microsoft.com; the token it sends was minted for the
+  // host it goes to, by construction. Accept is octet-stream so SharePoint
+  // hands the file back untouched; the decoder drops a BOM.
+  const spoFileText = async (siteUrl, uniqueId) => {
+    const u = new URL(siteUrl);
+    if (!/\.sharepoint\.com$/i.test(u.hostname)) throw new GraphError("network", `Refused to send a SharePoint token to ${u.hostname} — only *.sharepoint.com hosts are read.`);
+    const at = await token(spoScope(u.hostname));
+    const url = `${u.origin}${u.pathname.replace(/\/+$/, "")}/_api/web/GetFileById('${encodeURIComponent(uniqueId)}')/$value`;
+    let res;
+    try { res = await fetch(url, { method: "GET", headers: { Authorization: "Bearer " + at, Accept: "application/octet-stream" } }); }
+    catch (e) { throw new GraphError("network", `SharePoint did not answer the read across origins (${(e && e.message) || "network error"}).`); }
+    if (!res.ok) throw new GraphError(res.status === 401 ? "auth" : res.status === 403 ? "admin" : res.status === 404 ? "notfound" : "graph", `SharePoint answered HTTP ${res.status} to the file read.`, { status: res.status });
+    const buf = new Uint8Array(await res.arrayBuffer());
+    return new TextDecoder("utf-8").decode(buf);
+  };
+  // What the Evidence import calls (10620): SharePoint's REST first when the
+  // listing gave the file's unique id, the Graph routes after it — so a
+  // tenant where one of them works still gets the file, and the message at
+  // the end names what each refused.
+  const harvestFileText = async (siteUrl, siteId, file) => {
+    const uid = file && file.sharepointIds && file.sharepointIds.listItemUniqueId;
+    let first = null;
+    if (uid && siteUrl) {
+      try { return await spoFileText(siteUrl, uid); }
+      catch (e) { first = e; }
+    }
+    try { return await driveItemText(siteId, file.id); }
+    catch (e2) {
+      if (!first) throw e2;
+      throw new GraphError(first.kind === "admin" || first.kind === "consent" ? first.kind : "graph", `SharePoint REST: ${first.message} Graph: ${e2.message}`, { consentUrl: first.consentUrl });
+    }
+  };
 
   const assignProfile = (profileId, groupId) => post(
     `/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/assign`,
@@ -888,7 +936,7 @@ const Graph = (() => {
     remediations, createRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,
-    siteByUrlRead, driveChildren, driveItem, driveItemText,
+    siteByUrlRead, driveChildren, driveItem, driveItemText, spoScope, spoFileText, harvestFileText,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
     readOne, readAll, pool, batch, resolveNames,
