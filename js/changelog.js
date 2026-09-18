@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10619, date: "2026-09-18", title: "T01: the harvest-site import brings the bytes through Graph",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "Second real run of 📁 From the harvest site: the download URL was there and Import still stopped, this time with “The download did not complete (Failed to fetch)”. SharePoint's download.aspx answers with no CORS headers, so a browser cannot read a pre-authenticated download URL across origins, whatever the Graph docs say. The import now sends one $batch request to Graph carrying the file's /content read and decodes the base64 body Graph hands back — Graph does answer CORS. The pre-authenticated URL is kept as the fallback for tenants whose download host allows it, and when even that fails the message says the browser cannot read the link across origins and names the file's SharePoint page." },
+    ],
+  },
+  {
     build: 10618, date: "2026-09-18", title: "T01: the harvest-site import fetches the file",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The first real run of 📁 From the harvest site (devcf) read the site, listed the device folder and its files — the events collector had really uploaded — and then Import stopped with “The site did not hand out a download URL for that file”. A $select that names @microsoft.graph.downloadUrl comes back without it on a SharePoint item. The item is now read plain, which carries the download URL for any file; content.downloadUrl is the second try; and when neither answers the message names the file's SharePoint page so it can be uploaded by hand. The listing no longer asks for the annotation either." },

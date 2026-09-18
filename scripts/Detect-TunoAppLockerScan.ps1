@@ -31,7 +31,7 @@ Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell,
 #>
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10618
+$script:TunoBuild = 10619
 
 # How old the newest bundle may be before the scan runs again. Seven days is
 # the house cadence; edit the number in a copy for a faster or slower ring.

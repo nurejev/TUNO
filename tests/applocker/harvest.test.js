@@ -240,8 +240,8 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   const graph = fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8");
   ok("Sites.Read.All is on the registration and in SECURITY.md (R18)", /"Sites\.Read\.All",/.test(reg) && /`Sites\.Read\.All`/.test(sec));
   ok("graph.js names it as its own read entry, and the drive reads cost only that", /sitesRead: \["Sites\.Read\.All"\]/.test(graph) && /driveChildren = async \(siteId, folderPath\)/.test(graph) && !/driveChildren[\s\S]{0,600}scopes: SCOPES\.sitesFull/.test(graph.slice(graph.indexOf("const driveChildren"))));
-  ok("the download uses the pre-authenticated URL with no token on it", /let dl = it && it\[DL\]/.test(graph) && /fetch\(dl, \{ method: "GET" \}\)/.test(graph));
-  ok("10618: the item is read plain (no $select naming the annotation), content.downloadUrl is the second try, and the message names the SharePoint page", /drive\/items\/\$\{encodeURIComponent\(itemId\)\}`, \{ scopes: SCOPES\.sitesRead/.test(graph) && /\$select=id,content\.downloadUrl/.test(graph) && /open it in SharePoint/.test(graph) && !/\$select=[^`]*@microsoft\.graph\.downloadUrl/.test(graph));
+  ok("10619: the bytes come through a Graph $batch of the one /content request, base64-decoded", /call\("POST", "https:\/\/graph\.microsoft\.com\/v1\.0\/\$batch", \{ body: \{ requests: \[\{ id: "1", method: "GET", url: rel \}\] \}, scopes: SCOPES\.sitesRead/.test(graph) && /typeof r\.body === "string"\) return b64ToText\(r\.body\)/.test(graph) && /new TextDecoder\("utf-8"\)\.decode\(bytes\)/.test(graph));
+  ok("the pre-authenticated URL is the fallback, read plain and never through a $select naming the annotation, and the message names the SharePoint page", /location = it && it\[DL\]/.test(graph) && /\$select=id,content\.downloadUrl/.test(graph) && /Open it in SharePoint/.test(graph) && !/\$select=[^`]*@microsoft\.graph\.downloadUrl/.test(graph) && /drive\/items\/\$\{encodeURIComponent\(itemId\)\}`, \{ scopes: SCOPES\.sitesRead/.test(graph));
   const w = boot();
   const D = w.document;
   const H = w.AppLockerTool._harvest;

@@ -830,22 +830,50 @@ const Graph = (() => {
   // came back WITHOUT it on a SharePoint item — the listing had listed the
   // file, the item read had no URL. The full item carries the annotation for
   // any file, so ask for the item plain; the documented alias
-  // content.downloadUrl is the second try, and the message names the file's
-  // SharePoint page when neither answers.
+  // content.downloadUrl is the second try.
+  // 10619 (the second real run): the pre-authenticated URL was there and the
+  // browser could not read it — SharePoint's download.aspx answers with no
+  // CORS headers, so fetch() rejects with "Failed to fetch" whatever the docs
+  // say about preauthenticated URLs. The bytes have to come THROUGH Graph,
+  // which does answer CORS: a $batch with the one /content request. Graph
+  // resolves the redirect inside the batch and hands the body back base64
+  // encoded (as it does for /photo/$value); if a tenant answers the batch
+  // with the 302 instead, the Location is the same URL and the direct fetch
+  // is tried once more before the message names the SharePoint page.
   const DL = "@microsoft.graph.downloadUrl";
   const driveItem = (siteId, itemId) => get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}`, { scopes: SCOPES.sitesRead, retry: true });
+  const b64ToText = (b64) => {
+    const bin = atob(String(b64).replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8").decode(bytes);   // the BOM, if any, is dropped by the decoder
+  };
   const driveItemText = async (siteId, itemId) => {
-    let it = await driveItem(siteId, itemId);
-    let dl = it && it[DL];
-    if (!dl) {
-      try { const alt = await get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}?$select=id,content.downloadUrl`, { scopes: SCOPES.sitesRead, retry: true }); dl = alt && alt[DL]; }
-      catch { /* the plain item's answer stands */ }
+    const rel = `/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}/content`;
+    let location = "";
+    const j = await call("POST", "https://graph.microsoft.com/v1.0/$batch", { body: { requests: [{ id: "1", method: "GET", url: rel }] }, scopes: SCOPES.sitesRead, retry: true });
+    const r = ((j && j.responses) || [])[0] || {};
+    if (r.status >= 200 && r.status < 300 && typeof r.body === "string") return b64ToText(r.body);
+    if (r.status >= 200 && r.status < 300 && r.body && typeof r.body === "object") return JSON.stringify(r.body);
+    if (r.status === 302 || r.status === 301) location = ((r.headers || {}).Location || (r.headers || {}).location || "");
+    else if (r.status && !(r.status >= 200 && r.status < 300)) throw new GraphError(r.status === 403 ? "admin" : r.status === 404 ? "notfound" : "graph", (r.body && r.body.error && r.body.error.message) || `The content read answered HTTP ${r.status}.`, { status: r.status, code: (r.body && r.body.error && r.body.error.code) || "" });
+    // The batch did not carry the bytes: the direct route, for the tenants
+    // whose download host answers CORS.
+    let it = null;
+    if (!location) {
+      it = await driveItem(siteId, itemId);
+      location = it && it[DL];
+      if (!location) {
+        try { const alt = await get(`/sites/${encodeURIComponent(siteId)}/drive/items/${encodeURIComponent(itemId)}?$select=id,content.downloadUrl`, { scopes: SCOPES.sitesRead, retry: true }); location = alt && alt[DL]; }
+        catch { /* the plain item's answer stands */ }
+      }
     }
-    if (!dl) throw new GraphError("graph", `The site did not hand out a download URL for ${(it && it.name) || "that file"}${it && it.webUrl ? ` — open it in SharePoint (${it.webUrl}) and upload it here by hand` : ""}.`);
+    const page = it && it.webUrl ? ` Open it in SharePoint (${it.webUrl}) and upload it here by hand.` : " Open the file in SharePoint and upload it here by hand.";
+    if (!location) throw new GraphError("graph", `The site did not hand out a download URL for ${(it && it.name) || "that file"}.${page}`);
     let res;
-    try { res = await fetch(dl, { method: "GET" }); }
-    catch (e) { throw new GraphError("network", `The download did not complete (${(e && e.message) || "network error"}). Open the file in SharePoint and upload it here by hand.`); }
-    if (!res.ok) throw new GraphError("graph", `The download answered HTTP ${res.status}. Open the file in SharePoint and upload it here by hand.`, { status: res.status });
+    try { res = await fetch(location, { method: "GET" }); }
+    catch (e) { throw new GraphError("network", `Graph handed back a download link instead of the bytes, and the browser cannot read that link across origins (${(e && e.message) || "network error"}).${page}`); }
+    if (!res.ok) throw new GraphError("graph", `The download answered HTTP ${res.status}.${page}`, { status: res.status });
     return res.text();
   };
 
