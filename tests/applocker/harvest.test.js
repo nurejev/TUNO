@@ -150,6 +150,27 @@ head("creating the events pair carries the target, BOM kept, detection untouched
     ok("the description names the site", /Uploads each pass to https:\/\/contoso\.sharepoint\.com\/sites\/TUNO-AppControl-Harvest/.test(made.description));
     ok("the created box says the target was carried", /Harvest target carried/.test(D.getElementById("alRemedyBox").textContent));
   }
+  // 10626: the pair says which script versions it carries, its default name
+  // carries the remediation script's version, and a same-name hit can be
+  // updated in place
+  const H = w.AppLockerTool._harvest;
+  const vv = H.remedyVersions("scan");
+  ok("the default name ends in the remediation script's version, from SCRIPT_VERSIONS", H.remedyName("scan") === `[REPAIR_TOOLS]Win - DHS - Device Security - D - AppLocker Device Scan - R27.1 - v${vv.remediate.v}` && /^\d+\.\d+\.\d+$/.test(vv.remediate.v) && H.remedyName("events").endsWith("v" + H.remedyVersions("events").remediate.v));
+  const rb = D.getElementById("alRemedyBox");
+  ok("every pair shows both script versions and the build they last changed in", (rb.textContent.match(/carries Detect-Tuno/g) || []).length === 4 && new RegExp(`Invoke-TunoAppLockerScan\\.ps1 v${vv.remediate.v.replace(/\./g, "\\.")}`).test(rb.textContent) && /changed in (this build|build \d+)/.test(rb.textContent));
+  ok("the scan blurb no longer hard-codes a scanner version", !/scanner 1\.13\.0/.test(H.REMEDY_PAIRS.scan.blurb));
+  // a same-name hit: the stop box offers the in-place replacement
+  w.Graph.remediations = async () => [{ id: "rem-old", displayName: H.remedyName("events"), lastModifiedDateTime: "2026-09-19T00:00:00Z" }];
+  let patched = null;
+  w.Graph.updateRemediation = async (id, body) => { patched = { id, body }; return null; };
+  w.confirm = () => true;
+  H.deployState().remedy.events.created = null; H.deployState().remedy.events.name = ""; H.deployState().remedy.events.coll = null;
+  D.querySelector('.al-dep-remedy[data-pair="events"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 50 && !(H.deployState().remedy.events.coll && H.deployState().remedy.events.coll.length); i++) await new Promise((r) => setTimeout(r, 10));
+  ok("the same name stops the create and offers ↻ Replace both script bodies", !!rb.querySelector('.al-dep-remedy-update[data-pair="events"]') && /replace the script bodies in the existing one/.test(rb.textContent));
+  rb.querySelector('.al-dep-remedy-update[data-pair="events"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 100 && !patched; i++) await new Promise((r) => setTimeout(r, 10));
+  ok("the update PATCHes both bodies onto the existing Remediation and says so, with the target stamped", !!patched && patched.id === "rem-old" && typeof patched.body.detectionScriptContent === "string" && typeof patched.body.remediationScriptContent === "string" && !("displayName" in patched.body) && /Updated in place/.test(rb.textContent) && /harvest target/.test(rb.textContent) && /SiteUrl\s*=\s*'https:\/\/contoso/.test(Buffer.from(patched.body.remediationScriptContent, "base64").toString("utf8")), rb.textContent.slice(0, 200));
 }
 
 // =====================================================================

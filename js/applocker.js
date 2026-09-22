@@ -3530,10 +3530,15 @@ const AppLockerTool = (() => {
     // The Remediation pairs, keyed like REMEDY_PAIRS below. Names in the house
     // naming scheme, editable; created / coll are this session's state per pair.
     remedy: {
-      cleanup: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v3.8", created: null, coll: null },
-      ittools: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1 - v1.1", created: null, coll: null },
-      events: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v3.9", created: null, coll: null },
-      scan: { name: "[REPAIR_TOOLS]Win - DHS - Device Security - D - AppLocker Device Scan - R27.1 - v1.0", created: null, coll: null },
+      // 10626 (Mihai: "scripts and Intune remediation have the same old
+      // numbers?"): the version suffix is the REMEDIATION SCRIPT'S own version,
+      // filled in by remedyName() from SCRIPT_VERSIONS — so a pair re-created
+      // after a script change gets a new name instead of a collision, and the
+      // portal shows which script a Remediation carries. Still editable.
+      cleanup: { name: "", created: null, coll: null, updated: null },
+      ittools: { name: "", created: null, coll: null, updated: null },
+      events: { name: "", created: null, coll: null, updated: null },
+      scan: { name: "", created: null, coll: null, updated: null },
     },
     // The harvest site (10613): where the events collector uploads each pass
     // so the evidence is retrievable with the device off. `site` is what was
@@ -3591,12 +3596,34 @@ const AppLockerTool = (() => {
       detect: "Detect-TunoAppLockerScan.ps1",
       remediate: "Invoke-TunoAppLockerScan.ps1",
       button: "Create the device-scan Remediation",
-      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule (scanner 1.13.0). Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site — the <b>📁 From the harvest site</b> button on Evidence then hands you its download link, device off or on, and the upload button beside it takes it from Downloads. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
+      blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule. Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site — the <b>📁 From the harvest site</b> button on Evidence then hands you its download link, device off or on, and the upload button beside it takes it from Downloads. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
       description: `AppLocker device scan on a schedule, deployed from {SITE}. Detection: no TunoAppLockerScan-*.json younger than 7 days in %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan. Remediation: Invoke-TunoAppLockerScan.ps1 in Remediation mode (SYSTEM, output to that folder, transcript next to the bundle, own output older than 30 days removed, one summary line). The device is NOT changed; the bundle is what T01 imports.{HARVEST} Assign to the REFERENCE ring only. Cadence pair - do not read its compliance numbers as device health.`,
       createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Evidence</b>: 📁 From the harvest site → the device → ⤓ Download its newest bundle → 📂 Upload it; or Live Response for a device without a harvest target.`,
       harvest: true,
     },
   };
+
+  // The house name for a pair, with the remediation script's version as the
+  // suffix (10626). The base is the naming scheme Mihai's estate uses; the
+  // number moves with the script so the portal says what a Remediation carries.
+  const REMEDY_NAME_BASE = {
+    cleanup: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1",
+    ittools: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Provision IT-TOOLS Folders - R27.1",
+    events: "[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1",
+    scan: "[REPAIR_TOOLS]Win - DHS - Device Security - D - AppLocker Device Scan - R27.1",
+  };
+  function remedyName(key) {
+    const p = REMEDY_PAIRS[key];
+    const sv = p && SCRIPT_VERSIONS[p.remediate];
+    return `${REMEDY_NAME_BASE[key] || key} - v${sv ? sv.v : "?"}`;
+  }
+  // The two scripts a pair carries, with their versions and the build the
+  // pair last changed in — the deploy panel's answer to "what is new here".
+  function remedyVersions(key) {
+    const p = REMEDY_PAIRS[key];
+    const d = SCRIPT_VERSIONS[p.detect] || { v: "?", changed: 0 }, r = SCRIPT_VERSIONS[p.remediate] || { v: "?", changed: 0 };
+    return { detect: d, remediate: r, changed: Math.max(d.changed, r.changed) };
+  }
 
   // Fetch a script from this site and base64 it the way deviceHealthScripts
   // wants. TextEncoder first: the scripts carry a BOM and non-ASCII box
@@ -3627,7 +3654,7 @@ const AppLockerTool = (() => {
     d.busy = "remedy-" + key;
     renderDeploy();
     try {
-      const name = (r.name || "").trim();
+      const name = (r.name || remedyName(key)).trim();
       if (!name) throw new Error("The Remediation needs a name.");
       // Read before write — same rule as the profiles. TUNO never overwrites
       // a script it did not create; a same-name hit stops the deploy.
@@ -3660,6 +3687,37 @@ const AppLockerTool = (() => {
       made._name = name;
       made._harvest = hv;
       r.created = made;
+      d.busy = "";
+      renderDeploy();
+    } catch (e) { depFail(e); }
+  }
+
+  // 10626: the same-name hit is not only a stop any more. The scripts changed
+  // (10624 fixed the upload in both remediation halves) and the estate has
+  // Remediations carrying the old ones; re-creating means re-assigning. So
+  // the existing one can have its two script bodies REPLACED in place —
+  // assignment, schedule and run history untouched, the devices run the new
+  // scripts at their next pass. Confirmed by name, because TUNO did not
+  // necessarily create it; nothing else on it is changed.
+  async function updateRemedyPair(key, existing) {
+    const d = deployState;
+    const p = REMEDY_PAIRS[key];
+    const r = d.remedy[key];
+    if (!p || !r || !existing) return;
+    const vv = remedyVersions(key);
+    if (!window.confirm(`Replace both script bodies in "${existing.displayName}" with ${p.detect} v${vv.detect.v} and ${p.remediate} v${vv.remediate.v} from this site?\n\nAssignment, schedule and history stay as they are; every assigned device runs the new scripts at its next pass. Nothing else on the Remediation is changed.`)) return;
+    d.error = null;
+    d.busy = "remedy-" + key;
+    renderDeploy();
+    try {
+      const hv = p.harvest ? harvestConfig() : null;
+      const [detect, remediate] = await Promise.all([
+        fetchScriptB64(p.detect),
+        fetchScriptB64(p.remediate, hv ? (text) => stampHarvestConfig(text, hv) : null),
+      ]);
+      await Graph.updateRemediation(existing.id, { detectionScriptContent: detect, remediationScriptContent: remediate });
+      r.updated = { id: existing.id, displayName: existing.displayName, when: new Date().toISOString(), harvest: hv, versions: vv };
+      r.coll = null;
       d.busy = "";
       renderDeploy();
     } catch (e) { depFail(e); }
@@ -4218,23 +4276,29 @@ const AppLockerTool = (() => {
         ${d.error.code ? `<div class="mini muted" style="margin-top:4px">code <code>${escq(d.error.code)}</code>${d.error.requestId ? ` · request-id <code>${escq(d.error.requestId)}</code>` : ""}</div>` : ""}
       </div>` : "";
 
+    const build = (typeof APP_BUILD !== "undefined" && APP_BUILD.build) || 0;
     box.innerHTML = err + Object.entries(REMEDY_PAIRS).map(([key, p], i) => {
       const r = d.remedy[key];
+      const vv = remedyVersions(key);
+      const fresh = vv.changed === build;
       return `<div${i ? ` style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"` : ""}>
+      <p class="mini" style="margin:0 0 4px"><span class="al-dl-ver al-pair-ver mini${fresh ? " fresh" : ""}" title="${fresh ? `One of this pair's scripts changed in build ${build} — a Remediation created earlier carries the old one.` : `The pair's scripts last changed in build ${vv.changed}.`}">carries <code>${escq(p.detect)}</code> v${escq(vv.detect.v)} · <code>${escq(p.remediate)}</code> v${escq(vv.remediate.v)} · ${fresh ? "<b>changed in this build</b>" : `changed in build ${vv.changed}`}</span></p>
       <p class="mini muted" style="margin:0 0 6px">${p.blurb}</p>
       ${p.harvest ? `<p class="mini" style="margin:0 0 6px">${harvestConfig() ? `📁 <b>Harvest target set:</b> <code>${escq(harvestConfig().siteUrl)}</code> — the Remediation created here carries it.` : `📁 <b>Harvest target not set</b> — the pair created here keeps the bundle on the device only. The 📁 Harvest site panel above sets it.`}</p>` : ""}
       <div class="al-dep-row">
-        <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name)}" spellcheck="false">
+        <input id="alDepRemedyName-${key}" class="al-dep-in al-dep-remedy-name" data-pair="${key}" style="flex:1;min-width:320px" value="${escq(r.name || remedyName(key))}" spellcheck="false">
         <button class="btn primary sm al-dep-remedy" data-pair="${key}" ${d.busy ? "disabled" : ""}>${d.busy === "remedy-" + key ? "Creating…" : "🚀 " + escq(p.button)}</button>
       </div>
       ${r.coll && r.coll.length ? `<div class="al-dep-err"><b>Stopped — this tenant already has a Remediation named that.</b>
-        <div class="mini" style="margin-top:4px">TUNO did not create it, so it will not change it. Rename yours, or deal with the existing one in the portal.</div>
-        <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""}</li>`).join("")}</ul></div>` : ""}
+        <div class="mini" style="margin-top:4px">Nothing was created. Two ways on: rename yours and create a second one — or <b>replace the script bodies in the existing one</b>, which keeps its assignment, schedule and history and gives every assigned device the scripts this site serves now (v${escq(vv.detect.v)} / v${escq(vv.remediate.v)}) at its next pass.</div>
+        <ul class="mini al-list" style="margin-top:6px">${r.coll.map((c, ci) => `<li><b>${escq(c.displayName)}</b>${c.lastModifiedDateTime ? ` · last changed ${escq(String(c.lastModifiedDateTime).slice(0, 10))}` : ""} <button class="btn sm al-dep-remedy-update" data-pair="${key}" data-i="${ci}" ${d.busy ? "disabled" : ""}>↻ Replace both script bodies in it</button></li>`).join("")}</ul></div>` : ""}
+      ${r.updated ? `<div class="al-dep-ok"><b>Updated in place.</b> ${escq(r.updated.displayName)} now carries ${escq(p.detect)} v${escq(r.updated.versions.detect.v)} and ${escq(p.remediate)} v${escq(r.updated.versions.remediate.v)}${p.harvest ? (r.updated.harvest ? `, with the harvest target <code>${escq(r.updated.harvest.siteUrl)}</code> stamped in` : ", without a harvest target (none was set here)") : ""}. Assignment and schedule are untouched; each assigned device runs the new scripts at its next pass.</div>` : ""}
       ${r.created ? `<div class="al-dep-ok"><b>Created.</b> ${escq(r.created.displayName || r.created._name)} — id <code>${escq(r.created.id)}</code>, assigned to nobody. ${p.createdNote}${p.harvest ? (r.created._harvest ? ` <b>Harvest target carried:</b> uploads go to <code>${escq(r.created._harvest.siteUrl)}</code>.` : ` <b>No harvest target</b> — the bundle stays on the device; set one in the 📁 panel and create the pair again to carry it.`) : ""}</div>` : ""}
       </div>`;
     }).join("");
 
     box.querySelectorAll(".al-dep-remedy").forEach((b) => b.addEventListener("click", () => deployRemedyPair(b.dataset.pair)));
+    box.querySelectorAll(".al-dep-remedy-update").forEach((b) => b.addEventListener("click", () => { const r = deployState.remedy[b.dataset.pair]; const ex = r && r.coll && r.coll[+b.dataset.i]; if (ex) updateRemedyPair(b.dataset.pair, ex); }));
     box.querySelectorAll(".al-dep-remedy-name").forEach((el) => el.addEventListener("input", (e) => {
       const r = deployState.remedy[el.dataset.pair];
       if (!r) return;
@@ -4909,6 +4973,6 @@ const AppLockerTool = (() => {
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)
     _harvest: { stampHarvestConfig, harvestConfig, guessSharePointHost, renderHarvest, createHarvestApp, createHarvestSite, deployState: () => deployState,
-      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestPrepare, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS, importFile, afterImport },
+      evHarvest, harvestFileKind, harvestNewest, harvestDefaultSiteUrl, harvestReadSite, harvestOpenDevice, harvestPrepare, renderHarvestFetch, toggleHarvestFetch, REMEDY_PAIRS, importFile, afterImport, remedyName, remedyVersions, updateRemedyPair },
   };
 })();

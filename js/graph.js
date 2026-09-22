@@ -731,6 +731,11 @@ const Graph = (() => {
     return (r && r.value) || [];
   }
   const createRemediation = (body) => post(`${BETA}/deviceManagement/deviceHealthScripts`, body, { scopes: SCOPES.scriptsWrite });
+  // 10626: replace the script bodies of an EXISTING Remediation in place —
+  // assignment, schedule and history stay; the devices run the new scripts
+  // at their next pass. The one in-place write on a Remediation TUNO did not
+  // necessarily create, so the caller confirms it by name first.
+  const updateRemediation = (id, body) => patch(`${BETA}/deviceManagement/deviceHealthScripts/${encodeURIComponent(id)}`, body, { scopes: SCOPES.scriptsWrite });
 
   // ---------- groups, for the pilot assignment ----------
 
@@ -860,7 +865,7 @@ const Graph = (() => {
   const API = {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
     get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
-    remediations, createRemediation,
+    remediations, createRemediation, updateRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,
     siteByUrlRead, driveChildren, driveItem, driveDownloadUrl,
