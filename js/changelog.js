@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10625, date: "2026-09-22", title: "T01: Get-TunoHarvestStatus.ps1 — the harvest-site diagnosis from Live Response",
+    items: [
+      { kind: "new", tool: "🔐 AppLocker builder & validator", text: "A twelfth companion script, for the question “the device folder on the harvest site is empty — what happened here?” asked from MDE Live Response. Get-TunoHarvestStatus.ps1 is read-only: it prints every harvest target the device carries — the Intune Management Extension's cached copies of the deployed pairs (with each script's version) and the registry override, the client secret only as set or empty — the uploader certificate in LocalMachine\\My with its validity, the local bundles with their sizes (over 4 MB means the chunked upload), and the Harvest target / harvest: / warning lines of the last scan transcript and collector log, newest first; a deployed copy older than scanner 1.13.1 or collector 1.3.1 is named as the cause. -Probe gets a token and resolves the site with the collector's own functions and lists the device folder; -ProbeUpload also writes one 200-byte probe file. Everything goes to the console and to HarvestStatus_<host>_<stamp>.log under IT-TOOLS\\LOGS for getfile. Mihai: I need to run that command from Live Response, so make it a script." },
+    ],
+  },
+  {
     build: 10624, date: "2026-09-22", title: "T01: bundles over 4 MB reach the harvest site (scanner 1.13.1, collector 1.3.1)",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The first fleet run of the scan Remediation left four device folders on the harvest site and no bundle in any of them. A scan bundle is usually over 4 MB, which takes the chunked upload session, and its last part was sliced as $buf[0..($n-1)] — an Object[] in Windows PowerShell — so Invoke-WebRequest sent the string System.Object[] instead of the bytes: the session had already created the folder, the file never landed, and the warning sat in the transcript under IT-TOOLS\\LOGS\\AppLockerScan. Both uploaders — Invoke-TunoAppLockerScan.ps1 1.13.1 and Get-TunoAppControlEvents.ps1 1.3.1 — now send a typed byte[] copy and check the session's final answer (200 or 201), so an unfinished upload is a named error rather than an empty folder. Re-download both, or create the pairs again from the 🚀 panel. Mihai: folders were created but are indeed empty." },

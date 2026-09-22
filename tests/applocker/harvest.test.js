@@ -97,7 +97,7 @@ head("the panel: signed out it explains, signed in it offers; the events pair sa
   ok("its summary says it writes to the tenant", /writes to your tenant/.test(panel.querySelector("summary").textContent));
   const box = D.getElementById("alHarvestBox");
   ok("signed out: the scope is named and there is no button", /Sites\.Create\.All/.test(box.textContent) && !box.querySelector("button"));
-  ok("the summary counts eleven companion scripts", /11 companion scripts/.test(D.querySelector(".al-dl-more summary").textContent));
+  ok("the summary counts twelve companion scripts", /12 companion scripts/.test(D.querySelector(".al-dl-more summary").textContent));
   ok("the helper has its download row", !!D.querySelector('.al-dl-row a[href="scripts/New-TunoHarvestUploaderApp.ps1"]'));
   // Signed in (demo), the button appears and the events blurb names the state.
   w.Graph.useDemo();
@@ -197,6 +197,12 @@ head("the scope is taken in the open (R18), and the scripts keep their promises"
   ok("the helper asks Sites.Selected as an APPLICATION role and grants one site", /AllowedMemberTypes -contains 'Application'/.test(HELPER) && /\/sites\/\$siteId\/permissions/.test(HELPER));
   ok("the helper never writes the PFX password to disk", !/(Set-Content|Out-File|WriteAllText)[^\n]*plainPassword/.test(HELPER) && /shown ONCE, not saved anywhere/.test(HELPER));
   ok("the helper carries the two build numbers", /\$script:ScriptVersion = '1\.0\.0'/.test(HELPER) && /\$script:TunoBuild = \d+/.test(HELPER));
+  // 10625: the Live Response status script — read-only, secret masked, the collector's own auth functions
+  const STATUS = fs.readFileSync(path.join(ROOT, "scripts/Get-TunoHarvestStatus.ps1"), "utf8");
+  ok("Get-TunoHarvestStatus.ps1 carries the two build numbers and has its row and SCRIPT_VERSIONS entry", /\$script:ScriptVersion = '1\.0\.0'/.test(STATUS) && /\$script:TunoBuild = \d+/.test(STATUS) && !!boot().document.querySelector('.al-dl-row a[href="scripts/Get-TunoHarvestStatus.ps1"]') && /"Get-TunoHarvestStatus\.ps1":\s*\{ v: "1\.0\.0"/.test(fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8")));
+  ok("it reads the IME's cached pairs and the registry, masks the secret, and only writes with -ProbeUpload", /IMECache\\HealthScripts/.test(STATUS) && /HKLM:\\SOFTWARE\\TUNO\\Harvest/.test(STATUS) && /ClientSecret   = \{0\}" -f \(Mask \$t\.ClientSecret\)/.test(STATUS) && (STATUS.match(/\{0\}" -f[^\n]*\$t\.ClientSecret\)/g) || []).every((l) => /Mask \$t\.ClientSecret\)/.test(l)) && /if \(\$ProbeUpload\) \{/.test(STATUS) && (STATUS.match(/Invoke-RestMethod -Method Put/g) || []).length === 1);
+  const fnOf = (src, n) => { const a = src.indexOf(`function ${n} {`); return a < 0 ? null : src.slice(a, src.indexOf("\n}\n", a) + 3); };
+  ok("its Get-HarvestToken / Get-HarvestSiteId / Get-HarvestCertificate are the collector's, byte for byte", ["Get-HarvestToken", "Get-HarvestSiteId", "Get-HarvestCertificate", "ConvertTo-Base64Url"].every((n) => fnOf(STATUS, n) && fnOf(STATUS, n) === fnOf(SCRIPT, n)));
   // 10624: the chunked upload's last part is a typed byte[] and the session's end is checked — in BOTH uploaders
   for (const [name, src] of [["collector", SCRIPT], ["scanner", SCANNER]]) {
     ok(`${name}: the last chunk is a byte[] copy, never an Object[] slice, and the session must answer 200/201`, /\[byte\[\]\]\$part = New-Object byte\[\] \$n\s*\n\s*\[Array\]::Copy\(\$buf, 0, \$part, 0, \$n\)/.test(src) && !/\$part = if \(\$n -eq \$chunk\)/.test(src) && /the upload session did not complete/.test(src));

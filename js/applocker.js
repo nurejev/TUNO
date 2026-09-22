@@ -3247,6 +3247,7 @@ const AppLockerTool = (() => {
     "Detect-TunoAppControlEvents.ps1":      { v: "1.0.0",  changed: 10378 },
     "Compress-TunoAppControlReport.ps1":    { v: "1.0.0",  changed: 10378 },
     "New-TunoHarvestUploaderApp.ps1":       { v: "1.0.0",  changed: 10613 },
+    "Get-TunoHarvestStatus.ps1":            { v: "1.0.0",  changed: 10625 },
     "Get-TunoAppLockerPolicyHealth.ps1":    { v: "1.1.2",  changed: 10597 },
     "Remove-TunoUserInstalledApps.ps1":     { v: "1.0.1",  changed: 10598 },
   };
