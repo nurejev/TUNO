@@ -278,7 +278,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -HarvestSiteUrl https://contoso.sharepoint.co
         -HarvestTenantId <tenant guid> -HarvestClientId <app id> -HarvestCertSubject 'CN=TUNO Harvest Uploader'
 
 .NOTES
-Version    : 1.13.0
+Version    : 1.13.1
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -395,8 +395,8 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.13.0'
-$script:TunoBuild = 10623
+$script:ScriptVersion = '1.13.1'
+$script:TunoBuild = 10624
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the scan Remediation is created from a page with a
@@ -2571,6 +2571,7 @@ function Send-HarvestFile {
     $session = Invoke-RestMethod -Method Post -Uri "${base}:/createUploadSession" -Headers $Headers -ContentType 'application/json' -Body (@{ item = @{ '@microsoft.graph.conflictBehavior' = 'replace' } } | ConvertTo-Json -Compress) -ErrorAction Stop
     $chunk = 5242880
     $fs = [System.IO.File]::OpenRead($LocalPath)
+    $last = $null
     try {
         $buf = New-Object byte[] $chunk
         $pos = [long]0
@@ -2578,14 +2579,24 @@ function Send-HarvestFile {
         while ($pos -lt $total) {
             $n = $fs.Read($buf, 0, $chunk)
             if ($n -le 0) { break }
-            $part = if ($n -eq $chunk) { $buf } else { $buf[0..($n - 1)] }
+            # A TYPED copy for the last chunk (fix, 22 Sep): $buf[0..($n - 1)]
+            # is an Object[] in Windows PowerShell, and Invoke-WebRequest sends
+            # an Object[] body as its ToString() - "System.Object[]" - so every
+            # file over 4 MB failed on its final chunk, after the session had
+            # already created the device folder on the site. Empty folders,
+            # no bundles: the first fleet run said so.
+            [byte[]]$part = New-Object byte[] $n
+            [Array]::Copy($buf, 0, $part, 0, $n)
             $range = "bytes $pos-$($pos + $n - 1)/$total"
             # The session URL is pre-authorised: no Authorization header on it.
-            $null = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
+            $last = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
             $pos += $n
         }
     }
     finally { $fs.Dispose() }
+    # The final chunk answers 200/201 with the driveItem; anything else means
+    # the session is still open and the file is not on the site.
+    if (-not $last -or ($last.StatusCode -ne 200 -and $last.StatusCode -ne 201)) { throw ("the upload session did not complete (last status {0})" -f $(if ($last) { $last.StatusCode } else { 'none' })) }
     [long]$item.Length
 }
 

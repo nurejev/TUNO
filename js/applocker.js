@@ -3236,14 +3236,14 @@ const AppLockerTool = (() => {
   // and a script whose version moved in this build must name this build here.
   // A row whose change is THIS build wears the "changed in this build" tag.
   const SCRIPT_VERSIONS = {
-    "Invoke-TunoAppLockerScan.ps1":         { v: "1.13.0", changed: 10617 },
+    "Invoke-TunoAppLockerScan.ps1":         { v: "1.13.1", changed: 10624 },
     "Detect-TunoAppLockerScan.ps1":         { v: "1.0.0",  changed: 10617 },
     "Convert-TunoAppLockerToIntune.ps1":    { v: "1.4.1",  changed: 10370 },
     "Clear-TunoAppLockerPolicy.ps1":        { v: "1.4.0",  changed: 10612 },
     "Detect-TunoAppLockerPolicy.ps1":       { v: "1.1.1",  changed: 10603 },
     "Initialize-TunoItToolsFolders.ps1":    { v: "1.2.0",  changed: 10612 },
     "Detect-TunoItToolsFolders.ps1":        { v: "1.0.0",  changed: 10374 },
-    "Get-TunoAppControlEvents.ps1":         { v: "1.3.0",  changed: 10615 },
+    "Get-TunoAppControlEvents.ps1":         { v: "1.3.1",  changed: 10624 },
     "Detect-TunoAppControlEvents.ps1":      { v: "1.0.0",  changed: 10378 },
     "Compress-TunoAppControlReport.ps1":    { v: "1.0.0",  changed: 10378 },
     "New-TunoHarvestUploaderApp.ps1":       { v: "1.0.0",  changed: 10613 },

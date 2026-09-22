@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10623"></script>
+<script src="js/popup-guard.js?v=10624"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10623">
+<link rel="stylesheet" href="css/app.css?v=10624">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10623"></script>
+<script src="js/selfhost-boot.js?v=10624"></script>
 </head>
 <body>
 
@@ -512,7 +512,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <code class="al-dl-cmd" data-file="Invoke-TunoAppLockerScan.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Invoke-TunoAppLockerScan.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <p class="mini muted al-dl-note">Elevated, on the reference machine, it writes the bundle where you run it. Since 1.13.0 it is also the remediation half of the <b>scan-on-schedule pair</b> below: run as SYSTEM with no <code>-OutputPath</code> (that is the Intune Management Extension) it switches to <b>Remediation mode</b> — bundle and a console transcript under <code>%ProgramData%\IT-TOOLS\LOGS\AppLockerScan</code>, its own output older than 30 days removed first (<code>-RetentionDays</code>), one summary line back to Intune — and, with a harvest target (stamped in by the 🚀 panel, <code>HKLM\SOFTWARE\TUNO\Harvest</code>, or <code>-Harvest*</code> parameters), uploads the bundle to the harvest site as <code>Harvest/&lt;device&gt;/</code>, certificate or client secret exactly as the events collector does. Still changes nothing on the device.</p>
+            <p class="mini muted al-dl-note">Elevated, on the reference machine, it writes the bundle where you run it. Since 1.13.0 it is also the remediation half of the <b>scan-on-schedule pair</b> below: run as SYSTEM with no <code>-OutputPath</code> (that is the Intune Management Extension) it switches to <b>Remediation mode</b> — bundle and a console transcript under <code>%ProgramData%\IT-TOOLS\LOGS\AppLockerScan</code>, its own output older than 30 days removed first (<code>-RetentionDays</code>), one summary line back to Intune — and, with a harvest target (stamped in by the 🚀 panel, <code>HKLM\SOFTWARE\TUNO\Harvest</code>, or <code>-Harvest*</code> parameters), uploads the bundle to the harvest site as <code>Harvest/&lt;device&gt;/</code>, certificate or client secret exactly as the events collector does. 1.13.1: a bundle over 4 MB (the chunked upload) now lands — the first fleet run created the device folders and no files. Still changes nothing on the device.</p>
             <!-- 10447: the companions FOLD. Eight rows of download commands
                  were most of a screen before the tool's own work began; the
                  scanner is the act and stays out, the companions collapse
@@ -567,7 +567,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <code class="al-dl-cmd" data-file="Get-TunoAppControlEvents.ps1"></code>
               <button class="btn sm al-dl-copy" data-file="Get-TunoAppControlEvents.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
-            <p class="mini muted al-dl-note">The remediation half — the harvest: CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report and the JSON events bundle this tool reads. Runs as SYSTEM on a schedule; retrieve per device via Collect diagnostics or Live Response — or, with a harvest target (stamped in by the 🚀 panel, or <code>HKLM\SOFTWARE\TUNO\Harvest</code> for a copy deployed by hand), each pass also uploads the bundle and report to the harvest site as <code>Harvest/&lt;device&gt;/</code>, authenticating with the uploader certificate in <code>LocalMachine\My</code> — or, since 1.3.0, with a client secret the 📁 panel created and stamped in (a certificate wins when both are set; the secret is never logged). Every pass first removes this set's own output older than 30 days — earlier bundles, reports, per-ID exports, Live Response zips — and trims both halves' logs (<code>-RetentionDays</code>, 0 keeps all).</p>
+            <p class="mini muted al-dl-note">The remediation half — the harvest: CodeIntegrity and all four AppLocker logs into per-ID CSV/XML exports, an HTML report and the JSON events bundle this tool reads. Runs as SYSTEM on a schedule; retrieve per device via Collect diagnostics or Live Response — or, with a harvest target (stamped in by the 🚀 panel, or <code>HKLM\SOFTWARE\TUNO\Harvest</code> for a copy deployed by hand), each pass also uploads the bundle and report to the harvest site as <code>Harvest/&lt;device&gt;/</code>, authenticating with the uploader certificate in <code>LocalMachine\My</code> — or, since 1.3.0, with a client secret the 📁 panel created and stamped in (a certificate wins when both are set; the secret is never logged). Every pass first removes this set's own output older than 30 days — earlier bundles, reports, per-ID exports, Live Response zips — and trims both halves' logs (<code>-RetentionDays</code>, 0 keeps all). 1.3.1: a bundle over 4 MB (the chunked upload) now lands.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Compress-TunoAppControlReport.ps1" download>⭳ Compress-TunoAppControlReport.ps1</a>
               <code class="al-dl-cmd" data-file="Compress-TunoAppControlReport.ps1"></code>
@@ -2214,50 +2214,50 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10623"></script>
-<script src="js/selfhost.js?v=10623"></script>
-<script src="js/version.js?v=10623"></script>
-<script src="js/promote.js?v=10623"></script>
-<script src="js/authConfig.js?v=10623"></script>
-<script src="js/changelog.js?v=10623"></script>
-<script src="js/msappcatalog.js?v=10623"></script>
-<script src="js/demo.js?v=10623"></script>
-<script src="js/graph.js?v=10623"></script>
-<script src="js/suggest.js?v=10623"></script>
-<script src="js/progress.js?v=10623"></script>
-<script src="js/runledger.js?v=10623"></script>
-<script src="js/groupuse.js?v=10623"></script>
-<script src="js/audit.js?v=10623"></script>
-<script src="js/devicecleanup.js?v=10623"></script>
-<script src="js/backup.js?v=10623"></script>
-<script src="js/document.js?v=10623"></script>
-<script src="js/policycache.js?v=10623"></script>
-<script src="js/overview.js?v=10623"></script>
-<script src="js/devicewhy.js?v=10623"></script>
-<script src="js/whatif.js?v=10623"></script>
-<script src="js/health.js?v=10623"></script>
-<script src="js/settingsearch.js?v=10623"></script>
-<script src="js/conflict.js?v=10623"></script>
-<script src="js/compliance.js?v=10623"></script>
-<script src="js/filterrules.js?v=10623"></script>
-<script src="js/filters.js?v=10623"></script>
-<script src="js/restore.js?v=10623"></script>
-<script src="js/platformbaseline.js?v=10623"></script>
-<script src="js/complianceevidence.js?v=10623"></script>
-<script src="js/macbaseline.js?v=10623"></script>
-<script src="js/winbaseline.js?v=10623"></script>
-<script src="js/assignedit.js?v=10623"></script>
-<script src="js/restrictedau.js?v=10623"></script>
-<script src="js/groupmigrate.js?v=10623"></script>
-<script src="js/roles.js?v=10623"></script>
-<script src="js/defender.js?v=10623"></script>
-<script src="js/endpointsec.js?v=10623"></script>
-<script src="js/report.js?v=10623"></script>
-<script src="js/securescore.js?v=10623"></script>
-<script src="js/endpointposture.js?v=10623"></script>
-<script src="js/maa.js?v=10623"></script>
-<script src="js/laps.js?v=10623"></script>
-<script src="js/applocker.js?v=10623"></script>
-<script src="js/app.js?v=10623"></script>
+<script src="js/branding.js?v=10624"></script>
+<script src="js/selfhost.js?v=10624"></script>
+<script src="js/version.js?v=10624"></script>
+<script src="js/promote.js?v=10624"></script>
+<script src="js/authConfig.js?v=10624"></script>
+<script src="js/changelog.js?v=10624"></script>
+<script src="js/msappcatalog.js?v=10624"></script>
+<script src="js/demo.js?v=10624"></script>
+<script src="js/graph.js?v=10624"></script>
+<script src="js/suggest.js?v=10624"></script>
+<script src="js/progress.js?v=10624"></script>
+<script src="js/runledger.js?v=10624"></script>
+<script src="js/groupuse.js?v=10624"></script>
+<script src="js/audit.js?v=10624"></script>
+<script src="js/devicecleanup.js?v=10624"></script>
+<script src="js/backup.js?v=10624"></script>
+<script src="js/document.js?v=10624"></script>
+<script src="js/policycache.js?v=10624"></script>
+<script src="js/overview.js?v=10624"></script>
+<script src="js/devicewhy.js?v=10624"></script>
+<script src="js/whatif.js?v=10624"></script>
+<script src="js/health.js?v=10624"></script>
+<script src="js/settingsearch.js?v=10624"></script>
+<script src="js/conflict.js?v=10624"></script>
+<script src="js/compliance.js?v=10624"></script>
+<script src="js/filterrules.js?v=10624"></script>
+<script src="js/filters.js?v=10624"></script>
+<script src="js/restore.js?v=10624"></script>
+<script src="js/platformbaseline.js?v=10624"></script>
+<script src="js/complianceevidence.js?v=10624"></script>
+<script src="js/macbaseline.js?v=10624"></script>
+<script src="js/winbaseline.js?v=10624"></script>
+<script src="js/assignedit.js?v=10624"></script>
+<script src="js/restrictedau.js?v=10624"></script>
+<script src="js/groupmigrate.js?v=10624"></script>
+<script src="js/roles.js?v=10624"></script>
+<script src="js/defender.js?v=10624"></script>
+<script src="js/endpointsec.js?v=10624"></script>
+<script src="js/report.js?v=10624"></script>
+<script src="js/securescore.js?v=10624"></script>
+<script src="js/endpointposture.js?v=10624"></script>
+<script src="js/maa.js?v=10624"></script>
+<script src="js/laps.js?v=10624"></script>
+<script src="js/applocker.js?v=10624"></script>
+<script src="js/app.js?v=10624"></script>
 </body>
 </html>

@@ -135,7 +135,7 @@ log to the entries inside the window. Nothing else in those folders is touched. 
 everything.
 
 .NOTES
-Version   : 1.3.0
+Version   : 1.3.1
 Part of   : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence   : MIT
 Deploy as : Intune Remediation (pair with Detect-TunoAppControlEvents.ps1), run as
@@ -176,8 +176,8 @@ param(
 # Two numbers, same discipline as every house script: ScriptVersion is this file's
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
-$script:ScriptVersion = '1.3.0'
-$script:TunoBuild = 10623
+$script:ScriptVersion = '1.3.1'
+$script:TunoBuild = 10624
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the events Remediation is created from a page with a
@@ -721,6 +721,7 @@ function Send-HarvestFile {
     $session = Invoke-RestMethod -Method Post -Uri "${base}:/createUploadSession" -Headers $Headers -ContentType 'application/json' -Body (@{ item = @{ '@microsoft.graph.conflictBehavior' = 'replace' } } | ConvertTo-Json -Compress) -ErrorAction Stop
     $chunk = 5242880
     $fs = [System.IO.File]::OpenRead($LocalPath)
+    $last = $null
     try {
         $buf = New-Object byte[] $chunk
         $pos = [long]0
@@ -728,14 +729,24 @@ function Send-HarvestFile {
         while ($pos -lt $total) {
             $n = $fs.Read($buf, 0, $chunk)
             if ($n -le 0) { break }
-            $part = if ($n -eq $chunk) { $buf } else { $buf[0..($n - 1)] }
+            # A TYPED copy for the last chunk (fix, 22 Sep): $buf[0..($n - 1)]
+            # is an Object[] in Windows PowerShell, and Invoke-WebRequest sends
+            # an Object[] body as its ToString() - "System.Object[]" - so every
+            # file over 4 MB failed on its final chunk, after the session had
+            # already created the device folder on the site. Empty folders,
+            # no bundles: the first fleet run said so.
+            [byte[]]$part = New-Object byte[] $n
+            [Array]::Copy($buf, 0, $part, 0, $n)
             $range = "bytes $pos-$($pos + $n - 1)/$total"
             # The session URL is pre-authorised: no Authorization header on it.
-            $null = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
+            $last = Invoke-WebRequest -Method Put -Uri $session.uploadUrl -Headers @{ 'Content-Range' = $range } -Body $part -ContentType 'application/octet-stream' -UseBasicParsing -ErrorAction Stop
             $pos += $n
         }
     }
     finally { $fs.Dispose() }
+    # The final chunk answers 200/201 with the driveItem; anything else means
+    # the session is still open and the file is not on the site.
+    if (-not $last -or ($last.StatusCode -ne 200 -and $last.StatusCode -ne 201)) { throw ("the upload session did not complete (last status {0})" -f $(if ($last) { $last.StatusCode } else { 'none' })) }
     [long]$item.Length
 }
 

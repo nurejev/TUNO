@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10624, date: "2026-09-22", title: "T01: bundles over 4 MB reach the harvest site (scanner 1.13.1, collector 1.3.1)",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The first fleet run of the scan Remediation left four device folders on the harvest site and no bundle in any of them. A scan bundle is usually over 4 MB, which takes the chunked upload session, and its last part was sliced as $buf[0..($n-1)] — an Object[] in Windows PowerShell — so Invoke-WebRequest sent the string System.Object[] instead of the bytes: the session had already created the folder, the file never landed, and the warning sat in the transcript under IT-TOOLS\\LOGS\\AppLockerScan. Both uploaders — Invoke-TunoAppLockerScan.ps1 1.13.1 and Get-TunoAppControlEvents.ps1 1.3.1 — now send a typed byte[] copy and check the session's final answer (200 or 201), so an unfinished upload is a named error rather than an empty folder. Re-download both, or create the pairs again from the 🚀 panel. Mihai: folders were created but are indeed empty." },
+    ],
+  },
+  {
     build: 10623, date: "2026-09-22", title: "T01: the harvest site listing shows subfolders instead of calling the folder empty",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "On a second tenant every device folder on the harvest site held one item and Open answered “has an empty folder”. The click had worked: the item was a subfolder, the listing kept only files, and the card described the result of its own filter. Subfolders now list as 📁 rows with an Open of their own, opened in place under a breadcrumb (device / folder) with a way back to the device folder; the newest-scan and newest-events buttons skip folders; the device table's column says Items, since SharePoint's count includes folders; and “empty” is said only of a folder with nothing in it. Mihai: nothing happens when I click Open." },

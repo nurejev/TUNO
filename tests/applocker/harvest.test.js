@@ -34,7 +34,7 @@ head("the stamp fills the HARVEST TARGET block and touches nothing else");
   const [b1, a1] = cut(SCRIPT), [b2, a2] = cut(out);
   ok("nothing before the block changed", b1 === b2);
   ok("nothing after the block changed", a1 === a2);
-  ok("the script's own ScriptVersion survives", /\$script:ScriptVersion = '1\.3\.0'/.test(out));
+  ok("the script's own ScriptVersion survives", /\$script:ScriptVersion = '1\.3\.1'/.test(out));
   const quoted = H.stampHarvestConfig(SCRIPT, Object.assign({}, CFG, { certSubject: "CN=O'Brien" }));
   ok("a quote in a value is doubled the PowerShell way", /CertSubject\s*=\s*'CN=O''Brien'/.test(quoted));
   let threw = "";
@@ -197,6 +197,10 @@ head("the scope is taken in the open (R18), and the scripts keep their promises"
   ok("the helper asks Sites.Selected as an APPLICATION role and grants one site", /AllowedMemberTypes -contains 'Application'/.test(HELPER) && /\/sites\/\$siteId\/permissions/.test(HELPER));
   ok("the helper never writes the PFX password to disk", !/(Set-Content|Out-File|WriteAllText)[^\n]*plainPassword/.test(HELPER) && /shown ONCE, not saved anywhere/.test(HELPER));
   ok("the helper carries the two build numbers", /\$script:ScriptVersion = '1\.0\.0'/.test(HELPER) && /\$script:TunoBuild = \d+/.test(HELPER));
+  // 10624: the chunked upload's last part is a typed byte[] and the session's end is checked — in BOTH uploaders
+  for (const [name, src] of [["collector", SCRIPT], ["scanner", SCANNER]]) {
+    ok(`${name}: the last chunk is a byte[] copy, never an Object[] slice, and the session must answer 200/201`, /\[byte\[\]\]\$part = New-Object byte\[\] \$n\s*\n\s*\[Array\]::Copy\(\$buf, 0, \$part, 0, \$n\)/.test(src) && !/\$part = if \(\$n -eq \$chunk\)/.test(src) && /the upload session did not complete/.test(src));
+  }
 }
 
 // =====================================================================
@@ -204,7 +208,7 @@ head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation 
 {
   const w = boot();
   const H = w.AppLockerTool._harvest;
-  ok("the scanner is 1.13.0 with the HARVEST TARGET block and empty defaults", /\$script:ScriptVersion = '1\.13\.0'/.test(SCANNER) && /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCANNER) && /^\s*ClientSecret\s*=\s*''$/m.test(SCANNER));
+  ok("the scanner is 1.13.x with the HARVEST TARGET block and empty defaults", /\$script:ScriptVersion = '1\.13\.\d+'/.test(SCANNER) && /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCANNER) && /^\s*ClientSecret\s*=\s*''$/m.test(SCANNER));
   const out = H.stampHarvestConfig(SCANNER, Object.assign({}, CFG, { certSubject: "", clientSecret: "s3cr3t~value" }));
   ok("the stamp fills the scanner's block the same way", /^\s*SiteUrl\s*=\s*'https:\/\/contoso\.sharepoint\.com\/sites\/TUNO-AppControl-Harvest'$/m.test(out) && /^\s*ClientSecret\s*=\s*'s3cr3t~value'$/m.test(out) && /^\s*CertSubject\s*=\s*''$/m.test(out));
   ok("Remediation mode is SYSTEM without -OutputPath, and only that", /\$PSBoundParameters\.ContainsKey\('OutputPath'\)\) -and\s*\n\s*\(\[System\.Security\.Principal\.WindowsIdentity\]::GetCurrent\(\)\.User\.Value -eq 'S-1-5-18'\)/.test(SCANNER));
@@ -228,7 +232,7 @@ head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation 
   const D = w.document;
   ok("Help & scripts has the detection row and the scanner's Remediation-mode note", !!D.querySelector('.al-dl-row a[href="scripts/Detect-TunoAppLockerScan.ps1"]') && /Remediation mode/.test(D.querySelector('.al-dl-row a[href="scripts/Invoke-TunoAppLockerScan.ps1"]').parentElement.nextElementSibling.textContent));
   const versions = fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8");
-  ok("SCRIPT_VERSIONS names both", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.13\.0"/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.0\.0"/.test(versions));
+  ok("SCRIPT_VERSIONS names both", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.13\.\d+"/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.0\.0"/.test(versions));
   ok("README has the rows", /Detect-TunoAppLockerScan\.ps1/.test(fs.readFileSync(path.join(ROOT, "scripts/README.md"), "utf8")));
 }
 
