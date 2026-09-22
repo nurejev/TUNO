@@ -3783,7 +3783,7 @@ const AppLockerTool = (() => {
   // content-routed importFile() the file picker uses. Read under
   // Sites.Read.All (delegated: what the signed-in admin can open anyway),
   // asked for at the click. Nothing here writes.
-  const evHarvest = { open: false, busy: "", error: null, siteUrl: "", site: null, devices: null, device: null, files: null, note: "", links: {} };
+  const evHarvest = { open: false, busy: "", error: null, siteUrl: "", site: null, devices: null, device: null, path: [], files: null, note: "", links: {} };
   const HARVEST_FILE_KINDS = [
     { kind: "scan",   re: /^TunoAppLockerScan-.*\.json$/i,      label: "🛰 scan bundle",   importable: true },
     { kind: "events", re: /^AppControlEvents_Bundle_.*\.json$/i, label: "📡 events bundle", importable: true },
@@ -3825,22 +3825,32 @@ const AppLockerTool = (() => {
       renderHarvestFetch();
     } catch (e) { harvestFail(e); }
   }
-  async function harvestOpenDevice(dev) {
-    evHarvest.error = null; evHarvest.note = ""; evHarvest.device = dev; evHarvest.files = null; evHarvest.busy = "device";
+  // 10623 (Mihai, on a second tenant: "nothing happens when i click open"):
+  // the click DID work — the device folder's one child was a subfolder, the
+  // list kept only files, and the card said "empty folder", which was a lie
+  // told by a filter. Subfolders are rows now, opened in place (`path` is
+  // the trail under the device), and "empty" is said only of an empty
+  // folder.
+  async function harvestOpenDevice(dev, path) {
+    evHarvest.error = null; evHarvest.note = ""; evHarvest.device = dev; evHarvest.path = Array.isArray(path) ? path : []; evHarvest.files = null; evHarvest.busy = "device";
     renderHarvestFetch();
     try {
       let kids;
       if (typeof Graph.isDemo === "function" && Graph.isDemo()) {
         const d = (n) => new Date(Date.now() - n * 864e5).toISOString();
-        kids = [
+        kids = evHarvest.path.length ? [
+          { id: "demo-f9", name: "AppControlEvents_Bundle_20260901-0301.json", size: 201000, file: {}, lastModifiedDateTime: d(15), webUrl: "#" },
+        ] : [
+          { id: "demo-d1", name: "Archive", folder: { childCount: 1 }, lastModifiedDateTime: d(15), webUrl: "#" },
           { id: "demo-f1", name: `TunoAppLockerScan-${dev.name}-20260915-0902.json`, size: 1843200, file: {}, lastModifiedDateTime: d(1), webUrl: "#" },
           { id: "demo-f2", name: "AppControlEvents_Bundle_20260916-0301.json", size: 240100, file: {}, lastModifiedDateTime: d(0), webUrl: "#" },
           { id: "demo-f3", name: "AppControlEvents_Report_20260916-0301.html", size: 91000, file: {}, lastModifiedDateTime: d(0), webUrl: "#" },
           { id: "demo-f4", name: "AppControlEvents_Bundle_20260915-0301.json", size: 231000, file: {}, lastModifiedDateTime: d(1), webUrl: "#" },
         ];
       }
-      else kids = await Graph.driveChildren(evHarvest.site.id, `Harvest/${dev.name}`);
-      evHarvest.files = kids.filter((k) => k.file).sort((a, b) => String(b.lastModifiedDateTime || "").localeCompare(String(a.lastModifiedDateTime || "")));
+      else kids = await Graph.driveChildren(evHarvest.site.id, ["Harvest", dev.name].concat(evHarvest.path).join("/"));
+      // folders first, then files newest first
+      evHarvest.files = kids.filter((k) => k.file || k.folder).sort((a, b) => (b.folder ? 1 : 0) - (a.folder ? 1 : 0) || String(b.lastModifiedDateTime || "").localeCompare(String(a.lastModifiedDateTime || "")));
       evHarvest.busy = "";
       renderHarvestFetch();
     } catch (e) { harvestFail(e); }
@@ -3869,7 +3879,7 @@ const AppLockerTool = (() => {
   // the two big buttons offer, so the usual case is one click.
   function harvestNewest() {
     const out = {};
-    for (const f of evHarvest.files || []) { const k = harvestFileKind(f.name).kind; if ((k === "scan" || k === "events") && !out[k]) out[k] = f; }
+    for (const f of evHarvest.files || []) { if (f.folder) continue; const k = harvestFileKind(f.name).kind; if ((k === "scan" || k === "events") && !out[k]) out[k] = f; }
     return out;
   }
   function renderHarvestFetch() {
@@ -3899,12 +3909,13 @@ const AppLockerTool = (() => {
       if (link) return `<a class="${cls}" href="${esc(link.url)}" download="${esc(link.name)}" data-hvdl="${esc(f.id)}" title="Saves ${esc(link.name)} to your Downloads folder">⤓ Download${big ? ` ${esc(harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle")}` : ""}</a> <button class="btn sm" data-hvupload="${esc(f.id)}" title="Then pick the downloaded file here — it is imported exactly as any upload">📂 Upload it</button>`;
       return `<button class="${cls}" data-hvimport="${esc(f.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "prepare-" + f.id ? "Getting the link…" : `⤓ Get ${big ? (harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle") : "download link"}`}</button>`;
     };
-    const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Files</th><th>Last upload</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
+    const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Items</th><th>Last upload</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
       : h.devices ? `<p class="mini muted" style="margin:6px 0 0">The <code>Harvest</code> folder on ${esc((h.site && h.site.displayName) || "the site")} has no device folders yet — nothing has uploaded. A device folder appears with the first pass of the events or scan Remediation that carries this site.</p>` : "";
     const files = h.files || [];
-    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px"><b>${esc(h.device.name)}</b> — newest first. ${newest.scan ? hvAction(newest.scan, true) + " " : `<span class="muted">no scan bundle here yet</span> · `}${newest.events ? hvAction(newest.events, true) : `<span class="muted">no events bundle here yet</span>`}</p>
-        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? hvAction(f) + " " : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
-      : h.files ? `<p class="mini muted" style="margin:10px 0 0"><b>${esc(h.device.name)}</b> has an empty folder.</p>` : "") : "";
+    const crumb = h.device ? `<b>${esc(h.device.name)}</b>${(h.path || []).map((seg, i) => ` / <a href="#" data-hvpath="${i + 1}">${esc(seg)}</a>`).join("")}${(h.path || []).length ? ` <a href="#" data-hvpath="0" class="mini">(back to the device folder)</a>` : ""}` : "";
+    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px">${crumb} — newest first. ${newest.scan ? hvAction(newest.scan, true) + " " : `<span class="muted">no scan bundle here yet</span> · `}${newest.events ? hvAction(newest.events, true) : `<span class="muted">no events bundle here yet</span>`}</p>
+        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { if (f.folder) return `<tr><td class="mini">📁 <b>${esc(f.name)}</b></td><td class="mini">folder · ${f.folder.childCount != null ? f.folder.childCount : "?"} item${f.folder.childCount === 1 ? "" : "s"}</td><td></td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap"><button class="btn sm" data-hvsub="${esc(f.name)}" ${h.busy ? "disabled" : ""}>Open</button></td></tr>`; const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? hvAction(f) + " " : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
+      : h.files ? `<p class="mini muted" style="margin:10px 0 0">${crumb} — this folder is empty: nothing has been uploaded here yet.</p>` : "") : "";
     host.innerHTML = `<h3 style="margin:0 0 6px">📁 From the harvest site</h3>
       <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. Read through Graph with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself); nothing here writes. <b>Two clicks per file:</b> ⤓ Download saves it to your Downloads folder (a browser cannot read a SharePoint file's bytes across origins, so TUNO hands you the link instead), 📂 Upload it takes it from there — the same import as the toolbar buttons.</p>
       ${err}
@@ -3920,7 +3931,9 @@ const AppLockerTool = (() => {
     if (url) url.addEventListener("input", (e) => { evHarvest.siteUrl = e.target.value; });
     const rd = host.querySelector("#alHvRead");
     if (rd) rd.addEventListener("click", () => harvestReadSite());
-    host.querySelectorAll("[data-hvdev]").forEach((b) => b.addEventListener("click", () => { const d = (evHarvest.devices || [])[+b.dataset.hvdev]; if (d) harvestOpenDevice(d); }));
+    host.querySelectorAll("[data-hvdev]").forEach((b) => b.addEventListener("click", () => { const d = (evHarvest.devices || [])[+b.dataset.hvdev]; if (d) harvestOpenDevice(d, []); }));
+    host.querySelectorAll("[data-hvsub]").forEach((b) => b.addEventListener("click", () => { if (evHarvest.device) harvestOpenDevice(evHarvest.device, (evHarvest.path || []).concat([b.dataset.hvsub])); }));
+    host.querySelectorAll("[data-hvpath]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); if (evHarvest.device) harvestOpenDevice(evHarvest.device, (evHarvest.path || []).slice(0, +a.dataset.hvpath)); }));
     host.querySelectorAll("[data-hvimport]").forEach((b) => b.addEventListener("click", () => { const f = (evHarvest.files || []).find((x) => x.id === b.dataset.hvimport); if (f) harvestPrepare(f); }));
     // The upload button beside a download link is the ordinary picker — the
     // same content-routed import as the toolbar's two buttons.

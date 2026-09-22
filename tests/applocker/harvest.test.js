@@ -264,7 +264,15 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   ok("the site was read on opening and the device folders are listed", Array.isArray(H.evHarvest.devices) && H.evHarvest.devices.length === 2 && card.querySelectorAll("[data-hvdev]").length === 2);
   card.querySelector("[data-hvdev='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
-  ok("a device's files are listed newest first", Array.isArray(H.evHarvest.files) && H.evHarvest.files.length === 4 && H.evHarvest.files[0].lastModifiedDateTime >= H.evHarvest.files[1].lastModifiedDateTime);
+  ok("a device's files are listed newest first, folders first", Array.isArray(H.evHarvest.files) && H.evHarvest.files.length === 5 && !!H.evHarvest.files[0].folder && H.evHarvest.files[1].lastModifiedDateTime >= H.evHarvest.files[2].lastModifiedDateTime);
+  // 10623: a subfolder is a row with Open, opened in place, with a breadcrumb back
+  ok("a subfolder is a row with Open, and the newest-bundle buttons skip folders", !!card.querySelector('[data-hvsub="Archive"]') && /folder · 1 item/.test(card.textContent) && !H.harvestNewest().scan.folder);
+  card.querySelector('[data-hvsub="Archive"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
+  ok("opening it lists its files under a breadcrumb, with a way back", H.evHarvest.path.join("/") === "Archive" && H.evHarvest.files.length === 1 && /REF-IMAGE-01 \/ Archive/.test(card.textContent) && !!card.querySelector('[data-hvpath="0"]'));
+  card.querySelector('[data-hvpath="0"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  for (let i = 0; i < 50 && H.evHarvest.busy; i++) await new Promise((r) => setTimeout(r, 10));
+  ok("back to the device folder", H.evHarvest.path.length === 0 && H.evHarvest.files.length === 5);
   const nw = H.harvestNewest();
   ok("the newest scan and events bundles are the two big buttons", nw.scan && /^TunoAppLockerScan-/.test(nw.scan.name) && nw.events && nw.events.name === "AppControlEvents_Bundle_20260916-0301.json" && /Get newest scan bundle/.test(card.textContent) && /Get newest events bundle/.test(card.textContent));
   ok("the report is opened, not imported", !card.querySelector(`[data-hvimport="demo-f3"]`));

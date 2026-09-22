@@ -26,6 +26,12 @@
 // ======================================================================
 const CHANGELOG = [
   {
+    build: 10623, date: "2026-09-22", title: "T01: the harvest site listing shows subfolders instead of calling the folder empty",
+    items: [
+      { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "On a second tenant every device folder on the harvest site held one item and Open answered “has an empty folder”. The click had worked: the item was a subfolder, the listing kept only files, and the card described the result of its own filter. Subfolders now list as 📁 rows with an Open of their own, opened in place under a breadcrumb (device / folder) with a way back to the device folder; the newest-scan and newest-events buttons skip folders; the device table's column says Items, since SharePoint's count includes folders; and “empty” is said only of a folder with nothing in it. Mihai: nothing happens when I click Open." },
+    ],
+  },
+  {
     build: 10622, date: "2026-09-18", title: "T01: the fleet events card offers all three ways to a policy",
     items: [
       { kind: "improved", tool: "🔐 AppLocker builder & validator", text: "With an events bundle on the table and no policy, the “now give it a policy to judge against” box named the file upload in words and offered only the tenant pull as a button. It now offers all three side by side: 📂 Upload scan bundle or policy XML (the same picker as the toolbar), 📁 From the harvest site (opens the harvest card on Evidence, for a scan bundle a device uploaded) and ⤓ Load the deployed AppLocker profile. Mihai, after the first harvest bundle came down and went up on devcf: this should also have the option to load from file." },
