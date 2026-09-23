@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Detect-TunoItToolsFolders.ps1  v1.0.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Detection half of the Intune Remediation pair: do the IT-TOOLS house folders exist
@@ -39,7 +40,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10626
+$script:TunoBuild = 10627
 
 $ErrorActionPreference = 'SilentlyContinue'
 $found = @()

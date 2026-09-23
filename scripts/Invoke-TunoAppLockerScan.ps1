@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Invoke-TunoAppLockerScan.ps1  v1.14.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Scans a Windows device for AppLocker exposure, builds a publisher-first rule set from
@@ -83,6 +84,15 @@ AS AN INTUNE REMEDIATION (1.13.0)
   the scan is the same scan, and the device is still not modified. The detection half
   triggers a run when no bundle younger than its window exists - a scan-on-schedule
   pump, not a health check; read its console numbers as "the scan ran".
+
+  A BUNDLE THAT DID NOT REACH THE HARVEST SITE IS NOT DONE (1.14.0). Each bundle gets
+  a marker beside it: <bundle>.harvest-pending (target set, not landed - one line per
+  failed try, the last one the reason) or <bundle>.harvest-done (uploaded, or no
+  target). A Remediation run uploads pending bundles FIRST; when the newest bundle is
+  still inside the 7-day window that is the whole run - no rescan, exit 0 when every
+  upload landed, 1 with the reason when one did not. The detection exits 1 while a
+  bundle of the last 30 days is pending, so a failing upload shows in the Intune
+  console daily instead of hiding for a week behind a successful scan.
 
 HOW IT DIFFERS FROM AaronLocker
 
@@ -278,7 +288,7 @@ PS> .\Invoke-TunoAppLockerScan.ps1 -HarvestSiteUrl https://contoso.sharepoint.co
         -HarvestTenantId <tenant guid> -HarvestClientId <app id> -HarvestCertSubject 'CN=TUNO Harvest Uploader'
 
 .NOTES
-Version    : 1.13.1
+Version    : 1.14.0
 Part of    : TUNO - Tenant Utilities for iNtune Operations (tuno.limon-it.nl), tool T01
 Licence    : MIT, same as the rest of TUNO
 Requires   : Windows. Run ELEVATED - an unelevated run cannot read every DACL or the
@@ -395,8 +405,14 @@ trap {
 # js/version.js by a headless test, so the two cannot drift apart in a commit.
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
-$script:ScriptVersion = '1.13.1'
-$script:TunoBuild = 10626
+$script:ScriptVersion = '1.14.0'
+$script:TunoBuild = 10627
+
+# The scan window (1.14.0): a harvest catch-up with the newest bundle younger
+# than this does not rescan. KEEP EQUAL to $MaxAgeDays in
+# Detect-TunoAppLockerScan.ps1 - the test holds the two to it; a scanner that
+# rescans on a window the detection does not share scans daily or never.
+$script:ScanWindowDays = 7
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the scan Remediation is created from a page with a
@@ -2624,6 +2640,102 @@ function Remove-HarvestStale {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Pending harvest (1.14.0): which bundles of the last $Days did not land
+#
+# BYTE-IDENTICAL in Invoke-TunoAppLockerScan.ps1 and Detect-TunoAppLockerScan.ps1
+# (tests/applocker/harvest.test.js holds them to it) - the detection flags what
+# the remediation will retry, never a different list. Per bundle, oldest first:
+# a .harvest-done marker beside it = landed (or no target any more), skip; a
+# .harvest-pending marker = pending, its last line the reason; neither = a
+# bundle from before 1.14.0, pending when the newest AppLockerScan-<stamp>.log
+# at or before its own stamp carries 'harvest: upload FAILED'. Strict-mode safe.
+# ══════════════════════════════════════════════════════════════════════════════
+function Get-TunoPendingHarvest {
+    param([string]$Folder, [int]$Days = 30)
+    $list = New-Object System.Collections.Generic.List[object]
+    if (-not $Folder -or -not (Test-Path -LiteralPath $Folder -PathType Container)) { return ,$list.ToArray() }
+    $cutoff = (Get-Date).AddDays(-$Days)
+    $logs = @(Get-ChildItem -LiteralPath $Folder -Filter 'AppLockerScan-*.log' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^AppLockerScan-\d{8}-\d{4}\.log$' } | Sort-Object Name -Descending)
+    $bundles = @(Get-ChildItem -LiteralPath $Folder -Filter 'TunoAppLockerScan-*.json' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -ge $cutoff } | Sort-Object LastWriteTime)
+    foreach ($b in $bundles) {
+        $base = $b.FullName.Substring(0, $b.FullName.Length - 5)
+        if (Test-Path -LiteralPath ($base + '.harvest-done') -PathType Leaf) { continue }
+        $pendingPath = $base + '.harvest-pending'
+        if (Test-Path -LiteralPath $pendingPath -PathType Leaf) {
+            $lines = @()
+            $reason = 'upload pending'
+            try { $lines = @(Get-Content -LiteralPath $pendingPath -ErrorAction Stop | Where-Object { ([string]$_).Trim() }) } catch { $reason = 'pending marker unreadable' }
+            if ($lines.Count -gt 0) { $reason = ([string]$lines[$lines.Count - 1]).Trim() }
+            $list.Add([pscustomobject]@{ Path = $b.FullName; Name = $b.Name; Written = $b.LastWriteTime; Source = 'marker'; Tries = $lines.Count; Reason = $reason })
+            continue
+        }
+        $m = [regex]::Match($b.Name, '-(\d{8}-\d{4})\.json$')
+        if (-not $m.Success) { continue }
+        $stamp = $m.Groups[1].Value
+        $log = $null
+        foreach ($l in $logs) {
+            if ([string]::CompareOrdinal($l.Name.Substring(14, 13), $stamp) -le 0) { $log = $l; break }
+        }
+        if (-not $log) { continue }
+        $hit = @(Select-String -LiteralPath $log.FullName -SimpleMatch 'harvest: upload FAILED' -ErrorAction SilentlyContinue)
+        if ($hit.Count -eq 0) { continue }
+        $list.Add([pscustomobject]@{ Path = $b.FullName; Name = $b.Name; Written = $b.LastWriteTime; Source = 'transcript'; Tries = $hit.Count; Reason = ([string]$hit[$hit.Count - 1].Line).Trim() })
+    }
+    return ,$list.ToArray()
+}
+
+# Markers beside each bundle (1.14.0). <bundle-without-.json>.harvest-pending
+# gains one line per failed try (the last line is the reason the detection
+# shows); .harvest-done ends the bundle's story - uploaded, or this copy has no
+# target any more and is never retried. Named without .json so the bundle
+# filter never matches a marker.
+function Get-TunoHarvestMarker {
+    param([string]$BundlePath, [ValidateSet('pending', 'done')] [string]$Kind)
+    return ($BundlePath.Substring(0, $BundlePath.Length - 5) + '.harvest-' + $Kind)
+}
+function Add-TunoHarvestPending {
+    param([string]$BundlePath, [string]$Reason)
+    try {
+        Add-Content -LiteralPath (Get-TunoHarvestMarker -BundlePath $BundlePath -Kind 'pending') -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Reason) -Encoding UTF8 -ErrorAction Stop
+    }
+    catch { Add-ScanWarning "Harvest marker not written for ${BundlePath}: $($_.Exception.Message)" }
+}
+function Set-TunoHarvestDone {
+    param([string]$BundlePath, [string]$Note)
+    try {
+        Set-Content -LiteralPath (Get-TunoHarvestMarker -BundlePath $BundlePath -Kind 'done') -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Note) -Encoding UTF8 -ErrorAction Stop
+        $p = Get-TunoHarvestMarker -BundlePath $BundlePath -Kind 'pending'
+        if (Test-Path -LiteralPath $p -PathType Leaf) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
+    }
+    catch { Add-ScanWarning "Harvest marker not written for ${BundlePath}: $($_.Exception.Message)" }
+}
+
+# A complete target: site, tenant, app, and a credential. Partial is not a target.
+function Test-TunoHarvestTarget {
+    param([object]$Cfg)
+    $useCert = [bool]($Cfg.CertSubject -or $Cfg.CertThumbprint)
+    return [bool]($Cfg.SiteUrl -and $Cfg.TenantId -and $Cfg.ClientId -and ($useCert -or $Cfg.ClientSecret))
+}
+
+# Token and site id, resolved ONCE per run however many bundles go up (1.14.0).
+# Throws with the reason; the caller turns that into the harvest note.
+function Connect-TunoHarvest {
+    param([object]$Cfg)
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+    $cert = $null
+    if ($Cfg.CertSubject -or $Cfg.CertThumbprint) {
+        $cert = Get-HarvestCertificate -Subject $Cfg.CertSubject -Thumbprint $Cfg.CertThumbprint
+        if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($Cfg.CertThumbprint) { $Cfg.CertThumbprint } else { $Cfg.CertSubject })) }
+    }
+    $token = Get-HarvestToken -TenantId $Cfg.TenantId -ClientId $Cfg.ClientId -Cert $cert -Secret $Cfg.ClientSecret
+    $hdr = @{ Authorization = "Bearer $token" }
+    $siteId = Get-HarvestSiteId -SiteUrl $Cfg.SiteUrl -Headers $hdr
+    return [pscustomobject]@{ SiteId = $siteId; Headers = $hdr; DeviceFolder = ("{0}/{1}" -f $Cfg.Folder.Trim('/'), $env:COMPUTERNAME) }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 $started = Get-Date
@@ -2649,8 +2761,71 @@ if ($RetentionDays -gt 0 -and (Test-Path -LiteralPath $OutputPath -PathType Cont
         [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerRules-Audit-*.xml' }
         [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerRules-Enforce-*.xml' }
         [pscustomobject]@{ Folder = $OutputPath; Pattern = 'AppLockerScan-*.log' }
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'TunoAppLockerScan-*.harvest-pending' }
+        [pscustomobject]@{ Folder = $OutputPath; Pattern = 'TunoAppLockerScan-*.harvest-done' }
     ) -LogFiles @() -Keep @($script:TranscriptPath)
     Write-Info ("Housekeeping: retention {0} day(s) - removed {1} file(s) ({2:N0} bytes){3}" -f $RetentionDays, $hk.Removed, $hk.Bytes, $(if ($hk.Errors.Count) { '; ' + ($hk.Errors -join '; ') } else { '' }))
+}
+
+# ---- harvest catch-up (1.14.0) ----
+# A bundle that did not reach the harvest site is not done. Before any scan,
+# upload what an earlier run left pending, oldest first, with one token. When
+# the newest bundle is still inside the scan window, that upload WAS the job:
+# one summary line, exit 0 if everything landed or 1 with the reason, no rescan.
+# Otherwise fall through into the scan as before.
+if ($script:RemediationMode) {
+    $catchUp = Get-TunoPendingHarvest -Folder $OutputPath -Days 30
+    if ($catchUp.Count -gt 0) {
+        $cuCfg = Get-HarvestConfig
+        $cuLanded = 0
+        $cuFailed = New-Object System.Collections.Generic.List[string]
+        if (Test-TunoHarvestTarget -Cfg $cuCfg) {
+            Write-Info ("Harvest catch-up: {0} bundle(s) did not reach {1} - uploading before anything else" -f $catchUp.Count, $cuCfg.SiteUrl)
+            $cuCtx = $null
+            $cuConnectError = ''
+            try { $cuCtx = Connect-TunoHarvest -Cfg $cuCfg }
+            catch { $cuConnectError = $_.Exception.Message }
+            foreach ($p in $catchUp) {
+                if (-not $cuCtx) {
+                    Add-TunoHarvestPending -BundlePath $p.Path -Reason "harvest: upload FAILED - $cuConnectError"
+                    $cuFailed.Add(("{0}: {1}" -f $p.Name, $cuConnectError))
+                    continue
+                }
+                try {
+                    $b = Send-HarvestFile -SiteId $cuCtx.SiteId -RemotePath ("{0}/{1}" -f $cuCtx.DeviceFolder, $p.Name) -LocalPath $p.Path -Headers $cuCtx.Headers
+                    Set-TunoHarvestDone -BundlePath $p.Path -Note ("uploaded ({0} bytes) to {1}/{2} by the catch-up" -f $b, $cuCfg.SiteUrl.TrimEnd('/'), $cuCtx.DeviceFolder)
+                    Write-Ok ("harvest catch-up: uploaded {0} ({1} bytes, bundle written {2})" -f $p.Name, $b, $p.Written.ToString('yyyy-MM-dd HH:mm'))
+                    $cuLanded++
+                }
+                catch {
+                    Add-TunoHarvestPending -BundlePath $p.Path -Reason "harvest: upload FAILED - $($_.Exception.Message)"
+                    $cuFailed.Add(("{0}: {1}" -f $p.Name, $_.Exception.Message))
+                    Add-ScanWarning ("harvest: upload FAILED - {0}: {1}" -f $p.Name, $_.Exception.Message)
+                }
+            }
+            if ($cuConnectError) { Add-ScanWarning "harvest: upload FAILED - $cuConnectError" }
+        }
+        else {
+            foreach ($p in $catchUp) { Set-TunoHarvestDone -BundlePath $p.Path -Note 'not uploaded: no harvest target' }
+            Write-Note ("Harvest catch-up: {0} bundle(s) were pending, but this copy has no complete harvest target - marked done, not retried" -f $catchUp.Count)
+        }
+        $cuNewest = @(Get-ChildItem -LiteralPath $OutputPath -Filter 'TunoAppLockerScan-*.json' -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending) | Select-Object -First 1
+        if ($cuNewest -and (((Get-Date) - $cuNewest.LastWriteTime).TotalDays -le $script:ScanWindowDays)) {
+            $cuAge = [math]::Round(((Get-Date) - $cuNewest.LastWriteTime).TotalDays, 1)
+            $cuHead = "TUNO scan v{0} on {1}: harvest catch-up, no rescan (newest bundle {2} is {3} day(s) old, window {4})" -f $script:ScriptVersion, $env:COMPUTERNAME, $cuNewest.Name, $cuAge, $script:ScanWindowDays
+            try { Stop-Transcript | Out-Null } catch { }
+            if ($cuFailed.Count -gt 0) {
+                $cuWhy = $cuFailed[$cuFailed.Count - 1]
+                if ($cuWhy.Length -gt 300) { $cuWhy = $cuWhy.Substring(0, 300) + '...' }
+                Write-Output ("{0} | harvest: {1} of {2} uploaded, upload FAILED - {3}{4}" -f $cuHead, $cuLanded, $catchUp.Count, $cuWhy, $(if ($script:TranscriptPath) { " | see $script:TranscriptPath" } else { '' }))
+                exit 1
+            }
+            Write-Output ("{0} | harvest: {1}" -f $cuHead, $(if ($cuLanded -gt 0) { "$cuLanded of $($catchUp.Count) pending bundle(s) uploaded" } else { "$($catchUp.Count) pending bundle(s) marked done - no harvest target" }))
+            exit 0
+        }
+        Write-Info 'Harvest catch-up done; the newest bundle is outside the scan window - scanning.'
+    }
 }
 
 if (($PSVersionTable.PSObject.Properties.Name -contains 'Platform') -and ($PSVersionTable.Platform -ne 'Win32NT')) {
@@ -3097,46 +3272,47 @@ $json = $bundle | ConvertTo-Json -Depth 12 -Compress:$false
 [System.IO.File]::WriteAllText($bundlePath, $json, (New-Object System.Text.UTF8Encoding($false)))
 Write-Ok "bundle  -> $bundlePath"
 
-# ---- harvest (1.13.0) ----
+# ---- harvest (1.13.0; markers 1.14.0) ----
 # After the bundle is on disk, never before: the local file is the copy that
 # exists whatever the network does. Upload failure is a warning - the scan
-# is complete, the bundle is here, the next scheduled pass retries.
+# is complete, the bundle is here - but since 1.14.0 it is not forgotten: the
+# .harvest-pending marker written before the try makes the detection flag it
+# daily and the next remediation upload it without rescanning.
 $HarvestNote = 'harvest: not configured'
 $harvestCfg = Get-HarvestConfig
 $useCert = [bool]($harvestCfg.CertSubject -or $harvestCfg.CertThumbprint)
-if ($harvestCfg.SiteUrl -and $harvestCfg.TenantId -and $harvestCfg.ClientId -and ($useCert -or $harvestCfg.ClientSecret)) {
+if (Test-TunoHarvestTarget -Cfg $harvestCfg) {
     Write-Info ("Harvest target ({0}): {1} folder {2} as app {3}, {4}" -f $harvestCfg.Source, $harvestCfg.SiteUrl, $harvestCfg.Folder, $harvestCfg.ClientId, $(if ($harvestCfg.CertThumbprint) { "certificate $($harvestCfg.CertThumbprint)" } elseif ($harvestCfg.CertSubject) { "certificate $($harvestCfg.CertSubject)" } else { 'client secret (value not logged)' }))
+    Add-TunoHarvestPending -BundlePath $bundlePath -Reason 'upload started'
     try {
-        try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
-        $cert = $null
-        if ($useCert) {
-            $cert = Get-HarvestCertificate -Subject $harvestCfg.CertSubject -Thumbprint $harvestCfg.CertThumbprint
-            if (-not $cert) { throw ("no certificate {0} with a private key in LocalMachine\My - deploy the uploader PFX to this device" -f $(if ($harvestCfg.CertThumbprint) { $harvestCfg.CertThumbprint } else { $harvestCfg.CertSubject })) }
-        }
-        $token = Get-HarvestToken -TenantId $harvestCfg.TenantId -ClientId $harvestCfg.ClientId -Cert $cert -Secret $harvestCfg.ClientSecret
-        $hdr = @{ Authorization = "Bearer $token" }
-        $siteId = Get-HarvestSiteId -SiteUrl $harvestCfg.SiteUrl -Headers $hdr
-        $deviceFolder = "{0}/{1}" -f $harvestCfg.Folder.Trim('/'), $env:COMPUTERNAME
-        $bytes = Send-HarvestFile -SiteId $siteId -RemotePath ("{0}/{1}" -f $deviceFolder, (Split-Path -Leaf $bundlePath)) -LocalPath $bundlePath -Headers $hdr
+        $ctx = Connect-TunoHarvest -Cfg $harvestCfg
+        $deviceFolder = $ctx.DeviceFolder
+        $bytes = Send-HarvestFile -SiteId $ctx.SiteId -RemotePath ("{0}/{1}" -f $deviceFolder, (Split-Path -Leaf $bundlePath)) -LocalPath $bundlePath -Headers $ctx.Headers
         $pruned = 0
         if ($harvestCfg.RetentionDays -gt 0) {
-            try { $pruned = Remove-HarvestStale -SiteId $siteId -DeviceFolder $deviceFolder -Days $harvestCfg.RetentionDays -Headers $hdr }
+            try { $pruned = Remove-HarvestStale -SiteId $ctx.SiteId -DeviceFolder $deviceFolder -Days $harvestCfg.RetentionDays -Headers $ctx.Headers }
             catch { Add-ScanWarning "Harvest prune failed: $($_.Exception.Message)" }
         }
         $HarvestNote = ("harvest: uploaded bundle ({0} bytes) to {1}/{2}{3}" -f $bytes, $harvestCfg.SiteUrl.TrimEnd('/'), $deviceFolder, $(if ($pruned) { ", pruned $pruned older than $($harvestCfg.RetentionDays) day(s)" } else { '' }))
+        Set-TunoHarvestDone -BundlePath $bundlePath -Note $HarvestNote
         Write-Ok $HarvestNote
     }
     catch {
         $HarvestNote = "harvest: upload FAILED - $($_.Exception.Message)"
         Add-ScanWarning $HarvestNote
+        Add-TunoHarvestPending -BundlePath $bundlePath -Reason $HarvestNote
     }
 }
 elseif ($harvestCfg.SiteUrl -or $harvestCfg.TenantId -or $harvestCfg.ClientId -or $harvestCfg.CertSubject -or $harvestCfg.CertThumbprint -or $harvestCfg.ClientSecret) {
     $HarvestNote = 'harvest: PARTIALLY configured - SiteUrl, TenantId, ClientId and a certificate (CertSubject or CertThumbprint) or a ClientSecret are all required; nothing uploaded'
+    Set-TunoHarvestDone -BundlePath $bundlePath -Note 'not uploaded: harvest target only partially configured'
     Add-ScanWarning $HarvestNote
 }
-elseif ($script:RemediationMode) {
-    Write-Note "$HarvestNote - the bundle is on this device only; set a harvest site in T01 (📁 panel) and create the scan Remediation again to have it uploaded."
+else {
+    Set-TunoHarvestDone -BundlePath $bundlePath -Note 'not uploaded: no harvest target'
+    if ($script:RemediationMode) {
+        Write-Note "$HarvestNote - the bundle is on this device only; set a harvest site in T01 (📁 panel) and create the scan Remediation again to have it uploaded."
+    }
 }
 
 $written = @($bundlePath)

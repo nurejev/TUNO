@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Get-TunoHarvestStatus.ps1  v1.0.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Harvest-site status for THIS device: did the events collector and the scan
@@ -88,7 +89,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10626
+$script:TunoBuild = 10627
 
 $ErrorActionPreference = 'Continue'
 if ($ProbeUpload) { $Probe = $true }

@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Initialize-TunoItToolsFolders.ps1  v1.2.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Creates the IT-TOOLS house folders with the ACL the standing AppLocker allows depend
@@ -73,7 +74,7 @@ param(
 # Same discipline as the other scripts: ScriptVersion is this file's history,
 # TunoBuild the site build that served it, held to js/version.js by the guard.
 $script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10626
+$script:TunoBuild = 10627
 
 $ErrorActionPreference = 'Stop'
 

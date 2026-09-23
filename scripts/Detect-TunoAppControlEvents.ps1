@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Detect-TunoAppControlEvents.ps1  v1.0.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Detection half of the App Control events collection pair. Always reports
@@ -26,7 +27,7 @@ Replaces  : Detect_ACB.ps1 v3.9 - same always-trigger design, house conventions.
 #>
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10626
+$script:TunoBuild = 10627
 
 $LogFolder = "$env:ProgramData\IT-TOOLS\LOGS"
 $LogFile   = Join-Path $LogFolder 'AppControlEvents-Detect.log'

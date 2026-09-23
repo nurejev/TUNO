@@ -1,4 +1,5 @@
-﻿#Requires -Version 5.1
+﻿# Compress-TunoAppControlReport.ps1  v1.0.0  (TUNO build 10627)
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Zips the App Control artefacts Get-TunoAppControlEvents.ps1 leaves on a device -
@@ -53,7 +54,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10626
+$script:TunoBuild = 10627
 
 $ErrorActionPreference = 'Stop'
 

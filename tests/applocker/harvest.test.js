@@ -235,7 +235,7 @@ head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation 
 {
   const w = boot();
   const H = w.AppLockerTool._harvest;
-  ok("the scanner is 1.13.x with the HARVEST TARGET block and empty defaults", /\$script:ScriptVersion = '1\.13\.\d+'/.test(SCANNER) && /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCANNER) && /^\s*ClientSecret\s*=\s*''$/m.test(SCANNER));
+  ok("the scanner is 1.13.x or later with the HARVEST TARGET block and empty defaults", /\$script:ScriptVersion = '1\.1[3-9]\.\d+'/.test(SCANNER) && /\$script:HarvestTarget = \[pscustomobject\]@\{\s*\n\s*SiteUrl\s*=\s*''/.test(SCANNER) && /^\s*ClientSecret\s*=\s*''$/m.test(SCANNER));
   const out = H.stampHarvestConfig(SCANNER, Object.assign({}, CFG, { certSubject: "", clientSecret: "s3cr3t~value" }));
   ok("the stamp fills the scanner's block the same way", /^\s*SiteUrl\s*=\s*'https:\/\/contoso\.sharepoint\.com\/sites\/TUNO-AppControl-Harvest'$/m.test(out) && /^\s*ClientSecret\s*=\s*'s3cr3t~value'$/m.test(out) && /^\s*CertSubject\s*=\s*''$/m.test(out));
   ok("Remediation mode is SYSTEM without -OutputPath, and only that", /\$PSBoundParameters\.ContainsKey\('OutputPath'\)\) -and\s*\n\s*\(\[System\.Security\.Principal\.WindowsIdentity\]::GetCurrent\(\)\.User\.Value -eq 'S-1-5-18'\)/.test(SCANNER));
@@ -247,11 +247,11 @@ head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation 
   const clear = fs.readFileSync(path.join(ROOT, "scripts/Clear-TunoAppLockerPolicy.ps1"), "utf8");
   ok("Remove-TunoStaleOutput is byte-identical in the scanner, the collector and the cleanup", fn(SCANNER) !== null && fn(SCANNER) === fn(SCRIPT) && fn(SCANNER) === fn(clear));
   ok("the upload happens AFTER the bundle is on disk, and a failure is a warning", SCANNER.indexOf("[System.IO.File]::WriteAllText($bundlePath") < SCANNER.indexOf("$harvestCfg = Get-HarvestConfig") && /\$HarvestNote = "harvest: upload FAILED - \$\(\$_\.Exception\.Message\)"\s*\n\s*Add-ScanWarning \$HarvestNote/.test(SCANNER));
-  ok("the scanner uploads its own bundle name and prunes only its own names", /Send-HarvestFile -SiteId \$siteId -RemotePath \("\{0\}\/\{1\}" -f \$deviceFolder, \(Split-Path -Leaf \$bundlePath\)\)/.test(SCANNER) && /\$it\.name -notlike 'TunoAppLockerScan-\*'/.test(SCANNER));
+  ok("the scanner uploads its own bundle name and prunes only its own names", /Send-HarvestFile -SiteId \$ctx\.SiteId -RemotePath \("\{0\}\/\{1\}" -f \$deviceFolder, \(Split-Path -Leaf \$bundlePath\)\)/.test(SCANNER) && /\$it\.name -notlike 'TunoAppLockerScan-\*'/.test(SCANNER));
   ok("strict mode: absent properties are tested by name, not read", /PSObject\.Properties\.Name -contains 'file'/.test(SCANNER) && /PSObject\.Properties\.Name -contains 'access_token'/.test(SCANNER));
   ok("the secret is never written to the console or transcript", !/Write-(Info|Ok|Note|Host)[^\n]*\$harvestCfg\.ClientSecret/.test(SCANNER) && /client secret \(value not logged\)/.test(SCANNER));
   ok("the detection half looks for a bundle younger than 7 days in the same folder", /\$MaxAgeDays = 7/.test(SCAN_DETECT) && /IT-TOOLS\\LOGS\\AppLockerScan'/.test(SCAN_DETECT) && /Filter 'TunoAppLockerScan-\*\.json'/.test(SCAN_DETECT) && /exit 1/.test(SCAN_DETECT) && /exit 0\s*$/.test(SCAN_DETECT));
-  ok("the detection half carries the two build numbers", /\$script:ScriptVersion = '1\.0\.0'/.test(SCAN_DETECT) && /\$script:TunoBuild = \d+/.test(SCAN_DETECT));
+  ok("the detection half carries the two build numbers", /\$script:ScriptVersion = '1\.\d+\.\d+'/.test(SCAN_DETECT) && /\$script:TunoBuild = \d+/.test(SCAN_DETECT));
   ok("the scanner stays under Intune's 200 KB script limit", Buffer.byteLength(SCANNER, "utf8") < 200 * 1024, String(Buffer.byteLength(SCANNER, "utf8")));
   const P = H.REMEDY_PAIRS;
   ok("the deploy panel has a fourth pair, scan, carrying the harvest target", !!P.scan && P.scan.detect === "Detect-TunoAppLockerScan.ps1" && P.scan.remediate === "Invoke-TunoAppLockerScan.ps1" && P.scan.harvest === true && P.events.harvest === true && !P.cleanup.harvest && !P.ittools.harvest);
@@ -259,8 +259,51 @@ head("10617 — the scanner as a Remediation: HARVEST TARGET block, Remediation 
   const D = w.document;
   ok("Help & scripts has the detection row and the scanner's Remediation-mode note", !!D.querySelector('.al-dl-row a[href="scripts/Detect-TunoAppLockerScan.ps1"]') && /Remediation mode/.test(D.querySelector('.al-dl-row a[href="scripts/Invoke-TunoAppLockerScan.ps1"]').parentElement.nextElementSibling.textContent));
   const versions = fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8");
-  ok("SCRIPT_VERSIONS names both", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.13\.\d+"/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.0\.0"/.test(versions));
+  ok("SCRIPT_VERSIONS names both", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.1[3-9]\.\d+"/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.\d+\.\d+"/.test(versions));
   ok("README has the rows", /Detect-TunoAppLockerScan\.ps1/.test(fs.readFileSync(path.join(ROOT, "scripts/README.md"), "utf8")));
+}
+
+// =====================================================================
+head("10627 — a bundle that did not reach the harvest site is not done (scanner 1.14.0, detection 1.1.0)");
+{
+  const w = boot();
+  const fnOf = (src, n) => { const a = src.indexOf(`function ${n} {`); return a < 0 ? null : src.slice(a, src.indexOf("\n}\n", a) + 3); };
+  const shared = fnOf(SCANNER, "Get-TunoPendingHarvest");
+  ok("Get-TunoPendingHarvest is byte-identical in the scanner and the detection", !!shared && shared === fnOf(SCAN_DETECT, "Get-TunoPendingHarvest"));
+  ok("it reads the done marker, the pending marker, and the legacy transcript phrase", /'\.harvest-done'/.test(shared) && /'\.harvest-pending'/.test(shared) && /Select-String -LiteralPath \$log\.FullName -SimpleMatch 'harvest: upload FAILED'/.test(shared) && /return ,\$list\.ToArray\(\)/.test(shared));
+  const win = /\$script:ScanWindowDays = (\d+)/.exec(SCANNER), max = /\$MaxAgeDays = (\d+)/.exec(SCAN_DETECT);
+  ok("the scanner's no-rescan window equals the detection's age window", !!win && !!max && win[1] === max[1], (win && win[1]) + " vs " + (max && max[1]));
+  ok("the detection chases pending bundles for 30 days and says so on the console line", /\$PendingDays = 30/.test(SCAN_DETECT) && /Get-TunoPendingHarvest -Folder \$ScanFolder -Days \$PendingDays/.test(SCAN_DETECT) && /did not reach the harvest site \(newest .*- the upload will be retried, no rescan"/.test(SCAN_DETECT) && /\$why\.Length -gt 180/.test(SCAN_DETECT) && /nothing pending upload - nothing to do"/.test(SCAN_DETECT));
+  ok("the pending check comes after the age check, so an old bundle still rescans", SCAN_DETECT.indexOf("if ($age -gt $MaxAgeDays)") < SCAN_DETECT.indexOf("$pending = Get-TunoPendingHarvest"));
+  ok("markers are named without .json, so the bundle filter never matches one", /\$BundlePath\.Substring\(0, \$BundlePath\.Length - 5\) \+ '\.harvest-' \+ \$Kind/.test(SCANNER) && /\$b\.FullName\.Substring\(0, \$b\.FullName\.Length - 5\)/.test(shared));
+  ok("housekeeping removes both marker kinds with the bundles", /Pattern = 'TunoAppLockerScan-\*\.harvest-pending'/.test(SCANNER) && /Pattern = 'TunoAppLockerScan-\*\.harvest-done'/.test(SCANNER));
+  const hk = SCANNER.indexOf("$hk = Remove-TunoStaleOutput"), cu = SCANNER.indexOf("# ---- harvest catch-up (1.14.0) ----"), plat = SCANNER.indexOf("if (($PSVersionTable.PSObject.Properties.Name -contains 'Platform')"), scan = SCANNER.indexOf("$machine = Get-MachineFacts\n");
+  ok("the catch-up runs after housekeeping and before the scan, in Remediation mode only", hk > 0 && cu > hk && cu < plat && plat < scan && /# ---- harvest catch-up \(1\.14\.0\) ----\s*\n(#[^\n]*\n)*if \(\$script:RemediationMode\) \{/.test(SCANNER));
+  const block = SCANNER.slice(cu, plat);
+  ok("it resolves token and site ONCE and uploads oldest first", (block.match(/Connect-TunoHarvest/g) || []).length === 1 && /foreach \(\$p in \$catchUp\)/.test(block) && /Sort-Object LastWriteTime\)/.test(shared));
+  ok("inside the window it stops: exit 1 with the reason on a failure, exit 0 when all landed", /TotalDays -le \$script:ScanWindowDays/.test(block) && /upload FAILED - \{3\}\{4\}"[^\n]*\n\s*exit 1/.test(block) && /exit 0\s*\n\s*\}\s*\n\s*Write-Info 'Harvest catch-up done/.test(block));
+  ok("no complete target: pending bundles are marked done, never retried", /Set-TunoHarvestDone -BundlePath \$p\.Path -Note 'not uploaded: no harvest target'/.test(block));
+  ok("post-scan: pending before the upload, done after it, and the legacy phrase kept on failure", /Add-TunoHarvestPending -BundlePath \$bundlePath -Reason 'upload started'\s*\n\s*try \{/.test(SCANNER) && /Set-TunoHarvestDone -BundlePath \$bundlePath -Note \$HarvestNote/.test(SCANNER) && /\$HarvestNote = "harvest: upload FAILED - \$\(\$_\.Exception\.Message\)"/.test(SCANNER));
+  // line 1 of every script body: name, version, build — above #Requires, ASCII
+  const dir = path.join(ROOT, "scripts");
+  const files = fs.readdirSync(dir).filter((f) => /\.ps1$/.test(f)).sort();
+  ok("fourteen scripts", files.length === 14, String(files.length));
+  const bad = [];
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "");
+    const first = src.split("\n")[0];
+    const v = /^\$script:ScriptVersion = '([^']+)'$/m.exec(src), b = /^\$script:TunoBuild = (\d+)$/m.exec(src);
+    const want = v && b ? `# ${f}  v${v[1]}  (TUNO build ${b[1]})` : null;
+    if (!want || first !== want || !/^[\x20-\x7e]+$/.test(first) || !/^#Requires/.test(src.split("\n")[1]) || +b[1] !== w.APP_BUILD.build) bad.push(f + ": " + first);
+  }
+  ok("line 1 of every script is '# <name>  v<ScriptVersion>  (TUNO build <TunoBuild>)', ASCII, above #Requires, and the build is this site's", bad.length === 0, bad.join(" | "));
+  const versions = fs.readFileSync(path.join(ROOT, "js/applocker.js"), "utf8");
+  ok("SCRIPT_VERSIONS: scanner 1.14.0 and detection 1.1.0, both changed in 10627", /"Invoke-TunoAppLockerScan\.ps1":\s*\{ v: "1\.14\.0", changed: 10627 \}/.test(versions) && /"Detect-TunoAppLockerScan\.ps1":\s*\{ v: "1\.1\.0",\s*changed: 10627 \}/.test(versions));
+  const P = w.AppLockerTool._harvest.REMEDY_PAIRS;
+  ok("the scan pair's blurb and description say the detection also retries uploads, without a rescan", /pending upload/.test(P.scan.blurb) && /without rescanning/.test(P.scan.blurb) && /pending upload/.test(P.scan.description));
+  const D = w.document;
+  const note = (f) => D.querySelector(`.al-dl-row a[href="scripts/${f}"]`).parentElement.nextElementSibling.textContent;
+  ok("both download notes describe the new behaviour", /1\.14\.0/.test(note("Invoke-TunoAppLockerScan.ps1")) && /\.harvest-pending/.test(note("Invoke-TunoAppLockerScan.ps1")) && /did not reach the harvest site/.test(note("Detect-TunoAppLockerScan.ps1")));
 }
 
 // =====================================================================
