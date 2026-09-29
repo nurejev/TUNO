@@ -671,7 +671,7 @@ const Graph = (() => {
     const only = (opts && opts.only) || (() => true);
     const empty = (v) => v === null || v === undefined || v === "";
     let p = Object.assign({}, profile, { omaSettings: (profile.omaSettings || []).map((x) => Object.assign({}, x)) });
-    const wants = (x) => x && only(x) && empty(x.value);
+    const wants = (x) => x && only(x) && (empty(x.value) || (opts && opts.forceEncrypted && x.isEncrypted && !x._decrypted));
     if (p.omaSettings.some((x) => wants(x) && !x.secretReferenceValueId) && p.id) {
       const full = await API.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(p.id)}`, { scopes: SCOPES.profiles });
       if (full && Array.isArray(full.omaSettings)) {

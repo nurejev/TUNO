@@ -13,6 +13,7 @@ head('real-results loop starts at the deployed object');
  ok('selection preserves original ID and grouping',A.getState().reference.profile.id==='selected-id'&&A.getState().reference.grouping==='OriginalGrouping');
  ok('selection copies deployed rules, never the generated baseline',R.getState().policy.collections[0].rules[0].conditions[0].path==='%WINDIR%\\*');
  ok('selection lands on results',D.getElementById('alPaneAudit').style.display!=='none');
+ ok('suggestion controls are enabled after the read finishes',D.querySelector('[data-audit-pick]')&&!D.querySelector('[data-audit-pick]').disabled);
  ok('scan receipt checks reference rules and grouping',A.auditReceipt().includes('reference rules are present'));
  const rows=A.auditResultRows();ok('inventory-only file not a suggestion',rows.length===2&&!rows.some(x=>x.row.path.includes('inventory-only')));
  ok('no changes or writes without selection',!A.getState().plan&&writes.length===0&&R.getState().policy.collections[0].rules.length===1);
@@ -59,6 +60,32 @@ head('changes, unread values and errors stop unintended updates');
 {
  const {A,D}=setup();await A.selectAuditProfile(profile());
  ok('results default to differences and expose other categories',D.querySelector('[data-audit-filter]').value==='needed'&&D.querySelector('[data-audit-filter]').textContent.includes('Outside selected collections'));
+}
+head('Intune XML representations and actionable read errors');
+for(const kind of ['declaration','wrapper','binary','decrypted-binary']) {
+ const {A,R,setLive,writes}=setup(),p=profile();
+ p.omaSettings[0].value=col().replace('Name="Windows"','Name="Café &amp; Tools"');
+ if(kind==='declaration') p.omaSettings[0].value='\ufeff<?xml version="1.0" encoding="utf-8"?>\n'+p.omaSettings[0].value;
+ if(kind==='wrapper') p.omaSettings[0].value=`<AppLockerPolicy Version="1">${p.omaSettings[0].value}</AppLockerPolicy>`;
+ if(kind.includes('binary')) {p.omaSettings[0]['@odata.type']='#microsoft.graph.omaSettingStringXml';p.omaSettings[0].fileName='Original.xml';if(kind==='binary')p.omaSettings[0].value=Buffer.from(p.omaSettings[0].value).toString('base64');}
+ setLive(p);await A.selectAuditProfile(p);
+ ok(kind+' opens deployed rules without losing Unicode',R.getState().policy.collections[0].rules[0].name==='Café & Tools');
+ A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();await A.writeAuditUpdate();
+ ok(kind+' completes verified same-profile update',writes.length===1&&A.getState().message.includes('updated and verified'));
+ if(kind.includes('binary'))ok(kind+' preserves XML setting type, filename and UTF8 encoding',writes[0].body.omaSettings[0]['@odata.type']==='#microsoft.graph.omaSettingStringXml'&&writes[0].body.omaSettings[0].fileName==='Original.xml'&&Buffer.from(writes[0].body.omaSettings[0].value,'base64').toString('utf8').includes('Café'));
+}
+{
+ const {A}=setup(),p=profile();p.omaSettings[0].value=null;p.omaSettings[0]._decryptError='Permission denied';let message='';try{await A.selectAuditProfile(p)}catch(e){message=e.message}
+ ok('decryption failure names setting and actual reason',message.includes('EXE')&&message.includes('Permission denied'));
+ p.omaSettings[0]._decryptError=null;p.omaSettings[0].value='<AppLockerPolicy Version="1">'+col()+col('Msi')+'</AppLockerPolicy>';message='';try{await A.selectAuditProfile(p)}catch(e){message=e.message}
+ ok('ambiguous multi-collection wrapper remains blocked',message.includes('exactly one collection'));
+}
+{
+ const w=boot(),p=profile();w.confirm=()=>true;w.Graph.tenantId=()=> 'tenant-a';p.omaSettings[0].isEncrypted=true;p.omaSettings[0].value='PGEvPg==';let reads=0;
+ w.Graph.get=async()=>{const full=clone(p);full.omaSettings[0].secretReferenceValueId='secret-a';return full};
+ w.Graph.omaSettingPlainText=async(id,secret)=>{reads++;if(id!=='selected-id'||secret!=='secret-a')throw new Error('wrong reference');return col()};
+ await w.AppLockerTool._audit.selectAuditProfile(p);
+ ok('encrypted placeholder survives detail read but still forces plaintext retrieval',reads===1&&w.AppLockerTool._review.getState().policy.collections[0].rules.length===1&&p.omaSettings[0].value==='PGEvPg==');
 }
 head('two workspaces keep independent policies and evidence');
 {

@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10630,
+  "date": "2026-09-29",
+  "title": "T01: open deployed Audit policies reliably",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "The deployed policy reader now supports XML declarations, a single-collection AppLockerPolicy wrapper and encoded Graph XML-file values. Encrypted placeholder values trigger plaintext retrieval before parsing. Updates preserve XML-file type, filename and UTF-8 content. The policy button shows reading progress; failures name the selected policy, setting and reason. Enforced or unreadable policies remain ineligible for Audit updates."
+    }
+  ]
+},
+{
   "build": 10629,
   "date": "2026-09-29",
   "title": "T01: Create & deploy, Analyze & improve",

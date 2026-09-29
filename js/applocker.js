@@ -757,22 +757,40 @@ const AppLockerTool = (() => {
   // tenant profile goes through this first; a value that cannot be
   // fetched is named as such, never read as an empty collection.
   async function hydrateAppLocker(p) {
-    const r = await Graph.hydrateOmaSettings(p, { only: (s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")) });
+    // Encrypted XML settings can contain a non-empty placeholder. It is not
+    // the policy: force the existing secret-reference read before parsing it.
+    const r = await Graph.hydrateOmaSettings(p, { forceEncrypted:true, only: (s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")) });
     return r.profile;
   }
-  function policyOfProfile(p) {
-    const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
-    const values = settings.map((s) => String(s.value || "")).filter((v) => /<RuleCollection/i.test(v));
-    if (values.length && values.length !== settings.length) throw new Error("Some AppLocker collections could not be read. Re-read all profile values before creating a draft or comparing policies.");
-    if (!values.length) {
-      const enc = settings.filter((s) => s.isEncrypted && !s.value);
-      const bad = settings.find((s) => s._decryptError);
-      if (bad) throw new Error(`The profile's AppLocker values are encrypted at rest and Graph refused to decrypt them — ${bad._decryptError}. This read needs DeviceManagementConfiguration.ReadWrite.All consented for the app.`);
-      if (enc.length) throw new Error("The profile's AppLocker values are encrypted at rest and were not fetched — the plain-text read did not run.");
-      throw new Error("That profile's AppLocker settings carry no readable RuleCollection values. Export the policy from the portal instead.");
+  // Graph stringXml values are UTF-8 bytes transported as base64; decrypted
+  // values may already be XML. Keep the original setting untouched for backup.
+  function appLockerSettingDocument(setting) {
+    const label=setting.displayName || setting.omaUri || "AppLocker setting";
+    const fail=message=>{throw new Error(`${label}: ${message}`)};
+    if(setting._decryptError) fail(`Intune could not read the encrypted value: ${setting._decryptError}`);
+    let xml=String(setting.value || "").trim();
+    if(!xml) fail(setting.isEncrypted ? "encrypted value was not returned. Re-read Intune and check configuration read permissions." : "Intune returned no policy value. Re-read the profile.");
+    const binary=/\.omaSettingStringXml$/i.test(setting["@odata.type"] || "");
+    if(binary && !xml.startsWith('<')) {
+      try { xml=decodeURIComponent(Array.from(atob(xml.replace(/\s/g,'')),c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0')).join('')).trim(); }
+      catch { fail("the XML file value is not valid base64 UTF-8."); }
     }
-    const xml = `<AppLockerPolicy Version="1">\n${values.join("\n")}\n</AppLockerPolicy>`;
-    return parsePolicy(xml, p.displayName || "tenant profile");
+    const doc=new DOMParser().parseFromString(xml,'text/xml');
+    if(doc.querySelector('parsererror')) fail("the returned value is not valid XML. Check the profile's XML value in Intune.");
+    const root=doc.documentElement;
+    let collection=root;
+    if(root.nodeName==='AppLockerPolicy') {
+      if([...root.attributes].some(a=>a.name!=='Version') || root.getAttribute('Version')!=='1' || root.children.length!==1 || root.firstElementChild.nodeName!=='RuleCollection') fail("the policy wrapper must contain exactly one collection for this OMA-URI, with Version 1 and no unsupported attributes.");
+      collection=root.firstElementChild;
+    }
+    if(collection.nodeName!=='RuleCollection') fail(`expected RuleCollection or AppLockerPolicy, received ${root.nodeName}.`);
+    return {doc,collection,binary,wrapped:root.nodeName==='AppLockerPolicy'};
+  }
+  function policyOfProfile(p) {
+    const settings=(p.omaSettings || []).filter(s=>APPLOCKER_OMA_RE.test(String(s.omaUri || '')));
+    if(!settings.length) throw new Error('This profile has no AppLocker policy settings.');
+    const values=settings.map(s=>new XMLSerializer().serializeToString(appLockerSettingDocument(s).collection));
+    return parsePolicy(`<AppLockerPolicy Version="1">${values.join('\n')}</AppLockerPolicy>`,p.displayName || 'tenant profile');
   }
 
   // ================================================================
@@ -2384,9 +2402,8 @@ const AppLockerTool = (() => {
     // Refuse shapes the editable model cannot round-trip, rather than dropping extensions.
     const attributes={RuleCollection:['Type','EnforcementMode'],FilePathRule:['Id','Name','Description','UserOrGroupSid','Action'],FilePublisherRule:['Id','Name','Description','UserOrGroupSid','Action'],FileHashRule:['Id','Name','Description','UserOrGroupSid','Action'],Conditions:[],Exceptions:[],FilePathCondition:['Path'],FilePublisherCondition:['PublisherName','ProductName','BinaryName'],BinaryVersionRange:['LowSection','HighSection'],FileHashCondition:[],FileHash:['Type','Data','SourceFileName','SourceFileLength']};
     for(const setting of settings) {
-      const doc=new DOMParser().parseFromString(String(setting.value || ''),'text/xml');
-      if(doc.documentElement.nodeName!=='RuleCollection') throw new Error('Each Audit setting must contain exactly one readable RuleCollection.');
-      for(const node of doc.querySelectorAll('*')) {
+      const {collection}=appLockerSettingDocument(setting);
+      for(const node of [collection,...collection.querySelectorAll('*')]) {
         const supported=attributes[node.nodeName];
         if(!supported || [...node.attributes].some(a=>!supported.includes(a.name))) throw new Error('This policy contains XML extensions or attributes that the editor cannot preserve. Use the original policy authoring workflow; no update was prepared.');
         if(/Rule$/.test(node.nodeName) && !node.getAttribute('Id')) throw new Error('A deployed rule has no stable ID. Repair the source policy before using this workflow.');
@@ -2401,8 +2418,11 @@ const AppLockerTool = (() => {
   async function selectAuditProfile(p) {
     if (auditBusy) return;
     const selectedWorkspace=workspace;
+    auditBusy=true; evTenant.error=""; renderComparison(); renderWorkspace();
+    try {
     const tenant = auditTenant(), hydrated = await hydrateAppLocker(p), source = auditProfileIdentity(hydrated);
     if (tenant !== auditTenant() || selectedWorkspace !== workspace) throw new Error("The tenant or workspace changed during the read. Read the policies again.");
+    auditBusy=false;
     if (!confirmDraftReplacement()) return;
     clearAuditReview();
     auditReview = {profile:JSON.parse(JSON.stringify(hydrated)),model:source.model,grouping:source.grouping,tenant,readAt:new Date().toISOString()};
@@ -2413,6 +2433,7 @@ const AppLockerTool = (() => {
     if ($("alIntuneMode")) $("alIntuneMode").value="Audit";
     importedXmlName = hydrated.displayName; draftOrigin = "Deployed Audit policy · " + hydrated.displayName; pilotReview = "";
     loadFresh(); showScreen("audit");
+    } finally { auditBusy=false; renderComparison(); renderWorkspace(); renderAuditResults(); renderAuditUpdate(); }
   }
   function auditReceipt() {
     if (!auditReview || !scan) return "No device policy snapshot to compare. Import a scan from a device assigned this policy.";
@@ -2445,7 +2466,11 @@ const AppLockerTool = (() => {
       const type=policyOfProfile({omaSettings:[setting]}).collections[0].type;
       const col=policy.collections.find(c=>c.type===type); used.add(type);
       if (!col) return [];
-      return [{"@odata.type":"#microsoft.graph.omaSettingString",displayName:setting.displayName || type,description:setting.description || "",omaUri:setting.omaUri,value:collectionLines(col,"","AuditOnly").join("\n")}];
+      const shape=appLockerSettingDocument(setting);
+      let value=collectionLines(col,"","AuditOnly").join("\n");
+      if(shape.wrapped) value=`<AppLockerPolicy Version="1">${value}</AppLockerPolicy>`;
+      if(shape.binary) value=btoa(encodeURIComponent(value).replace(/%([0-9A-F]{2})/g,(_,hex)=>String.fromCharCode(parseInt(hex,16))));
+      return [{"@odata.type":shape.binary?"#microsoft.graph.omaSettingStringXml":"#microsoft.graph.omaSettingString",displayName:setting.displayName || type,description:setting.description || "",omaUri:setting.omaUri,...(shape.binary?{fileName:setting.fileName || `${type}.xml`}:{}),value}];
     });
     for(const col of policy.collections.filter(c=>!used.has(c.type))) {
       if (!OMA_TYPE[col.type] || col.type==='Dll') throw new Error(`Adding ${col.type} is outside this Audit update workflow. Existing collections are preserved; use the manual policy workflow for a collection-scope change.`);
@@ -2535,7 +2560,7 @@ const AppLockerTool = (() => {
     const groups = new Set((scan?.effectivePolicy?.sources?.mdm || []).map(g=>String(g.grouping).toLowerCase()));
     host.innerHTML = `<h2>Select the Audit policy you deployed</h2><p>Your existing Intune configuration is the reference. The scan shows what happened on the device; it does not replace this policy with a new baseline.</p>
       <article class="al-review-card"><button class="btn primary" data-review-tenant ${evTenant.busy || auditBusy ? "disabled" : ""}>${evTenant.busy ? "Reading…" : "Read deployed Intune policies"}</button><p class="mini">Select the policy assigned to this device. Names are not proof of Audit mode; T01 reads every collection before opening it.</p>${evTenant.error ? `<p role="alert">${esc(evTenant.error)}</p>` : ""}
-      ${profiles.map((p,i)=>{const matches=(p.omaSettings || []).some(x=>groups.has(String((APPLOCKER_OMA_RE.exec(x.omaUri || "") || [])[1] || "").toLowerCase()));return `<div class="al-profile-row"><div><b>${esc(p.displayName || p.id)}</b><p class="mini muted">${matches ? "Grouping appears in the device scan" : "Device receipt not established"}</p></div><button class="btn" data-audit-profile="${i}" ${auditBusy ? "disabled" : ""}>Review this deployed Audit policy</button></div>`}).join("") || '<p>No profiles loaded yet. Read Intune to choose the existing policy.</p>'}</article>
+      ${profiles.map((p,i)=>{const matches=(p.omaSettings || []).some(x=>groups.has(String((APPLOCKER_OMA_RE.exec(x.omaUri || "") || [])[1] || "").toLowerCase()));return `<div class="al-profile-row"><div><b>${esc(p.displayName || p.id)}</b><p class="mini muted">${matches ? "Grouping appears in the device scan" : "Device receipt not established"}</p></div><button class="btn" data-audit-profile="${i}" ${auditBusy ? "disabled" : ""}>${auditBusy ? "Reading policy…" : "Open policy for review"}</button></div>`}).join("") || '<p>No profiles loaded yet. Read Intune to choose the existing policy.</p>'}</article>
       ${auditReview ? `<article class="al-review-card"><h3>Selected: ${esc(auditReview.profile.displayName)}</h3><p>Profile ID: ${esc(auditReview.profile.id)} · grouping: ${esc(auditReview.grouping)}</p><p>All collections were read as AuditOnly. This identity is retained for the update.</p><button class="btn primary" data-review-nav="audit">Review scan results &amp; additions</button></article>` : ""}
       <article class="al-review-card"><h3>Need to create a new policy instead?</h3><p>The new-policy builder and reference-scan proposals live in the separate Create &amp; deploy workspace.</p><button class="btn" data-al-workspace="create">Open Create &amp; deploy</button></article>`;
   }
@@ -2547,7 +2572,7 @@ const AppLockerTool = (() => {
       if(e.target.closest("[data-build-new]")){ $("alNew").click();return; }
       if(e.target.closest("[data-build-import]")){ showScreen("evidence");return; }
       const ap = e.target.closest("[data-audit-profile]");
-      if (ap) { const profiles = evTenant.list || deployState.checked?.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=err.message; renderComparison(); } return; }
+      if (ap) { const profiles = evTenant.list || deployState.checked?.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=`Could not open “${profiles[+ap.dataset.auditProfile]?.displayName || "selected policy"}”. ${err.message}`; renderComparison(); } return; }
       if (e.target.closest("[data-audit-backup]") && auditReview) { download("AppLocker-original-Audit-profile.json",JSON.stringify(auditReview.profile,null,2),"application/json"); return; }
       if (e.target.closest("[data-audit-add]")) { applyAuditSelections(); return; }
       if (e.target.closest("[data-audit-prepare]")) { await prepareAuditUpdate(); return; }

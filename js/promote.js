@@ -104,6 +104,34 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 191,
+  "title": "T01 — fix deployed policy XML loading",
+  "tools": [
+    "T01 AppLocker builder & validator"
+  ],
+  "builds": [
+    10630
+  ],
+  "risk": "high",
+  "what": "Normalize plain XML, single-collection policy wrappers and Graph XML-file values; force plaintext retrieval for encrypted placeholders. Preserve XML-file setting type and filename on updates. Visible read progress and contextual errors.",
+  "why": "10629 rejected non-bare XML with a generic RuleCollection error. Live tenant format and decryption compatibility remain a pilot acceptance check; no policy writes were performed during this fix.",
+  "test": [
+    "Run npm test. Verify declaration/BOM, wrapped policy, base64 Unicode XML, already-decrypted XML-file values, and non-empty encrypted placeholders through detail plus plaintext reads. Reject ambiguous wrappers and unsupported XML.",
+    "LIVE PENDING: open the affected deployed Audit profile. Verify rule count and grouping against Intune, preview a selected change and verify original setting types before any authorized pilot update. Confirm an enforced policy is rejected by its actual collection modes."
+  ],
+  "files": [
+    "js/applocker.js",
+    "js/graph.js",
+    "tests/applocker/audit-workflow.test.js",
+    "docs/reviews/T01-beta-10630.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "index.html",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 190,
   "title": "T01 — separate creation and deployed Audit improvement",
   "tools": [
