@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10637,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — report workspace",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Reports now has a persistent selector and one preview, with Assignments, Deployment configuration and Conflict check kept separately. All report evidence is available inline, supporting sections fold, and one Export menu offers HTML, CSV and opening in a new tab. Grouped navigation across the top and a compact introduction give the results more room."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Each saved report shows its policy-read and generation times; configuration also shows member and owner-read times. A newer policy read, changed naming rules or session writes mark older reports for regeneration. Missing policy surfaces remain visible. A failed fresh conflict read keeps the previous report and does not add a successful check."
+    }
+  ]
+},
+{
   "build": 10636,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — exclusion groups renamed to INT-SG-D/U-MDE-Exclusion",

@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 199,
+  "title": "T28 — report workspace (option 2)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10637
+  ],
+  "risk": "low",
+  "what": "Grouped T28 navigation, compact header, persistent report selector, one preview of the saved HTML report with folding sections and contained tables, consolidated export controls, snapshot timestamps and stale/incomplete-read notices. Existing assignment/group actions and export generators remain in use. Fresh conflict read failure retains the old report and check count.",
+  "why": "Build the selected report-workspace mockup so generating one report no longer pushes the others down the page.",
+  "test": [
+    "Run npm test; T28 screen checks cover selector/preview switching, snapshot retention, stale timestamps, failed fresh reads and the existing write/undo gates.",
+    "Browser DEMO: generate all three reports, expand evidence, switch repeatedly, open/export the selected report, and visit every grouped T28 pane. Check desktop and narrow layouts in light/dark themes.",
+    "LIVE PENDING: verify actual tenant report completeness, owners/members, filters and export content. No live tenant reads or writes performed for this layout change."
+  ],
+  "files": [
+    "index.html",
+    "css/app.css",
+    "js/mderollout.js",
+    "js/mdereports.js",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10637.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 198,
   "title": "T28 — exclusion groups renamed to INT-SG-D-MDE-Exclusion / INT-SG-U-MDE-Exclusion",
   "tools": [

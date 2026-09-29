@@ -268,26 +268,47 @@ async function run() {
 
   // ------------------------------------------------ 📑 reports (10635) --
   w.MdeRolloutTool._pane("reports");
-  ok("the reports pane offers the three runs", !!$("mrRep_assign") && !!$("mrRep_config") && !!$("mrRep_conflicts"));
+  ok("reports offers three persistent choices and only one generator", D.querySelectorAll("[data-mrreport]").length === 3 && !!$("mrRep_assign") && !$("mrRep_config") && !$("mrRep_conflicts"));
   $("mrRep_assign").click();
   const R = () => st().reps;
   ok("the assignments report: a coverage matrix on the screen, HTML and CSV to take away", !!R().assign && /Coverage — waves per policy/.test(R().assign.html) && /INT-SG-D-WAVE-Euro/.test(R().assign.html)
-    && R().assign.csv.startsWith("Policy,Generation,For,Type,Categories,Assignment,Target") && /should include their waves/.test($("mrBody").textContent) && !!D.querySelector('[data-mrrep="assign"][data-mrrepfmt="csv"]'));
+    && R().assign.csv.startsWith("Policy,Generation,For,Type,Categories,Assignment,Target") && /Coverage — waves per policy/.test($("mrBody").textContent) && !!D.querySelector('[data-mrrep="assign"][data-mrrepfmt="csv"]'));
   const euroCol = R().assign.cov.regions.indexOf("Euro");
   const avCov = R().assign.cov.rows.find((x) => /Defender Antivirus - D - AV/.test(x.P.name));
   ok("…where the new AV policy includes the Euro device wave", euroCol >= 0 && avCov.cells[euroCol].inc.join() === "device");
   ok("…and each group carries its role in the rollout", /🌊 Euro device wave/.test(R().assign.csv));
+  const coverageGroups = [...D.querySelectorAll(".mr-report-group")];
+  ok("coverage keeps new policies visible and folds old policies without dropping their rows", coverageGroups.length === 2 && coverageGroups[0].open && !coverageGroups[1].open
+    && coverageGroups[0].querySelectorAll("tr").length === st().model.newP.length + 1 && coverageGroups[1].querySelectorAll("tr").length === st().model.oldP.length + 1);
+  const savedAssign = R().assign;
+  D.querySelector('[data-mrreport="config"]').click();
+  ok("switching reports preserves the saved assignment snapshot and hides its preview", R().assign === savedAssign && !D.querySelector('[data-report-preview="assign"]') && !!$("mrRep_config"));
   $("mrRep_config").click();
   ok("the configuration report: rules, groups with owners, members, settings, retirement, this session's changes", await until(() => R().config, 10000, "config report")
     && ["1 · Rules", "2 · Wave and exclusion groups", "3 · Wave members", "4 · New policies", "5 · Old policies", "7 · Changes this session"].every((h) => R().config.html.includes(h))
     && /alex\.admin@contoso\.com/.test(R().config.html) && /INT-SG-D-NLD/.test(R().config.html) && /Win - OIB - SC - Device Security - D - Audit and Event Logging/.test(R().config.html), R().config && R().config.html.length);
   ok("…with every setting in its CSV", R().config.csv.startsWith("Policy,Generation,Type,Setting,Value") && R().config.csv.split("\r\n").length > 10);
+  ok("configuration preview retains all seven report sections and no document styles", D.querySelectorAll('[data-report-preview="config"] > .mr-report-section').length === 7 && !D.querySelector('[data-report-preview] style'));
+  ok("configuration has an inline preview with full names and separate timestamps", !!D.querySelector('[data-report-preview="config"]') && /Owners attempted/.test($("mrBody").textContent) && R().config.readAt === st().model.readAt);
+  D.querySelector('[data-mrreport="conflicts"]').click();
   $("mrRep_conflicts").click();
+  ok("the report selector remains available during a fresh check and prevents concurrent refresh", D.querySelectorAll("[data-mrreport]").length === 3 && $("mrRun").disabled);
   ok("the conflict check reads the tenant fresh and counts what needs action", await until(() => R().conflicts, 30000, "conflict check") && R().conflicts.summary.act > 0 && R().checks.length === 1 && /conflict check/i.test(R().conflicts.html) && st().pane === "reports");
   ok("the rail says how many need action", /to act/.test(D.querySelector('[data-mrpane="reports"]').textContent));
+  D.querySelector('[data-mrreport="assign"]').click();
+  ok("an older report is marked stale after a fresh check and retains its original data", /saved report predates/.test($("mrBody").textContent) && R().assign === savedAssign && R().assign.html === savedAssign.html);
+  D.querySelector('[data-mrreport="conflicts"]').click();
   const before = R().conflicts.summary.act;
   $("mrRep_conflicts").click();
-  ok("a second check says what moved since the first", await until(() => R().checks.length === 2, 30000, "second check") && R().conflicts.diff && Array.isArray(R().conflicts.diff.fixed) && R().conflicts.summary.act === before && /Since the previous check/.test($("mrBody").textContent));
+  ok("a second check says what moved since the first", await until(() => R().checks.length === 2, 30000, "second check") && R().conflicts.diff && Array.isArray(R().conflicts.diff.fixed) && R().conflicts.summary.act === before && /Since the check at/.test($("mrBody").textContent));
+
+  const savedConflict = R().conflicts;
+  const refresh = w.PolicyCache.refresh;
+  w.PolicyCache.refresh = async () => { throw new Error("simulated read failure"); };
+  $("mrRep_conflicts").click();
+  await until(() => !R().busy, 10000, "failed check");
+  ok("a failed fresh read keeps the old report and does not add a successful check", R().conflicts === savedConflict && R().checks.length === 2 && /Fresh read failed/.test($("mrBody").textContent));
+  w.PolicyCache.refresh = refresh;
 
   // ----------------------------------------------------- rules pane --
   w.MdeRolloutTool._pane("rules");
