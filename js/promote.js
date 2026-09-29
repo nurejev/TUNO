@@ -104,6 +104,37 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 195,
+  "title": "T28 — device/user wave pairs, exclusion groups, rollout actions, creator is owner",
+  "tools": [
+   "T28 MDE rollout"
+  ],
+  "builds": [
+   10633
+  ],
+  "risk": "medium",
+  "what": "Config: waveRegions + waveDevicePrefix (PVM-DG-MDE-WAVE-) + waveUserPrefix (PVM-UG-MDE-WAVE-) + exclusionDevice/exclusionUser (PVM-DG-/PVM-UG-MDE-Exclusion) + exclusionDescription; normConfig derives groups (role, audience, region, twin) and the flat names list, and migrates a 10632 waves list to regions. audienceOf(name): a one-letter -d-/-u- segment in the normalised name. proposalFor: twin swap when the support matrix refuses a wave (twinIndex), missing twin named, staged pool by audience (wavePool), target kind from the old policy's name when its include kinds are unreadable (effectiveTargets). pairReach/compare take the twin map: excluding the twin resolves. waves(): a row per group with role, audience, fits, misfit, twinId. createWave names the signed-in admin (/me) in owners@odata.bind, reads /owners back, falls back to owners/$ref, retries the create without owners only when the refusal is about the owner. Screen: region-grouped Wave groups pane with the exclusion groups, include/exclude-from-the-rest links by audience, rules fields, include-audience warning in the dry run, audience on every policy row, twin notes on the Conflicts pane. Rollout actions (rolloutWants: includeWaves / excludeExclusion / excludeWaves, policyKind): three bulk plans on the 🌊 pane with region chips, each read fresh and composed through planFor, left-out items listed with reasons; the exclusion group follows the kind the policy is assigned to (support matrix), the name only while unassigned; excludeWaves is the proposals restricted to waves. Demo: G(21) PVM-DG-MDE-WAVE-Euro; the - D - new policies include it; /me, owners, owners/$ref.",
+  "why": "Mihai: 'creator is owner'; 'wave groups need to have device groups also — - U - policies are user policies, - D - device; PVM-DG-MDE-WAVE-Euro for devices, PVM-UG-MDE-WAVE-Euro for users'; 'also add PVM-UG-MDE-Exclusion and PVM-DG-MDE-Exclusion'. Microsoft Learn: an admin is not made owner of a security group they create; Intune does not exclude user groups from device-targeted policies (or the reverse).",
+  "test": [
+   "Run npm test — tests/mderollout/engine.test.js (config pairs and migration, audienceOf, twin swap, missing twin, staged by audience, target kind by name, resolved by twin, wave/exclusion rows, owner bind / $ref fallback / refusal retry, the three rollout actions) and tests/mderollout/screen.test.js (twin on the Conflicts pane, region rows, exclusion group created with its description, owner read back, include-audience warning, rules fields, rollout actions dry run → apply, region chips).",
+   "LIVE PENDING: PVM tenant — create PVM-DG-MDE-WAVE-Euro and PVM-DG-MDE-Exclusion; Entra shows you as owner of both.",
+   "LIVE PENDING: a - D - new policy on the device wave against a user-targeted old policy proposes the user twin; apply; the pair turns resolved.",
+   "LIVE PENDING: rollout actions on PVM — ① includes the DG waves in the - D - policies and the UG waves in the - U - ones; ② excludes the exclusion groups; ③ excludes the waves from the colliding old policies; undo ③ from Changes this session."
+  ],
+  "files": [
+   "js/mderollout.js",
+   "js/demo.js",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "index.html",
+   "tests/mderollout/engine.test.js",
+   "tests/mderollout/screen.test.js",
+   "docs/reviews/T28-beta-10633.md",
+   "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 194,
   "title": "T11 engine — legacy endpoint security intents are an assignment surface",
   "tools": [

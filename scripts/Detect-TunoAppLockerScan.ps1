@@ -1,4 +1,4 @@
-﻿# Detect-TunoAppLockerScan.ps1  v1.1.0  (TUNO build 10632)
+﻿# Detect-TunoAppLockerScan.ps1  v1.1.0  (TUNO build 10633)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -42,7 +42,7 @@ Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell,
 #>
 
 $script:ScriptVersion = '1.1.0'
-$script:TunoBuild = 10632
+$script:TunoBuild = 10633
 
 # How old the newest bundle may be before the scan runs again. Seven days is
 # the house cadence; edit the number in a copy for a faster or slower ring.

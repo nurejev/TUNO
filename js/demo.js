@@ -131,17 +131,22 @@ const TUNO_DEMO = (() => {
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(340 * DAY), memberCount: 9 },
 
-    // T28 (MDE rollout, build 10632). The first wave exists, is a USER group
-    // and is what the new set is assigned to; the other four waves of the
-    // default naming rules do NOT exist, so the 🌊 pane has groups to create.
+    // T28 (MDE rollout, builds 10632–10633). The first region's wave PAIR
+    // exists: the DEVICE wave (G(21)) is what the "- D -" new set is assigned
+    // to, the USER wave (G(20)) is its twin. The other four regions and both
+    // exclusion groups do NOT exist, so the 🌊 pane has groups to create.
     // `_kind` says what the unmodelled members are (stripped from every
     // answer): the typed $count reads use it when no member is modelled.
     { id: G(20), displayName: "PVM-UG-MDE-WAVE-Euro", description: "MDE rollout wave 1 — Europe.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(6 * DAY), memberCount: 25, _kind: "user" },
-    // FAULT (T28): the old ASR policy targets this USER group, so excluding
-    // the user wave from it is supported — the contrast with the old
-    // antivirus policy on the dynamic DEVICE group (G(8)), where it is not.
+    { id: G(21), displayName: "PVM-DG-MDE-WAVE-Euro", description: "MDE rollout wave 1 — Europe (devices).",
+      groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: null, createdDateTime: ago(6 * DAY), memberCount: 25, _kind: "device" },
+    // FAULT (T28): the old ASR policy targets this USER group, so the new
+    // ASR policy's DEVICE wave cannot be excluded from it — the ⚔️ pane
+    // proposes the wave's USER twin (G(20)) instead. The old antivirus
+    // policy on the dynamic DEVICE group (G(8)) takes the device wave as is.
     { id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL", description: "Users in the Netherlands.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(500 * DAY), memberCount: 140, _kind: "user" },
@@ -455,13 +460,13 @@ const TUNO_DEMO = (() => {
       platforms: "windows10", technologies: "mdm,microsoftSense", createdDateTime: ago(8 * DAY), lastModifiedDateTime: ago(2 * DAY),
       roleScopeTagIds: ["0"], settingCount: 3, isAssigned: true,
       templateReference: { templateId: "t-av", templateFamily: "endpointSecurityAntivirus", templateDisplayName: "Microsoft Defender Antivirus" },
-      assignments: [inc(G(20))],
+      assignments: [inc(G(21))],
       _settings: [choice(DEF_RTP, `${DEF_RTP}_1`), choice(DEF_CBL, `${DEF_CBL}_4`), choice(DEF_PUA, `${DEF_PUA}_1`)] },
     { id: P(15), name: "WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0", description: "New set — one ASR rule per policy.",
       platforms: "windows10", technologies: "mdm,microsoftSense", createdDateTime: ago(8 * DAY), lastModifiedDateTime: ago(2 * DAY),
       roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
       templateReference: { templateId: "t-asr", templateFamily: "endpointSecurityAttackSurfaceReductionRules", templateDisplayName: "Attack Surface Reduction Rules" },
-      assignments: [inc(G(20))],
+      assignments: [inc(G(21))],
       _settings: [choice(DEF_ASR, `${DEF_ASR}_1`, [choice(ASR_OBF, `${ASR_OBF}_block`).settingInstance])] },
     // FAULT (T28): staged — the new Edge policy is not assigned yet, while the
     // old one it replaces sits on All devices with the opposite value.
@@ -1427,12 +1432,26 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // the next one, and a group that vanished between its create and its
   // read-back would report every demo create as unverified.
   if (method === "POST" && path === "/groups") {
-    const g = Object.assign({ groupTypes: [], membershipRule: null, memberCount: 0 }, body || {}, {
+    const b = Object.assign({}, body || {});
+    // owners@odata.bind (10633): kept as _owners so /owners answers the way
+    // Graph does — the create names the owner and T28 reads it back
+    const owners = (b["owners@odata.bind"] || []).map((u) => String(u).split("/").pop());
+    delete b["owners@odata.bind"];
+    const g = Object.assign({ groupTypes: [], membershipRule: null, memberCount: 0 }, b, {
       id: T.G(900 + T.GROUPS.length),
       createdDateTime: new Date().toISOString(),
+      _owners: owners,
     });
     T.GROUPS.push(g);
     return M.strip(g);
+  }
+  const ownRef = /^\/groups\/([^/]+)\/owners\/\$ref$/.exec(path);
+  if (method === "POST" && ownRef) {
+    const g = T.GROUPS.find((x) => x.id === ownRef[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    const id = String((body && body["@odata.id"]) || "").split("/").pop();
+    g._owners = (g._owners || []).concat(id && !(g._owners || []).includes(id) ? [id] : []);
+    return null;
   }
   if (method === "POST" && !/\$batch|getByIds/.test(path)) {
     const made = Object.assign({}, body || {}, {
@@ -1596,6 +1615,17 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     let n = m[2] === "user" ? users : devices;
     if (!users && !devices && g.memberCount && g._kind === m[2]) n = g.memberCount;
     return String(n);
+  }
+  // The signed-in demo admin (10633, T28's group owner) and a group's owners.
+  if (path === "/me") return { id: T.U(1), displayName: "Alex Admin", userPrincipalName: "alex.admin@contoso.com" };
+  m = /^\/groups\/([^/]+)\/owners$/.exec(path);
+  if (m) {
+    const g = T.GROUPS.find((x) => x.id === m[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    return M.coll((g._owners || []).map((id) => {
+      const u = T.USERS.find((x) => x.id === id);
+      return { id, displayName: u ? u.displayName : id, "@odata.type": "#microsoft.graph.user" };
+    }));
   }
   m = /^\/groups\/([^/]+)\/members\/\$count$/.exec(path);
   if (m) {

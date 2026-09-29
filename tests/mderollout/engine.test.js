@@ -108,7 +108,23 @@ async function run() {
   // -------------------------------------------------------- generations --
   const cfg = M.normConfig({});
   ok("defaults carry the three new prefixes", cfg.newPrefixes.join("|") === "Win - OIB|WIN-SEC|WIN-DCP");
-  ok("defaults carry the five wave groups", cfg.waves.length === 5 && cfg.waves.includes("PVM-UG-MDE-WAVE-Asia-Pacific"));
+  ok("defaults carry five regions", cfg.waveRegions.join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA");
+  ok("each region is a device + user pair, then the two exclusion groups (12 names)", cfg.waves.length === 12
+    && cfg.waves.slice(0, 2).join("|") === "PVM-DG-MDE-WAVE-Euro|PVM-UG-MDE-WAVE-Euro"
+    && cfg.waves.includes("PVM-UG-MDE-WAVE-Asia-Pacific") && cfg.waves.includes("PVM-DG-MDE-WAVE-BAMSCA")
+    && cfg.waves.slice(-2).join("|") === "PVM-DG-MDE-Exclusion|PVM-UG-MDE-Exclusion");
+  ok("the pair members name each other as twins", cfg.groups[0].twin === "PVM-UG-MDE-WAVE-Euro" && cfg.groups[1].twin === "PVM-DG-MDE-WAVE-Euro" && cfg.groups[0].audience === "device" && cfg.groups[1].audience === "user");
+  ok("exclusion groups carry their role and audience", cfg.groups.filter((g) => g.role === "exclusion").map((g) => g.audience).join() === "device,user");
+  const mig = M.normConfig({ waves: ["PVM-UG-MDE-WAVE-Euro", "PVM-UG-MDE-WAVE-Italy"] });
+  ok("a 10632 config (full UG names) migrates to regions", mig.waveRegions.join("|") === "Euro|Italy" && mig.waves.includes("PVM-DG-MDE-WAVE-Italy"));
+  ok("a blank exclusion name drops that group", !M.normConfig({ exclusionUser: "" }).waves.includes("PVM-UG-MDE-Exclusion") && M.normConfig({ exclusionUser: "" }).waves.includes("PVM-DG-MDE-Exclusion"));
+  ok("custom prefixes build the names", M.normConfig({ waveRegions: ["NL"], waveDevicePrefix: "X-DG-", waveUserPrefix: "X-UG-" }).waves.slice(0, 2).join("|") === "X-DG-NL|X-UG-NL");
+  ok("audience: \" - D - \" is device", M.audienceOf("Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3") === "device");
+  ok("audience: -D- without spaces is device", M.audienceOf("WIN-SEC-AttackSurfaceReduction-D-02_Block x") === "device");
+  ok("audience: \" - U - \" and -u- are user", M.audienceOf("Win - OIB - ES - Edge - U - Sync") === "user" && M.audienceOf("win-sec-x-u-y") === "user");
+  ok("audience: WIN-DCP and PVM-DG-… are not a D", M.audienceOf("WIN-DCP-DeviceConfiguration-x") === null && M.audienceOf("PVM-DG-CORP-ENDSEC-WIN-AV-PRD") === null);
+  ok("audience: both or neither is null", M.audienceOf("X - D - Y - U - Z") === null && M.audienceOf("Plain name") === null);
+  ok("audience survives the TO-BE-REMOVED marker", M.audienceOf("(TO-BE-REMOVED) Old - U - thing") === "user");
   ok("normConfig trims, dedupes and drops blanks", M.normConfig({ newPrefixes: [" A ", "A", "", "B"] }).newPrefixes.join("|") === "A|B");
   ok("normConfig keeps an explicitly empty list empty", M.normConfig({ outPrefixes: [] }).outPrefixes.length === 0);
   const gen = (n) => M.generationOf(n, cfg);
@@ -275,6 +291,73 @@ async function run() {
   ok("a missing wave is said missing", wv.find((x) => x.name === "PVM-UG-MDE-WAVE-Americas").exists === false);
   ok("a wave never looked up is not called missing", wv.find((x) => x.name === "PVM-UG-MDE-WAVE-Italy").lookedUp === false);
 
+  // ------------------------------------ wave pairs: twins (10633) --
+  ok("a policy carries its audience", P("n1").audience === "device" && P("n2").audience === "device" && P("o1").audience === null);
+  const G5 = G(5);
+  names.set(G5, "PVM-DG-MDE-WAVE-Euro");
+  const found2 = new Map([["pvm-ug-mde-wave-euro", { id: G(2), displayName: "PVM-UG-MDE-WAVE-Euro" }], ["pvm-dg-mde-wave-euro", { id: G5, displayName: "PVM-DG-MDE-WAVE-Euro" }],
+    ["pvm-dg-mde-exclusion", null], ["pvm-ug-mde-exclusion", { id: G(6), displayName: "PVM-UG-MDE-Exclusion" }]]);
+  const twins = M.twinIndex(model.cfg, found2);
+  ok("twinIndex maps each wave to its twin's id", twins.get(G(2)).twinId === G5 && twins.get(G5).twinId === G(2) && !twins.has(G(6)));
+  const kinds2 = new Map([[G(1), { kind: "device", source: "members" }], [G(2), { kind: "user", source: "members" }], [G5, { kind: "device", source: "name (group is empty)" }]]);
+  const tp = M.proposalFor(pr("n1", "o1"), { kinds: kinds2, twins, names });
+  ok("a user wave vs a device-targeted old policy: its DEVICE twin is proposed", tp.steps.length === 1 && tp.steps[0].groupId === G5 && tp.steps[0].supported === true && tp.steps[0].twinOf === "PVM-UG-MDE-WAVE-Euro" && tp.steps[0].twinOfId === G(2));
+  ok("…with the reason in a note", tp.steps[0].notes.some((n) => /^twin:/.test(n) && /cannot mix/.test(n)));
+  const twinsNoDg = M.twinIndex(model.cfg, new Map([["pvm-ug-mde-wave-euro", { id: G(2) }], ["pvm-dg-mde-wave-euro", null]]));
+  const mp = M.proposalFor(pr("n1", "o1"), { kinds: kinds2, twins: twinsNoDg, names });
+  ok("a missing twin: still refused, and the twin is named to create", mp.steps[0].supported === false && mp.steps[0].missingTwin === "PVM-DG-MDE-WAVE-Euro" && /create it/.test(mp.steps[0].why));
+  const kindsU2 = new Map([[G(1), { kind: "user" }], [G(2), { kind: "user" }]]);
+  ok("a user wave vs a user-targeted old policy keeps the user wave", M.proposalFor(pr("n1", "o1"), { kinds: kindsU2, twins, names }).steps[0].groupId === G(2));
+  const pool = M.wavePool(model.cfg, found2);
+  ok("wavePool lists existing waves with their audience, not exclusion groups", pool.length === 2 && pool.some((x) => x.id === G5 && x.audience === "device") && !pool.some((x) => x.id === G(6)));
+  const st2 = M.proposalFor(pr("n3", "o3"), { kinds: kinds2, waves: pool, twins, names });
+  ok("a staged \" - D - \" policy is planned with the DEVICE wave only", st2.steps.length === 1 && st2.steps[0].groupId === G5 && st2.steps[0].planned);
+  const oByName = Object.assign({}, P("o1"), { audience: "device" });
+  const et = M.effectiveTargets(oByName, new Map());
+  ok("unknown include kinds: the old policy's name decides the target kind, and says so", et.byName && [...et.kinds].join() === "device");
+  ok("known include kinds win over the name", M.effectiveTargets(Object.assign({}, P("o1"), { audience: "user" }), kinds2).byName === false);
+  const byNamePr = Object.assign({}, pr("n1", "o1"), { O: oByName });
+  const bn = M.proposalFor(byNamePr, { kinds: new Map([[G(2), { kind: "user" }]]), twins, names });
+  ok("…and the twin is chosen from it", bn.steps[0].groupId === G5 && bn.steps[0].notes.some((n) => /from the old policy's name/.test(n)));
+  const rN = w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: G(2) }] });
+  const rO = w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: G(1) }, { kind: "Excluded", groupId: G5 }] });
+  const rv = M.pairReach({ reach: rN }, { reach: rO }, twins);
+  ok("an old policy excluding the wave's twin is resolved, by twin", rv.verdict === "resolved" && rv.byTwin === true);
+  ok("without the twin map it is not", M.pairReach({ reach: rN }, { reach: rO }).verdict !== "resolved");
+  const wv2 = M.waves(model, found2, kinds2, pairs);
+  ok("waves: one row per group, 12 by default", wv2.length === 12 && wv2.filter((x) => x.role === "exclusion").length === 2);
+  const dgE = wv2.find((x) => x.name === "PVM-DG-MDE-WAVE-Euro"), ugE = wv2.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro");
+  ok("a device wave fits the - D - policies", dgE.fits.some((N) => N.id === "n1") && dgE.twinId === G(2));
+  ok("a user wave included in - D - policies is a misfit", ugE.misfit.map((N) => N.id).sort().join() === "n1,n2" && !ugE.fits.some((N) => N.id === "n1"));
+  const exU = wv2.find((x) => x.name === "PVM-UG-MDE-Exclusion"), exD = wv2.find((x) => x.name === "PVM-DG-MDE-Exclusion");
+  ok("exclusion groups: exists / missing, and no outstanding old-policy work", exU.exists && !exD.exists && exD.lookedUp && exU.pending.length === 0);
+  const md2 = M.markdown(model, pairs, M.retirement(model), wv2, {});
+  ok("markdown lists the pairs and exclusion groups", md2.includes("PVM-DG-MDE-WAVE-Euro") && md2.includes("PVM-UG-MDE-Exclusion") && /\| exclusion \|/.test(md2));
+  // ------------------------------------------ rollout actions (10633) --
+  ok("policyKind: the name first", M.policyKind(P("n1"), kinds2).kind === "device" && M.policyKind(P("n1"), kinds2).source === "name");
+  ok("policyKind: no D/U in the name → the targets, when one kind", M.policyKind(P("o1"), kinds2).kind === "device" && M.policyKind(P("o1"), kinds2).source === "targets");
+  ok("policyKind: unassigned and unnamed → unknown", M.policyKind(Object.assign({}, P("n3"), { audience: null }), kinds2).kind === null);
+  const rctx = (extra) => Object.assign({ kinds: kinds2, found: found2, twins, names, pairs }, extra || {});
+  const iw = M.rolloutWants("includeWaves", model, rctx());
+  ok("① include: the device wave into every - D - new policy not holding it", iw.wants.length === 3 && iw.wants.every((x) => x.groupId === G5 && x.action === "add-include") && iw.policies.map((p) => p.id).sort().join() === "n1,n2,n3");
+  ok("① never the user wave into a - D - policy", !iw.wants.some((x) => x.groupId === G(2)));
+  ok("① a wave that does not exist is named to create", iw.skipped.some((x) => /PVM-DG-MDE-WAVE-Americas does not exist/.test(x)));
+  ok("① regions narrow it (and the other regions' missing waves go quiet)", M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Euro"]) })).skipped.length === 0
+    && M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Italy"]) })).wants.length === 0);
+  const ex0 = M.rolloutWants("excludeExclusion", model, rctx());
+  ok("② a missing device exclusion group: not planned, the group named", !ex0.wants.some((x) => x.P.id === "n3") && ex0.skipped.some((x) => /PVM-DG-MDE-Exclusion does not exist/.test(x)));
+  ok("② a - D - policy assigned to a USER group takes the USER exclusion group (support matrix), and says why", ex0.wants.filter((x) => x.groupId === G(6)).map((x) => x.P.id).sort().join() === "n1,n2" && /assigned to user groups/.test(ex0.wants[0].note));
+  const found3 = new Map(found2); found3.set("pvm-dg-mde-exclusion", { id: G(7), displayName: "PVM-DG-MDE-Exclusion" });
+  const ex1 = M.rolloutWants("excludeExclusion", model, rctx({ found: found3 }));
+  ok("② once it exists, the device exclusion group from the - D - policy on device targets", ex1.wants.length === 3 && ex1.wants.find((x) => x.P.id === "n3").groupId === G(7) && ex1.wants.every((x) => x.action === "add-exclude"));
+  const pairsP = M.compare(model, twins); pairsP.forEach((x) => { x.proposal = M.proposalFor(x, { kinds: kinds2, twins, names, waves: M.wavePool(model.cfg, found2) }); });
+  const xw = M.rolloutWants("excludeWaves", model, rctx({ pairs: pairsP }));
+  ok("③ the waves leave the colliding old policies — the device twin from the device-targeted one", xw.wants.some((x) => x.P.id === "o1" && x.groupId === G5 && /twin of/.test(x.note)));
+  ok("③ only waves, only old policies", xw.wants.every((x) => (x.groupId === G5 || x.groupId === G(2)) && M.isOld(x.P)));
+  ok("③ a region not ticked is left alone", M.rolloutWants("excludeWaves", model, rctx({ pairs: pairsP, regions: new Set(["Italy"]) })).wants.length === 0);
+  ok("rollout wants are deduped per policy, group and action", new Set(xw.wants.map((x) => `${x.P.key}|${x.groupId}|${x.action}`)).size === xw.wants.length);
+  names.delete(G5);
+
   // -------------------------------------------------------------- patch --
   ok("patchAssignments moves the verdict locally", M.patchAssignments(model, "settingsCatalog", "o1", [inc(G(1)), exc(G(2))], names, new Map()));
   const pairs2 = M.compare(model);
@@ -288,6 +371,47 @@ async function run() {
   ok("markdown says the unsupported exclusion", /NOT SUPPORTED/.test(md));
   const c = M.csv(pairs);
   ok("csv has a header and quotes commas", c.split("\r\n")[0].startsWith("Old policy,") && /"[^"]*,[^"]*"/.test(c));
+
+  // ------------------------------------------- wave group: the owner --
+  // (10633, Mihai: "creator is owner") — Graph does not make an admin the
+  // owner of a security group it creates, so the create names the owner
+  // and the owners read decides.
+  {
+    const ME = { id: "aaaaaaaa-0000-4000-8000-000000000001", userPrincipalName: "admin@x" };
+    const run = async (opts) => {
+      const posts = []; const owners = new Map(); let n = 0;
+      w.Graph.readAll = async (p) => {
+        if (/^\/groups\?\$filter/.test(p)) return [];
+        const m = /^\/groups\/([^/?]+)\/owners/.exec(p); if (m) return (owners.get(m[1]) || []).map((id) => ({ id }));
+        return [];
+      };
+      w.Graph.readOne = async (p) => ({ id: "g1", displayName: "PVM-UG-MDE-WAVE-X", securityEnabled: true });
+      w.Graph.post = async (p, body) => {
+        posts.push({ p, body: JSON.parse(JSON.stringify(body)) });
+        if (p === "/groups") {
+          if (opts.refuseOwner && body["owners@odata.bind"]) throw new Error("A non-admin user cannot add self as owner");
+          owners.set("g1", opts.dropOwner ? [] : (body["owners@odata.bind"] || []).map((u) => u.split("/").pop()));
+          return { id: "g1", displayName: body.displayName };
+        }
+        if (/owners\/\$ref$/.test(p)) { if (!opts.refRefused) owners.set("g1", [body["@odata.id"].split("/").pop()]); return null; }
+        return null;
+      };
+      const r = await w.MdeRollout.createWave("PVM-UG-MDE-WAVE-X", "d", ME);
+      return { r, posts };
+    };
+    const a1 = await run({});
+    ok("the create names the signed-in admin as owner", a1.posts[0].body["owners@odata.bind"][0].endsWith(ME.id) && a1.r.ownerVerified === true && a1.posts.length === 1);
+    ok("…and keeps T22's payload rules", a1.posts[0].body.securityEnabled === true && a1.posts[0].body.mailEnabled === false && a1.posts[0].body.isAssignableToRole === false);
+    const a2 = await run({ refuseOwner: true });
+    ok("a refusal about the owner is retried without it, and said", a2.posts.filter((x) => x.p === "/groups").length === 2 && !a2.posts[1].body["owners@odata.bind"] && /refused/.test(a2.r.ownerNote));
+    ok("…then the owner is added by $ref and read back", a2.posts.some((x) => /owners\/\$ref$/.test(x.p)) && a2.r.ownerVerified === true);
+    const a3 = await run({ dropOwner: true, refRefused: true });
+    ok("an owner the tenant does not confirm is reported, not claimed", a3.r.created && a3.r.ownerVerified === false && /did not take/.test(a3.r.ownerNote));
+    let threw = false;
+    w.Graph.post = async () => { throw new Error("Invalid value for mailNickname"); };
+    try { await w.MdeRollout.createWave("PVM-UG-MDE-WAVE-X", "d", ME); } catch { threw = true; }
+    ok("a refusal about anything else is NOT retried", threw);
+  }
 
   // -------------------------------------------------- the shared engine --
   const last = AE.SURFACES[AE.SURFACES.length - 1];

@@ -87,10 +87,14 @@ async function run() {
   const pair = (o, n) => S.pairs.find((p) => p.O.name === o && p.N.name.startsWith(n));
   const av = pair("(TO-BE-REMOVED)PVM-DG-CORP-ENDSEC-WIN-AV-PRD", "Win - OIB - ES - Defender Antivirus");
   ok("old AV conflicts with new AV on cloud block level and PUA", av && av.type === "conflict" && av.diffs.length === 2);
-  ok("…and its user-wave exclusion is refused (old targets a dynamic DEVICE group)", av.proposal.steps.length === 1 && av.proposal.steps[0].supported === false);
+  ok("…and its DEVICE-wave exclusion is supported (old targets a dynamic DEVICE group)", av.proposal.steps.length === 1 && av.proposal.steps[0].supported === true && av.proposal.steps[0].groupName === "PVM-DG-MDE-WAVE-Euro");
   const asr = pair("PVM-DG-CORP-ENDSEC-WIN-ASR-PRD", "WIN-SEC-AttackSurface");
   ok("old ASR meets the one-rule policy on that rule only", asr && asr.diffs.length === 1 && /obfuscated/i.test(asr.diffs[0].name));
-  ok("…and excluding the user wave from its user-targeted policy is supported", asr.proposal.steps[0].supported === true && asr.proposal.steps[0].action === "add-exclude");
+  ok("…and against its USER-targeted policy the wave's USER twin is proposed", asr.proposal.steps[0].supported === true && asr.proposal.steps[0].action === "add-exclude"
+    && asr.proposal.steps[0].groupName === "PVM-UG-MDE-WAVE-Euro" && asr.proposal.steps[0].twinOf === "PVM-DG-MDE-WAVE-Euro");
+  ok("the - D - policies are read as device policies", S.model.newP.filter((p) => / - D - |-D-/.test(p.name)).every((p) => p.audience === "device"));
+  const edgeStaged = S.pairs.find((p) => p.O.name === "(TO-BE-REMOVED)PVM-DG-DEVCONF-CORP-WIN-EDGE-Security - v3.0" && /Microsoft Edge/.test(p.N.name));
+  ok("a staged - D - policy is planned with the DEVICE wave only", edgeStaged.proposal.steps.length === 1 && edgeStaged.proposal.steps[0].groupName === "PVM-DG-MDE-WAVE-Euro" && edgeStaged.proposal.steps[0].planned);
   const edge = pair("(TO-BE-REMOVED)PVM-DG-DEVCONF-CORP-WIN-EDGE-Security - v3.0", "Win - OIB - SC - Microsoft Edge");
   ok("the unassigned new Edge policy is staged against the old one", edge && edge.reach.verdict === "staged");
   ok("the legacy intent meets the new AV policy by category", S.pairs.some((p) => p.O.name === "PVM Legacy — Defender antivirus (intent)" && p.type === "review"));
@@ -98,13 +102,16 @@ async function run() {
 
   // ---------------------------------------------------------- panes --
   const paneText = (p) => { w.MdeRolloutTool._pane(p); return $("mrBody").textContent; };
-  ok("Conflicts groups by old policy and shows the refusal", /not supported/.test(paneText("conflicts")) && /PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test($("mrBody").textContent));
+  ok("Conflicts groups by old policy and shows the twin", /twin of PVM-DG-MDE-WAVE-Euro/.test(paneText("conflicts")) && /PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test($("mrBody").textContent));
   ok("New lists the new set", /Win - OIB - ES - Defender Antivirus/.test(paneText("new")) && !/AVD - SEC/.test($("mrBody").textContent));
   ok("Old lists the old set with its retirement verdict", /PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test(paneText("old")));
   ok("Retirement names the WHfB gap", /GAP/.test(paneText("retire")) && /WHFB/.test($("mrBody").textContent));
   const wt = paneText("waves");
-  ok("Waves: Euro exists, the other four are missing", /PVM-UG-MDE-WAVE-Euro/.test(wt) && st().waveRows.filter((x) => !x.exists).length === 4 && st().waveRows.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro").exists);
-  ok("Waves warns that the waves are user groups", /USER group/.test(wt));
+  ok("Waves: the Euro pair exists; four pairs and both exclusion groups are missing", /PVM-UG-MDE-WAVE-Euro/.test(wt) && /PVM-DG-MDE-WAVE-Euro/.test(wt)
+    && st().waveRows.filter((x) => !x.exists).length === 10 && st().waveRows.find((x) => x.name === "PVM-DG-MDE-WAVE-Euro").exists && st().waveRows.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro").exists);
+  ok("Waves groups the rows by region, then the exclusion groups", D.querySelectorAll("#mrBody tr.mr-oldhead").length === 6 && /Exclusion groups/.test(wt) && /PVM-DG-MDE-Exclusion/.test(wt) && /PVM-UG-MDE-Exclusion/.test(wt));
+  ok("Waves says Intune does not mix user and device groups", /does not exclude a user group/.test(wt));
+  ok("the device wave counts the - D - policies it is in", /2 \/ 3/.test(D.querySelector('[data-mrwaveinc="PVM-DG-MDE-WAVE-Euro"]').parentElement.textContent));
   ok("Out of scope lists AVD", /AVD - SEC - Defender Antivirus/.test(paneText("out")));
   ok("Rules shows the three prefixes", /WIN-SEC/.test($("mrBody").querySelector("#mrRuleNew") ? $("mrRuleNew").value : paneText("rules")));
   ok("How it works cites the support matrix", /support matrix/.test(paneText("how")));
@@ -113,7 +120,7 @@ async function run() {
   w.MdeRolloutTool._pane("conflicts");
   const box = D.querySelector(`[data-mrpair="${asr.id}"]`);
   ok("a supported fix has a tick box", !!box);
-  ok("a refused-only fix has none", !D.querySelector(`[data-mrpair="${av.id}"]`));
+  ok("the device-wave fix on the old AV policy has one too", !!D.querySelector(`[data-mrpair="${av.id}"]`));
   box.checked = true; box.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("the bar appears in fix mode", $("mrSelbar").classList.contains("visible") && /1 fix selected/.test($("mrSelCount").textContent) && $("mrBarFixes").style.display !== "none");
   $("mrDryRun").click();
@@ -139,6 +146,7 @@ async function run() {
   $("mrGroup").value = "PVM-UG-MDE-WAVE-Euro";
   $("mrDryRun").click();
   ok("an include plan is cut", await until(() => st().plan && st().plan.changes.length === 1, 10000, "include plan"));
+  ok("…warning that a - D - policy is given a user group", /the device wave is the one meant for it/.test($("mrPlan").textContent));
   ok("the include targets the wave group", st().plan.changes[0].after.some((a) => a.target.groupId && /groupAssignmentTarget/.test(a.target["@odata.type"])));
   // a removal plan asks for the typed word
   D.querySelector('#mrActSeg [data-mract="remove"]').click();
@@ -154,13 +162,49 @@ async function run() {
   const wb = D.querySelector('[data-mrwave="PVM-UG-MDE-WAVE-Americas"]');
   ok("a missing wave has a tick box", !!wb);
   wb.checked = true; wb.dispatchEvent(new w.Event("change", { bubbles: true }));
+  const xb = D.querySelector('[data-mrwave="PVM-DG-MDE-Exclusion"]');
+  ok("a missing exclusion group has a tick box", !!xb);
+  xb.checked = true; xb.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("create stays locked until the confirm tick", $("mrWaveCreate").disabled);
   $("mrWaveOk").checked = true; $("mrWaveOk").dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("the tick unlocks create", !$("mrWaveCreate").disabled);
   $("mrWaveCreate").click();
   ok("the wave is created and read back", await until(() => st().runs.length === 2, 10000, "wave run") && /created · verified/.test(st().runs[1].lines.join(" ")));
   ok("…and now exists", st().waveRows.find((x) => x.name === "PVM-UG-MDE-WAVE-Americas").exists);
+  const exRow = st().waveRows.find((x) => x.name === "PVM-DG-MDE-Exclusion");
+  ok("the exclusion group is created in the same run, with the exclusion description", exRow.exists && /exclusion/i.test(exRow.group.description || "") && /PVM-DG-MDE-Exclusion: created · verified/.test(st().runs[1].lines.join("\n")));
+  ok("…read as a device group by its name while empty", exRow.kind === "device");
+  ok("an existing exclusion group offers to exclude it from the new policies", !!D.querySelector('[data-mrexcl="PVM-DG-MDE-Exclusion"]'));
+  ok("…owned by the signed-in admin (read back)", /owner alex\.admin@contoso\.com/.test(st().runs[1].lines.join(" ")));
   ok("a second create of the same name is skipped, not duplicated", (await w.MdeRollout.createWave("PVM-UG-MDE-WAVE-Americas", "")).skipped === true);
+
+  // --------------------------------------- rollout actions (10633) --
+  w.MdeRolloutTool._pane("waves");
+  ok("the 🌊 pane leads with the three rollout actions", /Rollout actions/.test($("mrBody").textContent) && D.querySelectorAll("[data-mrroll]").length === 3);
+  D.querySelector('[data-mrroll="includeWaves"]').click();
+  ok("① include: a plan is cut", await until(() => st().plan, 10000, "rollout include plan"));
+  ok("…the device wave into the unassigned - D - Edge policy, the others already hold it", st().plan.changes.length === 1 && /Microsoft Edge/.test(st().plan.changes[0].policy.name)
+    && st().plan.changes[0].after.some((a) => a.target.groupId === "11111111-0000-4000-8000-000000000021"));
+  ok("…and the waves that do not exist are left out, named", /Left out/.test($("mrPlan").textContent) && /PVM-DG-MDE-WAVE-Americas does not exist/.test($("mrPlan").textContent));
+  $("mrBackup").click(); $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mrApply").click();
+  // (the demo's /assign is simulated and does not keep the write, so the read-back says NOT verified — as it does for every T11 write in demo)
+  ok("…applied on the ledger and logged with its backup", await until(() => st().runs.length === 3, 10000, "rollout include run") && /Include the waves/.test(st().runs[2].title)
+    && st().runs[2].ok + st().runs[2].bad === 1 && st().runs[2].backup.policies.length === 1 && st().runs[2].backup.action === "rollout-includeWaves");
+  w.MdeRolloutTool._pane("waves");
+  D.querySelector('[data-mrroll="excludeExclusion"]').click();
+  ok("② exclude: the device exclusion group from the three - D - policies", await until(() => st().plan, 10000, "rollout exclusion plan")
+    && st().plan.changes.length === 3 && st().plan.changes.every((o) => o.details.some((d) => d.action === "add-exclude" && d.group.displayName === "PVM-DG-MDE-Exclusion")));
+  w.MdeRolloutTool._pane("waves");
+  D.querySelector('[data-mrroll="excludeWaves"]').click();
+  ok("③ the waves out of the colliding old policies — waves only", await until(() => st().plan, 10000, "rollout wave-exclusion plan")
+    && st().plan.changes.length >= 1 && st().plan.changes.every((o) => o.details.filter((d) => d.change === "modify").every((d) => /MDE-WAVE/.test(d.group.displayName))));
+  w.MdeRolloutTool._pane("waves");
+  D.querySelector('[data-mrroll-region="Euro"]').click();
+  ok("unticking a region narrows the actions", !!st().rollRegions && !st().rollRegions.has("Euro") && D.querySelector('[data-mrroll="excludeWaves"]').disabled);
+  D.querySelector('[data-mrroll-region="Euro"]').click();
+  ok("ticking it back restores every region", st().rollRegions === null);
+  w.MdeRolloutTool._pane("waves");
 
   // ----------------------------------------------------- rules pane --
   w.MdeRolloutTool._pane("rules");
@@ -171,6 +215,8 @@ async function run() {
   ok("…and keeps them for this tenant", /PVM-DG-CORP-ENDSEC-WIN-ASR/.test(w.localStorage.getItem(key) || ""), key);
   $("mrRuleReset").click();
   ok("reset brings the defaults back", st().cfg.outPrefixes.join("|") === "AVD|WinServ|Win-Serv");
+  w.MdeRolloutTool._pane("rules");
+  ok("rules show the regions and the four group-name fields", /Euro/.test($("mrRuleWaves").value) && $("mrRuleDgPre").value === "PVM-DG-MDE-WAVE-" && $("mrRuleExU").value === "PVM-UG-MDE-Exclusion");
 
   // ----------------------------- a re-read never loses the plan panel --
   // (found in a real browser: the warm start renders before the first
@@ -181,13 +227,14 @@ async function run() {
   w.MdeRolloutTool._pane("conflicts");
   const again = D.querySelector("[data-mrpair]");
   again.checked = true; again.dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrGroup").value = "";   // the include test above left its group in the bar
   $("mrDryRun").click();
   ok("after a second read the dry run still has somewhere to land", await until(() => D.getElementById("mrPlan") && D.getElementById("mrPlan").isConnected && /② Plan/.test(D.getElementById("mrPlan").textContent), 10000, "plan after re-read"));
   ok("…and the panel sits in the main column", !!D.querySelector(".ep-main #mrPlan"));
 
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });
-  ok("the markdown export carries the four sections", /## Wave groups/.test(md) && /## New policies/.test(md) && /## Old policies colliding/.test(md) && /## Retirement check/.test(md));
+  ok("the markdown export carries the four sections", /## Wave and exclusion groups/.test(md) && /## New policies/.test(md) && /## Old policies colliding/.test(md) && /## Retirement check/.test(md));
 }
 
 run().then(() => {

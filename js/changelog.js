@@ -26,6 +26,43 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10633,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — device and user wave pairs, exclusion groups, one-click rollout actions, and you as owner",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Every wave is now a pair: a device group (PVM-DG-MDE-WAVE-Euro) for the \"- D -\" policies and a user group (PVM-UG-MDE-WAVE-Euro) for the \"- U -\" ones. A policy's kind is read from its name. The regions and both name prefixes are edited under Naming rules, and a saved list of wave names from the previous build carries over."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Conflicts propose the wave of the old policy's kind: Intune cannot exclude a user group from a policy assigned to device groups, so a device-targeted old policy gets the region's device wave even when the new policy was given the user wave, and the step says whose twin it is. A missing twin is named so it can be created, and excluding the twin counts as resolved. An unassigned \"- D -\" policy is planned with the device waves only."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Two exclusion groups, PVM-DG-MDE-Exclusion and PVM-UG-MDE-Exclusion, are looked up and can be created next to the waves, with their own description and a link to exclude them from the new policies of their kind."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Rollout actions, on top of the Wave groups pane and narrowed by region: include every wave in the new policies of its kind; exclude the exclusion group from every new policy (the device one where the policy is assigned to devices, the user one where it is assigned to users); and exclude the waves from the old policies that collide with a new one — only where the new policy includes that wave or its twin, so nobody is left with neither. Each is one dry run with the backup, confirm, read-back and undo of any other change, and lists what it left out and why."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "A group created here is owned by you. Entra does not make an admin the owner of a security group they create, so you are named owner in the create, the owners are read back, and the row fails if you could not be set."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Including a user group in a \"- D -\" policy, or a device group in a \"- U -\" one, is warned in the dry run. The Wave groups pane is grouped by region, and each policy shows whether it is a device or a user policy."
+    }
+  ]
+},
+{
   "build": 10632,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — new, temporary: old policies that collide with the new set, and the exclusion that fixes them",
