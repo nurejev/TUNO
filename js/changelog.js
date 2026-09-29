@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10635,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — reports, the NL-Breda pilot, and the waves renamed to INT-SG-D/U-WAVE",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Reports, a new pane with three runs. Each opens as a page you can share or print and downloads as HTML or CSV. Assignments: every policy's targets with each group's role in the rollout, and a matrix of which wave each policy includes or excludes per region. Deployment configuration: the rules, the wave and exclusion groups with their owners, the wave members, every new policy's settings and assignments, the old policies' retirement verdict and this session's changes. Conflict check: reads the tenant fresh, lists every collision with the values on each side and the fix, and says what moved since the previous check."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "The wave groups are now named INT-SG-D-WAVE-<region> (devices) and INT-SG-U-WAVE-<region> (users). A wave group still carrying its old name (PVM-DG-MDE-WAVE-… / PVM-UG-MDE-WAVE-…) is found anyway and offered for renaming in the tenant. The rename changes the name only: the group keeps its id, so every policy assignment and nesting stays as it is. It can be undone from Changes this session."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Pilot groups: PVM-UG-CORP-MEM-USERS-NL-Breda leads the Euro wave as the first pilot, with its own device group INT-SG-D-NLD-BREDA. Its devices also belonging to the Netherlands group is expected and not reported as a problem. Any group listed under Not in any wave can be added to a chosen wave as a pilot with one click; in the country table a star marks a pilot. Slovakia (Euro), Kazakhstan and Lagos (BAMSCA) are now in the country table too, as INT-SG-D-SVK, INT-SG-D-KAZ and INT-SG-D-NGA-LAGOS."
+    }
+  ]
+},
+{
   "build": 10634,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — wave members: country groups and their devices into the waves",

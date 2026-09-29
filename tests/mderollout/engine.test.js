@@ -11,7 +11,7 @@ const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), { 
 const w = dom.window;
 const files = ["js/version.js", "js/graph.js", "js/progress.js", "js/groupuse.js", "js/document.js", "js/overview.js",
   "js/conflict.js", "js/endpointsec.js", "js/filterrules.js", "js/endpointposture.js", "js/assignedit.js",
-  "js/groupmigrate.js", "js/mdemembers.js", "js/mderollout.js"];
+  "js/groupmigrate.js", "js/mdemembers.js", "js/mdereports.js", "js/mderollout.js"];
 w.eval(files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n")
   + "\n;Object.assign(window, {MdeRollout, MdeMembers, AssignEdit, Docs, Graph, Conflict, EndpointSec, EndpointPosture, GroupMigrate});");
 const M = w.MdeRollout, AE = w.AssignEdit, Docs = w.Docs;
@@ -48,7 +48,7 @@ const OBF_GUID = "5beb7efe-fd9a-4556-801d-275e5ffc04cc";
 const EDGE = "device_vendor_msft_policy_config_microsoft_edgev77.3~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverride";
 const WIFI = "device_vendor_msft_policy_config_wifi_allowautoconnecttowifisensehotspots";
 
-const names = new Map([[G(1), "PVM-DG-CORP-ALL-WIN"], [G(2), "PVM-UG-MDE-WAVE-Euro"], [G(3), "PVM-UG-MDE-WAVE-Americas"], [G(4), "PVM-DG-MDE-EXCLUDED"]]);
+const names = new Map([[G(1), "PVM-DG-CORP-ALL-WIN"], [G(2), "INT-SG-U-WAVE-Euro"], [G(3), "INT-SG-U-WAVE-Americas"], [G(4), "PVM-DG-MDE-EXCLUDED"]]);
 function mapItem(raw, extra) {
   const assignments = (raw.assignments || []).map((a) => {
     const m = Docs.assignmentOf(a);
@@ -110,13 +110,13 @@ async function run() {
   ok("defaults carry the three new prefixes", cfg.newPrefixes.join("|") === "Win - OIB|WIN-SEC|WIN-DCP");
   ok("defaults carry five regions", cfg.waveRegions.join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA");
   ok("each region is a device + user pair, then the two exclusion groups (12 names)", cfg.waves.length === 12
-    && cfg.waves.slice(0, 2).join("|") === "PVM-DG-MDE-WAVE-Euro|PVM-UG-MDE-WAVE-Euro"
-    && cfg.waves.includes("PVM-UG-MDE-WAVE-Asia-Pacific") && cfg.waves.includes("PVM-DG-MDE-WAVE-BAMSCA")
+    && cfg.waves.slice(0, 2).join("|") === "INT-SG-D-WAVE-Euro|INT-SG-U-WAVE-Euro"
+    && cfg.waves.includes("INT-SG-U-WAVE-Asia-Pacific") && cfg.waves.includes("INT-SG-D-WAVE-BAMSCA")
     && cfg.waves.slice(-2).join("|") === "PVM-DG-MDE-Exclusion|PVM-UG-MDE-Exclusion");
-  ok("the pair members name each other as twins", cfg.groups[0].twin === "PVM-UG-MDE-WAVE-Euro" && cfg.groups[1].twin === "PVM-DG-MDE-WAVE-Euro" && cfg.groups[0].audience === "device" && cfg.groups[1].audience === "user");
+  ok("the pair members name each other as twins", cfg.groups[0].twin === "INT-SG-U-WAVE-Euro" && cfg.groups[1].twin === "INT-SG-D-WAVE-Euro" && cfg.groups[0].audience === "device" && cfg.groups[1].audience === "user");
   ok("exclusion groups carry their role and audience", cfg.groups.filter((g) => g.role === "exclusion").map((g) => g.audience).join() === "device,user");
   const mig = M.normConfig({ waves: ["PVM-UG-MDE-WAVE-Euro", "PVM-UG-MDE-WAVE-Italy"] });
-  ok("a 10632 config (full UG names) migrates to regions", mig.waveRegions.join("|") === "Euro|Italy" && mig.waves.includes("PVM-DG-MDE-WAVE-Italy"));
+  ok("a 10632 config (full UG names) migrates to regions", mig.waveRegions.join("|") === "Euro|Italy" && mig.waves.includes("INT-SG-D-WAVE-Italy"));
   ok("a blank exclusion name drops that group", !M.normConfig({ exclusionUser: "" }).waves.includes("PVM-UG-MDE-Exclusion") && M.normConfig({ exclusionUser: "" }).waves.includes("PVM-DG-MDE-Exclusion"));
   ok("custom prefixes build the names", M.normConfig({ waveRegions: ["NL"], waveDevicePrefix: "X-DG-", waveUserPrefix: "X-UG-" }).waves.slice(0, 2).join("|") === "X-DG-NL|X-UG-NL");
   ok("audience: \" - D - \" is device", M.audienceOf("Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3") === "device");
@@ -206,7 +206,7 @@ async function run() {
   ok("dynamic device rule is device", w.MdeRollout.kindOfGroup({ membershipRule: '(device.deviceOSType -eq "Windows")' }).kind === "device");
   ok("dynamic user rule is user", M.kindOfGroup({ membershipRule: '(user.country -eq "NL")' }).kind === "user");
   ok("counts decide an assigned group", M.kindOfGroup({ displayName: "x" }, 3, 0).kind === "user" && M.kindOfGroup({ displayName: "x" }, 0, 2).kind === "device" && M.kindOfGroup({ displayName: "x" }, 1, 1).kind === "mixed");
-  const emptyUG = M.kindOfGroup({ displayName: "PVM-UG-MDE-WAVE-Euro" }, 0, 0);
+  const emptyUG = M.kindOfGroup({ displayName: "INT-SG-U-WAVE-Euro" }, 0, 0);
   ok("an empty UG group is a user group by name, and says so", emptyUG.kind === "user" && /name/.test(emptyUG.source));
   ok("an empty group with no hint is empty", M.kindOfGroup({ displayName: "Wave 1" }, 0, 0).kind === "empty");
   ok("matrix: user group from device-targeted policy is NOT supported", M.exclusionSupport("user", new Set(["device"])).ok === false);
@@ -283,29 +283,29 @@ async function run() {
   ok("gaps sort first", ret[0].verdict === "gap");
 
   // -------------------------------------------------------------- waves --
-  const found = new Map([["pvm-ug-mde-wave-euro", { id: G(2), displayName: "PVM-UG-MDE-WAVE-Euro" }], ["pvm-ug-mde-wave-americas", null]]);
+  const found = new Map([["int-sg-u-wave-euro", { id: G(2), displayName: "INT-SG-U-WAVE-Euro" }], ["int-sg-u-wave-americas", null]]);
   const wv = M.waves(model, found, kinds, pairs);
-  const euro = wv.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro");
+  const euro = wv.find((x) => x.name === "INT-SG-U-WAVE-Euro");
   ok("an existing wave lists the new policies that include it", euro.exists && euro.newIncluding.map((p) => p.id).sort().join() === "n1,n2");
   ok("…and the colliding old policies still to exclude it", euro.pending.some((p) => p.id === "o1") && !euro.pending.some((p) => p.id === "o2"));
-  ok("a missing wave is said missing", wv.find((x) => x.name === "PVM-UG-MDE-WAVE-Americas").exists === false);
-  ok("a wave never looked up is not called missing", wv.find((x) => x.name === "PVM-UG-MDE-WAVE-Italy").lookedUp === false);
+  ok("a missing wave is said missing", wv.find((x) => x.name === "INT-SG-U-WAVE-Americas").exists === false);
+  ok("a wave never looked up is not called missing", wv.find((x) => x.name === "INT-SG-U-WAVE-Italy").lookedUp === false);
 
   // ------------------------------------ wave pairs: twins (10633) --
   ok("a policy carries its audience", P("n1").audience === "device" && P("n2").audience === "device" && P("o1").audience === null);
   const G5 = G(5);
-  names.set(G5, "PVM-DG-MDE-WAVE-Euro");
-  const found2 = new Map([["pvm-ug-mde-wave-euro", { id: G(2), displayName: "PVM-UG-MDE-WAVE-Euro" }], ["pvm-dg-mde-wave-euro", { id: G5, displayName: "PVM-DG-MDE-WAVE-Euro" }],
+  names.set(G5, "INT-SG-D-WAVE-Euro");
+  const found2 = new Map([["int-sg-u-wave-euro", { id: G(2), displayName: "INT-SG-U-WAVE-Euro" }], ["int-sg-d-wave-euro", { id: G5, displayName: "INT-SG-D-WAVE-Euro" }],
     ["pvm-dg-mde-exclusion", null], ["pvm-ug-mde-exclusion", { id: G(6), displayName: "PVM-UG-MDE-Exclusion" }]]);
   const twins = M.twinIndex(model.cfg, found2);
   ok("twinIndex maps each wave to its twin's id", twins.get(G(2)).twinId === G5 && twins.get(G5).twinId === G(2) && !twins.has(G(6)));
   const kinds2 = new Map([[G(1), { kind: "device", source: "members" }], [G(2), { kind: "user", source: "members" }], [G5, { kind: "device", source: "name (group is empty)" }]]);
   const tp = M.proposalFor(pr("n1", "o1"), { kinds: kinds2, twins, names });
-  ok("a user wave vs a device-targeted old policy: its DEVICE twin is proposed", tp.steps.length === 1 && tp.steps[0].groupId === G5 && tp.steps[0].supported === true && tp.steps[0].twinOf === "PVM-UG-MDE-WAVE-Euro" && tp.steps[0].twinOfId === G(2));
+  ok("a user wave vs a device-targeted old policy: its DEVICE twin is proposed", tp.steps.length === 1 && tp.steps[0].groupId === G5 && tp.steps[0].supported === true && tp.steps[0].twinOf === "INT-SG-U-WAVE-Euro" && tp.steps[0].twinOfId === G(2));
   ok("…with the reason in a note", tp.steps[0].notes.some((n) => /^twin:/.test(n) && /cannot mix/.test(n)));
-  const twinsNoDg = M.twinIndex(model.cfg, new Map([["pvm-ug-mde-wave-euro", { id: G(2) }], ["pvm-dg-mde-wave-euro", null]]));
+  const twinsNoDg = M.twinIndex(model.cfg, new Map([["int-sg-u-wave-euro", { id: G(2) }], ["int-sg-d-wave-euro", null]]));
   const mp = M.proposalFor(pr("n1", "o1"), { kinds: kinds2, twins: twinsNoDg, names });
-  ok("a missing twin: still refused, and the twin is named to create", mp.steps[0].supported === false && mp.steps[0].missingTwin === "PVM-DG-MDE-WAVE-Euro" && /create it/.test(mp.steps[0].why));
+  ok("a missing twin: still refused, and the twin is named to create", mp.steps[0].supported === false && mp.steps[0].missingTwin === "INT-SG-D-WAVE-Euro" && /create it/.test(mp.steps[0].why));
   const kindsU2 = new Map([[G(1), { kind: "user" }], [G(2), { kind: "user" }]]);
   ok("a user wave vs a user-targeted old policy keeps the user wave", M.proposalFor(pr("n1", "o1"), { kinds: kindsU2, twins, names }).steps[0].groupId === G(2));
   const pool = M.wavePool(model.cfg, found2);
@@ -326,13 +326,13 @@ async function run() {
   ok("without the twin map it is not", M.pairReach({ reach: rN }, { reach: rO }).verdict !== "resolved");
   const wv2 = M.waves(model, found2, kinds2, pairs);
   ok("waves: one row per group, 12 by default", wv2.length === 12 && wv2.filter((x) => x.role === "exclusion").length === 2);
-  const dgE = wv2.find((x) => x.name === "PVM-DG-MDE-WAVE-Euro"), ugE = wv2.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro");
+  const dgE = wv2.find((x) => x.name === "INT-SG-D-WAVE-Euro"), ugE = wv2.find((x) => x.name === "INT-SG-U-WAVE-Euro");
   ok("a device wave fits the - D - policies", dgE.fits.some((N) => N.id === "n1") && dgE.twinId === G(2));
   ok("a user wave included in - D - policies is a misfit", ugE.misfit.map((N) => N.id).sort().join() === "n1,n2" && !ugE.fits.some((N) => N.id === "n1"));
   const exU = wv2.find((x) => x.name === "PVM-UG-MDE-Exclusion"), exD = wv2.find((x) => x.name === "PVM-DG-MDE-Exclusion");
   ok("exclusion groups: exists / missing, and no outstanding old-policy work", exU.exists && !exD.exists && exD.lookedUp && exU.pending.length === 0);
   const md2 = M.markdown(model, pairs, M.retirement(model), wv2, {});
-  ok("markdown lists the pairs and exclusion groups", md2.includes("PVM-DG-MDE-WAVE-Euro") && md2.includes("PVM-UG-MDE-Exclusion") && /\| exclusion \|/.test(md2));
+  ok("markdown lists the pairs and exclusion groups", md2.includes("INT-SG-D-WAVE-Euro") && md2.includes("PVM-UG-MDE-Exclusion") && /\| exclusion \|/.test(md2));
   // ------------------------------------------ rollout actions (10633) --
   ok("policyKind: the name first", M.policyKind(P("n1"), kinds2).kind === "device" && M.policyKind(P("n1"), kinds2).source === "name");
   ok("policyKind: no D/U in the name → the targets, when one kind", M.policyKind(P("o1"), kinds2).kind === "device" && M.policyKind(P("o1"), kinds2).source === "targets");
@@ -341,7 +341,7 @@ async function run() {
   const iw = M.rolloutWants("includeWaves", model, rctx());
   ok("① include: the device wave into every - D - new policy not holding it", iw.wants.length === 3 && iw.wants.every((x) => x.groupId === G5 && x.action === "add-include") && iw.policies.map((p) => p.id).sort().join() === "n1,n2,n3");
   ok("① never the user wave into a - D - policy", !iw.wants.some((x) => x.groupId === G(2)));
-  ok("① a wave that does not exist is named to create", iw.skipped.some((x) => /PVM-DG-MDE-WAVE-Americas does not exist/.test(x)));
+  ok("① a wave that does not exist is named to create", iw.skipped.some((x) => /INT-SG-D-WAVE-Americas does not exist/.test(x)));
   ok("① regions narrow it (and the other regions' missing waves go quiet)", M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Euro"]) })).skipped.length === 0
     && M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Italy"]) })).wants.length === 0);
   const ex0 = M.rolloutWants("excludeExclusion", model, rctx());
@@ -366,7 +366,7 @@ async function run() {
   // ------------------------------------------------------------ exports --
   pairs.forEach((x) => { x.proposal = M.proposalFor(x, ctx); });
   const md = M.markdown(model, pairs, ret, wv, { tenant: "Contoso | Ltd", readAt: Date.UTC(2026, 8, 29), build: "v1" });
-  ok("markdown names the new set, the waves and the gap", md.includes("Win - OIB - ES - Defender Antivirus") && md.includes("PVM-UG-MDE-WAVE-Euro") && md.includes("GAP"));
+  ok("markdown names the new set, the waves and the gap", md.includes("Win - OIB - ES - Defender Antivirus") && md.includes("INT-SG-U-WAVE-Euro") && md.includes("GAP"));
   ok("markdown escapes pipes in cells", md.includes("Contoso \\| Ltd"));
   ok("markdown says the unsupported exclusion", /NOT SUPPORTED/.test(md));
   const c = M.csv(pairs);
@@ -391,6 +391,35 @@ async function run() {
   ok("…and the pair is a setting conflict", pa && pa.type === "conflict" && pa.diffs[0].key === AUD);
   ok("the name match ignores case and dash spacing", !!M.build(resOf([{ id: "settingsCatalog", raw: [cp("n6", "WIN - OIB - SC - Device Security - D - Security Hardening - v3.7", null, [choice(AUD, `${AUD}_1`)], [])] }, { id: "intents", raw: [] }, { id: "deviceConfigurations", raw: [] }, { id: "admx", raw: [] }]), {}, TEMPLATES).policies.find((p) => p.id === "n6"));
 
+  // ------------------------------------- wave names, rename (10635) --
+  const c10 = M.normConfig({});
+  ok("the waves are INT-SG-D-WAVE-<region> / INT-SG-U-WAVE-<region>", c10.waves.slice(0, 2).join("|") === "INT-SG-D-WAVE-Euro|INT-SG-U-WAVE-Euro");
+  ok("each wave remembers its earlier name, and the lookup asks for both", c10.groups[0].oldNames.join() === "PVM-DG-MDE-WAVE-Euro" && c10.lookup.includes("PVM-UG-MDE-WAVE-Italy") && c10.lookup.includes("INT-SG-U-WAVE-Italy"));
+  const saved = M.normConfig({ waveDevicePrefix: "PVM-DG-MDE-WAVE-", waveUserPrefix: "PVM-UG-MDE-WAVE-" });
+  ok("a config saved with the old DEFAULT names moves to the new ones", saved.waveDevicePrefix === "INT-SG-D-WAVE-" && saved.waveUserPrefix === "INT-SG-U-WAVE-");
+  ok("a prefix chosen by hand stays", M.normConfig({ waveDevicePrefix: "X-D-" }).waveDevicePrefix === "X-D-");
+  ok("a changed prefix is remembered as a rename source", M.normConfig({ waveDevicePrefix: "Y-D-", renameFrom: { device: ["X-D-"] } }).groups[0].oldNames.join() === "PVM-DG-MDE-WAVE-Euro,X-D-Euro");
+  const foundOld = new Map([["pvm-dg-mde-wave-euro", { id: G(7), displayName: "PVM-DG-MDE-WAVE-Euro" }], ["int-sg-d-wave-euro", null], ["int-sg-u-wave-euro", { id: G(8), displayName: "INT-SG-U-WAVE-Euro" }], ["pvm-ug-mde-wave-euro", { id: G(9), displayName: "PVM-UG-MDE-WAVE-Euro" }]]);
+  const wr = M.waves(model, foundOld, new Map(), pairs);
+  const dW = wr.find((x) => x.name === "INT-SG-D-WAVE-Euro"), uW = wr.find((x) => x.name === "INT-SG-U-WAVE-Euro");
+  ok("a wave only under its old name: not 'exists', offered for rename", !dW.exists && dW.legacy && dW.legacy.name === "PVM-DG-MDE-WAVE-Euro" && dW.legacy.group.id === G(7));
+  ok("a wave under its new name, with an old-named group too: exists, the other said", uW.exists && !uW.legacy && uW.legacyToo.join() === "PVM-UG-MDE-WAVE-Euro");
+  ok("a group name with a U / D segment reads as user / device", M.kindFromName("INT-SG-U-WAVE-Euro") === "user" && M.kindFromName("INT-SG-D-WAVE-Euro") === "device" && M.kindFromName("INT-SG-D-NLD") === "device");
+  // renameGroup with Graph stubbed
+  const gcalls = [];
+  let taken = [], refuseNick = false, stored = { id: G(7), displayName: "PVM-DG-MDE-WAVE-Euro", securityEnabled: true };
+  w.Graph.readAll = async (p) => { gcalls.push(["GETALL", p]); return taken; };
+  w.Graph.patch = async (p, body) => { gcalls.push(["PATCH", p, Object.keys(body).join()]); if (refuseNick && body.mailNickname) throw new Error("Invalid value specified for property 'mailNickname'"); stored = Object.assign({}, stored, body); return null; };
+  w.Graph.readOne = async () => stored;
+  const rn = await M.renameGroup({ id: G(7), displayName: "PVM-DG-MDE-WAVE-Euro" }, "INT-SG-D-WAVE-Euro");
+  ok("rename: display name and mail nickname in one PATCH, read back", rn.ok && rn.verified && gcalls.some((c) => c[0] === "PATCH" && c[2] === "displayName,mailNickname") && stored.displayName === "INT-SG-D-WAVE-Euro" && rn.from === "PVM-DG-MDE-WAVE-Euro");
+  taken = [{ id: G(99), displayName: "INT-SG-D-WAVE-Italy" }];
+  const rn2 = await M.renameGroup({ id: G(7), displayName: "x" }, "INT-SG-D-WAVE-Italy");
+  ok("rename refused when another group has the name", !rn2.ok && /exists already/.test(rn2.why));
+  taken = []; refuseNick = true; gcalls.length = 0;
+  const rn3 = await M.renameGroup({ id: G(7), displayName: "INT-SG-D-WAVE-Euro" }, "INT-SG-D-WAVE-Asia-Pacific");
+  ok("a refused mail nickname: the name alone, and said", rn3.ok && rn3.verified && /nickname/.test(rn3.note) && gcalls.filter((c) => c[0] === "PATCH").length === 2);
+
   // ------------------------------------------- wave group: the owner --
   // (10633, Mihai: "creator is owner") — Graph does not make an admin the
   // owner of a security group it creates, so the create names the owner
@@ -404,7 +433,7 @@ async function run() {
         const m = /^\/groups\/([^/?]+)\/owners/.exec(p); if (m) return (owners.get(m[1]) || []).map((id) => ({ id }));
         return [];
       };
-      w.Graph.readOne = async (p) => ({ id: "g1", displayName: "PVM-UG-MDE-WAVE-X", securityEnabled: true });
+      w.Graph.readOne = async (p) => ({ id: "g1", displayName: "INT-SG-U-WAVE-X", securityEnabled: true });
       w.Graph.post = async (p, body) => {
         posts.push({ p, body: JSON.parse(JSON.stringify(body)) });
         if (p === "/groups") {
@@ -415,7 +444,7 @@ async function run() {
         if (/owners\/\$ref$/.test(p)) { if (!opts.refRefused) owners.set("g1", [body["@odata.id"].split("/").pop()]); return null; }
         return null;
       };
-      const r = await w.MdeRollout.createWave("PVM-UG-MDE-WAVE-X", "d", ME);
+      const r = await w.MdeRollout.createWave("INT-SG-U-WAVE-X", "d", ME);
       return { r, posts };
     };
     const a1 = await run({});
@@ -428,7 +457,7 @@ async function run() {
     ok("an owner the tenant does not confirm is reported, not claimed", a3.r.created && a3.r.ownerVerified === false && /did not take/.test(a3.r.ownerNote));
     let threw = false;
     w.Graph.post = async () => { throw new Error("Invalid value for mailNickname"); };
-    try { await w.MdeRollout.createWave("PVM-UG-MDE-WAVE-X", "d", ME); } catch { threw = true; }
+    try { await w.MdeRollout.createWave("INT-SG-U-WAVE-X", "d", ME); } catch { threw = true; }
     ok("a refusal about anything else is NOT retried", threw);
   }
 

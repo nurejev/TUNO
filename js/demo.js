@@ -137,10 +137,10 @@ const TUNO_DEMO = (() => {
     // exclusion groups do NOT exist, so the 🌊 pane has groups to create.
     // `_kind` says what the unmodelled members are (stripped from every
     // answer): the typed $count reads use it when no member is modelled.
-    { id: G(20), displayName: "PVM-UG-MDE-WAVE-Euro", description: "MDE rollout wave 1 — Europe.",
+    { id: G(20), displayName: "INT-SG-U-WAVE-Euro", description: "MDE rollout wave 1 — Europe.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(6 * DAY), memberCount: 25, _kind: "user" },
-    { id: G(21), displayName: "PVM-DG-MDE-WAVE-Euro", description: "MDE rollout wave 1 — Europe (devices).",
+    { id: G(21), displayName: "INT-SG-D-WAVE-Euro", description: "MDE rollout wave 1 — Europe (devices).",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(6 * DAY), memberCount: 25, _kind: "device" },
     // FAULT (T28): the old ASR policy targets this USER group, so the new
@@ -177,6 +177,11 @@ const TUNO_DEMO = (() => {
     // FAULT (T28 wave members): the Dutch device group exists and is nested
     // in the Euro device wave, but it is out of sync — Milan's laptop is
     // missing (+1) and Alex's (a US user) is in it (−1).
+    // FAULT (T28 rename, 10635): the Americas device wave still carries its
+    // pre-10635 name — the 🌊 pane offers to rename it to INT-SG-D-WAVE-Americas.
+    { id: G(36), displayName: "PVM-DG-MDE-WAVE-Americas", description: "MDE rollout wave — Americas (devices).",
+      groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 0, _kind: "device" },
     { id: G(35), displayName: "INT-SG-D-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(5 * DAY), memberCount: 2, _devices: [D(101), D(107)], memberOf: [G(21)] },
@@ -1525,6 +1530,14 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     return M.fault(404, "Request_ResourceNotFound", "The member is not in the group.");
   }
   const grpPatch = /^\/groups\/([^/]+)$/.exec(path);
+  // a group's name (T28 rename, 10635): kept for the session
+  if (method === "PATCH" && grpPatch && body && !body["members@odata.bind"] && (body.displayName || body.mailNickname)) {
+    const g = T.GROUPS.find((x) => x.id === grpPatch[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    if (body.displayName) g.displayName = body.displayName;
+    if (body.mailNickname) g.mailNickname = body.mailNickname;
+    return null;
+  }
   if (method === "PATCH" && grpPatch && body && body["members@odata.bind"]) {
     const g = T.GROUPS.find((x) => x.id === grpPatch[1]);
     if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");

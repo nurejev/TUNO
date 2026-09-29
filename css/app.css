@@ -2553,7 +2553,7 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
    wraps inside its cell instead of pushing the last column off the card —
    and the old-policy header rows of the Conflicts pane read as headers. */
 #screen-mderollout .cg-table{table-layout:fixed;width:100%}
-#screen-mderollout .cg-table td{overflow-wrap:anywhere}
+#screen-mderollout .cg-table td,#screen-mderollout .cg-table th{overflow-wrap:anywhere}
 #screen-mderollout .cg-table .gu-how,#screen-mderollout .cg-table .au-op{white-space:normal;max-width:100%}
 #screen-mderollout tr.mr-oldhead td{background:var(--soft);border-top:2px solid var(--border)}
 /* T28 wave members (10634, layout A off the mockup): the device list opens
@@ -2569,3 +2569,10 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-mbar .mini{color:#dfe9e2}
 #screen-mderollout .mr-mbar .btn.primary{background:var(--lemon);color:var(--green-deep);border-color:var(--lemon);font-weight:700;margin-left:auto}
 #screen-mderollout .mr-mbar .btn.primary:disabled{opacity:.55}
+/* T28 rename (10635): groups still under an earlier wave name */
+#screen-mderollout .mr-rename{margin-top:12px;padding:10px 12px;border:1px dashed var(--border);border-radius:12px;background:var(--soft)}
+/* T28 reports (10635): the conflict check's tiles */
+#screen-mderollout .mr-tiles{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+#screen-mderollout .mr-tile{border:1px solid var(--border);border-radius:12px;padding:8px 14px;min-width:110px;background:var(--surface)}
+#screen-mderollout .mr-tile b{display:block;font-size:20px;line-height:1.2}
+#screen-mderollout .mr-tile span{font-size:12px;color:var(--muted)}

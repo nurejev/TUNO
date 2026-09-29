@@ -12,7 +12,7 @@ const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), { 
 const w = dom.window;
 const files = ["js/version.js", "js/graph.js", "js/progress.js", "js/groupuse.js", "js/document.js", "js/overview.js",
   "js/conflict.js", "js/endpointsec.js", "js/filterrules.js", "js/endpointposture.js", "js/assignedit.js",
-  "js/groupmigrate.js", "js/mdemembers.js", "js/mderollout.js"];
+  "js/groupmigrate.js", "js/mdemembers.js", "js/mdereports.js", "js/mderollout.js"];
 w.eval(files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n")
   + "\n;Object.assign(window, {MdeRollout, MdeMembers, Graph});");
 const MM = w.MdeMembers;
@@ -27,7 +27,16 @@ async function run() {
   // ------------------------------------------------------------ config --
   const cfg = MM.normConfig(null);
   const allSuffixes = cfg.countryMap.flatMap((r) => r.suffixes);
-  ok("the sheet's table: five regions, 39 country groups", cfg.countryMap.map((r) => r.region).join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA" && allSuffixes.length === 39);
+  ok("the sheet's table: five regions, 39 country groups, the NL-Breda pilot, and SK, KZ, LAGOS", cfg.countryMap.map((r) => r.region).join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA" && allSuffixes.length === 43);
+  ok("SK in Euro, KZ and LAGOS in BAMSCA, each with a device group", cfg.countryMap[0].suffixes.includes("SK") && cfg.countryMap[4].suffixes.includes("KZ") && cfg.countryMap[4].suffixes.includes("LAGOS")
+    && MM.countryRows(cfg).find((r) => r.suffix === "SK").deviceGroupName === "INT-SG-D-SVK" && MM.countryRows(cfg).find((r) => r.suffix === "KZ").deviceGroupName === "INT-SG-D-KAZ" && MM.countryRows(cfg).find((r) => r.suffix === "LAGOS").deviceGroupName === "INT-SG-D-NGA-LAGOS");
+  ok("NL-Breda is the Euro wave's pilot by default, with its own device group", cfg.pilots.join() === "NL-Breda" && cfg.countryMap[0].suffixes[0] === "NL-Breda" && MM.countryRows(cfg)[0].deviceGroupName === "INT-SG-D-NLD-BREDA" && MM.countryRows(cfg)[0].pilot === true);
+  ok("a star in the table marks a pilot, and round-trips", MM.parsePilots("Euro: *NL-Breda, GB\nItaly: *IT-SELECTION, IT").join() === "NL-Breda,IT-SELECTION" && MM.parseMap("Euro: *NL-Breda, GB")[0].suffixes.join() === "NL-Breda,GB" && /Euro: \*NL-Breda, GB/.test(MM.formatMap(cfg.countryMap, cfg.pilots)));
+  ok("a suggested device-group suffix: ISO3 of the leading code, the rest upper-cased", MM.suggestDeviceSuffix("NL-Breda") === "NLD-BREDA" && MM.suggestDeviceSuffix("IT-SELECTION") === "ITA-SELECTION" && MM.suggestDeviceSuffix("LAGOS") === "LAGOS");
+  const added = MM.addPilot(MM.normConfig({ pilots: [] , countryMap: [{ region: "Italy", suffixes: ["IT"] }], deviceSuffixes: {} }), "IT-SELECTION", "Italy");
+  ok("addPilot: first in the region, starred, with a device-group suffix", added.countryMap[0].suffixes.join() === "IT-SELECTION,IT" && added.pilots.join() === "IT-SELECTION" && added.deviceSuffixes["IT-SELECTION"] === "ITA-SELECTION");
+  const moved = MM.addPilot(cfg, "GB", "Italy");
+  ok("addPilot on a mapped suffix moves it, never duplicates it", moved.countryMap.flatMap((r) => r.suffixes).filter((x) => x === "GB").length === 1 && moved.countryMap.find((r) => r.region === "Italy").suffixes[0] === "GB");
   ok("Brazil is in BAMSCA and Canada in Americas, as the sheet has them", cfg.countryMap.find((r) => r.region === "BAMSCA").suffixes.includes("BR") && cfg.countryMap.find((r) => r.region === "Americas").suffixes.includes("CA"));
   ok("defaults: INT-SG-D- and the country prefix", cfg.deviceGroupPrefix === "INT-SG-D-" && cfg.countryPrefix === "PVM-UG-CORP-MEM-USERS-");
   const map = MM.parseMap("Euro: GB, BE NL\nAmericas: US\n\nno colon here\nEuro: DE");
@@ -62,7 +71,7 @@ async function run() {
       { id: G(4), displayName: "PVM-UG-CORP-MEM-USERS-PL", groupTypes: ["DynamicMembership"] },
     ],
     deviceGroups: [{ id: G(10), displayName: "INT-SG-D-NLD" }],
-    usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }, { id: "u5" }]], [G(2), [{ id: "u3" }, { id: "u5" }]]]),
+    usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }, { id: "u5" }]], [G(2), [{ id: "u3" }, { id: "u5" }]], [G(3), [{ id: "u1" }]]]),
     managed: [
       { id: "m1", deviceName: "NL-1", userId: "u1", azureADDeviceId: "A1", lastSyncDateTime: iso(now - day) },
       { id: "m2", deviceName: "NL-2", userId: "u2", azureADDeviceId: "A2", lastSyncDateTime: iso(now - 40 * day) },
@@ -77,7 +86,7 @@ async function run() {
     waveChildren: new Map([["wu", new Set([G(1)])], ["wd", new Set([G(10)])]]),
     failed: [], readAt: now,
   };
-  const waves = new Map([["euro", { user: { id: "WU", displayName: "PVM-UG-MDE-WAVE-Euro" }, device: { id: "WD", displayName: "PVM-DG-MDE-WAVE-Euro" }, userName: "PVM-UG-MDE-WAVE-Euro", deviceName: "PVM-DG-MDE-WAVE-Euro" }]]);
+  const waves = new Map([["euro", { user: { id: "WU", displayName: "INT-SG-U-WAVE-Euro" }, device: { id: "WD", displayName: "INT-SG-D-WAVE-Euro" }, userName: "INT-SG-U-WAVE-Euro", deviceName: "INT-SG-D-WAVE-Euro" }]]);
   const model = MM.compute(cfg, input, waves, now);
   const NL = model.rows.find((r) => r.suffix === "NL"), DE = model.rows.find((r) => r.suffix === "DE"), GB = model.rows.find((r) => r.suffix === "GB");
   ok("devices by Intune primary user, joined to the Entra object", NL.devices.map((d) => d.objId).sort().join() === "e1,e2,e5" && NL.want.size === 3);
@@ -89,7 +98,11 @@ async function run() {
   ok("a missing device group is 'to create' with its wanted set", DE.dg === null && DE.want.size === 2 && DE.add.length === 2);
   ok("a country group not in the tenant is a row without a group", GB.ug === null && GB.users === 0);
   ok("devices with no primary user are counted, not guessed", model.noPrimary === 1 && model.managedCount === 6);
-  ok("groups with the prefix the table does not name are listed; NL-Breda overlaps NL", model.unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-NL-Breda,PVM-UG-CORP-MEM-USERS-PL" && model.unmapped[0].overlaps === "PVM-UG-CORP-MEM-USERS-NL");
+  ok("groups with the prefix the table does not name are listed", model.unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
+  const unm = MM.compute(MM.normConfig({ pilots: [], countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }] }), input, waves, now).unmapped;
+  ok("…and a group extending a mapped one (NL-Breda ⊂ NL) is flagged as an overlap", unm.find((u) => /Breda/.test(u.group.displayName)).overlaps === "PVM-UG-CORP-MEM-USERS-NL");
+  const BR = model.rows.find((r) => r.suffix === "NL-Breda");
+  ok("the pilot row leads Euro, and its overlap with NL is expected, not a problem", model.regions[0].rows[0] === BR && BR.pilot && BR.devices[0].pilotOverlap === true && BR.problems.multi === 0 && BR.problems.pilot === 1 && NL.problems.pilot === 1 && NL.problems.multi === 1);
   const euro = model.regions.find((r) => r.region === "Euro");
   ok("region totals: what is nested, and how many it brings", euro.ugNested === 1 && euro.dgNested === 1 && euro.users === 3 && euro.devices === 2);
 

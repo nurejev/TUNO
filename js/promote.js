@@ -104,6 +104,42 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 197,
+  "title": "T28 — reports (assignments, deployment configuration, conflict check) + pilot groups (NL-Breda) + waves renamed to INT-SG-D/U-WAVE",
+  "tools": [
+   "T28 MDE rollout"
+  ],
+  "builds": [
+   10635
+  ],
+  "risk": "low",
+  "what": "New js/mdereports.js (MdeReports): roleIndex (wave / exclusion / country / device group), assignmentRows, coverage (per policy × region: wave included or excluded, exclusion group, tenant-wide, unassigned), assignmentsCsv/Html, settingsRows (names and values through the definitions), configCsv/Html (rules, groups with owners, wave members, new policies' settings and assignments, old policies' retirement, out of scope, the session's runs), conflictSummary/conflictDiff/conflictsHtml, readOwners, page (a self-contained, printable HTML page; every value escaped). Screen: 📑 Reports rail node and pane — run, open in a tab, ⭳ HTML, ⭳ CSV; the conflict check runs the full fresh read (run(false)) and keeps each check for the session. MdeMembers: pilots (default NL-Breda, first in Euro, device group INT-SG-D-NLD-BREDA), a star marks a pilot in the country table, pilot overlaps are expected (problems.pilot, not multi), suggestDeviceSuffix, addPilot; the Not-in-any-wave list gets 🧪 Add as pilot with a wave select. Wave names: defaults INT-SG-D-WAVE- / INT-SG-U-WAVE-; normConfig moves a saved config off the old default prefixes, keeps renameFrom (the old defaults + any prefix changed under ⚙️), groupsOf gives each wave its oldNames, cfg.lookup asks for both; waves() marks legacy (only the old name exists) and legacyToo; renameGroup (name free check, PATCH displayName + mailNickname, retry without the nickname when that is refused, read back); the 🌊 pane's rename box with its own confirm tick; 📜 renames back. kindFromName reads a U / D segment. MdeMembers skips the -WAVE- groups in the INT-SG-D- device-group read. Country table: SK (Euro), KZ and LAGOS (BAMSCA; LAGOS = NGA-LAGOS) added at Mihai's request. Demo: the Euro waves renamed, PVM-DG-MDE-WAVE-Americas left under its old name for the rename.",
+  "why": "Mihai: a report of the assignments, a report of everything configured for this deployment, a run option to see if there are conflicts; NL-Breda as the first pilot group in wave 1; and 'the wave groups are named wrong — INT-SG-D-WAVE-Euro or INT-SG-U-WAVE-Euro; rename them in the solution and the tenant'.",
+  "test": [
+   "Run npm test — tests/mderollout/reports.test.js (roles, coverage, CSVs, the sections, escaping, the conflict diff), tests/mderollout/members.test.js (pilot defaults, star, addPilot, the expected overlap), tests/mderollout/screen.test.js (the three reports in demo, a second conflict check says what moved, Add as pilot).",
+   "LIVE PENDING: PVM — run the three reports; open each in a tab; the configuration report lists the wave groups' owners and every new policy's settings with readable names.",
+   "LIVE PENDING: PVM — 🌊 shows the existing PVM-*-MDE-WAVE-* groups as 'old name'; rename them; Entra shows the new names on the same object ids and the policies' assignments show the new names.",
+   "LIVE PENDING: 👥 Euro — NL-Breda first as 🧪 pilot; create INT-SG-D-NLD-BREDA, fill, nest in both Euro waves; the conflict check afterwards."
+  ],
+  "files": [
+   "js/mdereports.js",
+   "js/mdemembers.js",
+   "js/mderollout.js",
+   "css/app.css",
+   "index.html",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "tests/mderollout/reports.test.js",
+   "tests/mderollout/members.test.js",
+   "tests/mderollout/engine.test.js",
+   "tests/mderollout/screen.test.js",
+   "tests/platformbaseline/screen.test.js",
+   "docs/reviews/T28-beta-10635.md",
+   "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 196,
   "title": "T28 — wave members (country groups and INT-SG-D device groups into the waves) + named policies in the target list",
   "tools": [

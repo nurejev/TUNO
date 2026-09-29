@@ -82,8 +82,13 @@ const MdeRollout = (() => {
     newPrefixes: ["Win - OIB", "WIN-SEC", "WIN-DCP"],
     outPrefixes: ["AVD", "WinServ", "Win-Serv"],
     waveRegions: ["Euro", "Americas", "Asia-Pacific", "Italy", "BAMSCA"],
-    waveDevicePrefix: "PVM-DG-MDE-WAVE-",
-    waveUserPrefix: "PVM-UG-MDE-WAVE-",
+    // Renamed at 10635 (Mihai: "the wave groups are named wrong — they need
+    // to be INT-SG-D-WAVE-Euro or INT-SG-U-WAVE-Euro"). A group still under
+    // an earlier name is found by it and offered for RENAME (🌊 pane) —
+    // same object id, so every assignment and nesting stays as it is.
+    waveDevicePrefix: "INT-SG-D-WAVE-",
+    waveUserPrefix: "INT-SG-U-WAVE-",
+    renameFrom: { device: ["PVM-DG-MDE-WAVE-"], user: ["PVM-UG-MDE-WAVE-"] },
     exclusionDevice: "PVM-DG-MDE-Exclusion",
     exclusionUser: "PVM-UG-MDE-Exclusion",
     waveDescription: "MDE rollout wave — created by TUNO (T28 MDE rollout).",
@@ -103,7 +108,7 @@ const MdeRollout = (() => {
   // A region list from a build-10632 config, which kept full wave NAMES:
   // the tail after either wave prefix is the region.
   function regionsFromNames(list, cfg) {
-    const pre = [cfg.waveUserPrefix, cfg.waveDevicePrefix, DEFAULTS.waveUserPrefix, DEFAULTS.waveDevicePrefix].map(lc);
+    const pre = [cfg.waveUserPrefix, cfg.waveDevicePrefix, DEFAULTS.waveUserPrefix, DEFAULTS.waveDevicePrefix, ...DEFAULTS.renameFrom.user, ...DEFAULTS.renameFrom.device].map(lc);
     return cleanList((list || []).map((n) => {
       const x = String(n || "").trim();
       const p = pre.find((q) => q && lc(x).startsWith(q));
@@ -116,11 +121,12 @@ const MdeRollout = (() => {
     const out = [];
     for (const region of cfg.waveRegions) {
       const d = `${cfg.waveDevicePrefix}${region}`, u = `${cfg.waveUserPrefix}${region}`;
-      out.push({ name: d, role: "wave", audience: "device", region, twin: u });
-      out.push({ name: u, role: "wave", audience: "user", region, twin: d });
+      const old = (aud, now) => uniq(((cfg.renameFrom && cfg.renameFrom[aud]) || []).map((p) => `${p}${region}`)).filter((n) => lc(n) !== lc(now));
+      out.push({ name: d, role: "wave", audience: "device", region, twin: u, oldNames: old("device", d) });
+      out.push({ name: u, role: "wave", audience: "user", region, twin: d, oldNames: old("user", u) });
     }
-    if (cfg.exclusionDevice) out.push({ name: cfg.exclusionDevice, role: "exclusion", audience: "device", region: "", twin: cfg.exclusionUser || "" });
-    if (cfg.exclusionUser) out.push({ name: cfg.exclusionUser, role: "exclusion", audience: "user", region: "", twin: cfg.exclusionDevice || "" });
+    if (cfg.exclusionDevice) out.push({ name: cfg.exclusionDevice, role: "exclusion", audience: "device", region: "", twin: cfg.exclusionUser || "", oldNames: [] });
+    if (cfg.exclusionUser) out.push({ name: cfg.exclusionUser, role: "exclusion", audience: "user", region: "", twin: cfg.exclusionDevice || "", oldNames: [] });
     const seen = new Set();
     return out.filter((g) => !seen.has(lc(g.name)) && seen.add(lc(g.name)));
   }
@@ -129,8 +135,14 @@ const MdeRollout = (() => {
     const cfg = {
       newPrefixes: cleanList(Array.isArray(o.newPrefixes) ? o.newPrefixes : DEFAULTS.newPrefixes),
       outPrefixes: cleanList(Array.isArray(o.outPrefixes) ? o.outPrefixes : DEFAULTS.outPrefixes),
-      waveDevicePrefix: str(o.waveDevicePrefix, DEFAULTS.waveDevicePrefix),
-      waveUserPrefix: str(o.waveUserPrefix, DEFAULTS.waveUserPrefix),
+      // a config saved with the pre-10635 DEFAULT names moves to the new ones
+      // (those were never chosen, only inherited); a name chosen by hand stays
+      waveDevicePrefix: (() => { const v = str(o.waveDevicePrefix, DEFAULTS.waveDevicePrefix); return DEFAULTS.renameFrom.device.some((p) => lc(p) === lc(v)) ? DEFAULTS.waveDevicePrefix : v; })(),
+      waveUserPrefix: (() => { const v = str(o.waveUserPrefix, DEFAULTS.waveUserPrefix); return DEFAULTS.renameFrom.user.some((p) => lc(p) === lc(v)) ? DEFAULTS.waveUserPrefix : v; })(),
+      renameFrom: {
+        device: cleanList([...DEFAULTS.renameFrom.device, ...((o.renameFrom && o.renameFrom.device) || [])]),
+        user: cleanList([...DEFAULTS.renameFrom.user, ...((o.renameFrom && o.renameFrom.user) || [])]),
+      },
       exclusionDevice: o.exclusionDevice == null ? DEFAULTS.exclusionDevice : String(o.exclusionDevice).trim(),
       exclusionUser: o.exclusionUser == null ? DEFAULTS.exclusionUser : String(o.exclusionUser).trim(),
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
@@ -144,7 +156,10 @@ const MdeRollout = (() => {
       : Array.isArray(o.waves) ? regionsFromNames(o.waves, cfg)
       : DEFAULTS.waveRegions.slice();
     cfg.groups = groupsOf(cfg);
-    cfg.waves = cfg.groups.map((g) => g.name);   // every name the tool looks up
+    cfg.waves = cfg.groups.map((g) => g.name);   // the names the rollout uses
+    // every name the tool looks up: the names, and the earlier names a
+    // group may still carry in the tenant
+    cfg.lookup = uniq(cfg.groups.flatMap((g) => [g.name].concat(g.oldNames || [])));
     return cfg;
   }
 
@@ -589,8 +604,9 @@ const MdeRollout = (() => {
 
   // --------------------------------------------------------- group kinds --
   // kinds: Map lc(groupId) -> { kind: user|device|mixed|empty|unknown, source, users, devices, name }
-  const NAME_USER = /(^|[-_ .])(UG|USR|USERS?)([-_ .]|$)/i;
-  const NAME_DEVICE = /(^|[-_ .])(DG|DEV|DEVICES?)([-_ .]|$)/i;
+  // a one-letter U / D segment counts too (INT-SG-U-WAVE-…, INT-SG-D-…, 10635)
+  const NAME_USER = /(^|[-_ .])(UG|USR|USERS?|U)([-_ .]|$)/i;
+  const NAME_DEVICE = /(^|[-_ .])(DG|DEV|DEVICES?|D)([-_ .]|$)/i;
   function kindFromName(name) {
     if (NAME_USER.test(name || "")) return "user";
     if (NAME_DEVICE.test(name || "")) return "device";
@@ -893,6 +909,10 @@ const MdeRollout = (() => {
       const name = def.name;
       const g = found ? found.get(lc(name)) : undefined;
       const id = g ? lc(g.id) : null;
+      // still under an earlier name in the tenant — offered for rename
+      const legacyName = !g && found ? (def.oldNames || []).find((n) => found.get(lc(n))) : null;
+      const legacy = legacyName ? { name: legacyName, group: found.get(lc(legacyName)) } : null;
+      const legacyToo = g && found ? (def.oldNames || []).filter((n) => found.get(lc(n))) : [];
       const fits = model.newP.filter((N) => !N.audience || N.audience === def.audience);
       const newIncluding = id ? model.newP.filter((N) => N.reach.inc.has(id)) : [];
       const newExcluding = id ? model.newP.filter((N) => N.reach.exc.has(id)) : [];
@@ -906,7 +926,7 @@ const MdeRollout = (() => {
       const twinId = tw && tw.id ? lc(tw.id) : null;
       const pending = id && def.role === "wave" ? uniq((pairs || []).filter((pr) => needsAction(pr) && pr.N.reach.inc.has(id) && !pr.O.reach.exc.has(id) && !(twinId && pr.O.reach.exc.has(twinId))).map((pr) => pr.O)) : [];
       const k = id && kinds ? kinds.get(id) : null;
-      return { name, role: def.role, audience: def.audience, region: def.region, twin: def.twin, twinId,
+      return { name, role: def.role, audience: def.audience, region: def.region, twin: def.twin, twinId, legacy, legacyToo,
         group: g || null, id, exists: !!g, lookedUp: g !== undefined,
         kind: k ? k.kind : def.audience, kindSource: k ? k.source : "name",
         memberCount: (g && typeof g.memberCount === "number") ? g.memberCount : null,
@@ -1059,6 +1079,25 @@ const MdeRollout = (() => {
       out.set(`${p.surface}|${lc(p.id)}`, { surface: p.surface, surfaceLabel: sf ? sf.label : p.surface, icon: sf ? sf.icon : "", id: p.id, name: p.name, assignments: r.value || [] });
     });
     return out;
+  }
+  // Rename a rollout group (10635): the display name, and the mail nickname
+  // to match (T22's rule). The object id does not change, so assignments and
+  // nesting are untouched. Refused when the new name is taken; read back.
+  async function renameGroup(group, newName) {
+    const taken = await Graph.readAll(`/groups?$filter=${encodeURIComponent(`displayName eq '${odq(newName)}'`)}&$select=id,displayName`, { scopes: Graph.SCOPES.groups, retry: true });
+    const other = (taken || []).find((x) => lc(x.displayName) === lc(newName) && lc(x.id) !== lc(group.id));
+    if (other) return { ok: false, why: `a group named ${newName} exists already (${other.id}) — not renamed` };
+    const body = { displayName: newName, mailNickname: GroupMigrate.mailNickname(newName) };
+    let note = "";
+    try { await Graph.patch(`/groups/${encodeURIComponent(group.id)}`, body, { scopes: GroupMigrate.SCOPES.groupWrite }); }
+    catch (e) {
+      if (!/mailnickname/i.test((e && e.message) || "")) throw e;
+      await Graph.patch(`/groups/${encodeURIComponent(group.id)}`, { displayName: newName }, { scopes: GroupMigrate.SCOPES.groupWrite });
+      note = "the mail nickname could not be changed and was left as it was";
+    }
+    const back = await Graph.readOne(`/groups/${encodeURIComponent(group.id)}?$select=id,displayName,description,groupTypes,membershipRule,securityEnabled,mailEnabled,createdDateTime`, { scopes: Graph.SCOPES.groups });
+    const verified = !!back && lc(back.displayName) === lc(newName);
+    return { ok: true, verified, group: back || Object.assign({}, group, { displayName: newName }), note, from: group.displayName };
   }
   // The signed-in admin, in THIS tenant (build 10633). /me rather than the
   // token's oid: for a guest admin the oid names the home-tenant object,
@@ -1242,7 +1281,7 @@ const MdeRollout = (() => {
     audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants,
     kindFromName, kindOfGroup, targetKinds, effectiveTargets, exclusionSupport, proposalFor, twinIndex, wavePool,
     RETIRE, retirement, waves, composePlan, undoPlan, patchAssignments,
-    readTemplates, findGroups, readKinds, readFresh, readMe, createWave, readLabels, labelValue, labelName,
+    readTemplates, findGroups, readKinds, readFresh, readMe, createWave, renameGroup, readLabels, labelValue, labelName,
     markdown, csv, assignText,
   };
 })();
@@ -1274,8 +1313,11 @@ const MdeRolloutTool = (() => {
   const sel = new Set();       // policy keys (New / Old panes)
   const selPairs = new Set();  // pair ids (Conflicts pane)
   const selWaves = new Set();  // missing wave names (Waves pane)
+  const selRename = new Set(); // wave names found under an earlier name (Waves pane, 10635)
   let rollRegions = null;      // rollout actions: the regions ticked (null = every region)
   // 👥 Wave members (10634): its own read, its own selection, its own plan kind
+  // 📑 Reports (10635): the last run of each, and the conflict checks of this session
+  const reps = { assign: null, config: null, conflicts: null, checks: [], busy: "" };
   const mem = { input: null, model: null, loading: false, region: null, unmapped: false,
     sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false } };
   const open = new Set();      // expanded rows
@@ -1364,7 +1406,7 @@ const MdeRolloutTool = (() => {
       prog("Reading the legacy endpoint security templates…");
       try { templates = await M.readTemplates(); } catch { templates = new Map(); }
       prog("Looking up the wave groups…");
-      try { const f = await M.findGroups(cfg.waves, prog); found = f.found; dupes = f.dupes; } catch { found = null; dupes = []; }
+      try { const f = await M.findGroups(cfg.lookup, prog); found = f.found; dupes = f.dupes; } catch { found = null; dupes = []; }
       derive();
       prog("");
       render();
@@ -1407,8 +1449,9 @@ const MdeRolloutTool = (() => {
   }
   function reset() {
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
-    kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); open.clear();
+    kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); selRename.clear(); open.clear();
     runs.length = 0; filterList = null; clearPlan();
+    reps.assign = null; reps.config = null; reps.conflicts = null; reps.checks.length = 0; reps.busy = "";
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
     if ($("mrBody")) $("mrBody").innerHTML = "";
     showExports(false); syncSelbar();
@@ -1429,7 +1472,8 @@ const MdeRolloutTool = (() => {
   function railHtml() {
     const act = pairs.filter(M.needsAction);
     const gaps = retire.filter((r) => r.verdict === "gap").length;
-    const missing = waveRows.filter((w) => w.lookedUp && !w.exists).length;
+    const missing = waveRows.filter((w) => w.lookedUp && !w.exists && !w.legacy).length;
+    const toRename = waveRows.filter((w) => w.legacy && !w.exists).length;
     const node = (id, icon, label, n, bad) => `<div class="ep-node${pane === id ? " active" : ""}" data-mrpane="${id}" role="button" tabindex="0">
       <span>${icon} ${esc(label)}</span>${n !== null && n !== undefined ? `<span class="ep-n${bad ? " gap" : ""}">${esc(n)}</span>` : ""}</div>`;
     return [
@@ -1437,9 +1481,10 @@ const MdeRolloutTool = (() => {
       node("conflicts", "⚔️", "Conflicts with old", act.length, act.length > 0),
       node("old", "🗄", "Old policies", model.oldP.length),
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
-      node("waves", "🌊", "Wave groups", missing ? `${missing} missing` : waveRows.length, missing > 0),
+      node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
       node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
       "<hr>",
+      node("reports", "📑", "Reports", reps.checks.length ? `${reps.checks[reps.checks.length - 1].act} to act` : null, reps.checks.length ? reps.checks[reps.checks.length - 1].act > 0 : false),
       node("changes", "📜", "Changes this session", runs.length),
       node("rules", "⚙️", "Naming rules", null),
       node("how", "❓", "How it works", null),
@@ -1631,8 +1676,10 @@ const MdeRolloutTool = (() => {
       const dup = dupes.find((d) => lc(d.name) === lc(w.name));
       const status = !w.lookedUp ? `<span class="muted">not looked up</span>`
         : dup ? chip("au-op delete", `${dup.count} groups share this name`)
-        : w.exists ? chip("au-op create", "exists") : chip("gu-how priv", "missing");
-      const pick = w.lookedUp && !w.exists ? `<input type="checkbox" data-mrwave="${esc(w.name)}"${selWaves.has(w.name) ? " checked" : ""} aria-label="create this group">` : "";
+        : w.exists ? chip("au-op create", "exists") + (w.legacyToo.length ? `<div class="mini" style="color:var(--report)" title="Left alone — rename or delete it in Entra if it is a leftover">also a group named ${esc(w.legacyToo.join(", "))}</div>` : "")
+        : w.legacy ? chip("au-op update", "old name") + `<div class="mini muted">as ${esc(w.legacy.name)}</div>` : chip("gu-how priv", "missing");
+      const pick = w.legacy && !w.exists ? `<input type="checkbox" data-mrrename="${esc(w.name)}"${selRename.has(w.name) ? " checked" : ""} aria-label="rename this group">`
+        : w.lookedUp && !w.exists ? `<input type="checkbox" data-mrwave="${esc(w.name)}"${selWaves.has(w.name) ? " checked" : ""} aria-label="create this group">` : "";
       const k = w.id ? kinds.get(w.id) : null;
       const members = k && (k.users != null || k.devices != null) ? `${k.users || 0} users · ${k.devices || 0} devices` : "";
       const off = w.exists && w.kind !== w.audience && (w.kind === "user" || w.kind === "device" || w.kind === "mixed");
@@ -1681,6 +1728,13 @@ const MdeRolloutTool = (() => {
         <button class="btn primary" id="mrWaveCreate" disabled>🌊 Create the selected groups</button>
       </div>
       <p class="mini muted" style="margin:8px 0 0">Asks for Group.ReadWrite.All at this click (T22's scope). Owner: you, the signed-in admin. Description: “${esc(cfg.waveDescription)}” (waves) · “${esc(cfg.exclusionDescription)}” (exclusion groups).</p>
+      ${waveRows.some((w) => w.legacy && !w.exists) ? `<div class="mr-rename">
+        <p class="mini" style="margin:0 0 8px"><b>✏️ Groups under an earlier name.</b> The waves are named <code>${esc(cfg.waveDevicePrefix)}&lt;region&gt;</code> and <code>${esc(cfg.waveUserPrefix)}&lt;region&gt;</code> now; the ticked ones above are renamed in the tenant — display name and mail nickname. The object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name. Undo from 📜 renames them back.</p>
+        <div class="tb-actions">
+          <label class="chk" style="margin:0"><input type="checkbox" id="mrRenameOk"${selRename.size ? "" : " disabled"}> Rename ${plural(selRename.size, "group")} in this tenant</label>
+          <button class="btn primary" id="mrRenameGo" disabled>✏️ Rename to the new names</button>
+          <a href="#" data-mrrenameall="1" class="mini">tick all ${waveRows.filter((w) => w.legacy && !w.exists).length}</a>
+        </div></div>` : ""}
       <div id="mrWaveLedger"></div>
     </div>`;
   }
@@ -1692,9 +1746,9 @@ const MdeRolloutTool = (() => {
       const idx = runs.length - 1 - i;
       return `<div class="list-card" style="margin-top:${i ? 12 : 0}px">
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(new Date(r.at).toLocaleTimeString())}</span></h4>
-        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
+        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" || r.kind === "rename" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "rename" ? (r.done && r.done.length ? `<div class="tb-actions"><button class="btn" data-mrrenback="${idx}">↶ Rename back</button></div>` : "") : r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
@@ -1710,13 +1764,13 @@ const MdeRolloutTool = (() => {
         <label class="wi-f"><span>🚫 Out of scope — name starts with</span>${ta("mrRuleOut", cfg.outPrefixes)}</label>
         <label class="wi-f"><span>🌊 Wave regions — one per line</span>${ta("mrRuleWaves", cfg.waveRegions)}</label>
       </div>
-      <p class="mini muted" style="margin:14px 0 6px"><b>👥 Wave members.</b> Countries per region, one region per line: <code>Euro: GB, BE, NL</code>. A suffix is the end of the country user group's name; two letters map to ISO3 for the device group, anything else needs a line under the suffixes.</p>
+      <p class="mini muted" style="margin:14px 0 6px"><b>👥 Wave members.</b> Countries per region, one region per line: <code>Euro: *NL-Breda, GB, BE, NL</code> — a <b>*</b> marks a pilot, which leads its wave. A suffix is the end of the country user group's name; two letters map to ISO3 for the device group, anything else needs a line under the suffixes.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>Country user groups start with</span><input id="mrRuleCtyPre" value="${esc(mcfg().countryPrefix)}"></label>
         <label class="wi-f"><span>Device groups start with</span><input id="mrRuleDgrpPre" value="${esc(mcfg().deviceGroupPrefix)}"></label>
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:10px">
-        <label class="wi-f"><span>🌍 Countries per region</span><textarea id="mrRuleMap" rows="${Math.max(4, mcfg().countryMap.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatMap(mcfg().countryMap))}</textarea></label>
+        <label class="wi-f"><span>🌍 Countries per region</span><textarea id="mrRuleMap" rows="${Math.max(4, mcfg().countryMap.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatMap(mcfg().countryMap, mcfg().pilots))}</textarea></label>
         <label class="wi-f"><span>Device-group suffix per non-ISO2 suffix</span><textarea id="mrRuleSfx" rows="${Math.max(4, Object.keys(mcfg().deviceSuffixes).length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatOverrides(mcfg().deviceSuffixes))}</textarea></label>
       </div>
       <label class="wi-f" style="margin-top:12px"><span>➕ Also in the target list — exact policy names, one per line. They are in scope although nothing in them is an MDE area, and an old policy that sets one of their settings is pulled in too.</span>${ta("mrRuleAlso", cfg.alsoInScope)}</label>
@@ -1764,6 +1818,7 @@ const MdeRolloutTool = (() => {
     else if (pane === "retire") main = retirePane();
     else if (pane === "waves") main = wavesPane();
     else if (pane === "members") main = membersPane();
+    else if (pane === "reports") main = reportsPane();
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
     else if (pane === "how") main = howPane();
@@ -2141,11 +2196,11 @@ const MdeRolloutTool = (() => {
   function memDetail(r) {
     const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
       const st = !d.objId ? chip("au-op delete", d.problem) : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
-      return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:var(--report)">also in ${esc(d.others.join(", "))}</div>` : ""}</td></tr>`;
+      return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
     return `<tr><td colspan="6" style="padding:0 8px 8px 36px"><div class="mr-detail">
-      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}
+      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}
       ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
       ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
     </div></td></tr>`;
@@ -2162,9 +2217,12 @@ const MdeRolloutTool = (() => {
     const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
     const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
     if (mem.unmapped) {
-      const rows = m.unmapped.map((u) => `<tr><td><b>${esc(u.group.displayName)}</b></td><td class="mini">${u.dynamic ? "dynamic" : "assigned"}</td><td class="mini">${u.overlaps ? `<span style="color:var(--report)">overlaps ${esc(u.overlaps)} — nesting both would count people twice</span>` : `<span class="muted">not in the country table</span>`}</td><td class="mini muted">${esc(u.group.membershipRule || "")}</td></tr>`).join("");
-      return `${chips}${top}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0 0 10px">Groups starting with <code>${esc(mcfg().countryPrefix)}</code> that the country table does not name. They are listed, never nested. To add one to a wave, put its suffix under a region in ⚙️ Naming rules.</p>
-        ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:34%"><col style="width:10%"><col style="width:26%"><col></colgroup><thead><tr><th>Group</th><th>Type</th><th>Why it is here</th><th>Rule</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None — every group with the prefix is in a wave.</p>`}</div>`;
+      const suffixOf = (g) => g.displayName.slice(mcfg().countryPrefix.length);
+      const regionOpts = m.regions.map((x) => `<option value="${esc(x.region)}">${esc(x.region)}</option>`).join("");
+      const rows = m.unmapped.map((u, i) => `<tr><td><b>${esc(u.group.displayName)}</b><div class="mini muted">${esc(u.group.membershipRule || "")}</div></td><td class="mini">${u.dynamic ? "dynamic" : "assigned"}</td><td class="mini">${u.overlaps ? `<span style="color:var(--report)">overlaps ${esc(u.overlaps)} — as a pilot that is expected; otherwise nesting both counts people twice</span>` : `<span class="muted">not in the country table</span>`}</td>
+        <td class="mini"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><select id="mrPilotRegion${i}" aria-label="wave">${regionOpts}</select><button class="btn" data-mrmempilot="${esc(suffixOf(u.group))}" data-mrpilotsel="mrPilotRegion${i}">🧪 Add as pilot</button></div><div class="muted" style="margin-top:3px">device group ${esc(mcfg().deviceGroupPrefix + MdeMembers.suggestDeviceSuffix(suffixOf(u.group)))}</div></td></tr>`).join("");
+      return `${chips}${top}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0 0 10px">Groups starting with <code>${esc(mcfg().countryPrefix)}</code> that the country table does not name. They are listed, never nested. <b>🧪 Add as pilot</b> puts one at the head of a wave (its own device group, named below) — for a pilot that goes in before the rest of the region. The table stays editable under ⚙️ Naming rules.</p>
+        ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:36%"><col style="width:9%"><col style="width:25%"><col></colgroup><thead><tr><th>Group · rule</th><th>Type</th><th>Why it is here</th><th>Put it in a wave</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None — every group with the prefix is in a wave.</p>`}</div>`;
     }
     const rg = m.regions.find((x) => x.region === mem.region) || m.regions[0];
     if (!rg) return `${chips}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0">The country table is empty — fill it under ⚙️ Naming rules.</p></div>`;
@@ -2176,7 +2234,7 @@ const MdeRolloutTool = (() => {
     const rows = inTenant.map((r) => {
       const done = r.inSync && r.ugNested && r.dgNested;
       return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
-        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a><div class="mini muted">${esc(r.userGroupName)}</div></td>
+        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">🧪 pilot</span>` : ""}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
         <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted">${plural(r.usersNoDevice, "user has", "users have")} none</div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
         <td class="mini">${memCell(r)}</td>
@@ -2276,6 +2334,124 @@ const MdeRolloutTool = (() => {
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mrLedger").appendChild(el);
+    } finally { busy = false; }
+  }
+
+  // ---------------------------------------------------------- 📑 reports --
+  // Three reports, each a self-contained HTML page and a CSV (MdeReports).
+  const repMeta = () => ({ tenant: tenantName(), readAt: res && res.readAt, build: typeof APP_BUILD !== "undefined" ? APP_BUILD.label : "", now: Date.now() });
+  const repCtx = () => ({ cfg, waveRows, kinds, labels, mem: mem.model, retire, runs, labelName: M.labelName, labelValue: M.labelValue, catMeta: M.catMeta, RETIRE: M.RETIRE });
+  function runAssignReport() {
+    const ctx = repCtx();
+    const cov = MdeReports.coverage(model, ctx);
+    reps.assign = { at: Date.now(), html: MdeReports.assignmentsHtml(model, ctx, repMeta()), csv: MdeReports.assignmentsCsv(model, ctx), cov };
+    render();
+  }
+  async function runConfigReport() {
+    if (reps.busy) return;
+    reps.busy = "config"; render();
+    try {
+      if (!mem.model) {
+        const back = pane;
+        await memRead();
+        pane = back;
+      }
+      let owners = new Map();
+      try { owners = await MdeReports.readOwners(waveRows.filter((w) => w.exists).map((w) => w.group)); } catch { owners = new Map(); }
+      const ctx = Object.assign(repCtx(), { owners });
+      reps.config = { at: Date.now(), html: MdeReports.configHtml(model, ctx, repMeta()), csv: MdeReports.configCsv(model, ctx), members: !!mem.model };
+    } finally { reps.busy = ""; render(); }
+  }
+  async function runConflictCheck() {
+    if (reps.busy || running) return;
+    reps.busy = "conflicts"; render();
+    try {
+      await run(false);           // a FRESH read: policies, wave groups, kinds, setting names
+      if (!model) return;
+      const summary = MdeReports.conflictSummary(pairs, M.needsAction);
+      const prev = reps.checks.length ? reps.checks[reps.checks.length - 1] : null;
+      const diff = MdeReports.conflictDiff(prev, summary);
+      reps.checks.push(Object.assign({ at: Date.now() }, summary));
+      const ctx = { labels, labelName: M.labelName, labelValue: M.labelValue, VERDICT: M.VERDICT, TYPE: M.TYPE, needsAction: M.needsAction, summary, diff };
+      reps.conflicts = { at: Date.now(), html: MdeReports.conflictsHtml(pairs, ctx, repMeta()), csv: M.csv(pairs), summary, diff };
+    } finally { reps.busy = ""; pane = "reports"; render(); }
+  }
+  function reportsPane() {
+    const when = (r) => r ? `<span class="mini muted">run ${esc(new Date(r.at).toLocaleTimeString())}</span>` : "";
+    const dl = (id, r) => r ? `<button class="btn" data-mrrepopen="${id}">👁 Open</button><button class="btn" data-mrrep="${id}" data-mrrepfmt="html">⭳ HTML</button><button class="btn" data-mrrep="${id}" data-mrrepfmt="csv">⭳ CSV</button>` : "";
+    const busy = (id) => reps.busy === id;
+    const card = (id, icon, title, text, btn, result) => `<div class="list-card" style="margin-top:${id === "assign" ? 0 : 12}px">
+      <h4 style="margin:0 0 4px">${icon} ${esc(title)} ${when(reps[id])}</h4>
+      <p class="mini muted" style="margin:0 0 10px">${text}</p>
+      <div class="tb-actions"><button class="btn primary" id="mrRep_${id}"${reps.busy || running ? " disabled" : ""}>${busy(id) ? "⏳ Running…" : btn}</button>${dl(id, reps[id])}</div>
+      ${result || ""}</div>`;
+    // the assignments result: the coverage matrix, on the screen
+    let a = "";
+    if (reps.assign) {
+      const cov = reps.assign.cov;
+      const cell = (c) => `${c.inc.length ? `<span style="color:var(--on);font-weight:700">+${c.inc.map((x) => x === "device" ? "D" : "U").join("/")}</span>` : ""}${c.exc.length ? ` <span style="color:var(--off);font-weight:700">⊘${c.exc.map((x) => x === "device" ? "D" : "U").join("/")}</span>` : ""}` || `<span class="muted">—</span>`;
+      const row = (x) => `<tr><td>${polLink(x.P)}${x.tenantWide ? ` ${chip("au-op other", "tenant-wide")}` : ""}${!x.assigned ? ` ${chip("au-op other", "not assigned")}` : ""}</td>${x.cells.map((c) => `<td class="mini">${cell(c)}</td>`).join("")}<td class="mini">${x.exclusion.length ? `<span style="color:var(--off);font-weight:700">⊘${esc(x.exclusion.map((e) => e === "device" ? "D" : "U").join("/"))}</span>` : `<span class="muted">—</span>`}</td></tr>`;
+      const sec = (label, list) => list.length ? `<tr class="mr-oldhead"><td colspan="${cov.regions.length + 2}"><b>${esc(label)}</b> <span class="mini muted">${list.length}</span></td></tr>${list.map(row).join("")}` : "";
+      a = `<div style="overflow-x:auto;margin-top:10px"><table class="cg-table"><colgroup><col style="width:38%">${cov.regions.map(() => `<col>`).join("")}<col style="width:12%"></colgroup><thead><tr><th>Policy</th>${cov.regions.map((r) => `<th>${esc(r)}</th>`).join("")}<th>Exclusion</th></tr></thead><tbody>
+        ${sec("New — should include their waves", cov.rows.filter((x) => x.P.generation === "new"))}${sec("Old — should exclude the waves", cov.rows.filter((x) => x.P.generation !== "new"))}</tbody></table></div>
+        <p class="mini muted" style="margin:6px 0 0">+D / +U: the region's device / user wave is included · ⊘: excluded. The HTML report adds every assignment with its group, kind, member count, filter and role in the rollout.</p>`;
+    }
+    let c = "";
+    if (reps.conflicts) {
+      const S = reps.conflicts.summary, D = reps.conflicts.diff;
+      const tile = (n, label, cls) => `<div class="mr-tile"><b${cls ? ` style="color:var(--${cls})"` : ""}>${n}</b><span>${esc(label)}</span></div>`;
+      c = `<div class="mr-tiles">${tile(S.act, "need action", S.act ? "off" : "on")}${tile(S.can, "can collide")}${tile(S.may, "may collide")}${tile(S.staged, "staged")}${tile(S.review, "other format")}${tile(S.duplicate, "same value")}${tile(S.resolved, "resolved", "on")}</div>
+        ${D ? `<p class="mini" style="margin:6px 0 0">Since the previous check (${esc(new Date(D.at).toLocaleTimeString())}): <b style="color:var(--on)">${D.fixed.length} no longer need action</b> · <b style="color:var(--${D.added.length ? "off" : "on"})">${D.added.length} new</b>.</p>` : `<p class="mini muted" style="margin:6px 0 0">First check in this session — run it again after a change to see what moved.</p>`}
+        ${S.act ? `<p class="mini" style="margin:6px 0 0"><a href="#" data-mrpane="conflicts">⚔️ Open the conflicts →</a></p>` : ""}`;
+    }
+    return card("assign", "📋", "Assignments", "Every in-scope policy's assignments, each group with its role in the rollout (wave, exclusion group, country group, device group), and a coverage matrix: per policy, per region, which wave is included or excluded. From the current read.", "▶ Run the report", a)
+      + card("config", "🧾", "Deployment configuration", `Everything this rollout has configured: the naming rules, the wave and exclusion groups (with their owners), the wave members per country, every new policy with its settings and assignments, the old ones with their retirement verdict, and this session's changes. ${mem.model ? "" : "Reads the 👥 wave members first."}`, "▶ Run the report", reps.config && !reps.config.members ? `<p class="mini" style="color:var(--report);margin:8px 0 0">The wave members could not be read — that section says so.</p>` : "")
+      + card("conflicts", "⚔️", "Conflict check", "Reads the tenant FRESH — policies, wave groups, group kinds, setting names — and compares the new set with the old again: every collision, whether the two reach the same devices, and the proposed fix. Each check is kept for the session, so the next one says what moved.", "▶ Run the check", c);
+  }
+  function openReport(id) {
+    const r = reps[id];
+    if (!r) return;
+    const url = URL.createObjectURL(new Blob([r.html], { type: "text/html" }));
+    const win = window.open(url, "_blank", "noopener");
+    if (!win) download(`MDE-rollout-${id}-${stamp()}.html`, r.html, "text/html");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  // ----------------------------------------------------- rename waves --
+  // (10635) Groups still carrying an earlier wave name: PATCH the name, read
+  // it back, and log the run so 📜 can rename them back.
+  async function renameWaves(list, back) {
+    if (busy) return;
+    busy = true;
+    try {
+      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
+      if ($("mrRenameGo")) $("mrRenameGo").disabled = true;
+      const L = RunLedger.create($("mrWaveLedger") || planEl(), { unit: "groups", title: back ? "renaming back" : "renaming rollout groups", items: list.map((x) => ({ label: `${x.from} → ${x.to}`, sub: "display name + mail nickname" })) });
+      const done = [], lines = [];
+      let okN = 0;
+      for (let i = 0; i < list.length; i++) {
+        const x = list[i];
+        if (L.stopped) { L.skip(i, "stopped"); lines.push(`${x.from}: skipped`); continue; }
+        L.start(i);
+        try {
+          const r = await M.renameGroup({ id: x.id, displayName: x.from }, x.to);
+          if (!r.ok) { L.fail(i, r.why, "not renamed"); lines.push(`${x.from}: ${r.why}`); continue; }
+          if (found) { found.set(lc(x.to), r.group); if (found.get(lc(x.from)) && lc(found.get(lc(x.from)).id) === lc(x.id)) found.set(lc(x.from), null); }
+          names.set(lc(x.id), x.to);
+          done.push({ id: x.id, from: x.from, to: x.to });
+          if (r.verified) { L.done(i, r.note, "renamed · verified"); okN++; lines.push(`${x.from} → ${x.to}: renamed · verified${r.note ? " — " + r.note : ""}`); }
+          else { L.fail(i, "the read-back does not show the new name yet", "renamed · NOT verified"); lines.push(`${x.from} → ${x.to}: renamed · not verified`); }
+        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.from}: failed — ${why}`); }
+      }
+      L.finish();
+      selRename.clear();
+      derive();
+      runs.push({ at: Date.now(), title: back ? `Rename ${plural(list.length, "group")} back` : `Rename ${plural(list.length, "rollout group")}`, kind: "rename", ok: okN, bad: list.length - okN, stopped: L.stopped, backup: { policies: [] }, done, lines });
+      const ledger = ($("mrWaveLedger") || planEl()).innerHTML;
+      render();
+      if ($("mrWaveLedger")) $("mrWaveLedger").innerHTML = ledger;
+    } catch (e) {
+      const el = $("mrWaveLedger"); if (el) el.innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
     } finally { busy = false; }
   }
 
@@ -2398,9 +2574,28 @@ const MdeRolloutTool = (() => {
       }
       const bk = t.closest("[data-mrrunbk]"); if (bk) { const r = runs[Number(bk.dataset.mrrunbk)]; if (r) download(`t28-assignments-before-${stamp()}.json`, JSON.stringify(r.backup, null, 2), "application/json"); return; }
       const un = t.closest("[data-mrundo]"); if (un) { undoRun(Number(un.dataset.mrundo)); return; }
+      if (t.id === "mrRep_assign") { runAssignReport(); return; }
+      if (t.id === "mrRep_config") { runConfigReport(); return; }
+      if (t.id === "mrRep_conflicts") { runConflictCheck(); return; }
+      const ro = t.closest("[data-mrrepopen]"); if (ro) { openReport(ro.dataset.mrrepopen); return; }
+      const rd = t.closest("[data-mrrep]"); if (rd) {
+        const r = reps[rd.dataset.mrrep]; if (!r) return;
+        const name = { assign: "assignments", config: "configuration", conflicts: "conflict-check" }[rd.dataset.mrrep];
+        if (rd.dataset.mrrepfmt === "csv") download(`MDE-rollout-${name}-${stamp()}.csv`, r.csv, "text/csv");
+        else download(`MDE-rollout-${name}-${stamp()}.html`, r.html, "text/html");
+        return;
+      }
       const mr = t.closest("[data-mrmemregion]"); if (mr) { mem.region = mr.dataset.mrmemregion; mem.unmapped = false; clearPlan(); render(); return; }
       if (t.closest("[data-mrmemunmapped]")) { mem.unmapped = !mem.unmapped; render(); return; }
       const mo = t.closest("[data-mrmemopen]"); if (mo) { e.preventDefault(); const k = mo.dataset.mrmemopen; mem.open.has(k) ? mem.open.delete(k) : mem.open.add(k); render(); return; }
+      const ap = t.closest("[data-mrmempilot]"); if (ap) {
+        const sel = $(ap.dataset.mrpilotsel);
+        const region = sel ? sel.value : (mem.model && mem.model.regions[0] ? mem.model.regions[0].region : "");
+        const suffix = ap.dataset.mrmempilot;
+        saveCfg(Object.assign({}, cfg, { members: MdeMembers.addPilot(mcfg(), suffix, region) }));
+        mem.region = region; mem.unmapped = false; mem.sel.clear(); mem.sel.add(lc(suffix));
+        memCompute(); clearPlan(); render(); return;
+      }
       if (t.id === "mrMemRead") { memRead(); return; }
       if (t.id === "mrMemDry") { memDryRun(); return; }
       if (t.id === "mrMemCsv") { if (mem.model) download(`MDE-wave-members-${stamp()}.csv`, MdeMembers.csv(mem.model), "text/csv"); return; }
@@ -2414,19 +2609,36 @@ const MdeRolloutTool = (() => {
       }
       const ra = t.closest("[data-mrroll]"); if (ra) { dryRunRollout(ra.dataset.mrroll); return; }
       if (t.id === "mrWaveCreate") { createWaves(); return; }
+      if (t.id === "mrRenameGo") {
+        if (!$("mrRenameOk") || !$("mrRenameOk").checked) return;
+        const list = waveRows.filter((w) => selRename.has(w.name) && w.legacy && !w.exists).map((w) => ({ id: w.legacy.group.id, from: w.legacy.name, to: w.name }));
+        if (list.length) renameWaves(list, false);
+        return;
+      }
+      if (t.closest("[data-mrrenameall]")) { e.preventDefault(); waveRows.filter((w) => w.legacy && !w.exists).forEach((w) => selRename.add(w.name)); render(); return; }
+      const rb = t.closest("[data-mrrenback]"); if (rb) {
+        const r = runs[Number(rb.dataset.mrrenback)];
+        if (r && r.done && r.done.length) { pane = "waves"; render(); renameWaves(r.done.map((d) => ({ id: d.id, from: d.to, to: d.from })), true); }
+        return;
+      }
       if (t.id === "mrRuleSave") {
         const lines = (id) => $(id).value.split(/\r?\n/);
-        const before = cfg.waves.join("\n");
+        const before = cfg.lookup.join("\n");
+        const prevPre = { device: cfg.waveDevicePrefix, user: cfg.waveUserPrefix };
         const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}`;
         const beforePre = prefixes();
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
           waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"),
+          renameFrom: {
+            device: cfg.renameFrom.device.concat(lc($("mrRuleDgPre").value.trim()) !== lc(prevPre.device) ? [prevPre.device] : []),
+            user: cfg.renameFrom.user.concat(lc($("mrRuleUgPre").value.trim()) !== lc(prevPre.user) ? [prevPre.user] : []),
+          },
           members: Object.assign({}, mcfg(), { countryPrefix: $("mrRuleCtyPre").value, deviceGroupPrefix: $("mrRuleDgrpPre").value,
-            countryMap: MdeMembers.parseMap($("mrRuleMap").value), deviceSuffixes: MdeMembers.parseOverrides($("mrRuleSfx").value) }) });
+            countryMap: MdeMembers.parseMap($("mrRuleMap").value), pilots: MdeMembers.parsePilots($("mrRuleMap").value), deviceSuffixes: MdeMembers.parseOverrides($("mrRuleSfx").value) }) });
         (async () => {
-          if (cfg.waves.join("\n") !== before) { try { const f = await M.findGroups(cfg.waves); found = f.found; dupes = f.dupes; } catch { found = null; } }
+          if (cfg.lookup.join("\n") !== before) { try { const f = await M.findGroups(cfg.lookup); found = f.found; dupes = f.dupes; } catch { found = null; } }
           // a new prefix means other groups — the members read is redone, not recomputed
           if (prefixes() !== beforePre) { mem.input = null; mem.model = null; mem.sel.clear(); }
           derive(); render();
@@ -2470,6 +2682,8 @@ const MdeRolloutTool = (() => {
         return;
       }
       if (t.id === "mrWaveOk") { $("mrWaveCreate").disabled = !(selWaves.size && t.checked); }
+      if (t.dataset.mrrename) { t.checked ? selRename.add(t.dataset.mrrename) : selRename.delete(t.dataset.mrrename); render(); return; }
+      if (t.id === "mrRenameOk") { $("mrRenameGo").disabled = !(selRename.size && t.checked); }
       if (t.dataset.mrmemsel) { t.checked ? mem.sel.add(t.dataset.mrmemsel) : mem.sel.delete(t.dataset.mrmemsel); clearPlan(); render(); return; }
       if (t.dataset.mrmemall && mem.model) {
         mem.model.rows.filter((r) => r.region === mem.region && r.ug && !(r.inSync && r.ugNested && r.dgNested)).forEach((r) => (t.checked ? mem.sel.add(r.key) : mem.sel.delete(r.key)));
@@ -2494,7 +2708,7 @@ const MdeRolloutTool = (() => {
     init, run,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem, reps }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

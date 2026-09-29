@@ -3,9 +3,9 @@
 //
 // Fills the wave groups. Per region:
 //
-//   PVM-UG-MDE-WAVE-<region>  ⟵ nested ⟵  the country USER groups
+//   INT-SG-U-WAVE-<region>  ⟵ nested ⟵  the country USER groups
 //                                         (PVM-UG-CORP-MEM-USERS-<xx>, dynamic)
-//   PVM-DG-MDE-WAVE-<region>  ⟵ nested ⟵  INT-SG-D-<ISO3>, one ASSIGNED device
+//   INT-SG-D-WAVE-<region>  ⟵ nested ⟵  INT-SG-D-<ISO3>, one ASSIGNED device
 //                                         group per country, holding the Windows
 //                                         devices whose INTUNE PRIMARY USER is in
 //                                         that country's user group
@@ -47,13 +47,20 @@ const MdeMembers = (() => {
     countryPrefix: "PVM-UG-CORP-MEM-USERS-",
     deviceGroupPrefix: "INT-SG-D-",
     countryMap: [
-      { region: "Euro", suffixes: ["GB", "BE", "NL", "LU", "CZ", "POL-Warszawa", "POL-SKARB", "DK", "FR", "CH", "ES", "PT", "GR", "DE"] },
+      // NL-Breda leads the Euro wave as the first PILOT (Mihai, 10635)
+      { region: "Euro", suffixes: ["NL-Breda", "GB", "BE", "NL", "LU", "CZ", "SK", "POL-Warszawa", "POL-SKARB", "DK", "FR", "CH", "ES", "PT", "GR", "DE"] },
       { region: "Americas", suffixes: ["US", "MX", "CA"] },
       { region: "Asia-Pacific", suffixes: ["CN", "ID", "VN", "PH", "JP", "MY", "TH", "KR", "AU", "SG", "HK"] },
       { region: "Italy", suffixes: ["IT"] },
-      { region: "BAMSCA", suffixes: ["IN", "BR", "BD", "LK", "NG", "NP", "UAE", "ZA", "RU", "TR"] },
+      // SK, KZ and LAGOS added at 10635 (Mihai: "should be added") — SK with
+      // Czechia in Euro, KZ with Russia and LAGOS with Nigeria in BAMSCA
+      { region: "BAMSCA", suffixes: ["IN", "BR", "BD", "LK", "NG", "LAGOS", "NP", "UAE", "ZA", "RU", "KZ", "TR"] },
     ],
-    deviceSuffixes: { "POL-Warszawa": "POL-WAW", "POL-SKARB": "POL-SKARB", "UAE": "ARE" },
+    deviceSuffixes: { "NL-Breda": "NLD-BREDA", "POL-Warszawa": "POL-WAW", "POL-SKARB": "POL-SKARB", "UAE": "ARE", "LAGOS": "NGA-LAGOS" },
+    // A PILOT group goes into its wave before the rest of the region. It may
+    // overlap a country group (NL-Breda ⊂ NL): its devices then sit in both
+    // device groups, which is expected, not a problem.
+    pilots: ["NL-Breda"],
     deviceGroupDescription: "Windows devices whose Intune primary user is in {userGroup}. Kept in sync by TUNO (T28 MDE rollout · wave members).",
     staleDays: 30,
     largeNest: 500,
@@ -84,20 +91,44 @@ const MdeMembers = (() => {
       countryMap: Array.isArray(o.countryMap) ? normMap(o.countryMap) : normMap(DEFAULTS.countryMap),
       deviceSuffixes: o.deviceSuffixes && typeof o.deviceSuffixes === "object" ? normOverrides(o.deviceSuffixes) : normOverrides(DEFAULTS.deviceSuffixes),
       deviceGroupDescription: cleanStr(o.deviceGroupDescription, DEFAULTS.deviceGroupDescription),
+      pilots: uniq((Array.isArray(o.pilots) ? o.pilots : DEFAULTS.pilots).map((x) => String(x || "").trim()).filter(Boolean)),
       staleDays: Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULTS.staleDays,
       largeNest: DEFAULTS.largeNest,
     };
   }
-  // The ⚙️ pane edits both tables as text: "Euro: GB, BE, NL" and
-  // "POL-Warszawa = POL-WAW", one per line.
+  // The ⚙️ pane edits both tables as text: "Euro: *NL-Breda, GB, BE, NL"
+  // (a star marks a pilot) and "POL-Warszawa = POL-WAW", one per line.
   function parseMap(text) {
     return normMap(String(text || "").split(/\r?\n/).map((l) => {
       const i = l.indexOf(":");
       if (i < 1) return null;
-      return { region: l.slice(0, i).trim(), suffixes: l.slice(i + 1).split(/[,;\s]+/).filter(Boolean) };
+      return { region: l.slice(0, i).trim(), suffixes: l.slice(i + 1).split(/[,;\s]+/).map((x) => x.replace(/^\*+/, "")).filter(Boolean) };
     }).filter(Boolean));
   }
-  const formatMap = (map) => (map || []).map((r) => `${r.region}: ${r.suffixes.join(", ")}`).join("\n");
+  const parsePilots = (text) => uniq((String(text || "").match(/\*[^,;\s]+/g) || []).map((x) => x.replace(/^\*+/, "")));
+  const formatMap = (map, pilots) => (map || []).map((r) => `${r.region}: ${r.suffixes.map((x) => ((pilots || []).some((p) => lc(p) === lc(x)) ? "*" : "") + x).join(", ")}`).join("\n");
+  // A suffix that is not ISO2 gets a device-group suffix when it is added
+  // from the pane: the ISO3 of its leading code, then the rest upper-cased
+  // ("NL-Breda" -> "NLD-BREDA"; no leading code -> the suffix upper-cased).
+  function suggestDeviceSuffix(suffix) {
+    const s = String(suffix || "").trim();
+    if (/^[A-Za-z]{2}$/.test(s) && ISO3.has(s.toUpperCase())) return ISO3.get(s.toUpperCase());
+    const m = /^([A-Za-z]{2})-(.+)$/.exec(s);
+    if (m && ISO3.has(m[1].toUpperCase())) return `${ISO3.get(m[1].toUpperCase())}-${m[2].toUpperCase()}`;
+    return s.toUpperCase();
+  }
+  // Put a group from "Not in any wave" into a region, as a pilot: first in
+  // the region, starred, with a device-group suffix. Returns a new config.
+  function addPilot(cfg, suffix, region) {
+    const c = JSON.parse(JSON.stringify(cfg));
+    c.countryMap = c.countryMap.map((r) => Object.assign({}, r, { suffixes: r.suffixes.filter((x) => lc(x) !== lc(suffix)) }));
+    let r = c.countryMap.find((x) => lc(x.region) === lc(region));
+    if (!r) { r = { region, suffixes: [] }; c.countryMap.push(r); }
+    r.suffixes.unshift(suffix);
+    if (!/^[A-Za-z]{2}$/.test(suffix) && !Object.keys(c.deviceSuffixes).some((k) => lc(k) === lc(suffix))) c.deviceSuffixes[suffix] = suggestDeviceSuffix(suffix);
+    if (!c.pilots.some((p) => lc(p) === lc(suffix))) c.pilots.push(suffix);
+    return normConfig(c);
+  }
   function parseOverrides(text) {
     const out = {};
     for (const l of String(text || "").split(/\r?\n/)) { const m = /^\s*([^=]+?)\s*=\s*(\S+)\s*$/.exec(l); if (m) out[m[1]] = m[2]; }
@@ -133,6 +164,7 @@ const MdeMembers = (() => {
         const iso = iso3Of(suffix, cfg.deviceSuffixes);
         const row = {
           key: lc(suffix), region: r.region, suffix, country: countryName(suffix),
+          pilot: (cfg.pilots || []).some((p) => lc(p) === lc(suffix)),
           userGroupName: `${cfg.countryPrefix}${suffix}`,
           deviceGroupName: iso.code ? `${cfg.deviceGroupPrefix}${iso.code}` : null,
           iso3: iso.code, iso3Source: iso.source, notes: [],
@@ -141,6 +173,8 @@ const MdeMembers = (() => {
         out.push(row);
       }
     }
+    // pilots lead their region (a stable sort keeps the table's order otherwise)
+    out.sort((a, b) => (a.region === b.region ? (b.pilot - a.pilot) : 0));
     // two suffixes landing on one device group (both Polish groups on POL
     // before the overrides existed) — said, not merged silently
     const byDg = new Map();
@@ -159,7 +193,12 @@ const MdeMembers = (() => {
     say("Reading the country groups…");
     const countryGroups = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.countryPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
     say("Reading the device groups…");
-    const dgList = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.deviceGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
+    let dgList = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.deviceGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
+    // the device waves share the prefix (INT-SG-D-WAVE-…, 10635) — they are
+    // not country device groups, so their members are not read here
+    const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
+    const dgAll = dgList;
+    dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || ""));
     say("Reading the Windows devices in Intune…");
     const managed = await Graph.readAll(`/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime`, { scopes: DS, retry: true });
     say("Reading the Windows devices in Entra…");
@@ -235,7 +274,12 @@ const MdeMembers = (() => {
     const where = new Map();
     for (const row of rows) for (const d of row.devices) if (d.objId) where.set(d.objId, (where.get(d.objId) || []).concat(row));
     for (const row of rows) {
-      for (const d of row.devices) if (d.objId && where.get(d.objId).length > 1) d.others = where.get(d.objId).filter((x) => x !== row).map((x) => x.userGroupName);
+      for (const d of row.devices) if (d.objId && where.get(d.objId).length > 1) {
+        const others = where.get(d.objId).filter((x) => x !== row);
+        d.others = others.map((x) => x.userGroupName);
+        // a pilot overlapping its country is expected, not a problem
+        d.pilotOverlap = row.pilot || others.every((x) => x.pilot);
+      }
       row.want = new Set(row.devices.filter((d) => d.objId).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       row.add = [...row.want].filter((id) => !row.have.has(id));
@@ -247,7 +291,8 @@ const MdeMembers = (() => {
       row.problems = {
         noEntra: row.devices.filter((d) => !d.objId).length,
         stale: row.devices.filter((d) => d.stale).length,
-        multi: row.devices.filter((d) => d.others.length).length,
+        multi: row.devices.filter((d) => d.others.length && !d.pilotOverlap).length,
+        pilot: row.devices.filter((d) => d.others.length && d.pilotOverlap).length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length;
     }
@@ -478,7 +523,7 @@ const MdeMembers = (() => {
 
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
-    iso3Of, countryName, countryRows, readInput, compute, planOps, inverseOf,
+    iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv,
     _setWait: (fn) => { wait = fn; },
   };
