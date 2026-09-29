@@ -104,6 +104,67 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 194,
+  "title": "T11 engine — legacy endpoint security intents are an assignment surface",
+  "tools": [
+   "T11 Assignment editor",
+   "T22 Group migration"
+  ],
+  "builds": [
+   10632
+  ],
+  "risk": "medium",
+  "what": "AssignEdit.SURFACES gains deviceManagement/intents (appended last: /intents/{id}/assign and /intents/{id}/assignments, section intents, the scope already held). T11 lists, plans and writes legacy endpoint security policies; its warm start maps the cache's intents section onto the surface. T22's references read is the same table, so a group named in a legacy intent is now found and repointed instead of missed. backupOf(changes, head) is the one builder of the backup file; backupJson(plan) is T11's call of it and writes the same keys in the same order. Demo: the intents are in the fixture's object bag so /intents/{id}/assignments answers.",
+  "why": "T28's rollout has to exclude wave groups from OLD policies, and in a tenant that has been on Intune for years some of those are pre-catalog intents. T22 missing them was a silent defect: a migrated group stayed named in legacy policies that nothing reported.",
+  "test": [
+   "Run npm test — tests/mderollout/engine.test.js holds the surface (appended last, paths), backupJson's header and key order, and backupOf.",
+   "LIVE PENDING: T11 on a tenant with an assigned legacy intent — the rail lists Endpoint security (legacy); add and remove an exclusion on it; the read-back verifies.",
+   "LIVE PENDING: T22 on a group named in a legacy intent — it appears among the repointable references and is repointed."
+  ],
+  "files": [
+   "js/assignedit.js",
+   "js/demo.js",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "index.html",
+   "tests/mderollout/engine.test.js"
+  ]
+},
+{
+  "n": 193,
+  "title": "T28 — MDE rollout (new, temporary)",
+  "tools": [
+   "T28 MDE rollout"
+  ],
+  "builds": [
+   10632
+  ],
+  "risk": "medium",
+  "what": "New beta-only tool on a rail (layout B off the mockup). Generations by name — new (Win - OIB / WIN-SEC / WIN-DCP), old, (TO-BE-REMOVED), out of scope (AVD / WinServ) — from editable prefix rules kept per tenant in localStorage. Scope from T20's classifier plus any policy setting an MDE-area setting and custom OMA-URIs under those CSPs. Collisions new vs old per settingDefinitionId (ASR per rule through T16's asrRulesOf, the legacy guid=mode string included; OMA-URI 1:1), legacy templates and ADMX by category; reach from T12 plus staged and resolved. Fix proposed: exclude the new policy's include groups from the old one (remove the include where the old one includes it; wave groups when the new one is unassigned), refused when the group kinds mix users and devices (kind from the dynamic rule or the typed member counts). Bulk include / exclude / remove bar and the fix run through AssignEdit.planFor/applyPlan (composed per policy, fresh read at dry run, backup, confirm, drift check, verify, run ledger); undo per run from its backup. Wave groups looked up by exact name and created with T22's payload and scope, re-checked by name before each create and read back. Retirement check per old policy. MD and CSV export. Demo fixtures: a new/old/AVD set, two wave groups, typed $count, POST /groups kept for the session.",
+  "why": "Mihai's rollout: the new policies are named Win - OIB, WIN-SEC or WIN-DCP, everything else is old, AVD and WinServ are out of scope — filter them quickly, adjust include/exclude, and find the old policies that conflict with a new one so an exclusion can be added. Temporary: it goes when the rollout is done.",
+  "test": [
+   "Run npm test — tests/mderollout/engine.test.js (naming, keys, scope, compare, reach, proposals, support matrix, composed plans through applyPlan, undo, retirement, waves, exports) and tests/mderollout/screen.test.js (demo end to end: read, every pane, fix dry run → backup → confirm → apply on the ledger, include/remove plans, wave create and read-back, rules, a second read keeps the plan panel).",
+   "LIVE PENDING: PVM tenant — the brief's appendix policies land in New; AVD policies in Out of scope; the Conflicts pane lists the old AV/Edge/ASR policies against the new ones; a user wave's exclusion from a device-targeted old policy is refused with the support-matrix reason.",
+   "LIVE PENDING: create one missing wave group; include it in one new policy; exclude it from one user-targeted old policy; undo that run from Changes this session.",
+   "LIVE PENDING: setting names and option labels on the Conflicts pane read from the definitions (demo shows the id tails)."
+  ],
+  "files": [
+   "js/mderollout.js",
+   "js/app.js",
+   "js/demo.js",
+   "css/app.css",
+   "index.html",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "tests/mderollout/engine.test.js",
+   "tests/mderollout/screen.test.js",
+   "docs/reviews/T28-beta-10632.md",
+   "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 192,
   "title": "T01 — failed policy read diagnostics",
   "tools": [
@@ -1052,6 +1113,10 @@ const PROMOTE = {
   ],
 
   staying: [
+    {
+      title: "🚀 T28 MDE rollout",
+      why: "A project tool for one rollout (build 10632, Mihai: \u2018add it as a temporary tool in tuno-beta\u2019). It stays on this channel for as long as the rollout runs and is removed afterwards — never promoted, so production never carries a tool built for one tenant's migration.",
+    },
     {
       title: "🚚 This promotion queue",
       why: "Beta-only by design — js/promote.js and the Help section that renders it exist to describe the gap, so they have no meaning in production.",

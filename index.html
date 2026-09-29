@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10631"></script>
+<script src="js/popup-guard.js?v=10632"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10631">
+<link rel="stylesheet" href="css/app.css?v=10632">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10631"></script>
+<script src="js/selfhost-boot.js?v=10632"></script>
 </head>
 <body>
 
@@ -157,6 +157,10 @@
         <div class="tool-ic">🧭</div><h3>Endpoint security posture</h3>
         <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed, and a statement that only <b>partly</b> reaches the fleet says what happens to the rest: the remaining devices counted against the fleet, or <b>nothing is staged to widen this</b> where that is the truth; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
       </div>
+      <div class="tool" id="toolMdeRollout">
+        <div class="tool-ic">🚀</div><h3>MDE rollout <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag" title="Built for one rollout; stays on the beta channel and goes when the rollout is done">temporary</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>Replacing old Defender and endpoint security policies with a new set, wave by wave: the new set, the old set and what is out of scope, sorted by <b>name</b> (editable rules, kept per tenant). <b>Which old policies collide with a new one</b> — setting by setting, ASR rule by rule, with the value on each side and whether the two reach the same devices — and the fix, proposed: <b>exclude the new policy's groups from the old one</b>, refused where Intune does not support it (user group ↔ device group). Include, exclude and remove across many policies from one bar, through the Assignment editor's own write pipeline; <b>create the wave groups</b>; a <b>retirement check</b> that names every setting an old policy would take with it; undo per run. Reads through the shared policy read.</p>
+      </div>
     </div>
     <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
     <div class="tools">
@@ -174,7 +178,7 @@
       </div>
       <div class="tool" id="toolAssignEdit">
         <div class="tool-ic">✏️</div><h3>Assignment editor <span class="tag block">writes to the tenant</span></h3>
-        <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance, administrative templates and the Windows feature, quality and driver update profiles; scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
+        <p>Add or remove a group across many policies at once — the thing the portal makes you do one blade at a time. Device configurations, settings catalog, compliance, administrative templates, the Windows feature, quality and driver update profiles and legacy endpoint security policies (intents); scripts and applications are deliberately out, because each would be a new write permission. <b>The pipeline is the tool</b>: read, dry-run with the group's name and member count, an automatic backup file of every assignment about to change, removals confirmed by typing the group's name — then the write, with each policy re-read first (someone else's edit is skipped as drifted, never overwritten) and read back after, so “done” is the tenant's word rather than a status code. No delete, no rename, ever.</p>
       </div>
       <div class="tool" id="toolFilters">
         <div class="tool-ic">🧩</div><h3>Assignment filters <span class="tag block">writes to the tenant</span></h3>
@@ -1522,6 +1526,54 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div class="modal-bg" id="wbPop"><div class="modal gu-modal" id="wbPopBody"></div></div>
   </section>
 
+  <!-- ============ T28 · MDE ROLLOUT (R40) — temporary ============
+       Built for one rollout (build 10632): the new Defender / endpoint
+       security set against the old one. Layout B off the mockup (Mihai's
+       pick): the rail, one pane per job, and the Assignment editor's
+       floating bar — its policy operations on the New/Old panes, "apply the
+       proposed fixes" on the Conflicts pane. The plan, the gates and the
+       ledger render into #mrPlan, under the rail, so a pane switch never
+       throws a half-made plan away. -->
+  <section id="screen-mderollout" class="screen">
+    <div class="list-card readme" style="margin-top:0;padding:20px 24px">
+      <h2 style="margin:0 0 6px">🚀 MDE rollout <span class="tag new">BETA</span> <span class="tag">temporary</span> <span class="tag block">writes to the tenant</span></h2>
+      <p class="mini" style="margin:0">The new MDE policy set against the old one: which old policies set the same settings as a new one, whether they reach the same devices, and the exclusion that fixes it — plus the bulk include / exclude / remove bar, the wave groups and a retirement check. <b>❓ How it works</b> on the rail says what is compared, what is refused and why.</p>
+      <p class="mini muted" style="margin:8px 0 0">Reads through the shared policy read. Writes <b>assignments only</b> — through ✏️ the Assignment editor's engine, backup first, drift-checked, read back — and <b>new wave groups</b> (Group.ReadWrite.All, at the click). Nothing is deleted or renamed. Temporary: stays on this channel and goes when the rollout is done.</p>
+    </div>
+    <div class="list-card wi-form">
+      <div class="tb-actions">
+        <button class="btn primary" id="mrRun">🚀 Read the tenant</button>
+        <button class="btn" id="mrMd" style="display:none">⭳ Export MD</button>
+        <button class="btn" id="mrCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="mrProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="mrBody" style="margin-top:14px"></div>
+    <div id="mrPlan"></div>
+    <div class="ae-selbar" id="mrSelbar">
+      <b id="mrSelCount">0 selected</b>
+      <span id="mrBarPolicies" style="display:contents">
+        <div class="seg" id="mrActSeg">
+          <button class="active" data-mract="add-include">Add include</button>
+          <button data-mract="add-exclude">Add exclude</button>
+          <button data-mract="remove">Remove</button>
+        </div>
+        <div class="seg" id="mrTargetSeg" title="What to include: a group, or one of Intune's two tenant-wide targets">
+          <button class="active" data-mrtarget="group">Group</button>
+          <button data-mrtarget="allDevices">All devices</button>
+          <button data-mrtarget="allUsers">All users</button>
+        </div>
+      </span>
+      <span id="mrBarFixes" class="mini" style="display:none">→ exclude the proposed groups from the old policies</span>
+      <input id="mrGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false">
+      <select id="mrFilterSel" title="Assignment filter on the includes this adds"><option value="">No filter</option></select>
+      <select id="mrFilterMode" title="How the filter applies"><option value="include">filter: include</option><option value="exclude">filter: exclude</option></select>
+      <button class="btn primary" id="mrDryRun">② Dry run</button>
+      <button class="ae-selbar-x" id="mrSelClear" title="Clear the selection — the bar goes with it">✕</button>
+    </div>
+    <div class="modal-bg" id="mrPop"><div class="modal gu-modal" id="mrPopBody"></div></div>
+  </section>
+
   <!-- ============ ASSIGNMENT FILTERS (T14) ============
        R21, after IntuneShade. Read half free-standing; write half under
        T11's rules, with the fresh association gate on delete. -->
@@ -1577,7 +1629,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
   <section id="screen-assignedit" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">✏️ Assignment editor <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h2>
-      <p class="mini" style="margin:0">Bulk assignment changes across device configurations, settings catalog, compliance policies, administrative templates and the Windows feature, quality and driver update profiles — after Maxime Guillemin's <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> (MIT), whose question this is. The write discipline is TUNO's own: <b>read → plan → backup → confirm → apply → verify</b>, in that order, enforced by the screen and not by your care. The write permission is asked for at the apply click and never before — reading and planning cost nothing but reads.</p>
+      <p class="mini" style="margin:0">Bulk assignment changes across device configurations, settings catalog, compliance policies, administrative templates, the Windows feature, quality and driver update profiles and legacy endpoint security intents — after Maxime Guillemin's <a href="https://github.com/MG-Cloudflow/Intune-Toolkit" target="_blank" rel="noopener">Intune Toolkit</a> (MIT), whose question this is. The write discipline is TUNO's own: <b>read → plan → backup → confirm → apply → verify</b>, in that order, enforced by the screen and not by your care. The write permission is asked for at the apply click and never before — reading and planning cost nothing but reads.</p>
       <p class="mini muted" style="margin:8px 0 0"><b>What it will not do.</b> Scripts and applications each need a write permission the registration does not hold, and adding one is a decision to take in the open, not a feature's side effect — they are absent, not forgotten. Deleting and renaming policies stay in the Toolkit's own “Advanced Actions”; neither belongs in a browser tool whose whole argument is that it cannot do much harm. And the assign call <b>replaces the whole list</b>, so every policy is re-read at apply time: one that changed since the plan was made is skipped as <b>drifted</b> rather than overwritten, because replacing a list somebody else just edited is how two admins erase each other.</p>
     </div>
 
@@ -1659,6 +1711,10 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="rm-tl">
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
+          <div class="list-card rm-card" data-shipped="1">
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R40</span> 🚀 MDE rollout <span class="tag grant">live · beta 10632</span> <span class="tag new">BETA</span> <span class="tag">temporary</span></h4>
+            <p class="mini" style="margin:0">A project tool for one rollout, and never promoted: the new MDE policy set against the old one. Generations by name (editable rules, per tenant); every old policy that sets a setting a new one sets — ASR rule by rule, legacy templates by category — with the value on each side and whether the two reach the same devices; the exclusion that fixes it, proposed and refused where Intune's support matrix says the user/device group mix does not work; bulk include / exclude / remove through the Assignment editor's engine; the wave groups created; a retirement check that names every setting an old policy would take with it. Goes when the rollout is done.</p>
+          </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R37</span> 📋 Compliance evidence <span class="tag grant">live · beta 10537</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">The technical evidence an auditor asks for, read from the tenant's own policies: platform capabilities detected by setting identity — each hit an evidence row naming the policy, setting, observed value and reach — laid against ISO/IEC 27001:2022, NIST SP 800-53 r5 and NIST CSF 2.0 controls with summaries written for this mapping. Evidence in a policy reaching nobody is not enforcement; a compliance policy marks rather than enforces; absence of evidence is not evidence of absence; no score, and the disclaimer rides every export. After the coverage demonstrated by Ugur Koc's IntuneDocumentation (Elastic 2.0 — reimplemented, not ported). Reads through the shared policy read; no new permission.</p>
@@ -2221,50 +2277,51 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10631"></script>
-<script src="js/selfhost.js?v=10631"></script>
-<script src="js/version.js?v=10631"></script>
-<script src="js/promote.js?v=10631"></script>
-<script src="js/authConfig.js?v=10631"></script>
-<script src="js/changelog.js?v=10631"></script>
-<script src="js/msappcatalog.js?v=10631"></script>
-<script src="js/demo.js?v=10631"></script>
-<script src="js/graph.js?v=10631"></script>
-<script src="js/suggest.js?v=10631"></script>
-<script src="js/progress.js?v=10631"></script>
-<script src="js/runledger.js?v=10631"></script>
-<script src="js/groupuse.js?v=10631"></script>
-<script src="js/audit.js?v=10631"></script>
-<script src="js/devicecleanup.js?v=10631"></script>
-<script src="js/backup.js?v=10631"></script>
-<script src="js/document.js?v=10631"></script>
-<script src="js/policycache.js?v=10631"></script>
-<script src="js/overview.js?v=10631"></script>
-<script src="js/devicewhy.js?v=10631"></script>
-<script src="js/whatif.js?v=10631"></script>
-<script src="js/health.js?v=10631"></script>
-<script src="js/settingsearch.js?v=10631"></script>
-<script src="js/conflict.js?v=10631"></script>
-<script src="js/compliance.js?v=10631"></script>
-<script src="js/filterrules.js?v=10631"></script>
-<script src="js/filters.js?v=10631"></script>
-<script src="js/restore.js?v=10631"></script>
-<script src="js/platformbaseline.js?v=10631"></script>
-<script src="js/complianceevidence.js?v=10631"></script>
-<script src="js/macbaseline.js?v=10631"></script>
-<script src="js/winbaseline.js?v=10631"></script>
-<script src="js/assignedit.js?v=10631"></script>
-<script src="js/restrictedau.js?v=10631"></script>
-<script src="js/groupmigrate.js?v=10631"></script>
-<script src="js/roles.js?v=10631"></script>
-<script src="js/defender.js?v=10631"></script>
-<script src="js/endpointsec.js?v=10631"></script>
-<script src="js/report.js?v=10631"></script>
-<script src="js/securescore.js?v=10631"></script>
-<script src="js/endpointposture.js?v=10631"></script>
-<script src="js/maa.js?v=10631"></script>
-<script src="js/laps.js?v=10631"></script>
-<script src="js/applocker.js?v=10631"></script>
-<script src="js/app.js?v=10631"></script>
+<script src="js/branding.js?v=10632"></script>
+<script src="js/selfhost.js?v=10632"></script>
+<script src="js/version.js?v=10632"></script>
+<script src="js/promote.js?v=10632"></script>
+<script src="js/authConfig.js?v=10632"></script>
+<script src="js/changelog.js?v=10632"></script>
+<script src="js/msappcatalog.js?v=10632"></script>
+<script src="js/demo.js?v=10632"></script>
+<script src="js/graph.js?v=10632"></script>
+<script src="js/suggest.js?v=10632"></script>
+<script src="js/progress.js?v=10632"></script>
+<script src="js/runledger.js?v=10632"></script>
+<script src="js/groupuse.js?v=10632"></script>
+<script src="js/audit.js?v=10632"></script>
+<script src="js/devicecleanup.js?v=10632"></script>
+<script src="js/backup.js?v=10632"></script>
+<script src="js/document.js?v=10632"></script>
+<script src="js/policycache.js?v=10632"></script>
+<script src="js/overview.js?v=10632"></script>
+<script src="js/devicewhy.js?v=10632"></script>
+<script src="js/whatif.js?v=10632"></script>
+<script src="js/health.js?v=10632"></script>
+<script src="js/settingsearch.js?v=10632"></script>
+<script src="js/conflict.js?v=10632"></script>
+<script src="js/compliance.js?v=10632"></script>
+<script src="js/filterrules.js?v=10632"></script>
+<script src="js/filters.js?v=10632"></script>
+<script src="js/restore.js?v=10632"></script>
+<script src="js/platformbaseline.js?v=10632"></script>
+<script src="js/complianceevidence.js?v=10632"></script>
+<script src="js/macbaseline.js?v=10632"></script>
+<script src="js/winbaseline.js?v=10632"></script>
+<script src="js/assignedit.js?v=10632"></script>
+<script src="js/restrictedau.js?v=10632"></script>
+<script src="js/groupmigrate.js?v=10632"></script>
+<script src="js/roles.js?v=10632"></script>
+<script src="js/defender.js?v=10632"></script>
+<script src="js/endpointsec.js?v=10632"></script>
+<script src="js/report.js?v=10632"></script>
+<script src="js/securescore.js?v=10632"></script>
+<script src="js/endpointposture.js?v=10632"></script>
+<script src="js/mderollout.js?v=10632"></script>
+<script src="js/maa.js?v=10632"></script>
+<script src="js/laps.js?v=10632"></script>
+<script src="js/applocker.js?v=10632"></script>
+<script src="js/app.js?v=10632"></script>
 </body>
 </html>

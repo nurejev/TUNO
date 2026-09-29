@@ -26,6 +26,43 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10632,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — new, temporary: old policies that collide with the new set, and the exclusion that fixes them",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A temporary project tool for rolling a new MDE policy set out over an old one, wave by wave. New, old, TO-BE-REMOVED and out of scope are sorted by name from rules you edit (Win - OIB, WIN-SEC and WIN-DCP are new; AVD and WinServ are out of scope; everything else is old), kept per tenant. Quick filters by category, state and name on every pane."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Conflicts with old: every old policy that sets a setting a new policy sets — ASR rule by rule, so a one-rule WIN-SEC policy meets its rule inside an old all-rules policy — with the value on each side, whether the two reach the same devices (can, may, staged, resolved), and the fix proposed: exclude the new policy's groups from the old one. An exclusion Intune does not support — a user group excluded from a policy assigned to device groups, or the reverse — is shown with the reason and never written."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Include, exclude and remove across many policies from one bar, or apply the proposed fixes in one run: every policy read fresh at the dry run, a backup file before Apply unlocks, confirm, drift check, read-back, the run ledger — the Assignment editor's own pipeline. Each run lands in Changes this session with its backup and an undo."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Wave groups: looked up by name, the missing ones created as assigned security groups (checked by name again right before each create, then read back), with what each wave is included in and which colliding old policies still have to exclude it. Retirement check: for every old policy, each setting found in the new set, set differently, or nowhere — a gap retiring it would open. Markdown and CSV export."
+    },
+    {
+      "kind": "improved",
+      "tool": "Assignment editor",
+      "text": "Legacy endpoint security policies (the ones created before the settings catalog) are now a surface: listed, planned and written like every other policy, under the permission already held."
+    },
+    {
+      "kind": "fixed",
+      "tool": "Group migration",
+      "text": "A group named in a legacy endpoint security policy is now found and repointed. Those references used to be missed entirely — neither moved nor listed for moving by hand."
+    }
+  ]
+},
+{
   "build": 10631,
   "date": "2026-09-29",
   "title": "T01: inspect the actual value behind a failed policy read",

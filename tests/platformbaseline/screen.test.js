@@ -646,10 +646,11 @@ head("Bookkeeping travels in the same commit");
   const build = w.APP_BUILD.build;
   const vs = [...html.matchAll(/\?v=(\d{4,})/g)].map((m) => Number(m[1]));
   ok("every ?v= asset number matches the build", vs.length > 0 && vs.every((v) => v === build), vs.filter((v) => v !== build).join(","));
-  // 47 at 10595; 48 since 10605 added js/runledger.js. A new script tag
-  // moves this on purpose — the count is the proof the bookkeeping pass
-  // covered every ref, not a fixed number.
-  ok("the ?v= ref count is unchanged at 48", vs.length === 48, String(vs.length));
+  // 47 at 10595; 48 since 10605 added js/runledger.js; 49 since 10632
+  // added js/mderollout.js (T28). A new script tag moves this on purpose —
+  // the count is the proof the bookkeeping pass covered every ref, not a
+  // fixed number.
+  ok("the ?v= ref count is unchanged at 49", vs.length === 49, String(vs.length));
   ok("the newest changelog entry is this build", w.CHANGELOG[0].build === build, String(w.CHANGELOG[0].build));
   const q = w.PROMOTE.items.find((i) => (i.builds || []).includes(build));
   ok("a promotion-queue item names this build", !!q, "no item carries " + build);

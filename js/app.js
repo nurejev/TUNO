@@ -170,7 +170,7 @@ const Fs = (() => {
   syncStickyTops();
 
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-winbaseline", "screen-devicecleanup", "screen-compev", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-winbaseline", "screen-devicecleanup", "screen-compev", "screen-mderollout", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -273,6 +273,7 @@ const Fs = (() => {
       "screen-winbaseline": "toolWinBaseline",
       "screen-devicecleanup": "toolDeviceCleanup",
       "screen-compev": "toolCompEv",
+      "screen-mderollout": "toolMdeRollout",
       "screen-device": "toolDevice", "screen-filters": "toolFilters",
       "screen-roles": "toolRoles", "screen-maa": "toolMaa",
       "screen-groupmigrate": "toolGroupMigrate",
@@ -940,6 +941,7 @@ const Fs = (() => {
     ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
     ["toolLaps", "🔑 Windows LAPS audit"],
     ["toolPosture", "🧭 Endpoint security posture"],
+    ["toolMdeRollout", "🚀 MDE rollout"],
     ["toolSecureScore", "📊 Secure Score visualizer"],
     ["toolGroupUse", "🔗 Group Analyzer"],
     ["toolWhatIf", "🔮 Assignment what-if"],
@@ -1222,6 +1224,7 @@ const Fs = (() => {
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
   $("toolLaps").addEventListener("click", () => { crumb("🔑 Windows LAPS audit"); show("screen-laps"); });
   $("toolPosture").addEventListener("click", () => { crumb("🧭 Endpoint security posture"); show("screen-posture"); });
+  $("toolMdeRollout").addEventListener("click", () => { crumb("🚀 MDE rollout"); show("screen-mderollout"); });
   $("toolSecureScore").addEventListener("click", () => { crumb("📊 Secure Score visualizer"); show("screen-securescore"); });
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
@@ -1559,6 +1562,7 @@ const Fs = (() => {
   if (typeof WinBaselineTool !== "undefined") WinBaselineTool.init();
   if (typeof DeviceCleanupTool !== "undefined") DeviceCleanupTool.init();
   if (typeof CompEvTool !== "undefined") CompEvTool.init();
+  if (typeof MdeRolloutTool !== "undefined") MdeRolloutTool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
   if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
   if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();

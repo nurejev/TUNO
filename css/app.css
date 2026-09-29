@@ -2547,3 +2547,12 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 
 /* T01 10629: separate new-policy and deployed-policy workflows. */
 .al-workspaces{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 8px}.al-workspace{display:flex;flex-direction:column;gap:8px;text-align:left;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);padding:20px;font:inherit;cursor:pointer}.al-workspace strong{font-size:18px}.al-workspace span{font-size:13px;line-height:1.5;color:var(--muted)}.al-workspace.active{border:2px solid var(--green);background:var(--soft)}.al-workspace:disabled{opacity:.65;cursor:wait}@media(max-width:760px){.al-workspaces{grid-template-columns:1fr}}
+
+/* T28 MDE rollout (10632): its tables obey their column widths (the fit
+   pass's rule, 10393) — a long policy name, group name or proposal chip
+   wraps inside its cell instead of pushing the last column off the card —
+   and the old-policy header rows of the Conflicts pane read as headers. */
+#screen-mderollout .cg-table{table-layout:fixed;width:100%}
+#screen-mderollout .cg-table td{overflow-wrap:anywhere}
+#screen-mderollout .cg-table .gu-how,#screen-mderollout .cg-table .au-op{white-space:normal;max-width:100%}
+#screen-mderollout tr.mr-oldhead td{background:var(--soft);border-top:2px solid var(--border)}

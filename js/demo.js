@@ -130,6 +130,21 @@ const TUNO_DEMO = (() => {
     { id: G(12), displayName: "SEC-Helpdesk", description: "Service desk operators.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(340 * DAY), memberCount: 9 },
+
+    // T28 (MDE rollout, build 10632). The first wave exists, is a USER group
+    // and is what the new set is assigned to; the other four waves of the
+    // default naming rules do NOT exist, so the 🌊 pane has groups to create.
+    // `_kind` says what the unmodelled members are (stripped from every
+    // answer): the typed $count reads use it when no member is modelled.
+    { id: G(20), displayName: "PVM-UG-MDE-WAVE-Euro", description: "MDE rollout wave 1 — Europe.",
+      groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: null, createdDateTime: ago(6 * DAY), memberCount: 25, _kind: "user" },
+    // FAULT (T28): the old ASR policy targets this USER group, so excluding
+    // the user wave from it is supported — the contrast with the old
+    // antivirus policy on the dynamic DEVICE group (G(8)), where it is not.
+    { id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL", description: "Users in the Netherlands.",
+      groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: null, createdDateTime: ago(500 * DAY), memberCount: 140, _kind: "user" },
   ];
 
   // FAULT (T02 group usage, T09 assignment health): this id is referenced by
@@ -312,6 +327,11 @@ const TUNO_DEMO = (() => {
   const DEF_SMBv1 = "device_vendor_msft_policy_config_localpoliciessecurityoptions_smbv1clientdriver";
   const DEF_FW = "vendor_msft_firewall_mdmstore_domainprofile_enablefirewall";
   const DEF_ASR = "device_vendor_msft_policy_config_defender_attacksurfacereductionrules";
+  const DEF_CBL = "device_vendor_msft_policy_config_defender_cloudblocklevel";
+  const DEF_PUA = "device_vendor_msft_policy_config_defender_puaprotection";
+  const DEF_EDGE_SS = "device_vendor_msft_policy_config_microsoft_edgev77.3~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverride";
+  const DEF_WHFB = "device_vendor_msft_passportforwork_{tenantid}_policies_usepassportforwork";
+  const ASR_OBF = `${DEF_ASR}_blockexecutionofpotentiallyobfuscatedscripts`;
 
   const CONFIG_POLICIES = [
     { id: P(1), name: "WIN — Security baseline (Defender)", description: "Defender settings for the managed fleet.",
@@ -427,6 +447,69 @@ const TUNO_DEMO = (() => {
       templateReference: { templateId: "t-de", templateFamily: "endpointSecurityDiskEncryption", templateDisplayName: "BitLocker" },
       assignments: [allDevices()],
       _settings: [choice(DEF_BITLOCKER, `${DEF_BITLOCKER}_1`)] },
+
+    // ---- T28 MDE rollout (build 10632): a new set, an old set, one out of
+    // scope — named the way the rollout names them, so the generations sort
+    // by the default rules. Every fault below is one a pane has to show.
+    { id: P(14), name: "Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3", description: "New set — antivirus.",
+      platforms: "windows10", technologies: "mdm,microsoftSense", createdDateTime: ago(8 * DAY), lastModifiedDateTime: ago(2 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 3, isAssigned: true,
+      templateReference: { templateId: "t-av", templateFamily: "endpointSecurityAntivirus", templateDisplayName: "Microsoft Defender Antivirus" },
+      assignments: [inc(G(20))],
+      _settings: [choice(DEF_RTP, `${DEF_RTP}_1`), choice(DEF_CBL, `${DEF_CBL}_4`), choice(DEF_PUA, `${DEF_PUA}_1`)] },
+    { id: P(15), name: "WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0", description: "New set — one ASR rule per policy.",
+      platforms: "windows10", technologies: "mdm,microsoftSense", createdDateTime: ago(8 * DAY), lastModifiedDateTime: ago(2 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      templateReference: { templateId: "t-asr", templateFamily: "endpointSecurityAttackSurfaceReductionRules", templateDisplayName: "Attack Surface Reduction Rules" },
+      assignments: [inc(G(20))],
+      _settings: [choice(DEF_ASR, `${DEF_ASR}_1`, [choice(ASR_OBF, `${ASR_OBF}_block`).settingInstance])] },
+    // FAULT (T28): staged — the new Edge policy is not assigned yet, while the
+    // old one it replaces sits on All devices with the opposite value.
+    { id: P(16), name: "Win - OIB - SC - Microsoft Edge - D - Security - v3.7", description: "New set — Edge security, not rolled out yet.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(3 * DAY), lastModifiedDateTime: ago(3 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: false, assignments: [],
+      _settings: [choice(DEF_EDGE_SS, `${DEF_EDGE_SS}_1`)] },
+    // FAULT (T28): collides with the new antivirus policy (cloud block level,
+    // PUA) and targets a DYNAMIC DEVICE group — excluding the USER wave from
+    // it is NOT supported (Intune's support matrix), so the fix is refused.
+    { id: P(17), name: "(TO-BE-REMOVED)PVM-DG-CORP-ENDSEC-WIN-AV-PRD", description: "Old antivirus — marked for retirement.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(600 * DAY), lastModifiedDateTime: ago(90 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 3, isAssigned: true,
+      templateReference: { templateId: "t-av", templateFamily: "endpointSecurityAntivirus", templateDisplayName: "Microsoft Defender Antivirus" },
+      assignments: [inc(G(8))],
+      _settings: [choice(DEF_RTP, `${DEF_RTP}_1`), choice(DEF_CBL, `${DEF_CBL}_2`), choice(DEF_PUA, `${DEF_PUA}_2`)] },
+    // FAULT (T28): the obfuscated-scripts rule in AUDIT where the new
+    // one-rule policy blocks; targets a USER group, so the user wave's
+    // exclusion is supported and proposed.
+    { id: P(18), name: "PVM-DG-CORP-ENDSEC-WIN-ASR-PRD", description: "Old ASR — every rule in one policy.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(620 * DAY), lastModifiedDateTime: ago(120 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      templateReference: { templateId: "t-asr", templateFamily: "endpointSecurityAttackSurfaceReductionRules", templateDisplayName: "Attack Surface Reduction Rules" },
+      assignments: [inc(G(22))],
+      _settings: [choice(DEF_ASR, `${DEF_ASR}_1`, [
+        choice(ASR_OBF, `${ASR_OBF}_audit`).settingInstance,
+        choice(`${DEF_ASR}_blockadobereaderfromcreatingchildprocesses`, `${DEF_ASR}_blockadobereaderfromcreatingchildprocesses_block`).settingInstance,
+      ])] },
+    // Out of scope by name: listed, never compared.
+    { id: P(19), name: "AVD - SEC - Defender Antivirus - D - AV Configuration - v3.7", description: "AVD session hosts — a separate track.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(200 * DAY), lastModifiedDateTime: ago(40 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      templateReference: { templateId: "t-av", templateFamily: "endpointSecurityAntivirus", templateDisplayName: "Microsoft Defender Antivirus" },
+      assignments: [inc(G(1))],
+      _settings: [choice(DEF_RTP, `${DEF_RTP}_0`)] },
+    // FAULT (T28 retirement check): nothing in the new set carries Windows
+    // Hello for Business — retiring this one is a GAP.
+    { id: P(25), name: "(TO-BE-REMOVED)PVM-DG-ENSEC-ACCPROT-WHFB-v3.2", description: "Old account protection.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(700 * DAY), lastModifiedDateTime: ago(300 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      templateReference: { templateId: "t-acct", templateFamily: "endpointSecurityAccountProtection", templateDisplayName: "Account Protection" },
+      assignments: [inc(G(8))],
+      _settings: [choice(DEF_WHFB, `${DEF_WHFB}_true`)] },
+    { id: P(26), name: "(TO-BE-REMOVED)PVM-DG-DEVCONF-CORP-WIN-EDGE-Security - v3.0", description: "Old Edge security.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(700 * DAY), lastModifiedDateTime: ago(200 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      assignments: [allDevices()],
+      _settings: [choice(DEF_EDGE_SS, `${DEF_EDGE_SS}_0`)] },
   ];
 
   // ---------- legacy device configurations ----------
@@ -713,9 +796,17 @@ const TUNO_DEMO = (() => {
     // counts toward nothing, and the screen says so rather than guessing.
     { id: P(91), displayName: "Legacy — unclassifiable", description: "Template no longer resolvable.",
       templateId: "tmpl-gone", isAssigned: false, lastModifiedDateTime: ago(450 * DAY) },
+    // T28 (build 10632): an old antivirus policy from before the settings
+    // catalog, still ASSIGNED — it meets the new antivirus policy by
+    // category ("other format"), and since 10632 it is writable: the
+    // intents are one of the assignment engine's surfaces.
+    { id: P(92), displayName: "PVM Legacy — Defender antivirus (intent)", description: "Pre-catalog antivirus policy.",
+      templateId: "tmpl-av-legacy", isAssigned: true, lastModifiedDateTime: ago(800 * DAY),
+      assignments: [inc(G(8))] },
   ];
   const TEMPLATES = [
     { id: "tmpl-fw-legacy", displayName: "Windows Firewall (legacy intent)" },
+    { id: "tmpl-av-legacy", displayName: "Microsoft Defender Antivirus (legacy intent)" },
   ];
 
   // ---------- Intune RBAC (T07) ----------
@@ -1245,7 +1336,10 @@ const TUNO_DEMO_GRAPH = (() => {
     T.PLATFORM_SCRIPTS, T.SHELL_SCRIPTS, T.HEALTH_SCRIPTS, T.MOBILE_APPS,
     T.ENROLMENT_CONFIGS, T.AUTOPILOT_PROFILES, T.FEATURE_UPDATES, T.QUALITY_UPDATES,
     T.DRIVER_UPDATES, T.IOS_APP_PROTECTION, T.ANDROID_APP_PROTECTION,
-    T.APP_CONFIGS_DEVICE, T.APP_CONFIGS_MANAGED, T.TERMS);
+    T.APP_CONFIGS_DEVICE, T.APP_CONFIGS_MANAGED, T.TERMS,
+    // the legacy intents (build 10632): an assignment surface since T11's
+    // engine gained them, so /intents/{id}/assignments must answer
+    T.INTENTS);
   const byId = (id) => allObjects().find((o) => o.id === id) || null;
 
   // Transitive membership, walked rather than stored, so a nesting edit in
@@ -1328,6 +1422,18 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // the caller reads the id back and sometimes assigns to it. Nothing leaves
   // the browser; the screens say so.
   if (method === "POST" && /\/(assign|createRemediation)$/.test(path)) return null;
+  // A created GROUP is kept for the session (build 10632, T28's wave
+  // groups): the create is read back by id and looked up by name before
+  // the next one, and a group that vanished between its create and its
+  // read-back would report every demo create as unverified.
+  if (method === "POST" && path === "/groups") {
+    const g = Object.assign({ groupTypes: [], membershipRule: null, memberCount: 0 }, body || {}, {
+      id: T.G(900 + T.GROUPS.length),
+      createdDateTime: new Date().toISOString(),
+    });
+    T.GROUPS.push(g);
+    return M.strip(g);
+  }
   if (method === "POST" && !/\$batch|getByIds/.test(path)) {
     const made = Object.assign({}, body || {}, {
       id: `demo-created-${Math.random().toString(16).slice(2, 10)}`,
@@ -1478,6 +1584,19 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   }
 
   // ---------- groups ----------
+  // Typed transitive counts (build 10632, T28's group-kind check): users are
+  // the modelled members, devices the machines whose modelled groups include
+  // it; a group with a stated size and nobody modelled answers by `_kind`.
+  m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.(user|device)\/\$count$/.exec(path);
+  if (m) {
+    const g = T.GROUPS.find((x) => x.id === m[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    const users = M.membersOfGroup(g.id).length;
+    const devices = T.DEVICES.filter((d) => M.groupsOfDevice(d.azureADDeviceId).some((x) => x && x.id === g.id)).length;
+    let n = m[2] === "user" ? users : devices;
+    if (!users && !devices && g.memberCount && g._kind === m[2]) n = g.memberCount;
+    return String(n);
+  }
   m = /^\/groups\/([^/]+)\/members\/\$count$/.exec(path);
   if (m) {
     const g = T.GROUPS.find((x) => x.id === m[1]);

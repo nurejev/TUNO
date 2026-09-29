@@ -13,11 +13,11 @@
 //     mistake it enables is not a duplicate policy but a policy reaching
 //     the wrong population — invisible until somebody's laptop behaves
 //     differently.
-//   * SEVEN SURFACES, ALL UNDER THE ONE WRITE SCOPE the registration
+//   * EIGHT SURFACES, ALL UNDER THE ONE WRITE SCOPE the registration
 //     already declares (DeviceManagementConfiguration.ReadWrite.All):
 //     device configurations, settings catalog, compliance, administrative
-//     templates, and the three Windows update profile collections —
-//     feature, quality, driver. Scripts and applications are deliberately
+//     templates, the three Windows update profile collections — feature,
+//     quality, driver — and (build 10632) legacy endpoint security intents. Scripts and applications are deliberately
 //     ABSENT — each would be a NEW write scope, and adding a write scope
 //     is a decision to take in the open (the R18 rule), not a side effect
 //     of a feature.
@@ -133,6 +133,23 @@ const AssignEdit = (() => {
       list: "/deviceManagement/windowsDriverUpdateProfiles?$expand=assignments",
       assign: (id) => `/deviceManagement/windowsDriverUpdateProfiles/${id}/assign`,
       read1: (id) => `/deviceManagement/windowsDriverUpdateProfiles/${id}/assignments` },
+    // LEGACY ENDPOINT SECURITY (build 10632, for T28's migration work).
+    // The endpoint security policies created before the settings catalog
+    // took over are `deviceManagement/intents`, and an old antivirus or ASR
+    // policy that has to be EXCLUDED from a wave is exactly the object the
+    // rollout needs to write. /intents/{id}/assign takes { assignments:
+    // [{ target }] } and REPLACES the list like every surface above, under
+    // the same DeviceManagementConfiguration.ReadWrite.All — no new scope,
+    // so no R18 move. Appended LAST so every index-based reader (the
+    // tests, T04's archive map) keeps its surfaces where they were. T05's
+    // `intents` section is the read side, so the warm start maps onto it
+    // and T22's references now see a group named in a legacy intent,
+    // which it used to miss outright.
+    { id: "intents", label: "Endpoint security (legacy)", icon: "🧱", nameField: "displayName",
+      section: "intents",
+      list: "/deviceManagement/intents?$expand=assignments",
+      assign: (id) => `/deviceManagement/intents/${id}/assign`,
+      read1: (id) => `/deviceManagement/intents/${id}/assignments` },
   ];
   const surfaceById = (id) => SURFACES.find((s) => s.id === id) || null;
 
@@ -315,14 +332,27 @@ const AssignEdit = (() => {
   // ---------------------------------------------------------------- backup --
   // The way back, taken BEFORE anything is sent. Restoring is: for each
   // policy, POST /assign with its `assignments` array from this file.
+  //
+  // ONE BUILDER, TWO CALLERS (build 10632). T28 plans several groups per
+  // policy in one run (a different exclusion on each old policy), so its
+  // plan has no single action or group to print; the file it writes must
+  // still be THIS format, so T04 and the restore instructions stay true.
+  // `backupOf` takes the changes plus whatever header the caller has;
+  // backupJson is T11's call of it, byte-for-byte what it wrote before.
   function backupJson(plan) {
-    return JSON.stringify({
+    return backupOf(plan.changes, {
       tool: "TUNO T11 assignment editor",
+      action: plan.action, group: { id: plan.group.id, name: plan.group.displayName },
+    });
+  }
+  function backupOf(changes, head) {
+    return JSON.stringify(Object.assign({
+      tool: "TUNO",
       build: (typeof APP_BUILD !== "undefined" ? APP_BUILD.label : ""),
       takenUtc: new Date().toISOString(),
       note: "Current assignments of every policy this plan would change, captured BEFORE applying. To restore one: POST the `assign` path recorded with it and the `assignments` array exactly as recorded here — the body is already in the shape that collection's assign action takes, envelope @odata.type included where one is required.",
-      action: plan.action, group: { id: plan.group.id, name: plan.group.displayName },
-      policies: plan.changes.map((o) => {
+    }, head || {}, {
+      policies: (changes || []).map((o) => {
         const sf = surfaceById(o.policy.surface);
         return {
           surface: o.policy.surface, id: o.policy.id, name: o.policy.name,
@@ -333,7 +363,7 @@ const AssignEdit = (() => {
           assignments: bodyAssignments(sf, o.before),
         };
       }),
-    }, null, 2);
+    }), null, 2);
   }
 
   // ----------------------------------------------------------------- apply --
@@ -401,7 +431,7 @@ const AssignEdit = (() => {
 
   return {
     SURFACES, setFilterNames, surfaceById, READ, WRITE,
-    cleanTarget, cleanAssignments, bodyAssignments, sig, readPolicies, planFor, backupJson, applyPlan,
+    cleanTarget, cleanAssignments, bodyAssignments, sig, readPolicies, planFor, backupJson, backupOf, applyPlan,
   };
 })();
 
