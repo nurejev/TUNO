@@ -85,6 +85,7 @@ const AppLockerTool = (() => {
   // THE RAIL (10577, Option B of the 3 Sep mockup): one of four screens is on
   // the table at a time — evidence | policy | breaks | deploy — plus help.
   let screen = "evidence";
+  let workspace = "improve", workspaceSessions = {}, workspaceEmptyDeploy = null;
   // Breaks the admin has ACCEPTED: files that ran on the device, that the
   // draft would block, and that are meant to be blocked. Keyed by the event
   // path; kept for the session and in localStorage so a reload does not
@@ -94,6 +95,7 @@ const AppLockerTool = (() => {
   let acceptedBreaks = new Map();
   try { acceptedBreaks = new Map(JSON.parse(localStorage.getItem("tuno.t01.decisions.v2") || "[]")); } catch { }
   const saveAccepted = () => { try { localStorage.setItem("tuno.t01.decisions.v2", JSON.stringify([...acceptedBreaks])); } catch { } };
+  let auditReview = null, auditSelections = new Set(), auditUpdatePlan = null, auditUpdateMessage = "", auditBusy = false, auditFilter = "needed";
   let draftOrigin = "", importNotice = "", expectedHarvest = null, pilotReview = "";
   const machineKey = (b) => String(b && b.machine && b.machine.name || "").trim().toUpperCase();
   const collectedAt = (b) => b && ((b.machine || {}).collectedUtc || (b.generator || {}).generatedUtc) || "";
@@ -614,9 +616,9 @@ const AppLockerTool = (() => {
     const plan = fleetFixPlan(row);
     if (!plan) return false;
     const col = ensureCollection(plan.type);
-    const base = row.binary || (row.path ? String(row.path).split("\\").pop() : "file");
+    const base = (row.path ? String(row.path).split("\\").pop() : row.binary) || "file";
     const name = `${BRANDING.name}: allow ${base} (fleet gap)`;
-    if (col.rules.some((r) => r.name === name)) return false;
+    if (draftVerdictForEvent(row.sample).s === "allowed") return false;
     const desc = `Closed from the fleet events evidence: ${row.count} ${String(row.verdict).toLowerCase()} event(s) for ${row.path || base}.`;
     if (plan.kind === "publisher") {
       col.rules.push(mkRule("FilePublisherRule", name, "S-1-1-0", "Allow",
@@ -854,6 +856,7 @@ const AppLockerTool = (() => {
     const hydrated = await hydrateAppLocker(p);
     const next = policyOfProfile(hydrated);
     if (!confirmDraftReplacement()) return;
+    clearAuditReview();
     policy = next; scanSource = ""; draftOrigin = "Intune profile · " + (p.displayName || p.id); pilotReview = "";
     const settings = (hydrated.omaSettings || []).filter((x) => APPLOCKER_OMA_RE.test(String(x.omaUri || "")));
     importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
@@ -1592,14 +1595,14 @@ const AppLockerTool = (() => {
     if (app.fix.kind === "publisher" && art.publisher) {
       const p = art.publisher;
       const name = `${BRANDING.name}: allow ${app.name}`;
-      if (col.rules.some((r) => r.name === name)) return false;
+      if (draftVerdictForEvent(row.sample).s === "allowed") return false;
       col.rules.push(mkRule("FilePublisherRule", name, "S-1-1-0", "Allow",
         [{ kind: "publisher", publisher: p.name, product: p.product, binary: "*", low: "*", high: "*" }],
         `${app.name} — publisher allow added from the ${BRANDING.name} Microsoft coverage check. ${app.fix.note}`));
       return true;
     }
     const name = `${BRANDING.name}: allow ${app.name} (path)`;
-    if (col.rules.some((r) => r.name === name)) return false;
+    if (draftVerdictForEvent(row.sample).s === "allowed") return false;
     // fix.path (10557): a catalog entry may name the folder to allow instead
     // of the artifact's own pattern — the Defender platform wants its
     // Platform folder, not a wildcard buried mid-path.
@@ -1637,7 +1640,8 @@ const AppLockerTool = (() => {
   // reads as a fix that did nothing.
   let justApplied = null, justAppliedTimer = null;
   function mutate(label, fn) {
-    if (!policy) return false;
+    if (!policy || auditBusy) return false;
+    auditUpdatePlan = null; auditUpdateMessage = "";
     const before = snapshot();
     if (fn() === false) return false;
     undoState = { snapshot: before, label };
@@ -1687,7 +1691,8 @@ const AppLockerTool = (() => {
   }
 
   function undoLast() {
-    if (!undoState) return;
+    if (!undoState || auditBusy) return;
+    auditUpdatePlan = null; auditUpdateMessage = "";
     policy = undoState.snapshot;
     undoState = null;
     fixOpen = null;
@@ -2271,10 +2276,11 @@ const AppLockerTool = (() => {
   // ================================================================
   const SCREENS = [
     { id:"evidence", ico:"◉", label:"Overview" },
-    { id:"compare", ico:"⇄", label:"1 · Current policy & sources" },
-    { id:"policy", ico:"✎", label:"2 · Edit baseline" },
-    { id:"breaks", ico:"▤", label:"3 · Check changes" },
-    { id:"deploy", ico:"↑", label:"4 · Pilot & deployment" },
+    { id:"compare", ico:"⇄", label:"1 · Deployed Audit policy" },
+    { id:"audit", ico:"▤", label:"2 · Scan results & additions" },
+    { id:"deploy", ico:"↑", label:"3 · Review & update Audit" },
+    { id:"policy", ico:"✎", label:"Manual rule editor" },
+    { id:"breaks", ico:"◈", label:"Advanced scenarios" },
   ];
   function evidenceItems() {
     const items = [];
@@ -2299,9 +2305,27 @@ const AppLockerTool = (() => {
       gs,
     };
   }
+  function switchWorkspace(next) {
+    if (!["create","improve"].includes(next) || next===workspace || auditBusy || deployState.busy || evTenant.busy) return;
+    workspaceSessions[workspace]={policy,scan,eventsEvidence,scanSource,importedXmlName,draftOrigin,undoState,editsSinceLoad,screen,pane,deployState,evTenant,auditReview,auditSelections,auditUpdatePlan,auditUpdateMessage,pilotReview,intuneCfg:{...intuneCfg},importNotice,expectedHarvest,impactSource,impactFilter};
+    workspace=next;
+    const saved=workspaceSessions[next] || {policy:null,scan:null,eventsEvidence:null,scanSource:"",importedXmlName:"",draftOrigin:"",undoState:null,editsSinceLoad:0,screen:next==="create"?"compare":"evidence",pane:"xml",deployState:JSON.parse(JSON.stringify(workspaceEmptyDeploy)),evTenant:{busy:false,list:null,error:""},auditReview:null,auditSelections:new Set(),auditUpdatePlan:null,auditUpdateMessage:"",pilotReview:"",intuneCfg:{displayName:"Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0",grouping:newGrouping(),mode:"Audit"},importNotice:"",expectedHarvest:null,impactSource:"device",impactFilter:"all"};
+    ({policy,scan,eventsEvidence,scanSource,importedXmlName,draftOrigin,undoState,editsSinceLoad,screen,pane,deployState,evTenant,auditReview,auditSelections,auditUpdatePlan,auditUpdateMessage,pilotReview,importNotice,expectedHarvest,impactSource,impactFilter}=saved);
+    Object.assign(intuneCfg,saved.intuneCfg); fixOpen=null; autoCheckedFor=null;
+    for(const [id,key] of [["alIntuneName","displayName"],["alIntuneGrouping","grouping"],["alIntuneMode","mode"]]) if($(id)) $(id).value=intuneCfg[key];
+    recompute(); showScreen(screen);
+  }
+  function renderWorkspace() {
+    const host=$("alWorkspaces"); if(!host) return;
+    const busy=auditBusy || deployState.busy || evTenant.busy;
+    host.innerHTML=`<div class="al-workspaces" aria-label="T01 workspaces">${[["create","1 · Create & deploy","Build a new Audit policy, publish it to Intune and set up the scan."],["improve","2 · Analyze & improve","Use real scan results to adjust the Audit policy already deployed."]].map(([key,title,desc])=>`<button type="button" class="al-workspace ${workspace===key?'active':''}" data-al-workspace="${key}" aria-pressed="${workspace===key}" ${busy?'disabled':''}><strong>${title}</strong><span>${desc}</span></button>`).join('')}</div><p class="mini muted">Each workspace keeps its own draft and evidence for this browser session. Switching does not publish or replace the other workspace’s policy.${busy?' An operation is in progress; switching is temporarily unavailable.':''}</p>`;
+    for(const id of ["alSample","alNew"]) if($(id)) $(id).style.display=workspace==='create'?'':'none';
+  }
   function renderRail() {
     const host = $("alRail"); if (!host) return;
-    host.innerHTML = SCREENS.map((sc) => `<button type="button" class="ep-node al-node ${screen === sc.id ? "active" : ""}" data-alscreen="${sc.id}" ${screen === sc.id ? 'aria-current="page"' : ""}>${sc.ico} ${esc(sc.label)}</button>`).join("") + `<hr><button type="button" class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">⚙ Collection setup</button>`;
+    renderWorkspace();
+    const steps=workspace === "create" ? [{id:"compare",ico:"＋",label:"1 · Start a new policy"},{id:"policy",ico:"✎",label:"2 · Build & review rules"},{id:"deploy",ico:"↑",label:"3 · Publish in Audit"},{id:"help",ico:"⚙",label:"4 · Set up Device Scan"},{id:"evidence",ico:"◉",label:"Reference scan / imports"},{id:"breaks",ico:"◈",label:"Advanced scenarios"}] : SCREENS;
+    host.innerHTML = steps.map((sc) => `<button type="button" class="ep-node al-node ${screen === sc.id ? "active" : ""}" data-alscreen="${sc.id}" ${screen === sc.id ? 'aria-current="page"' : ""}>${sc.ico} ${esc(sc.label)}</button>`).join("") + `<hr>${workspace === "improve" ? `<button type="button" class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">⚙ Run / configure Device Scan</button>` : ""}`;
   }
   function showScreen(name) {
     if (!SCREENS.some((sc) => sc.id === name) && name !== "help") name = "evidence";
@@ -2313,8 +2337,10 @@ const AppLockerTool = (() => {
   // and whether Enforce is open — the four facts every screen shares.
   function renderStatus() {
     const host = $("alStatus"); if (!host) return;
-    const b = scan || eventsEvidence, r = readiness();
-    host.innerHTML = `<b>${esc(b ? (b.machine || {}).name || "Unknown device" : "No device evidence loaded")}</b><span>Collected ${esc(fmtDate(collectedAt(b)))}</span><span>Draft: ${esc(draftOrigin || (policy ? importedXmlName : "not created"))}</span><span class="${r.ready ? "al-status-ok" : ""}">${esc(r.label)}</span>`;
+    if (auditReview) { host.innerHTML = `<b>${esc(machineKey(scan || eventsEvidence) || "No device scan")}</b><span>Reference: ${esc(auditReview.profile.displayName)} · AuditOnly</span><span>Scan results → selected changes → update same profile in Audit</span>`; return; }
+    const b = scan || eventsEvidence;
+    const stage=workspace=== "improve" ? "Next: select your deployed Audit policy" : policy ? "Review rules → publish in Audit → collect results" : "Start a new Audit draft";
+    host.innerHTML = `<b>${esc(b ? (b.machine || {}).name || "Unknown device" : "No device evidence loaded")}</b><span>Collected ${esc(fmtDate(collectedAt(b)))}</span><span>Draft: ${esc(draftOrigin || (policy ? importedXmlName : "not created"))}</span><span>${esc(stage)}</span>`;
   }
 
   function policySnapshot(which) {
@@ -2327,38 +2353,205 @@ const AppLockerTool = (() => {
     return model.collections.map((c) => `${c.type}: ${c.mode}, ${c.rules.length} rules`).join(" · ") || "No collections";
   }
   function renderReadiness() {
+    if ($("alReadiness")) $("alReadiness").style.display = workspace === "improve" ? "none" : "";
     if ($("alReadiness")) { const r = readiness(); $("alReadiness").innerHTML = `<h3>${esc(r.label)}</h3><ul>${r.reasons.map((x)=>`<li>${esc(x)}</li>`).join("")}</ul><label class="mini"><input id="alPilotReview" type="checkbox" ${pilotReview === r.signature ? "checked" : ""} ${policy ? "" : "disabled"}> I reviewed representative pilot activity and validated recovery for this draft and evidence.</label><p class="mini muted">This records your review, not automated proof. Changing the draft, evidence, tenant or decisions invalidates it.</p>`; }
   }
   function renderOverview() {
     const host = $("alOverview"); if (!host) return;
     const b = scan || eventsEvidence, ev = (eventsEvidence || scan || {}).events, r = readiness(), sm = ev && ev.summary || {};
     const fact = (label,value,detail) => `<article class="al-review-card"><span class="mini muted">${esc(label)}</span><h3>${esc(value)}</h3><p class="mini muted">${esc(detail)}</p></article>`;
-    host.innerHTML = `<div class="al-review-heading"><div><span class="mini muted">DEVICE ASSESSMENT</span><h2>${esc(b ? (b.machine || {}).name || "Unknown device" : "Start with a device")}</h2><p class="mini muted">${b ? `Collected ${esc(fmtDate(collectedAt(b)))} · ${esc(b.sourceName || "Bundle")}` : "Open a scan bundle or select a device from Harvest. Review the evidence before preparing changes."}</p></div><button class="btn" data-review-nav="compare">Compare policies</button></div>
+    host.innerHTML = `<div class="al-review-heading"><div><span class="mini muted">DEVICE ASSESSMENT</span><h2>${esc(b ? (b.machine || {}).name || "Unknown device" : "Start with a device")}</h2><p class="mini muted">${b ? `Collected ${esc(fmtDate(collectedAt(b)))} · ${esc(b.sourceName || "Bundle")}` : "Open a scan bundle or select a device from Harvest. Review the evidence before preparing changes."}</p></div><button class="btn" data-review-nav="compare">Select deployed Audit policy</button></div>
       ${importNotice ? `<p class="al-review-notice" role="status">${esc(importNotice)}</p>` : ""}
       ${b ? `<div class="al-review-grid">${fact("Evidence",r.limits.length ? `${r.limits.length} limitation(s)` : "Collection checks complete", "Scope is limited to this device and collection window.")}${fact("Observed activity",`${sm.blocked == null ? "?" : sm.blocked} blocked · ${sm.audited == null ? "?" : sm.audited} audit-only`,`${sm.allowed == null ? "Unknown" : sm.allowed} allowed · ${ev && ev.daysBack || "Unknown"} day window · ${(ev && ev.entries || []).length} entries supplied`)}${fact("Working draft",policy ? "Explicit draft loaded" : "Not created",draftOrigin || "Generated proposals and device snapshots remain read-only.")}</div>
-      <article class="al-review-card al-review-next"><h3>${esc(r.label)}</h3><p>${esc(r.reasons[0] || "Validate pilot enforcement before broad deployment.")}</p><button class="btn primary" data-review-nav="${policy ? "breaks" : "compare"}">${policy ? "Review application decisions" : "Review policy sources"}</button></article>
-      <article class="al-review-card"><h3>Policy captured on the device</h3><p class="mini">${esc(collectionSummary(policySnapshot("device")))}</p><p class="mini muted">A snapshot at collection time. Audit records what would be blocked; Enforce actually blocks those executions under the applicable rules. Event counts are not application counts.</p><button class="btn" data-review-impact="device">What if the current policy is enforced?</button> <button class="btn" data-review-impact="proposal">Check the scan proposal</button></article>
+      <article class="al-review-card al-review-next"><h3>${auditReview ? "Review results against your deployed Audit policy" : "Continue improving the policy you deployed"}</h3><p>${auditReview ? esc(auditReview.profile.displayName) : "Select the existing Intune Audit policy, review scan results, choose rule changes, then update that same policy in Audit mode."}</p><button class="btn primary" data-review-nav="${auditReview ? "audit" : "compare"}">${auditReview ? "Review scan results & additions" : "Select deployed Audit policy"}</button></article>
+      <article class="al-review-card"><h3>Policy captured on the device</h3><p class="mini">${esc(collectionSummary(policySnapshot("device")))}</p><p class="mini muted">A snapshot at collection time. Audit records what would be blocked; Enforce actually blocks those executions under the applicable rules. Event counts are not application counts.</p><button class="btn" data-review-impact="device">What if the current policy is enforced?</button> <button class="btn" data-review-nav="audit">Review real scan results</button></article>
       <details class="al-review-card" ${r.limits.length ? "open" : ""}><summary><b>Evidence limitations (${r.limits.length})</b></summary>${r.limits.length ? `<ul>${r.limits.map((x)=>`<li>${esc(x)}</li>`).join("")}</ul>` : "<p>Collection metadata is present. This does not prove representative pilot coverage.</p>"}</details>` : ""}`;
   }
   function snapshotDiffHtml(before, after) {
     const d = diffPolicies(before,after);
     return d.same ? '<p>No differences in the compared collections, rules and modes.</p>' : `<p>${d.added} added · ${d.removed} removed · ${d.changed} changed · ${d.renamed} renamed · ${d.modeChanges} mode changes</p>${d.collections.map((c)=>`<details><summary>${esc(c.type)} — ${esc(c.modeFrom || "Absent")} → ${esc(c.modeTo || "Absent")}</summary><ul>${c.added.map((r)=>`<li>Added: ${esc(r.name)}</li>`).join("")}${c.removed.map((r)=>`<li>Removed: ${esc(r.name)}</li>`).join("")}${c.changed.map((r)=>`<li>Changed: ${esc(r.after.name)} — ${esc(r.what.join(", "))}</li>`).join("")}${c.renamed.map((r)=>`<li>Renamed: ${esc(r.before.name)} → ${esc(r.after.name)}</li>`).join("")}</ul></details>`).join("")}`;
   }
+  // Audit iteration is bound to one explicitly selected Intune object, never a generated baseline.
+  const auditTenant = () => typeof Graph !== "undefined" && Graph.tenantId ? Graph.tenantId() : "offline";
+  const auditRowKey = row => JSON.stringify([row.path,row.sample.hash,row.sample.publisher,row.sample.product,row.sample.binary,row.sample.version || row.sample.fileVersion,row.sample.userSid,eventCollectionType(row.sample)]);
+  function clearAuditReview() { auditReview = null; auditFilter = "needed"; auditSelections.clear(); auditUpdatePlan = null; auditUpdateMessage = ""; }
+  function auditProfileIdentity(p) {
+    if (!p || !p.id) throw new Error("An existing Intune profile ID is required.");
+    const settings = p.omaSettings || [];
+    if (!settings.length || settings.some(x=>!APPLOCKER_OMA_RE.test(x.omaUri || ""))) throw new Error("Choose a dedicated AppLocker profile. Mixed configuration settings cannot be updated by this workflow.");
+    const groups = [...new Set(settings.map(x=>APPLOCKER_OMA_RE.exec(x.omaUri)[1]))];
+    if (groups.length !== 1) throw new Error("This profile contains multiple AppLocker groupings. Select a single-grouping Audit policy.");
+    // Refuse shapes the editable model cannot round-trip, rather than dropping extensions.
+    const attributes={RuleCollection:['Type','EnforcementMode'],FilePathRule:['Id','Name','Description','UserOrGroupSid','Action'],FilePublisherRule:['Id','Name','Description','UserOrGroupSid','Action'],FileHashRule:['Id','Name','Description','UserOrGroupSid','Action'],Conditions:[],Exceptions:[],FilePathCondition:['Path'],FilePublisherCondition:['PublisherName','ProductName','BinaryName'],BinaryVersionRange:['LowSection','HighSection'],FileHashCondition:[],FileHash:['Type','Data','SourceFileName','SourceFileLength']};
+    for(const setting of settings) {
+      const doc=new DOMParser().parseFromString(String(setting.value || ''),'text/xml');
+      if(doc.documentElement.nodeName!=='RuleCollection') throw new Error('Each Audit setting must contain exactly one readable RuleCollection.');
+      for(const node of doc.querySelectorAll('*')) {
+        const supported=attributes[node.nodeName];
+        if(!supported || [...node.attributes].some(a=>!supported.includes(a.name))) throw new Error('This policy contains XML extensions or attributes that the editor cannot preserve. Use the original policy authoring workflow; no update was prepared.');
+        if(/Rule$/.test(node.nodeName) && !node.getAttribute('Id')) throw new Error('A deployed rule has no stable ID. Repair the source policy before using this workflow.');
+      }
+    }
+    const model = policyOfProfile(p);
+    if (!model.collections.length || model.collections.some(c=>c.mode !== "AuditOnly")) throw new Error("This profile is not fully AuditOnly. Its readable collection values, not its name, determine its mode.");
+    if (new Set(model.collections.map(c=>c.type)).size !== model.collections.length) throw new Error("Duplicate AppLocker collections cannot be reviewed as one policy.");
+    return {grouping:groups[0],model};
+  }
+  const auditFingerprint = p => JSON.stringify([p.id,p.displayName,p.lastModifiedDateTime, p.omaSettings]);
+  async function selectAuditProfile(p) {
+    if (auditBusy) return;
+    const selectedWorkspace=workspace;
+    const tenant = auditTenant(), hydrated = await hydrateAppLocker(p), source = auditProfileIdentity(hydrated);
+    if (tenant !== auditTenant() || selectedWorkspace !== workspace) throw new Error("The tenant or workspace changed during the read. Read the policies again.");
+    if (!confirmDraftReplacement()) return;
+    clearAuditReview();
+    auditReview = {profile:JSON.parse(JSON.stringify(hydrated)),model:source.model,grouping:source.grouping,tenant,readAt:new Date().toISOString()};
+    policy = JSON.parse(JSON.stringify(source.model));
+    intuneCfg.grouping = source.grouping; intuneCfg.mode = "Audit"; intuneCfg.displayName = hydrated.displayName;
+    if ($("alIntuneGrouping")) $("alIntuneGrouping").value=source.grouping;
+    if ($("alIntuneName")) $("alIntuneName").value=hydrated.displayName;
+    if ($("alIntuneMode")) $("alIntuneMode").value="Audit";
+    importedXmlName = hydrated.displayName; draftOrigin = "Deployed Audit policy · " + hydrated.displayName; pilotReview = "";
+    loadFresh(); showScreen("audit");
+  }
+  function auditReceipt() {
+    if (!auditReview || !scan) return "No device policy snapshot to compare. Import a scan from a device assigned this policy.";
+    const captured=policySnapshot("device"), groups=scan.effectivePolicy?.sources?.mdm || [];
+    if (!groups.some(g=>String(g.grouping).toLowerCase()===auditReview.grouping.toLowerCase() && g.types?.length)) return "The selected grouping was not confirmed in this device scan. Check assignment, sync and the collection date.";
+    if (!captured) return "Grouping reported, but the device policy values could not be read.";
+    let missing=0, modes=0;
+    for(const col of auditReview.model.collections) {
+      const seen=captured.collections.find(c=>c.type===col.type);
+      missing+=col.rules.filter(r=>!seen?.rules.some(x=>ruleSig(x)===ruleSig(r))).length;
+      if (!seen || seen.mode!==col.mode) modes++;
+    }
+    return missing || modes ? `Grouping reported, but ${missing} reference rule(s) are missing or differ and ${modes} collection mode(s) differ in the captured device policy. Investigate receipt before treating events as a test of this version.` : "The grouping and reference rules are present in the merged device snapshot in Audit mode. Other policy sources may also contribute; this does not isolate receipt of each individual Intune profile.";
+  }
+  function auditResultRows() {
+    if (!auditReview) return [];
+    return aggregateFleetEvents(fleetEntries() || []).filter(row=>!isPolicyProbe(row.path)).map(row=>({row,key:auditRowKey(row),before:draftVerdictForEvent(row.sample,auditReview.model),after:draftVerdictForEvent(row.sample),plan:fleetFixPlan(row),accepted:acceptedBreaks.get(breakKey(row))}));
+  }
+  function applyAuditSelections() {
+    if (!auditReview || auditBusy || auditReview.tenant!==auditTenant()) return;
+    const chosen=auditResultRows().filter(x=>auditSelections.has(x.key) && x.after.s==='blocked' && x.plan && !x.accepted);
+    if (!chosen.length) return;
+    mutate(`added suggestions for ${chosen.length} recorded file(s)`,()=>chosen.forEach(x=>addFixForFleetRow(x.row)));
+    auditSelections.clear(); renderAuditResults();
+  }
+  function auditBody() {
+    if (!auditReview || !policy || auditReview.tenant!==auditTenant()) throw new Error("Select the deployed Audit policy in the current tenant first.");
+    const original=auditReview.profile.omaSettings, used=new Set();
+    const omaSettings=original.flatMap(setting=>{
+      const type=policyOfProfile({omaSettings:[setting]}).collections[0].type;
+      const col=policy.collections.find(c=>c.type===type); used.add(type);
+      if (!col) return [];
+      return [{"@odata.type":"#microsoft.graph.omaSettingString",displayName:setting.displayName || type,description:setting.description || "",omaUri:setting.omaUri,value:collectionLines(col,"","AuditOnly").join("\n")}];
+    });
+    for(const col of policy.collections.filter(c=>!used.has(c.type))) {
+      if (!OMA_TYPE[col.type] || col.type==='Dll') throw new Error(`Adding ${col.type} is outside this Audit update workflow. Existing collections are preserved; use the manual policy workflow for a collection-scope change.`);
+      omaSettings.push({"@odata.type":"#microsoft.graph.omaSettingString",displayName:col.type,omaUri:`./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/${auditReview.grouping}/${OMA_TYPE[col.type]}/Policy`,value:collectionLines(col,"","AuditOnly").join("\n")});
+    }
+    if (!omaSettings.length) throw new Error("The Audit update cannot remove every collection.");
+    return {omaSettings}; // PATCH only policy settings: keep object ID, name, grouping and assignments.
+  }
+  async function readAuditTarget(id) {
+    const found=await Graph.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(id)}`,{scopes:Graph.SCOPES.profiles});
+    if (!found || found.id!==id) throw new Error("The selected Intune profile no longer exists. No replacement profile was created.");
+    return hydrateAppLocker(found);
+  }
+  async function prepareAuditUpdate() {
+    if (auditBusy || !auditReview) return;
+    auditUpdatePlan=null; auditUpdateMessage=""; auditBusy=true; renderAuditUpdate();
+    const reference=auditReview;
+    try {
+      const body=auditBody(), snapshot=JSON.stringify(policy), live=await readAuditTarget(reference.profile.id);
+      auditProfileIdentity(live);
+      if (reference!==auditReview || reference.tenant!==auditTenant() || snapshot!==JSON.stringify(policy)) throw new Error("The review changed during comparison. Review the current changes again.");
+      if (auditFingerprint(live)!==auditFingerprint(reference.profile)) throw new Error("The Intune policy changed since it was selected. Re-select it and review your additions against the new version before updating.");
+      const delta=diffPolicies(policyOfProfile(live),policyOfProfile(body));
+      auditUpdatePlan={id:live.id,tenant:reference.tenant,fingerprint:auditFingerprint(live),snapshot,body,delta};
+      auditUpdateMessage=delta.same ? "No rule changes to send. The existing Audit policy already matches this working copy." : "Fresh Intune comparison completed. Review the differences below before updating.";
+    } catch(e) { auditUpdateMessage=e.message; }
+    finally { auditBusy=false; renderAuditUpdate(); }
+  }
+  async function writeAuditUpdate() {
+    const plan=auditUpdatePlan, reference=auditReview;
+    if (!plan || !reference || plan.delta.same || auditBusy) return;
+    if (!window.confirm(`Update “${reference.profile.displayName}” in AuditOnly? This patches the existing profile; its ID, grouping and assignments remain. Devices receive the revised audit rules after sync. Re-scan afterwards. Cancel to keep the deployed policy unchanged.`)) return;
+    auditBusy=true; auditUpdateMessage="Re-reading the selected profile before update…"; renderAuditUpdate();
+    let written=false;
+    try {
+      if (plan.tenant!==auditTenant() || reference!==auditReview || plan.snapshot!==JSON.stringify(policy)) throw new Error("The tenant or draft changed. Compare again before updating.");
+      const live=await readAuditTarget(plan.id); auditProfileIdentity(live);
+      if (plan.tenant!==auditTenant() || plan.snapshot!==JSON.stringify(policy) || auditFingerprint(live)!==plan.fingerprint) throw new Error("The tenant, draft or deployed policy changed after comparison. No update was sent; compare again.");
+      await Graph.patch(`/deviceManagement/deviceConfigurations/${encodeURIComponent(plan.id)}`,plan.body,{scopes:Graph.SCOPES.profiles,headers:live["@odata.etag"]?{"If-Match":live["@odata.etag"]}:undefined});
+      written=true;
+      const verified=await readAuditTarget(plan.id), identity=auditProfileIdentity(verified);
+      if (plan.tenant!==auditTenant()) throw new Error("The tenant changed during read-back; verify the original tenant manually.");
+      if (identity.grouping!==reference.grouping || !diffPolicies(identity.model,policyOfProfile(plan.body)).same) throw new Error("Intune read-back does not match the planned rules.");
+      auditReview={...reference,profile:JSON.parse(JSON.stringify(verified)),model:identity.model,readAt:new Date().toISOString()};
+      pilotReview=""; undoState=null; auditSelections.clear(); auditUpdatePlan=null;
+      auditUpdateMessage="Audit policy updated and verified in Intune. Device receipt is not yet verified. Sync the pilot, run the Device Scan remediation again, and open the new bundle to review fresh results.";
+    } catch(e) { auditUpdatePlan=null; auditUpdateMessage=(written ? "Update was sent, but verification is incomplete. Do not assume device receipt or retry blindly. " : "No verified update. ")+e.message; }
+    finally { auditBusy=false; renderAuditUpdate(); renderAuditResults(); renderStatus(); }
+  }
+  function renderAuditResults() {
+    const host=$("alAuditResults"); if (!host) return;
+    if (!auditReview) { host.innerHTML='<article class="al-review-card"><h2>Review real scan results</h2><p>First select the Audit policy you published to Intune. This becomes the reference for suggested additions; the scanner-generated baseline is not used.</p><button class="btn primary" data-review-nav="compare">Select deployed Audit policy</button></article>'; return; }
+    const all=auditResultRows(), attention=all.filter(x=>x.before.s!=="allowed" || x.row.refused), proposed=all.filter(x=>x.after.s==='blocked' && x.plan && !x.accepted).length;
+    const category=x=>x.before.s==='no-rules'?'scope':x.before.s==='allowed'?'history':'needed';
+    const shown=attention.filter(x=>auditFilter==='all' || category(x)===auditFilter);
+    host.innerHTML=`<h2>Scan results against your deployed Audit policy</h2><p><b>${esc(auditReview.profile.displayName)}</b> · ${esc(machineKey(eventsEvidence || scan) || "No device results")} · collected ${esc(fmtDate(collectedAt(eventsEvidence || scan)))}</p><p class="al-review-notice">${esc(auditReceipt())}</p>
+      <p>Audit events show executions that would have been blocked at the time. Suggestions below use actual execution records, not the installed-file inventory. Select only applications you intend to allow.</p>
+      <div class="al-review-grid"><article class="al-review-card"><h3>${attention.length} files to review</h3><p>Includes unknown predictions and historical audit/block events now covered by the selected policy.</p></article><article class="al-review-card"><h3>${proposed} possible additions</h3><p>Not automatic approvals. An explicit deny may still take precedence after adding an allow rule.</p></article></div>
+      ${!fleetEntries()?.length ? '<p>No execution results available. Open a scan bundle on Overview.</p>' : ''}
+      <div class="al-review-actions"><button class="btn primary" data-audit-add ${!auditSelections.size || auditBusy ? "disabled" : ""}>Add ${auditSelections.size} selected suggestion(s) to my changes</button><button class="btn" data-review-nav="deploy">Review differences &amp; update Audit</button><button class="btn" data-review-impact="draft">Detailed file decisions / keep blocked</button></div>
+      <label class="mini">Show <select data-audit-filter>${[['needed','Differences / unknown'],['history','Historical events already covered'],['scope','Outside selected collections'],['all','All review rows']].map(([key,label])=>`<option value="${key}" ${auditFilter===key?'selected':''}>${label} (${key==='all'?attention.length:attention.filter(x=>category(x)===key).length})</option>`).join('')}</select></label>
+      ${!shown.length?'<p>No rows in this category. Other categories remain available above; this is not proof of readiness for enforcement.</p>':''}
+      <div class="al-table-scroll"><table class="plist"><thead><tr><th>Select</th><th>File / application</th><th>Observed on device</th><th>Deployed policy if enforced</th><th>My changes if enforced</th><th>Suggested change</th></tr></thead><tbody>${shown.map(({row,key,before,after,plan,accepted})=>`<tr><td>${after.s==='blocked' && plan && !accepted ? `<input type="checkbox" aria-label="Propose rule for ${esc(row.path)}" data-audit-pick="${esc(key)}" ${auditSelections.has(key)?'checked':''} ${auditBusy?'disabled':''}>`:'—'}</td><td><b>${esc(row.path.split('\\').pop() || row.binary)}</b><details><summary>Evidence</summary><p>${esc(row.path)}</p><p>${esc(row.publisher || 'Publisher not recorded')} · ${esc(row.sample.hash || 'Hash not recorded')}</p></details></td><td>${esc(row.verdict)}${row.ranOk && row.verdict!=='Allowed'?' · also allowed':''}<br>${row.count} execution(s)</td><td>${esc(before.text)}</td><td>${esc(after.text)}</td><td>${accepted ? `Keep blocked: ${esc(accepted.reason)}` : after.s==='allowed' ? (before.s==='allowed'?'Already covered; investigate the historical policy/receipt before adding rules.':'Covered by your working changes.') : after.s==='blocked' && plan ? `${esc(plan.label)}${plan.kind==='publisher'?` — signer ${esc(row.publisher)}, product ${esc(row.product || '*')}; publisher/product scope may cover other files.`:plan.kind==='hash'?' — exact recorded hash; changes on update.':' — verify folder permissions before allowing this path.'}` : 'No automatic addition: missing metadata, membership or collection scope needs investigation.'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="mini muted">${all.length-attention.length} recorded file identities already covered and without recorded refusals are omitted from this list. PowerShell policy probes are excluded; they remain available under Advanced scenarios. Predictions assume standard users and do not replace Windows validation.</p>
+      <details class="al-review-card"><summary>Collection limitations and scope</summary><ul>${evidenceLimitations().map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>Events may predate the selected policy version. Device inventory alone is never an instruction to allow a file.</p></details>`;
+  }
+  function renderAuditUpdate() {
+    const host=$("alAuditUpdate"); if (!host) return;
+    host.style.display=workspace==='improve'?'':'none';
+    if (!auditReview) { host.innerHTML='<article class="al-review-card"><h2>Update an existing Audit policy</h2><p>Select the deployed Intune policy first. This workspace never creates a new profile from an unbound draft.</p><button class="btn primary" data-review-nav="compare">Select deployed Audit policy</button></article>'; return; }
+    let body, error=''; try{body=auditBody()}catch(e){error=e.message}
+    host.innerHTML=`<article class="al-review-card"><h2>Review changes to the same Audit policy</h2><p><b>${esc(auditReview.profile.displayName)}</b><br>Profile ID: ${esc(auditReview.profile.id)}<br>Grouping: ${esc(auditReview.grouping)}</p><p>This update keeps AuditOnly, the existing Intune object, its name and assignments. It does not create a second baseline or switch to Enforce.</p>
+      ${error?`<p role="alert">${esc(error)}</p>`:snapshotDiffHtml(auditReview.model,policyOfProfile(body))}
+      <div class="al-review-actions"><button class="btn" data-review-nav="audit">Back to scan results</button><button class="btn" data-review-nav="policy">Edit rules manually</button><button class="btn" data-audit-backup>Download original policy backup</button><button class="btn primary" data-audit-prepare ${auditBusy || error?'disabled':''}>${auditBusy?'Working…':'Re-read Intune & preview update'}</button></div>
+      ${auditUpdateMessage?`<p role="status" class="al-review-notice">${esc(auditUpdateMessage)}</p>`:''}
+      ${auditUpdatePlan && !auditUpdatePlan.delta.same?`<h3>Ready for your decision</h3><p>${auditUpdatePlan.delta.added} rules added · ${auditUpdatePlan.delta.removed} removed · ${auditUpdatePlan.delta.changed} changed. Target mode: AuditOnly.</p><button class="btn primary" data-audit-write ${auditBusy?'disabled':''}>Update this existing policy in Audit mode</button>`:''}
+      <p class="mini">After updating: sync the pilot, run the AppLocker Device Scan remediation again, then import the new scan. Existing scan results do not become proof of the revised policy. To recover, restore the previous rules to this same profile from your saved policy export.</p></article>`;
+  }
+
   function renderComparison() {
     const host = $("alComparison"); if (!host) return;
-    const device = policySnapshot("device"), proposal = policySnapshot("proposal");
-    const profiles = deployState.checked && deployState.checked.tenantAppLocker || evTenant.list || [];
-    const card = (name,desc,model,button) => `<article class="al-review-card"><h3>${esc(name)}</h3><p class="mini muted">${esc(desc)}</p><p class="mini">${esc(collectionSummary(model))}</p>${button || ""}</article>`;
-    host.innerHTML = `<h2>Current policy &amp; baseline sources</h2><p>The device snapshot is what was collected. The scan proposal is a suggested baseline, not an approved or deployed policy. Create an editable copy, review its rules, then check the impact before deploying.</p><div class="al-review-grid">${card("Device snapshot",`Read-only · ${fmtDate(collectedAt(scan))}`,device,device ? '<button class="btn" data-review-source="effective">Edit a copy of the current policy</button>' : "")}${card("Generated proposal","Read-only scanner suggestions · not deployed",proposal,proposal ? '<button class="btn primary" data-review-source="generated-audit">Edit a copy of the scan proposal</button>' : "")}${card("Working draft",draftOrigin || "No draft created",policy,policy ? '<button class="btn" data-review-nav="policy">Edit working draft</button>' : "")}</div>
-      <article class="al-review-card"><h3>Intune profiles</h3><p class="mini muted">Tenant configuration is separate from device receipt. Unread policy values stay unknown.</p><button class="btn" data-review-tenant>Read Intune profiles</button>${evTenant.busy ? " Reading…" : ""}${evTenant.error ? `<p>${esc(evTenant.error)}</p>` : ""}${profiles.length ? profiles.map((p,i)=>`<div class="al-profile-row"><b>${esc(p.displayName || p.id)}</b><button class="btn sm" data-review-profile="${i}">Create draft from profile</button><button class="btn sm" data-review-compare="${i}" ${policy ? "" : "disabled"}>Compare with draft</button></div>`).join("") : '<p class="mini muted">No profiles loaded.</p>'}</article>
-      ${policy && device ? `<article class="al-review-card"><h3>Device snapshot compared with working draft</h3>${snapshotDiffHtml(device, policy)}</article>` : ""}
-      ${policy && proposal ? `<article class="al-review-card"><h3>Generated proposal compared with working draft</h3>${snapshotDiffHtml(proposal, policy)}</article>` : ""}
-      ${deployState.diff ? diffHtml(deployState.diff) : ""}`;
+    if(workspace === "create") {
+      host.innerHTML=`<h2>Create a new AppLocker policy</h2><p>Use this workspace for the first draft and deployment. Start empty, import an existing XML, or use a reference-device scan as a proposal. Publish in AuditOnly, then deploy the Device Scan remediation to collect real results.</p><div class="al-review-actions"><button class="btn primary" data-build-new>Start an empty Audit draft</button><button class="btn" data-build-import>Import XML or reference scan</button>${policySnapshot("proposal")?'<button class="btn" data-review-source="generated-audit">Use reference scan proposal</button>':''}${policy?'<button class="btn" data-review-nav="policy">Continue my draft</button>':''}</div><article class="al-review-card"><h3>Already deployed a policy?</h3><p>Analyze &amp; improve starts from the Intune policy you published, then uses execution results to propose selected changes.</p><button class="btn" data-al-workspace="improve">Open Analyze &amp; improve</button></article>`;
+      return;
+    }
+    const profiles = evTenant.list || deployState.checked && deployState.checked.tenantAppLocker || [];
+    const groups = new Set((scan?.effectivePolicy?.sources?.mdm || []).map(g=>String(g.grouping).toLowerCase()));
+    host.innerHTML = `<h2>Select the Audit policy you deployed</h2><p>Your existing Intune configuration is the reference. The scan shows what happened on the device; it does not replace this policy with a new baseline.</p>
+      <article class="al-review-card"><button class="btn primary" data-review-tenant ${evTenant.busy || auditBusy ? "disabled" : ""}>${evTenant.busy ? "Reading…" : "Read deployed Intune policies"}</button><p class="mini">Select the policy assigned to this device. Names are not proof of Audit mode; T01 reads every collection before opening it.</p>${evTenant.error ? `<p role="alert">${esc(evTenant.error)}</p>` : ""}
+      ${profiles.map((p,i)=>{const matches=(p.omaSettings || []).some(x=>groups.has(String((APPLOCKER_OMA_RE.exec(x.omaUri || "") || [])[1] || "").toLowerCase()));return `<div class="al-profile-row"><div><b>${esc(p.displayName || p.id)}</b><p class="mini muted">${matches ? "Grouping appears in the device scan" : "Device receipt not established"}</p></div><button class="btn" data-audit-profile="${i}" ${auditBusy ? "disabled" : ""}>Review this deployed Audit policy</button></div>`}).join("") || '<p>No profiles loaded yet. Read Intune to choose the existing policy.</p>'}</article>
+      ${auditReview ? `<article class="al-review-card"><h3>Selected: ${esc(auditReview.profile.displayName)}</h3><p>Profile ID: ${esc(auditReview.profile.id)} · grouping: ${esc(auditReview.grouping)}</p><p>All collections were read as AuditOnly. This identity is retained for the update.</p><button class="btn primary" data-review-nav="audit">Review scan results &amp; additions</button></article>` : ""}
+      <article class="al-review-card"><h3>Need to create a new policy instead?</h3><p>The new-policy builder and reference-scan proposals live in the separate Create &amp; deploy workspace.</p><button class="btn" data-al-workspace="create">Open Create &amp; deploy</button></article>`;
   }
   function wireReview() {
     const root = $("screen-applocker"); if (!root || root.dataset.reviewWired) return;
     root.dataset.reviewWired = "true";
     root.addEventListener("click", async (e) => {
+      const ws=e.target.closest("[data-al-workspace]"); if(ws){switchWorkspace(ws.dataset.alWorkspace);return;}
+      if(e.target.closest("[data-build-new]")){ $("alNew").click();return; }
+      if(e.target.closest("[data-build-import]")){ showScreen("evidence");return; }
+      const ap = e.target.closest("[data-audit-profile]");
+      if (ap) { const profiles = evTenant.list || deployState.checked?.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=err.message; renderComparison(); } return; }
+      if (e.target.closest("[data-audit-backup]") && auditReview) { download("AppLocker-original-Audit-profile.json",JSON.stringify(auditReview.profile,null,2),"application/json"); return; }
+      if (e.target.closest("[data-audit-add]")) { applyAuditSelections(); return; }
+      if (e.target.closest("[data-audit-prepare]")) { await prepareAuditUpdate(); return; }
+      if (e.target.closest("[data-audit-write]")) { await writeAuditUpdate(); return; }
       const impact = e.target.closest("[data-review-impact]");
       if (impact) { impactSource = impact.dataset.reviewImpact; renderBreaks(); showScreen("breaks"); return; }
       const jump = e.target.closest("[data-review-jump]");
@@ -2377,7 +2570,7 @@ const AppLockerTool = (() => {
         }
       } catch (err) { importNotice = err.message; renderOverview(); }
     });
-    root.addEventListener("change",(e)=>{ if(e.target.id === "alPilotReview") { pilotReview = e.target.checked ? readiness().signature : ""; render(); } });
+    root.addEventListener("change",(e)=>{ if(e.target.matches("[data-audit-filter]")) { auditFilter=e.target.value; renderAuditResults(); return; } if(e.target.matches("[data-audit-pick]")) { e.target.checked ? auditSelections.add(e.target.dataset.auditPick) : auditSelections.delete(e.target.dataset.auditPick); renderAuditResults(); return; } if(e.target.id === "alPilotReview") { pilotReview = e.target.checked ? readiness().signature : ""; render(); } });
   }
 
   // ---- 1 · Evidence: what is on the table, and what is missing ----
@@ -2575,8 +2768,10 @@ const AppLockerTool = (() => {
     $("alEmpty").style.display = scan || eventsEvidence || policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
     if ($("alPolicyEmpty")) $("alPolicyEmpty").style.display = policy ? "none" : "";
-    if ($("alDeployBody")) $("alDeployBody").style.display = policy ? "" : "none";
-    if ($("alDeployEmpty")) $("alDeployEmpty").style.display = policy ? "none" : "";
+    if ($("alDeployBody")) $("alDeployBody").style.display = policy && !auditReview && workspace === "create" ? "" : "none";
+    if ($("alDeployEmpty")) $("alDeployEmpty").style.display = policy || workspace === "improve" ? "none" : "";
+    renderAuditResults();
+    renderAuditUpdate();
     renderOverview();
     renderComparison();
     renderReadiness();
@@ -2602,7 +2797,7 @@ const AppLockerTool = (() => {
 
     // ---- summary + enforcement ----
     $("alSummary").innerHTML = `
-      <h2>Edit your baseline</h2><p class="mini">This working copy is not deployed. Add rules below, or find an existing rule and choose Remove. Removing an allow rule may still leave another matching allow; adding an allow does not override a deny. Check the impact after editing.</p>
+      <h2>${auditReview ? "Edit changes to the deployed Audit policy" : "Edit your baseline"}</h2><p class="mini">This working copy is not deployed. Add rules below, or find an existing rule and choose Remove. Removing an allow rule may still leave another matching allow; adding an allow does not override a deny. Check the impact after editing.</p>
       <div class="al-review-actions"><button class="btn" data-review-jump="alAddRule">Add a rule</button><button class="btn" data-review-jump="alRules">Find / remove rules</button><button class="btn primary" data-review-impact="draft">Check my changes</button><button class="btn" data-review-nav="deploy">Pilot &amp; deployment</button></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <b>${esc(importedXmlName || "New policy")}</b>
@@ -3037,17 +3232,19 @@ const AppLockerTool = (() => {
   // ways to get a policy under the evidence.
   function afterImport() {
     recompute();
-    showScreen("evidence");
+    showScreen(auditReview ? "audit" : "evidence");
     renderHarvestFetch();
     if (policy) autoTenantCheck().catch(() => {});
   }
   function confirmDraftReplacement() {
+    if (auditBusy) return false;
     return !policy || window.confirm("Replace the working draft? Export it first if you want to keep it. Device evidence stays unchanged.");
   }
   function createDraft(source) {
     const chosen = scan && bundleXml(scan, source);
     if (!chosen || chosen.source !== source || !confirmDraftReplacement()) return;
     const next = parsePolicy(chosen.xml, scan.sourceName);
+    clearAuditReview();
     policy = next; scanSource = source;
     draftOrigin = `${(scan.machine || {}).name || "Unknown device"} · ${SCAN_SOURCE_LABEL[source]} · ${fmtDate(collectedAt(scan))}`;
     importedXmlName = "Working draft — " + draftOrigin;
@@ -3061,6 +3258,8 @@ const AppLockerTool = (() => {
     if (name !== expectedHarvest.file) throw new Error(`Expected ${expectedHarvest.file}. Choose that downloaded file, or use Open local file to review a different bundle.`);
   }
   function importFile(text, name) {
+    if (auditBusy) throw new Error("Wait for the Audit update to finish before changing evidence.");
+    auditSelections.clear(); auditUpdatePlan = null;
     const looksJson = /\.json$/i.test(name) || /^\s*\{/.test(text);
     if (looksJson) {
       let b;
@@ -3085,6 +3284,7 @@ const AppLockerTool = (() => {
     if (expectedHarvest) throw new Error("Choose the downloaded JSON bundle, not a policy XML.");
     const next = parsePolicy(text, name);
     if (!confirmDraftReplacement()) return;
+    clearAuditReview();
     policy = next; scanSource = ""; importedXmlName = name; draftOrigin = "Policy XML · " + name;
     pilotReview = ""; loadFresh();
     importNotice = "Policy XML opened as a working draft. Device evidence is unchanged.";
@@ -3155,6 +3355,7 @@ const AppLockerTool = (() => {
   }
 
   function init() {
+    workspaceEmptyDeploy = JSON.parse(JSON.stringify(deployState));
     wireReview();
     wireJump();
     // The rail: click a node, that screen is on the table.
@@ -3212,6 +3413,7 @@ const AppLockerTool = (() => {
     // confirm says the one thing that matters: nothing in the tenant moves.
     $("alReset").addEventListener("click", () => {
       if (!window.confirm("Start over? The loaded policy, scan and events evidence leave the table, and the loop's manual marks are cleared. Nothing in the tenant is touched.")) return;
+      if (auditBusy) return; clearAuditReview();
       policy = null; scan = null; scanSource = ""; importedXmlName = ""; impactSource = "device"; impactFilter = "all";
       eventsEvidence = null;
       evTenant = { busy: false, list: null, error: "" };
@@ -3223,7 +3425,7 @@ const AppLockerTool = (() => {
     });
     $("alSample").addEventListener("click", () => {
       if (!confirmDraftReplacement()) return;
-      scanSource = ""; draftOrigin = "Sample policy";
+      clearAuditReview(); scanSource = ""; draftOrigin = "Sample policy";
       policy = parsePolicy(SAMPLE_XML, "sample policy");
       importedXmlName = "sample policy (deliberately flawed — for trying the tool)";
       loadFresh();
@@ -3231,9 +3433,9 @@ const AppLockerTool = (() => {
     });
     $("alNew").addEventListener("click", () => {
       if (!confirmDraftReplacement()) return;
-      scanSource = ""; draftOrigin = "Created from scratch";
+      clearAuditReview(); scanSource = ""; draftOrigin = "Created from scratch";
       policy = { sourceName: "", collections: [] };
-      COLLECTIONS.forEach((t) => ensureCollection(t));
+      COLLECTIONS.forEach((t) => { ensureCollection(t).mode="AuditOnly"; });
       importedXmlName = "new policy";
       loadFresh();
       showScreen("policy");
@@ -4263,6 +4465,7 @@ const AppLockerTool = (() => {
   }
 
   function renderDeploy() {
+    renderAuditResults(); renderAuditUpdate();
     renderOverview(); renderComparison(); renderBreaks(); renderReadiness();
     renderRemedy();
     renderLoopStrip();
@@ -4790,6 +4993,7 @@ const AppLockerTool = (() => {
   }
 
   return { init,
+    _audit: {switchWorkspace,workspace:()=>workspace,selectAuditProfile,auditResultRows,applyAuditSelections,auditBody,prepareAuditUpdate,writeAuditUpdate,auditReceipt,getState:()=>({reference:auditReview,plan:auditUpdatePlan,message:auditUpdateMessage}),select:(keys)=>{auditSelections=new Set(keys)}},
     _review: { impactModel, readiness, evidenceLimitations, createDraft, draftVerdictForEvent, fleetGapStats, render, showScreen, markdown, adoptTenantProfile, getState: () => ({scan,eventsEvidence,policy,draftOrigin}), setExpectedHarvest: (x) => { expectedHarvest=x; } },
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },

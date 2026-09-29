@@ -25,6 +25,23 @@
 // Newest release first.
 // ======================================================================
 const CHANGELOG = [
+{
+  "build": 10629,
+  "date": "2026-09-29",
+  "title": "T01: Create & deploy, Analyze & improve",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Two workspaces keep independent drafts and evidence for the browser session. Create & deploy builds the initial Audit policy and sets up Device Scan. Analyze & improve starts from the deployed Audit profile and compares real executions to its rules, without substituting the scanner-generated baseline."
+    },
+    {
+      "kind": "improved",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Select proposed additions, keep intended blocks, or edit rules manually. Preview differences against a fresh Intune read and update the same profile in AuditOnly. ID, grouping, name and assignments stay intact. Changed tenant or policy stops the update; read-back verifies saved rules and requests a fresh device scan. Original profile backup is downloadable."
+    }
+  ]
+},
   {
   "build": 10628,
   "date": "2026-09-29",

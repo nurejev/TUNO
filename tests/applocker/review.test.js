@@ -24,7 +24,7 @@ head('evidence and drafts have separate lifecycles');
  const before=JSON.stringify(R.getState().policy);
  H.importFile(JSON.stringify(bundle('DEVICE-B')),'B.json');H.afterImport();
  ok('new scan preserves draft and provenance',before===JSON.stringify(R.getState().policy)&&R.getState().draftOrigin.includes('DEVICE-A'));
- ok('comparison renders differences safely',txt(D,'alComparison').includes('No differences'));
+ ok('comparison keeps deployed Audit selection primary',txt(D,'alComparison').includes('Select the Audit policy you deployed'));
  w.confirm=()=>false;R.createDraft('effective');
  ok('cancelled replacement leaves draft intact',before===JSON.stringify(R.getState().policy));
  const bare=bundle();delete bare.generatedPolicy;delete bare.effectivePolicy;
@@ -73,7 +73,7 @@ head('unknown evidence never produces a green assessment');
 {
  const {R,D}=setup(bundle('DEVICE-A',[]));R.createDraft('generated-audit');
  ok('empty logs are not readiness proof',!R.readiness().ready&&R.readiness().limits.some(x=>/No execution/.test(x)));
- ok('overview and application review agree',txt(D,'alStatus').includes(R.readiness().label)&&txt(D,'alBreaks').includes(R.readiness().label));
+ ok('overview points to deployed Audit selection; advanced review retains readiness',txt(D,'alStatus').includes('select your deployed Audit policy')&&txt(D,'alBreaks').includes(R.readiness().label));
  ok('no competing audit loop',D.getElementById('alLoop').hidden);
 }
 {

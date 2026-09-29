@@ -103,6 +103,36 @@ const PROMOTE = {
   productionBuild: "v1.0.13",
 
   items: [
+{
+  "n": 190,
+  "title": "T01 — separate creation and deployed Audit improvement",
+  "tools": [
+    "T01 AppLocker builder & validator"
+  ],
+  "builds": [
+    10629
+  ],
+  "risk": "high",
+  "what": "Separate session workspaces; execution-based suggestions against a selected deployed Audit policy; explicit selected additions, manual edits and same-ID AuditOnly update with fresh comparison, drift guards, original backup and read-back.",
+  "why": "Real Intune PATCH and Windows receipt require pilot validation before production. A scan is evidence, not an instruction to replace the deployed baseline. Updates preserve existing collection URIs including DLL; new DLL scope is refused.",
+  "test": [
+    "Run npm test, including applocker/audit-workflow.test.js. Confirm workspace drafts and evidence remain separate, selected suggestions alone change the working copy, and drift or tenant changes prevent writes.",
+    "LIVE PENDING: select a dedicated deployed Audit profile, download its backup, collect matching device results, add an approved rule, preview and update the same ID. Verify assignments and grouping in Intune; sync and rescan to verify receipt. Restore previous rules in the same profile to prove recovery.",
+    "Validate encrypted OMA hydration, service PATCH compatibility and concurrency behavior on the tenant. If no ETag is provided, a fresh read reduces but cannot eliminate the service-side race."
+  ],
+  "files": [
+    "js/applocker.js",
+    "index.html",
+    "css/app.css",
+    "tests/applocker/audit-workflow.test.js",
+    "tests/applocker/review.test.js",
+    "docs/reviews/T01-beta-10629.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
     {
   "n": 189,
   "title": "T01 — device review, baseline editing and enforcement scenarios",

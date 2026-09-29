@@ -1,0 +1,72 @@
+const {suite}=require('../platformbaseline/harness');
+const {boot,ok,head,run}=suite('applocker-audit-workflow');
+const clone=x=>JSON.parse(JSON.stringify(x));
+const col=(type='Exe',mode='AuditOnly')=>`<RuleCollection Type="${type}" EnforcementMode="${mode}"><FilePathRule Id="00000000-0000-0000-0000-000000000001" Name="Windows" UserOrGroupSid="S-1-1-0" Action="Allow"><Conditions><FilePathCondition Path="%WINDIR%\\*"/></Conditions></FilePathRule></RuleCollection>`;
+const profile=()=>({id:'selected-id',displayName:'Existing Audit v1',lastModifiedDateTime:'2026-09-01T00:00:00Z',omaSettings:[{displayName:'EXE',omaUri:'./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/OriginalGrouping/EXE/Policy',value:col()},{displayName:'DLL',omaUri:'./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/OriginalGrouping/DLL/Policy',value:col('Dll')}]});
+const ev=(path,extra={})=>({path,verdict:'Audited',log:'Microsoft-Windows-AppLocker/EXE and DLL',userSid:'S-1-5-21-1',timeUtc:new Date().toISOString(),...extra});
+const bundle=()=>({schema:'tuno.applocker.scan/1',machine:{name:'DEVICE-A',elevated:true},generator:{generatedUtc:new Date().toISOString()},scan:{roots:['C:\\Windows','C:\\ProgramData']},writableFilesChecked:true,writableFiles:[],artifacts:[{path:'C:\\Unobserved\\inventory-only.exe'}],effectivePolicy:{available:true,xml:`<AppLockerPolicy Version="1">${col()}${col('Dll')}</AppLockerPolicy>`,sources:{mdm:[{grouping:'OriginalGrouping',types:['EXE','DLL']}]}},generatedPolicy:{auditXml:`<AppLockerPolicy Version="1">${col().replace('%WINDIR%','C:\\UnrelatedGeneratedBaseline')}</AppLockerPolicy>`},events:{available:true,daysBack:7,sinceUtc:'2026-09-20T00:00:00Z',logsRead:['EXE and DLL'],entries:[ev('C:\\Business\\app.exe',{hash:'0xAA',signed:false}),ev('C:\\Windows\\ok.exe',{verdict:'Allowed'})],summary:{total:2,audited:1,allowed:1,blocked:0}}});
+function setup(){const w=boot();w.confirm=()=>true;let live=profile(),writes=[];w.Graph.tenantId=()=> 'tenant-a';w.Graph.hydrateOmaSettings=async p=>({profile:clone(p)});w.Graph.get=async()=>clone(live);w.Graph.customProfiles=async()=>[clone(live)];w.Graph.patch=async(path,body,opts)=>{writes.push({path,body:clone(body),opts});live={...live,...clone(body),lastModifiedDateTime:'2026-09-29T10:00:00Z'}};const A=w.AppLockerTool._audit,R=w.AppLockerTool._review,H=w.AppLockerTool._harvest,D=w.document;H.importFile(JSON.stringify(bundle()),'scan.json');H.afterImport();return {w,A,R,H,D,writes,live:()=>live,setLive:p=>{live=p}}}
+run(async()=>{
+head('real-results loop starts at the deployed object');
+{
+ const {A,R,D,writes}=setup();await A.selectAuditProfile(profile());
+ ok('selection preserves original ID and grouping',A.getState().reference.profile.id==='selected-id'&&A.getState().reference.grouping==='OriginalGrouping');
+ ok('selection copies deployed rules, never the generated baseline',R.getState().policy.collections[0].rules[0].conditions[0].path==='%WINDIR%\\*');
+ ok('selection lands on results',D.getElementById('alPaneAudit').style.display!=='none');
+ ok('scan receipt checks reference rules and grouping',A.auditReceipt().includes('reference rules are present'));
+ const rows=A.auditResultRows();ok('inventory-only file not a suggestion',rows.length===2&&!rows.some(x=>x.row.path.includes('inventory-only')));
+ ok('no changes or writes without selection',!A.getState().plan&&writes.length===0&&R.getState().policy.collections[0].rules.length===1);
+ A.select([rows.find(x=>x.after.s==='blocked').key]);A.applyAuditSelections();
+ ok('selected evidence adds rule only to working copy',R.getState().policy.collections[0].rules.length===2&&A.getState().reference.model.collections[0].rules.length===1);
+ ok('proposed change now covers observed application',A.auditResultRows()[0].after.s==='allowed');
+ ok('existing DLL collection is preserved by Audit update',A.auditBody().omaSettings.some(x=>x.omaUri.includes('/DLL/')));
+ await A.prepareAuditUpdate();ok('fresh comparison previews addition without writing',A.getState().plan.delta.added===1&&writes.length===0);
+ await A.writeAuditUpdate();
+ ok('one PATCH addresses the same immutable ID',writes.length===1&&writes[0].path.endsWith('/selected-id'));
+ ok('update touches only policy settings',Object.keys(writes[0].body).join()==='omaSettings');
+ ok('all submitted collections remain AuditOnly',writes[0].body.omaSettings.every(x=>x.value.includes('EnforcementMode="AuditOnly"')));
+ ok('grouping URIs unchanged',writes[0].body.omaSettings.every(x=>x.omaUri.includes('/OriginalGrouping/')));
+ ok('verified update asks for new scan, never claims device receipt',A.getState().message.includes('updated and verified')&&A.getState().message.includes('Device receipt is not yet verified'));
+ ok('original scan is unchanged',R.getState().scan.events.entries.length===2);
+}
+head('changes, unread values and errors stop unintended updates');
+{
+ const {A,w,writes,setLive}=setup();await A.selectAuditProfile(profile());A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();
+ const changed=profile();changed.lastModifiedDateTime='2026-09-28T00:00:00Z';setLive(changed);await A.writeAuditUpdate();
+ ok('drift after preview prevents PATCH',writes.length===0&&A.getState().message.includes('changed after comparison'));
+}
+{
+ const {A,w,writes}=setup();await A.selectAuditProfile(profile());A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();w.Graph.tenantId=()=> 'tenant-b';await A.writeAuditUpdate();
+ ok('tenant change prevents PATCH',writes.length===0&&A.getState().message.includes('tenant or draft changed'));
+}
+{
+ const {A,w,writes}=setup();await A.selectAuditProfile(profile());A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();w.confirm=()=>false;await A.writeAuditUpdate();
+ ok('cancelled confirmation sends no write',writes.length===0);
+}
+{
+ const {A,w,writes}=setup();const p=profile();p.displayName='Misleading AuditOnly';p.omaSettings[0].value=col('Exe','Enabled');let rejected=false;try{await A.selectAuditProfile(p)}catch{rejected=true}
+ ok('mode is read from values, not name',rejected&&!A.getState().reference);
+ p.omaSettings[0].value='';rejected=false;try{await A.selectAuditProfile(p)}catch{rejected=true}ok('unread values cannot establish reference',rejected&&!A.getState().reference);
+}
+{
+ const {A,w,writes}=setup();await A.selectAuditProfile(profile());A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();w.Graph.patch=async(path,body)=>{writes.push({path,body});w.Graph.get=async()=>{throw new Error('read-back unavailable')}};await A.writeAuditUpdate();
+ ok('failed read-back distinguishes sent from verified',writes.length===1&&A.getState().message.includes('Update was sent, but verification is incomplete'));
+}
+{
+ const {A}=setup();const p=profile();p.omaSettings[0].value=p.omaSettings[0].value.replace('</RuleCollection>','<RuleCollectionExtensions/></RuleCollection>');let rejected=false;try{await A.selectAuditProfile(p)}catch{rejected=true}
+ ok('unsupported XML extensions cannot be silently discarded',rejected&&!A.getState().reference);
+}
+{
+ const {A,D}=setup();await A.selectAuditProfile(profile());
+ ok('results default to differences and expose other categories',D.querySelector('[data-audit-filter]').value==='needed'&&D.querySelector('[data-audit-filter]').textContent.includes('Outside selected collections'));
+}
+head('two workspaces keep independent policies and evidence');
+{
+ const {A,R,D}=setup();await A.selectAuditProfile(profile());const before=JSON.stringify(R.getState().policy);
+ A.switchWorkspace('create');ok('create workspace starts independently',!R.getState().policy&&!R.getState().scan&&!A.getState().reference);
+ D.querySelector('[data-build-new]').click();ok('first draft starts in AuditOnly',R.getState().policy.collections.every(c=>c.mode==='AuditOnly'));
+ D.getElementById('alNewPath').value='C:\\NewPolicy\\*';D.getElementById('alNewAdd').click();const created=JSON.stringify(R.getState().policy);
+ A.switchWorkspace('improve');ok('analyze workspace restores its deployed reference and scan',JSON.stringify(R.getState().policy)===before&&R.getState().scan.machine.name==='DEVICE-A'&&A.getState().reference.profile.id==='selected-id');
+ A.switchWorkspace('create');ok('new-policy draft restored separately',JSON.stringify(R.getState().policy)===created&&!A.getState().reference);
+}
+});
