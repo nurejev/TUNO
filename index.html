@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10627"></script>
+<script src="js/popup-guard.js?v=10628"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10627">
+<link rel="stylesheet" href="css/app.css?v=10628">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10627"></script>
+<script src="js/selfhost-boot.js?v=10628"></script>
 </head>
 <body>
 
@@ -275,7 +275,7 @@
   <section id="screen-applocker" class="screen">
     <div class="list-card readme" style="margin-top:0;padding:20px 24px">
       <h2 style="margin:0 0 6px">🔐 AppLocker builder &amp; validator <span class="tag new">BETA</span></h2>
-      <p class="mini" style="margin:0">One policy, living in the tenant, and this is its only editor. <b>Evidence</b> is what goes in (a device scan, the fleet's events, the deployed profile); <b>Policy</b> is the draft with its audit, fixes and the Microsoft-apps check; <b>What breaks?</b> replays everything that actually ran against the draft and gates Enforce; <b>Deploy</b> writes the Intune profile, in place. Everything runs in the browser — <b>nothing is uploaded</b>. Audit check set after Spencer Alessi's <a href="https://github.com/techspence/AppLockerInspector" target="_blank" rel="noopener">AppLockerInspector</a>; scanning strategy after Microsoft's AaronLocker.</p>
+      <p class="mini" style="margin:0">Review a device scan, understand recorded application activity, and compare policy sources before preparing changes. Bundles are read locally in your browser. Tenant reads and deployment actions are labelled separately.</p>
     </div>
     <!-- ============ THE RAIL (10577, the rethink — Option B of the 3 Sep mockup)
          Four screens, one at a time, and a rail that says where you are and
@@ -304,36 +304,33 @@
              entrance. Both open the same file picker and the import still
              routes on content — a human reads two buttons as two acts, and
              the three-files-in-one-label version read as none of them. -->
-        <button class="btn primary" id="alImport" title="The reference scan's .json bundle, or a policy XML from a GPO export / Get-AppLockerPolicy">📂 Upload scan bundle or policy XML</button>
-        <button class="btn primary" id="alImportEv" title="The AppControlEvents_Bundle_*.log the collector wrote on a device — retrieved via Collect diagnostics or Live Response">📡 Upload events results</button>
+        <button class="btn primary" id="alImport" title="The reference scan's .json bundle, or a policy XML from a GPO export / Get-AppLockerPolicy">📂 Open local file</button>
+        <button class="btn primary" id="alImportEv" title="The AppControlEvents_Bundle_*.log the collector wrote on a device — retrieved via Collect diagnostics or Live Response">📡 Open events bundle</button>
         <!-- 10617: the third entrance. What the devices uploaded to the harvest
              site (📁 panel on Help & scripts), per device, newest first — the
              same content-routed import, without a file on disk. -->
         <button class="btn" id="alImportSp" title="List what the events collector and the scan Remediation uploaded to the harvest SharePoint site, per device, and download a bundle from there to upload — signed in, Sites.Read.All">📁 From the harvest site</button>
         <input type="file" id="alFile" accept="text/xml,application/xml,.xml,application/json,.json,.log" style="display:none">
-        <button class="btn" id="alSample">🧪 Load sample policy</button>
-        <button class="btn" id="alNew">➕ Start empty</button>
+        <button class="btn" id="alSample">🧪 Create sample draft</button>
+        <button class="btn" id="alNew">➕ Create empty draft</button>
         <button class="btn" id="alReset" title="Take everything off the table — policy, scan, events evidence, manual loop marks. Nothing in the tenant is touched.">🧹 Start over</button>
         <span class="spacer"></span>
         <button class="btn" id="alMd" title="Findings, device-scan evidence and coverage as a Markdown report">Export MD</button>
       </div>
     </div>
+          <div id="alOverview"></div>
           <div class="list-card" id="alHarvestFetch" style="margin-top:14px;padding:14px 18px;display:none"></div>
-          <div class="list-card" id="alEvidence" style="margin-top:14px;padding:14px 18px;display:none"></div>
+<details class="al-review-card"><summary>Evidence sources and collection details</summary><div id="alEvidence" style="margin-top:14px;display:none"></div><div id="alScan" style="margin-top:14px;display:none"></div></details>
     <div id="alEmpty" class="list-card" style="margin-top:14px;padding:26px">
-      <p style="margin:0 0 6px"><b>Upload what the scan wrote — the <code>.json</code> bundle.</b></p>
-      <p class="mini muted" style="margin:0">It carries the generated rule set, the policy the device was really running, the directories a standard user can write to, the unsigned binaries sitting in them, and what AppLocker has already blocked. The tool loads the generated <b>AuditOnly</b> policy by default and you can switch to either of the others once it is open.<br><br>
-      <b>No scan?</b> A plain policy XML works too — a GPO export (Group Policy Management Editor → Application Control Policies → AppLocker → right-click → <b>Export Policy…</b>) or <code>Get-AppLockerPolicy -Effective -Xml &gt; policy.xml</code>. You lose the ACL and event evidence, which is exactly the part a browser cannot work out for itself.<br><br>
-      Or load the sample policy to see what the audit and the Microsoft coverage check produce.<br><br>
-      <b>Coming back mid-loop with only an events bundle?</b> Upload it with the same button — the fleet evidence card appears below, and it can pull the deployed AppLocker profile straight from the tenant to judge against, so nothing needs hunting for on disk.<br><br>
-      <b>Devices upload to a harvest site?</b> <b>📁 From the harvest site</b> lists them, hands you the download link for the newest scan or events bundle, and the upload button beside it takes it from Downloads — no Collect diagnostics, device off or on.</p>
+      <h3>Open the evidence you already collected</h3><p>From Harvest, select a device, get the bundle's download link, then open the downloaded file here. Or use <b>Open local file</b> for a scan bundle or policy XML.</p><p class="mini muted">A scan opens as a device assessment. It never replaces your working draft. A policy XML opens as an explicit draft. No scan yet? Collection setup contains the scanner and deployment instructions.</p>
     </div>
-          <div class="list-card" id="alScan" style="margin-top:14px;padding:16px 18px;display:none"></div>
+
         </div>
 
+        <div class="al-pane" data-alpane="compare" id="alPaneCompare" style="display:none"><div id="alComparison"></div></div>
         <!-- ============ 2 · POLICY ============ -->
         <div class="al-pane" data-alpane="policy" id="alPanePolicy" style="display:none">
-          <div id="alPolicyEmpty" class="list-card" style="padding:22px;display:none"><b>No policy on the table yet.</b> <span class="mini muted">Go to <b>Evidence</b> and upload a scan bundle or a policy XML, pull the deployed profile from the tenant, or load the sample.</span></div>
+          <div id="alPolicyEmpty" class="list-card" style="padding:22px;display:none"><b>No working draft yet.</b> <span class="mini muted">Create one from Current policy &amp; sources, open a policy XML, or create an empty draft from Overview.</span></div>
           <div id="alBody" style="display:none">
             <div class="al-col">
               <!-- Order is the workflow, not the file: the summary and the
@@ -371,7 +368,8 @@
 
         <!-- ============ 4 · DEPLOY ============ -->
         <div class="al-pane" data-alpane="deploy" id="alPaneDeploy" style="display:none">
-          <div id="alDeployEmpty" class="list-card" style="padding:22px;display:none"><b>Nothing to deploy yet.</b> <span class="mini muted">A policy has to be on the table first — see <b>Evidence</b>.</span></div>
+          <div id="alDeployEmpty" class="list-card" style="padding:22px;display:none"><h2>Pilot &amp; deployment</h2><b>Nothing to deploy yet.</b> <span class="mini muted">A policy has to be on the table first — see <b>Overview</b>.</span></div>
+          <div id="alReadiness" class="al-review-card"></div>
           <div id="alDeployBody" style="display:none">
       <!-- ============ STEP 5 — deploy ============ -->
       <div class="list-card al-steps" style="margin-top:14px;padding:18px 22px">
@@ -555,7 +553,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
               <button class="btn sm al-dl-copy" data-file="Initialize-TunoItToolsFolders.ps1" title="Copy the download command">⧉ Copy</button>
             </div>
             <p class="mini muted al-dl-note">The remediation half. Creates the house folders (IT-TOOLS\Apps, \Scripts, \LOGS) with the admin-only ACL the standing allow rules depend on, and proves SYSTEM can write to IT-TOOLS\LOGS, where every house script logs. Trims its own log to the last 30 days first (<code>-RetentionDays</code>) — a standing pair writes a line a day.</p>
-            <p class="mini muted" style="margin:10px 0 2px"><b>Events-collection set</b> — the evidence pump. A Remediation pair whose detection always triggers (the "remediation" IS the harvest), the Live Response zipper, and the harvest-site uploader setup. Upload the <code>AppControlEvents_Bundle_*.log</code> a device produces on <b>Evidence</b> and <b>What breaks?</b> judges every event against the draft — or, with a harvest site set (📁 panel below), pick it up from SharePoint with the device off.</p>
+            <p class="mini muted" style="margin:10px 0 2px"><b>Events-collection set</b> — the evidence pump. A Remediation pair whose detection always triggers (the "remediation" IS the harvest), the Live Response zipper, and the harvest-site uploader setup. Upload the <code>AppControlEvents_Bundle_*.log</code> a device produces on <b>Overview</b> and <b>Applications &amp; events</b> judges every event against the draft — or, with a harvest site set (📁 panel below), pick it up from SharePoint with the device off.</p>
             <div class="al-dl-row">
               <a class="btn" href="scripts/Detect-TunoAppControlEvents.ps1" download>⭳ Detect-TunoAppControlEvents.ps1</a>
               <code class="al-dl-cmd" data-file="Detect-TunoAppControlEvents.ps1"></code>
@@ -2090,8 +2088,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
       <div class="list-card" style="margin-top:14px;padding:18px 22px">
         <h3 id="help-applocker" style="margin:0 0 6px">🔐 AppLocker builder &amp; validator</h3>
-        <p class="mini" style="margin:0 0 10px">Reads NOTHING from your tenant: what you upload is parsed in this tab, audited with the AppLockerInspector check set, evaluated against a catalog of Microsoft apps (per-user OneDrive is the one everybody breaks), and exported as policy XML, an Intune custom profile, or a Markdown report. Rule evaluation here is a faithful model — deny beats allow, exceptions carve back out, macros expand, publisher fields match — not the AppLocker engine itself. Test in AuditOnly before enforcing, always.</p>
-        <p class="mini" style="margin:0 0 10px"><b>The five steps.</b> ① Download <code>Invoke-TunoAppLockerScan.ps1</code> and run it elevated on a representative device. ② Upload the <code>.json</code> bundle it writes. ③ Work through the findings and the coverage table, fixing what needs fixing. ④ Export the policy XML for a GPO, or the Intune custom profile. ⑤ Assign the AuditOnly profile to a pilot group, wait, re-scan, and only then enforce.</p>
+        <p class="mini" style="margin:0 0 10px">Scan and event bundles are read locally in this browser. Harvest retrieval and Intune profile checks use your signed-in tenant; deployment is a separate action. The device snapshot, generated scan proposal and working draft stay separate. Predictions use recorded metadata and do not replace testing on Windows.</p>
+        <p class="mini" style="margin:0 0 10px"><b>The review workflow.</b> Open a scan on Overview. ① Current policy &amp; sources: inspect the captured policy and choose an explicit editable copy. ② Edit baseline: add rules, find and remove existing rules, or undo the last edit. ③ Check changes: select the current policy, scan proposal, working draft or Intune export to see what enforcement could block. Missing metadata stays unknown; DLL display filters never change the totals. ④ Pilot &amp; deployment: audit the exact proposed rules on representative devices, collect a fresh window, verify the results and recovery, then review enforcement. A generated baseline is a proposal, not business approval. Importing a scan never deploys or silently replaces your draft.</p>
         <p class="mini" style="margin:0 0 10px"><b>Why there is a PowerShell script at all.</b> A browser cannot read a directory ACL, verify an Authenticode signature or open an event log — and those three facts are most of what decides whether an AppLocker policy is sound. A rule allowing <code>%PROGRAMFILES%\*</code> is only as strong as the permissions underneath it, and the XML does not say what those are. The scan does, and the tool marks every verdict that came from it with 🛰 so you can see which half of the analysis proved what. Skip the scan and the tool still works on a plain policy XML; it just cannot tell you about the holes it cannot see.</p>
         <p class="mini" style="margin:0 0 10px"><b>The scripts are served from this site</b> (<code>/scripts/</code>), so the copy you download always matches the build you are looking at. They are read-only on the device: neither one applies a policy, touches the local GPO, or starts the Application Identity service. Source and the full switch reference are in <a href="scripts/README.md" target="_blank" rel="noopener">scripts/README.md</a>.</p>
         <h3 id="help-groupuse" style="margin:14px 0 6px">🔗 Group Analyzer</h3>
@@ -2220,50 +2218,50 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10627"></script>
-<script src="js/selfhost.js?v=10627"></script>
-<script src="js/version.js?v=10627"></script>
-<script src="js/promote.js?v=10627"></script>
-<script src="js/authConfig.js?v=10627"></script>
-<script src="js/changelog.js?v=10627"></script>
-<script src="js/msappcatalog.js?v=10627"></script>
-<script src="js/demo.js?v=10627"></script>
-<script src="js/graph.js?v=10627"></script>
-<script src="js/suggest.js?v=10627"></script>
-<script src="js/progress.js?v=10627"></script>
-<script src="js/runledger.js?v=10627"></script>
-<script src="js/groupuse.js?v=10627"></script>
-<script src="js/audit.js?v=10627"></script>
-<script src="js/devicecleanup.js?v=10627"></script>
-<script src="js/backup.js?v=10627"></script>
-<script src="js/document.js?v=10627"></script>
-<script src="js/policycache.js?v=10627"></script>
-<script src="js/overview.js?v=10627"></script>
-<script src="js/devicewhy.js?v=10627"></script>
-<script src="js/whatif.js?v=10627"></script>
-<script src="js/health.js?v=10627"></script>
-<script src="js/settingsearch.js?v=10627"></script>
-<script src="js/conflict.js?v=10627"></script>
-<script src="js/compliance.js?v=10627"></script>
-<script src="js/filterrules.js?v=10627"></script>
-<script src="js/filters.js?v=10627"></script>
-<script src="js/restore.js?v=10627"></script>
-<script src="js/platformbaseline.js?v=10627"></script>
-<script src="js/complianceevidence.js?v=10627"></script>
-<script src="js/macbaseline.js?v=10627"></script>
-<script src="js/winbaseline.js?v=10627"></script>
-<script src="js/assignedit.js?v=10627"></script>
-<script src="js/restrictedau.js?v=10627"></script>
-<script src="js/groupmigrate.js?v=10627"></script>
-<script src="js/roles.js?v=10627"></script>
-<script src="js/defender.js?v=10627"></script>
-<script src="js/endpointsec.js?v=10627"></script>
-<script src="js/report.js?v=10627"></script>
-<script src="js/securescore.js?v=10627"></script>
-<script src="js/endpointposture.js?v=10627"></script>
-<script src="js/maa.js?v=10627"></script>
-<script src="js/laps.js?v=10627"></script>
-<script src="js/applocker.js?v=10627"></script>
-<script src="js/app.js?v=10627"></script>
+<script src="js/branding.js?v=10628"></script>
+<script src="js/selfhost.js?v=10628"></script>
+<script src="js/version.js?v=10628"></script>
+<script src="js/promote.js?v=10628"></script>
+<script src="js/authConfig.js?v=10628"></script>
+<script src="js/changelog.js?v=10628"></script>
+<script src="js/msappcatalog.js?v=10628"></script>
+<script src="js/demo.js?v=10628"></script>
+<script src="js/graph.js?v=10628"></script>
+<script src="js/suggest.js?v=10628"></script>
+<script src="js/progress.js?v=10628"></script>
+<script src="js/runledger.js?v=10628"></script>
+<script src="js/groupuse.js?v=10628"></script>
+<script src="js/audit.js?v=10628"></script>
+<script src="js/devicecleanup.js?v=10628"></script>
+<script src="js/backup.js?v=10628"></script>
+<script src="js/document.js?v=10628"></script>
+<script src="js/policycache.js?v=10628"></script>
+<script src="js/overview.js?v=10628"></script>
+<script src="js/devicewhy.js?v=10628"></script>
+<script src="js/whatif.js?v=10628"></script>
+<script src="js/health.js?v=10628"></script>
+<script src="js/settingsearch.js?v=10628"></script>
+<script src="js/conflict.js?v=10628"></script>
+<script src="js/compliance.js?v=10628"></script>
+<script src="js/filterrules.js?v=10628"></script>
+<script src="js/filters.js?v=10628"></script>
+<script src="js/restore.js?v=10628"></script>
+<script src="js/platformbaseline.js?v=10628"></script>
+<script src="js/complianceevidence.js?v=10628"></script>
+<script src="js/macbaseline.js?v=10628"></script>
+<script src="js/winbaseline.js?v=10628"></script>
+<script src="js/assignedit.js?v=10628"></script>
+<script src="js/restrictedau.js?v=10628"></script>
+<script src="js/groupmigrate.js?v=10628"></script>
+<script src="js/roles.js?v=10628"></script>
+<script src="js/defender.js?v=10628"></script>
+<script src="js/endpointsec.js?v=10628"></script>
+<script src="js/report.js?v=10628"></script>
+<script src="js/securescore.js?v=10628"></script>
+<script src="js/endpointposture.js?v=10628"></script>
+<script src="js/maa.js?v=10628"></script>
+<script src="js/laps.js?v=10628"></script>
+<script src="js/applocker.js?v=10628"></script>
+<script src="js/app.js?v=10628"></script>
 </body>
 </html>

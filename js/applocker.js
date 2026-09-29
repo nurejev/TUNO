@@ -89,18 +89,26 @@ const AppLockerTool = (() => {
   // draft would block, and that are meant to be blocked. Keyed by the event
   // path; kept for the session and in localStorage so a reload does not
   // re-ask. Accepting is a decision, so it is reversible on the same screen.
-  let acceptedBreaks = new Set();
-  try { acceptedBreaks = new Set(JSON.parse(localStorage.getItem("tuno.t01.acceptedBreaks") || "[]")); } catch { acceptedBreaks = new Set(); }
-  const saveAccepted = () => { try { localStorage.setItem("tuno.t01.acceptedBreaks", JSON.stringify([...acceptedBreaks])); } catch { } };
-  const breakKey = (row) => String(row.path || row.binary || "").toUpperCase();
+  // Decisions are scoped to the tenant, exact draft, device and file identity.
+  // The legacy path-only key is deliberately not imported.
+  let acceptedBreaks = new Map();
+  try { acceptedBreaks = new Map(JSON.parse(localStorage.getItem("tuno.t01.decisions.v2") || "[]")); } catch { }
+  const saveAccepted = () => { try { localStorage.setItem("tuno.t01.decisions.v2", JSON.stringify([...acceptedBreaks])); } catch { } };
+  let draftOrigin = "", importNotice = "", expectedHarvest = null, pilotReview = "";
+  const machineKey = (b) => String(b && b.machine && b.machine.name || "").trim().toUpperCase();
+  const collectedAt = (b) => b && ((b.machine || {}).collectedUtc || (b.generator || {}).generatedUtc) || "";
+  const fmtDate = (v) => v && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString().replace("T", " ").slice(0,16) + " UTC" : "Unknown";
+  const reviewScope = () => JSON.stringify([typeof Graph !== "undefined" && Graph.tenantId ? Graph.tenantId() : "offline", intuneCfg.grouping, policy, machineKey(scan || eventsEvidence)]);
+  const breakKey = (row) => JSON.stringify([reviewScope(), String(row.path || row.binary || "").toUpperCase(), row.sample && [row.sample.hash, row.sample.publisher, row.sample.product, row.sample.binary, row.sample.version || row.sample.fileVersion, row.sample.userSid, eventCollectionType(row.sample)]]);
+  let impactSource = "device", impactFilter = "all";
   let shownBreaks = [];     // the rows renderBreaks() last drew, for the handlers
   // DLL LOADS ARE SET ASIDE BY DEFAULT (10580, Mihai: "the solution for now
   // does not audit or enforce .dll"). The house policy carries no Dll
   // collection, so every DLL load in a log is the record of that decision;
   // but a device's EFFECTIVE policy can carry one (the Managed Installer
   // merge does), and then 1 000 Defender-platform DLL audits become 1 000
-  // rows to "resolve". The toggle keeps them out of the replay, the gate and
-  // the scan card until somebody wants them; it says how many it is hiding.
+  // rows to review. The toggle is display-only; governed DLLs always remain
+  // in the assessment and readiness counts.
   let hideDll = true;
   try { hideDll = localStorage.getItem("tuno.t01.hideDll") !== "0"; } catch { hideDll = true; }
   const isDllEvent = (en) => eventCollectionType(en) === "Dll";
@@ -466,30 +474,53 @@ const AppLockerTool = (() => {
   // model as evaluateProbePath: broad-audience allow rules only (a rule scoped
   // to some group proves nothing about an arbitrary user), deny beats allow,
   // exceptions honoured, all via the same matcher the rest of the tool uses.
-  function draftVerdictForEvent(en) {
-    if (!policy) return { s: "no-policy", text: "no policy loaded" };
-    const type = eventCollectionType(en);
-    const col = policy.collections.find((c) => c.type === type);
-    if (!col || !col.rules.length) return { s: "no-rules", text: `the draft has no ${type} rules — nothing of this type is restricted` };
-    const art = { path: String(en.path || ""), publisher: { name: en.publisher || "", product: en.product || "*", binary: en.binary || "*" } };
-    // Events carry a FileHash where coverage artifacts do not, so hash
-    // conditions are matched HERE and only here — ruleMatchesArtifact stays
-    // hash-blind on purpose (nothing else has a hash to compare). Without
-    // this, closing a gap with a hash rule would leave the row reading as a
-    // gap forever. FileHashRule has no Exceptions element in the schema, so
-    // there is no carve-out to honour.
+  function draftVerdictForEvent(en, model = policy) {
+    if (!model) return { s: "no-policy", text: "No policy selected for this scenario" };
+    const type = eventCollectionType(en), col = model.collections.find((c) => c.type === type);
+    if (type === "Appx" && (!col || !col.rules.length) && model.collections.some(c => c.type === "Exe" && c.rules.length)) return {s:"blocked",text:"Predicted block: EXE enforcement without packaged-app rules can prevent packaged apps from running."};
+    if (!col || !col.rules.length) return { s: "no-rules", text: `No ${type} rules in this scenario; existing rules from other sources are not removed` };
     const norm = (x) => String(x || "").replace(/^SHA256\s*/i, "").replace(/^0x/i, "").toLowerCase();
-    const evHash = norm(en.hash);
-    const hits = (r) => !!ruleMatchesArtifact(r, art)
-      || (!!evHash && r.conditions.some((c) => c.kind === "hash" && (c.hashes || []).some((h) => norm(h.data) === evHash)));
-    for (const r of col.rules) {
-      if (r.action !== "Allow" || isAdminSid(r.sid) || !isBroadSid(r.sid)) continue;
-      if (hits(r)) {
-        const denied = col.rules.some((d) => d.action === "Deny" && principalCovers(d.sid, r.sid) && hits(d));
-        if (!denied) return { s: "allowed", text: `would run — allowed by “${r.name}”`, rule: r };
+    const cond = (c) => {
+      if (c.kind === "path") return en.path ? pathRuleMatches(c.path, en.path) : null;
+      if (c.kind === "hash") return en.hash ? (c.hashes || []).some((h) => norm(h.data) === norm(en.hash)) : null;
+      if (c.kind !== "publisher") return null;
+      if (en.signed === false) return false;
+      if (en.signed !== true && (!en.publisher || en.publisher === "*")) return null;
+      const fields = [[c.publisher, en.publisher], [c.product, en.product], [c.binary, en.binary]];
+      if (fields.some(([want, have]) => want !== "*" && have && have !== "*" && !patternToRegex(want).test(have))) return false;
+      if (fields.some(([want, have]) => want !== "*" && (!have || have === "*"))) return null;
+      const bounded = (c.low && !["*", "0.0.0.0"].includes(c.low)) || (c.high && c.high !== "*");
+      if (bounded) {
+        const v = en.version || en.fileVersion;
+        const parse = (x) => /^\d+(\.\d+){0,3}$/.test(x || "") ? String(x).split(".").map(Number).concat([0,0,0]).slice(0,4) : null;
+        const value = parse(v); if (!value) return null;
+        const cmp = (a,b) => { for (let i=0;i<4;i++) if(a[i]!==b[i]) return a[i]-b[i]; return 0; };
+        for (const [bound, lower] of [[c.low,true],[c.high,false]]) if (bound && bound !== "*") {
+          const limit = parse(bound); if (!limit) return null;
+          if (lower ? cmp(value,limit)<0 : cmp(value,limit)>0) return false;
+        }
       }
+      return true;
+    };
+    const match = (r) => {
+      const hits = r.conditions.map(cond);
+      let result = hits.includes(true) ? true : hits.includes(null) ? null : false;
+      if (!result) return result;
+      const except = r.exceptions.map(cond);
+      return except.includes(true) ? false : except.includes(null) ? null : result;
+    };
+    let allowed = null, uncertain = false;
+    for (const r of col.rules) {
+      if (isAdminSid(r.sid)) continue;
+      const hit = match(r); if (hit === false) continue;
+      // Only Everyone is certain without a membership token for the recorded user.
+      const principalKnown = r.sid === "S-1-1-0" || (!!en.userSid && r.sid === en.userSid);
+      if (!principalKnown || hit === null) { uncertain = true; continue; }
+      if (r.action === "Deny") return { s:"blocked", text:`Predicted block — deny rule “${r.name}”` };
+      if (r.action === "Allow") allowed = r;
     }
-    return { s: "blocked", text: col.mode === "AuditOnly" ? "audited under the draft — blocked once enforced" : "stays blocked under the draft" };
+    if (uncertain) return { s:"unknown", text:"Unknown — matching may depend on missing file metadata, version, exceptions or user/group membership. Validate on the endpoint." };
+    return allowed ? { s:"allowed", text:`Predicted allow — “${allowed.name}”`, rule:allowed } : { s:"blocked", text:"Predicted block when enforced — no applicable allow rule" };
   }
 
   // One row per (file, verdict), counted — a fleet bundle repeats the same
@@ -506,7 +537,7 @@ const AppLockerTool = (() => {
     const rank = { Blocked: 3, Audited: 2, Allowed: 1 };
     for (const en of entries) {
       if (!rank[en.verdict]) continue;
-      const key = String(en.path || en.binary || en.eventId || "?").toUpperCase();
+      const key = JSON.stringify([String(en.path || en.binary || en.eventId || "?").toUpperCase(), en.hash || "", en.publisher || "", en.product || "", en.binary || "", en.version || en.fileVersion || "", en.userSid || "", eventCollectionType(en)]);
       let row = m.get(key);
       if (!row) {
         row = { path: String(en.path || ""), verdict: en.verdict, publisher: en.publisher || "", product: en.product || "",
@@ -532,20 +563,6 @@ const AppLockerTool = (() => {
   // policy working (user-writable origin) or like a missing rule (machine
   // space)? Publisher rules are recommended over paths every time the file is
   // signed — a path into a profile is the hole AppLocker exists to close.
-  function fleetEventRecommendation(row, dv) {
-    if (dv.s === "no-policy") return "Load the policy draft (scan bundle or XML) and this column fills in.";
-    if (dv.s === "allowed") return "Covered — nothing to add. The event came from the OLD policy on that device.";
-    if (dv.s === "no-rules") return "Undecided in the draft: with no rules for this type, nothing is restricted. Decide the collection before enforcing.";
-    const userArea = /(^|%OSDRIVE%|[a-z]:)\\users\\/i.test(row.path || "");
-    if (userArea) {
-      return row.signed
-        ? "Stays blocked — it ran from a user-writable area, which is what this policy exists to stop. If the business needs it, deploy it to machine space or allow it by PUBLISHER; never a path into the profile."
-        : "Stays blocked — unsigned, from a user-writable area. That is the policy working. Establish what it is before even considering a rule.";
-    }
-    return row.signed
-      ? "Would still be blocked — likely a missing rule. It is signed: add a publisher rule."
-      : "Would still be blocked and is UNSIGNED outside user space — add a hash rule only if it is legitimate, and ask why it is unsigned.";
-  }
 
   // GAP / BY DESIGN / COVERED / UNDECIDED — the classification the gap report
   // and the fix buttons hang off. A "gap" is a file the fleet actually tried
@@ -562,7 +579,7 @@ const AppLockerTool = (() => {
   // one line that says so (10587, Mihai's first enforced device).
   function isPolicyProbe(path) { return /__PSSCRIPTPOLICYTEST_[^\\]*\.(ps1|psm1)$/i.test(String(path || "")); }
 
-  function fleetRowClass(row, dv) {
+  function fleetRowClass(row, dv, model = policy) {
     if (isPolicyProbe(row.path)) return "probe";
     // DLL events are SET ASIDE, not undecided — the generated policies omit
     // the DLL collection deliberately (absence is the only state that
@@ -571,12 +588,12 @@ const AppLockerTool = (() => {
     // normally when the draft actually carries DLL rules, i.e. when somebody
     // has chosen to police DLL loads on purpose.
     if (eventCollectionType(row.sample) === "Dll") {
-      const dllCol = policy && policy.collections.find((c) => c.type === "Dll");
-      if (hideDll || !dllCol || !dllCol.rules.length) return "dll";
+      const dllCol = model && model.collections.find((c) => c.type === "Dll");
+      if (!dllCol || !dllCol.rules.length) return "dll";
     }
-    if (dv.s === "no-policy" || dv.s === "no-rules") return "undecided";
+    if (dv.s === "no-policy" || dv.s === "no-rules" || dv.s === "unknown") return "undecided";
     if (dv.s === "allowed") return "covered";
-    return /(^|%OSDRIVE%|[a-z]:)\\users\\/i.test(row.path || "") ? "bydesign" : "gap";
+    return "gap";
   }
 
   // Which rule closes this row, best evidence first: PUBLISHER when the event
@@ -589,7 +606,7 @@ const AppLockerTool = (() => {
     const type = eventCollectionType(row.sample);
     if (row.signed && row.publisher) return { kind: "publisher", type, label: "Allow by publisher" };
     if (String((row.sample && row.sample.hash) || "").trim()) return { kind: "hash", type, label: "Allow by hash" };
-    if (row.path) return { kind: "path", type, label: "Allow this exact path" };
+    if (row.path && !/\\users\\/i.test(row.path)) return { kind: "path", type, label: "Allow this exact path" };
     return null;
   }
 
@@ -623,109 +640,11 @@ const AppLockerTool = (() => {
   // sit in the change ticket: what the fleet ran into, what the draft already
   // answers, what stays blocked on purpose, and what needs a decision.
   function fleetGapReport() {
-    const ev = eventsEvidence.events || {};
-    const s = ev.summary || {};
-    const ci = eventsEvidence.codeIntegrity || {};
-    const m = eventsEvidence.machine || {};
-    const rows = aggregateFleetEvents(ev.entries || []);
-    const cls = { gap: [], bydesign: [], covered: [], undecided: [], dll: [], probe: [] };
-    for (const row of rows) {
-      const dv = draftVerdictForEvent(row.sample);
-      cls[fleetRowClass(row, dv)].push({ row, dv });
-    }
-    const cell = (x) => String(x ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-    const L = [];
-    L.push(`# App Control gap report — ${m.name || "unknown device"}`);
-    L.push("");
-    L.push(`Generated by ${BRANDING.name} ${APP_BUILD.label} on ${new Date().toISOString().slice(0, 10)}, from ${eventsEvidence.sourceName || "an events bundle"} (${ev.daysBack || m.daysBack || "?"}-day window) judged against **${importedXmlName || "the loaded policy"}**.`);
-    L.push("");
-    L.push(`| | Count |`);
-    L.push(`|---|---|`);
-    L.push(`| Fleet events — blocked / audited / allowed | ${s.blocked ?? "?"} / ${s.audited ?? "?"} / ${s.allowed ?? "?"} |`);
-    L.push(`| Distinct denied files | ${rows.length} |`);
-    L.push(`| **GAPS — would still be blocked, machine space** | **${cls.gap.length}** |`);
-    L.push(`| Blocked by design — user-writable origin | ${cls.bydesign.length} |`);
-    if (cls.probe.length) L.push(`| PowerShell policy probes (__PSSCRIPTPOLICYTEST_) — expected, do not allow | ${cls.probe.length} |`);
-    L.push(`| Covered — the draft already allows it | ${cls.covered.length} |`);
-    L.push(`| Undecided — no rules for the type${policy ? "" : " (no policy loaded)"} | ${cls.undecided.length} |`);
-    L.push(`| DLL — set aside (the draft omits DLL on purpose) | ${cls.dll.length} |`);
-    L.push(`| WDAC CodeIntegrity 3076 audit / 3077 block | ${ci.audit3076 ?? 0} / ${ci.block3077 ?? 0} |`);
-    L.push("");
-    const table = (list, withFix) => {
-      L.push(`| File | Publisher | Events | Users | Under the draft |${withFix ? " Suggested fix |" : ""}`);
-      L.push(`|---|---|---|---|---|${withFix ? "---|" : ""}`);
-      for (const { row, dv } of list) {
-        const plan = withFix ? fleetFixPlan(row) : null;
-        L.push(`| ${cell(row.path || row.binary || "(no path)")} | ${cell(row.publisher || "unsigned")} | ${row.count}× ${row.verdict} | ${row.users.size} | ${cell(dv.text)} |${withFix ? ` ${plan ? cell(plan.label + " (" + plan.type + ")") : "no evidence to build a rule from"} |` : ""}`);
-      }
-      L.push("");
-    };
-    L.push(`## Gaps — need a decision before enforcing (${cls.gap.length})`);
-    L.push("");
-    if (!cls.gap.length) L.push("None. Every denied file is either covered by the draft or blocked by design.");
-    else table(cls.gap, true);
-    L.push("");
-    L.push(`## Blocked by design (${cls.bydesign.length})`);
-    L.push("");
-    L.push("These ran from user-writable locations — the population AppLocker exists to stop. Allowing one is a business decision; if taken, deploy the software to machine space or allow it by publisher, never by a path into a profile.");
-    L.push("");
-    if (cls.bydesign.length) table(cls.bydesign, false);
-    L.push(`## Covered by the draft (${cls.covered.length})`);
-    L.push("");
-    if (cls.covered.length) table(cls.covered, false);
-    else L.push("None.");
-    if (cls.undecided.length) {
-      L.push("");
-      L.push(`## Undecided (${cls.undecided.length})`);
-      L.push("");
-      L.push(policy ? "The draft has no rules for these types — nothing is restricted, so there is no verdict to give. Decide the collections before enforcing." : "No policy is loaded — load the draft this evidence should be judged against and regenerate this report.");
-      L.push("");
-      table(cls.undecided, false);
-    }
-    if (cls.dll.length) {
-      L.push("");
-      L.push(`## DLL — set aside (${cls.dll.length})`);
-      L.push("");
-      L.push("The draft omits the DLL collection deliberately: AppLocker evaluates every DLL load, and absence is the only state that restricts nothing. These events are the record of that decision, not gaps. They would classify normally only if the draft carried DLL rules.");
-      L.push("");
-      table(cls.dll, false);
-    }
-    // Microsoft app coverage rides in EVERY gap report (Mihai's rule): the
-    // report is the change-ticket document, and "can a standard user still
-    // run OneDrive" belongs in the same envelope as the gaps.
-    L.push("");
-    L.push(`## Microsoft app coverage`);
-    L.push("");
-    if (!policy || !coverage.length) {
-      L.push("No policy loaded when this report was generated — load the draft and regenerate for the coverage verdicts.");
-    } else {
-      L.push(`| App | Verdict | Detail |`);
-      L.push(`|---|---|---|`);
-      for (const row of coverage) {
-        const v = row.result;
-        const det = v.status === "unenforced" ? v.detail
-          : (v.perArt || []).map((a) => `${a.art.path.split("\\").pop()} — ${a.status}${a.rule ? ` via “${a.rule.name}”` : ""}`).join("; ");
-        L.push(`| ${cell(row.app.name)} | ${cell(v.status)}${v.audit ? " (audit)" : ""} | ${cell(det)} |`);
-      }
-    }
-    if ((eventsEvidence.warnings || []).length) {
-      L.push("");
-      L.push(`## What the collector could not see`);
-      L.push("");
-      for (const w of eventsEvidence.warnings) L.push(`- ${w}`);
-    }
-    L.push("");
-    return L.join("\n");
+    const cell = (v) => String(v || "").replace(/\|/g,"\\|").replace(/[\r\n]/g," ");
+    const r = readiness();
+    return [`# AppLocker application review`, ``, `Device: ${machineKey(eventsEvidence || scan) || "Unknown"}`, `Collected: ${fmtDate(collectedAt(eventsEvidence || scan))}`, `Draft: ${draftOrigin || importedXmlName || "Not created"}`, `Readiness: ${r.label}`, ...r.reasons.map((x)=>`- ${x}`), ``, `| File | Observed | Prediction | Decision |`, `|---|---|---|---|`, ...aggregateFleetEvents(fleetEntries() || []).map((row)=>`| ${cell(row.path)} | ${cell(row.verdict)} (${row.count}) | ${cell(draftVerdictForEvent(row.sample).text)} | ${cell((acceptedBreaks.get(breakKey(row)) || {}).reason)} |`)].join("\n");
   }
 
-  // One classification pass over the whole bundle — the loop strip, the chips
-  // and the gap report all read THIS, so their numbers cannot disagree.
-  // THE EVIDENCE THE FLEET MACHINERY JUDGES (10569): the events bundle
-  // when one is loaded, otherwise the scan bundle's own event log. The
-  // scan's 1040 audited executions used to be a raw count on the enforce
-  // gate and a raw list under an Info finding — never judged against the
-  // draft, never offered a fix — while the identical list from an events
-  // bundle got verdicts and fix buttons. Same entries, same judgement.
   function fleetEntries() {
     if (eventsEvidence) return (eventsEvidence.events || {}).entries || [];
     // an events log that was read but carries no entries is an empty list,
@@ -734,14 +653,14 @@ const AppLockerTool = (() => {
     return null;
   }
   const fleetSourceLabel = () => eventsEvidence ? (eventsEvidence.sourceName || "the events bundle") : scan ? `the scan's event log${(scan.machine || {}).name ? ` (${scan.machine.name})` : ""}` : "";
-  function fleetGapStats() {
+  function fleetGapStats(model = policy, decisions = model === policy) {
     const entries = fleetEntries();
     if (!entries) return null;
     const rows = aggregateFleetEvents(entries);
     const out = { rows: rows.length, gap: 0, bydesign: 0, covered: 0, undecided: 0, dll: 0, probe: 0, accepted: 0, ranOk: 0 };
     for (const row of rows) {
-      let c = fleetRowClass(row, draftVerdictForEvent(row.sample));
-      if (c === "gap" && acceptedBreaks.has(breakKey(row))) c = "accepted";
+      let c = fleetRowClass(row, draftVerdictForEvent(row.sample, model), model);
+      if (c === "gap" && decisions && acceptedBreaks.has(breakKey(row))) c = "accepted";
       if (c === "gap" && row.ranOk) out.ranOk++;
       out[c]++;
     }
@@ -783,7 +702,7 @@ const AppLockerTool = (() => {
           sev: "High", source: "fleet", collection: colType, ruleType: "(fleet)",
           rule: `${colRows.length} fleet-denied files`,
           cond: "",
-          reason: `${colRows.length} distinct files (${events} events) would still be blocked from machine space under this draft. The ${colType} collection carries rules, so AppLocker enforces the WHOLE collection — everything not allowed is a block.`,
+          reason: `${colRows.length} distinct files (${events} events) would still be blocked without an accepted decision under this draft. The ${colType} collection carries rules, so AppLocker enforces the WHOLE collection — everything not allowed is a block.`,
           rec: colType === "Dll"
             ? "Allowing DLLs one hash at a time is not a policy. Decide whether Dll should be governed at all: if not, remove the Dll rules and these return to set-aside; if yes, plan publisher-level allows for the platform. The list is expandable below."
             : "Work the list below by publisher where files are signed — one publisher rule closes many of these at once. The list is expandable below.",
@@ -796,10 +715,10 @@ const AppLockerTool = (() => {
         out.push({
         sev: "High", source: "fleet",
         collection: eventCollectionType(row.sample),
-        rule: row.binary || (row.path ? String(row.path).split("\\").pop() : "(fleet event)"),
+        rule: (row.path ? String(row.path).split("\\").pop() : row.binary) || "(fleet event)",
         principal: row.publisher || "unsigned",
         cond: row.path || "",
-        reason: `${row.count}× ${String(row.verdict).toLowerCase()} across the fleet window${row.users.size ? ` (${row.users.size} user${row.users.size === 1 ? "" : "s"})` : ""} — and the draft would still block it, from machine space.`,
+        reason: `${row.count}× ${String(row.verdict).toLowerCase()} across the fleet window${row.users.size ? ` (${row.users.size} user${row.users.size === 1 ? "" : "s"})` : ""} — the draft would block this file when enforced. Decide whether that is intended.`,
         rec: plan ? (plan.kind === "publisher" ? "Signed — allow it by publisher, the rule that survives updates."
           : plan.kind === "hash" ? "Unsigned — allow by the event's hash. Hash rules go stale on the file's next update."
           : "Allow this exact path as a stopgap, then replace it with a publisher or hash rule.")
@@ -842,6 +761,7 @@ const AppLockerTool = (() => {
   function policyOfProfile(p) {
     const settings = (p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || "")));
     const values = settings.map((s) => String(s.value || "")).filter((v) => /<RuleCollection/i.test(v));
+    if (values.length && values.length !== settings.length) throw new Error("Some AppLocker collections could not be read. Re-read all profile values before creating a draft or comparing policies.");
     if (!values.length) {
       const enc = settings.filter((s) => s.isEncrypted && !s.value);
       const bad = settings.find((s) => s._decryptError);
@@ -931,11 +851,14 @@ const AppLockerTool = (() => {
   }
 
   async function adoptTenantProfile(p) {
-    policy = policyOfProfile(await hydrateAppLocker(p));
-    scan = null; scanSource = "";
+    const hydrated = await hydrateAppLocker(p);
+    const next = policyOfProfile(hydrated);
+    if (!confirmDraftReplacement()) return;
+    policy = next; scanSource = ""; draftOrigin = "Intune profile · " + (p.displayName || p.id); pilotReview = "";
+    const settings = (hydrated.omaSettings || []).filter((x) => APPLOCKER_OMA_RE.test(String(x.omaUri || "")));
     importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
     // Adopt the profile's identity so the export EDITS rather than duplicates.
-    const m = APPLOCKER_OMA_RE.exec(String(settings[0].omaUri || ""));
+    const m = APPLOCKER_OMA_RE.exec(String((settings[0] || {}).omaUri || ""));
     if (m && m[1]) intuneCfg.grouping = m[1];
     // The next export is the NEXT iteration of this profile, so its name gets
     // the next version — V4.0 in the tenant means V4.0.1 on the table. Typing
@@ -1001,7 +924,7 @@ const AppLockerTool = (() => {
     const signedIn = !noGraph && Graph.signedIn();
     const chooser = policy ? "" : `
       <div class="al-dep-ok" style="margin-bottom:10px"><b>Evidence loaded — now give it a policy to judge against.</b>
-        <div class="mini" style="margin-top:4px">Three ways: <b>upload</b> the draft from a file (a scan bundle or a policy XML), <b>take it from the harvest site</b> (a scan bundle a device uploaded), or <b>pull the deployed profile from the tenant</b>, which is where it actually lives mid-loop. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
+        <div class="mini" style="margin-top:4px">Three ways: open a scan locally or from Harvest, then explicitly create a draft on <b>Current policy &amp; sources</b>. A policy XML opens as a draft directly. You can also <b>pull the deployed profile from the tenant</b>. Pulling adopts the profile's name and grouping, so a later export edits it in place instead of creating a twin.</div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <button class="btn sm primary" id="alEvUpload" title="The same picker as the toolbar: a scan bundle (.json) or a policy XML">📂 Upload scan bundle or policy XML</button>
           ${noGraph ? "" : !signedIn
@@ -1022,7 +945,7 @@ const AppLockerTool = (() => {
     // person reading it. Covered / by-design / set-aside stay as counts here
     // and as sections in the gap report.
     host.innerHTML = `
-      <h3 style="margin:0 0 8px">📡 Fleet events evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span>
+      <h3 style="margin:0 0 8px">📡 Event bundle evidence <span class="mini muted">— ${esc(eventsEvidence.sourceName || "events bundle")}</span>
         <button class="btn sm" id="alEvClear" style="float:right;margin-left:6px" title="Take this events evidence off the table. The policy stays.">✕ Clear</button>
         ${gs.rows ? `<button class="btn sm" id="alEvGapDl" style="float:right" title="Download the gap report as Markdown — summary, every section in detail, a suggested fix per gap">⭳ Gap report</button>` : ""}</h3>
       ${chooser}
@@ -1032,10 +955,10 @@ const AppLockerTool = (() => {
         ${fact("WDAC 3076 audit", ci.audit3076)}${fact("WDAC 3077 block", ci.block3077)}
       </div>
       ${gs.rows ? `<div class="mini" style="margin-bottom:6px">
-        ${policy ? `<b>${gs.gap}</b> gap${gs.gap === 1 ? "" : "s"} to close — ${gs.gap ? `they are in the <a href="#" id="alEvToFindings">Findings table</a> below, 📡-marked, each with a one-click fix` : "nothing the draft would still block from machine space"}.` : `<b>${gs.rows}</b> distinct denied files — load a policy and they are judged.`}
+        ${policy ? `<b>${gs.gap}</b> gap${gs.gap === 1 ? "" : "s"} to close — ${gs.gap ? `review them in the <a href="#" id="alEvToFindings">baseline editor</a>; proposed rule changes still need your decision` : "nothing the draft is predicted to block without an accepted decision"}.` : `<b>${gs.rows}</b> file identities — create a draft to predict changes.`}
         ${gs.bydesign ? ` · ${gs.bydesign} blocked by design` : ""}${gs.covered ? ` · ${gs.covered} covered by the draft` : ""}${gs.undecided ? ` · ${gs.undecided} undecided` : ""}${gs.dll ? ` · ${gs.dll} DLL set aside` : ""}
         <span class="muted">— the gap report carries every group in full.</span>
-      </div>` : `<p class="mini muted" style="margin:0">No blocked or audited events in the window — either the estate is quiet or the policy was not reaching these devices. The allowed count above says which.</p>`}
+      </div>` : `<p class="mini muted" style="margin:0">No execution rows are available for prediction. Check collection warnings and the event window; zero rows do not prove compatibility.</p>`}
       ${(eventsEvidence.warnings || []).length ? `<div class="al-dep-err mini" style="margin-bottom:4px"><b>The collector could not see everything:</b><ul class="al-list" style="margin:4px 0 0">${eventsEvidence.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     `;
 
@@ -1048,13 +971,14 @@ const AppLockerTool = (() => {
     const jump = host.querySelector("#alEvToFindings");
     if (jump) jump.addEventListener("click", (e) => {
       e.preventDefault();
+      showScreen("policy");
       const el = document.getElementById("alFindings");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     const clr = host.querySelector("#alEvClear");
     if (clr) clr.addEventListener("click", () => {
       eventsEvidence = null; evTenant = { busy: false, list: null, error: "" };
-      if (policy) loadFresh(); else render();
+      pilotReview = ""; recompute();
     });
     const tb = host.querySelector("#alEvTenant");
     if (tb) tb.addEventListener("click", loadTenantProfiles);
@@ -1063,13 +987,13 @@ const AppLockerTool = (() => {
     // picker is the toolbar's; the harvest card opens (if closed) and is
     // scrolled to, on the Evidence screen.
     const up = host.querySelector("#alEvUpload");
-    if (up) up.addEventListener("click", () => { const inp = $("alFile"); if (inp) inp.click(); });
+    if (up) up.addEventListener("click", () => { expectedHarvest = null; const inp = $("alFile"); if (inp) inp.click(); });
     const hv = host.querySelector("#alEvHarvest");
     if (hv) hv.addEventListener("click", () => {
       showScreen("evidence");
       if (!evHarvest.open) toggleHarvestFetch();
       const card = $("alHarvestFetch");
-      if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     host.querySelectorAll(".al-ev-adopt").forEach((b) => b.addEventListener("click", () => {
       const p = (evTenant.list || [])[+b.dataset.i];
@@ -1258,8 +1182,8 @@ const AppLockerTool = (() => {
         cond: `${ev.summary.blocked} blocked · ${ev.summary.audited} audited · ${ev.daysBack} days`,
         reason: `The device's AppLocker logs show ${ev.summary.blocked} execution(s) actually blocked and ${ev.summary.audited} that would have been blocked under enforcement, across ${ev.summary.distinctUsers} user(s).`,
         rec: ev.summary.blocked
-          ? "Work through the blocked and audited list — open it right here — before touching enforcement anywhere else: these are real users who could not run something. Each file is judged against THIS draft: the ones it would still block from machine space are findings of their own, with a fix each."
-          : "Review the audited list — open it right here. Each file is judged against THIS draft: covered ones are the old policy's history and need nothing; the ones the draft would still block from machine space are findings of their own, with a fix each; blocks from user-writable areas are the policy working.",
+          ? "Work through the blocked and audited list — open it right here — before touching enforcement anywhere else: these are real users who could not run something. Each file is judged against THIS draft: files it would still block need a decision, including files in user profiles."
+          : "Review the audited list — open it right here. Each file is judged against THIS draft: covered ones are the old policy's history and need nothing; the ones the draft is predicted to block without an accepted decision are findings of their own, with a fix each; blocks from user-writable areas are the policy working.",
         // The renderer attaches the list this recommendation promises (10443):
         // a "below" that pointed at nothing was the complaint, verbatim.
         eventsList: true,
@@ -1363,7 +1287,7 @@ const AppLockerTool = (() => {
       // silently while reading as 'not configured' to whoever opens the policy.
       if (col.mode === "NotConfigured" && col.rules.length) F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured but carries ${col.rules.length} rule${col.rules.length === 1 ? "" : "s"} — which means those rules ARE ENFORCED. 'NotConfigured' does not mean off: Microsoft's own guidance is that a rule collection in this state is enforced unless a higher-precedence policy sets it to Audit only, and that the value should never be used deliberately.`, rec: `Decide and say so: 'AuditOnly' if you want these rules evaluated and logged without blocking, 'Enabled' if you want them enforced. Leaving it as NotConfigured means this collection is blocking today while reading as inactive to the next person who opens the policy.`, fix: { kind: "mode", type: col.type } });
       else if (col.mode === "NotConfigured") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is NotConfigured and carries no rules → nothing of this type is restricted.`, rec: `Add the rules this type needs and set 'AuditOnly' to start. Note that once rules exist, 'NotConfigured' stops meaning 'off' and starts meaning 'enforced' — so set the mode explicitly rather than leaving it.`, fix: { kind: "mode", type: col.type } });
-      else if (col.mode === "AuditOnly") F("High", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Stay in AuditOnly until the event log is clean across a full working month — a month-end, a patch cycle, a new starter — then enforce deliberately. Enforcing on the strength of a quiet week is how a policy takes out an estate.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") + (col.type === "Dll" ? " DLL is the one collection to think hardest about: AppLocker evaluates every DLL load, so enforcement costs application start time and audit alone floods the log." : ""), fix: { kind: "mode", type: col.type } });
+      else if (col.mode === "AuditOnly") F("Info", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is AuditOnly (no blocking).`, rec: `Stay in AuditOnly until the event log is clean across a full working month — a month-end, a patch cycle, a new starter — then enforce deliberately. Enforcing on the strength of a quiet week is how a policy takes out an estate.` + (col.type === "Script" ? " Note: Script in AuditOnly will not enforce Constrained Language Mode." : "") + (col.type === "Dll" ? " DLL is the one collection to think hardest about: AppLocker evaluates every DLL load, so enforcement costs application start time and audit alone floods the log." : ""), fix: { kind: "mode", type: col.type } });
       if (col.mode !== "NotConfigured" && !col.rules.length)
         F("Medium", { collection: col.type, ruleType: "(collection)", reason: `Collection '${col.type}' is ${col.mode} with ZERO rules — everything of this type is blocked (or would be, in audit).`, rec: `Add the default rules before enforcing, or this collection bricks the type entirely.`, fix: { kind: "defaults", type: col.type } });
 
@@ -2122,11 +2046,14 @@ const AppLockerTool = (() => {
       L.push(`> No device scan was supplied. NTFS and SMB-share ACL checks require a filesystem and DID NOT RUN — run Invoke-TunoAppLockerScan.ps1 on a representative device and upload the bundle for those.`);
     }
     L.push("");
-    L.push(`## Enforcement`);
+    L.push(`> Working draft: ${draftOrigin || importedXmlName || "Not created"}`);
+    L.push(`> Readiness: ${readiness().label}. ${readiness().reasons.join(" ")}`);
+    L.push(`> Events: ${(eventsEvidence || scan || {}).sourceName || "None"} · ${fmtDate(collectedAt(eventsEvidence || scan))}`);
+    L.push(`## Working draft collections`);
     L.push("");
     L.push(`| Collection | Mode | Rules |`);
     L.push(`|---|---|---|`);
-    for (const c of policy.collections) L.push(`| ${c.type} | ${c.mode} | ${c.rules.length} |`);
+    for (const c of (policy ? policy.collections : [])) L.push(`| ${c.type} | ${c.mode} | ${c.rules.length} |`);
     L.push("");
     L.push(`## Findings (${findings.length})`);
     L.push("");
@@ -2186,7 +2113,7 @@ const AppLockerTool = (() => {
         L.push(`|---|---|---|`);
         for (const f of scan.writableFiles.slice(0, 200)) {
           const p = f.normalized || f.path;
-          const rule = evaluateProbePath(policy, p, f.collection || "Exe");
+          const rule = policy && evaluateProbePath(policy, p, f.collection || "Exe");
           L.push(`| ${p} | ${(f.grantees || []).map((g) => g.name || g.sid).join(", ") || "—"} | ${rule ? rule.name : "— (excepted or unreachable)"} |`);
         }
         if (scan.writableFiles.length > 200) L.push(`| … | ${scan.writableFiles.length - 200} more | |`);
@@ -2222,9 +2149,9 @@ const AppLockerTool = (() => {
     // in one table on purpose: an admin does not care which half of the tool proved
     // that %PROGRAMFILES%\Vendor is a hole, only that it is one. `source` marks the
     // scan-derived rows so the table can say where each verdict came from.
-    findings = analyze(policy).concat(analyzeScan(scan, policy)).concat(analyzeFleetEvents());
+    findings = policy ? analyze(policy).concat(analyzeScan(scan, policy)).concat(analyzeFleetEvents()) : [];
     findings.sort((a, b) => SEV_SCORE[b.sev] - SEV_SCORE[a.sev] || String(a.collection).localeCompare(String(b.collection)));
-    coverage = MS_APP_CATALOG.map((app) => ({ app, result: evaluateApp(policy, app) }));
+    coverage = policy ? MS_APP_CATALOG.map((app) => ({ app, result: evaluateApp(policy, app) })) : [];
     render();
   }
 
@@ -2343,10 +2270,11 @@ const AppLockerTool = (() => {
   // THE RAIL — four screens, one on the table at a time (10577)
   // ================================================================
   const SCREENS = [
-    { id: "evidence", ico: "📂", label: "Evidence" },
-    { id: "policy",   ico: "📝", label: "Policy" },
-    { id: "breaks",   ico: "💥", label: "What breaks?" },
-    { id: "deploy",   ico: "🚀", label: "Deploy" },
+    { id:"evidence", ico:"◉", label:"Overview" },
+    { id:"compare", ico:"⇄", label:"1 · Current policy & sources" },
+    { id:"policy", ico:"✎", label:"2 · Edit baseline" },
+    { id:"breaks", ico:"▤", label:"3 · Check changes" },
+    { id:"deploy", ico:"↑", label:"4 · Pilot & deployment" },
   ];
   function evidenceItems() {
     const items = [];
@@ -2372,44 +2300,8 @@ const AppLockerTool = (() => {
     };
   }
   function renderRail() {
-    const host = $("alRail");
-    if (!host) return;
-    const c = railCounts();
-    const node = (sc) => {
-      let n = "", cls = "";
-      if (sc.id === "evidence") { n = c.evidence ? `${c.evidence} loaded` : "nothing yet"; cls = c.evidence ? "ok" : ""; }
-      if (sc.id === "policy") { n = c.policy == null ? "—" : c.policy ? `${c.policy} finding${c.policy === 1 ? "" : "s"}` : "clean"; cls = c.policy ? "" : "ok"; }
-      if (sc.id === "breaks") { n = c.breaks == null ? (policy ? "no events" : "—") : c.breaks ? String(c.breaks) : "0"; cls = c.breaks ? "gap" : (c.breaks === 0 ? "ok" : ""); }
-      if (sc.id === "deploy") { n = c.deploy || "—"; }
-      return `<div class="ep-node al-node ${screen === sc.id ? "active" : ""}" data-alscreen="${sc.id}">${sc.ico} ${esc(sc.label)} <span class="ep-n ${cls}">${esc(n)}</span></div>`;
-    };
-    // The foot says the next act in one line — the loop with a voice,
-    // instead of a diagram of it.
-    let next = "Upload a scan bundle, or pull the deployed profile from the tenant.";
-    if (policy && !fleetEntries()) next = "Get events on the table: a scan taken after the audit profile ran, or the events bundle — then What breaks? can judge the draft.";
-    else if (c.breaks) next = `Resolve ${c.breaks} on What breaks?, then Deploy → Enforce.`;
-    else if (policy && c.gs && c.breaks === 0) next = createdFor("enforce") ? "Enforce profile created — assign it in the portal when the pilot says so." : "Nothing that ran would be blocked. Deploy → Enforce is open.";
-    // THE POLICY SCREEN'S SECTIONS AS SUB-NODES (10579, Mihai: "make it easy
-    // to navigate between the sections"). Summary, Add rule, Findings,
-    // Coverage, Rules, Advanced — each a click that scrolls to its card, each
-    // carrying the count that decides whether it needs a look. Shown only
-    // while Policy is the screen on the table and a policy is loaded.
-    const subs = (screen === "policy" && policy) ? (() => {
-      const own = findings.filter((f) => f.source !== "fleet");
-      const hm = own.filter((f) => f.sev === "High" || f.sev === "Medium").length;
-      const covBad = coverage.filter((c2) => c2.result && (c2.result.status === "blocked" || c2.result.status === "risky")).length;
-      const rules = policy.collections.reduce((n, c2) => n + c2.rules.length, 0);
-      const items = [
-        ["alSummary", "Summary", ""],
-        ["alAddRule", "Add a rule", ""],
-        ["alFindings", "Findings", hm ? `${hm} to decide` : own.length ? `${own.length} info` : "clean"],
-        ["alCoverage", "Microsoft apps", covBad ? `${covBad} not covered` : "all run"],
-        ["alRules", "Rules", String(rules)],
-        ["alEnforceAdv", "Advanced", "per collection"],
-      ];
-      return `<div class="al-rail-subs">${items.map(([id, label, n]) => `<div class="al-rail-sub" data-aljump="${id}">${esc(label)}<span class="ep-n ${/to decide|not covered/.test(n) ? "gap" : ""}">${esc(n)}</span></div>`).join("")}</div>`;
-    })() : "";
-    host.innerHTML = SCREENS.map((sc) => node(sc) + (sc.id === "policy" ? subs : "")).join("") + `<hr><div class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">❓ Help &amp; scripts</div><div class="al-rail-foot"><b>Next:</b> ${esc(next)}</div>`;
+    const host = $("alRail"); if (!host) return;
+    host.innerHTML = SCREENS.map((sc) => `<button type="button" class="ep-node al-node ${screen === sc.id ? "active" : ""}" data-alscreen="${sc.id}" ${screen === sc.id ? 'aria-current="page"' : ""}>${sc.ico} ${esc(sc.label)}</button>`).join("") + `<hr><button type="button" class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">⚙ Collection setup</button>`;
   }
   function showScreen(name) {
     if (!SCREENS.some((sc) => sc.id === name) && name !== "help") name = "evidence";
@@ -2420,23 +2312,72 @@ const AppLockerTool = (() => {
   // The status line under the title: device, when, what the tenant says,
   // and whether Enforce is open — the four facts every screen shares.
   function renderStatus() {
-    const host = $("alStatus");
-    if (!host) return;
-    const m = (scan && scan.machine) || (eventsEvidence && eventsEvidence.machine) || {};
-    const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "";
-    const c = railCounts();
-    const parts = [];
-    if (m.name) parts.push(`<b>${esc(m.name)}</b>${when ? ` · scanned ${esc(when)}` : ""}`);
-    else if (policy) parts.push(`<b>${esc(importedXmlName || "New policy")}</b>`);
-    if (policy) {
-      const inTenant = deployState.updated ? `${escq(deployState.updated.displayName || "profile")} updated in place this session` : createdFor("enforce") ? "Enforce profile created this session" : auditIsInTenant() ? "audit profile in the tenant" : deployState.checked ? "not in the tenant under this grouping" : "tenant not checked";
-      parts.push(`tenant: ${esc(inTenant)}`);
-      if (c.breaks) parts.push(`<span class="al-status-bad">Enforce blocked — ${c.breaks} unresolved break${c.breaks === 1 ? "" : "s"}</span>`);
-      else if (c.gs && c.breaks === 0) parts.push(`<span class="al-status-ok">Enforce open — nothing that ran would be blocked</span>`);
-      else parts.push(`<span>Enforce waits on events evidence</span>`);
-    }
-    host.innerHTML = parts.join(" <span class=\"muted\">·</span> ");
-    host.style.display = parts.length ? "" : "none";
+    const host = $("alStatus"); if (!host) return;
+    const b = scan || eventsEvidence, r = readiness();
+    host.innerHTML = `<b>${esc(b ? (b.machine || {}).name || "Unknown device" : "No device evidence loaded")}</b><span>Collected ${esc(fmtDate(collectedAt(b)))}</span><span>Draft: ${esc(draftOrigin || (policy ? importedXmlName : "not created"))}</span><span class="${r.ready ? "al-status-ok" : ""}">${esc(r.label)}</span>`;
+  }
+
+  function policySnapshot(which) {
+    const xml = scan && (which === "device" ? scan.effectivePolicy && scan.effectivePolicy.xml : scan.generatedPolicy && scan.generatedPolicy.auditXml);
+    if (!xml) return null;
+    try { return parsePolicy(xml, which); } catch { return null; }
+  }
+  function collectionSummary(model) {
+    if (!model) return "Not available";
+    return model.collections.map((c) => `${c.type}: ${c.mode}, ${c.rules.length} rules`).join(" · ") || "No collections";
+  }
+  function renderReadiness() {
+    if ($("alReadiness")) { const r = readiness(); $("alReadiness").innerHTML = `<h3>${esc(r.label)}</h3><ul>${r.reasons.map((x)=>`<li>${esc(x)}</li>`).join("")}</ul><label class="mini"><input id="alPilotReview" type="checkbox" ${pilotReview === r.signature ? "checked" : ""} ${policy ? "" : "disabled"}> I reviewed representative pilot activity and validated recovery for this draft and evidence.</label><p class="mini muted">This records your review, not automated proof. Changing the draft, evidence, tenant or decisions invalidates it.</p>`; }
+  }
+  function renderOverview() {
+    const host = $("alOverview"); if (!host) return;
+    const b = scan || eventsEvidence, ev = (eventsEvidence || scan || {}).events, r = readiness(), sm = ev && ev.summary || {};
+    const fact = (label,value,detail) => `<article class="al-review-card"><span class="mini muted">${esc(label)}</span><h3>${esc(value)}</h3><p class="mini muted">${esc(detail)}</p></article>`;
+    host.innerHTML = `<div class="al-review-heading"><div><span class="mini muted">DEVICE ASSESSMENT</span><h2>${esc(b ? (b.machine || {}).name || "Unknown device" : "Start with a device")}</h2><p class="mini muted">${b ? `Collected ${esc(fmtDate(collectedAt(b)))} · ${esc(b.sourceName || "Bundle")}` : "Open a scan bundle or select a device from Harvest. Review the evidence before preparing changes."}</p></div><button class="btn" data-review-nav="compare">Compare policies</button></div>
+      ${importNotice ? `<p class="al-review-notice" role="status">${esc(importNotice)}</p>` : ""}
+      ${b ? `<div class="al-review-grid">${fact("Evidence",r.limits.length ? `${r.limits.length} limitation(s)` : "Collection checks complete", "Scope is limited to this device and collection window.")}${fact("Observed activity",`${sm.blocked == null ? "?" : sm.blocked} blocked · ${sm.audited == null ? "?" : sm.audited} audit-only`,`${sm.allowed == null ? "Unknown" : sm.allowed} allowed · ${ev && ev.daysBack || "Unknown"} day window · ${(ev && ev.entries || []).length} entries supplied`)}${fact("Working draft",policy ? "Explicit draft loaded" : "Not created",draftOrigin || "Generated proposals and device snapshots remain read-only.")}</div>
+      <article class="al-review-card al-review-next"><h3>${esc(r.label)}</h3><p>${esc(r.reasons[0] || "Validate pilot enforcement before broad deployment.")}</p><button class="btn primary" data-review-nav="${policy ? "breaks" : "compare"}">${policy ? "Review application decisions" : "Review policy sources"}</button></article>
+      <article class="al-review-card"><h3>Policy captured on the device</h3><p class="mini">${esc(collectionSummary(policySnapshot("device")))}</p><p class="mini muted">A snapshot at collection time. Audit records what would be blocked; Enforce actually blocks those executions under the applicable rules. Event counts are not application counts.</p><button class="btn" data-review-impact="device">What if the current policy is enforced?</button> <button class="btn" data-review-impact="proposal">Check the scan proposal</button></article>
+      <details class="al-review-card" ${r.limits.length ? "open" : ""}><summary><b>Evidence limitations (${r.limits.length})</b></summary>${r.limits.length ? `<ul>${r.limits.map((x)=>`<li>${esc(x)}</li>`).join("")}</ul>` : "<p>Collection metadata is present. This does not prove representative pilot coverage.</p>"}</details>` : ""}`;
+  }
+  function snapshotDiffHtml(before, after) {
+    const d = diffPolicies(before,after);
+    return d.same ? '<p>No differences in the compared collections, rules and modes.</p>' : `<p>${d.added} added · ${d.removed} removed · ${d.changed} changed · ${d.renamed} renamed · ${d.modeChanges} mode changes</p>${d.collections.map((c)=>`<details><summary>${esc(c.type)} — ${esc(c.modeFrom || "Absent")} → ${esc(c.modeTo || "Absent")}</summary><ul>${c.added.map((r)=>`<li>Added: ${esc(r.name)}</li>`).join("")}${c.removed.map((r)=>`<li>Removed: ${esc(r.name)}</li>`).join("")}${c.changed.map((r)=>`<li>Changed: ${esc(r.after.name)} — ${esc(r.what.join(", "))}</li>`).join("")}${c.renamed.map((r)=>`<li>Renamed: ${esc(r.before.name)} → ${esc(r.after.name)}</li>`).join("")}</ul></details>`).join("")}`;
+  }
+  function renderComparison() {
+    const host = $("alComparison"); if (!host) return;
+    const device = policySnapshot("device"), proposal = policySnapshot("proposal");
+    const profiles = deployState.checked && deployState.checked.tenantAppLocker || evTenant.list || [];
+    const card = (name,desc,model,button) => `<article class="al-review-card"><h3>${esc(name)}</h3><p class="mini muted">${esc(desc)}</p><p class="mini">${esc(collectionSummary(model))}</p>${button || ""}</article>`;
+    host.innerHTML = `<h2>Current policy &amp; baseline sources</h2><p>The device snapshot is what was collected. The scan proposal is a suggested baseline, not an approved or deployed policy. Create an editable copy, review its rules, then check the impact before deploying.</p><div class="al-review-grid">${card("Device snapshot",`Read-only · ${fmtDate(collectedAt(scan))}`,device,device ? '<button class="btn" data-review-source="effective">Edit a copy of the current policy</button>' : "")}${card("Generated proposal","Read-only scanner suggestions · not deployed",proposal,proposal ? '<button class="btn primary" data-review-source="generated-audit">Edit a copy of the scan proposal</button>' : "")}${card("Working draft",draftOrigin || "No draft created",policy,policy ? '<button class="btn" data-review-nav="policy">Edit working draft</button>' : "")}</div>
+      <article class="al-review-card"><h3>Intune profiles</h3><p class="mini muted">Tenant configuration is separate from device receipt. Unread policy values stay unknown.</p><button class="btn" data-review-tenant>Read Intune profiles</button>${evTenant.busy ? " Reading…" : ""}${evTenant.error ? `<p>${esc(evTenant.error)}</p>` : ""}${profiles.length ? profiles.map((p,i)=>`<div class="al-profile-row"><b>${esc(p.displayName || p.id)}</b><button class="btn sm" data-review-profile="${i}">Create draft from profile</button><button class="btn sm" data-review-compare="${i}" ${policy ? "" : "disabled"}>Compare with draft</button></div>`).join("") : '<p class="mini muted">No profiles loaded.</p>'}</article>
+      ${policy && device ? `<article class="al-review-card"><h3>Device snapshot compared with working draft</h3>${snapshotDiffHtml(device, policy)}</article>` : ""}
+      ${policy && proposal ? `<article class="al-review-card"><h3>Generated proposal compared with working draft</h3>${snapshotDiffHtml(proposal, policy)}</article>` : ""}
+      ${deployState.diff ? diffHtml(deployState.diff) : ""}`;
+  }
+  function wireReview() {
+    const root = $("screen-applocker"); if (!root || root.dataset.reviewWired) return;
+    root.dataset.reviewWired = "true";
+    root.addEventListener("click", async (e) => {
+      const impact = e.target.closest("[data-review-impact]");
+      if (impact) { impactSource = impact.dataset.reviewImpact; renderBreaks(); showScreen("breaks"); return; }
+      const jump = e.target.closest("[data-review-jump]");
+      if (jump) { const el = $(jump.dataset.reviewJump); if (el && el.scrollIntoView) el.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+      const source = e.target.closest("[data-review-source], .al-scan-src"), nav = e.target.closest("[data-review-nav]");
+      if (source) { createDraft(source.dataset.reviewSource || source.dataset.src); return; }
+      if (nav) { showScreen(nav.dataset.reviewNav); return; }
+      try {
+        if (e.target.closest("[data-review-tenant]")) { await loadTenantProfiles(); renderComparison(); }
+        const pbtn = e.target.closest("[data-review-profile], [data-review-compare]");
+        if (pbtn) {
+          const profiles = deployState.checked && deployState.checked.tenantAppLocker || evTenant.list || [];
+          const profile = profiles[Number(pbtn.dataset.reviewProfile ?? pbtn.dataset.reviewCompare)];
+          if (profile && pbtn.hasAttribute("data-review-profile")) { await adoptTenantProfile(profile); render(); showScreen("policy"); }
+          else if (profile) { await compareWithTenant(profile.id); renderComparison(); }
+        }
+      } catch (err) { importNotice = err.message; renderOverview(); }
+    });
+    root.addEventListener("change",(e)=>{ if(e.target.id === "alPilotReview") { pilotReview = e.target.checked ? readiness().signature : ""; render(); } });
   }
 
   // ---- 1 · Evidence: what is on the table, and what is missing ----
@@ -2447,7 +2388,7 @@ const AppLockerTool = (() => {
     if (!items.length && !policy) { host.style.display = "none"; host.innerHTML = ""; return; }
     host.style.display = "";
     const rows = [];
-    const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) : "";
+    const when = fmtDate(collectedAt(scan));
     if (scan) {
       const m = scan.machine || {};
       const roots = (scan.scan && scan.scan.roots) || [];
@@ -2469,12 +2410,12 @@ const AppLockerTool = (() => {
           return ` · no Intune AppLocker policy cached on the device`;
         })()}</td></tr>`);
     } else {
-      rows.push(`<tr><td class="muted">🛰 Scan bundle</td><td class="mini muted">—</td><td></td><td class="mini muted">Invoke-TunoAppLockerScan.ps1 on a clean reference image (Help &amp; scripts) — the ACLs and the event log a browser cannot see</td></tr>`);
+      rows.push(`<tr><td class="muted">🛰 Scan bundle</td><td class="mini muted">—</td><td></td><td class="mini muted">Invoke-TunoAppLockerScan.ps1 on a clean reference image (Collection setup) — the ACLs and the event log a browser cannot see</td></tr>`);
     }
     const ev = eventsEvidence ? (eventsEvidence.events || {}) : (scan && scan.events && scan.events.available ? scan.events : null);
     if (ev) {
       const sm = ev.summary || {};
-      rows.push(`<tr><td>📡 Events <span class="tag grant">loaded</span></td><td class="mini">${eventsEvidence ? esc(eventsEvidence.sourceName || "events bundle") : "from the scan bundle"}${ev.daysBack ? ` · ${esc(String(ev.daysBack))} days` : ""}</td><td class="mini">${esc(when)}</td>
+      rows.push(`<tr><td>📡 Events <span class="tag grant">loaded</span></td><td class="mini">${eventsEvidence ? esc((eventsEvidence.machine.name || "Unknown device") + " · " + (eventsEvidence.sourceName || "events bundle")) : "from the scan bundle"}${ev.daysBack ? ` · ${esc(String(ev.daysBack))} days` : ""}</td><td class="mini">${esc(fmtDate(collectedAt(eventsEvidence || scan)))}</td>
         <td class="mini">${sm.total != null ? `${sm.total} events · ` : ""}${sm.allowed || 0} allowed · ${sm.audited || 0} audited · ${sm.blocked || 0} blocked</td></tr>`);
     } else {
       rows.push(`<tr><td class="muted">📡 Events</td><td class="mini muted">—</td><td></td><td class="mini muted">what actually ran — from the scan (read by default) or the events Remediation's bundle. Without it, What breaks? cannot judge the draft.</td></tr>`);
@@ -2490,127 +2431,49 @@ const AppLockerTool = (() => {
         ? "sign in and the tenant is read automatically — the draft is then judged against what is really out there"
         : policy
           ? `<button class="btn sm" id="alEvTenantCheck" ${busy ? "disabled" : ""}>🔎 ${busy ? "Checking…" : "Check the tenant now"}</button> <span>reads the deployed profiles (asks for the read consent once); afterwards it runs by itself every time a policy lands here</span>`
-          : "load a policy — the tenant is then read automatically"}</td></tr>`);
+          : "read profiles on Policy comparison; this does not establish device receipt"}</td></tr>`);
     }
     if (policy && importedXmlName && !scan) rows.push(`<tr><td>📄 Policy XML <span class="tag grant">loaded</span></td><td class="mini">${esc(importedXmlName)}</td><td></td><td class="mini">no ACL or event evidence — the part a browser cannot work out</td></tr>`);
     host.innerHTML = `<h3 style="margin:0 0 8px">What is on the table</h3>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Evidence</th><th>From</th><th>When</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
-      ${policy ? `<p class="mini muted" style="margin:10px 0 0">The draft on <b>Policy</b> was built from ${scan ? esc(SCAN_SOURCE_LABEL[scanSource] || "the scan") : importedXmlName ? "the uploaded XML" : "scratch"}. The scanner writes no policy file of its own any more — this draft, reviewed here, is the only policy.</p>` : ""}`;
+      ${policy ? `<p class="mini muted" style="margin:10px 0 0">Working draft: ${esc(draftOrigin || importedXmlName || "Created from scratch")}. Opening new evidence does not replace it. Device policy and generated proposal are read-only snapshots.</p>` : ""}`;
     const cb = host.querySelector("#alEvTenantCheck");
     if (cb) cb.addEventListener("click", () => { autoCheckedFor = null; checkTenantGrouping().then(renderEvidence).catch(() => {}); });
   }
 
   // ---- 3 · What breaks?: every event replayed against the draft ----
+  function impactModel(source = impactSource) {
+    if (source === "device") return policySnapshot("device");
+    if (source === "proposal") return policySnapshot("proposal");
+    if (source === "intune") return policy && {...policy, collections:policy.collections.filter(c => OMA_TYPE[c.type] && c.type !== "Dll")};
+    return policy;
+  }
+  const impactLabels = {device:"Current device policy → Enforce", proposal:"Scan proposal → Enforce", draft:"My working draft → Enforce", intune:"Intune export of my draft → Enforce"};
   function renderBreaks() {
-    const host = $("alBreaks");
-    if (!host) return;
-    shownBreaks = [];
-    if (!policy) {
-      host.innerHTML = `<h3 style="margin:0 0 6px">💥 What breaks?</h3><p class="mini muted" style="margin:0">No policy on the table. Load one on <b>Evidence</b>; then everything the device ran is replayed against it here.</p>`;
-      return;
-    }
-    const entries = fleetEntries();
-    if (!entries) {
-      host.innerHTML = `<h3 style="margin:0 0 6px">💥 What breaks?</h3>
-        <div class="al-gate">⚠️ <b>Nothing to replay.</b> No event evidence is on the table, so this draft has not been judged against anything that actually ran. Get some: run the scan on a device the audit profile has reached (events are read by default), or deploy the events Remediation (Help &amp; scripts) and upload its bundle on <b>Evidence</b>. Enforce stays gated until then.</div>`;
-      return;
-    }
-    const rows = aggregateFleetEvents(entries);
-    const judged = rows.map((row) => { const dv = draftVerdictForEvent(row.sample); return { row, dv, cls: fleetRowClass(row, dv), accepted: acceptedBreaks.has(breakKey(row)) }; });
-    const gaps = judged.filter((j) => j.cls === "gap" && !j.accepted);
-    const accepted = judged.filter((j) => j.cls === "gap" && j.accepted);
-    const undecided = judged.filter((j) => j.cls === "undecided");
-    const bydesign = judged.filter((j) => j.cls === "bydesign");
-    const covered = judged.filter((j) => j.cls === "covered");
-    const dll = judged.filter((j) => j.cls === "dll");
-    const probes = judged.filter((j) => j.cls === "probe");
-    const dllEvents = entries.filter(isDllEvent).length;
-    const draftDll = policy.collections.find((c) => c.type === "Dll");
-    shownBreaks = gaps.map((j) => j.row).concat(accepted.map((j) => j.row)).concat(bydesign.map((j) => j.row));
-    const dllToggle = dllEvents ? `<label class="mini al-dll-toggle" style="display:inline-flex;gap:6px;align-items:center;margin-left:auto;cursor:pointer" title="${hideDll ? "DLL loads are set aside: the house policy neither audits nor enforces DLL. Untick to judge them against the draft." : "DLL loads are judged against the draft."}">
-      <input type="checkbox" id="alHideDll" ${hideDll ? "checked" : ""}> Hide DLL loads <span class="muted">(${dllEvents} event${dllEvents === 1 ? "" : "s"}${draftDll && draftDll.rules.length ? ` — the draft carries ${draftDll.rules.length} Dll rule${draftDll.rules.length === 1 ? "" : "s"}` : " — no Dll collection in the draft"})</span></label>` : "";
-    // THE EFFECTIVE POLICY IS EVIDENCE, NOT A DRAFT (10580, Mihai: "scripts
-    // have no rules, but they are in the policies"). What the device was
-    // running at scan time is a merge of every AppLocker source on it —
-    // Intune, GPO, the Managed Installer policy — and if a collection is
-    // empty there, the device had not received the profile that carries it.
-    const effNote = (scanSource === "effective") ? (() => {
-      const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "scan time";
-      const empty = COLLECTIONS.filter((t) => t !== "Dll").filter((t) => { const c = policy.collections.find((x) => x.type === t); return !c || !c.rules.length; });
-      const mi = policy.collections.some((c) => /ManagedInstaller/i.test(c.type)) || policy.collections.some((c) => c.rules.some((r) => /managed installer/i.test(r.name || "")));
-      const gen = scan && scan.generatedPolicy && scan.generatedPolicy.auditXml;
-      // 10582: bundles from scanner < 1.12 read the effective policy with
-      // Get-AppLockerPolicy -Effective ALONE, which does not include the
-      // Intune-delivered (CSP) policy the device enforces — so a deployed
-      // Script collection read as empty. The bundle says which it was.
-      const src = scan && scan.effectivePolicy && scan.effectivePolicy.sources;
-      const mdmAll = src && Array.isArray(src.mdm) ? src.mdm : null;
-      const mdm = mdmAll ? mdmAll.filter((g) => Array.isArray(g.types) && g.types.length) : null;
-      const hollowCache = !!(mdmAll && mdmAll.length && !mdm.length);
-      const oldRead = !src;
-      const sourceLine = oldRead
-        ? ` <b>This bundle's effective policy was read with Get-AppLockerPolicy -Effective alone, which does NOT include the policy Intune delivers through the AppLocker CSP</b> — the very policy this device enforces. That is why deployed collections read as empty here. Re-scan with scanner 1.12.0 or later: it reads the CSP cache under System32\\AppLocker\\MDM and merges it in.`
-        : mdm && mdm.length
-          ? ` It includes the Intune-delivered policy from the CSP cache: ${mdm.map((g) => `<code>${esc(g.grouping)}</code> (${esc((g.types || []).join(", "))})`).join(", ")}.`
-          : hollowCache
-            ? ` <b>The device HAS an Intune AppLocker cache, but this bundle read no collection from it</b> — scanner ${esc((scan.generator && scan.generator.version) || "?")} walked the cache three levels deep, and the real layout is <code>MDM\\&lt;enrollment&gt;\\&lt;CSP area&gt;\\AppLocker\\ApplicationLaunchRestrictions\\&lt;grouping&gt;\\&lt;type&gt;\\Policy</code>. What you are judging against here is the local policy alone (the Managed Installer stub), so every Intune rule reads as missing. Re-scan with scanner 1.12.2 or later.`
-            : ` No Intune-delivered AppLocker policy was cached on the device at ${esc(when)} — the deployed profile had not reached it.`;
-      return `<div class="al-gate" style="border-color:var(--border);background:var(--soft)">ℹ️ <b>You are judging against the policy the device was actually running at ${esc(when)}</b> — the merge of every AppLocker source on it (Intune, GPO${mi ? ", and the Managed Installer policy, whose dummy rules are what sits in Exe and Dll" : ""}). It is evidence, not a draft.${sourceLine}${empty.length && !oldRead ? ` It carries <b>no ${empty.join(", ")} rules</b>: if the deployed profile has them, the device had not received it by ${esc(when)} — check the assignment and the device's last sync, then re-scan.` : ""}${gen ? ` To work on the rules themselves, switch to <b>the rule set the scan generated</b> on the Evidence screen.` : ""}</div>`;
-    })() : "";
-    const unresolved = gaps.length + undecided.length;
-    const fmtWhen = (t) => t ? String(t).replace("T", " ").slice(0, 16) : "";
-    const itTools = /IT-TOOLS\\/i;
-    const inProgramData = (p) => /(^|%OSDRIVE%|[a-z]:)\\PROGRAMDATA\\/i.test(p) && !itTools.test(p);
-    const gate = unresolved
-      ? `<div class="al-gate">⛔ <b>Enforce is gated.</b> ${gaps.length ? `${gaps.length} file${gaps.length === 1 ? "" : "s"} that ran on ${esc(fleetSourceLabel())} would be blocked by the current draft` : ""}${gaps.length && undecided.length ? "; " : ""}${undecided.length ? `${undecided.length} fall in a collection the draft has no rules for` : ""}. Resolve each — allow it, move it, or accept the block — and Deploy unlocks Enforce.</div>`
-      : `<div class="al-gate ok">✅ <b>Nothing that ran would be blocked.</b> ${covered.length} covered · ${bydesign.length} from user-writable areas (the policy working, on purpose) · ${accepted.length} accepted${dll.length ? ` · ${dll.length} DLL loads set aside` : ""}. Deploy → Enforce is open.</div>`;
-    const fixBtn = (row, i) => { const plan = fleetFixPlan(row); return plan ? `<button class="btn sm primary al-brk-fix-btn" data-brkfix="${i}" title="${plan.kind === "path" ? "Exact path only — weak, and the rule says to replace it" : plan.kind === "hash" ? "Goes stale when the file changes" : "Follows the signer; survives updates"}">${plan.kind === "publisher" ? "✍ Allow by publisher" : plan.kind === "hash" ? "#️⃣ Allow by hash" : "📂 Allow this path"}</button>` : ""; };
-    const gapRows = gaps.map((j, i) => {
-      const r = j.row;
-      const pd = inProgramData(r.path);
-      return `<tr>
-        <td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code>${r.signed ? `<div class="muted">${esc(r.publisher)}</div>` : `<div class="muted">not signed</div>`}</td>
-        <td class="mini">${r.count}× · ${r.users.size} user${r.users.size === 1 ? "" : "s"}${r.last ? `<div class="muted">last ${esc(fmtWhen(r.last))}</div>` : ""}<div>${r.ranOk ? '<span class="tag grant">ran OK</span>' : r.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">audited</span>'}</div></td>
-        <td><span class="tag block">blocked</span></td>
-        <td class="mini">${esc(j.dv.text)}${pd ? `<div class="muted" style="margin-top:4px"><b>Deployed to ProgramData outside IT-TOOLS.</b> A path rule here is a door (ProgramData subfolders inherit Users' create-file rights); a hash goes stale when it regenerates. Point the deployment at <code>%ProgramData%\\IT-TOOLS\\…</code> and the standing allow covers it — this row then never comes back.</div>` : ""}</td>
-        <td><div class="al-brk-fix">${fixBtn(r, i)}<button class="btn sm al-brk-accept" data-brkaccept="${i}" title="It is meant to be blocked — the block is the policy working">Accept block</button></div></td></tr>`;
-    }).join("");
-    const acceptedRows = accepted.map((j, k) => { const i = gaps.length + k; const r = j.row; return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code></td><td class="mini">${r.count}×</td><td><span class="tag block">blocked · accepted</span></td><td class="mini">${esc(j.dv.text)}</td><td><button class="btn sm al-brk-unaccept" data-brkunaccept="${i}">Reconsider</button></td></tr>`; }).join("");
-    // BY DESIGN IS NOT "NOTHING TO SEE" (10587, Mihai: PowerToys in
-    // %LOCALAPPDATA% was blocked on the first enforced device and this screen
-    // had counted it as the policy working, without listing it or offering a
-    // rule — the scan cannot know what users installed for themselves, the
-    // events are the only evidence). A file in a user-writable folder never
-    // earns a PATH rule (that is the door), and a hash goes stale on the
-    // app's next self-update; a SIGNED one can be allowed by publisher, and
-    // an unsigned one has no safe rule — remove it, or install it
-    // machine-wide. So the rows are listed, collapsed, with exactly that.
-    const bdRows = bydesign.map((j, k) => {
-      const i = gaps.length + accepted.length + k; const r = j.row;
-      const canPub = !!(r.signed && r.publisher);
-      const fix = canPub
-        ? `<button class="btn sm primary al-brk-fix-btn" data-brkfix="${i}" title="Follows the signer; survives updates. The only rule shape that is safe for a file a user can replace">Allow by publisher</button>`
-        : `<span class="mini muted">unsigned, in a folder the user can write to — no safe rule exists. Remove it (<code>Remove-TunoUserInstalledApps.ps1</code> on Help) or install it machine-wide.</span>`;
-      return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(r.path || r.binary || "?")}</code>${canPub ? `<div class="muted">${esc(r.publisher)}</div>` : `<div class="muted">not signed</div>`}</td><td class="mini">${r.count}× · ${r.users.size} user${r.users.size === 1 ? "" : "s"}${r.last ? `<div class="muted">last ${esc(fmtWhen(r.last))}</div>` : ""}<div>${r.ranOk ? '<span class="tag grant">ran OK</span>' : r.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">audited</span>'}</div></td><td><span class="tag block">blocked · by design</span></td><td class="mini">${esc(j.dv.text)}</td><td><div class="al-brk-fix">${fix}</div></td></tr>`;
-    }).join("");
-    const bdSigned = bydesign.filter((j) => j.row.signed && j.row.publisher).length;
-    const bdSection = bydesign.length ? `<details class="al-brk-bydesign" style="margin-top:12px"><summary class="mini"><b>From user-writable areas, blocked on purpose</b> — ${bydesign.length}${bdSigned ? `, <b>${bdSigned} signed</b> and allowable by publisher` : ""} ▾</summary>
-      <p class="mini muted" style="margin:6px 0 6px">Per-user installs (PowerToys, Zoom, Teams classic, anything in %LOCALAPPDATA%) live here. The scan never sees them — only the events do. A path rule into a profile is a door and is never offered; a signed app gets a publisher rule, an unsigned one gets removed.</p>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th>Resolve</th></tr></thead><tbody>${bdRows}</tbody></table></div></details>` : "";
-    const probeLine = probes.length ? `<p class="mini al-brk-probe" style="margin:12px 0 0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--soft)">🧪 <b>${probes.length} PowerShell policy probe${probes.length === 1 ? "" : "s"}</b> (<code>__PSSCRIPTPOLICYTEST_*</code> in %TEMP%) — <b>expected, do not allow.</b> PowerShell writes a throwaway module on every start and asks AppLocker whether it would run; a block is the answer that puts the user's session in Constrained Language Mode. Allowing it would switch that protection off.</p>` : "";
-    const undecidedRows = undecided.slice(0, 20).map((j) => `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere"><code>${esc(j.row.path || j.row.binary || "?")}</code></td><td class="mini">${j.row.count}×</td><td><span class="tag new">undecided</span></td><td class="mini" colspan="2">${esc(j.dv.text)}</td></tr>`).join("");
-    host.innerHTML = `<h3 style="margin:0 0 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">💥 What breaks? <span class="mini muted">— every event on ${esc(fleetSourceLabel())} replayed against the draft, allowed ones included</span>${dllToggle}</h3>
-      ${effNote}
-      ${gate}
-      ${gaps.length ? `<h4 class="mini" style="margin:12px 0 6px">Ran on the device, blocked by the draft <span class="muted">— ${gaps.length}</span></h4>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th>Resolve</th></tr></thead><tbody>${gapRows}</tbody></table></div>` : ""}
-      ${undecided.length ? `<h4 class="mini" style="margin:14px 0 6px">In a collection the draft has no rules for <span class="muted">— ${undecided.length}${undecided.length > 20 ? ", showing 20" : ""}</span></h4>
-      <p class="mini muted" style="margin:0 0 6px">With no rules for that type nothing is restricted — today. Decide the collection on <b>Policy</b> (add its default rules, or leave it out on purpose) before enforcing.</p>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th colspan="2">Because</th></tr></thead><tbody>${undecidedRows}</tbody></table></div>` : ""}
-      ${bdSection}
-      ${probeLine}
-      ${accepted.length ? `<details style="margin-top:12px"><summary class="mini"><b>Accepted blocks</b> — ${accepted.length}, meant to be blocked ▾</summary><div style="overflow-x:auto;margin-top:6px"><table class="plist"><thead><tr><th>File</th><th>Ran</th><th>Draft says</th><th>Because</th><th></th></tr></thead><tbody>${acceptedRows}</tbody></table></div></details>` : ""}
-      <p class="mini muted" style="margin:12px 0 0">${rows.length} distinct file${rows.length === 1 ? "" : "s"} judged: ${covered.length} covered (would run) · ${bydesign.length} from user-writable areas, blocked by design · ${gaps.length} to resolve · ${accepted.length} accepted${undecided.length ? ` · ${undecided.length} undecided` : ""}${dll.length ? ` · ${dll.length} DLL loads ${hideDll ? "hidden" : "set aside (no Dll collection)"}` : ""}${probes.length ? ` · ${probes.length} PowerShell probe${probes.length === 1 ? "" : "s"} (expected)` : ""}. The device's own refusals, grouped, are on the events card below${eventsEvidence ? "" : " and on the Evidence screen"}.</p>`;
+    const host = $("alBreaks"); if (!host) return;
+    const r = readiness();
+    const entries = fleetEntries(), model = impactModel(), editable = impactSource === "draft" && !!policy;
+    const rows = aggregateFleetEvents(entries || []), gs = model && fleetGapStats(model, editable);
+    shownBreaks = rows;
+    const kinds = {gap:"Would block",accepted:"Accepted block",covered:"Predicted allow",undecided:"Unknown / not assessed",dll:"DLL outside this scenario",probe:"PowerShell policy probe"};
+    const states = rows.map(row => {
+      const dv = draftVerdictForEvent(row.sample, model), cls = fleetRowClass(row,dv,model);
+      const accepted = editable && acceptedBreaks.get(breakKey(row));
+      return {dv, cls, accepted, category:accepted && cls === "gap" ? "accepted" : cls};
+    });
+    const visible = rows.map((row,i)=>({row,i,...states[i]})).filter(x => !(hideDll && isDllEvent(x.row.sample)) && (impactFilter === "all" || (impactFilter === "attention" ? ["gap","undecided"].includes(x.category) : x.category === impactFilter)));
+    host.innerHTML = `<h2>Check changes before enforcement</h2><p class="mini muted">Recorded activity from ${esc((eventsEvidence || scan || {}).machine?.name || "an unknown device")} · collected ${esc(fmtDate(collectedAt(eventsEvidence || scan)))}. Recorded outcomes stay unchanged when you switch scenarios.</p>
+      <label class="al-scenario-label" for="alImpactSource">Which policy would be enforced?</label><select id="alImpactSource" class="btn">${Object.entries(impactLabels).map(([key,label])=>`<option value="${key}" ${impactSource === key ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>
+      <p class="al-review-notice"><b>${esc(impactLabels[impactSource])}</b>. ${model ? "Prediction for standard users: uses recorded file metadata, not a Windows execution test; administrator-only rules are excluded. Unknown group membership or version stays unknown. No policy is changed by this check." : "No policy is available for this scenario. Open a scan or create a working draft from Current policy & sources."}</p>
+      ${model ? `<div class="al-review-grid"><article class="al-review-card"><span>Potential blocks</span><h3>${gs ? gs.gap + gs.accepted : "Unknown"}</h3><p class="mini">File identities, not separate applications. ${gs ? gs.accepted : 0} accepted for this exact draft.</p></article><article class="al-review-card"><span>Uncertain</span><h3>${gs ? gs.undecided : "Unknown"}</h3><p class="mini">Resolve missing evidence or collection scope.</p></article><article class="al-review-card"><span>Outside the count</span><h3>${gs ? gs.dll : "Unknown"} DLL · ${gs ? gs.probe : "Unknown"} probes</h3><p class="mini">Omitted collections are not repaired or removed from the device. PowerShell probes are shown separately.</p></article></div><p class="mini">Collections in this scenario: ${esc(collectionSummary(model))}. The prediction treats the included collections as enforced.</p>` : ""}
+      ${impactSource === "intune" ? '<p class="al-review-notice">TUNO’s Intune export omits DLL and unsupported collections. Existing local, GPO or other Intune rules may still apply. This is not a prediction of the merged device policy after deployment.</p>' : ''}
+      ${editable ? `<div class="al-gate ${r.ready ? "ok" : ""}"><b>${esc(r.label)}</b><p class="mini">${esc(r.reasons[0] || "Validate enforcement on the pilot before widening.")}</p></div><p><button class="btn" data-review-nav="policy">Edit baseline</button> <button class="btn" data-review-nav="deploy">Review pilot readiness</button></p>` : model ? `<p>${impactSource === "device" || impactSource === "proposal" ? `<button class="btn" data-review-source="${impactSource === "device" ? "effective" : "generated-audit"}">Create an editable copy</button>` : `<button class="btn" data-review-nav="policy">Edit baseline</button>`} <span class="mini muted">Read-only scenario. Decisions and rule changes belong to your working draft.</span></p>` : ""}
+      <div class="al-review-actions"><label class="mini" for="alImpactFilter">Show</label><select id="alImpactFilter" class="btn">${[["all","All files"],["attention","Needs attention"],["gap","Would block"],["covered","Predicted allow"],["undecided","Unknown"],["probe","PowerShell probes"]].map(([key,label])=>`<option value="${key}" ${impactFilter === key ? "selected" : ""}>${label}</option>`).join("")}</select><label class="mini"><input type="checkbox" id="alHideDll" ${hideDll ? "checked" : ""}> Hide DLL rows (${rows.filter(x => isDllEvent(x.sample)).length} hidden when checked; totals still count)</label></div>
+      ${!rows.length ? `<p class="al-gate">${entries ? "No execution entries were collected. Compatibility is unknown." : "No AppLocker execution evidence is available."}</p>` : `<div class="al-table-scroll"><table class="plist"><thead><tr><th>Application / file</th><th>Observed on device</th><th>If enforced</th><th>Explanation</th><th>Decision in draft</th></tr></thead><tbody>${visible.map(({row,i,dv,cls,accepted,category}) => {
+        const plan = editable && cls === "gap" ? fleetFixPlan(row) : null;
+        return `<tr><td class="mini"><b>${esc(row.path.split("\\").pop() || row.binary || "Unknown file")}</b><details><summary>File details</summary><code>${esc(row.path)}</code><p>${esc(row.publisher || "Publisher unavailable")} · ${esc(row.sample.hash || "Hash unavailable")}</p></details></td><td class="mini">${row.count} event(s) · ${row.users.size} user(s)<br>${esc(row.verdict)}${row.ranOk && row.verdict !== "Allowed" ? " · also allowed" : ""}<br>${esc(fmtDate(row.last))}</td><td>${esc(!model ? "Not assessed" : kinds[category] || dv.s)}</td><td class="mini">${esc(dv.text)}${/\\users\\/i.test(row.path) && cls === "gap" ? "<p>A user-profile location does not establish whether this application should be blocked. A business decision is required.</p>" : ""}${accepted ? `<p>Decision: ${esc(accepted.reason)} · ${esc(fmtDate(accepted.at))}</p>` : ""}</td><td>${!editable || cls !== "gap" ? "—" : accepted ? `<button class="btn sm" data-brkunaccept="${i}">Reconsider</button>` : `${plan ? `<button class="btn sm" data-brkfix="${i}">Add ${esc(plan.kind)} rule</button>` : ""}<button class="btn sm" data-brkaccept="${i}">Keep blocked…</button>`}</td></tr>`;
+      }).join("")}</tbody></table></div>${!visible.length ? '<p>No files match these display filters.</p>' : ''}`}
+      <p class="mini muted">Showing ${visible.length} of ${rows.length} file identities. Identity includes path, publisher, hash, version and user; repeated executions are grouped.</p>`;
   }
 
   // ---- the device-scan evidence card ----
@@ -2655,14 +2518,10 @@ const AppLockerTool = (() => {
         ${fact("Executables inventoried", scan.artifacts.length + (unsigned ? ` (${unsigned} unsigned)` : "") + (scan.artifacts.some((a) => a && a.sniffedPe) ? ` · ${scan.artifacts.filter((a) => a && a.sniffedPe).length} PE by header, not by name` : ""))}
         ${fact("Scan taken", scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "—")}
       </div>
-      ${(!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? `<div class="gu-fail" style="margin-bottom:12px">
-        <b>This bundle carries NO generated rule set, so you are editing the policy the device was already running.</b>
-        <span class="why">That is why the collections here are whatever Intune or Group Policy had put on the device \u2014 typically a sparse policy with a Dll collection and a placeholder rule \u2014 rather than the publisher-first set the scan builds from what it found.
-        The scan reports this: rule generation is wrapped so a failure cannot cost you the evidence, and when it fails it writes the reason into the warnings below and prints it in red at the time. It also does not run at all under <code>-SkipRuleGeneration</code>.
-        Re-run the scan, read that line, and upload the new bundle.</span></div>` : ""}
-      ${sources.length > 1 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-        <span class="mini muted">Editing ${esc(SCAN_SOURCE_LABEL[scanSource] || scanSource)} —</span>
-        ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${scanSource === v ? "primary" : ""}" data-src="${v}">${esc(l)}</button>`).join("")}
+      ${(!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? `<p class="al-review-notice">No generated proposal is available. You can still review all collected device evidence; collection warnings explain missing parts.</p>` : ""}
+      ${sources.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <span class="mini muted">Create a working draft from —</span>
+        ${sources.map(([v, l]) => `<button class="btn sm al-scan-src ${""}" data-src="${v}">${esc(l)}</button>`).join("")}
       </div>` : ""}
       ${discardedEdits ? `<div class="gu-fail" style="margin-bottom:12px">
         <b>Loading this bundle replaced the draft you were editing — ${discardedEdits} edit${discardedEdits === 1 ? "" : "s"} since the last load ${discardedEdits === 1 ? "is" : "are"} gone.</b>
@@ -2672,27 +2531,27 @@ const AppLockerTool = (() => {
         <span class="why">Since script v1.10.0 the generated set carries standing allows for OneDrive, classic Teams and the Defender platform — the three the coverage check below turns red on every fresh scan. Download the current script from step 1 and scan again; until then the 🔧 Add allow rule buttons put the same three rules in by hand.</span></div>` : scan.generatedPolicy && scan.generatedPolicy.microsoftCoverage === false ? `<div class="mini" style="margin-bottom:12px"><b>Scanned with -NoMicrosoftCoverage</b> — the generated set leaves OneDrive, classic Teams and the Defender platform to the coverage check below, on purpose.</div>` : ""}
       ${scan.warnings.length ? `<div class="mini" style="margin-bottom:12px"><b>The scan recorded ${scan.warnings.length} warning${scan.warnings.length === 1 ? "" : "s"}:</b><ul style="margin:4px 0 0;padding-left:20px">${scan.warnings.slice(0, (!scan.generatedPolicy || !scan.generatedPolicy.auditXml) ? 20 : 6).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
       ${topPaths.length ? `<h4 class="mini" style="margin:12px 0 6px">User-writable directories <span class="muted">— showing ${topPaths.length} of ${scan.writablePaths.length}</span></h4>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Path</th><th>Writable by</th><th>Allowed by working draft?</th></tr></thead><tbody>
         ${topPaths.map((w) => {
           const p = w.normalized || w.path;
-          const rule = evaluateProbePath(policy, p, "Exe");
+          const rule = policy && evaluateProbePath(policy, p, "Exe");
           return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(p)}</td>
             <td class="mini">${esc((w.grantees || []).map((g) => g.name || g.sid).join(", ") || "—")}</td>
-            <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
+            <td>${!policy ? "No draft selected" : rule ? `<span class="tag block">Path allow — “${esc(rule.name)}”</span>` : `<span class="tag">No broad path allow found</span>`}</td></tr>`;
         }).join("")}
       </tbody></table></div>` : `<p class="mini muted">No user-writable directories were found in the scanned roots. That is unusual — check the scan warnings above before believing it.</p>`}
       ${topFiles.length ? `<h4 class="mini" style="margin:14px 0 6px">User-writable files inside admin-only directories <span class="muted">— showing ${topFiles.length} of ${scan.writableFiles.length}</span></h4>
       <p class="mini muted" style="margin:0 0 6px">The directory is safe, the file is not: the directory's allow rule covers it and the directory walk cannot see it. The scan excepted each by its exact path and gave it its own rule where it was signed. The fix is the file's ACL.</p>
-      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Writable by</th><th>Reachable now?</th></tr></thead><tbody>
+      <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Writable by</th><th>Allowed by working draft?</th></tr></thead><tbody>
         ${topFiles.map((f) => {
           const p = f.normalized || f.path;
-          const rule = evaluateProbePath(policy, p, f.collection || "Exe");
+          const rule = policy && evaluateProbePath(policy, p, f.collection || "Exe");
           return `<tr><td class="mini" style="word-break:normal;overflow-wrap:anywhere">${esc(p)}</td>
             <td class="mini">${esc((f.grantees || []).map((g) => g.name || g.sid).join(", ") || "—")}</td>
-            <td>${rule ? `<span class="tag block">✕ yes — via “${esc(rule.name)}”</span>` : `<span class="tag grant">✓ no</span>`}</td></tr>`;
+            <td>${!policy ? "No draft selected" : rule ? `<span class="tag block">Path allow — “${esc(rule.name)}”</span>` : `<span class="tag">No broad path allow found</span>`}</td></tr>`;
         }).join("")}
       </tbody></table></div>` : (scan.writableFilesChecked ? `<p class="mini muted" style="margin-top:10px">Every executable file in the admin-only directories has an admin-only ACL of its own — the check ran and found nothing.</p>` : `<p class="mini muted" style="margin-top:10px">Writable files were not checked in this scan (older scanner, or -SkipWritableFiles). Re-run with the current Invoke-TunoAppLockerScan.ps1 to close that gap.</p>`)}
-      ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Executions the endpoint refused <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}${hideDll && dllHidden ? ` · ${dllHidden} DLL loads hidden (What breaks? → show DLL)` : ""}</span></h4>
+      ${topEvents.length ? `<h4 class="mini" style="margin:14px 0 6px">Recorded blocks and audit-only executions <span class="muted">— last ${ev.daysBack} days, showing ${topEvents.length} of ${ev.summary.blocked + ev.summary.audited}${hideDll && dllHidden ? ` · ${dllHidden} DLL loads hidden (What breaks? → show DLL)` : ""}</span></h4>
       <div style="overflow-x:auto"><table class="plist"><thead><tr><th>Verdict</th><th>File</th><th>Publisher</th><th>User</th><th>When</th></tr></thead><tbody>
         ${topEvents.map((e) => `<tr>
           <td>${e.verdict === "Blocked" ? '<span class="tag block">blocked</span>' : '<span class="tag new">would block</span>'}</td>
@@ -2700,7 +2559,7 @@ const AppLockerTool = (() => {
           <td class="mini">${esc(e.signed ? (e.publisher || "") : "not signed")}</td>
           <td class="mini">${esc(e.userName || e.userSid || "—")}</td>
           <td class="mini muted">${esc(String(e.timeUtc || "").replace("T", " ").slice(0, 16))}</td></tr>`).join("")}
-      </tbody></table></div>` : (ev && ev.available ? `<p class="mini muted" style="margin-top:12px">No AppLocker events in the last ${esc(String(ev.daysBack))} days. Either no policy is applied on that device, or the Application Identity service is not running — the fact table above says which.</p>` : `<p class="mini muted" style="margin-top:12px">AppLocker event logs were not collected in this scan.</p>`)}`;
+      </tbody></table></div>` : (ev && ev.available ? `<p class="mini muted" style="margin-top:12px">${(ev.entries || []).length ? "No blocked or audit-only events are visible in this preview. Allowed executions and filtered records may still be present; see Applications &amp; events." : "No execution entries were collected. Compatibility cannot be assessed from an empty log."}</p>` : `<p class="mini muted" style="margin-top:12px">AppLocker event logs were not collected in this scan.</p>`)}`;
   }
 
   // A popout button for a section heading. It parks the CARD, not the table:
@@ -2713,11 +2572,14 @@ const AppLockerTool = (() => {
     : `<button class="btn sm al-fs" data-fs="${target}" data-fslabel="${esc(label)}" style="float:right" title="Open ${esc(label)} full screen">\u26f6 Full screen</button>`);
 
   function render() {
-    $("alEmpty").style.display = policy ? "none" : "";
+    $("alEmpty").style.display = scan || eventsEvidence || policy ? "none" : "";
     $("alBody").style.display = policy ? "" : "none";
     if ($("alPolicyEmpty")) $("alPolicyEmpty").style.display = policy ? "none" : "";
     if ($("alDeployBody")) $("alDeployBody").style.display = policy ? "" : "none";
     if ($("alDeployEmpty")) $("alDeployEmpty").style.display = policy ? "none" : "";
+    renderOverview();
+    renderComparison();
+    renderReadiness();
     renderEvidence();
     renderBreaks();
     renderRail();
@@ -2733,13 +2595,15 @@ const AppLockerTool = (() => {
     renderDeploy();
     renderScanCard();
     renderEventsCard();
-    if (!policy) return;
+    if (!policy) { wireReview(); return; }
     const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
     findings.forEach((f) => counts[f.sev]++);
     const risky = riskyRuleIds();
 
     // ---- summary + enforcement ----
     $("alSummary").innerHTML = `
+      <h2>Edit your baseline</h2><p class="mini">This working copy is not deployed. Add rules below, or find an existing rule and choose Remove. Removing an allow rule may still leave another matching allow; adding an allow does not override a deny. Check the impact after editing.</p>
+      <div class="al-review-actions"><button class="btn" data-review-jump="alAddRule">Add a rule</button><button class="btn" data-review-jump="alRules">Find / remove rules</button><button class="btn primary" data-review-impact="draft">Check my changes</button><button class="btn" data-review-nav="deploy">Pilot &amp; deployment</button></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <b>${esc(importedXmlName || "New policy")}</b>
         <span class="mini muted">${policy.collections.reduce((n, c) => n + c.rules.length, 0)} rules in ${policy.collections.length} collections</span>
@@ -2881,7 +2745,7 @@ const AppLockerTool = (() => {
           return `<tr class="al-rule-row" data-col="${esc(col.type)}" data-rtext="${esc(String(r.name + " " + cond + " " + sidName(r.sid) + " " + r.action + " " + (c.kind || "")).toLowerCase())}"><td style="width:70px">${r.action === "Deny" ? '<span class="tag block">Deny</span>' : '<span class="tag grant">Allow</span>'}</td>
             <td>${esc(r.name)}<div class="mini muted">${esc(sidName(r.sid))} · ${esc(c.kind || "")}</div>${nested}</td>
             <td class="mini" style="min-width:180px;max-width:340px;word-break:normal;overflow-wrap:anywhere">${esc(cond)}</td>
-            <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" title="Remove this rule">🗑</button></td></tr>`;
+            <td style="width:40px"><button class="btn sm danger al-del" data-col="${esc(col.type)}" data-id="${esc(r.id)}" aria-label="Remove ${esc(r.name)}" title="Remove this rule">Remove</button></td></tr>`;
         }).join("") + `</tbody></table></div>` : "").join("");
 
     // Coverage is a SECTION of the same card since 10443 — it is the same
@@ -3047,15 +2911,7 @@ const AppLockerTool = (() => {
     // Swapping which policy from the bundle is on the table is a fresh load, not a
     // mutation: undoing your way back into a different source policy would be a
     // trap, so the undo stack is dropped with the switch.
-    document.querySelectorAll(".al-scan-src").forEach((b) => b.addEventListener("click", () => {
-      if (!scan || b.dataset.src === scanSource) return;
-      const chosen = bundleXml(scan, b.dataset.src);
-      if (!chosen) return;
-      scanSource = chosen.source;
-      policy = parsePolicy(chosen.xml, scan.sourceName);
-      importedXmlName = `${scan.sourceName} — ${SCAN_SOURCE_LABEL[chosen.source]}`;
-      loadFresh();
-    }));
+    // Draft-source actions use the review root delegate.
     document.querySelectorAll(".al-del").forEach((b) => b.addEventListener("click", () => {
       const col = policy.collections.find((c) => c.type === b.dataset.col);
       if (!col) return;
@@ -3126,9 +2982,10 @@ const AppLockerTool = (() => {
         ? { kind: "path", path: $("alNewPath").value.trim() }
         : { kind: "publisher", publisher: $("alNewPub").value.trim() || "*", product: $("alNewProd").value.trim() || "*", binary: $("alNewBin").value.trim() || "*", low: "*", high: "*" };
       if (k === "path" && !cond.path) { alert("A path rule needs a path."); return; }
-      const col = ensureCollection($("alNewCol").value);
-      col.rules.push(mkRule(k === "path" ? "FilePathRule" : "FilePublisherRule", name, $("alNewSid").value, $("alNewAction").value, [cond]));
-      recompute();
+      const type = $("alNewCol").value, sid = $("alNewSid").value, action = $("alNewAction").value;
+      mutate(`added “${name}”`, () => {
+        ensureCollection(type).rules.push(mkRule(k === "path" ? "FilePathRule" : "FilePublisherRule", name, sid, action, [cond]));
+      });
     });
   }
 
@@ -3163,6 +3020,7 @@ const AppLockerTool = (() => {
   // INIT — wire the static toolbar
   // ================================================================
   function loadFresh() {
+    impactSource = "draft";
     sevFilter = "all";
     editsSinceLoad = 0;
     resetFixState();
@@ -3177,50 +3035,59 @@ const AppLockerTool = (() => {
   // read why. No alert for the events-first case: the evidence card lives
   // outside the policy-only body, renders immediately, and itself offers the
   // ways to get a policy under the evidence.
-  function afterImport(hadPolicy) {
-    if (policy) loadFresh(); else render();
-    showScreen(policy && !hadPolicy ? "policy" : policy && eventsEvidence ? "breaks" : policy ? "policy" : "evidence");
+  function afterImport() {
+    recompute();
+    showScreen("evidence");
+    renderHarvestFetch();
+    if (policy) autoTenantCheck().catch(() => {});
   }
-
-  // One upload button, two file types. The scan bundle is JSON and carries the
-  // policy INSIDE it, so asking the admin which button to press would be asking
-  // them to know something the file already says.
+  function confirmDraftReplacement() {
+    return !policy || window.confirm("Replace the working draft? Export it first if you want to keep it. Device evidence stays unchanged.");
+  }
+  function createDraft(source) {
+    const chosen = scan && bundleXml(scan, source);
+    if (!chosen || chosen.source !== source || !confirmDraftReplacement()) return;
+    const next = parsePolicy(chosen.xml, scan.sourceName);
+    policy = next; scanSource = source;
+    draftOrigin = `${(scan.machine || {}).name || "Unknown device"} · ${SCAN_SOURCE_LABEL[source]} · ${fmtDate(collectedAt(scan))}`;
+    importedXmlName = "Working draft — " + draftOrigin;
+    pilotReview = "";
+    impactSource = "draft";
+    loadFresh(); showScreen("policy");
+  }
+  function validateHarvest(b, name) {
+    if (!expectedHarvest) return;
+    if (machineKey(b) !== expectedHarvest.device.toUpperCase()) throw new Error(`This bundle belongs to ${machineKey(b) || "an unknown device"}; you selected ${expectedHarvest.device}. Choose that device's downloaded bundle.`);
+    if (name !== expectedHarvest.file) throw new Error(`Expected ${expectedHarvest.file}. Choose that downloaded file, or use Open local file to review a different bundle.`);
+  }
   function importFile(text, name) {
     const looksJson = /\.json$/i.test(name) || /^\s*\{/.test(text);
     if (looksJson) {
-      // Route by the schema the file DECLARES. Two JSON kinds arrive here: the
-      // reference-machine scan bundle (which carries a policy and replaces what
-      // is loaded) and the fleet events bundle (which is evidence ABOUT the
-      // loaded policy and must not touch it). The events bundle often arrives
-      // named .log — the collector writes it that way so Intune diagnostics
-      // gathers it — which is why this sniffs content, never extension.
-      let peek = null;
-      try { peek = JSON.parse(text); } catch (e) { throw new Error("Not valid JSON: " + e.message); }
-      if (peek && typeof peek.schema === "string" && peek.schema.startsWith(EVENTS_SCHEMA_PREFIX)) {
-        eventsEvidence = parseEventsBundle(peek, name);
-        return;
+      let b;
+      try { b = JSON.parse(text); } catch (e) { throw new Error("Not valid JSON: " + e.message); }
+      validateHarvest(b, name);
+      if (b && typeof b.schema === "string" && b.schema.startsWith(EVENTS_SCHEMA_PREFIX)) {
+        if (scan && (!machineKey(b) || machineKey(b) !== machineKey(scan))) throw new Error("This events bundle is from a different or unknown device. Start a separate review before opening it; the current evidence is unchanged.");
+        eventsEvidence = parseEventsBundle(b, name);
+        importNotice = "Events loaded. The working draft is unchanged.";
+      } else {
+        const next = parseBundle(text, name);
+        // Validate policy payloads before changing any review state.
+        for (const x of [next.effectivePolicy && next.effectivePolicy.xml, next.generatedPolicy && next.generatedPolicy.auditXml, next.generatedPolicy && next.generatedPolicy.enforceXml]) if (x) parsePolicy(x, name);
+        const cleared = !!eventsEvidence;
+        scan = next; eventsEvidence = null;
+        impactSource = policy ? "draft" : "device";
+        importNotice = "Scan loaded as read-only evidence." + (policy ? " Your working draft is preserved; its source is shown separately." : " No working draft has been created.") + (cleared ? " Previous separate events were removed; this review uses the new scan's events." : "");
       }
-      const b = parseBundle(text, name);
-      const chosen = bundleXml(b);
-      if (!chosen) throw new Error("That bundle carries no policy: the scan ran with -SkipRuleGeneration and the device's effective policy could not be read either. Re-run the scan without -SkipRuleGeneration.");
-      // The bundle's policy REPLACES the draft. Edits made in the browser
-      // since the last load are gone with it — a scan is made on the device
-      // and cannot know them — and the scan card says so (10557).
-      discardedEdits = policy ? editsSinceLoad : 0;
-      scan = b;
-      scanSource = chosen.source;
-      policy = parsePolicy(chosen.xml, name);
-      importedXmlName = `${name} — ${SCAN_SOURCE_LABEL[chosen.source]}`;
+      pilotReview = ""; expectedHarvest = null; deployState.diff = null;
       return;
     }
-    // A plain XML import clears any previous scan: the evidence belonged to the
-    // other policy, and leaving it on screen would attach a device's ACLs to a
-    // file that has nothing to do with it.
-    scan = null;
-    scanSource = "";
-    discardedEdits = 0;
-    policy = parsePolicy(text, name);
-    importedXmlName = name;
+    if (expectedHarvest) throw new Error("Choose the downloaded JSON bundle, not a policy XML.");
+    const next = parsePolicy(text, name);
+    if (!confirmDraftReplacement()) return;
+    policy = next; scanSource = ""; importedXmlName = name; draftOrigin = "Policy XML · " + name;
+    pilotReview = ""; loadFresh();
+    importNotice = "Policy XML opened as a working draft. Device evidence is unchanged.";
   }
 
   // Same-origin so it works on both channels without hard-coding a host, and
@@ -3288,6 +3155,7 @@ const AppLockerTool = (() => {
   }
 
   function init() {
+    wireReview();
     wireJump();
     // The rail: click a node, that screen is on the table.
     if ($("alRail")) $("alRail").addEventListener("click", (e) => {
@@ -3305,6 +3173,8 @@ const AppLockerTool = (() => {
     // What breaks?: the fix buttons add the rule (same framework as the
     // findings — mutate() so it is one Undo away), Accept records a decision.
     if ($("alBreaks")) $("alBreaks").addEventListener("change", (e) => {
+      if (e.target.id === "alImpactSource") { impactSource = e.target.value; renderBreaks(); return; }
+      if (e.target.id === "alImpactFilter") { impactFilter = e.target.value; renderBreaks(); return; }
       if (e.target && e.target.id === "alHideDll") {
         hideDll = !!e.target.checked;
         try { localStorage.setItem("tuno.t01.hideDll", hideDll ? "1" : "0"); } catch { /* private mode */ }
@@ -3312,9 +3182,10 @@ const AppLockerTool = (() => {
       }
     });
     if ($("alBreaks")) $("alBreaks").addEventListener("click", (e) => {
+      if (impactSource !== "draft") return;
       const fix = e.target.closest("[data-brkfix]"), acc = e.target.closest("[data-brkaccept]"), un = e.target.closest("[data-brkunaccept]");
       if (fix) { const row = shownBreaks[+fix.dataset.brkfix]; if (row) mutate(`allow ${row.binary || row.path}`, () => addFixForFleetRow(row)); }
-      else if (acc) { const row = shownBreaks[+acc.dataset.brkaccept]; if (row) { acceptedBreaks.add(breakKey(row)); saveAccepted(); recompute(); } }
+      else if (acc) { const row = shownBreaks[+acc.dataset.brkaccept]; if (row) { const reason = window.prompt("Why is blocking this file intended for this device and draft?"); if (!reason || !reason.trim()) return; acceptedBreaks.set(breakKey(row), { reason: reason.trim(), at: new Date().toISOString() }); saveAccepted(); recompute(); } }
       else if (un) { const row = shownBreaks[+un.dataset.brkunaccept]; if (row) { acceptedBreaks.delete(breakKey(row)); saveAccepted(); recompute(); } }
     });
     $("alFile").addEventListener("change", async (e) => {
@@ -3328,10 +3199,10 @@ const AppLockerTool = (() => {
       catch (err) { alert("Import failed: " + err.message); }
       e.target.value = "";
     });
-    $("alImport").addEventListener("click", () => $("alFile").click());
+    $("alImport").addEventListener("click", () => { expectedHarvest = null; $("alFile").click(); });
     // The events entrance — same picker, same content-routed import. The
     // second button exists for the READER: two acts, two buttons.
-    $("alImportEv").addEventListener("click", () => $("alFile").click());
+    $("alImportEv").addEventListener("click", () => { expectedHarvest = null; $("alFile").click(); });
     // The third entrance (10617): the harvest site, for a bundle a device
     // uploaded — same importFile, same landing, no file on disk.
     if ($("alImportSp")) $("alImportSp").addEventListener("click", toggleHarvestFetch);
@@ -3341,24 +3212,26 @@ const AppLockerTool = (() => {
     // confirm says the one thing that matters: nothing in the tenant moves.
     $("alReset").addEventListener("click", () => {
       if (!window.confirm("Start over? The loaded policy, scan and events evidence leave the table, and the loop's manual marks are cleared. Nothing in the tenant is touched.")) return;
-      policy = null; scan = null; scanSource = ""; importedXmlName = "";
+      policy = null; scan = null; scanSource = ""; importedXmlName = ""; impactSource = "device"; impactFilter = "all";
       eventsEvidence = null;
       evTenant = { busy: false, list: null, error: "" };
       try { localStorage.removeItem(LOOP_MANUAL_KEY); } catch { /* private mode */ }
-      acceptedBreaks = new Set(); saveAccepted();
+      acceptedBreaks = new Map(); saveAccepted(); draftOrigin = ""; pilotReview = ""; importNotice = ""; expectedHarvest = null;
       resetFixState();
       render();
       showScreen("evidence");
     });
     $("alSample").addEventListener("click", () => {
-      scan = null; scanSource = "";
+      if (!confirmDraftReplacement()) return;
+      scanSource = ""; draftOrigin = "Sample policy";
       policy = parsePolicy(SAMPLE_XML, "sample policy");
       importedXmlName = "sample policy (deliberately flawed — for trying the tool)";
       loadFresh();
       showScreen("policy");
     });
     $("alNew").addEventListener("click", () => {
-      scan = null; scanSource = "";
+      if (!confirmDraftReplacement()) return;
+      scanSource = ""; draftOrigin = "Created from scratch";
       policy = { sourceName: "", collections: [] };
       COLLECTIONS.forEach((t) => ensureCollection(t));
       importedXmlName = "new policy";
@@ -3431,7 +3304,7 @@ const AppLockerTool = (() => {
           ? (col ? collectionLines(col, "", mode).join("\n") : intuneJson(intuneCfg.mode))
           : (col ? ['<AppLockerPolicy Version="1">', ...collectionLines(col, "  "), "</AppLockerPolicy>"].join("\n") : exportXml()));
     });
-    $("alMd").addEventListener("click", () => { if (policy) download("applocker-review.md", markdown(), "text/markdown"); });
+    $("alMd").addEventListener("click", () => { download("applocker-review.md", markdown(), "text/markdown"); });
 
     // ---- the Intune profile form ----
     const bind = (id, key) => {
@@ -3602,7 +3475,7 @@ const AppLockerTool = (() => {
       button: "Create the device-scan Remediation",
       blurb: `Creates one Remediation carrying <code>Detect-TunoAppLockerScan.ps1</code> and <code>Invoke-TunoAppLockerScan.ps1</code> — the device scan on a schedule. Detection exits non-compliant when the device has <b>no scan bundle younger than 7 days</b> under <code>%ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan</code>; the "remediation" is the scan itself, in its <b>Remediation mode</b> — SYSTEM, no parameters, output in that folder, console transcribed next to the bundle, its own output older than 30 days removed first, one summary line back to Intune. The device is <b>not changed</b>: a scan writes a bundle and nothing else. <b>With a harvest site set</b> (the 📁 panel above) the Remediation created here <b>carries the target</b> and every scan also uploads its bundle to <code>Harvest/&lt;device&gt;/</code> on that site. <b>A bundle that did not reach the site is not done</b> (build 10627): the detection also exits non-compliant while a bundle of the last 30 days is <b>pending upload</b>, with the reason on the Intune console line, and the remediation then <b>uploads it without rescanning</b> — a failing upload shows daily instead of hiding for a week. The <b>📁 From the harvest site</b> button on Evidence then hands you its download link, device off or on, and the upload button beside it takes it from Downloads. Without one, the bundle stays on the device (Collect diagnostics does not gather <code>.json</code>; Live Response does). Assign it to the <b>reference ring</b> — the clean-image devices whose scan is meant to become the policy — not the estate: a scan of a device somebody has worked in for two years allows two years of accumulation. Its console numbers mean "the scan ran", never "the device is fine".`,
       description: `AppLocker device scan on a schedule, deployed from {SITE}. Detection: no TunoAppLockerScan-*.json younger than 7 days in %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan, or a bundle of the last 30 days still pending upload to the harvest site. Remediation: uploads pending bundles first (no rescan inside the 7-day window), else Invoke-TunoAppLockerScan.ps1 in Remediation mode (SYSTEM, output to that folder, transcript next to the bundle, own output older than 30 days removed, one summary line). The device is NOT changed; the bundle is what T01 imports.{HARVEST} Assign to the REFERENCE ring only. Cadence pair - do not read its compliance numbers as device health.`,
-      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Evidence</b>: 📁 From the harvest site → the device → ⤓ Download its newest bundle → 📂 Upload it; or Live Response for a device without a harvest target.`,
+      createdNote: `In the portal: Devices → Scripts and remediations → assign it to the REFERENCE ring with a recurring schedule (daily detection; the 7-day window inside the detection script sets the real cadence). Then on <b>Overview</b>: 📁 From the harvest site → the device → ⤓ Download its newest bundle → 📂 Open downloaded bundle; or Live Response for a device without a harvest target.`,
       harvest: true,
     },
   };
@@ -3735,66 +3608,59 @@ const AppLockerTool = (() => {
   // still not clear"). One sentence naming the first unmet gate left the
   // reader guessing which of three things it wanted. The checklist says,
   // per gate, what is satisfied — by what — or what to do next.
+  function evidenceLimitations() {
+    const out = [], b = eventsEvidence || scan, ev = b && b.events;
+    if (!b) return ["Open a device scan or events bundle."];
+    if (!machineKey(b)) out.push("Device identity is missing.");
+    if (!ev || ev.available !== true) out.push("AppLocker event collection was not confirmed available.");
+    if (!ev || !Array.isArray(ev.entries) || !ev.entries.length) out.push("No execution entries are available to assess compatibility.");
+    const date = Date.parse(collectedAt(b));
+    if (!Number.isFinite(date)) out.push("Collection time is unknown.");
+    else if (Date.now()-date > 7*864e5 || date > Date.now()+300000) out.push("Evidence is older than 7 days or has a future timestamp.");
+    if (!ev || !ev.sinceUtc || !Number.isFinite(Date.parse(ev.sinceUtc))) out.push("The event window start is unknown.");
+    if (!ev || !Array.isArray(ev.logsRead) || !ev.logsRead.length) out.push("The bundle does not identify the event logs read.");
+    if (ev && ev.summary && Number(ev.summary.total) > (ev.entries || []).length) out.push("Event totals exceed the entries available for analysis.");
+    for (const warning of [...(scan && scan.warnings || []), ...(eventsEvidence && eventsEvidence.warnings || [])]) out.push(String(warning));
+    if (scan) {
+      if ((scan.machine || {}).elevated !== true) out.push("Elevated scan collection is not confirmed.");
+      if (!scan.effectivePolicy || !scan.effectivePolicy.available || !scan.effectivePolicy.sources) out.push("Device policy sources are missing or unread.");
+      if (!scan.writableFilesChecked) out.push("Writable executable files were not checked.");
+      if (!(scan.scan && scan.scan.roots || []).some((x) => /programdata/i.test(x))) out.push("ProgramData was not included in the scan roots.");
+    }
+    return [...new Set(out)];
+  }
+  function readiness() {
+    const gs = policy ? fleetGapStats() : null, limits = evidenceLimitations();
+    const rules = findings.filter((f) => f.source !== "fleet" && ["High","Medium"].includes(f.sev)).length;
+    const receipt = !!(scan && scan.effectivePolicy && scan.effectivePolicy.sources && (scan.effectivePolicy.sources.mdm || []).some((g) => String(g.grouping).toLowerCase() === String(intuneCfg.grouping).toLowerCase() && (g.types || []).length));
+    const signature = JSON.stringify([reviewScope(), collectedAt(scan), collectedAt(eventsEvidence), fleetEntries(), [...acceptedBreaks]]);
+    const reasons = [];
+    if (!policy) reasons.push("Create or open a working draft to assess proposed changes.");
+    if (!auditProfileInTenant()) reasons.push("Read and verify the matching Intune AuditOnly profile; its name alone is not evidence.");
+    if (!receipt) reasons.push("The scan has not confirmed this grouping in the device's policy sources.");
+    const audit = auditProfileInTenant(), active = eventsEvidence || scan;
+    let auditMatches = false;
+    if (audit && policy) {
+      try { const d = diffPolicies(policyOfProfile(audit), toBeDeployedPolicy("Audit")); auditMatches = !d.added && !d.removed && !d.changed && !d.modeChanges; } catch { }
+      if (!auditMatches) reasons.push("The working draft differs from the verified audit profile or its values are incomplete. Audit these exact rules before enforcement.");
+    }
+    if (audit && (!audit.lastModifiedDateTime || !Number.isFinite(Date.parse(audit.lastModifiedDateTime)) || !active || !active.events || !Number.isFinite(Date.parse(active.events.sinceUtc)) || Date.parse(active.events.sinceUtc) < Date.parse(audit.lastModifiedDateTime))) reasons.push("A complete pilot window after the audit profile changed is not confirmed. Collect a new pilot window.");
+    reasons.push(...limits);
+    if (gs && gs.gap) reasons.push(`${gs.gap} file decision(s) remain, including applications in user profiles.`);
+    if (gs && gs.undecided) reasons.push(`${gs.undecided} prediction(s) are unknown or outside configured collections.`);
+    if (rules) reasons.push(`${rules} policy finding(s) need review before enforcement.`);
+    if (pilotReview !== signature) reasons.push("Confirm representative pilot activity and recovery validation for this exact draft and evidence.");
+    return { ready: !reasons.length, reasons, limits, gs, receipt, rules, signature, auditMatches, label: reasons.length ? "Not ready for enforcement" : "Ready for pilot enforcement review" };
+  }
   function enforceGates() {
-    const created = createdFor("audit");
-    const found = created ? null : auditProfileInTenant();
-    const haveAudit = auditIsInTenant();
-    const checked = !!(deployState.checked && deployState.checked.tenantAppLocker);
-    const g1 = {
-      ok: haveAudit,
-      label: "The AuditOnly profile is in this tenant, under the grouping on screen",
-      detail: created ? `created this session: ${created.displayName}`
-        : found ? `${found.displayName || "(unnamed)"}${found.lastModifiedDateTime ? ` · last changed ${String(found.lastModifiedDateTime).slice(0, 10)}` : ""}`
-        : checked ? "no AuditOnly profile under this grouping — create it above, or ⤓ Adopt identity on the deployed one so the grouping matches"
-        : "not checked yet — press 🔎 Check against the tenant",
-    };
-    const ev = scan && scan.events;
-    const when = scan && scan.generator && scan.generator.generatedUtc ? String(scan.generator.generatedUtc).replace("T", " ").slice(0, 16) + " UTC" : "";
-    const g2 = {
-      ok: !!scan,
-      label: "A scan bundle from a device the audit profile reached",
-      detail: scan ? `${scan.sourceName || "bundle"}${(scan.machine || {}).name ? ` · ${scan.machine.name}` : ""}${when ? ` · taken ${when}` : ""}`
-        : "upload the .json bundle Invoke-TunoAppLockerScan.ps1 writes (step 1) — an XML policy is not evidence of anything that ran",
-    };
-    const sm = (ev && ev.summary) || {};
-    // JUDGED AGAINST THE DRAFT (10569): the log's audited count is what the
-    // AUDIT profile would have blocked — not what THIS draft blocks. The
-    // gate counts the files the draft would still refuse from machine
-    // space (gaps, each a finding with a fix) and the undecided ones; a
-    // block from a user-writable area is the policy working and is named
-    // as such, because those users WILL be blocked — on purpose.
-    const gs = scan && !eventsEvidence ? fleetGapStats() : null;
-    const total = (sm.blocked || 0) + (sm.audited || 0);
-    const g3 = {
-      ok: !!(scan && ev && ev.available && (!total || (gs && gs.rows > 0 && !gs.gap && !gs.undecided))),
-      label: "Nothing in that device's event log that this draft would still block unintentionally",
-      detail: !scan ? "waits on the bundle"
-        : !ev || !ev.available ? "the scan could not read the AppLocker event logs — re-run it elevated on a device the audit profile actually reached"
-        : !total ? `0 blocked · 0 would-have-been-blocked · ${sm.allowed || 0} allowed over ${ev.daysBack || "?"} days`
-        : !gs ? `${total} refused execution(s) in the log and no draft to judge them against`
-        : !gs.rows ? `${total} refused execution(s) counted, but the bundle carries no event entries to judge — re-scan with the current script so the files themselves are in the bundle`
-        : `${total} refused execution(s) over ${ev.daysBack || "?"} days, ${gs.rows} distinct file${gs.rows === 1 ? "" : "s"} judged against this draft: ${gs.covered} covered (would run) · ${gs.gap} would still be blocked from machine space${gs.gap ? " — GAPS, each a finding above with a fix" : ""} · ${gs.bydesign} from user-writable areas (by design — the policy working, those users will be blocked on purpose)${gs.undecided ? ` · ${gs.undecided} undecided — the draft has no rules for that collection yet` : ""}${gs.dll ? ` · ${gs.dll} DLL loads set aside (no Dll collection)` : ""}`,
-    };
-    return [g1, g2, g3];
+    const r = readiness();
+    return [
+      {ok:!!policy && !!auditProfileInTenant() && r.receipt && r.auditMatches, label:"Draft and matching audit policy verified", detail:"Intune values must be readable and the grouping must be present in the device snapshot."},
+      {ok:!r.limits.length, label:"Usable, recent device evidence", detail:r.limits.join(" ") || "Collection metadata and entries are available; see the evidence scope."},
+      {ok:!!r.gs && !r.gs.gap && !r.gs.undecided && !r.rules && pilotReview === r.signature, label:"Application decisions and pilot review complete", detail:r.reasons.join(" ") || "Predictions are reviewed; validate enforcement on the pilot before widening."}
+    ];
   }
-  function enforceBlockedBecause() {
-    const haveAudit = auditIsInTenant();
-    if (!haveAudit) return "The AuditOnly profile has to exist in this tenant first — deploy it above, or point the grouping at the one that is already there (🔎 Check against the tenant finds it).";
-    const ev = scan && scan.events;
-    const found = createdFor("audit") ? null : auditProfileInTenant();
-    const has = found ? `The audit profile ${found.displayName || "(unnamed)"} is in this tenant under this grouping. ` : "";
-    if (!scan) return `${has}Now the evidence: upload a scan bundle taken AFTER the audit profile had been applied for a while — run Invoke-TunoAppLockerScan.ps1 on a device the profile reached (events are read by default), and upload the bundle in step 1. Without it there is no evidence the audit was worked down, only a belief that it was.`;
-    if (!ev || !ev.available) return "The uploaded scan could not read the AppLocker event logs, so it cannot show whether anything was blocked. Re-run the scan elevated on a device the audit profile actually reached.";
-    const s = ev.summary || {};
-    const total = (s.blocked || 0) + (s.audited || 0);
-    if (!total) return "";
-    const gs = eventsEvidence ? null : fleetGapStats();
-    if (!gs) return `The scan shows ${total} refused execution(s) and there is no draft to judge them against.`;
-    if (!gs.rows) return `The scan counts ${s.blocked || 0} blocked and ${s.audited || 0} audited execution(s) but carries no event entries to judge against the draft — re-scan with the current script.`;
-    if (gs.gap) return `${gs.gap} file${gs.gap === 1 ? "" : "s"} the device tried to run would STILL be blocked from machine space under this draft — the Findings card lists ${gs.gap === 1 ? "it" : "them"} with a fix each. Work ${gs.gap === 1 ? "it" : "them"} to nothing (allow, or decide it is meant to be blocked and remove the evidence by re-scanning after the fix).`;
-    if (gs.undecided) return `${gs.undecided} refused file${gs.undecided === 1 ? "" : "s"} fall in a collection this draft has no rules for — decide that collection before enforcing.`;
-    return "";
-  }
+  function enforceBlockedBecause() { return readiness().reasons.join(" "); }
 
   // ================================================================
   // THE HARVEST SITE (10613) — where the collector uploads, device off or on
@@ -3969,18 +3835,18 @@ const AppLockerTool = (() => {
     const hvAction = (f, big) => {
       const link = h.links[f.id];
       const cls = big ? "btn primary sm" : "btn sm";
-      if (link) return `<a class="${cls}" href="${esc(link.url)}" download="${esc(link.name)}" data-hvdl="${esc(f.id)}" title="Saves ${esc(link.name)} to your Downloads folder">⤓ Download${big ? ` ${esc(harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle")}` : ""}</a> <button class="btn sm" data-hvupload="${esc(f.id)}" title="Then pick the downloaded file here — it is imported exactly as any upload">📂 Upload it</button>`;
+      if (link) return `<a class="${cls}" href="${esc(link.url)}" download="${esc(link.name)}" data-hvdl="${esc(f.id)}" title="Saves ${esc(link.name)} to your Downloads folder">⤓ Download${big ? ` ${esc(harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle")}` : ""}</a> <button class="btn sm" data-hvupload="${esc(f.id)}" title="Then pick the downloaded file here — it is imported exactly as any upload">📂 Open downloaded bundle</button>`;
       return `<button class="${cls}" data-hvimport="${esc(f.id)}" ${h.busy ? "disabled" : ""}>${h.busy === "prepare-" + f.id ? "Getting the link…" : `⤓ Get ${big ? (harvestFileKind(f.name).kind === "scan" ? "newest scan bundle" : "newest events bundle") : "download link"}`}</button>`;
     };
-    const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Items</th><th>Last upload</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
+    const rowsDev = devices.length ? `<div style="overflow-x:auto"><table class="plist"><thead><tr><th>Device</th><th>Items</th><th>Folder modified</th><th>Assessment</th><th></th></tr></thead><tbody>${devices.map((d, i) => `<tr${h.device && h.device.id === d.id ? ` style="background:var(--soft)"` : ""}><td><b>${esc(d.name)}</b></td><td class="mini">${d.folder && d.folder.childCount != null ? d.folder.childCount : ""}</td><td class="mini">${esc(fmtWhen(d.lastModifiedDateTime))}</td><td class="mini">${machineKey(scan || eventsEvidence) === String(d.name).toUpperCase() ? `Open in this review · collected ${esc(fmtDate(collectedAt(scan || eventsEvidence)))}` : "Not analyzed in this review"}</td><td><button class="btn sm" data-hvdev="${i}" ${h.busy ? "disabled" : ""}>${h.busy === "device" && h.device && h.device.id === d.id ? "Reading…" : "Open"}</button></td></tr>`).join("")}</tbody></table></div>`
       : h.devices ? `<p class="mini muted" style="margin:6px 0 0">The <code>Harvest</code> folder on ${esc((h.site && h.site.displayName) || "the site")} has no device folders yet — nothing has uploaded. A device folder appears with the first pass of the events or scan Remediation that carries this site.</p>` : "";
     const files = h.files || [];
     const crumb = h.device ? `<b>${esc(h.device.name)}</b>${(h.path || []).map((seg, i) => ` / <a href="#" data-hvpath="${i + 1}">${esc(seg)}</a>`).join("")}${(h.path || []).length ? ` <a href="#" data-hvpath="0" class="mini">(back to the device folder)</a>` : ""}` : "";
-    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px">${crumb} — newest first. ${newest.scan ? hvAction(newest.scan, true) + " " : `<span class="muted">no scan bundle here yet</span> · `}${newest.events ? hvAction(newest.events, true) : `<span class="muted">no events bundle here yet</span>`}</p>
-        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead><tbody>${files.map((f) => { if (f.folder) return `<tr><td class="mini">📁 <b>${esc(f.name)}</b></td><td class="mini">folder · ${f.folder.childCount != null ? f.folder.childCount : "?"} item${f.folder.childCount === 1 ? "" : "s"}</td><td></td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap"><button class="btn sm" data-hvsub="${esc(f.name)}" ${h.busy ? "disabled" : ""}>Open</button></td></tr>`; const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? hvAction(f) + " " : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
+    const rowsFiles = h.device ? (files.length ? `<div style="margin-top:10px"><p class="mini" style="margin:0 0 6px">${crumb} — sorted by file modification time, not collection time. ${newest.scan ? hvAction(newest.scan, true) + " " : `<span class="muted">no scan bundle in this folder</span> · `}${newest.events ? hvAction(newest.events, true) : `<span class="muted">no events bundle in this folder</span>`}</p>
+        <div style="overflow-x:auto"><table class="plist"><thead><tr><th>File</th><th>Kind</th><th>Size</th><th>File modified</th><th></th></tr></thead><tbody>${files.map((f) => { if (f.folder) return `<tr><td class="mini">📁 <b>${esc(f.name)}</b></td><td class="mini">folder · ${f.folder.childCount != null ? f.folder.childCount : "?"} item${f.folder.childCount === 1 ? "" : "s"}</td><td></td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap"><button class="btn sm" data-hvsub="${esc(f.name)}" ${h.busy ? "disabled" : ""}>Open</button></td></tr>`; const k = harvestFileKind(f.name); return `<tr><td class="mini"><code>${esc(f.name)}</code></td><td class="mini">${esc(k.label)}</td><td class="mini">${fmtSize(f.size)}</td><td class="mini">${esc(fmtWhen(f.lastModifiedDateTime))}</td><td style="white-space:nowrap">${k.importable ? hvAction(f) + " " : ""}${f.webUrl && f.webUrl !== "#" ? `<a class="btn sm" href="${esc(f.webUrl)}" target="_blank" rel="noopener" title="Open in SharePoint">Open ↗</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div></div>`
       : h.files ? `<p class="mini muted" style="margin:10px 0 0">${crumb} — this folder is empty: nothing has been uploaded here yet.</p>` : "") : "";
     host.innerHTML = `<h3 style="margin:0 0 6px">📁 From the harvest site</h3>
-      <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. Read through Graph with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself); nothing here writes. <b>Two clicks per file:</b> ⤓ Download saves it to your Downloads folder (a browser cannot read a SharePoint file's bytes across origins, so TUNO hands you the link instead), 📂 Upload it takes it from there — the same import as the toolbar buttons.</p>
+      <p class="mini muted" style="margin:0 0 8px">What the events collector and the scan Remediation uploaded, per device, device off or on. Read through Graph with <code>Sites.Read.All</code> (delegated — what you can open in SharePoint yourself); nothing here writes. <b>Review a bundle:</b> Get its link, then ⤓ Download saves it to your Downloads folder (this site uses a download-and-open handoff), 📂 Open downloaded bundle reads it locally and verifies the selected device and filename. Folder dates do not establish scan freshness; collection time is checked after opening.</p>
       ${err}
       <div class="al-dep-row">
         <input id="alHvUrl" class="al-dep-in" style="flex:1;min-width:320px" value="${esc(h.siteUrl)}" placeholder="https://<tenant>.sharepoint.com/sites/TUNO-AppControl-Harvest" spellcheck="false">
@@ -4000,7 +3866,7 @@ const AppLockerTool = (() => {
     host.querySelectorAll("[data-hvimport]").forEach((b) => b.addEventListener("click", () => { const f = (evHarvest.files || []).find((x) => x.id === b.dataset.hvimport); if (f) harvestPrepare(f); }));
     // The upload button beside a download link is the ordinary picker — the
     // same content-routed import as the toolbar's two buttons.
-    host.querySelectorAll("[data-hvupload]").forEach((b) => b.addEventListener("click", () => { const inp = $("alFile"); if (inp) inp.click(); }));
+    host.querySelectorAll("[data-hvupload]").forEach((b) => b.addEventListener("click", () => { const inp = $("alFile"); if (inp) { const file = (evHarvest.files || []).find((x)=>x.id === b.dataset.hvupload); expectedHarvest = file && evHarvest.device ? {device:evHarvest.device.name,file:file.name} : null; inp.click(); } }));
   }
   function toggleHarvestFetch() {
     evHarvest.open = !evHarvest.open;
@@ -4393,60 +4259,11 @@ const AppLockerTool = (() => {
   }
 
   function renderLoopStrip() {
-    const host = $("alLoop");
-    if (!host) return;
-    const st = loopStations();
-    // Evidence beats the mark, both ways: a manual tick only lifts a station
-    // the session cannot verify, and never one that is visibly amber.
-    const manual = loopManual();
-    for (const s of st) {
-      s.manual = !s.done && !s.warn && !!manual[s.key];
-      s.eff = s.done || s.manual;
-    }
-    const here = st.findIndex((s) => !s.eff);
-    const collapsed = loopCollapsed();
-
-    const summary = st.map((s, i) => `${s.name} ${s.done ? "✓" : s.manual ? "✓*" : s.warn ? "⚠ " + s.sub : i === here ? "←" : "·"}`).join("  ");
-    host.innerHTML = `
-      <div class="al-loop-head">
-        <b>🔁 The audit loop</b>
-        ${collapsed ? `<span class="al-loop-mini">${esc(summary)}</span>` : `<span class="al-loop-mini">click a station to go there</span>`}
-        <button class="btn sm al-loop-toggle" id="alLoopToggle" title="${collapsed ? "Expand the loop strip" : "Collapse to one line"}">${collapsed ? "▸" : "▾"}</button>
-      </div>
-      ${collapsed ? "" : `
-      <div class="al-loop-row" style="margin-top:8px">
-        ${st.map((s, i) => `${i ? `<span class="al-loop-arrow">→</span>` : ""}
-          <span class="al-loop-wrap">
-          <button class="al-loop-st ${s.eff ? "done" : s.warn ? "warn" : ""} ${s.manual ? "manual" : ""} ${i === here ? "here" : ""}" data-target="${esc(s.target)}" data-screen="${esc(s.screen || "")}" title="${i === here ? "You are here — click to jump" : "Jump to this part of the page"}">
-            <span class="al-loop-ico">${s.ico}</span><span class="al-loop-name">${esc(s.name)}</span><span class="al-loop-sub">${s.sub}${s.manual ? " · marked by you" : ""}</span>
-          </button>
-          ${s.done || s.warn ? "" : `<button class="al-loop-mark ${s.manual ? "on" : ""}" data-key="${esc(s.key)}" title="${s.manual ? "Un-mark — this station goes back to waiting" : "Mark done by hand — for what this tab cannot see, like the portal edit. Shown dashed: a claim, not evidence. Marks belong to the tenant you are signed in to and clear on their own when a different tenant signs in."}">${s.manual ? "☑" : "☐"}</button>`}
-          </span>`).join("")}
-      </div>
-      <div class="al-loop-back">↰ <span>Collect → What breaks? → Update repeats until a full window shows <b>0 to resolve</b> — that is what the Enforce gate reads. An update made from Deploy lights the station; one made in the portal is marked by hand.</span></div>`}
-    `;
-
-    const t = $("alLoopToggle");
-    if (t) t.addEventListener("click", () => {
-      try { loopCollapsed() ? localStorage.removeItem(LOOP_COLLAPSE_KEY) : localStorage.setItem(LOOP_COLLAPSE_KEY, "1"); } catch { /* private mode */ }
-      renderLoopStrip();
-    });
-    host.querySelectorAll(".al-loop-st").forEach((b) => b.addEventListener("click", () => {
-      // 10578: a station is on a SCREEN now — switch to it, then scroll.
-      if (b.dataset.screen) showScreen(b.dataset.screen);
-      const el = document.querySelector(b.dataset.target);
-      if (!el) return;
-      if (el.tagName === "DETAILS") el.open = true;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }));
-    host.querySelectorAll(".al-loop-mark").forEach((b) => b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      loopToggleManual(b.dataset.key);
-      renderLoopStrip();
-    }));
+    const host = $("alLoop"); if (host) { host.hidden = true; host.innerHTML = ""; }
   }
 
   function renderDeploy() {
+    renderOverview(); renderComparison(); renderBreaks(); renderReadiness();
     renderRemedy();
     renderLoopStrip();
     // the rail, the status line and the strip all read the tenant state
@@ -4511,7 +4328,7 @@ const AppLockerTool = (() => {
     const done = d.updated
       ? `<div class="al-dep-done"><div class="al-dep-done-h">✅ Policy updated in place</div>
           <div><b>${escq(d.updated.displayName)}</b> <span class="mini muted">· id <code>${escq(d.updated.id)}</code></span></div>
-          <div class="mini" style="margin-top:6px">Same profile, same grouping, assignments untouched. Devices pick the new rules up at their next sync (within the hour). <b>Next:</b> let it run, collect events (Help &amp; scripts → the events Remediation, or a fresh scan), upload them on <b>Evidence</b>, and <b>What breaks?</b> judges the new rules.</div></div>`
+          <div class="mini" style="margin-top:6px">Same profile, same grouping, assignments untouched. Devices pick the new rules up at their next sync (within the hour). <b>Next:</b> let it run, collect events (Collection setup → the events Remediation, or a fresh scan), upload them on <b>Overview</b>, and <b>What breaks?</b> judges the new rules.</div></div>`
       : createdFor("enforce")
       ? `<div class="al-dep-done"><div class="al-dep-done-h">✅ Enforce profile created</div>
           <div><b>${escq(createdFor("enforce").displayName)}</b> <span class="mini muted">· id <code>${escq(createdFor("enforce").id)}</code> · assigned to nobody</span></div>
@@ -4599,7 +4416,7 @@ const AppLockerTool = (() => {
         ${(() => {
           const gates = enforceGates();
           const met = gates.filter((g) => g.ok).length;
-          return `<p class="mini muted" style="margin:2px 0 6px">Three gates, all three before the button. <b>Your draft's enforcement modes do not matter here</b>: the Enforce profile is written with every collection <code>Enabled</code> whatever the rules table says, so there is nothing to switch first — the rules are the ones on the table, the mode is this step's.</p>
+          return `<p class="mini muted" style="margin:2px 0 6px">The same three readiness checks shown on Overview apply here. <b>Your draft's enforcement modes do not matter here</b>: the Enforce profile is written with every exported collection <code>Enabled</code> (DLL is omitted) whatever the rules table says, so there is nothing to switch first — the rules are the ones on the table, the mode is this step's.</p>
           <ul class="mini al-list al-gates" style="margin:0 0 8px">${gates.map((g) => `<li><span class="${g.ok ? "al-gate-ok" : "al-gate-no"}">${g.ok ? "✓" : "✗"}</span> <b>${escq(g.label)}</b><div class="mini muted" style="margin-left:18px">${escq(g.detail)}</div></li>`).join("")}</ul>
           ${blocked
             ? `<p class="mini al-dep-locked" style="margin:0 0 6px"><b>${met} of 3.</b> ${escq(blocked)}</p>
@@ -4734,8 +4551,8 @@ const AppLockerTool = (() => {
       const m = sts[0] && APPLOCKER_OMA_RE.exec(String(sts[0].omaUri || ""));
       if (!(m && m[1] && m[1].toLowerCase() === g)) return false;
       const vals = sts.map((s2) => String(s2.value || "")).filter((v) => /EnforcementMode=/i.test(v));
-      if (vals.length) return vals.some((v) => /EnforcementMode="AuditOnly"/i.test(v)) && !vals.some((v) => /EnforcementMode="Enabled"/i.test(v));
-      return /\(AuditOnly\)/i.test(String(p.displayName || "")) || !/\(Enforced\)/i.test(String(p.displayName || ""));
+      if (vals.length && vals.length === sts.length) return vals.every((v) => /EnforcementMode="AuditOnly"/i.test(v));
+      return false; // Unread values are unknown; names do not prove enforcement mode.
     }) || null;
   }
   function tenantOtherGroupings() {
@@ -4973,6 +4790,7 @@ const AppLockerTool = (() => {
   }
 
   return { init,
+    _review: { impactModel, readiness, evidenceLimitations, createDraft, draftVerdictForEvent, fleetGapStats, render, showScreen, markdown, adoptTenantProfile, getState: () => ({scan,eventsEvidence,policy,draftOrigin}), setExpectedHarvest: (x) => { expectedHarvest=x; } },
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
     // the harvest target, for the headless suite (10613)

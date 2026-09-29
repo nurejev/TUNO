@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
   {
+  "build": 10628,
+  "date": "2026-09-29",
+  "title": "T01: understand the current policy, edit a baseline and check enforcement impact",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "T01 separates the device overview, policy sources, baseline editor, impact review and pilot deployment. A scan opens as evidence; creating an editable copy is explicit. Add and remove rules with Undo, then compare enforcement of the current device policy, generated proposal, working draft or actual Intune export."
+    },
+    {
+      "kind": "fixed",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Recorded execution outcomes stay separate from predictions. Allowed executions are included, missing membership/version evidence stays unknown, and hiding DLL rows never changes readiness. User-profile applications require a decision; accepted blocks carry a reason scoped to the tenant, draft, device and file identity."
+    },
+    {
+      "kind": "fixed",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Scan imports preserve the draft and replace prior event evidence. Separate events must match the device. Harvest handoff verifies the selected device and filename; folder modification time is not presented as collection time. Readiness requires readable matching audit rules, recent evidence and explicit pilot review; incomplete tenant profile reads are refused."
+    }
+  ]
+},
+  {
     build: 10627, date: "2026-09-23", title: "T01: a bundle that did not reach the harvest site is not done (scanner 1.14.0, detection 1.1.0)",
     items: [
       { kind: "fixed", tool: "🔐 AppLocker builder & validator", text: "The device folders on the harvest site stayed empty for a week while the scan pair's detection said “bundle 1.2 day(s) old, within the 7-day window - nothing to do”. The detection only looked at the local bundle's age, and the scanner treats a failed upload as a warning with exit 0 — so a failed upload hid until the window ran out. Detection 1.1.0 now also exits non-compliant while any bundle of the last 30 days did not reach the site, with the reason on the Intune console line (“… but 1 bundle(s) did not reach the harvest site (newest …; …) - the upload will be retried, no rescan”); its all-clear line says “nothing pending upload”. A bundle written before this build counts as pending when its scan transcript says “harvest: upload FAILED”, so the 22 Sep bundle is picked up at the next detection after ↻ Replace both script bodies, without waiting for the window. Mihai: all device folders on the harvest site are empty." },

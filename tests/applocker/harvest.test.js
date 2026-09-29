@@ -368,6 +368,7 @@ head("10617 — 📁 From the harvest site: the read scope, the entrance, the li
   await H.harvestPrepare(H.evHarvest.files[0]);
   ok("a refused link is shown on the card, nothing else changes", !!H.evHarvest.error && /download URL/.test(H.evHarvest.error.message) && /Could not read the site/.test(card.textContent) && !!card.querySelector('[data-hvdl="demo-f2"]'));
   // 10622: an events bundle on the table with no policy — the chooser offers all three ways
+  D.getElementById("alImportEv").click(); // explicitly leave the guided harvest selection
   H.importFile(JSON.stringify({ schema: "tuno.applocker.events/1", generator: { generatedUtc: "2026-09-18T09:09:00Z" }, machine: { name: "MIHAIMONTECC3F" }, events: { available: true, daysBack: 30, summary: { total: 250, allowed: 217, audited: 33, blocked: 0 }, entries: [] } }), "AppControlEvents_Bundle_20260918-110949.json");
   H.afterImport(false);
   const evCard = D.getElementById("alEvents") || D.querySelector("[id^='alEv']");

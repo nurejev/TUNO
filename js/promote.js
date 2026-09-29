@@ -104,6 +104,39 @@ const PROMOTE = {
 
   items: [
     {
+  "n": 189,
+  "title": "T01 — device review, baseline editing and enforcement scenarios",
+  "tools": [
+    "T01 AppLocker builder & validator"
+  ],
+  "builds": [
+    10628
+  ],
+  "risk": "high",
+  "what": "Overview opens scan evidence without replacing the working draft. Explicit source selection, editable baseline with add/remove/Undo, independent enforcement scenarios for the snapshot, proposal, draft and Intune export, scoped business decisions and unified pilot readiness. Guided Harvest device/file validation and partial profile read rejection.",
+  "why": "Policy source confusion can turn a generated proposal into an unintended replacement. Local predictions are approximate; a real Windows pilot and live tenant read-back are still required before production promotion. No scanner behavior or tenant policies are changed by this build.",
+  "test": [
+    "Run npm test, including tests/applocker/review.test.js and harvest.test.js. Import scan A, create a draft, then import scan B: the draft remains and previous separate events are cleared. Reject a different-device event bundle and a mismatched guided Harvest download atomically.",
+    "Open a scan without a draft. Compare current policy and scan proposal under Enforce, then create a copy. Add/remove a rule and Undo; the draft prediction follows the change while the original evidence and snapshot remain unchanged. Read-only scenarios never offer draft decisions.",
+    "Check DLL filtering, missing publisher versions, unknown group membership, empty/stale evidence and unread tenant values. None may produce a false ready result. The Intune scenario must omit DLL and explain that other device sources are not removed.",
+    "LIVE TENANT / WINDOWS PILOT PENDING: read the matching AuditOnly profile, verify exact draft rule content and grouping receipt, collect representative activity after the last policy change, validate recovery and observe pilot enforcement. Verify Harvest download/open against the real SharePoint site. No broad rollout or production promotion based on local simulations."
+  ],
+  "files": [
+    "js/applocker.js",
+    "index.html",
+    "css/app.css",
+    "tests/applocker/review.test.js",
+    "tests/applocker/harvest.test.js",
+    "tests/applocker/fixtures/review-scan.json",
+    "scripts/*.ps1 (build stamp only)",
+    "docs/reviews/T01-design-10628.html",
+    "docs/reviews/T01-beta-10628.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js"
+  ]
+},
+    {
       n: 188, title: "\ud83d\udd10 T01 \u2014 the device scan as a Remediation (scanner 1.13.0 + Detect-TunoAppLockerScan.ps1, fourth pair) and \ud83d\udcc1 From the harvest site on Evidence (NEW SCOPE: Sites.Read.All)",
       tools: ["T01 AppLocker builder & validator"], builds: [10617, 10618, 10619, 10620, 10621, 10622, 10623, 10624, 10625, 10626, 10627], risk: "medium",
       what: "scripts/Invoke-TunoAppLockerScan.ps1 1.13.0: HARVEST TARGET block (same shape as the collector, stamped by the same stampHarvestConfig), -Harvest* and -RetentionDays parameters, Remediation mode (SYSTEM and no -OutputPath: output to %ProgramData%\\IT-TOOLS\\LOGS\\AppLockerScan, Start-Transcript next to the bundle, Remove-TunoStaleOutput byte-identical with the other three remediation halves, upload after the bundle is on disk, one summary line, exit 0/1), the collector's harvest functions carried over with two strict-mode property checks and the prune filter TunoAppLockerScan-*. New scripts/Detect-TunoAppLockerScan.ps1 1.0.0 (7-day window on the newest bundle). js/applocker.js: REMEDY_PAIRS.scan with harvest: true (events too; deployRemedyPair and renderRemedy key on the flag, not the name), SCRIPT_VERSIONS rows, evHarvest state + harvestReadSite / harvestOpenDevice / harvestImport / renderHarvestFetch / toggleHarvestFetch, afterImport() factored out of the file picker so both entrances land the same way, demo listing. js/graph.js: SCOPES.sitesRead, siteByUrlRead, driveChildren (paged), driveItem, driveItemText (the @microsoft.graph.downloadUrl, fetched without a token). index.html: the \ud83d\udcc1 From the harvest site button and #alHarvestFetch card on Evidence, the detection row and the scanner note under Help & scripts, 11 companion scripts. css/app.css: the button's open state. New-TunoAppRegistration.ps1 + SECURITY.md: Sites.Read.All (R18). scripts/README.md rows and the 'As an Intune Remediation' section. tests/applocker/harvest.test.js 94 (two new sections). _to_delete/check-script-versions.js lists the new script.",
