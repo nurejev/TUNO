@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10631,
+  "date": "2026-09-29",
+  "title": "T01: inspect the actual value behind a failed policy read",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "When a deployed profile cannot open, Download read diagnostic saves the exact returned values of settings that could not be parsed, with type, encryption/read status and error. It omits unrelated settings, token fields and secret-reference fields. The file remains local until you choose to share it. A successful selection clears the old diagnostic. This is evidence collection, not a change to policy parsing or a claim that the live StoreApps issue is resolved."
+    }
+  ]
+},
+{
   "build": 10630,
   "date": "2026-09-29",
   "title": "T01: open deployed Audit policies reliably",

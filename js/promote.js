@@ -104,6 +104,33 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 192,
+  "title": "T01 — failed policy read diagnostics",
+  "tools": [
+    "T01 AppLocker builder & validator"
+  ],
+  "builds": [
+    10631
+  ],
+  "risk": "low",
+  "what": "Explicit local diagnostic download for failed deployed-policy reads. Preserve the exact unparsable setting values and type/read status, omit unrelated profile and secret-reference fields, clear after successful selection.",
+  "why": "The supplied StoreApps XML opens locally but the live read still reports invalid XML. Capture the returned value before making further parser changes; no live resolution is claimed.",
+  "test": [
+    "Run npm test. Reject malformed returned XML without writes; verify diagnostic raw value, metadata, scope, download affordance and clearing after success.",
+    "LIVE PENDING: reproduce the failed StoreApps read, download and inspect the diagnostic, compare the returned value with the supplied XML. Do not change the tenant policy based only on this read error."
+  ],
+  "files": [
+    "js/applocker.js",
+    "tests/applocker/audit-workflow.test.js",
+    "docs/reviews/T01-beta-10631.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "index.html",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 191,
   "title": "T01 — fix deployed policy XML loading",
   "tools": [

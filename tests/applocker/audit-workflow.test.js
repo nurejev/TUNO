@@ -87,6 +87,17 @@ for(const kind of ['declaration','wrapper','binary','decrypted-binary']) {
  await w.AppLockerTool._audit.selectAuditProfile(p);
  ok('encrypted placeholder survives detail read but still forces plaintext retrieval',reads===1&&w.AppLockerTool._review.getState().policy.collections[0].rules.length===1&&p.omaSettings[0].value==='PGEvPg==');
 }
+head('failed-read diagnostic preserves evidence without unrelated settings');
+{
+ const {A,D,writes}=setup(),p=profile();p.omaSettings[0].value='&lt;RuleCollection Type="Exe" /&gt;';p.omaSettings[0].secretReferenceValueId='must-not-export';p.accessToken='must-not-export-token';
+ let failed=false;try{await A.selectAuditProfile(p)}catch{failed=true}
+ const report=A.getState().readDiagnostic;
+ ok('invalid returned value remains rejected; no policy write',failed&&!A.getState().reference&&writes.length===0);
+ ok('diagnostic retains exact failed raw value and setting metadata',report.settings.length===1&&report.settings[0].value===p.omaSettings[0].value&&report.settings[0].displayName==='EXE'&&report.settings[0].valueType==='string');
+ ok('diagnostic omits good collection, tokens and secret-reference fields',!JSON.stringify(report).includes('must-not-export')&&!report.settings.some(s=>s.displayName==='DLL'));
+ ok('failed read offers explicit diagnostic download',!!D.querySelector('[data-audit-diagnostic]'));
+ await A.selectAuditProfile(profile());ok('successful selection clears obsolete diagnostic',!A.getState().readDiagnostic&&!D.querySelector('[data-audit-diagnostic]'));
+}
 head('two workspaces keep independent policies and evidence');
 {
  const {A,R,D}=setup();await A.selectAuditProfile(profile());const before=JSON.stringify(R.getState().policy);

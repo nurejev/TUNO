@@ -2414,13 +2414,24 @@ const AppLockerTool = (() => {
     if (new Set(model.collections.map(c=>c.type)).size !== model.collections.length) throw new Error("Duplicate AppLocker collections cannot be reviewed as one policy.");
     return {grouping:groups[0],model};
   }
+  function auditReadDiagnostic(profile, error) {
+    const settings=[];
+    for(const setting of profile.omaSettings || []) {
+      if(!APPLOCKER_OMA_RE.test(String(setting.omaUri || ''))) continue;
+      try { appLockerSettingDocument(setting); }
+      catch(e) { settings.push({displayName:setting.displayName || '',omaUri:setting.omaUri || '',type:setting['@odata.type'] || '',isEncrypted:!!setting.isEncrypted,decrypted:!!setting._decrypted,valueType:typeof setting.value,value:setting.value ?? null,error:e.message}); }
+    }
+    return {schema:'tuno.applocker.read-diagnostic/1',capturedUtc:new Date().toISOString(),build:APP_BUILD.build,policyName:profile.displayName || '',error:error.message,settings};
+  }
   const auditFingerprint = p => JSON.stringify([p.id,p.displayName,p.lastModifiedDateTime, p.omaSettings]);
   async function selectAuditProfile(p) {
     if (auditBusy) return;
     const selectedWorkspace=workspace;
-    auditBusy=true; evTenant.error=""; renderComparison(); renderWorkspace();
+    auditBusy=true; evTenant.error=""; evTenant.readDiagnostic=null; renderComparison(); renderWorkspace();
+    let hydrated;
     try {
-    const tenant = auditTenant(), hydrated = await hydrateAppLocker(p), source = auditProfileIdentity(hydrated);
+    const tenant = auditTenant(); hydrated = await hydrateAppLocker(p);
+    const source = auditProfileIdentity(hydrated);
     if (tenant !== auditTenant() || selectedWorkspace !== workspace) throw new Error("The tenant or workspace changed during the read. Read the policies again.");
     auditBusy=false;
     if (!confirmDraftReplacement()) return;
@@ -2433,6 +2444,9 @@ const AppLockerTool = (() => {
     if ($("alIntuneMode")) $("alIntuneMode").value="Audit";
     importedXmlName = hydrated.displayName; draftOrigin = "Deployed Audit policy · " + hydrated.displayName; pilotReview = "";
     loadFresh(); showScreen("audit");
+    } catch(error) {
+      if(hydrated && selectedWorkspace===workspace) evTenant.readDiagnostic=auditReadDiagnostic(hydrated,error);
+      throw error;
     } finally { auditBusy=false; renderComparison(); renderWorkspace(); renderAuditResults(); renderAuditUpdate(); }
   }
   function auditReceipt() {
@@ -2559,7 +2573,7 @@ const AppLockerTool = (() => {
     const profiles = evTenant.list || deployState.checked && deployState.checked.tenantAppLocker || [];
     const groups = new Set((scan?.effectivePolicy?.sources?.mdm || []).map(g=>String(g.grouping).toLowerCase()));
     host.innerHTML = `<h2>Select the Audit policy you deployed</h2><p>Your existing Intune configuration is the reference. The scan shows what happened on the device; it does not replace this policy with a new baseline.</p>
-      <article class="al-review-card"><button class="btn primary" data-review-tenant ${evTenant.busy || auditBusy ? "disabled" : ""}>${evTenant.busy ? "Reading…" : "Read deployed Intune policies"}</button><p class="mini">Select the policy assigned to this device. Names are not proof of Audit mode; T01 reads every collection before opening it.</p>${evTenant.error ? `<p role="alert">${esc(evTenant.error)}</p>` : ""}
+      <article class="al-review-card"><button class="btn primary" data-review-tenant ${evTenant.busy || auditBusy ? "disabled" : ""}>${evTenant.busy ? "Reading…" : "Read deployed Intune policies"}</button><p class="mini">Select the policy assigned to this device. Names are not proof of Audit mode; T01 reads every collection before opening it.</p>${evTenant.error ? `<p role="alert">${esc(evTenant.error)}</p>` : ""}${evTenant.readDiagnostic ? '<p><button class="btn" data-audit-diagnostic>Download read diagnostic</button></p><p class="mini muted">Saves the returned values for settings that could not be parsed, plus their type and read status. The file can contain policy details; review it before sharing. Nothing is sent automatically.</p>' : ""}
       ${profiles.map((p,i)=>{const matches=(p.omaSettings || []).some(x=>groups.has(String((APPLOCKER_OMA_RE.exec(x.omaUri || "") || [])[1] || "").toLowerCase()));return `<div class="al-profile-row"><div><b>${esc(p.displayName || p.id)}</b><p class="mini muted">${matches ? "Grouping appears in the device scan" : "Device receipt not established"}</p></div><button class="btn" data-audit-profile="${i}" ${auditBusy ? "disabled" : ""}>${auditBusy ? "Reading policy…" : "Open policy for review"}</button></div>`}).join("") || '<p>No profiles loaded yet. Read Intune to choose the existing policy.</p>'}</article>
       ${auditReview ? `<article class="al-review-card"><h3>Selected: ${esc(auditReview.profile.displayName)}</h3><p>Profile ID: ${esc(auditReview.profile.id)} · grouping: ${esc(auditReview.grouping)}</p><p>All collections were read as AuditOnly. This identity is retained for the update.</p><button class="btn primary" data-review-nav="audit">Review scan results &amp; additions</button></article>` : ""}
       <article class="al-review-card"><h3>Need to create a new policy instead?</h3><p>The new-policy builder and reference-scan proposals live in the separate Create &amp; deploy workspace.</p><button class="btn" data-al-workspace="create">Open Create &amp; deploy</button></article>`;
@@ -2573,6 +2587,7 @@ const AppLockerTool = (() => {
       if(e.target.closest("[data-build-import]")){ showScreen("evidence");return; }
       const ap = e.target.closest("[data-audit-profile]");
       if (ap) { const profiles = evTenant.list || deployState.checked?.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=`Could not open “${profiles[+ap.dataset.auditProfile]?.displayName || "selected policy"}”. ${err.message}`; renderComparison(); } return; }
+      if(e.target.closest("[data-audit-diagnostic]") && evTenant.readDiagnostic) { download('T01-policy-read-diagnostic.json',JSON.stringify(evTenant.readDiagnostic,null,2),'application/json'); return; }
       if (e.target.closest("[data-audit-backup]") && auditReview) { download("AppLocker-original-Audit-profile.json",JSON.stringify(auditReview.profile,null,2),"application/json"); return; }
       if (e.target.closest("[data-audit-add]")) { applyAuditSelections(); return; }
       if (e.target.closest("[data-audit-prepare]")) { await prepareAuditUpdate(); return; }
@@ -5018,7 +5033,7 @@ const AppLockerTool = (() => {
   }
 
   return { init,
-    _audit: {switchWorkspace,workspace:()=>workspace,selectAuditProfile,auditResultRows,applyAuditSelections,auditBody,prepareAuditUpdate,writeAuditUpdate,auditReceipt,getState:()=>({reference:auditReview,plan:auditUpdatePlan,message:auditUpdateMessage}),select:(keys)=>{auditSelections=new Set(keys)}},
+    _audit: {switchWorkspace,workspace:()=>workspace,selectAuditProfile,auditResultRows,applyAuditSelections,auditBody,prepareAuditUpdate,writeAuditUpdate,auditReceipt,getState:()=>({reference:auditReview,plan:auditUpdatePlan,message:auditUpdateMessage,readDiagnostic:evTenant.readDiagnostic}),select:(keys)=>{auditSelections=new Set(keys)}},
     _review: { impactModel, readiness, evidenceLimitations, createDraft, draftVerdictForEvent, fleetGapStats, render, showScreen, markdown, adoptTenantProfile, getState: () => ({scan,eventsEvidence,policy,draftOrigin}), setExpectedHarvest: (x) => { expectedHarvest=x; } },
     // the compare engine, for the headless suite (10560)
     _diff: { parsePolicy, diffPolicies, policyOfProfile, diffMarkdown, condText, intuneProfile },
