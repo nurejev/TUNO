@@ -267,6 +267,18 @@ async function run() {
     && st().cfg.members.pilots.includes("PL") && !mm().unmapped.length);
 
   // ------------------------------------------------ 📑 reports (10635) --
+  // 10638 (option A off the mockup): the rail is back; the three reports
+  // are its child nodes, each with its state; no second column, no tabs.
+  ok("one navigation: the rail, with the three reports as child nodes and no top tabs", D.querySelectorAll(".ep-rail [data-mrreport]").length === 3
+    && !D.querySelector(".mr-tabs, .mr-subtabs, .mr-report-list") && /0 of 3/.test(D.querySelector('[data-mrpane="reports"]').textContent)
+    && [...D.querySelectorAll(".mr-rep-state")].every((x) => /not generated/.test(x.textContent)));
+  const railOrder = [...D.querySelectorAll(".ep-rail [data-mrpane], .ep-rail [data-mrreport]")].map((x) => x.dataset.mrpane || "·" + x.dataset.mrreport);
+  ok("…placed right under 📑 Reports", railOrder.indexOf("reports") >= 0 && railOrder.slice(railOrder.indexOf("reports") + 1, railOrder.indexOf("reports") + 4).join() === "·assign,·config,·conflicts");
+  ok("…and every pane keeps its count in view", /\d/.test(D.querySelector('[data-mrpane="new"]').textContent) && /\d/.test(D.querySelector('[data-mrpane="old"]').textContent) && /\d/.test(D.querySelector('[data-mrpane="out"]').textContent));
+  D.querySelector('[data-mrreport="config"]').dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  ok("a report node opens its report from the keyboard, straight into the main column", st().pane === "reports" && st().reps.selected === "config" && !!$("mrRep_config")
+    && D.querySelector('[data-mrreport="config"]').classList.contains("active") && D.querySelector('[data-mrpane="reports"]').classList.contains("mr-open"));
+  D.querySelector('[data-mrreport="assign"]').click();
   w.MdeRolloutTool._pane("reports");
   ok("reports offers three persistent choices and only one generator", D.querySelectorAll("[data-mrreport]").length === 3 && !!$("mrRep_assign") && !$("mrRep_config") && !$("mrRep_conflicts"));
   $("mrRep_assign").click();
@@ -294,8 +306,10 @@ async function run() {
   $("mrRep_conflicts").click();
   ok("the report selector remains available during a fresh check and prevents concurrent refresh", D.querySelectorAll("[data-mrreport]").length === 3 && $("mrRun").disabled);
   ok("the conflict check reads the tenant fresh and counts what needs action", await until(() => R().conflicts, 30000, "conflict check") && R().conflicts.summary.act > 0 && R().checks.length === 1 && /conflict check/i.test(R().conflicts.html) && st().pane === "reports");
-  ok("the rail says how many need action", /to act/.test(D.querySelector('[data-mrpane="reports"]').textContent));
+  ok("the rail says how many need action, on the conflict check's own node", /\d+ to act/.test(D.querySelector('[data-mrreport="conflicts"]').textContent)
+    && D.querySelector('[data-mrreport="conflicts"] .mr-rep-state').classList.contains("gap") && /[23] of 3/.test(D.querySelector('[data-mrpane="reports"]').textContent));
   D.querySelector('[data-mrreport="assign"]').click();
+  ok("…and the rail marks the older report for regenerating", /regenerate/.test(D.querySelector('[data-mrreport="assign"]').textContent));
   ok("an older report is marked stale after a fresh check and retains its original data", /saved report predates/.test($("mrBody").textContent) && R().assign === savedAssign && R().assign.html === savedAssign.html);
   D.querySelector('[data-mrreport="conflicts"]').click();
   const before = R().conflicts.summary.act;

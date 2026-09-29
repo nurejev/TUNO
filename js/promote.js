@@ -104,6 +104,35 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 200,
+  "title": "T28 — back on the rail; the three reports as rail nodes (option A)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10638
+  ],
+  "risk": "low",
+  "what": "Restores the T28 rail (10632 layout B) in place of 10637's top tabs, and keeps 10637's report workspace, compact header and Export menus. 📑 Reports has three child nodes in the rail, each with its state (not generated / generated HH:MM / regenerate / N to act); the report preview takes the main column. The second report column is removed. The main column stretches when the rail stacks under 900px, and coverage headers wrap between words. Report nodes work from the keyboard. No optional chaining. The tile chip is NEW again.",
+  "why": "Mihai on 10637: 'the other layout was better, but only the reports layout needed adjustment' — option A off the layout-review mockup.",
+  "test": [
+    "Run npm test; the T28 screen suite checks the rail's report nodes, their order under 📑 Reports, the counts on every pane, keyboard opening, the 'N to act' and 'regenerate' states, and the existing report, write and undo gates.",
+    "Browser DEMO: read, generate each report from its rail node, then run a conflict check and see Assignments turn 'regenerate'. Check 1440px light and dark, and 390px (no sideways page scroll; wide tables scroll in their own region).",
+    "LIVE PENDING: none new — the layout change reads and writes nothing."
+  ],
+  "files": [
+    "index.html",
+    "css/app.css",
+    "js/mderollout.js",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10638.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 199,
   "title": "T28 — report workspace (option 2)",
   "tools": [

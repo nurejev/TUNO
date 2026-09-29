@@ -1298,8 +1298,9 @@ const MdeRollout = (() => {
 
 
 // ======================================================================
-// T28 — the screen (10637, report workspace option 2): grouped tool tabs,
-// one pane per job and one saved report preview. The GATES live here, the T11 way: a plan is cut from a
+// T28 — the screen: a rail, one pane per job (10632, layout B), and the
+// report workspace (10637) — one saved report preview, picked from the
+// rail's report nodes since 10638. The GATES live here, the T11 way: a plan is cut from a
 // FRESH read of the policies it touches, the backup is taken before Apply
 // unlocks, removals are typed, additions ticked, and every write goes
 // through AssignEdit.applyPlan (drift check → write → verify) on the run
@@ -1483,28 +1484,41 @@ const MdeRolloutTool = (() => {
   const polLink = (P) => `<a href="#" data-mropen="${esc(P.key)}" title="Open the policy — settings and assignments">${esc(P.name)}</a>`;
 
   // ------------------------------------------------------------- rail --
+  // Layout B restored at 10638 (Mihai: "the other layout was better, but
+  // only the reports layout needed adjustment" — option A off the mockup):
+  // the rail, one level, every count in view; 📑 Reports opens into its
+  // three reports, each with its state, and the preview takes the main column.
   function railHtml() {
-    const act = pairs.filter(M.needsAction).length;
+    const act = pairs.filter(M.needsAction);
     const gaps = retire.filter((r) => r.verdict === "gap").length;
-    const rename = waveRows.filter((w) => w.legacy && !w.exists).length;
     const missing = waveRows.filter((w) => w.lookedUp && !w.exists && !w.legacy).length;
-    const waveCount = rename ? `${rename} to rename` : missing ? `${missing} missing` : waveRows.length;
-    const memberCount = mem.model ? mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length : null;
-    const groups = [
-      { label: "Policies", panes: [["new", "New policies", model.newP.length], ["old", "Old policies", model.oldP.length], ["retire", "Retirement check", gaps ? `${gaps} gaps` : "✓"], ["out", "Out of scope", model.outP.length]] },
-      { label: "Conflicts", panes: [["conflicts", "Conflicts", act]] },
-      { label: "Waves & members", count: waveCount, panes: [["waves", "Wave groups", waveCount], ["members", "Wave members", memberCount === null ? null : memberCount ? `${memberCount} to do` : "✓"]] },
-      { label: "Reports", panes: [["reports", "Reports", reps.checks.length ? `${reps.checks[reps.checks.length - 1].act} to act` : null]] },
-      { label: "Changes", panes: [["changes", "Changes this session", runs.length]] },
-      { label: "Settings", panes: [["rules", "Naming rules"], ["how", "How it works"]] },
-    ];
-    const active = groups.find((g) => g.panes.some((p) => p[0] === pane));
-    const button = (id, label, count, on) => `<button type="button" class="mr-nav-btn${on ? " active" : ""}" data-mrpane="${id}" aria-pressed="${on}">${esc(label)}${count != null ? ` <span class="mr-nav-count">${esc(count)}</span>` : ""}</button>`;
-    return `<nav class="mr-tabs" aria-label="MDE rollout">${groups.map((g) => {
-      const on = g === active;
-      const target = on ? g.panes.find((p) => p[0] === pane) : g.panes[0];
-      return button(target[0], g.label, g.panes.length === 1 ? target[2] : g.count, on);
-    }).join("")}</nav>${active && active.panes.length > 1 ? `<nav class="mr-subtabs" aria-label="${esc(active.label)}">${active.panes.map((p) => button(p[0], p[1], p[2], p[0] === pane)).join("")}</nav>` : ""}`;
+    const toRename = waveRows.filter((w) => w.legacy && !w.exists).length;
+    const node = (id, icon, label, n, bad) => `<div class="ep-node${pane === id && id !== "reports" ? " active" : ""}${id === "reports" && pane === "reports" ? " mr-open" : ""}" data-mrpane="${id}" role="button" tabindex="0">
+      <span>${icon} ${esc(label)}</span>${n !== null && n !== undefined ? `<span class="ep-n${bad ? " gap" : ""}">${esc(n)}</span>` : ""}</div>`;
+    const made = REPORTS.filter((x) => reps[x.id]).length;
+    const repNode = (x) => {
+      const r = reps[x.id];
+      const st = reps.busy === x.id ? "running…" : !r ? "not generated" : reportStale(x.id) ? "regenerate" : x.id === "conflicts" && r.summary ? `${r.summary.act} to act · ${shortTime(r.at)}` : `generated ${shortTime(r.at)}`;
+      const bad = r && (reportStale(x.id) || (x.id === "conflicts" && r.summary && r.summary.act > 0));
+      return `<div class="ep-node mr-rep-node${pane === "reports" && reps.selected === x.id ? " active" : ""}" data-mrreport="${x.id}" role="button" tabindex="0">
+        <span>${x.icon} ${esc(x.title)}</span><span class="mr-rep-state${bad ? " gap" : ""}">${esc(st)}</span></div>`;
+    };
+    return [
+      node("new", "🎯", "New policies", model.newP.length),
+      node("conflicts", "⚔️", "Conflicts with old", act.length, act.length > 0),
+      node("old", "🗄", "Old policies", model.oldP.length),
+      node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
+      node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
+      node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
+      "<hr>",
+      node("reports", "📑", "Reports", `${made} of ${REPORTS.length}`),
+      REPORTS.map(repNode).join(""),
+      node("changes", "📜", "Changes this session", runs.length),
+      node("rules", "⚙️", "Naming rules", null),
+      node("how", "❓", "How it works", null),
+      "<hr>",
+      node("out", "🚫", "Out of scope", model.outP.length),
+    ].join("");
   }
 
   // -------------------------------------------------------- toolbars --
@@ -1845,7 +1859,7 @@ const MdeRolloutTool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mrGlobalExport").hidden = pane === "reports";
-    $("mrBody").innerHTML = `<div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mrPlanSeat"></div></div>`;
+    $("mrBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mrPlanSeat"></div></div></div>`;
     if (pl) $("mrPlanSeat").replaceWith(pl);
     syncSelbar();
   }
@@ -2399,11 +2413,17 @@ const MdeRolloutTool = (() => {
     finally { reps.busy = ""; pane = "reports"; render(); }
   }
   const REPORTS = [
-    { id: "assign", title: "Assignments", source: "Current policy snapshot", description: "Coverage by wave, plus every assignment with its target, group kind, members, filter and rollout role." },
-    { id: "config", title: "Deployment configuration", source: "Policies, members & owners", description: "Naming rules, wave groups, members, policy settings, retirement evidence and changes this session." },
-    { id: "conflicts", title: "Conflict check", source: "Fresh tenant read", description: "Compare the new and old settings, their reach and proposed fixes. Each check shows what changed since the previous check this session." },
+    { id: "assign", icon: "📋", title: "Assignments", source: "Current policy snapshot", description: "Coverage by wave, plus every assignment with its target, group kind, members, filter and rollout role." },
+    { id: "config", icon: "🧾", title: "Deployment configuration", source: "Policies, members & owners", description: "Naming rules, wave groups, members, policy settings, retirement evidence and changes this session." },
+    { id: "conflicts", icon: "⚔️", title: "Conflict check", source: "Fresh tenant read", description: "Compare the new and old settings, their reach and proposed fixes. Each check shows what changed since the previous check this session." },
   ];
   const reportTime = (at) => at ? new Date(at).toLocaleString() : "Not read";
+  const shortTime = (at) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // A saved report predates the current read, rules, member read or writes.
+  function reportStale(id) {
+    const r = reps[id];
+    return !!r && (r.source !== res || r.rules !== JSON.stringify(cfg) || r.runCount !== runs.length || (id !== "conflicts" && r.memberSource !== mem.model));
+  }
   const reportSnapshot = () => ({ readAt: res && res.readAt, source: res, memberSource: mem.model, rules: JSON.stringify(cfg), runCount: runs.length,
     missing: (model.missing || []).map((x) => x.id) });
   // Preview the exact saved export, not the current mutable policy model.
@@ -2413,8 +2433,9 @@ const MdeRolloutTool = (() => {
     holder.innerHTML = report.html;
     const wrap = holder.querySelector(".wrap");
     if (!wrap) return "";
-    wrap.querySelector("h1")?.remove();
-    wrap.querySelector(".meta")?.remove();
+    const drop = (el) => { if (el) el.remove(); };   // (no optional chaining — house rule)
+    drop(wrap.querySelector("h1"));
+    drop(wrap.querySelector(".meta"));
     // Long exception lists are evidence, not another wall above the matrix.
     for (const note of [...wrap.querySelectorAll(".note")]) {
       if (note.textContent.length < 300) continue;
@@ -2468,16 +2489,14 @@ const MdeRolloutTool = (() => {
   function reportsPane() {
     const def = REPORTS.find((r) => r.id === reps.selected) || REPORTS[0];
     const r = reps[def.id];
-    const stale = r && (r.source !== res || r.rules !== JSON.stringify(cfg) || r.runCount !== runs.length || (def.id !== "conflicts" && r.memberSource !== mem.model));
-    const status = (id) => reps.busy === id ? "Running…" : reps[id] ? `Generated ${reportTime(reps[id].at)}` : "Not generated";
-    const list = `<aside class="mr-report-list" aria-label="Reports">${REPORTS.map((x) => `<button type="button" data-mrreport="${x.id}" aria-pressed="${x.id === def.id}" aria-controls="mrReportPanel"><b>${esc(x.title)}</b><span>${esc(x.source)}</span><small>${esc(status(x.id))}</small></button>`).join("")}<p class="mini">Latest report of each type, kept for this session.</p></aside>`;
+    const stale = reportStale(def.id);
     const exports = r ? `<details class="mr-export"><summary class="btn">Export ▾</summary><div class="mr-export-menu"><button class="btn" data-mrrepopen="${def.id}">Open report in new tab</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="html">HTML report</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="csv">${def.id === "config" ? "Policy settings CSV" : def.id === "conflicts" ? "Collisions CSV" : "Assignments CSV"}</button></div></details>` : "";
     const metadata = r ? `<div class="mr-report-meta"><span><b>Policy data</b> ${esc(reportTime(r.readAt))}</span><span><b>Generated</b> ${esc(reportTime(r.at))}</span>${r.membersAt ? `<span><b>Members</b> ${esc(reportTime(r.membersAt))}</span>` : ""}${r.ownersAt ? `<span><b>Owners attempted</b> ${esc(reportTime(r.ownersAt))}</span>` : ""}</div>` : "";
     const warning = stale ? `<p class="mr-report-notice">This saved report predates the current policy/member read, rules or session changes. Generate it again to update the preview and exports.</p>` : "";
     const missing = r && r.missing.length ? `<p class="mr-report-notice">Incomplete policy read: ${r.missing.map(esc).join(", ")}. These surfaces are not included in this report.</p>` : "";
     const memberWarning = r && def.id === "config" && !r.members ? `<p class="mr-report-notice">Wave members could not be read; that report section is incomplete.</p>` : "";
     const jump = r && def.id === "conflicts" ? `<p class="mini mr-report-jump"><a href="#" data-mrpane="conflicts">Open Conflicts to review proposed changes →</a></p>` : "";
-    return `<div class="mr-reports">${list}<section id="mrReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${esc(def.title)}</h3><p class="mini">${esc(def.description)}</p></div><div class="tb-actions"><button class="btn primary" id="mrRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : "Generate report"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>No report generated yet</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section></div>`;
+    return `<section id="mrReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${def.icon} ${esc(def.title)}</h3><p class="mini">${esc(def.description)} <span class="muted">· ${esc(def.source)} · the latest of each report is kept for this session</span></p></div><div class="tb-actions"><button class="btn primary" id="mrRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : r ? "↻ Generate again" : "Generate report"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>No report generated yet</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section>`;
   }
   function openReport(id) {
     const r = reps[id];
@@ -2605,11 +2624,12 @@ const MdeRolloutTool = (() => {
     $("mrMd").addEventListener("click", () => exportAs("md"));
     $("mrCsv").addEventListener("click", () => exportAs("csv"));
     const body = $("mrBody");
-    const go = (p) => { pane = p; view.cat = null; view.state = null; view.q = ""; render(); body.querySelector(`.mr-navigation [data-mrpane="${p}"]`)?.focus(); };
+    const focusOn = (sel) => { const el = body.querySelector(sel); if (el) el.focus(); };
+    const go = (p) => { pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); };
     body.addEventListener("click", (e) => {
       const t = e.target;
       const reportChoice = t.closest("[data-mrreport]");
-      if (reportChoice) { reps.selected = reportChoice.dataset.mrreport; reps.error = ""; render(); body.querySelector(`[data-mrreport="${reps.selected}"]`)?.focus(); return; }
+      if (reportChoice) { reps.selected = reportChoice.dataset.mrreport; reps.error = ""; pane = "reports"; render(); focusOn(`[data-mrreport="${reps.selected}"]`); return; }
       const nd = t.closest("[data-mrpane]"); if (nd) { e.preventDefault(); go(nd.dataset.mrpane); return; }
       const op = t.closest("[data-mropen]"); if (op) { e.preventDefault(); openPolicy(op.dataset.mropen); return; }
       const c = t.closest("[data-mrcat]"); if (c) { view.cat = c.dataset.mrcat || null; render(); return; }
@@ -2726,8 +2746,11 @@ const MdeRolloutTool = (() => {
       if (t.id === "mrRuleReset") { saveCfg(null); derive(); render(); return; }
     });
     body.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const rep = e.target.closest("[data-mrreport]");
+      if (rep) { e.preventDefault(); rep.click(); return; }
       const nd = e.target.closest("[data-mrpane]");
-      if (nd && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); go(nd.dataset.mrpane); }
+      if (nd && nd.tagName !== "A") { e.preventDefault(); go(nd.dataset.mrpane); }
     });
     body.addEventListener("input", (e) => {
       if (e.target.id !== "mrQ") return;

@@ -9,14 +9,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10637"></script>
+<script src="js/popup-guard.js?v=10638"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10637">
+<link rel="stylesheet" href="css/app.css?v=10638">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10637"></script>
+<script src="js/selfhost-boot.js?v=10638"></script>
 </head>
 <body>
 
@@ -158,7 +158,7 @@
         <p>The portal's Endpoint security blade, mirrored — one read, three answers behind one rail. <b>The disciplines:</b> every endpoint security policy in the portal's own breakdown (antivirus, disk encryption, firewall, EDR, attack surface reduction, account protection, App Control), as the 🗂 Policy overview's clickable cards — plus two nodes the portal does not have: plain settings-catalog policies that configure <b>Defender (MDE)</b> or <b>Microsoft Edge</b>, found by their setting definition ids. <b>🗣 The impact brief:</b> what a person will notice on their device, in end-user language, every statement derived from a policy actually present and naming it — enforced-today and at-rollout never mixed, and a statement that only <b>partly</b> reaches the fleet says what happens to the rest: the remaining devices counted against the fleet, or <b>nothing is staged to widen this</b> where that is the truth; export as Markdown or Word for the rollout mail. <b>🎓 Best practice:</b> the tenant's actual setting values measured against learn.microsoft.com — tamper protection, cloud protection, PUA, network protection, the three standard-protection ASR rules, silent BitLocker, firewall defaults, EDR onboarding, Edge SmartScreen — each check with severity, remediation and the Learn page it stands on, and <b>not reaching</b> its own verdict when the right setting sits in a policy that reaches nobody. <b>📊 Secure Score gaps:</b> these checks read <i>policy</i>, Microsoft Secure Score reads <i>the estate</i>, and <b>where they disagree is the finding</b> — a check that passes while Microsoft still holds the points is almost never the policy, it is devices that never onboarded; every Microsoft gap no check covers is listed anyway, so a hole in the check set shows up instead of hiding. <b>Reads only, and the posture read costs no new permission</b> — the Secure Score node is a separate button because it needs <code>SecurityEvents.Read.All</code>.</p>
       </div>
       <div class="tool" id="toolMdeRollout">
-        <div class="tool-ic">🚀</div><h3>MDE rollout <span class="tag updated">UPDATED</span> <span class="tag new">BETA</span> <span class="tag" title="Built for one rollout; stays on the beta channel and goes when the rollout is done">temporary</span> <span class="tag block">writes to the tenant</span></h3>
+        <div class="tool-ic">🚀</div><h3>MDE rollout <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag" title="Built for one rollout; stays on the beta channel and goes when the rollout is done">temporary</span> <span class="tag block">writes to the tenant</span></h3>
         <p>Replacing old Defender and endpoint security policies with a new set, wave by wave: the new set, the old set and what is out of scope, sorted by <b>name</b> (editable rules, kept per tenant). <b>Which old policies collide with a new one</b> — setting by setting, ASR rule by rule, with the value on each side and whether the two reach the same devices — and the fix, proposed: <b>exclude the new policy's groups from the old one</b>, refused where Intune does not support it (user group ↔ device group). Include, exclude and remove across many policies from one bar, through the Assignment editor's own write pipeline; <b>create the wave groups</b>; a <b>retirement check</b> that names every setting an old policy would take with it; undo per run. Reads through the shared policy read.</p>
       </div>
     </div>
@@ -1527,7 +1527,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
   </section>
 
   <!-- ============ T28 · MDE ROLLOUT (R40) — temporary ============
-       Grouped tool tabs and the report workspace (10637, option 2).
+       The report workspace (10637) on the rail (10638, option A: the three
+       reports are child nodes of 📑 Reports; the preview has the main column).
        The plan node survives pane changes and remains below the active
        operational pane. Assignment/group write gates are unchanged. -->
   <section id="screen-mderollout" class="screen">
@@ -1543,7 +1544,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       </div>
     </div>
     <details class="mr-intro"><summary>About this tool <span class="tag block">writes to the tenant</span></summary>
-      <p class="mini">Compare the new MDE policies with the old set, prepare wave groups and members, and review retirement gaps. Reports only read data. Assignment and group changes use their own confirmation, read-back and session history. Rollout groups can be created or renamed; nothing is deleted. See How it works under Settings for the full workflow.</p>
+      <p class="mini">Compare the new MDE policies with the old set, prepare wave groups and members, and review retirement gaps. Reports only read data. Assignment and group changes use their own confirmation, read-back and session history. Rollout groups can be created or renamed; nothing is deleted. See ❓ How it works in the rail for the full workflow.</p>
     </details>
     <div id="mrProg" class="mini muted" role="status"></div>
     <div id="mrBody" style="margin-top:14px"></div>
@@ -2275,53 +2276,53 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10637"></script>
-<script src="js/selfhost.js?v=10637"></script>
-<script src="js/version.js?v=10637"></script>
-<script src="js/promote.js?v=10637"></script>
-<script src="js/authConfig.js?v=10637"></script>
-<script src="js/changelog.js?v=10637"></script>
-<script src="js/msappcatalog.js?v=10637"></script>
-<script src="js/demo.js?v=10637"></script>
-<script src="js/graph.js?v=10637"></script>
-<script src="js/suggest.js?v=10637"></script>
-<script src="js/progress.js?v=10637"></script>
-<script src="js/runledger.js?v=10637"></script>
-<script src="js/groupuse.js?v=10637"></script>
-<script src="js/audit.js?v=10637"></script>
-<script src="js/devicecleanup.js?v=10637"></script>
-<script src="js/backup.js?v=10637"></script>
-<script src="js/document.js?v=10637"></script>
-<script src="js/policycache.js?v=10637"></script>
-<script src="js/overview.js?v=10637"></script>
-<script src="js/devicewhy.js?v=10637"></script>
-<script src="js/whatif.js?v=10637"></script>
-<script src="js/health.js?v=10637"></script>
-<script src="js/settingsearch.js?v=10637"></script>
-<script src="js/conflict.js?v=10637"></script>
-<script src="js/compliance.js?v=10637"></script>
-<script src="js/filterrules.js?v=10637"></script>
-<script src="js/filters.js?v=10637"></script>
-<script src="js/restore.js?v=10637"></script>
-<script src="js/platformbaseline.js?v=10637"></script>
-<script src="js/complianceevidence.js?v=10637"></script>
-<script src="js/macbaseline.js?v=10637"></script>
-<script src="js/winbaseline.js?v=10637"></script>
-<script src="js/assignedit.js?v=10637"></script>
-<script src="js/restrictedau.js?v=10637"></script>
-<script src="js/groupmigrate.js?v=10637"></script>
-<script src="js/roles.js?v=10637"></script>
-<script src="js/defender.js?v=10637"></script>
-<script src="js/endpointsec.js?v=10637"></script>
-<script src="js/report.js?v=10637"></script>
-<script src="js/securescore.js?v=10637"></script>
-<script src="js/endpointposture.js?v=10637"></script>
-<script src="js/mdemembers.js?v=10637"></script>
-<script src="js/mdereports.js?v=10637"></script>
-<script src="js/mderollout.js?v=10637"></script>
-<script src="js/maa.js?v=10637"></script>
-<script src="js/laps.js?v=10637"></script>
-<script src="js/applocker.js?v=10637"></script>
-<script src="js/app.js?v=10637"></script>
+<script src="js/branding.js?v=10638"></script>
+<script src="js/selfhost.js?v=10638"></script>
+<script src="js/version.js?v=10638"></script>
+<script src="js/promote.js?v=10638"></script>
+<script src="js/authConfig.js?v=10638"></script>
+<script src="js/changelog.js?v=10638"></script>
+<script src="js/msappcatalog.js?v=10638"></script>
+<script src="js/demo.js?v=10638"></script>
+<script src="js/graph.js?v=10638"></script>
+<script src="js/suggest.js?v=10638"></script>
+<script src="js/progress.js?v=10638"></script>
+<script src="js/runledger.js?v=10638"></script>
+<script src="js/groupuse.js?v=10638"></script>
+<script src="js/audit.js?v=10638"></script>
+<script src="js/devicecleanup.js?v=10638"></script>
+<script src="js/backup.js?v=10638"></script>
+<script src="js/document.js?v=10638"></script>
+<script src="js/policycache.js?v=10638"></script>
+<script src="js/overview.js?v=10638"></script>
+<script src="js/devicewhy.js?v=10638"></script>
+<script src="js/whatif.js?v=10638"></script>
+<script src="js/health.js?v=10638"></script>
+<script src="js/settingsearch.js?v=10638"></script>
+<script src="js/conflict.js?v=10638"></script>
+<script src="js/compliance.js?v=10638"></script>
+<script src="js/filterrules.js?v=10638"></script>
+<script src="js/filters.js?v=10638"></script>
+<script src="js/restore.js?v=10638"></script>
+<script src="js/platformbaseline.js?v=10638"></script>
+<script src="js/complianceevidence.js?v=10638"></script>
+<script src="js/macbaseline.js?v=10638"></script>
+<script src="js/winbaseline.js?v=10638"></script>
+<script src="js/assignedit.js?v=10638"></script>
+<script src="js/restrictedau.js?v=10638"></script>
+<script src="js/groupmigrate.js?v=10638"></script>
+<script src="js/roles.js?v=10638"></script>
+<script src="js/defender.js?v=10638"></script>
+<script src="js/endpointsec.js?v=10638"></script>
+<script src="js/report.js?v=10638"></script>
+<script src="js/securescore.js?v=10638"></script>
+<script src="js/endpointposture.js?v=10638"></script>
+<script src="js/mdemembers.js?v=10638"></script>
+<script src="js/mdereports.js?v=10638"></script>
+<script src="js/mderollout.js?v=10638"></script>
+<script src="js/maa.js?v=10638"></script>
+<script src="js/laps.js?v=10638"></script>
+<script src="js/applocker.js?v=10638"></script>
+<script src="js/app.js?v=10638"></script>
 </body>
 </html>

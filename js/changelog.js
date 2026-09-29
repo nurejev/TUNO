@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10638,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — back on the rail, reports as rail nodes",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "The rail is back: one navigation with every pane's count in view, sticky while long tables scroll. 📑 Reports opens into its three reports — Assignments, Deployment configuration and Conflict check — as child nodes, each showing its state (not generated, generated at a time, regenerate, or how many collisions are left to act on). One click opens a report, and its saved preview gets the whole main column. The report workspace, compact header and Export menus from 10637 stay."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "On narrow screens the main column now fits the screen once the rail stacks above it, instead of running off to the right. Coverage table headers wrap between words. Report nodes open from the keyboard, and a generated report's button reads ↻ Generate again."
+    }
+  ]
+},
+{
   "build": 10637,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — report workspace",
