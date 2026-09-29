@@ -2556,3 +2556,16 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .cg-table td{overflow-wrap:anywhere}
 #screen-mderollout .cg-table .gu-how,#screen-mderollout .cg-table .au-op{white-space:normal;max-width:100%}
 #screen-mderollout tr.mr-oldhead td{background:var(--soft);border-top:2px solid var(--border)}
+/* T28 wave members (10634, layout A off the mockup): the device list opens
+   under its row, the wave meters, the selected rows, and the action bar that
+   sits at the foot of the pane (sticky while the table scrolls past). */
+#screen-mderollout .mr-detail{border-left:4px solid var(--lemon);margin:4px 0 6px;padding:8px 12px;background:var(--soft);border-radius:0 12px 12px 0;font-size:12.5px}
+#screen-mderollout .mr-meter{height:6px;width:220px;max-width:100%;border-radius:99px;background:var(--border);overflow:hidden;margin-top:3px}
+#screen-mderollout .mr-meter i{display:block;height:100%;background:var(--accent2)}
+#screen-mderollout tr.mr-selrow td{background:color-mix(in srgb,var(--lemon) 16%,var(--surface))}
+#screen-mderollout .mr-mbar{position:sticky;bottom:12px;z-index:5;margin-top:12px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;background:var(--green-deep);color:#fff;border-radius:16px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+#screen-mderollout .mr-mbar b{color:var(--lemon)}
+#screen-mderollout .mr-mbar .chk{color:#fff;font-size:12.5px}
+#screen-mderollout .mr-mbar .mini{color:#dfe9e2}
+#screen-mderollout .mr-mbar .btn.primary{background:var(--lemon);color:var(--green-deep);border-color:var(--lemon);font-weight:700;margin-left:auto}
+#screen-mderollout .mr-mbar .btn.primary:disabled{opacity:.55}

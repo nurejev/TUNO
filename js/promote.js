@@ -104,6 +104,41 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 196,
+  "title": "T28 — wave members (country groups and INT-SG-D device groups into the waves) + named policies in the target list",
+  "tools": [
+   "T28 MDE rollout"
+  ],
+  "builds": [
+   10634
+  ],
+  "risk": "medium",
+  "what": "New js/mdemembers.js (MdeMembers engine): country table config (countryPrefix, deviceGroupPrefix, countryMap per region, deviceSuffixes overrides, ISO 3166 alpha-2 → alpha-3 table), readInput (prefix groups, transitive users per mapped group, Windows managedDevices, Entra Windows devices with ConsistencyLevel eventual, INT-SG-D-* groups and their device members, wave group members), compute (devices by Intune primary user joined on azureADDeviceId → Entra object id; stale / no Entra object / in two countries; sync diff add/remove; nesting state; unmapped + overlaps; no-primary-user count), planOps (create → add → remove → nest, skips with reasons, >500 nest warning), inverseOf (undo), applyOps (createWave with owner, PATCH members@odata.bind 20 per request with replication retry and per-id fallback, DELETE $ref, nest/unnest by $ref, read-back), patchInput, csv. Screen: 👥 Wave members rail pane (layout A off the mockup) — region chips, wave meters, per-country rows with device detail, the action bar with create&fill / nest users / nest devices / apply removals, a members plan (tick or typed REMOVE) on the run ledger, undo from 📜. Rules pane: country prefix, device-group prefix, countries per region, suffix overrides. MdeRollout config: members sub-config; alsoInScope (five OIB names) — named settings-catalog policies are in scope, and old catalog policies sharing a setting with the new set are pulled in; categories hard (Device security) and upd (Updates & telemetry). Demo: country groups NL (dynamic, nested in the Euro user wave), DE, US, FR, PL, NL-Breda; INT-SG-D-NLD out of sync and nested in the Euro device wave; typed member reads and member writes (PATCH bind, $ref add/remove); P(27) named audit policy and P(28) old audit policy.",
+  "why": "Mihai: the country user groups (PVM-UG-CORP-MEM-USERS-*) go into the wave groups by nesting; per user group a device group INT-SG-D-<iso3> with the users' devices (as Compare-UserDeviceCountryGroups.ps1 finds them, Intune primary user), offered per wave. The extensionAttribute-based device groups missed 2,561 devices and held 2,933 wrong ones on 29-09. And: add the OIB Device Security and WUfB policies to the target list.",
+  "test": [
+   "Run npm test — tests/mderollout/members.test.js (table and naming incl. POL-WAW / ARE, compute, sync diff, plan order and skips, undo, 20-per-PATCH, per-id fallback, replication retry, applyOps with a refused create) and tests/mderollout/screen.test.js (the pane end to end in demo: read, NL out of sync, DE create → fill → nest → verify, undo from 📜, removals behind REMOVE, Americas without a device wave, the unmapped list; named policy in scope and the old audit policy as a conflict).",
+   "LIVE PENDING: PVM — 👥 read: country counts match UserDeviceGroupMatch_20260929 (NL 903, DE 145, IT 1,328 devices); the 20 prefix groups outside the table are listed (NL-Breda, IN-UP-Shortcut and IT-SELECTION as overlaps).",
+   "LIVE PENDING: tick one small country (e.g. Belgium): INT-SG-D-BEL is created with you as owner, filled, nested in both Euro waves; Entra shows the nesting; undo it.",
+   "LIVE PENDING: the five named OIB policies appear under 🎯 New with ➕ by name; old audit / hardening / delivery-optimisation policies show under ⚔️ where they set the same setting."
+  ],
+  "files": [
+   "js/mdemembers.js",
+   "js/mderollout.js",
+   "js/demo.js",
+   "css/app.css",
+   "index.html",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "tests/mderollout/members.test.js",
+   "tests/mderollout/engine.test.js",
+   "tests/mderollout/screen.test.js",
+   "tests/platformbaseline/screen.test.js",
+   "docs/reviews/T28-beta-10634.md",
+   "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 195,
   "title": "T28 — device/user wave pairs, exclusion groups, rollout actions, creator is owner",
   "tools": [

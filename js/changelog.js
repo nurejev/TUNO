@@ -26,6 +26,33 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10634,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — wave members: country groups and their devices into the waves",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Wave members, a new pane: per wave, every country from the country table with its user group, its Windows devices found through their Intune primary user, its INT-SG-D device group and whether both groups are in the wave. Tick countries and one dry run creates the missing device groups (you are the owner), fills them, and nests the country user group into the user wave and the device group into the device wave. Each step is read back, and the run can be undone from Changes this session."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "The device groups stay in sync: each read shows the devices a group is missing and the ones whose primary user left the country. Removals are only written when ticked and confirmed by typing REMOVE. Stale devices, devices with no Entra object, devices whose user is in two country groups, and devices with no primary user at all are shown rather than guessed. CSV per device."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "The country table follows the sheet (Euro, Americas, Asia-Pacific, Italy, BAMSCA) and can be edited under Naming rules, as can the device-group suffixes. Two-letter codes become the three-letter code; the Warsaw and Skarbimierz groups become INT-SG-D-POL-WAW and INT-SG-D-POL-SKARB, and UAE becomes INT-SG-D-ARE. Country groups the table does not name are listed and never nested; an overlap such as NL-Breda is pointed out."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Five OIB policies are in the target list by name: Device Security (Audit and Event Logging, Security Hardening, Local Security Policies 24H2+) and Windows Update for Business (Delivery Optimisation, Reports and Telemetry). An old policy that sets one of their settings is now listed and compared too. The list can be edited under Naming rules."
+    }
+  ]
+},
+{
   "build": 10633,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — device and user wave pairs, exclusion groups, one-click rollout actions, and you as owner",

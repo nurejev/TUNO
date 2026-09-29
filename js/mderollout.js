@@ -88,6 +88,15 @@ const MdeRollout = (() => {
     exclusionUser: "PVM-UG-MDE-Exclusion",
     waveDescription: "MDE rollout wave — created by TUNO (T28 MDE rollout).",
     exclusionDescription: "MDE rollout exclusion — members stay off the new MDE policies. Created by TUNO (T28 MDE rollout).",
+    // Policies in the target list by NAME although nothing in them is an
+    // MDE area (10634, Mihai: "add these policies to the new list").
+    alsoInScope: [
+      "Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7",
+      "Win - OIB - SC - Device Security - D - Security Hardening - v3.7",
+      "Win - OIB - SC - Device Security - D - Local Security Policies (24H2+) - v3.6.1",
+      "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0",
+      "Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0",
+    ],
   });
   const cleanList = (a) => uniq((a || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean));
   const str = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -126,6 +135,10 @@ const MdeRollout = (() => {
       exclusionUser: o.exclusionUser == null ? DEFAULTS.exclusionUser : String(o.exclusionUser).trim(),
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
+      alsoInScope: cleanList(Array.isArray(o.alsoInScope) ? o.alsoInScope : DEFAULTS.alsoInScope),
+      // 👥 Wave members (10634): the country → region table and the device
+      // group naming, kept with the rest of this tenant's rules
+      members: typeof MdeMembers !== "undefined" ? MdeMembers.normConfig(o.members) : null,
     };
     cfg.waveRegions = Array.isArray(o.waveRegions) ? cleanList(o.waveRegions)
       : Array.isArray(o.waves) ? regionsFromNames(o.waves, cfg)
@@ -182,11 +195,13 @@ const MdeRollout = (() => {
   // -------------------------------------------------------- categories --
   // T20's rail nodes are the vocabulary, so a category here reads the same
   // as a discipline in 🧭 Endpoint security posture.
-  const CAT_IDS = ["av", "asr", "edr", "fw", "disk", "acct", "appctl", "epm", "edge", "mde", "other"];
+  const CAT_IDS = ["av", "asr", "edr", "fw", "disk", "acct", "appctl", "epm", "edge", "mde", "hard", "upd", "other"];
   function catMeta(id) {
     const n = (typeof EndpointPosture !== "undefined" && EndpointPosture.nodeById(id)) || null;
     if (n) return { id, icon: n.icon, label: n.label };
     if (id === "other") return { id, icon: "🧩", label: "Other" };
+    if (id === "hard") return { id, icon: "🔒", label: "Device security" };
+    if (id === "upd") return { id, icon: "📡", label: "Updates & telemetry" };
     return { id, icon: "•", label: id };
   }
   const NODE_CAT = { otherdisc: "other" };
@@ -203,6 +218,10 @@ const MdeRollout = (() => {
     if (/applicationcontrol|appcontrol/.test(k)) return "appctl";
     if (/endpointprivilegemanagement|privilegemanagement/.test(k)) return "epm";
     if (/_defender_|defender_configuration|windowsdefendersecuritycenter|microsoftdefender/.test(k)) return "av";
+    // Device security (10634): audit, local security options, hardening —
+    // the OIB "Device Security" policies Mihai added to the target list.
+    if (/_audit_|auditoptions|localpoliciessecurityoptions|userrights|mssecurityguide|msslegacy|_eventlogservice_|lanmanserver|lanmanworkstation|_remoteprocedurecall_|_security_|windowslogon|_credentialsui_|_credentialsdelegation_/.test(k)) return "hard";
+    if (/deliveryoptimization|_update_|windowsupdate|allowtelemetry|configuretelemetry|diagnosticdata|limitdiagnosticlogcollection|limitdumpcollection/.test(k)) return "upd";
     return "other";
   }
   // Legacy typed properties (deviceConfigurations) -> category. Null = not
@@ -347,7 +366,9 @@ const MdeRollout = (() => {
     return p;
   }
 
-  function fromCatalog(sec, item, raw, cfg) {
+  // how: "named" (in cfg.alsoInScope) or "shares" (an old policy setting a
+  // setting a new policy sets) pulls in a policy the MDE test would leave out.
+  function fromCatalog(sec, item, raw, cfg, how) {
     const nodes = EndpointPosture.classify(item).map((n) => NODE_CAT[n] || n);
     const rows = EndpointSec.flattenSettings((raw && raw.__detail) || []);
     const settings = settingsOf(rows);
@@ -355,7 +376,8 @@ const MdeRollout = (() => {
     // In scope when T20 would list it, or when it configures anything in an
     // MDE category — a settings-catalog BitLocker or WHfB policy collides
     // with the new set as surely as an antivirus one does.
-    if (!nodes.length && !settingCats.some((c) => MDE_CATS.has(c))) return null;
+    const mde = nodes.length || settingCats.some((c) => MDE_CATS.has(c));
+    if (!mde && !how) return null;
     const fam = String(item.templateFamily || "");
     const kind = /^endpointSecurity/i.test(fam)
       ? `Endpoint security · ${EndpointSec.disciplineOf(fam)}`
@@ -364,8 +386,13 @@ const MdeRollout = (() => {
     // T20's generic "MDE in settings catalog" node gives way to the specific
     // categories the settings name; it stays only when nothing more exact is known.
     const specific = uniq(nodes.filter((n) => n !== "mde").concat(settingCats.filter((c) => MDE_CATS.has(c))));
+    if (!mde) {
+      p.scopeWhy = how === "named" ? "in the target list by name (⚙️)" : "sets a setting a new policy sets";
+      return finish(p, uniq(settingCats).filter((c) => c !== "other").concat(settingCats.includes("other") ? ["other"] : []), settings, "catalog", kind);
+    }
     return finish(p, specific.length ? specific : nodes, settings, "catalog", kind);
   }
+  const isNamed = (name, cfg) => (cfg.alsoInScope || []).some((n) => normName(n) === normName(name));
   function fromIntent(sec, item, raw, cfg, templates) {
     const t = templates && raw && raw.templateId ? templates.get(lc(raw.templateId)) : null;
     const tName = (t && t.displayName) || "";
@@ -433,6 +460,7 @@ const MdeRollout = (() => {
     const cfg = normConfig(cfgIn);
     const policies = [];
     const missing = [];
+    const rest = [];   // settings-catalog policies the MDE test left out
     for (const secId of SECTION_IDS) {
       const sec = (res.sections || []).find((s) => s.id === secId);
       if (!sec) {
@@ -446,10 +474,29 @@ const MdeRollout = (() => {
       for (const item of sec.items || []) {
         const raw = rawById.get(lc(item.id)) || {};
         let p = null;
-        if (secId === "settingsCatalog") p = fromCatalog(sec, item, raw, cfg);
+        if (secId === "settingsCatalog") {
+          p = fromCatalog(sec, item, raw, cfg, isNamed(item.name, cfg) ? "named" : null);
+          if (!p) rest.push({ sec, item, raw });
+        }
         else if (secId === "intents") p = fromIntent(sec, item, raw, cfg, templates);
         else if (secId === "deviceConfigurations") p = fromDeviceConfig(sec, item, raw, cfg);
         else if (secId === "admx") p = fromAdmx(sec, item, raw, cfg);
+        if (p) policies.push(p);
+      }
+    }
+    // An OLD settings-catalog policy outside the MDE areas still collides
+    // when it sets a setting a new policy sets (10634 — the Device Security
+    // policies: audit, hardening, local security options). Pulled in, and
+    // said why. New and out-of-scope names are not pulled this way.
+    const newKeys = new Set();
+    for (const P of policies) if (P.generation === "new") for (const k of P.settings.keys()) newKeys.add(k);
+    if (newKeys.size) {
+      for (const r of rest) {
+        const g = generationOf(r.item.name, cfg);
+        if (g !== "old" && g !== "retiring") continue;
+        const rows = EndpointSec.flattenSettings((r.raw && r.raw.__detail) || []);
+        if (![...settingsOf(rows).keys()].some((k) => newKeys.has(k))) continue;
+        const p = fromCatalog(r.sec, r.item, r.raw, cfg, "shares");
         if (p) policies.push(p);
       }
     }
@@ -1228,6 +1275,9 @@ const MdeRolloutTool = (() => {
   const selPairs = new Set();  // pair ids (Conflicts pane)
   const selWaves = new Set();  // missing wave names (Waves pane)
   let rollRegions = null;      // rollout actions: the regions ticked (null = every region)
+  // 👥 Wave members (10634): its own read, its own selection, its own plan kind
+  const mem = { input: null, model: null, loading: false, region: null, unmapped: false,
+    sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false } };
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
   let backupTaken = false;
@@ -1294,6 +1344,8 @@ const MdeRolloutTool = (() => {
     // selections that no longer exist are dropped, never silently kept
     for (const k of [...sel]) if (!model.byKey.has(k)) sel.delete(k);
     for (const id of [...selPairs]) if (!pairs.some((p) => p.id === id && M.needsAction(p))) selPairs.delete(id);
+    // the wave members follow the rules and the wave lookup
+    if (mem.input) memCompute();
   }
 
   // -------------------------------------------------------------- run --
@@ -1357,6 +1409,7 @@ const MdeRolloutTool = (() => {
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
     kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); open.clear();
     runs.length = 0; filterList = null; clearPlan();
+    mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
     if ($("mrBody")) $("mrBody").innerHTML = "";
     showExports(false); syncSelbar();
   }
@@ -1385,6 +1438,7 @@ const MdeRolloutTool = (() => {
       node("old", "🗄", "Old policies", model.oldP.length),
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
       node("waves", "🌊", "Wave groups", missing ? `${missing} missing` : waveRows.length, missing > 0),
+      node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
       "<hr>",
       node("changes", "📜", "Changes this session", runs.length),
       node("rules", "⚙️", "Naming rules", null),
@@ -1432,7 +1486,7 @@ const MdeRolloutTool = (() => {
         : editable ? `<span class="mini muted" title="This surface is not one the Assignment editor's engine writes">—</span>` : "";
       return `<tr>
         ${editable ? `<td style="width:26px">${pick}</td>` : ""}
-        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
+        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.scopeWhy ? ` · <span title="In scope: ${esc(P.scopeWhy)}">${/name/.test(P.scopeWhy) ? "➕ by name" : "🔗 shares a setting"}</span>` : ""}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
         <td style="white-space:nowrap">${catIcons(P)}</td>
         <td class="mini">${assignChips(P)}</td>
         <td class="mini">${which === "out" ? "" : col.length
@@ -1638,9 +1692,9 @@ const MdeRolloutTool = (() => {
       const idx = runs.length - 1 - i;
       return `<div class="list-card" style="margin-top:${i ? 12 : 0}px">
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(new Date(r.at).toLocaleTimeString())}</span></h4>
-        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
+        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "groups" ? "" : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
@@ -1656,6 +1710,16 @@ const MdeRolloutTool = (() => {
         <label class="wi-f"><span>🚫 Out of scope — name starts with</span>${ta("mrRuleOut", cfg.outPrefixes)}</label>
         <label class="wi-f"><span>🌊 Wave regions — one per line</span>${ta("mrRuleWaves", cfg.waveRegions)}</label>
       </div>
+      <p class="mini muted" style="margin:14px 0 6px"><b>👥 Wave members.</b> Countries per region, one region per line: <code>Euro: GB, BE, NL</code>. A suffix is the end of the country user group's name; two letters map to ISO3 for the device group, anything else needs a line under the suffixes.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+        <label class="wi-f"><span>Country user groups start with</span><input id="mrRuleCtyPre" value="${esc(mcfg().countryPrefix)}"></label>
+        <label class="wi-f"><span>Device groups start with</span><input id="mrRuleDgrpPre" value="${esc(mcfg().deviceGroupPrefix)}"></label>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:10px">
+        <label class="wi-f"><span>🌍 Countries per region</span><textarea id="mrRuleMap" rows="${Math.max(4, mcfg().countryMap.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatMap(mcfg().countryMap))}</textarea></label>
+        <label class="wi-f"><span>Device-group suffix per non-ISO2 suffix</span><textarea id="mrRuleSfx" rows="${Math.max(4, Object.keys(mcfg().deviceSuffixes).length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatOverrides(mcfg().deviceSuffixes))}</textarea></label>
+      </div>
+      <label class="wi-f" style="margin-top:12px"><span>➕ Also in the target list — exact policy names, one per line. They are in scope although nothing in them is an MDE area, and an old policy that sets one of their settings is pulled in too.</span>${ta("mrRuleAlso", cfg.alsoInScope)}</label>
       <p class="mini muted" style="margin:12px 0 6px">Each region is a PAIR: the device wave (prefix + region) for the <code>- D -</code> policies and the user wave for the <code>- U -</code> ones. Now: ${cfg.groups.filter((g) => g.role === "wave").map((g) => `<code>${esc(g.name)}</code>`).join(" ")}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🖥 Device wave prefix</span><input id="mrRuleDgPre" value="${esc(cfg.waveDevicePrefix)}"></label>
@@ -1678,6 +1742,8 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>The read.</b> The shared policy read (settings catalog, legacy endpoint security intents, device configurations, administrative templates) — the same one T05, T11, T19 and T26 use — plus the legacy templates' names, the wave groups by name, and each involved group's kind. In scope is what 🧭 T20 classifies as endpoint security, MDE or Edge, plus any policy setting an MDE-area setting (BitLocker, WHfB, App Control…), and custom OMA-URIs under those CSPs.</p>
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
+      <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
+      <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed — only assignments, and only by this plan.</p>
@@ -1697,6 +1763,7 @@ const MdeRolloutTool = (() => {
     else if (pane === "out") main = policyPane(model.outP, "out");
     else if (pane === "retire") main = retirePane();
     else if (pane === "waves") main = wavesPane();
+    else if (pane === "members") main = membersPane();
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
     else if (pane === "how") main = howPane();
@@ -1951,6 +2018,7 @@ const MdeRolloutTool = (() => {
   async function undoRun(idx) {
     const r = runs[idx];
     if (!r || busy) return;
+    if (r.kind === "members") { memDryRun(r); return; }
     busy = true; clearPlan();
     try {
       await Graph.ensureScopes(AssignEdit.READ());
@@ -2017,6 +2085,198 @@ const MdeRolloutTool = (() => {
         ${line("excludeWaves", "③", "change", `The ⚔️ pane's proposals, waves only: a wave leaves an old policy only where a new policy that sets the same settings includes it (or its twin), never ahead of it.${gaps ? ` <span style="color:var(--off)">${plural(gaps, "of these old policies has", "of these old policies have")} a 🧹 gap — settings the new set does not carry; wave members lose them.</span>` : ""}`)}
       </tbody></table>
     </div>`;
+  }
+
+  // ---------------------------------------------------- 👥 wave members --
+  // Layout A off the mockup (Mihai's pick, 10634): per wave, one row per
+  // country — its user group, its Windows devices by primary user, its
+  // INT-SG-D device group with the sync diff, and its place in the wave.
+  const mcfg = () => cfg.members || MdeMembers.normConfig(null);
+  function memWaves() {
+    const out = new Map();
+    const byRegion = new Map();
+    for (const g of cfg.groups) if (g.role === "wave") {
+      if (!byRegion.has(lc(g.region))) byRegion.set(lc(g.region), { user: null, device: null, userName: "", deviceName: "" });
+      const w = byRegion.get(lc(g.region));
+      const hit = found ? found.get(lc(g.name)) : null;
+      if (g.audience === "user") { w.userName = g.name; w.user = hit || null; } else { w.deviceName = g.name; w.device = hit || null; }
+    }
+    for (const [k, v] of byRegion) out.set(k, v);
+    return out;
+  }
+  function memCompute() { if (mem.input) mem.model = MdeMembers.compute(mcfg(), mem.input, memWaves()); }
+  async function memRead() {
+    if (mem.loading) return;
+    mem.loading = true; clearPlan(); render();
+    try {
+      await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects])]);
+      const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
+      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; });
+      memCompute();
+      if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
+    } catch (e) {
+      mem.model = null; mem.input = null;
+      mem.error = GroupUse.shortErr(e, 300);
+    } finally { mem.loading = false; render(); }
+  }
+  const memRowSel = (r) => mem.sel.has(r.key);
+  function memCell(r) {
+    const g = r.dg;
+    if (!r.deviceGroupName) return `<span class="au-op delete" title="${esc(r.iso3Source)}">no device-group name</span><div class="mini muted">${esc(r.iso3Source)}</div>`;
+    const name = `<b>${esc(r.deviceGroupName)}</b>`;
+    if (!g) return `${name} ${chip("gu-how priv", "to create")}<div class="mini">${r.want.size ? `<span style="color:var(--on);font-weight:700">+${r.want.size}</span> to fill` : `<span class="muted">no devices to put in it</span>`}</div>`;
+    const diff = r.inSync ? `<span class="muted">in sync · ${r.have.size} in</span>` : `${r.add.length ? `<span style="color:var(--on);font-weight:700">+${r.add.length}</span>` : ""}${r.add.length && r.remove.length ? " · " : ""}${r.remove.length ? `<span style="color:var(--off);font-weight:700" title="${esc(r.removeNames.join("\n"))}">−${r.remove.length}</span>` : ""} <span class="muted">· ${r.have.size} in</span>`;
+    return `${name} ${chip("au-op create", "exists")}<div class="mini">${diff}</div>`;
+  }
+  function memNestCell(r) {
+    const one = (icon, nested, wave, waveName, what) => {
+      if (!wave) return `<div>${icon} <span class="muted" title="${esc(waveName)} does not exist — create it in 🌊">no wave group</span></div>`;
+      if (nested) return `<div>${icon} ${chip("au-op create", `✓ ${what} wave`)}</div>`;
+      if (nested === null) return `<div>${icon} <span class="muted">—</span></div>`;
+      return `<div>${icon} ${chip("au-op other", "offer")}</div>`;
+    };
+    return one("👤", r.ug ? r.ugNested : null, r.wave.user, r.wave.userName, "user")
+      + one("🖥", r.dg ? r.dgNested : (r.deviceGroupName && r.want.size ? false : null), r.wave.device, r.wave.deviceName, "device");
+  }
+  function memDetail(r) {
+    const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
+      const st = !d.objId ? chip("au-op delete", d.problem) : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
+      return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:var(--report)">also in ${esc(d.others.join(", "))}</div>` : ""}</td></tr>`;
+    }).join("");
+    const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
+    return `<tr><td colspan="6" style="padding:0 8px 8px 36px"><div class="mr-detail">
+      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}
+      ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
+      ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
+    </div></td></tr>`;
+  }
+  function membersPane() {
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave: the country <b>user</b> groups (<code>${esc(mcfg().countryPrefix)}…</code>) go into the user wave, and one <b>device</b> group per country (<code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code>, assigned) holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The device groups are synced, not filled once: every read shows what to add and what to remove. The country table is under ⚙️ Naming rules.</p>`;
+    if (mem.loading) return `<div class="list-card" style="margin-top:0">${intro}<p class="mini" id="mrMemProg">Reading…</p></div>`;
+    if (!mem.model) return `<div class="list-card" style="margin-top:0">${intro}
+      ${mem.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(mem.error)}</b></div>` : ""}
+      <div class="tb-actions"><button class="btn primary" id="mrMemRead">👥 Read the country groups and devices</button></div>
+      <p class="mini muted" style="margin:8px 0 0">Reads the country groups and their users, every Windows device in Intune and in Entra, the ${esc(mcfg().deviceGroupPrefix)}* groups and what is nested in the waves. Read-only; a large tenant takes a minute.</p></div>`;
+    const m = mem.model;
+    const regionChip = (rg) => fchip("data-mrmemregion", rg.region, `🌊 ${rg.region} · ${rg.rows.length}`, undefined, !mem.unmapped && mem.region === rg.region);
+    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
+    const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
+    if (mem.unmapped) {
+      const rows = m.unmapped.map((u) => `<tr><td><b>${esc(u.group.displayName)}</b></td><td class="mini">${u.dynamic ? "dynamic" : "assigned"}</td><td class="mini">${u.overlaps ? `<span style="color:var(--report)">overlaps ${esc(u.overlaps)} — nesting both would count people twice</span>` : `<span class="muted">not in the country table</span>`}</td><td class="mini muted">${esc(u.group.membershipRule || "")}</td></tr>`).join("");
+      return `${chips}${top}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0 0 10px">Groups starting with <code>${esc(mcfg().countryPrefix)}</code> that the country table does not name. They are listed, never nested. To add one to a wave, put its suffix under a region in ⚙️ Naming rules.</p>
+        ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:34%"><col style="width:10%"><col style="width:26%"><col></colgroup><thead><tr><th>Group</th><th>Type</th><th>Why it is here</th><th>Rule</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None — every group with the prefix is in a wave.</p>`}</div>`;
+    }
+    const rg = m.regions.find((x) => x.region === mem.region) || m.regions[0];
+    if (!rg) return `${chips}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0">The country table is empty — fill it under ⚙️ Naming rules.</p></div>`;
+    const inTenant = rg.rows.filter((r) => r.ug), absent = rg.rows.filter((r) => !r.ug);
+    const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+    const meter = (label, name, a, b, extra) => `<div><div class="mini muted">${esc(name || label)}</div><b>${a} of ${b}</b> <span class="mini muted">${extra}</span><div class="mr-meter"><i style="width:${pct(a, b)}%"></i></div></div>`;
+    const selectable = inTenant.filter((r) => !(r.inSync && r.ugNested && r.dgNested));
+    const allOn = selectable.length && selectable.every(memRowSel);
+    const rows = inTenant.map((r) => {
+      const done = r.inSync && r.ugNested && r.dgNested;
+      return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
+        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a><div class="mini muted">${esc(r.userGroupName)}</div></td>
+        <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
+        <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted">${plural(r.usersNoDevice, "user has", "users have")} none</div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
+        <td class="mini">${memCell(r)}</td>
+        <td class="mini">${memNestCell(r)}</td></tr>${mem.open.has(r.key) ? memDetail(r) : ""}`;
+    }).join("");
+    const nSel = inTenant.filter(memRowSel).length;
+    const o = mem.opts;
+    const preview = MdeMembers.planOps(m, new Set(inTenant.filter(memRowSel).map((r) => r.key)), o, mcfg());
+    const count = (t) => preview.ops.filter((x) => x.type === t);
+    const adds = count("add").reduce((a, x) => a + x.ids.length, 0);
+    const summary = nSel ? [count("create").length ? `create ${count("create").length}` : "", adds ? `add ${adds.toLocaleString()} device${adds === 1 ? "" : "s"}` : "", count("remove").length ? `remove ${count("remove").reduce((a, x) => a + x.ids.length, 0)}` : "", count("nest").length ? `nest ${count("nest").length} group${count("nest").length === 1 ? "" : "s"} into ${rg.region}` : ""].filter(Boolean).join(" · ") || "nothing to do for these" : "tick countries to plan";
+    const tick = (id, key, label) => `<label class="chk" style="margin:0"><input type="checkbox" id="${id}" data-mrmemopt="${key}"${o[key] ? " checked" : ""}> ${label}</label>`;
+    return `${chips}${top}<div class="list-card" style="margin-top:0">
+      ${intro}
+      <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px">
+        ${meter("user wave", rg.wave.userName, rg.ugNested, inTenant.length, `country groups nested · ${rg.users.toLocaleString()} users`)}
+        ${meter("device wave", rg.wave.deviceName, rg.dgNested, inTenant.length, `device groups nested · ${rg.devices.toLocaleString()} devices`)}
+        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b> · Windows only · ${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} have no primary user and are in no country</div>
+      </div>
+      ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:8%"><col style="width:13%"><col style="width:26%"><col></colgroup>
+        <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None of this wave's country groups is in the tenant.</p>`}
+      ${absent.length ? `<p class="mini muted" style="margin:8px 0 0">Not in this tenant: ${absent.map((r) => `<code>${esc(r.userGroupName)}</code>`).join(" ")}</p>` : ""}
+      <div class="mr-mbar">
+        <b>${plural(nSel, "country", "countries")}</b>
+        ${tick("mrMemFill", "fill", "create &amp; fill device groups")}
+        ${tick("mrMemNestU", "nestUsers", "nest user groups")}
+        ${tick("mrMemNestD", "nestDevices", "nest device groups")}
+        ${tick("mrMemRem", "removals", "apply removals")}
+        <span class="mini" id="mrMemSum">${esc(summary)}</span>
+        <button class="btn primary" id="mrMemDry"${nSel ? "" : " disabled"}>② Dry run</button>
+      </div>
+      <p class="mini muted" style="margin:8px 0 0">Order per country: create → fill (20 per request, then read back) → remove (only when ticked) → nest. A device group is nested only after it exists; a large nest is warned about (Microsoft Learn: “Don't make large group nesting changes all at once.”).</p>
+    </div>`;
+  }
+  async function memDryRun(undoOf) {
+    if (busy || !mem.model) return;
+    clearPlan();
+    let p;
+    if (undoOf) p = MdeMembers.inverseOf(undoOf.done);
+    else p = MdeMembers.planOps(mem.model, new Set(mem.model.rows.filter((r) => r.region === mem.region && mem.sel.has(r.key)).map((r) => r.key)), mem.opts, mcfg());
+    plan = Object.assign(p, { members: true, title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}` });
+    renderMemPlan();
+  }
+  const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out" };
+  const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : `${x.child.name} → ${x.parent.name}`;
+  function renderMemPlan() {
+    const p = plan;
+    const country = (key) => { const r = mem.model && mem.model.rows.find((x) => x.key === key); return r ? r.country : key; };
+    const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x.key))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", OP_WORD[x.type])}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${x.size.toLocaleString()} ${x.kind === "user" ? "users" : "devices"})</span>` : ""}</td></tr>`).join("");
+    planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
+      <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
+      <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
+      ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
+      ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
+      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>Country</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
+      <p class="mini muted" style="margin:8px 0 0">Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo.</p>
+      ${p.ops.length ? `<div style="margin-top:12px">
+        ${p.hasRemoval ? `<label class="wi-f" style="margin-top:8px"><span>This plan REMOVES members or takes groups out of a wave — type <b>REMOVE</b> to allow it</span><input id="mrConfirmText" placeholder="REMOVE" autocomplete="off" spellcheck="false"></label>`
+          : `<label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mrConfirmTick"> I have read the plan — ${plural(p.ops.length, "step")}</label>`}
+        <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mrMemApply" disabled>④ Apply — write to the tenant</button><button class="btn" id="mrDiscard">Discard the plan</button></div>
+      </div>` : `<div class="tb-actions" style="margin-top:10px"><button class="btn" id="mrDiscard">Close</button></div>`}
+      <div id="mrLedger"></div>
+    </div>`;
+    const ok = () => { const t = $("mrConfirmText"), k = $("mrConfirmTick"); return t ? t.value.trim() === "REMOVE" : !!(k && k.checked); };
+    const upd = () => { const b = $("mrMemApply"); if (b) b.disabled = !ok(); };
+    if ($("mrConfirmText")) $("mrConfirmText").addEventListener("input", upd);
+    if ($("mrConfirmTick")) $("mrConfirmTick").addEventListener("change", upd);
+    if ($("mrMemApply")) $("mrMemApply").addEventListener("click", () => { if (ok()) applyMem(); });
+    $("mrDiscard").addEventListener("click", clearPlan);
+    planEl().scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  async function applyMem() {
+    if (busy || !plan || !plan.members) return;
+    busy = true;
+    const p = plan;
+    try {
+      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
+      $("mrMemApply").disabled = true;
+      let me = null;
+      if (p.ops.some((x) => x.type === "create")) { try { me = await M.readMe(); } catch { me = null; } }
+      const L = RunLedger.create($("mrLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${OP_WORD[x.type]} · ${opLabel(x)}`, sub: "" })) });
+      const r = await MdeMembers.applyOps(p.ops, { ledger: L, me });
+      L.finish();
+      const createdGroups = [...r.created.entries()].map(([name, id]) => ({ id, displayName: p.ops.find((x) => x.type === "create" && lc(x.name) === name) ? p.ops.find((x) => x.type === "create" && lc(x.name) === name).name : name, groupTypes: [] }));
+      MdeMembers.patchInput(mem.input, r.done, createdGroups);
+      if (found) for (const g of createdGroups) names.set(lc(g.id), g.displayName);
+      memCompute();
+      const okN = r.results.filter((x) => x.ok && x.verified).length;
+      runs.push({ at: Date.now(), title: p.title, kind: "members", ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
+        done: r.done, lines: r.results.map((x) => `${OP_WORD[x.op.type]} · ${opLabel(x.op)}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`) });
+      plan = null;
+      mem.sel.clear();
+      const ledger = $("mrLedger").innerHTML;
+      render();
+      planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px"><h4 style="margin:0 0 6px">${esc(p.title)} — done</h4><div id="mrLedger">${ledger}</div><p class="mini muted" style="margin:8px 0 0">${okN} of ${r.results.length} steps written &amp; verified. The rows above moved with them; ↻ Read again for the tenant's own view. The run and its undo are in 📜 Changes this session.</p></div>`;
+    } catch (e) {
+      const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
+      $("mrLedger").appendChild(el);
+    } finally { busy = false; }
   }
 
   // ----------------------------------------------------- create waves --
@@ -2138,6 +2398,12 @@ const MdeRolloutTool = (() => {
       }
       const bk = t.closest("[data-mrrunbk]"); if (bk) { const r = runs[Number(bk.dataset.mrrunbk)]; if (r) download(`t28-assignments-before-${stamp()}.json`, JSON.stringify(r.backup, null, 2), "application/json"); return; }
       const un = t.closest("[data-mrundo]"); if (un) { undoRun(Number(un.dataset.mrundo)); return; }
+      const mr = t.closest("[data-mrmemregion]"); if (mr) { mem.region = mr.dataset.mrmemregion; mem.unmapped = false; clearPlan(); render(); return; }
+      if (t.closest("[data-mrmemunmapped]")) { mem.unmapped = !mem.unmapped; render(); return; }
+      const mo = t.closest("[data-mrmemopen]"); if (mo) { e.preventDefault(); const k = mo.dataset.mrmemopen; mem.open.has(k) ? mem.open.delete(k) : mem.open.add(k); render(); return; }
+      if (t.id === "mrMemRead") { memRead(); return; }
+      if (t.id === "mrMemDry") { memDryRun(); return; }
+      if (t.id === "mrMemCsv") { if (mem.model) download(`MDE-wave-members-${stamp()}.csv`, MdeMembers.csv(mem.model), "text/csv"); return; }
       const rr = t.closest("[data-mrroll-region]"); if (rr) {
         const all = [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))];
         const cur = rollRegions ? new Set(rollRegions) : new Set(all);
@@ -2151,12 +2417,18 @@ const MdeRolloutTool = (() => {
       if (t.id === "mrRuleSave") {
         const lines = (id) => $(id).value.split(/\r?\n/);
         const before = cfg.waves.join("\n");
+        const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}`;
+        const beforePre = prefixes();
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
-          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value });
+          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"),
+          members: Object.assign({}, mcfg(), { countryPrefix: $("mrRuleCtyPre").value, deviceGroupPrefix: $("mrRuleDgrpPre").value,
+            countryMap: MdeMembers.parseMap($("mrRuleMap").value), deviceSuffixes: MdeMembers.parseOverrides($("mrRuleSfx").value) }) });
         (async () => {
           if (cfg.waves.join("\n") !== before) { try { const f = await M.findGroups(cfg.waves); found = f.found; dupes = f.dupes; } catch { found = null; } }
+          // a new prefix means other groups — the members read is redone, not recomputed
+          if (prefixes() !== beforePre) { mem.input = null; mem.model = null; mem.sel.clear(); }
           derive(); render();
           $("mrRuleMsg").textContent = `${okSaved ? "Saved for this tenant." : "Applied for this session — this browser would not keep it."} ${model.newP.length} new · ${model.oldP.length} old · ${model.outP.length} out of scope.`;
         })();
@@ -2198,6 +2470,12 @@ const MdeRolloutTool = (() => {
         return;
       }
       if (t.id === "mrWaveOk") { $("mrWaveCreate").disabled = !(selWaves.size && t.checked); }
+      if (t.dataset.mrmemsel) { t.checked ? mem.sel.add(t.dataset.mrmemsel) : mem.sel.delete(t.dataset.mrmemsel); clearPlan(); render(); return; }
+      if (t.dataset.mrmemall && mem.model) {
+        mem.model.rows.filter((r) => r.region === mem.region && r.ug && !(r.inSync && r.ugNested && r.dgNested)).forEach((r) => (t.checked ? mem.sel.add(r.key) : mem.sel.delete(r.key)));
+        clearPlan(); render(); return;
+      }
+      if (t.dataset.mrmemopt) { mem.opts[t.dataset.mrmemopt] = t.checked; clearPlan(); render(); return; }
     });
     // the bar
     $("mrActSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-mract]"); if (!b) return; setSeg("mrActSeg", "data-mract", b.dataset.mract); clearPlan(); syncSelbar(); });
@@ -2216,7 +2494,7 @@ const MdeRolloutTool = (() => {
     init, run,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

@@ -100,6 +100,11 @@ async function run() {
   ok("the legacy intent meets the new AV policy by category", S.pairs.some((p) => p.O.name === "PVM Legacy — Defender antivirus (intent)" && p.type === "review"));
   ok("setting names come from the definitions, not the ids", /cloud/i.test(av.diffs.map((d) => w.MdeRollout.labelName(new Map(), d)).join(" ")) || av.diffs.some((d) => /Cloud/.test(D.getElementById("mrBody").textContent)));
 
+  const named = S.model.newP.find((p) => /Audit and Event Logging/.test(p.name));
+  ok("a policy named in the target list is new and in scope, and says why (10634)", named && /by name/.test(named.scopeWhy) && named.cats.includes("hard"));
+  const audOld = S.model.oldP.find((p) => p.name === "PVM-DG-CORP-WIN-AUDIT-PRD");
+  ok("…and an old audit policy setting the same setting is pulled in as a conflict", audOld && /sets a setting/.test(audOld.scopeWhy) && S.pairs.some((p) => p.N === named && p.O === audOld && p.type === "conflict"));
+
   // ---------------------------------------------------------- panes --
   const paneText = (p) => { w.MdeRolloutTool._pane(p); return $("mrBody").textContent; };
   ok("Conflicts groups by old policy and shows the twin", /twin of PVM-DG-MDE-WAVE-Euro/.test(paneText("conflicts")) && /PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test($("mrBody").textContent));
@@ -111,7 +116,7 @@ async function run() {
     && st().waveRows.filter((x) => !x.exists).length === 10 && st().waveRows.find((x) => x.name === "PVM-DG-MDE-WAVE-Euro").exists && st().waveRows.find((x) => x.name === "PVM-UG-MDE-WAVE-Euro").exists);
   ok("Waves groups the rows by region, then the exclusion groups", D.querySelectorAll("#mrBody tr.mr-oldhead").length === 6 && /Exclusion groups/.test(wt) && /PVM-DG-MDE-Exclusion/.test(wt) && /PVM-UG-MDE-Exclusion/.test(wt));
   ok("Waves says Intune does not mix user and device groups", /does not exclude a user group/.test(wt));
-  ok("the device wave counts the - D - policies it is in", /2 \/ 3/.test(D.querySelector('[data-mrwaveinc="PVM-DG-MDE-WAVE-Euro"]').parentElement.textContent));
+  ok("the device wave counts the - D - policies it is in (the named audit policy included)", /3 \/ 4/.test(D.querySelector('[data-mrwaveinc="PVM-DG-MDE-WAVE-Euro"]').parentElement.textContent));
   ok("Out of scope lists AVD", /AVD - SEC - Defender Antivirus/.test(paneText("out")));
   ok("Rules shows the three prefixes", /WIN-SEC/.test($("mrBody").querySelector("#mrRuleNew") ? $("mrRuleNew").value : paneText("rules")));
   ok("How it works cites the support matrix", /support matrix/.test(paneText("how")));
@@ -193,8 +198,8 @@ async function run() {
     && st().runs[2].ok + st().runs[2].bad === 1 && st().runs[2].backup.policies.length === 1 && st().runs[2].backup.action === "rollout-includeWaves");
   w.MdeRolloutTool._pane("waves");
   D.querySelector('[data-mrroll="excludeExclusion"]').click();
-  ok("② exclude: the device exclusion group from the three - D - policies", await until(() => st().plan, 10000, "rollout exclusion plan")
-    && st().plan.changes.length === 3 && st().plan.changes.every((o) => o.details.some((d) => d.action === "add-exclude" && d.group.displayName === "PVM-DG-MDE-Exclusion")));
+  ok("② exclude: the device exclusion group from the four - D - policies", await until(() => st().plan, 10000, "rollout exclusion plan")
+    && st().plan.changes.length === 4 && st().plan.changes.every((o) => o.details.some((d) => d.action === "add-exclude" && d.group.displayName === "PVM-DG-MDE-Exclusion")));
   w.MdeRolloutTool._pane("waves");
   D.querySelector('[data-mrroll="excludeWaves"]').click();
   ok("③ the waves out of the colliding old policies — waves only", await until(() => st().plan, 10000, "rollout wave-exclusion plan")
@@ -206,6 +211,56 @@ async function run() {
   ok("ticking it back restores every region", st().rollRegions === null);
   w.MdeRolloutTool._pane("waves");
 
+  // --------------------------------------- 👥 wave members (10634) --
+  w.MdeRolloutTool._pane("members");
+  ok("the members pane starts with its own read button", !!$("mrMemRead") && /Intune primary user/.test($("mrBody").textContent));
+  $("mrMemRead").click();
+  ok("the members read lands", await until(() => D.querySelector("[data-mrmemregion]"), 20000, "members read"));
+  const mm = () => st().mem.model;
+  const mrow = (k) => mm().rows.find((r) => r.key === k);
+  ok("Euro first: the table's 14 countries, 3 of them in the demo tenant", st().mem.region === "Euro" && mm().regions[0].rows.length === 14 && mm().regions[0].rows.filter((r) => r.ug).length === 3);
+  ok("NL: INT-SG-D-NLD exists, nested in both waves, out of sync by +1 / −1", mrow("nl").dg && mrow("nl").ugNested && mrow("nl").dgNested && mrow("nl").add.length === 1 && mrow("nl").remove.length === 1 && mrow("nl").removeNames[0] === "WS-ENG-0221");
+  ok("DE: two Windows devices by primary user, one stale; INT-SG-D-DEU to create", !mrow("de").dg && mrow("de").want.size === 2 && mrow("de").problems.stale === 1 && mrow("de").deviceGroupName === "INT-SG-D-DEU");
+  ok("FR: a Mac-only user — no Windows device, nothing to create", mrow("fr").devices.length === 0 && mrow("fr").usersNoDevice === 1);
+  ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-POL-SKARB");
+  ok("devices with no primary user are counted", mm().noPrimary === 2 && /2 of \d+ have no primary user/.test($("mrBody").textContent));
+  ok("PL and NL-Breda are not in any wave; NL-Breda is flagged as an overlap", mm().unmapped.map((u) => u.group.displayName).sort().join() === "PVM-UG-CORP-MEM-USERS-NL-Breda,PVM-UG-CORP-MEM-USERS-PL" && mm().unmapped.find((u) => /Breda/.test(u.group.displayName)).overlaps === "PVM-UG-CORP-MEM-USERS-NL");
+  D.querySelector('[data-mrmemopen="nl"]').click();
+  ok("a country opens to its devices", /WS-FIN-0187/.test($("mrBody").textContent) && /no longer in PVM-UG-CORP-MEM-USERS-NL/.test($("mrBody").textContent));
+  const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
+  tickMem("de");
+  ok("ticking a country fills the bar", /create 1 · add 2 devices · nest 2 groups into Euro/.test($("mrMemSum").textContent), $("mrMemSum").textContent);
+  $("mrMemDry").click();
+  ok("the dry run: create → add → nest → nest", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,nest,nest");
+  ok("no removals, so a tick confirms", !!$("mrConfirmTick") && $("mrMemApply").disabled);
+  $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mrMemApply").click();
+  const nRuns = st().runs.length;
+  ok("applied: DE's device group exists, filled, and both groups are in the Euro waves", await until(() => st().runs.length === nRuns + 1 || st().runs.some((r) => r.kind === "members"), 10000, "members run")
+    && mrow("de").dg && mrow("de").inSync && mrow("de").ugNested && mrow("de").dgNested, JSON.stringify(st().runs[st().runs.length - 1].lines));
+  const mrun = st().runs.filter((r) => r.kind === "members").pop();
+  ok("the run is logged with every step verified", mrun.ok === 4 && mrun.bad === 0 && /INT-SG-D-DEU/.test(mrun.lines.join()));
+  // undo from 📜
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${st().runs.indexOf(mrun)}"]`).click();
+  ok("undo plans the reverse: take out, take out, remove the added devices", await until(() => st().plan && st().plan.members && /Undo/.test(st().plan.title), 5000, "undo plan") && st().plan.ops.map((o) => o.type).join() === "unnest,unnest,remove" && st().plan.hasRemoval);
+  ok("…with the created group left in place, said", /left in place/.test($("mrPlan").textContent));
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  $("mrMemApply").click();
+  ok("undone: DE is out of both waves and its group is empty again", await until(() => mrow("de").ugNested === false && mrow("de").dgNested === false && mrow("de").have.size === 0, 10000, "undo applied"));
+  // removals only when ticked
+  w.MdeRolloutTool._pane("members");
+  tickMem("nl");
+  $("mrMemRem").checked = true; $("mrMemRem").dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrMemDry").click();
+  ok("with 'apply removals' the NL plan removes the US laptop, typed REMOVE required", await until(() => st().plan && st().plan.members, 5000, "nl plan") && st().plan.ops.some((o) => o.type === "remove" && /WS-ENG-0221/.test(o.label)) && !!$("mrConfirmText"));
+  $("mrDiscard").click();
+  $("mrMemRem").checked = false; $("mrMemRem").dispatchEvent(new w.Event("change", { bubbles: true }));
+  D.querySelector('[data-mrmemregion="Americas"]').click();
+  ok("Americas: the US row, and no device wave for it yet", st().mem.region === "Americas" && mrow("us").ug && mrow("us").wave.device === null && /no wave group/.test($("mrBody").textContent));
+  D.querySelector("[data-mrmemunmapped]").click();
+  ok("the 'not in any wave' list says why", /overlaps PVM-UG-CORP-MEM-USERS-NL/.test($("mrBody").textContent));
+
   // ----------------------------------------------------- rules pane --
   w.MdeRolloutTool._pane("rules");
   $("mrRuleOut").value = "AVD\nWinServ\nPVM-DG-CORP-ENDSEC-WIN-ASR";
@@ -216,6 +271,7 @@ async function run() {
   $("mrRuleReset").click();
   ok("reset brings the defaults back", st().cfg.outPrefixes.join("|") === "AVD|WinServ|Win-Serv");
   w.MdeRolloutTool._pane("rules");
+  ok("rules show the country table and the device-group suffixes", /Euro: GB, BE, NL/.test($("mrRuleMap").value) && /POL-Warszawa = POL-WAW/.test($("mrRuleSfx").value) && /Delivery Optimisation/.test($("mrRuleAlso").value));
   ok("rules show the regions and the four group-name fields", /Euro/.test($("mrRuleWaves").value) && $("mrRuleDgPre").value === "PVM-DG-MDE-WAVE-" && $("mrRuleExU").value === "PVM-UG-MDE-Exclusion");
 
   // ----------------------------- a re-read never loses the plan panel --

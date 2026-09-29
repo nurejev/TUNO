@@ -148,8 +148,38 @@ const TUNO_DEMO = (() => {
     // proposes the wave's USER twin (G(20)) instead. The old antivirus
     // policy on the dynamic DEVICE group (G(8)) takes the device wave as is.
     { id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL", description: "Users in the Netherlands.",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "NL")', createdDateTime: ago(500 * DAY), memberCount: 140, _kind: "user",
+      // T28 wave members (10634): its modelled users, and already nested in
+      // the Euro user wave — the pilot country
+      _users: [U(2), U(3)], memberOf: [G(20)] },
+
+    // T28 wave members (10634). Country USER groups as Mihai's tenant names
+    // them. DE: two users, one with a 45-day-stale laptop. US: one user.
+    // FR: a Mac-only user (a user with no Windows device). PL and NL-Breda
+    // are NOT in the country table — PL is replaced by the two city groups,
+    // NL-Breda overlaps NL — so they land under "Not in any wave".
+    { id: G(30), displayName: "PVM-UG-CORP-MEM-USERS-DE", description: "All users in Germany",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "DE")', createdDateTime: ago(400 * DAY), memberCount: 2, _users: [U(5), U(7)] },
+    { id: G(31), displayName: "PVM-UG-CORP-MEM-USERS-US", description: "All users in United States",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "US")', createdDateTime: ago(400 * DAY), memberCount: 1, _users: [U(1)] },
+    { id: G(32), displayName: "PVM-UG-CORP-MEM-USERS-FR", description: "All users in France",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "FR")', createdDateTime: ago(400 * DAY), memberCount: 1, _users: [U(6)] },
+    { id: G(33), displayName: "PVM-UG-CORP-MEM-USERS-PL", description: "All users in Poland",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "PL")', createdDateTime: ago(400 * DAY), memberCount: 0, _users: [] },
+    { id: G(34), displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda", description: "Users in Breda",
+      groupTypes: ["DynamicMembership"], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: '(user.usageLocation -eq "NL") and (user.city -eq "Breda")', createdDateTime: ago(200 * DAY), memberCount: 1, _users: [U(2)] },
+    // FAULT (T28 wave members): the Dutch device group exists and is nested
+    // in the Euro device wave, but it is out of sync — Milan's laptop is
+    // missing (+1) and Alex's (a US user) is in it (−1).
+    { id: G(35), displayName: "INT-SG-D-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
-      membershipRule: null, createdDateTime: ago(500 * DAY), memberCount: 140, _kind: "user" },
+      membershipRule: null, createdDateTime: ago(5 * DAY), memberCount: 2, _devices: [D(101), D(107)], memberOf: [G(21)] },
   ];
 
   // FAULT (T02 group usage, T09 assignment health): this id is referenced by
@@ -333,6 +363,7 @@ const TUNO_DEMO = (() => {
   const DEF_FW = "vendor_msft_firewall_mdmstore_domainprofile_enablefirewall";
   const DEF_ASR = "device_vendor_msft_policy_config_defender_attacksurfacereductionrules";
   const DEF_CBL = "device_vendor_msft_policy_config_defender_cloudblocklevel";
+  const DEF_AUDIT_CV = "device_vendor_msft_policy_config_audit_accountlogon_auditcredentialvalidation";
   const DEF_PUA = "device_vendor_msft_policy_config_defender_puaprotection";
   const DEF_EDGE_SS = "device_vendor_msft_policy_config_microsoft_edgev77.3~policy~microsoft_edge~smartscreen_preventsmartscreenpromptoverride";
   const DEF_WHFB = "device_vendor_msft_passportforwork_{tenantid}_policies_usepassportforwork";
@@ -515,6 +546,20 @@ const TUNO_DEMO = (() => {
       roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
       assignments: [allDevices()],
       _settings: [choice(DEF_EDGE_SS, `${DEF_EDGE_SS}_0`)] },
+    // T28 (10634): a policy in the target list BY NAME although nothing in it
+    // is an MDE area (Mihai added the OIB Device Security and WUfB policies),
+    // and an old audit policy that sets the same setting differently — pulled
+    // in because it shares the setting, and a conflict.
+    { id: P(27), name: "Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7", description: "New set — auditing.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(8 * DAY), lastModifiedDateTime: ago(2 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      assignments: [inc(G(21))],
+      _settings: [choice(DEF_AUDIT_CV, `${DEF_AUDIT_CV}_3`)] },
+    { id: P(28), name: "PVM-DG-CORP-WIN-AUDIT-PRD", description: "Old auditing baseline.",
+      platforms: "windows10", technologies: "mdm", createdDateTime: ago(900 * DAY), lastModifiedDateTime: ago(400 * DAY),
+      roleScopeTagIds: ["0"], settingCount: 1, isAssigned: true,
+      assignments: [inc(G(8))],
+      _settings: [choice(DEF_AUDIT_CV, `${DEF_AUDIT_CV}_1`)] },
   ];
 
   // ---------- legacy device configurations ----------
@@ -1377,12 +1422,16 @@ const TUNO_DEMO_GRAPH = (() => {
       if (/^WS-FIN/.test(d.deviceName)) out.push(T.GROUPS.find((g) => g.id === T.G(3)));
     }
     if (d.operatingSystem === "macOS") out.push(T.GROUPS.find((g) => g.id === T.G(11)));
+    // assigned device groups (T28's INT-SG-D, 10634) and the groups they are
+    // nested in — a device is a transitive member of the wave
+    const walk = (g) => { if (!g || out.includes(g)) return; out.push(g); (g.memberOf || []).forEach((pid) => walk(T.GROUPS.find((x) => x.id === pid))); };
+    T.GROUPS.filter((g) => (g._devices || []).includes(aadDeviceId)).forEach(walk);
     return out.filter(Boolean);
   }
   function membersOfGroup(gid) {
     const g = T.GROUPS.find((x) => x.id === gid);
     if (!g) return [];
-    const direct = T.USERS.filter((u) => (u.memberOf || []).includes(gid));
+    const direct = T.USERS.filter((u) => (u.memberOf || []).includes(gid) || (g._users || []).includes(u.id));
     const viaChild = T.GROUPS.filter((x) => (x.memberOf || []).includes(gid))
       .flatMap((child) => membersOfGroup(child.id));
     const seen = new Set();
@@ -1444,6 +1493,48 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     });
     T.GROUPS.push(g);
     return M.strip(g);
+  }
+  // Group membership writes (10634, T28 wave members): a device (by its
+  // Entra id) or a group, added by $ref or by PATCH members@odata.bind (at
+  // most 20, as Graph), removed by DELETE …/members/{id}/$ref. Kept for the
+  // session. Adding a member that is in already answers as Graph does.
+  const memberAdd = (g, id) => {
+    const child = T.GROUPS.find((x) => x.id === id);
+    if (child) { if ((child.memberOf || []).includes(g.id)) return false; child.memberOf = (child.memberOf || []).concat(g.id); return true; }
+    if (!T.DEVICES.some((d) => d.azureADDeviceId === id) && !T.USERS.some((u) => u.id === id)) return null;
+    if ((g._devices || []).includes(id)) return false;
+    g._devices = (g._devices || []).concat(id);
+    return true;
+  };
+  const EXISTS = () => M.fault(400, "Request_BadRequest", "One or more added object references already exist for the following modified properties: 'members'.");
+  const NOPE = () => M.fault(400, "Request_BadRequest", "The source resource object or one of the objects being referenced don't exist.");
+  const memRef = /^\/groups\/([^/]+)\/members\/\$ref$/.exec(path);
+  if (method === "POST" && memRef) {
+    const g = T.GROUPS.find((x) => x.id === memRef[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    const r = memberAdd(g, String((body && body["@odata.id"]) || "").split("/").pop());
+    return r === null ? NOPE() : r === false ? EXISTS() : null;
+  }
+  const memDel = /^\/groups\/([^/]+)\/members\/([^/]+)\/\$ref$/.exec(path);
+  if (method === "DELETE" && memDel) {
+    const g = T.GROUPS.find((x) => x.id === memDel[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    const child = T.GROUPS.find((x) => x.id === memDel[2]);
+    if (child && (child.memberOf || []).includes(g.id)) { child.memberOf = child.memberOf.filter((x) => x !== g.id); return null; }
+    if ((g._devices || []).includes(memDel[2])) { g._devices = g._devices.filter((x) => x !== memDel[2]); return null; }
+    return M.fault(404, "Request_ResourceNotFound", "The member is not in the group.");
+  }
+  const grpPatch = /^\/groups\/([^/]+)$/.exec(path);
+  if (method === "PATCH" && grpPatch && body && body["members@odata.bind"]) {
+    const g = T.GROUPS.find((x) => x.id === grpPatch[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    const ids = body["members@odata.bind"].map((r) => String(r).split("/").pop());
+    if (ids.length > 20) return M.fault(400, "Request_BadRequest", "A maximum of 20 members can be added in a single request.");
+    // all or nothing, as Graph: one bad or existing reference and none is added
+    if (ids.some((id) => !T.GROUPS.some((x) => x.id === id) && !T.DEVICES.some((d) => d.azureADDeviceId === id) && !T.USERS.some((u) => u.id === id))) return NOPE();
+    if (ids.some((id) => { const c = T.GROUPS.find((x) => x.id === id); return c ? (c.memberOf || []).includes(g.id) : (g._devices || []).includes(id); })) return EXISTS();
+    ids.forEach((id) => memberAdd(g, id));
+    return null;
   }
   const ownRef = /^\/groups\/([^/]+)\/owners\/\$ref$/.exec(path);
   if (method === "POST" && ownRef) {
@@ -1633,6 +1724,20 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     // Text, not JSON — the caller parseInt()s whatever comes back.
     return g ? String(g.memberCount) : M.fault(404, "ResourceNotFound", "Group not found.");
   }
+  // T28 wave members (10634): typed member reads
+  m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.user$/.exec(path);
+  if (m) {
+    if (!T.GROUPS.find((x) => x.id === m[1])) return M.fault(404, "ResourceNotFound", "Group not found.");
+    return M.coll(M.membersOfGroup(m[1]).map((p) => ({ id: p.id, displayName: p.displayName, userPrincipalName: p.userPrincipalName })));
+  }
+  m = /^\/groups\/([^/]+)\/members\/microsoft\.graph\.device$/.exec(path);
+  if (m) {
+    const g = T.GROUPS.find((x) => x.id === m[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    return M.coll((g._devices || []).map((aad) => { const d = T.DEVICES.find((x) => x.azureADDeviceId === aad); return { id: aad, deviceId: aad, displayName: d ? d.deviceName : aad }; }));
+  }
+  m = /^\/groups\/([^/]+)\/members\/microsoft\.graph\.group$/.exec(path);
+  if (m) return M.coll(T.GROUPS.filter((g) => (g.memberOf || []).includes(m[1])).map((g) => ({ id: g.id, displayName: g.displayName })));
   m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.group$/.exec(path);
   if (m) return M.coll(T.GROUPS.filter((g) => (g.memberOf || []).includes(m[1])).map((g) => ({ id: g.id, displayName: g.displayName })));
   m = /^\/groups\/([^/]+)\/transitiveMembers$/.exec(path);
@@ -1703,7 +1808,7 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const rows = T.DEVICES.filter((d) => M.evalFilter(filter, Object.assign({}, d, { displayName: d.deviceName })));
     const top = parseInt(qs.get("$top"), 10);
     return M.coll(rows.slice(0, isFinite(top) ? top : rows.length)
-      .map((d) => ({ id: d.azureADDeviceId || d.id, displayName: d.deviceName, operatingSystem: d.operatingSystem })));
+      .map((d) => ({ id: d.azureADDeviceId || d.id, deviceId: d.azureADDeviceId || null, displayName: d.deviceName, operatingSystem: d.operatingSystem })));
   }
 
   // ---------- the plain surfaces ----------

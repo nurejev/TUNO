@@ -11,9 +11,9 @@ const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), { 
 const w = dom.window;
 const files = ["js/version.js", "js/graph.js", "js/progress.js", "js/groupuse.js", "js/document.js", "js/overview.js",
   "js/conflict.js", "js/endpointsec.js", "js/filterrules.js", "js/endpointposture.js", "js/assignedit.js",
-  "js/groupmigrate.js", "js/mderollout.js"];
+  "js/groupmigrate.js", "js/mdemembers.js", "js/mderollout.js"];
 w.eval(files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n")
-  + "\n;Object.assign(window, {MdeRollout, AssignEdit, Docs, Graph, Conflict, EndpointSec, EndpointPosture, GroupMigrate});");
+  + "\n;Object.assign(window, {MdeRollout, MdeMembers, AssignEdit, Docs, Graph, Conflict, EndpointSec, EndpointPosture, GroupMigrate});");
 const M = w.MdeRollout, AE = w.AssignEdit, Docs = w.Docs;
 process.exitCode = 1;
 let passed = 0, failed = 0;
@@ -371,6 +371,25 @@ async function run() {
   ok("markdown says the unsupported exclusion", /NOT SUPPORTED/.test(md));
   const c = M.csv(pairs);
   ok("csv has a header and quotes commas", c.split("\r\n")[0].startsWith("Old policy,") && /"[^"]*,[^"]*"/.test(c));
+
+  // ------------------------------- also in scope by name (10634) --
+  ok("the five named OIB policies are in the target list by default", M.normConfig({}).alsoInScope.length === 5 && M.normConfig({}).alsoInScope.some((n) => /Delivery Optimisation/.test(n)));
+  const AUD = "device_vendor_msft_policy_config_audit_accountlogon_auditcredentialvalidation";
+  const DO = "device_vendor_msft_policy_config_deliveryoptimization_dodownloadmode";
+  ok("audit settings are Device security, delivery optimisation Updates & telemetry", M.catOfKey(AUD) === "hard" && M.catOfKey(DO) === "upd" && M.catMeta("hard").label === "Device security");
+  const NAMED = cp("n9", "Win - OIB - SC - Device Security - D - Audit and Event Logging - v3.7", null, [choice(AUD, `${AUD}_3`)], [inc(G(1))]);
+  const NAMED_DO = cp("n8", "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0", null, [choice(DO, `${DO}_1`)], []);
+  const OLD_AUDIT = cp("o9", "PVM-DG-CORP-WIN-AUDIT-PRD", null, [choice(AUD, `${AUD}_1`)], [inc(G(1))]);
+  const OIB_OTHER = cp("n7", "Win - OIB - SC - Something Unrelated - D - v1", null, [choice(WIFI, `${WIFI}_1`)], []);
+  const m2 = M.build(resOf([{ id: "settingsCatalog", raw: [NEW_AV, NAMED, NAMED_DO, OLD_AUDIT, WIFI_P, OIB_OTHER] }, { id: "intents", raw: [] }, { id: "deviceConfigurations", raw: [] }, { id: "admx", raw: [] }]), {}, TEMPLATES);
+  const P2 = (id) => m2.policies.find((p) => p.id === id);
+  ok("a named policy is in scope and new, and says why", P2("n9") && P2("n9").generation === "new" && /by name/.test(P2("n9").scopeWhy) && P2("n9").cats.includes("hard"));
+  ok("the Delivery Optimisation policy is in scope as Updates & telemetry", P2("n8") && P2("n8").cats.includes("upd"));
+  ok("an old policy setting the same audit setting is pulled in, and says why", P2("o9") && P2("o9").generation === "old" && /sets a setting/.test(P2("o9").scopeWhy));
+  ok("an unrelated old policy and an unnamed OIB policy outside the MDE areas stay out", !P2("u1") && !P2("n7"));
+  const pa = M.compare(m2).find((x) => x.N.id === "n9" && x.O.id === "o9");
+  ok("…and the pair is a setting conflict", pa && pa.type === "conflict" && pa.diffs[0].key === AUD);
+  ok("the name match ignores case and dash spacing", !!M.build(resOf([{ id: "settingsCatalog", raw: [cp("n6", "WIN - OIB - SC - Device Security - D - Security Hardening - v3.7", null, [choice(AUD, `${AUD}_1`)], [])] }, { id: "intents", raw: [] }, { id: "deviceConfigurations", raw: [] }, { id: "admx", raw: [] }]), {}, TEMPLATES).policies.find((p) => p.id === "n6"));
 
   // ------------------------------------------- wave group: the owner --
   // (10633, Mihai: "creator is owner") — Graph does not make an admin the
