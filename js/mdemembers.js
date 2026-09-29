@@ -187,7 +187,10 @@ const MdeMembers = (() => {
   const EV = { ConsistencyLevel: "eventual" };
   const odq = (s) => String(s).replace(/'/g, "''");
   const enc = encodeURIComponent;
-  async function readInput(cfg, waveGroups, onStatus) {
+  // skip: lc names of the rollout's own groups (waves, exclusion groups,
+  // their earlier names) — they share the INT-SG-D- prefix, and are not
+  // country device groups
+  async function readInput(cfg, waveGroups, onStatus, skip) {
     const say = (m) => { if (onStatus) onStatus(m); };
     const GS = Graph.SCOPES.groups, DS = Graph.SCOPES.devices, DO = Graph.SCOPES.deviceObjects;
     say("Reading the country groups…");
@@ -198,7 +201,7 @@ const MdeMembers = (() => {
     // not country device groups, so their members are not read here
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
     const dgAll = dgList;
-    dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || ""));
+    dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))));
     say("Reading the Windows devices in Intune…");
     const managed = await Graph.readAll(`/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime`, { scopes: DS, retry: true });
     say("Reading the Windows devices in Entra…");

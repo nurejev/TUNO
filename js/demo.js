@@ -182,6 +182,10 @@ const TUNO_DEMO = (() => {
     { id: G(36), displayName: "PVM-DG-MDE-WAVE-Americas", description: "MDE rollout wave — Americas (devices).",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 0, _kind: "device" },
+    // …and the user exclusion group under its pre-10636 name
+    { id: G(37), displayName: "PVM-UG-MDE-Exclusion", description: "MDE rollout exclusion — members stay off the new MDE policies.",
+      groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
+      membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 0, _kind: "user" },
     { id: G(35), displayName: "INT-SG-D-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(5 * DAY), memberCount: 2, _devices: [D(101), D(107)], memberOf: [G(21)] },

@@ -112,12 +112,12 @@ async function run() {
   ok("each region is a device + user pair, then the two exclusion groups (12 names)", cfg.waves.length === 12
     && cfg.waves.slice(0, 2).join("|") === "INT-SG-D-WAVE-Euro|INT-SG-U-WAVE-Euro"
     && cfg.waves.includes("INT-SG-U-WAVE-Asia-Pacific") && cfg.waves.includes("INT-SG-D-WAVE-BAMSCA")
-    && cfg.waves.slice(-2).join("|") === "PVM-DG-MDE-Exclusion|PVM-UG-MDE-Exclusion");
+    && cfg.waves.slice(-2).join("|") === "INT-SG-D-MDE-Exclusion|INT-SG-U-MDE-Exclusion");
   ok("the pair members name each other as twins", cfg.groups[0].twin === "INT-SG-U-WAVE-Euro" && cfg.groups[1].twin === "INT-SG-D-WAVE-Euro" && cfg.groups[0].audience === "device" && cfg.groups[1].audience === "user");
   ok("exclusion groups carry their role and audience", cfg.groups.filter((g) => g.role === "exclusion").map((g) => g.audience).join() === "device,user");
   const mig = M.normConfig({ waves: ["PVM-UG-MDE-WAVE-Euro", "PVM-UG-MDE-WAVE-Italy"] });
   ok("a 10632 config (full UG names) migrates to regions", mig.waveRegions.join("|") === "Euro|Italy" && mig.waves.includes("INT-SG-D-WAVE-Italy"));
-  ok("a blank exclusion name drops that group", !M.normConfig({ exclusionUser: "" }).waves.includes("PVM-UG-MDE-Exclusion") && M.normConfig({ exclusionUser: "" }).waves.includes("PVM-DG-MDE-Exclusion"));
+  ok("a blank exclusion name drops that group", !M.normConfig({ exclusionUser: "" }).waves.includes("INT-SG-U-MDE-Exclusion") && M.normConfig({ exclusionUser: "" }).waves.includes("INT-SG-D-MDE-Exclusion"));
   ok("custom prefixes build the names", M.normConfig({ waveRegions: ["NL"], waveDevicePrefix: "X-DG-", waveUserPrefix: "X-UG-" }).waves.slice(0, 2).join("|") === "X-DG-NL|X-UG-NL");
   ok("audience: \" - D - \" is device", M.audienceOf("Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3") === "device");
   ok("audience: -D- without spaces is device", M.audienceOf("WIN-SEC-AttackSurfaceReduction-D-02_Block x") === "device");
@@ -296,7 +296,7 @@ async function run() {
   const G5 = G(5);
   names.set(G5, "INT-SG-D-WAVE-Euro");
   const found2 = new Map([["int-sg-u-wave-euro", { id: G(2), displayName: "INT-SG-U-WAVE-Euro" }], ["int-sg-d-wave-euro", { id: G5, displayName: "INT-SG-D-WAVE-Euro" }],
-    ["pvm-dg-mde-exclusion", null], ["pvm-ug-mde-exclusion", { id: G(6), displayName: "PVM-UG-MDE-Exclusion" }]]);
+    ["int-sg-d-mde-exclusion", null], ["int-sg-u-mde-exclusion", { id: G(6), displayName: "INT-SG-U-MDE-Exclusion" }]]);
   const twins = M.twinIndex(model.cfg, found2);
   ok("twinIndex maps each wave to its twin's id", twins.get(G(2)).twinId === G5 && twins.get(G5).twinId === G(2) && !twins.has(G(6)));
   const kinds2 = new Map([[G(1), { kind: "device", source: "members" }], [G(2), { kind: "user", source: "members" }], [G5, { kind: "device", source: "name (group is empty)" }]]);
@@ -329,10 +329,10 @@ async function run() {
   const dgE = wv2.find((x) => x.name === "INT-SG-D-WAVE-Euro"), ugE = wv2.find((x) => x.name === "INT-SG-U-WAVE-Euro");
   ok("a device wave fits the - D - policies", dgE.fits.some((N) => N.id === "n1") && dgE.twinId === G(2));
   ok("a user wave included in - D - policies is a misfit", ugE.misfit.map((N) => N.id).sort().join() === "n1,n2" && !ugE.fits.some((N) => N.id === "n1"));
-  const exU = wv2.find((x) => x.name === "PVM-UG-MDE-Exclusion"), exD = wv2.find((x) => x.name === "PVM-DG-MDE-Exclusion");
+  const exU = wv2.find((x) => x.name === "INT-SG-U-MDE-Exclusion"), exD = wv2.find((x) => x.name === "INT-SG-D-MDE-Exclusion");
   ok("exclusion groups: exists / missing, and no outstanding old-policy work", exU.exists && !exD.exists && exD.lookedUp && exU.pending.length === 0);
   const md2 = M.markdown(model, pairs, M.retirement(model), wv2, {});
-  ok("markdown lists the pairs and exclusion groups", md2.includes("INT-SG-D-WAVE-Euro") && md2.includes("PVM-UG-MDE-Exclusion") && /\| exclusion \|/.test(md2));
+  ok("markdown lists the pairs and exclusion groups", md2.includes("INT-SG-D-WAVE-Euro") && md2.includes("INT-SG-U-MDE-Exclusion") && /\| exclusion \|/.test(md2));
   // ------------------------------------------ rollout actions (10633) --
   ok("policyKind: the name first", M.policyKind(P("n1"), kinds2).kind === "device" && M.policyKind(P("n1"), kinds2).source === "name");
   ok("policyKind: no D/U in the name → the targets, when one kind", M.policyKind(P("o1"), kinds2).kind === "device" && M.policyKind(P("o1"), kinds2).source === "targets");
@@ -345,9 +345,9 @@ async function run() {
   ok("① regions narrow it (and the other regions' missing waves go quiet)", M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Euro"]) })).skipped.length === 0
     && M.rolloutWants("includeWaves", model, rctx({ regions: new Set(["Italy"]) })).wants.length === 0);
   const ex0 = M.rolloutWants("excludeExclusion", model, rctx());
-  ok("② a missing device exclusion group: not planned, the group named", !ex0.wants.some((x) => x.P.id === "n3") && ex0.skipped.some((x) => /PVM-DG-MDE-Exclusion does not exist/.test(x)));
+  ok("② a missing device exclusion group: not planned, the group named", !ex0.wants.some((x) => x.P.id === "n3") && ex0.skipped.some((x) => /INT-SG-D-MDE-Exclusion does not exist/.test(x)));
   ok("② a - D - policy assigned to a USER group takes the USER exclusion group (support matrix), and says why", ex0.wants.filter((x) => x.groupId === G(6)).map((x) => x.P.id).sort().join() === "n1,n2" && /assigned to user groups/.test(ex0.wants[0].note));
-  const found3 = new Map(found2); found3.set("pvm-dg-mde-exclusion", { id: G(7), displayName: "PVM-DG-MDE-Exclusion" });
+  const found3 = new Map(found2); found3.set("int-sg-d-mde-exclusion", { id: G(7), displayName: "INT-SG-D-MDE-Exclusion" });
   const ex1 = M.rolloutWants("excludeExclusion", model, rctx({ found: found3 }));
   ok("② once it exists, the device exclusion group from the - D - policy on device targets", ex1.wants.length === 3 && ex1.wants.find((x) => x.P.id === "n3").groupId === G(7) && ex1.wants.every((x) => x.action === "add-exclude"));
   const pairsP = M.compare(model, twins); pairsP.forEach((x) => { x.proposal = M.proposalFor(x, { kinds: kinds2, twins, names, waves: M.wavePool(model.cfg, found2) }); });
@@ -419,6 +419,15 @@ async function run() {
   taken = []; refuseNick = true; gcalls.length = 0;
   const rn3 = await M.renameGroup({ id: G(7), displayName: "INT-SG-D-WAVE-Euro" }, "INT-SG-D-WAVE-Asia-Pacific");
   ok("a refused mail nickname: the name alone, and said", rn3.ok && rn3.verified && /nickname/.test(rn3.note) && gcalls.filter((c) => c[0] === "PATCH").length === 2);
+
+  // ------------------------------ exclusion group names (10636) --
+  const c11 = M.normConfig({});
+  ok("the exclusion groups are INT-SG-D-MDE-Exclusion / INT-SG-U-MDE-Exclusion, their old names looked up", c11.exclusionDevice === "INT-SG-D-MDE-Exclusion" && c11.exclusionUser === "INT-SG-U-MDE-Exclusion"
+    && c11.groups.find((g) => g.name === "INT-SG-U-MDE-Exclusion").oldNames.join() === "PVM-UG-MDE-Exclusion" && c11.lookup.includes("PVM-DG-MDE-Exclusion"));
+  ok("a config saved with the old default exclusion names moves along; a name typed by hand stays", M.normConfig({ exclusionDevice: "PVM-DG-MDE-Exclusion" }).exclusionDevice === "INT-SG-D-MDE-Exclusion" && M.normConfig({ exclusionUser: "MY-EXCL" }).exclusionUser === "MY-EXCL");
+  const fx = new Map([["pvm-ug-mde-exclusion", { id: G(37), displayName: "PVM-UG-MDE-Exclusion" }]]);
+  const exRow = M.waves(model, fx, new Map(), pairs).find((x) => x.name === "INT-SG-U-MDE-Exclusion");
+  ok("an exclusion group under its old name is offered for rename", !exRow.exists && exRow.legacy && exRow.legacy.group.id === G(37));
 
   // ------------------------------------------- wave group: the owner --
   // (10633, Mihai: "creator is owner") — Graph does not make an admin the

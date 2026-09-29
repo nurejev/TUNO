@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10636,
+  "date": "2026-09-29",
+  "title": "T28 MDE rollout — exclusion groups renamed to INT-SG-D/U-MDE-Exclusion",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "The exclusion groups are now named INT-SG-D-MDE-Exclusion and INT-SG-U-MDE-Exclusion. An existing group under its old name (PVM-DG-MDE-Exclusion or PVM-UG-MDE-Exclusion) is found and offered for renaming in the tenant, alongside the wave groups. The group keeps its id, so its assignments stay as they are, and the rename can be undone from Changes this session."
+    }
+  ]
+},
+{
   "build": 10635,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — reports, the NL-Breda pilot, and the waves renamed to INT-SG-D/U-WAVE",

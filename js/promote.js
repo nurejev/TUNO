@@ -104,6 +104,38 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 198,
+  "title": "T28 — exclusion groups renamed to INT-SG-D-MDE-Exclusion / INT-SG-U-MDE-Exclusion",
+  "tools": [
+   "T28 MDE rollout"
+  ],
+  "builds": [
+   10636
+  ],
+  "risk": "low",
+  "what": "DEFAULTS.exclusionDevice/exclusionUser → INT-SG-D-MDE-Exclusion / INT-SG-U-MDE-Exclusion; renameExclusionFrom (the old defaults + any exclusion name changed under ⚙️) gives each exclusion group its oldNames, so cfg.lookup asks for them and waves() marks legacy — the 🌊 rename box (10635) renames them with the waves. normConfig moves a saved config off the old default names. MdeMembers.readInput takes a skip set (every rollout group name) so the INT-SG-D- device-group read never counts a rollout group as a country group. Demo: PVM-UG-MDE-Exclusion under its old name.",
+  "why": "Mihai: 'PVM-DG-MDE-Exclusion and PVM-UG-MDE-Exclusion should be INT-SG-D-MDE-Exclusion and INT-SG-U-MDE-Exclusion'.",
+  "test": [
+   "Run npm test — tests/mderollout/engine.test.js (the names, the migration, legacy detection) and tests/mderollout/screen.test.js (the demo's old-named user exclusion group renamed with the Americas device wave, read back on the same ids, renamed back from 📜).",
+   "LIVE PENDING: PVM — if the PVM-*-MDE-Exclusion groups were created, 🌊 shows them as 'old name'; rename; Entra shows the new names on the same ids."
+  ],
+  "files": [
+   "js/mderollout.js",
+   "js/mdemembers.js",
+   "js/demo.js",
+   "index.html",
+   "js/version.js",
+   "js/changelog.js",
+   "js/promote.js",
+   "tests/mderollout/engine.test.js",
+   "tests/mderollout/screen.test.js",
+   "tests/mderollout/members.test.js",
+   "tests/mderollout/reports.test.js",
+   "docs/reviews/T28-beta-10636.md",
+   "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 197,
   "title": "T28 — reports (assignments, deployment configuration, conflict check) + pilot groups (NL-Breda) + waves renamed to INT-SG-D/U-WAVE",
   "tools": [

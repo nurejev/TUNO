@@ -89,8 +89,12 @@ const MdeRollout = (() => {
     waveDevicePrefix: "INT-SG-D-WAVE-",
     waveUserPrefix: "INT-SG-U-WAVE-",
     renameFrom: { device: ["PVM-DG-MDE-WAVE-"], user: ["PVM-UG-MDE-WAVE-"] },
-    exclusionDevice: "PVM-DG-MDE-Exclusion",
-    exclusionUser: "PVM-UG-MDE-Exclusion",
+    renameExclusionFrom: { device: ["PVM-DG-MDE-Exclusion"], user: ["PVM-UG-MDE-Exclusion"] },
+    // Renamed at 10636 (Mihai: "PVM-DG-MDE-Exclusion and PVM-UG-MDE-Exclusion
+    // should be INT-SG-D-MDE-Exclusion and INT-SG-U-MDE-Exclusion"); the old
+    // names are found and offered for rename, like the waves.
+    exclusionDevice: "INT-SG-D-MDE-Exclusion",
+    exclusionUser: "INT-SG-U-MDE-Exclusion",
     waveDescription: "MDE rollout wave — created by TUNO (T28 MDE rollout).",
     exclusionDescription: "MDE rollout exclusion — members stay off the new MDE policies. Created by TUNO (T28 MDE rollout).",
     // Policies in the target list by NAME although nothing in them is an
@@ -125,8 +129,9 @@ const MdeRollout = (() => {
       out.push({ name: d, role: "wave", audience: "device", region, twin: u, oldNames: old("device", d) });
       out.push({ name: u, role: "wave", audience: "user", region, twin: d, oldNames: old("user", u) });
     }
-    if (cfg.exclusionDevice) out.push({ name: cfg.exclusionDevice, role: "exclusion", audience: "device", region: "", twin: cfg.exclusionUser || "", oldNames: [] });
-    if (cfg.exclusionUser) out.push({ name: cfg.exclusionUser, role: "exclusion", audience: "user", region: "", twin: cfg.exclusionDevice || "", oldNames: [] });
+    const oldEx = (aud, now) => uniq(((cfg.renameExclusionFrom && cfg.renameExclusionFrom[aud]) || [])).filter((n) => lc(n) !== lc(now));
+    if (cfg.exclusionDevice) out.push({ name: cfg.exclusionDevice, role: "exclusion", audience: "device", region: "", twin: cfg.exclusionUser || "", oldNames: oldEx("device", cfg.exclusionDevice) });
+    if (cfg.exclusionUser) out.push({ name: cfg.exclusionUser, role: "exclusion", audience: "user", region: "", twin: cfg.exclusionDevice || "", oldNames: oldEx("user", cfg.exclusionUser) });
     const seen = new Set();
     return out.filter((g) => !seen.has(lc(g.name)) && seen.add(lc(g.name)));
   }
@@ -143,8 +148,13 @@ const MdeRollout = (() => {
         device: cleanList([...DEFAULTS.renameFrom.device, ...((o.renameFrom && o.renameFrom.device) || [])]),
         user: cleanList([...DEFAULTS.renameFrom.user, ...((o.renameFrom && o.renameFrom.user) || [])]),
       },
-      exclusionDevice: o.exclusionDevice == null ? DEFAULTS.exclusionDevice : String(o.exclusionDevice).trim(),
-      exclusionUser: o.exclusionUser == null ? DEFAULTS.exclusionUser : String(o.exclusionUser).trim(),
+      // a config saved with the pre-10636 default exclusion names moves along
+      exclusionDevice: o.exclusionDevice == null ? DEFAULTS.exclusionDevice : (DEFAULTS.renameExclusionFrom.device.some((n) => lc(n) === lc(String(o.exclusionDevice).trim())) ? DEFAULTS.exclusionDevice : String(o.exclusionDevice).trim()),
+      exclusionUser: o.exclusionUser == null ? DEFAULTS.exclusionUser : (DEFAULTS.renameExclusionFrom.user.some((n) => lc(n) === lc(String(o.exclusionUser).trim())) ? DEFAULTS.exclusionUser : String(o.exclusionUser).trim()),
+      renameExclusionFrom: {
+        device: cleanList([...DEFAULTS.renameExclusionFrom.device, ...((o.renameExclusionFrom && o.renameExclusionFrom.device) || [])]),
+        user: cleanList([...DEFAULTS.renameExclusionFrom.user, ...((o.renameExclusionFrom && o.renameExclusionFrom.user) || [])]),
+      },
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
       alsoInScope: cleanList(Array.isArray(o.alsoInScope) ? o.alsoInScope : DEFAULTS.alsoInScope),
@@ -1729,7 +1739,7 @@ const MdeRolloutTool = (() => {
       </div>
       <p class="mini muted" style="margin:8px 0 0">Asks for Group.ReadWrite.All at this click (T22's scope). Owner: you, the signed-in admin. Description: “${esc(cfg.waveDescription)}” (waves) · “${esc(cfg.exclusionDescription)}” (exclusion groups).</p>
       ${waveRows.some((w) => w.legacy && !w.exists) ? `<div class="mr-rename">
-        <p class="mini" style="margin:0 0 8px"><b>✏️ Groups under an earlier name.</b> The waves are named <code>${esc(cfg.waveDevicePrefix)}&lt;region&gt;</code> and <code>${esc(cfg.waveUserPrefix)}&lt;region&gt;</code> now; the ticked ones above are renamed in the tenant — display name and mail nickname. The object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name. Undo from 📜 renames them back.</p>
+        <p class="mini" style="margin:0 0 8px"><b>✏️ Groups under an earlier name.</b> The waves are named <code>${esc(cfg.waveDevicePrefix)}&lt;region&gt;</code> and <code>${esc(cfg.waveUserPrefix)}&lt;region&gt;</code> now, the exclusion groups <code>${esc(cfg.exclusionDevice || "—")}</code> and <code>${esc(cfg.exclusionUser || "—")}</code>; the ticked ones above are renamed in the tenant — display name and mail nickname. The object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name. Undo from 📜 renames them back.</p>
         <div class="tb-actions">
           <label class="chk" style="margin:0"><input type="checkbox" id="mrRenameOk"${selRename.size ? "" : " disabled"}> Rename ${plural(selRename.size, "group")} in this tenant</label>
           <button class="btn primary" id="mrRenameGo" disabled>✏️ Rename to the new names</button>
@@ -2166,7 +2176,7 @@ const MdeRolloutTool = (() => {
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
-      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; });
+      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)));
       memCompute();
       if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
     } catch (e) {
@@ -2624,13 +2634,17 @@ const MdeRolloutTool = (() => {
       if (t.id === "mrRuleSave") {
         const lines = (id) => $(id).value.split(/\r?\n/);
         const before = cfg.lookup.join("\n");
-        const prevPre = { device: cfg.waveDevicePrefix, user: cfg.waveUserPrefix };
+        const prevPre = { device: cfg.waveDevicePrefix, user: cfg.waveUserPrefix, exD: cfg.exclusionDevice, exU: cfg.exclusionUser };
         const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}`;
         const beforePre = prefixes();
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
           waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"),
+          renameExclusionFrom: {
+            device: cfg.renameExclusionFrom.device.concat(prevPre.exD && lc($("mrRuleExD").value.trim()) !== lc(prevPre.exD) ? [prevPre.exD] : []),
+            user: cfg.renameExclusionFrom.user.concat(prevPre.exU && lc($("mrRuleExU").value.trim()) !== lc(prevPre.exU) ? [prevPre.exU] : []),
+          },
           renameFrom: {
             device: cfg.renameFrom.device.concat(lc($("mrRuleDgPre").value.trim()) !== lc(prevPre.device) ? [prevPre.device] : []),
             user: cfg.renameFrom.user.concat(lc($("mrRuleUgPre").value.trim()) !== lc(prevPre.user) ? [prevPre.user] : []),

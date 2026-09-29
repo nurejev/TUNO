@@ -28,7 +28,7 @@ const exc = (g) => ({ target: { "@odata.type": "#microsoft.graph.exclusionGroupA
 const choice = (defId, value) => ({ settingInstance: { "@odata.type": "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance", settingDefinitionId: defId, choiceSettingValue: { value, children: [] } } });
 const RTP = "device_vendor_msft_policy_config_defender_allowrealtimemonitoring";
 const CBL = "device_vendor_msft_policy_config_defender_cloudblocklevel";
-const names = new Map([[G(1), "PVM-DG-CORP-ALL-WIN"], [G(21), "INT-SG-D-WAVE-Euro"], [G(20), "INT-SG-U-WAVE-Euro"], [G(40), "PVM-DG-MDE-Exclusion"]]);
+const names = new Map([[G(1), "PVM-DG-CORP-ALL-WIN"], [G(21), "INT-SG-D-WAVE-Euro"], [G(20), "INT-SG-U-WAVE-Euro"], [G(40), "INT-SG-D-MDE-Exclusion"]]);
 function mapItem(raw) {
   const assignments = (raw.assignments || []).map((a) => { const m = Docs.assignmentOf(a); if (m.groupId) { m.name = names.get(m.groupId) || m.groupId; m.memberCount = 7; } return m; });
   return { id: raw.id, name: raw.name, templateFamily: (raw.templateReference || {}).templateFamily || "", type: "", assignments, rows: Docs.catalogRows(raw.__detail), detailError: null };
@@ -46,7 +46,7 @@ const res = { sections: [
 
 async function run() {
   const model = M.build(res, {}, new Map());
-  const found = new Map([["int-sg-d-wave-euro", { id: G(21), displayName: "INT-SG-D-WAVE-Euro" }], ["int-sg-u-wave-euro", { id: G(20), displayName: "INT-SG-U-WAVE-Euro" }], ["pvm-dg-mde-exclusion", { id: G(40), displayName: "PVM-DG-MDE-Exclusion" }]]);
+  const found = new Map([["int-sg-d-wave-euro", { id: G(21), displayName: "INT-SG-D-WAVE-Euro" }], ["int-sg-u-wave-euro", { id: G(20), displayName: "INT-SG-U-WAVE-Euro" }], ["int-sg-d-mde-exclusion", { id: G(40), displayName: "INT-SG-D-MDE-Exclusion" }]]);
   const twins = M.twinIndex(model.cfg, found);
   const pairs = M.compare(model, twins);
   pairs.forEach((p) => { p.proposal = M.proposalFor(p, { kinds: new Map(), twins, waves: M.wavePool(model.cfg, found), names }); });
