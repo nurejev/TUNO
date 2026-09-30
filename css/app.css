@@ -2671,6 +2671,15 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-exkv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 10px;font-size:12.5px;margin:0}
 #screen-mderollout .mr-exkv dt{color:var(--muted)}
 #screen-mderollout .mr-exkv dd{margin:0;overflow-wrap:anywhere}
+/* ⊘ 📋 a list (10651) */
+#screen-mderollout .mr-exlisttext{display:block;width:100%;min-height:118px;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface);color:var(--ink);resize:vertical}
+#screen-mderollout .mr-exfile{position:relative;overflow:hidden;cursor:pointer}
+#screen-mderollout .mr-exfile input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+#screen-mderollout .mr-exlist-t{min-width:760px}
+#screen-mderollout .mr-exlist-t td{overflow-wrap:anywhere}
+#screen-mderollout .mr-exlist-t tr.mr-exsubrow td{border-top:0}
+#screen-mderollout .mr-exlist-t td.mr-exsub{padding-left:24px}
+#screen-mderollout .mr-exlist-t tr.mr-exnomatch td{background:color-mix(in srgb,var(--soft) 55%,transparent)}
 #screen-mderollout tr.mr-exdis td{color:var(--muted)}
 #screen-mderollout tr.mr-exafter td{background:var(--soft)}
 #screen-mderollout .mr-exreach{padding:12px 14px}

@@ -191,7 +191,9 @@ const MdeExclude = (() => {
       list = ix.byUser.get(lc(pick.id)) || [];
     } else {
       const m = (pick.managedId && ix.byManaged.get(lc(pick.managedId))) || (pick.deviceId && ix.byAad.get(lc(pick.deviceId))) || null;
-      if (m && m.userId) { user = await readUser(m.userId, m.userPrincipalName); list = ix.byUser.get(lc(m.userId)) || [m]; }
+      // a device off a list (10651) comes alone: its primary user is named, not read
+      if (m && o.light) list = [m];
+      else if (m && m.userId) { user = await readUser(m.userId, m.userPrincipalName); list = ix.byUser.get(lc(m.userId)) || [m]; }
       else if (m) list = [m];
       else extra = pick;   // an Entra device Intune does not manage
     }
@@ -213,20 +215,25 @@ const MdeExclude = (() => {
     const toSet = (arr) => new Set((arr || []).map((g) => lc(g.id)));
     const names = new Map();
     const keep = (arr) => { (arr || []).forEach((g) => names.set(lc(g.id), g.displayName || g.id)); return arr; };
+    // light (a list, 10651): the direct groups only — the user's country
+    // group, a device's country device group — not what reaches them
+    const directOf = (arr) => (arr || []).map((g) => ({ id: lc(g.id), name: g.displayName || g.id }));
     if (user && !user.unread) {
-      try { user.groups = toSet(keep(await groupsOf(`/users/${enc(user.id)}/transitiveMemberOf`, US()))); }
-      catch (e) { failed.push(`${user.displayName}'s groups: ${msg(e).slice(0, 160)}`); }
+      try {
+        if (o.light) user.direct = directOf(keep(await groupsOf(`/users/${enc(user.id)}/memberOf`, US())));
+        else user.groups = toSet(keep(await groupsOf(`/users/${enc(user.id)}/transitiveMemberOf`, US())));
+      } catch (e) { failed.push(`${user.displayName}'s groups: ${msg(e).slice(0, 160)}`); }
     }
     const withObj = devices.filter((d) => d.objId);
     const gr = await Graph.pool(withObj, async (d) => ({
-      all: await groupsOf(`/devices/${enc(d.objId)}/transitiveMemberOf`, DO()),
+      all: o.light ? null : await groupsOf(`/devices/${enc(d.objId)}/transitiveMemberOf`, DO()),
       direct: await groupsOf(`/devices/${enc(d.objId)}/memberOf`, DO()),
     }), 4);
     gr.forEach((x, i) => {
       const d = withObj[i];
       if (x.error) { failed.push(`${d.name}'s groups: ${msg(x.error).slice(0, 160)}`); return; }
-      d.groups = toSet(keep(x.value.all));
-      d.direct = (x.value.direct || []).map((g) => ({ id: lc(g.id), name: g.displayName || g.id }));
+      if (x.value.all) d.groups = toSet(keep(x.value.all));
+      d.direct = directOf(keep(x.value.direct));
     });
     return { pick, user, devices, names, failed, readAt: Date.now() };
   }
@@ -246,6 +253,179 @@ const MdeExclude = (() => {
     }
     return t;
   }
+
+  // ------------------------------------------------ 📋 a list (10651) --
+  // Mihai: "the exclusion should get a bulk add user and device"; option A
+  // off the mockup — paste a list. A line with an @ is a user (UPN or
+  // e-mail, exact), any other line a device (name, exact). Each match is
+  // looked up like a picked search hit, lighter: direct groups only (the
+  // country device group a device leaves), no "what reaches them".
+  const MAX_LINES = 500;
+  const COL = [
+    ["device", /^(device ?name|computer ?name|host ?name|devicename)$/i],
+    ["upn", /user ?principal ?name|(^|\W)upn$/i],
+    ["mail", /(^|\W)e-?mail( address)?$|^mail$/i],
+  ];
+  // text: pasted lines, or a .csv / .txt. Separated by new lines, commas,
+  // semicolons or tabs; quotes trimmed; "Name <a@b.com>" (an Outlook To:
+  // line) gives the address. A header row that names a device, UPN or
+  // e-mail column narrows a CSV to that ONE column — the device name first
+  // (an Intune export also carries the primary user's UPN, and a device
+  // list is not meant to exclude its users). Deduplicated, case-insensitive.
+  function parseList(text) {
+    const rows = String(text == null ? "" : text).replace(/^﻿/, "").split(/\r\n|\n|\r/);
+    const cells = (row) => row.split(/[,;\t]/).map((c) => {
+      let v = c.trim().replace(/^["']+|["']+$/g, "").trim();
+      const m = /<([^<>\s]+@[^<>\s]+)>/.exec(v); if (m) v = m[1];
+      return v.replace(/^mailto:/i, "");
+    });
+    let col = -1, column = "";
+    const first = rows.findIndex((r) => r.trim());
+    if (first >= 0) {
+      const h = cells(rows[first]);
+      for (const [, re] of COL) { const i = h.findIndex((c) => re.test(c)); if (i >= 0) { col = i; column = h[i]; break; } }
+      if (col >= 0) rows.splice(0, first + 1);
+    }
+    const seen = new Set(), all = [];
+    for (const r of rows) {
+      const cs = cells(r);
+      for (const v of col >= 0 ? [cs[col] || ""] : cs) {
+        if (!v || seen.has(lc(v))) continue;
+        seen.add(lc(v)); all.push(v);
+      }
+    }
+    return { lines: all.slice(0, MAX_LINES), values: all, total: all.length, truncated: all.length > MAX_LINES, column, max: MAX_LINES };
+  }
+
+  const odq = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  // lines -> items, each { line, kind, pick?, note?, count? }:
+  //   user / device  a match, with the pick lookup() takes
+  //   none           no user or device matches the line
+  //   many           several devices (or users) answer to it — 🔎 decides
+  //   notwin         an Entra device that is not Windows
+  async function matchList(lines, base, opt, onStatus) {
+    const o = opt || {};
+    const now = o.now || Date.now(), days = o.staleDays || 30;
+    const say = (m) => { if (onStatus) onStatus(m); };
+    const ix = index(base);
+    const failed = [];
+    const items = lines.map((line) => ({ line, kind: "none", note: "" }));
+    // users: UPN or e-mail, 7 of each per request (Learn, known issues: an
+    // `in` filter is limited to 15 expressions by default)
+    const uItems = items.filter((x) => x.line.includes("@"));
+    const uChunks = [];
+    for (let i = 0; i < uItems.length; i += 7) uChunks.push(uItems.slice(i, i + 7));
+    let doneU = 0;
+    const ur = await Graph.pool(uChunks, async (chunk) => {
+      const list = chunk.map((x) => odq(x.line)).join(",");
+      const r = await Graph.readAll(`/users?$filter=${enc(`userPrincipalName in (${list}) or mail in (${list})`)}&$select=id,displayName,userPrincipalName,mail`, { scopes: US(), retry: true });
+      doneU += chunk.length; say(`Looking up users… ${doneU} of ${uItems.length}`);
+      return r || [];
+    }, 4);
+    ur.forEach((x, n) => {
+      const chunk = uChunks[n];
+      if (x.error) failed.push(`users (${chunk.map((y) => y.line).join(", ")}): ${msg(x.error).slice(0, 160)}`);
+      for (const it of chunk) {
+        const t = lc(it.line);
+        let hits = [];
+        if (!x.error) {
+          const byUpn = x.value.filter((u) => lc(u.userPrincipalName) === t);
+          hits = byUpn.length ? byUpn : x.value.filter((u) => lc(u.mail) === t);
+          hits = hits.map((u) => ({ id: lc(u.id), displayName: u.displayName || u.userPrincipalName || u.id, upn: u.userPrincipalName || "", mail: u.mail || "" }));
+        } else {
+          // the request failed: the Intune list still knows a primary user by UPN
+          const m = (base.managed || []).find((y) => y.userId && lc(y.userPrincipalName) === t);
+          if (m) hits = [{ id: lc(m.userId), displayName: m.userPrincipalName, upn: m.userPrincipalName, mail: "" }];
+        }
+        const uniq = [...new Map(hits.map((u) => [u.id, u])).values()];
+        if (uniq.length === 1) { it.kind = "user"; it.pick = Object.assign({ type: "user" }, uniq[0]); }
+        else if (uniq.length > 1) { it.kind = "many"; it.count = uniq.length; it.what = "users"; }
+        else if (x.error) { it.kind = "error"; it.note = "the user lookup failed"; }
+      }
+    });
+    // devices: the Intune list first (exact name); several records with one
+    // name are usually a re-enrolment — the one that synced lately is taken
+    // when it is the only one, and the others are said
+    const dItems = items.filter((x) => !x.line.includes("@"));
+    const byName = new Map();
+    for (const m of base.managed || []) { const k = lc(m.deviceName); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(m); }
+    const devPick = (m) => ({ type: "device", managedId: lc(m.id), deviceId: lc(m.azureADDeviceId || ""), name: m.deviceName || m.id });
+    const entraNeed = [];
+    for (const it of dItems) {
+      const ms = byName.get(lc(it.line)) || [];
+      if (ms.length === 1) { it.kind = "device"; it.pick = devPick(ms[0]); }
+      else if (ms.length > 1) {
+        const fresh = ms.filter((m) => !isStale(m.lastSyncDateTime, now, days));
+        if (fresh.length === 1) { it.kind = "device"; it.pick = devPick(fresh[0]); it.note = `${ms.length - 1} older Intune record${ms.length === 2 ? "" : "s"} with this name not taken (no sync in ${days} days)`; }
+        else { it.kind = "many"; it.count = ms.length; it.what = "devices"; }
+      } else entraNeed.push(it);
+    }
+    // not in Intune: Entra, 15 names per request
+    const dChunks = [];
+    for (let i = 0; i < entraNeed.length; i += 15) dChunks.push(entraNeed.slice(i, i + 15));
+    let doneD = 0;
+    const dr = await Graph.pool(dChunks, async (chunk) => {
+      const r = await Graph.readAll(`/devices?$filter=${enc(`displayName in (${chunk.map((x) => odq(x.line)).join(",")})`)}&$select=id,deviceId,displayName,operatingSystem,operatingSystemVersion,approximateLastSignInDateTime,accountEnabled`, { scopes: DO(), retry: true });
+      doneD += chunk.length; say(`Looking up devices in Entra… ${doneD} of ${entraNeed.length}`);
+      return r || [];
+    }, 4);
+    dr.forEach((x, n) => {
+      const chunk = dChunks[n];
+      if (x.error) { failed.push(`devices (${chunk.map((y) => y.line).join(", ")}): ${msg(x.error).slice(0, 160)}`); chunk.forEach((it) => { it.kind = "error"; it.note = "the device lookup failed"; }); return; }
+      for (const it of chunk) {
+        const hits = x.value.filter((d) => lc(d.displayName) === lc(it.line));
+        const win = hits.filter((d) => /^windows/i.test(d.operatingSystem || ""));
+        if (!hits.length) continue;
+        if (!win.length) { it.kind = "notwin"; it.note = [...new Set(hits.map((d) => d.operatingSystem || "unknown OS"))].join(", "); continue; }
+        if (win.length > 1) { it.kind = "many"; it.count = win.length; it.what = "devices"; continue; }
+        const d = win[0], did = lc(d.deviceId || ""), m = did ? ix.byAad.get(did) : null;
+        it.kind = "device";
+        it.pick = m ? devPick(m) : { type: "device", objId: lc(d.id), deviceId: did, name: d.displayName || d.id,
+          os: [d.operatingSystem, d.operatingSystemVersion].filter(Boolean).join(" "), lastSync: d.approximateLastSignInDateTime || null, managed: false };
+      }
+    });
+    say("");
+    return { items, failed };
+  }
+
+  // The whole list: match, look each match up (light), and settle what
+  // appears twice. A user's line claims their devices, so a device that is
+  // also on its own line shows under its user and that line says so.
+  async function resolveList(lines, base, opt, onStatus) {
+    const o = Object.assign({}, opt || {}, { light: true });
+    const say = (m) => { if (onStatus) onStatus(m); };
+    const { items, failed } = await matchList(lines, base, o, onStatus);
+    const todo = items.filter((x) => x.pick);
+    let n = 0;
+    const r = await Graph.pool(todo, async (it) => {
+      const card = await lookup(it.pick, base, o);
+      n++; say(`Reading groups… ${n} of ${todo.length}`);
+      return card;
+    }, 3);
+    r.forEach((x, i) => {
+      const it = todo[i];
+      if (x.error) { it.kind = "error"; it.note = msg(x.error).slice(0, 160); return; }
+      it.card = x.value;
+      if (x.value.failed.length) failed.push(...x.value.failed);
+    });
+    const claim = new Map();
+    const userFirst = items.filter((x) => x.card && x.kind === "user").concat(items.filter((x) => x.card && x.kind === "device"));
+    for (const it of userFirst) {
+      const c = it.card;
+      const own = c.user ? `u:${c.user.id}` : (c.devices[0] && c.devices[0].key);
+      if (own && claim.has(own)) { it.kind = "listed"; it.note = claim.get(own); it.card = null; continue; }
+      if (own) claim.set(own, it.line);
+      for (const d of c.devices) if (!claim.has(d.key)) claim.set(d.key, it.line);
+    }
+    say("");
+    return { items, failed, readAt: Date.now() };
+  }
+  // The ticks a list starts with: each card's defaults, as for one hit.
+  const listTicks = (list) => {
+    const t = new Set();
+    for (const it of (list && list.items) || []) if (it.card) defaultTicks(it.card).forEach((k) => t.add(k));
+    return t;
+  };
 
   // ------------------------------------------------------------ reach --
   // Which in-scope policies reach an object with these (transitive) groups.
@@ -359,6 +539,70 @@ const MdeExclude = (() => {
     }
     return { ops, skipped, warnings, hasRemoval: false, exclusions: true };
   }
+  // A list (10651): planAdd per card, merged into one step per group — one
+  // add to each exclusion group, one removal per country device group — so
+  // a hundred lines are a handful of steps, each read back. The same ticks
+  // set serves every card (keys are object ids, unique across the list).
+  function planAddMany(cards, ctx) {
+    const merged = new Map(), order = [];
+    const skipped = [], warnings = [];
+    const short = (names) => names.length > 4 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", ");
+    for (const c of cards) {
+      const p = planAdd(c, ctx);
+      skipped.push(...p.skipped); warnings.push(...p.warnings);
+      for (const op of p.ops) {
+        const k = `${op.type}|${op.group.id}|${op.memberKind}`;
+        if (!merged.has(k)) { merged.set(k, { type: op.type, key: "list", group: op.group, ids: [], names: [], objs: [], memberKind: op.memberKind }); order.push(k); }
+        const m = merged.get(k);
+        op.ids.forEach((id, i) => {
+          if (m.ids.includes(id)) return;
+          m.ids.push(id);
+          const o = (op.objs || [])[i];
+          if (o) m.objs.push(o);
+          m.names.push(o ? (o.displayName || o.userPrincipalName || id) : (op.label.split(" — ")[0].split(", ")[i] || id));
+        });
+      }
+    }
+    const rank = (k) => (k.startsWith("add|") ? (k.endsWith("|user") ? 0 : 1) : 2);
+    order.sort((a, b) => rank(a) - rank(b));
+    const ops = order.map((k) => {
+      const m = merged.get(k);
+      const noun = m.memberKind === "user" ? "user" : "device";
+      const op = { type: m.type, key: "list", group: m.group, ids: m.ids, memberKind: m.memberKind,
+        label: m.type === "remove" ? `${short(m.names)} — out of the wave, back on the old set` : short(m.names),
+        who: `${m.ids.length} ${noun}${m.ids.length === 1 ? "" : "s"}` };
+      if (m.objs.length === m.ids.length) op.objs = m.objs;
+      return op;
+    });
+    const count = (t, kind) => ops.filter((x) => x.type === t && x.memberKind === kind).reduce((a, x) => a + x.ids.length, 0);
+    return { ops, skipped, warnings, hasRemoval: false, exclusions: true, bulk: true,
+      counts: { users: count("add", "user"), devices: count("add", "device"), out: count("remove", "device") } };
+  }
+  // What a verified run changed, folded into the list's cards: who is in
+  // an exclusion group now, and which country device group a device left.
+  function patchList(list, done, groups) {
+    if (!list) return;
+    const G = groups || {};
+    for (const d of done || []) {
+      if (d.type !== "add" && d.type !== "remove") continue;
+      const gid = lc(d.group.id), ids = new Set(d.ids.map(lc));
+      const isU = G.user && gid === lc(G.user.id), isD = G.device && gid === lc(G.device.id);
+      for (const it of list.items) {
+        const c = it.card;
+        if (!c) continue;
+        if (isU && c.user && ids.has(c.user.id)) c.user.excluded = d.type === "add";
+        for (const dv of c.devices) {
+          if (!dv.objId || !ids.has(dv.objId)) continue;
+          if (isD) dv.excluded = d.type === "add";
+          else if (dv.direct) {
+            if (d.type === "remove") dv.direct = dv.direct.filter((g) => g.id !== gid);
+            else if (!dv.direct.some((g) => g.id === gid)) dv.direct.push({ id: gid, name: d.group.name || gid });
+          }
+        }
+      }
+    }
+  }
+
   // Out of the exclusion groups again: every excluded member of the ticked
   // rows. A device goes back into its country device group with the next
   // 👥 sync of that country — until then it stays on the old set.
@@ -397,5 +641,6 @@ const MdeExclude = (() => {
     }
   }
 
-  return { scopes, readBase, index, excludedNow, matchLocal, search, lookup, defaultTicks, reachOf, countryGroupsOf, assess, planAdd, planRemove, patchBase, isStale };
+  return { scopes, readBase, index, excludedNow, matchLocal, search, lookup, defaultTicks, reachOf, countryGroupsOf, assess, planAdd, planRemove, patchBase, isStale,
+    parseList, matchList, resolveList, listTicks, planAddMany, patchList, MAX_LINES };
 })();

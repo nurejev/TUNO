@@ -538,6 +538,72 @@ async function run() {
   ok("taking a row out is a typed removal, planned under Excluded now", !!st().plan && st().plan.hasRemoval && st().plan.ops[0].fromExclusion && $("mrExNow").nextElementSibling === $("mrPlan") && !!$("mrConfirmText"));
   $("mrDiscard").click();
 
+  // ------------------------------------------ ⊘ 📋 a list (10651) --
+  // Mihai: "the exclusion should get a bulk add user and device"; option A
+  // off the mockup. Eva by UPN, Alex's laptop by name, Nina (in already —
+  // her Windows laptop is not), a line nobody answers to, a Mac, and Eva's
+  // laptop again on its own line.
+  ok("the pane has a switch: One at a time | A list", !!D.querySelector('[data-mrexmode="one"].active') && !!D.querySelector('[data-mrexmode="list"]'));
+  D.querySelector('[data-mrexmode="list"]').click();
+  ok("A list: a box, Look them up, a .csv / .txt button — and no search", st().ex.mode === "list" && !!$("mrExListText") && !!$("mrExListGo") && $("mrExListGo").disabled && !!$("mrExListFile") && !$("mrExQ") && !!$("mrExNow"));
+  $("mrExListText").value = "eva@contoso.com\nWS-ENG-0221; nina@contoso.com\nnobody@contoso.com, MB-DES-0012\nWS-FIN-0142\nEVA@contoso.com";
+  $("mrExListText").dispatchEvent(new w.Event("input", { bubbles: true }));
+  ok("typing counts the lines on the button (a repeat counted once), the box keeps its focus", /Look them up · 6 lines/.test($("mrExListGo").textContent) && !$("mrExListGo").disabled && st().ex.listText.includes("MB-DES-0012"));
+  $("mrExListGo").click();
+  ok("Look them up: every line answered", await until(() => st().ex.list && !st().ex.listBusy, 10000, "list lookup") && st().ex.list.items.length === 6);
+  const li = (line) => st().ex.list.items.find((x) => x.line === line);
+  ok("…Eva by UPN, with her laptop; Alex's laptop by name; Nina", li("eva@contoso.com").kind === "user" && li("eva@contoso.com").card.devices.map((d) => d.name).join() === "WS-FIN-0142"
+    && li("WS-ENG-0221").kind === "device" && li("nina@contoso.com").kind === "user" && li("nina@contoso.com").card.user.excluded);
+  ok("…no match, a Mac, and Eva's laptop again under her line", li("nobody@contoso.com").kind === "none" && li("MB-DES-0012").kind === "notwin" && li("WS-FIN-0142").kind === "listed");
+  const lt = $("mrExList").textContent;
+  ok("the table: Line → match, Now, Into the exclusion groups", /Line → match/.test(lt) && /Into the exclusion groups/.test(lt) && /6 lines · 2 users · 1 device · 1 no match · 1 not Windows · 1 twice/.test(lt));
+  ok("…Eva's country, her laptop in INT-SG-D-NLD, and what the run does to it", /user · Eva Employee · Netherlands/.test(lt) && /in INT-SG-D-NLD/.test(lt) && /\+ INT-SG-D-MDE-Exclusion/.test(lt) && /− out of INT-SG-D-NLD/.test(lt));
+  ok("…Nina is in already, her laptop is not", /excluded/.test(D.querySelector(`[data-mrexltick="u:${li("nina@contoso.com").card.user.id}"]`).closest("tr").textContent) && D.querySelector(`[data-mrexltick="u:${li("nina@contoso.com").card.user.id}"]`).disabled
+    && D.querySelector(`[data-mrexltick="${li("nina@contoso.com").card.devices[0].key}"]`).checked);
+  ok("…the Mac and the line nobody answers to say why", /not a Windows device/.test(lt) && /no user has this UPN or e-mail/.test(lt) && /already in this list — with eva@contoso\.com/.test(lt));
+  ok("the bar: 1 user · 3 devices → the exclusion groups · 2 out of their country group", /1 user · 3 devices/.test($("mrExListBar").textContent) && /2 devices out of their country group/.test($("mrExListBar").textContent) && !$("mrExListDry").disabled);
+  // untick Alex's laptop, then everything, then back
+  const alexT = D.querySelector(`[data-mrexltick="${li("WS-ENG-0221").card.devices[0].key}"]`);
+  alexT.checked = false; alexT.dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("a tick moves the bar", /1 user · 2 devices/.test($("mrExListBar").textContent) && /1 device out of/.test($("mrExListBar").textContent));
+  $("mrExListAll").checked = false; $("mrExListAll").dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("the header box clears every tick", st().ex.lticks.size === 0 && $("mrExListDry").disabled && /tick a user or a device/.test($("mrExListBar").textContent));
+  $("mrExListAll").checked = true; $("mrExListAll").dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("…and ticks everything that can be", /1 user · 3 devices/.test($("mrExListBar").textContent) && $("mrExListAll").checked);
+  $("mrExListDry").click();
+  ok("the dry run: ONE plan — the user, the devices, then out of INT-SG-D-NLD", !!st().plan && st().plan.bulk && st().plan.exclusions && st().plan.ops.length === 3
+    && st().plan.ops[0].group.name === "PVM-UG-MDE-Exclusion" && st().plan.ops[0].ids.length === 1
+    && st().plan.ops[1].group.name === "INT-SG-D-MDE-Exclusion" && st().plan.ops[1].ids.length === 3
+    && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-NLD" && st().plan.ops[2].ids.length === 2);
+  ok("…under the list, above Excluded now, confirmed by a tick", $("mrExList").nextElementSibling === $("mrPlan") && /a list of 6 lines/.test($("mrPlan").textContent) && /3 devices/.test($("mrPlan").textContent) && !!$("mrConfirmTick"));
+  $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  const lr = st().runs.length;
+  $("mrMemApply").click();
+  ok("applied and read back: three steps verified, on 📜", await until(() => st().runs.length === lr + 1, 10000, "list run") && st().runs[lr].ok === 3 && st().runs[lr].exclusions);
+  const exD = () => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-Exclusion");
+  const D_ = (n) => `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  ok("in the tenant: Eva in the user group; three laptops in the device group; Eva's and Alex's out of INT-SG-D-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
+    && [101, 107, 109].every((n) => exD()._devices.includes(D_(n))) && !demoG(35)._devices.includes(D_(101)) && !demoG(35)._devices.includes(D_(107)));
+  ok("the list moved with the run: in already, nothing ticked; Excluded now has them", li("eva@contoso.com").card.user.excluded && li("WS-ENG-0221").card.devices[0].excluded && st().ex.lticks.size === 0
+    && $("mrExListDry").disabled && st().ex.base.devices.length === 3 && /Eva Employee/.test($("mrExNow").textContent));
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${lr}"]`).click();
+  ok("📜 undo: the inverse, a typed REMOVE", await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "list undo plan") && st().plan.ops.length === 3 && !!$("mrConfirmText"));
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  $("mrMemApply").click();
+  ok("…the tenant is back, and so is the list", await until(() => st().runs.length === lr + 2, 10000, "list undo run") && !demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
+    && demoG(35)._devices.includes(D_(101)) && demoG(35)._devices.includes(D_(107)) && !exD()._devices.length
+    && !li("eva@contoso.com").card.user.excluded && li("eva@contoso.com").card.devices[0].direct.some((g) => g.name === "INT-SG-D-NLD"));
+  w.MdeRolloutTool._pane("exclusions");
+  // a file dropped on the box: a CSV narrowed to its UPN column
+  const drop = new w.Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(drop, "dataTransfer", { value: { files: [new w.File(["displayName,userPrincipalName\nMilan,milan@contoso.com\nPriya,priya@contoso.com\n"], "people.csv", { type: "text/csv" })] } });
+  $("mrExListText").dispatchEvent(drop);
+  ok("a .csv dropped on the box: its UPN column fills it, and it says so", await until(() => /milan@contoso\.com\npriya@contoso\.com/.test(st().ex.listText), 5000, "csv drop")
+    && $("mrExListText").value === "milan@contoso.com\npriya@contoso.com" && /people\.csv: 2 lines from the column “userPrincipalName”/.test($("mrExListProg").textContent));
+  D.querySelector('[data-mrexmode="one"]').click();
+  ok("back to One at a time: the search again, the list kept", st().ex.mode === "one" && !!$("mrExQ") && !$("mrExListText") && !!st().ex.list);
+
   // ------------------------------------------- ⚙️ leave out (10639) --
   w.MdeRolloutTool._pane("rules");
   ok("the rules have a Leave-out box beside Also-in", !!$("mrRuleLeave") && /Leave out of the target list/.test($("mrBody").textContent));

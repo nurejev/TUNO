@@ -173,6 +173,93 @@ async function run() {
   MM.patchInput(input, [{ type: "remove", group: { id: G(91) }, ids: [O(1).toLowerCase()], memberKind: "device" }]);
   ok("taking it out of the exclusion group lets the sync want it again", !input.held.has(O(1).toLowerCase()) && MM.compute(mcfg, input, new Map(), NOW).rows.find((x) => x.suffix === "NL").want.has(O(1).toLowerCase()));
 
+  // ------------------------------------------- 📋 a list (10651) --
+  // Mihai: "the exclusion should get a bulk add user and device"; option A
+  // off the mockup — paste a list.
+  const pl = X.parseList("jan.devries@contoso.com\nLT-NL-0412, KIOSK-NL-01;  \"Nina Nieuw\" <nina@contoso.com>\n\nJAN.DEVRIES@contoso.com\tmailto:ghost@contoso.com");
+  ok("a pasted list: lines, commas, semicolons and tabs; an Outlook address and mailto: unwrapped; deduplicated case-insensitively",
+    pl.lines.join("|") === "jan.devries@contoso.com|LT-NL-0412|KIOSK-NL-01|nina@contoso.com|ghost@contoso.com" && !pl.column && !pl.truncated);
+  const csv = X.parseList("﻿Device name,Primary user UPN,OS\r\nLT-NL-0412,jan.devries@contoso.com,Windows\r\nWS-ENG-0308,nina@contoso.com,Windows\r\n");
+  ok("a CSV with a header: ONE column — the device name before the UPN (an Intune export is a device list)", csv.column === "Device name" && csv.lines.join() === "LT-NL-0412,WS-ENG-0308");
+  ok("…a UPN column, else an e-mail column", X.parseList("displayName;userPrincipalName;mail\nJan;jan@x.com;j@x.com").lines.join() === "jan@x.com"
+    && X.parseList("Name,Email\nJan,j@x.com").lines.join() === "j@x.com");
+  const big = X.parseList(Array.from({ length: X.MAX_LINES + 3 }, (_, i) => `u${i}@x.com`).join("\n"));
+  ok("more than the limit: the first ones, and the total said", big.lines.length === X.MAX_LINES && big.total === X.MAX_LINES + 3 && big.truncated && big.values.length === X.MAX_LINES + 3);
+
+  // match: users by UPN or e-mail (7 of each per request), devices by
+  // exact name in Intune, then in Entra
+  const managed2 = managed.concat([
+    { id: "m6", deviceName: "LT-DE-01", userId: U(3), userPrincipalName: "eva@contoso.com", azureADDeviceId: A(6), lastSyncDateTime: ago(1), osVersion: "10.0.26100" },
+    { id: "m7", deviceName: "LT-DE-01", userId: U(4), userPrincipalName: "ali@contoso.com", azureADDeviceId: A(7), lastSyncDateTime: ago(2), osVersion: "10.0.26100" },
+    { id: "m8", deviceName: "LT-NL-0233", userId: U(5), userPrincipalName: "piet@contoso.com", azureADDeviceId: A(8), lastSyncDateTime: ago(90), osVersion: "10.0.19045" },
+    { id: "m9", deviceName: "LT-NL-0233", userId: U(5), userPrincipalName: "piet@contoso.com", azureADDeviceId: A(9), lastSyncDateTime: ago(1), osVersion: "10.0.26100" },
+  ]);
+  const base2 = () => Object.assign(base(), { managed: managed2.map((m) => Object.assign({}, m)) });
+  const lcalls = [];
+  const users = [{ id: U(1), displayName: "Jan de Vries", userPrincipalName: "jan.devries@contoso.com", mail: "jan@contoso.com" },
+    { id: U(2), displayName: "Nina Nieuw", userPrincipalName: "nina@contoso.com", mail: "nina@contoso.com" },
+    { id: U(8), displayName: "Two A", userPrincipalName: "two.a@contoso.com", mail: "team@contoso.com" }, { id: U(9), displayName: "Two B", userPrincipalName: "two.b@contoso.com", mail: "team@contoso.com" }];
+  const entra = [{ id: O(20), deviceId: A(20), displayName: "MB-DES-0007", operatingSystem: "MacMDM" }, { id: O(21), deviceId: A(21), displayName: "HYB-NL-9", operatingSystem: "Windows", operatingSystemVersion: "10.0.26100" },
+    { id: O(3), deviceId: A(3), displayName: "ws-eng-0308-entra", operatingSystem: "Windows" }];
+  const inList = (q, prop) => { const m = new RegExp(`${prop} in \\(([^)]*)\\)`).exec(q); return m ? [...m[1].matchAll(/'((?:[^']|'')*)'/g)].map((x) => x[1].replace(/''/g, "'").toLowerCase()) : []; };
+  w.Graph.readAll = async (p) => {
+    lcalls.push(p);
+    const q = decodeURIComponent(p);
+    if (p.startsWith("/users?")) { const v = inList(q, "userPrincipalName"), m = inList(q, "mail"); return users.filter((u) => v.includes(u.userPrincipalName.toLowerCase()) || m.includes(u.mail.toLowerCase())); }
+    if (p.startsWith("/devices?")) { const v = inList(q, "displayName"); return entra.filter((d) => v.includes(d.displayName.toLowerCase())); }
+    if (p.startsWith(`/users/${encodeURIComponent(U(1))}/memberOf`)) return [{ id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL" }];
+    if (/\/devices\/[^/]+\/memberOf/.test(p)) return [{ id: G(35), displayName: "INT-SG-D-NLD" }];
+    if (/transitiveMemberOf/.test(p)) throw new Error("a list reads direct groups only");
+    return [];
+  };
+  w.Graph.get = async (p) => {
+    const d = /^\/devices\(deviceId='([^']+)'\)/.exec(p);
+    if (d) { const id = decodeURIComponent(d[1]); return { id: O(Number(id.slice(-2))), deviceId: id, displayName: "x" }; }
+    throw new Error("a list reads no user by id: " + p);
+  };
+  const lines = ["jan.devries@contoso.com", "nina@contoso.com", "team@contoso.com", "ghost@contoso.com", "LT-NL-0412", "LT-DE-01", "LT-NL-0233", "MB-DES-0007", "HYB-NL-9", "KIOSK-NL-01", "nothing-here", "o'brien@contoso.com", "ws-eng-0308-entra"];
+  const status = [];
+  const L = await X.resolveList(lines, base2(), { now: NOW, staleDays: 30 }, (m) => status.push(m));
+  const it = (line) => L.items.find((x) => x.line === line);
+  const uq = lcalls.filter((p) => p.startsWith("/users?")).map(decodeURIComponent);
+  ok("users: one request per seven lines, UPN or e-mail, quotes doubled", uq.length === 1 && /userPrincipalName in \('jan\.devries@contoso\.com',.*'o''brien@contoso\.com'\) or mail in \(/.test(uq[0]));
+  ok("a UPN is a user", it("jan.devries@contoso.com").kind === "user" && it("jan.devries@contoso.com").card.user.displayName === "Jan de Vries");
+  ok("an e-mail two users carry is several — 🔎 decides", it("team@contoso.com").kind === "many" && it("team@contoso.com").count === 2 && it("team@contoso.com").what === "users");
+  ok("no user and no device: none", it("ghost@contoso.com").kind === "none" && it("nothing-here").kind === "none" && it("o'brien@contoso.com").kind === "none");
+  ok("a device name is matched exactly in the Intune list", it("KIOSK-NL-01").kind === "device" && it("KIOSK-NL-01").card.devices[0].name === "KIOSK-NL-01");
+  ok("two Intune records that both synced lately: several", it("LT-DE-01").kind === "many" && it("LT-DE-01").count === 2);
+  ok("a re-enrolment (one recent record, one stale): the recent one, the other said", it("LT-NL-0233").kind === "device" && it("LT-NL-0233").card.devices[0].managedId === "m9" && /1 older Intune record/.test(it("LT-NL-0233").note));
+  const dq = lcalls.filter((p) => p.startsWith("/devices?")).map(decodeURIComponent);
+  ok("only the names Intune does not know go to Entra, in one request", dq.length === 1 && /displayName in \('MB-DES-0007','HYB-NL-9','nothing-here','ws-eng-0308-entra'\)/.test(dq[0]));
+  ok("an Entra device that is not Windows is said", it("MB-DES-0007").kind === "notwin" && /MacMDM/.test(it("MB-DES-0007").note));
+  ok("an Entra-only Windows device is a match, by its object", it("HYB-NL-9").kind === "device" && it("HYB-NL-9").card.devices[0].objId === O(21).toLowerCase() && !it("HYB-NL-9").card.devices[0].managed);
+  ok("an Entra name whose device IS in Intune is taken as the Intune device (here: Nina's, so under her line)", it("ws-eng-0308-entra").pick.managedId === "m3" && it("ws-eng-0308-entra").kind === "listed" && it("ws-eng-0308-entra").note === "nina@contoso.com");
+  ok("a device off a list comes alone — its user named, not read", it("LT-NL-0233").card.user === null && it("LT-NL-0233").card.devices.length === 1 && it("LT-NL-0233").card.devices[0].upn === "piet@contoso.com");
+  ok("a device that is also under its user's line says so", it("LT-NL-0412").kind === "listed" && it("LT-NL-0412").note === "jan.devries@contoso.com" && !it("LT-NL-0412").card);
+  const jc = it("jan.devries@contoso.com").card;
+  ok("light: the user's and each device's DIRECT groups only (no transitive read)", jc.user.direct.map((g) => g.name).join() === "PVM-UG-CORP-MEM-USERS-NL" && !jc.user.groups
+    && jc.devices.find((d) => d.name === "LT-NL-0412").direct.map((g) => g.name).join() === "INT-SG-D-NLD" && !lcalls.some((p) => /transitiveMemberOf/.test(p)));
+  ok("the progress is said", status.some((m) => /Looking up users/.test(m)) && status.some((m) => /Reading groups/.test(m)));
+  const lt = X.listTicks(L);
+  const n412 = jc.devices.find((d) => d.name === "LT-NL-0412"), n388 = jc.devices.find((d) => d.name === "LT-NL-0388");
+  ok("the ticks: each card's defaults — Jan and his recent laptop, not the stale one; Nina's laptop (she is in already); the devices", lt.has(`u:${U(1).toLowerCase()}`) && lt.has(n412.key) && !lt.has(n388.key)
+    && !lt.has(`u:${U(2).toLowerCase()}`) && lt.has("m:m3") && lt.has("m:m9") && lt.has(`e:${O(21).toLowerCase()}`) && !lt.has("m:m4"));
+  const mp = X.planAddMany(L.items.filter((x) => x.card).map((x) => x.card), ctx(lt, true));
+  ok("one plan, merged per group: users, then devices, then out of the country device group", mp.ops.length === 3 && mp.bulk && mp.exclusions && !mp.hasRemoval
+    && mp.ops[0].type === "add" && mp.ops[0].memberKind === "user" && mp.ops[0].ids.join() === U(1).toLowerCase()
+    && mp.ops[1].type === "add" && mp.ops[1].memberKind === "device" && mp.ops[1].ids.length === 4 && mp.ops[1].objs.length === 4 && mp.ops[1].who === "4 devices"
+    && mp.ops[2].type === "remove" && mp.ops[2].group.name === "INT-SG-D-NLD" && mp.ops[2].ids.length === 4 && mp.ops[2].label === "LT-NL-0412, WS-ENG-0308, LT-NL-0233, HYB-NL-9 — out of the wave, back on the old set");
+  ok("…its counts are the bar's", mp.counts.users === 1 && mp.counts.devices === 4 && mp.counts.out === 4);
+  const five = X.planAddMany(["A", "B", "C", "D", "E"].map((n, i) => ({ pick: { type: "device" }, user: null, devices: [{ key: `k${i}`, name: `PC-${n}`, objId: O(60 + i).toLowerCase(), deviceId: "", excluded: false, direct: [] }] })), ctx(new Set(["k0", "k1", "k2", "k3", "k4"]), true));
+  ok("…a long step names three and counts the rest", five.ops.length === 1 && five.ops[0].label === "PC-A, PC-B, PC-C and 2 more" && five.ops[0].ids.length === 5);
+  ok("the kiosk, already in, is skipped with the reason if ticked", /KIOSK-NL-01: already in/.test(X.planAddMany([it("KIOSK-NL-01").card], ctx(new Set(["m:m4"]), true)).skipped.join()));
+  // the run moves the list
+  X.patchList(L, mp.ops.map((o) => Object.assign({}, o)), groups);
+  ok("after the run: Jan and the four devices excluded, out of INT-SG-D-NLD, nothing ticked by default", jc.user.excluded && n412.excluded && !n412.direct.some((g) => g.name === "INT-SG-D-NLD")
+    && X.listTicks(L).size === 0);
+  X.patchList(L, MM.inverseOf(mp.ops).ops, groups);
+  ok("…and the undo moves it back", !jc.user.excluded && !n412.excluded && n412.direct.some((g) => g.name === "INT-SG-D-NLD") && X.listTicks(L).size === lt.size);
+
   // ------------------------------------------- ⚙️ leave out (10639) --
   const cfg = M.normConfig({ leaveOut: ["  Win - OIB - ES - Defender Antivirus - D - AV Test - v1  ", ""], leaveOutSeed: M.DEFAULTS.leaveOutSeed });
   ok("the leave-out list is kept, trimmed, empty lines dropped", cfg.leaveOut.length === 1 && cfg.leaveOut[0] === "Win - OIB - ES - Defender Antivirus - D - AV Test - v1");

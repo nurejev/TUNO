@@ -1638,7 +1638,10 @@ const MdeRolloutTool = (() => {
   // ⊘ Exclusions (10639, layout A off the mockup): its own read, search,
   // the looked-up card and its ticks, and the "excluded now" rows ticked
   const ex = { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "",
-    ticks: new Set(), sel: new Set(), keepOld: true };
+    ticks: new Set(), sel: new Set(), keepOld: true,
+    // 📋 a list (10651, option A off the mockup): the mode, the pasted text,
+    // the looked-up list and its ticks, the running line and the last error
+    mode: "one", listText: "", list: null, lticks: new Set(), listBusy: false, listNote: "", listErr: "" };
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
   // Where the plan panel opens (10639, Mihai: the dry run "appears at the
@@ -3128,7 +3131,14 @@ const MdeRolloutTool = (() => {
       runs.push({ at: Date.now(), title: p.title, kind: "members", exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
         done: r.done, pilots: !!p.pilotsReady, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
-      if (p.exclusions) { ex.sel.clear(); if (ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
+      // 📋 (10651): the list's rows move with any run; a list run starts
+      // its ticks again (what failed is ticked for another go)
+      if (ex.list) {
+        MdeExclude.patchList(ex.list, r.done, exGroups());
+        if (p.bulk) ex.lticks = MdeExclude.listTicks(ex.list);
+        else { const can = MdeExclude.listTicks(ex.list); for (const k of [...ex.lticks]) if (!can.has(k) && exListLocked(k)) ex.lticks.delete(k); }
+      }
+      if (p.exclusions) { ex.sel.clear(); if (!p.bulk && ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
       else if (p.pilotsReady) mem.pilSel.clear();
       else mem.sel.clear();
       const ledger = $("mrLedger").innerHTML;
@@ -3150,10 +3160,10 @@ const MdeRolloutTool = (() => {
     const pick = (aud) => { const w = waveRows.find((x) => x.role === "exclusion" && x.audience === aud); return w ? (w.group || (w.legacy && w.legacy.group) || null) : null; };
     return { user: pick("user"), device: pick("device") };
   }
-  function exCtx() {
+  function exCtx(ticks) {
     const G = exGroups();
     return {
-      groups: G, ticks: ex.ticks, keepOld: ex.keepOld,
+      groups: G, ticks: ticks || ex.ticks, keepOld: ex.keepOld,
       exUserId: G.user ? lc(G.user.id) : null, exDeviceId: G.device ? lc(G.device.id) : null,
       deviceWaveIds: new Set(waveRows.filter((w) => w.role === "wave" && w.audience === "device" && w.id).map((w) => w.id)),
       deviceGroupPrefix: mcfg().deviceGroupPrefix,
@@ -3222,7 +3232,7 @@ const MdeRolloutTool = (() => {
   }
   const gName = (id) => names.get(lc(id)) || (ex.card && ex.card.names.get(lc(id))) || id;
   const shortDate = (iso) => { const t = Date.parse(iso || ""); return Number.isFinite(t) ? new Date(t).toLocaleDateString() : "never"; };
-  const ago = (iso) => { const t = Date.parse(iso || ""); if (!Number.isFinite(t)) return "never"; const h = Math.round((Date.now() - t) / 3600000); return h < 48 ? `${Math.max(h, 0)} h ago` : `${Math.round(h / 24)} days ago`; };
+  const ago = (iso) => { const t = Date.parse(iso || ""); if (!Number.isFinite(t)) return "never"; const h = Math.round((Date.now() - t) / 3600000); return h < 1 ? "under an hour ago" : h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`; };
   // the waves (by region) an object is in, from its transitive groups
   const wavesIn = (groups, aud) => waveRows.filter((w) => w.role === "wave" && w.audience === aud && w.id && groups && groups.has(w.id)).map((w) => w.region);
   function exReachHtml(rows) {
@@ -3311,9 +3321,141 @@ const MdeRolloutTool = (() => {
         : `<p class="mini muted" style="margin:8px 0 0">Nobody is in the exclusion groups.</p>`}
     </div>`;
   }
+  // ---------------------------------------------- ⊘ 📋 a list (10651) --
+  // Mihai: "the exclusion should get a bulk add user and device"; option A
+  // off the mockup — paste a list. One plan for the whole list, the same
+  // steps as one card's, merged per group.
+  const exListCards = () => (ex.list ? ex.list.items.filter((x) => x.card).map((x) => x.card) : []);
+  // the tickable keys of the list, and whether a key's object can no
+  // longer be ticked (in the exclusion group already, no Entra object)
+  function exListCan() {
+    const G = exGroups(), out = new Set();
+    for (const c of exListCards()) {
+      if (c.user && !c.user.excluded && G.user) out.add(`u:${c.user.id}`);
+      c.devices.forEach((d) => { if (!d.excluded && d.objId && G.device) out.add(d.key); });
+    }
+    return out;
+  }
+  const exListLocked = (k) => !exListCan().has(k);
+  async function exListRun() {
+    const t = $("mrExListText"); if (t) ex.listText = t.value;
+    const parsed = MdeExclude.parseList(ex.listText);
+    if (!parsed.lines.length || ex.listBusy) return;
+    if (!ex.base) await exRead();
+    if (!ex.base) return;
+    if (plan && plan.bulk && !busy) clearPlan();
+    ex.listBusy = true; ex.listErr = ""; ex.listNote = `Looking up ${plural(parsed.lines.length, "line")}…`; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      const L = await MdeExclude.resolveList(parsed.lines, ex.base, exOpt(), (m) => { if (!m) return; ex.listNote = m; const el = $("mrExListProg"); if (el) el.textContent = m; });
+      L.truncated = parsed.truncated ? parsed.total : 0;
+      for (const it of L.items) if (it.card) for (const [id, n] of it.card.names) if (!names.has(id)) names.set(id, n);
+      ex.list = L; ex.lticks = MdeExclude.listTicks(L); ex.listNote = "";
+    } catch (e) { ex.listErr = GroupUse.shortErr(e, 300); ex.listNote = ""; }
+    finally { ex.listBusy = false; render(); }
+  }
+  async function exListFile(f) {
+    if (!f) return;
+    let text = "";
+    try {
+      text = typeof f.text === "function" ? await f.text() : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(r.error); r.readAsText(f); });
+    } catch (e) { ex.listErr = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; render(); return; }
+    const p = MdeExclude.parseList(text);
+    ex.listText = p.values.join("\n");
+    ex.listErr = p.total ? "" : `Nothing to look up in ${f.name}.`;
+    ex.listNote = p.total ? `${f.name}: ${plural(p.total, "line")}${p.column ? ` from the column “${p.column}”` : ""} — check them, then Look them up.` : "";
+    render();
+    const ta = $("mrExListText"); if (ta) ta.focus();
+  }
+  function exListDryRun() {
+    if (busy || !ex.list) return;
+    planAnchor = "mrExList"; clearPlan(); seatPlan();
+    const p = MdeExclude.planAddMany(exListCards(), exCtx(ex.lticks));
+    plan = Object.assign(p, { members: true, title: `Exclusions — a list of ${plural(ex.list.items.length, "line")}` });
+    renderMemPlan();
+  }
+  function exListHtml() {
+    const G = exGroups();
+    const parsed = MdeExclude.parseList(ex.listText);
+    const L = ex.list;
+    const ctx = exCtx(ex.lticks);
+    const can = exListCan();
+    const tick = (key, label) => `<input type="checkbox" data-mrexltick="${esc(key)}"${ex.lticks.has(key) && can.has(key) ? " checked" : ""}${can.has(key) ? "" : " disabled"} aria-label="${esc(label)}">`;
+    const xChip = chip("au-op create", "excluded");
+    const cty = mcfg().countryPrefix;
+    const countryOf = (direct) => (direct || []).map((g) => g.name).filter((n) => lc(n).startsWith(lc(cty))).map((n) => MdeMembers.countryName(n.slice(cty.length)) || n);
+    const devInto = (d, groups) => ex.lticks.has(d.key) && can.has(d.key)
+      ? `${chip("au-op create", `+ ${G.device.displayName}`)}${ex.keepOld ? groups.map((g) => ` ${chip("au-op delete", `− out of ${g}`)}`).join("") : ""}` : "";
+    const devNow = (d, groups) => d.excluded ? xChip : groups.length ? `in ${esc(groups.join(", "))}` : d.direct ? `<span class="muted">no country device group</span>` : d.objId ? `<span class="muted">groups not read</span>` : "—";
+    const devLine = (d) => `${d.managed ? `last sync ${esc(ago(d.lastSync))}` : "not in Intune"}${d.stale ? ` ${chip("gu-how priv", "stale")}${ex.lticks.has(d.key) ? "" : ` <span class="muted">— not ticked</span>`}` : ""}${d.problem ? `<div style="color:var(--off)">${esc(d.problem)}</div>` : ""}`;
+    const rows = !L ? "" : L.items.map((it) => {
+      const line = `<b>${esc(it.line)}</b>`;
+      const c = it.card;
+      if (c && c.user) {
+        const u = c.user, country = countryOf(u.direct);
+        const uRow = `<tr class="${ex.lticks.has(`u:${u.id}`) && can.has(`u:${u.id}`) ? "mr-selrow" : ""}"><td>${tick(`u:${u.id}`, `exclude ${u.displayName}`)}</td>
+          <td>${line} <span class="mini muted">user · ${esc(u.displayName)}${country.length ? ` · ${esc(country.join(", "))}` : ""}${c.devices.length ? "" : " · no Windows device"}</span></td>
+          <td class="mini">${u.excluded ? xChip : "not excluded"}</td>
+          <td class="mini">${ex.lticks.has(`u:${u.id}`) && can.has(`u:${u.id}`) ? chip("au-op create", `+ ${G.user.displayName}`) : ""}</td></tr>`;
+        return uRow + c.devices.map((d) => {
+          const groups = MdeExclude.countryGroupsOf(d, ctx).map((g) => g.name);
+          return `<tr class="mr-exsubrow${ex.lticks.has(d.key) && can.has(d.key) ? " mr-selrow" : ""}"><td>${tick(d.key, `exclude ${d.name}`)}</td>
+            <td class="mini mr-exsub">↳ <b>${esc(d.name)}</b> · ${devLine(d)}</td><td class="mini">${devNow(d, groups)}</td><td class="mini">${devInto(d, groups)}</td></tr>`;
+        }).join("");
+      }
+      if (c) {
+        const d = c.devices[0];
+        if (!d) return "";
+        const groups = MdeExclude.countryGroupsOf(d, ctx).map((g) => g.name);
+        const who = d.upn ? `primary user ${esc(d.upn)}` : d.managed ? "no primary user" : "in Entra, not in Intune";
+        return `<tr class="${ex.lticks.has(d.key) && can.has(d.key) ? "mr-selrow" : ""}"><td>${tick(d.key, `exclude ${d.name}`)}</td>
+          <td>${line} <span class="mini muted">device · ${who}</span><div class="mini">${devLine(d)}</div>${it.note ? `<div class="mini muted">${esc(it.note)}</div>` : ""}</td>
+          <td class="mini">${devNow(d, groups)}</td><td class="mini">${devInto(d, groups)}</td></tr>`;
+      }
+      const why = it.kind === "many" ? `${chip("gu-how priv", it.what === "users" ? `${it.count} users answer to this address` : `${it.count} devices have this name`)} <button type="button" class="btn" data-mrexone="${esc(it.line)}">🔎 open it in One at a time</button>`
+        : it.kind === "notwin" ? `${chip("gu-how priv", "not a Windows device")} <span class="muted">${esc(it.note)} — nothing here targets it</span>`
+        : it.kind === "listed" ? `<span class="muted">already in this list — with ${esc(it.note)}</span>`
+        : it.kind === "error" ? `${chip("au-op delete", "could not be read")} <span class="muted">${esc(it.note)}</span>`
+        : chip("gu-how priv", it.line.includes("@") ? "no user has this UPN or e-mail" : "no device in Intune or Entra has this name");
+      return `<tr class="mr-exnomatch"><td class="muted">—</td><td>${line}</td><td class="mini" colspan="2">${why}</td></tr>`;
+    }).join("");
+    let table = "";
+    if (L) {
+      const k = (x) => L.items.filter((i) => i.kind === x).length;
+      const sum = [`${plural(L.items.length, "line")}`, k("user") ? plural(k("user"), "user") : "", k("device") ? plural(k("device"), "device") : "",
+        k("none") ? `${k("none")} no match` : "", k("many") ? `${k("many")} with several matches` : "", k("notwin") ? `${k("notwin")} not Windows` : "",
+        k("listed") ? `${k("listed")} twice` : "", k("error") ? `${k("error")} not read` : ""].filter(Boolean).join(" · ");
+      const allOn = can.size > 0 && [...can].every((x) => ex.lticks.has(x));
+      const p0 = MdeExclude.planAddMany(exListCards(), ctx);
+      const n = p0.counts;
+      const bar = n.users || n.devices ? `<b>${[n.users ? plural(n.users, "user") : "", n.devices ? plural(n.devices, "device") : ""].filter(Boolean).join(" · ")}</b> → the exclusion groups${n.out ? ` · ${plural(n.out, "device")} out of their country group` : ""}` : "tick a user or a device";
+      table = `<p class="mini" style="margin:12px 0 6px"><b>${esc(sum)}</b> <span class="muted">· looked up ${esc(new Date(L.readAt).toLocaleTimeString())}</span></p>
+        ${L.truncated ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Only the first ${MdeExclude.MAX_LINES} of ${L.truncated} lines were looked up.</b><span class="why">Split the list, and look up the rest after this one.</span></div>` : ""}
+        ${L.failed.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Partly read:</b><span class="why">${L.failed.slice(0, 5).map(esc).join("<br>")}${L.failed.length > 5 ? `<br>… and ${L.failed.length - 5} more` : ""}</span></div>` : ""}
+        <div style="overflow-x:auto"><table class="cg-table mr-exlist-t"><colgroup><col style="width:30px"><col><col style="width:20%"><col style="width:30%"></colgroup>
+          <thead><tr><th><input type="checkbox" id="mrExListAll"${allOn ? " checked" : ""}${can.size ? "" : " disabled"} aria-label="tick everything that can be"></th><th>Line → match</th><th>Now</th><th>Into the exclusion groups</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="mini muted" style="margin:6px 0 0">A user comes with their Windows devices (Intune primary user); the ones that synced in the last ${exOpt().staleDays} days are ticked. A device comes alone — its user is named, not ticked.</p>
+        <div class="mr-mbar" id="mrExListBar"><span>${bar}</span>
+          <label class="chk" style="margin:0" title="⚔️ action ③ takes the waves out of the old policies — a wave device excluded from the new set would get neither"><input type="checkbox" id="mrExKeep"${ex.keepOld ? " checked" : ""}> keep devices on the old set (out of their country device group)</label>
+          <button class="btn primary" id="mrExListDry"${n.users || n.devices ? "" : " disabled"}>② Dry run</button></div>`;
+    }
+    return `<div id="mrExList">
+      <textarea id="mrExListText" class="mr-exlisttext" rows="6" spellcheck="false" autocomplete="off" placeholder="anna.bakker@contoso.com&#10;jan.devries@contoso.com; LT-NL-0233&#10;KIOSK-NL-01" aria-label="Users and devices, one per line">${esc(ex.listText)}</textarea>
+      <div class="tb-actions" style="margin-top:8px;align-items:center">
+        <button class="btn primary" id="mrExListGo"${ex.listBusy || !parsed.lines.length ? " disabled" : ""}>${ex.listBusy ? "Looking up…" : `Look them up · ${plural(parsed.lines.length, "line")}`}</button>
+        <label class="btn mr-exfile" title="A .csv with a UPN, e-mail or device name column, or a .txt with one per line">⭱ .csv / .txt<input type="file" id="mrExListFile" accept=".csv,.txt,text/csv,text/plain"></label>
+        <span class="mini muted" id="mrExListProg">${esc(ex.listNote)}</span>
+      </div>
+      ${ex.listErr ? `<div class="gu-fail" style="margin-top:8px"><b>${esc(ex.listErr)}</b></div>` : ""}
+      ${table}
+    </div>`;
+  }
   function exclusionsPane() {
     const G = exGroups();
-    const intro = `<p class="mini muted" style="margin:0 0 10px">Search a user (name, UPN, e-mail) or a device (name). A user comes with their Windows devices, a device with its primary user, and each with what reaches it. Users go to <code>${esc(G.user ? G.user.displayName : cfg.exclusionUser)}</code> (the <code>- U -</code> policies), devices to <code>${esc(G.device ? G.device.displayName : cfg.exclusionDevice)}</code> (the <code>- D -</code> ones). An excluded device also leaves its country device group, so it stays on the old set.</p>`;
+    const groupsLine = `Users go to <code>${esc(G.user ? G.user.displayName : cfg.exclusionUser)}</code> (the <code>- U -</code> policies), devices to <code>${esc(G.device ? G.device.displayName : cfg.exclusionDevice)}</code> (the <code>- D -</code> ones). An excluded device also leaves its country device group, so it stays on the old set.`;
+    const intro = ex.mode === "list" && ex.base
+      ? `<p class="mini muted" style="margin:0 0 10px">Paste UPNs, e-mail addresses or device names — one per line, or separated by commas or semicolons — or drop a .csv or .txt file. <b>Look them up</b> matches each line exactly: a UPN or e-mail to a user, a name to a device. ${groupsLine}</p>`
+      : `<p class="mini muted" style="margin:0 0 10px">Search a user (name, UPN, e-mail) or a device (name). A user comes with their Windows devices, a device with its primary user, and each with what reaches it. ${groupsLine}</p>`;
     const missingG = [!G.user ? cfg.exclusionUser : "", !G.device ? cfg.exclusionDevice : ""].filter(Boolean);
     const warn = missingG.length ? `<div class="gu-fail" style="margin-bottom:10px;border-color:var(--report)"><b>${missingG.map(esc).join(" and ")} ${missingG.length === 1 ? "does" : "do"} not exist.</b><span class="why">Create ${missingG.length === 1 ? "it" : "them"} in <a href="#" data-mrpane="waves">🌊 Wave groups</a> first; until then that side cannot be added.</span></div>` : "";
     if (!ex.base) return `<div class="list-card" style="margin-top:0">${intro}${warn}
@@ -3324,7 +3466,9 @@ const MdeRolloutTool = (() => {
         <span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b>
         <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
         <span class="mr-exr">${h.type === "user" ? `${plural(h.devices, "Windows device")}` : esc(h.os || "")}${h.excluded ? ` · <b style="color:var(--on)">excluded</b>` : ""}${h.stale ? " · stale" : ""}</span></button>`).join("");
-    return `<div class="list-card mr-stickyhost" style="margin-top:0">${intro}${warn}
+    const modes = `<div class="mr-fixwith"><span class="seg" role="group" aria-label="One at a time or a list"><button type="button" class="${ex.mode === "list" ? "" : "active"}" data-mrexmode="one">🔎 One at a time</button><button type="button" class="${ex.mode === "list" ? "active" : ""}" data-mrexmode="list">📋 A list</button></span><span class="mini muted">${ex.mode === "list" ? "UPN · e-mail · device name — one per line, or , ;" : "name · UPN · e-mail · device name"}</span></div>`;
+    if (ex.mode === "list") return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${warn}${exListHtml()}</div>${exNowHtml()}`;
+    return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${warn}
       <div class="mr-exsearch"><input id="mrExQ" type="search" placeholder="Search a user or device…" value="${esc(ex.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mrExGo"${ex.searching ? " disabled" : ""}>${ex.searching ? "Searching…" : "Search"}</button></div>
       ${ex.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(ex.note)}</p>` : ""}
       ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
@@ -3334,8 +3478,9 @@ const MdeRolloutTool = (() => {
   function openExclusions() {
     pane = "exclusions"; view.cat = null; view.state = null; view.q = "";
     render();
-    const q = $("mrExQ"); if (q) q.focus();
-    if (!ex.base && !ex.loading) exRead().then(() => { const x = $("mrExQ"); if (x) x.focus(); });
+    const focus = () => { const x = $(ex.mode === "list" ? "mrExListText" : "mrExQ"); if (x) x.focus(); };
+    focus();
+    if (!ex.base && !ex.loading) exRead().then(focus);
   }
 
   // ---------------------------------------------------------- 📑 reports --
@@ -3695,10 +3840,22 @@ const MdeRolloutTool = (() => {
       if (t.id === "mrExGo") { exSearch(); return; }
       if (t.id === "mrExDry") { exDryRun(); return; }
       if (t.id === "mrExRemDry") { exRemoveDryRun(); return; }
+      // 📋 a list (10651)
+      const xm = t.closest("[data-mrexmode]"); if (xm) {
+        if (ex.mode !== xm.dataset.mrexmode) { ex.mode = xm.dataset.mrexmode; if (plan && !busy && (planAnchor === "mrExCard" || planAnchor === "mrExList")) clearPlan(); render(); const f = $(ex.mode === "list" ? "mrExListText" : "mrExQ"); if (f) f.focus(); }
+        return;
+      }
+      if (t.id === "mrExListGo") { exListRun(); return; }
+      if (t.id === "mrExListDry") { exListDryRun(); return; }
+      const xo = t.closest("[data-mrexone]"); if (xo) {
+        ex.mode = "one"; ex.q = xo.dataset.mrexone;
+        if (plan && !busy && planAnchor === "mrExList") clearPlan();
+        render(); exSearch(); return;
+      }
       const xp = t.closest("[data-mrexpick]"); if (xp) { const h = (ex.results || [])[Number(xp.dataset.mrexpick)]; if (h) exPick(h); return; }
       const xf = t.closest("[data-mrexfix]"); if (xf) {
         const n = exNow(); const r = n && n.rows.find((x) => x.key === xf.dataset.mrexfix);
-        if (r && r.user) { exPick({ type: "user", id: r.user.id, displayName: r.user.displayName, upn: r.user.upn }); const top = $("mrExQ"); if (top && top.scrollIntoView) top.scrollIntoView({ block: "center" }); }
+        if (r && r.user) { ex.mode = "one"; exPick({ type: "user", id: r.user.id, displayName: r.user.displayName, upn: r.user.upn }); const top = $("mrExQ"); if (top && top.scrollIntoView) top.scrollIntoView({ block: "center" }); }
         return;
       }
       if (t.id === "mrMemDry") { memDryRun(); return; }
@@ -3773,14 +3930,29 @@ const MdeRolloutTool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mrExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mrExListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); exListRun(); } return; }
       if (e.key !== "Enter" && e.key !== " ") return;
       const rep = e.target.closest("[data-mrreport]");
       if (rep) { e.preventDefault(); rep.click(); return; }
       const nd = e.target.closest("[data-mrpane]");
       if (nd && nd.tagName !== "A") { e.preventDefault(); go(nd.dataset.mrpane); }
     });
+    // 📋 a .csv / .txt dropped on the list box (10651)
+    body.addEventListener("dragover", (e) => { if (e.target.id === "mrExListText") e.preventDefault(); });
+    body.addEventListener("drop", (e) => {
+      if (e.target.id !== "mrExListText") return;
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      e.preventDefault(); exListFile(f);
+    });
     body.addEventListener("input", (e) => {
       if (e.target.id === "mrExQ") { ex.q = e.target.value; return; }
+      if (e.target.id === "mrExListText") {
+        ex.listText = e.target.value;
+        const b = $("mrExListGo"), n = MdeExclude.parseList(ex.listText).lines.length;
+        if (b && !ex.listBusy) { b.textContent = `Look them up · ${plural(n, "line")}`; b.disabled = !n; }
+        return;
+      }
       if (e.target.id !== "mrQ") return;
       view.q = e.target.value;
       const pos = e.target.selectionStart;
@@ -3836,6 +4008,9 @@ const MdeRolloutTool = (() => {
       if (t.dataset.mrextick) { t.checked ? ex.ticks.add(t.dataset.mrextick) : ex.ticks.delete(t.dataset.mrextick); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
       if (t.id === "mrExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }
+      if (t.dataset.mrexltick) { t.checked ? ex.lticks.add(t.dataset.mrexltick) : ex.lticks.delete(t.dataset.mrexltick); clearPlan(); render(); return; }
+      if (t.id === "mrExListAll") { const can = exListCan(); if (t.checked) can.forEach((k) => ex.lticks.add(k)); else ex.lticks.clear(); clearPlan(); render(); return; }
+      if (t.id === "mrExListFile") { const f = t.files && t.files[0]; t.value = ""; exListFile(f); return; }
     });
     // the bar
     $("mrActSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-mract]"); if (!b) return; setSeg("mrActSeg", "data-mract", b.dataset.mract); clearPlan(); syncSelbar(); });

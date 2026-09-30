@@ -104,6 +104,37 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 213,
+  "title": "T28 — ⊘ 📋 exclusions from a list (paste or .csv / .txt; one plan for every line)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10651
+  ],
+  "risk": "low",
+  "what": "⊘ Exclusions gets a switch, 🔎 One at a time | 📋 A list. A pasted list (lines, commas, semicolons, tabs; Outlook 'Name <address>' unwrapped) or a dropped/picked .csv/.txt (a header row narrows it to one column: device name, else UPN, else e-mail), up to 500 lines. MdeExclude.matchList: a line with @ is a user by UPN or e-mail (userPrincipalName in (…) or mail in (…), 7 + 7 per request), any other a device by exact name in the Intune Windows list (one recent record among several with one name is taken, the stale ones said), then in Entra (displayName in (…), 15 per request; a non-Windows device said). resolveList looks each match up light (direct groups only) and settles doubles: a user's line claims their devices. The table: Line → match, Now, Into the exclusion groups; ticks as one card's defaults; a header box ticks all. planAddMany merges planAdd per group (one add per exclusion group, one removal per country device group); applyMem patches the list after any run. Demo: evalFilter learns `in`, /users filter returns mail, /users/{id}/memberOf takes the group cast and the _users groups.",
+  "why": "Mihai: 'Also the exclusion should get a bulk add user and device.' Mockup t28-exclusions-bulk-mockup.html, option A (paste a list).",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/exclude 67, mderollout/screen 243).",
+    "On PVM: ⊘ Exclusions → 📋 A list, paste three UPNs and two device names, Look them up; check the Now column against Entra, untick one, ② Dry run, apply, and check the members of both exclusion groups and the country device groups; then undo from 📜."
+  ],
+  "files": [
+    "js/mdeexclude.js",
+    "js/mderollout.js",
+    "css/app.css",
+    "js/demo.js",
+    "tests/mderollout/exclude.test.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10651.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 212,
   "title": "Tests — CI annotations for failing checks; T28 screen suite waits for a read to settle",
   "tools": [

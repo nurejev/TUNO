@@ -1307,7 +1307,13 @@ const TUNO_DEMO_GRAPH = (() => {
     const glue = /\s+or\s+/i.test(expr) && !/\s+and\s+/i.test(expr) ? "or" : "and";
     const clauses = expr.split(/\s+(?:and|or)\s+/i).map((s) => s.trim()).filter(Boolean);
     const test = (c) => {
-      let m = /^startswith\(\s*([\w./]+)\s*,\s*'(.*)'\s*\)$/i.exec(c);
+      // `in` (10651, T28 ⊘ a list): userPrincipalName in ('a','b')
+      let m = /^([\w./]+)\s+in\s+\((.*)\)$/i.exec(c);
+      if (m) {
+        const vals = [...m[2].matchAll(/'((?:[^']|'')*)'/g)].map((x) => x[1].replace(/''/g, "'").toLowerCase());
+        return vals.includes(String(obj[m[1]] || "").toLowerCase());
+      }
+      m = /^startswith\(\s*([\w./]+)\s*,\s*'(.*)'\s*\)$/i.exec(c);
       if (m) return String(obj[m[1]] || "").toLowerCase().startsWith(m[2].replace(/''/g, "'").toLowerCase());
       m = /^([\w./]+)\s+(eq|ge|le|ne)\s+(?:'(.*)'|(\S+))$/i.exec(c);
       if (!m) return true;                       // an operator we do not model must not silently exclude
@@ -1837,10 +1843,13 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // ---------- users ----------
   m = /^\/users\/([^/]+)\/transitiveMemberOf(?:\/microsoft\.graph\.group)?$/.exec(path);
   if (m) return M.coll(M.groupsOfUser(m[1]).map((g) => ({ id: g.id, displayName: g.displayName, membershipRule: g.membershipRule, "@odata.type": "#microsoft.graph.group" })));
-  m = /^\/users\/([^/]+)\/memberOf$/.exec(path);
+  // direct groups; also the ones that model their users as _users (T28's
+  // country and exclusion groups) — a ⊘ list reads them (10651)
+  m = /^\/users\/([^/]+)\/memberOf(?:\/microsoft\.graph\.group)?$/.exec(path);
   if (m) {
     const usr = T.USERS.find((x) => x.id === m[1]);
-    return M.coll(((usr && usr.memberOf) || []).map((gid) => {
+    const ids = ((usr && usr.memberOf) || []).concat(T.GROUPS.filter((g) => (g._users || []).includes(m[1])).map((g) => g.id));
+    return M.coll([...new Set(ids)].map((gid) => {
       const g = T.GROUPS.find((x) => x.id === gid);
       return g ? { id: g.id, displayName: g.displayName, membershipRule: g.membershipRule, "@odata.type": "#microsoft.graph.group" } : null;
     }).filter(Boolean));
@@ -1864,10 +1873,11 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     return M.coll(rows.slice(0, 15).map((usr) => ({ id: usr.id, displayName: usr.displayName, userPrincipalName: usr.userPrincipalName, mail: usr.userPrincipalName, accountEnabled: usr.accountEnabled })));
   }
   if (path === "/users") {
-    const rows = T.USERS.filter((usr) => M.evalFilter(filter, usr));
+    // a user's mail is their UPN here, as in the $search above
+    const rows = T.USERS.filter((usr) => M.evalFilter(filter, Object.assign({ mail: usr.userPrincipalName }, usr)));
     const top = parseInt(qs.get("$top"), 10);
     return M.coll(rows.slice(0, isFinite(top) ? top : rows.length)
-      .map((usr) => ({ id: usr.id, displayName: usr.displayName, userPrincipalName: usr.userPrincipalName, accountEnabled: usr.accountEnabled })));
+      .map((usr) => ({ id: usr.id, displayName: usr.displayName, userPrincipalName: usr.userPrincipalName, mail: usr.userPrincipalName, accountEnabled: usr.accountEnabled })));
   }
 
   // ---------- devices (Entra, addressed by the alternate key) ----------

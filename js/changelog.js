@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10651,
+  "date": "2026-09-30",
+  "title": "MDE rollout — exclude a whole list of users and devices at once",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "⊘ Exclusions has a switch: 🔎 One at a time or 📋 A list. Paste UPNs, e-mail addresses or device names, one per line or separated by commas or semicolons, or drop a .csv or .txt file. Look them up matches each line exactly and shows what the run would do to each user and device."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A user from the list comes with their recent Windows devices ticked; a device comes on its own. Lines that match nothing, match several objects, or are already excluded say so."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "One dry run covers the whole list: the users into the user exclusion group, the devices into the device exclusion group and out of their country device group. Every step is read back, and the run can be undone from 📜 Changes this session."
+    }
+  ]
+},
+{
   "build": 10650,
   "date": "2026-09-30",
   "title": "Tests — a failing check names itself on the CI run page",
