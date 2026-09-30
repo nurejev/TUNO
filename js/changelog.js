@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10650,
+  "date": "2026-09-30",
+  "title": "Tests — a failing check names itself on the CI run page",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "TUNO",
+      "text": "When the automatic tests fail on GitHub, the run page now lists the failing checks by name as annotations, instead of only \"Process completed with exit code 1\". The job log, which needs sign-in, is no longer the only place to find them."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "The MDE rollout tests now wait for a tenant read to finish completely before continuing. A slow test machine could catch the page mid-update. There's no change to the tool itself."
+    }
+  ]
+},
+{
   "build": 10649,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — pilot users ready for their wave",

@@ -27,12 +27,30 @@ const suites = dirs.flatMap((d) => fs.readdirSync(d)
 
 if (!suites.length) { console.error("No suites found under tests/."); process.exit(2); }
 
+// On GitHub Actions a failed suite also names its failing checks as
+// ANNOTATIONS (build 10649). The job log needs a signed-in viewer; the run
+// page's annotations do not — so "Process completed with exit code 1" is no
+// longer the only thing a failure says. TUNO's CI failed once on a commit
+// tuno-beta's CI passed, and nothing on the run page said which check.
+const onActions = !!process.env.GITHUB_ACTIONS;
+const esc = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 let failed = 0;
 for (const s of suites) {
   const rel = path.relative(ROOT, s);
   console.log(`\n──── ${rel}`);
-  const r = spawnSync(process.execPath, [s], { cwd: ROOT, stdio: "inherit" });
-  if (r.status !== 0) { failed++; console.log(`   ${rel} FAILED (exit ${r.status})`); }
+  const r = spawnSync(process.execPath, [s], { cwd: ROOT, stdio: onActions ? ["inherit", "pipe", "pipe"] : "inherit", encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  if (onActions) { process.stdout.write(r.stdout || ""); process.stderr.write(r.stderr || ""); }
+  if (r.status !== 0) {
+    failed++;
+    console.log(`   ${rel} FAILED (exit ${r.status})`);
+    if (onActions) {
+      const out = `${r.stdout || ""}\n${r.stderr || ""}`.split(/\r?\n/);
+      const hits = out.filter((l) => /^(FAIL: |timeout: )/.test(l));
+      const err = hits.length ? [] : out.filter((l) => /Error\b/.test(l)).slice(0, 1);
+      for (const l of hits.concat(err).slice(0, 10)) console.log(`::error file=${rel},title=${esc(path.basename(rel))}::${esc(l.slice(0, 900))}`);
+      if (!hits.length && !err.length) console.log(`::error file=${rel},title=${esc(path.basename(rel))}::exit ${r.status} with no FAIL line — see the job log`);
+    }
+  }
 }
 
 console.log(failed ? `\n${failed} of ${suites.length} suites failed.\n` : `\nAll ${suites.length} suites passed.\n`);

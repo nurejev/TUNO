@@ -104,6 +104,35 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 212,
+  "title": "Tests — CI annotations for failing checks; T28 screen suite waits for a read to settle",
+  "tools": [
+    "TUNO",
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10650
+  ],
+  "risk": "low",
+  "what": "tests/run.js: on GitHub Actions (GITHUB_ACTIONS set) each suite's output is piped through and, for a failed suite, its FAIL:/timeout: lines (or its first Error line) are printed as ::error annotations with the suite as the file, escaped per the workflow-command rules; locally nothing changes (stdio inherit). MdeRolloutTool._state() adds running, busy, enriching; the T28 screen suite's idle() waits for all three after the first read and after each re-read.",
+  "why": "TUNO's CI run for 10649 failed ('Process completed with exit code 1', nothing else on the run page) while tuno-beta's CI passed the same commit, and the suites pass locally (also 12x in parallel, 8x on one core, in UTC). The job log needs a signed-in viewer; the annotation does not.",
+  "test": [
+    "Run npm test: all 17 suites pass. GITHUB_ACTIONS=true npm test: the same, with no annotations. A made-up failing suite under GITHUB_ACTIONS prints '::error file=…::FAIL: …' with % escaped.",
+    "On the next push, the CI run is green; if a check ever fails, the run page's annotations name it."
+  ],
+  "files": [
+    "tests/run.js",
+    "js/mderollout.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10650.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 211,
   "title": "T28 — 🧪 pilot users ready for their wave (per person: out of the pilot, devices into their country group)",
   "tools": [

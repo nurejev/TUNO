@@ -91,8 +91,15 @@ async function run() {
   await sleep(50);
   ok("opening it again still only offers", !!offer() && !w.MdeRolloutTool._state().model && reads.refresh === 0);
 
+  // A read renders, then keeps going (group kinds, setting names) and
+  // renders again. A check that holds an element across that second render
+  // clicks a detached node — so after every read the suite waits until the
+  // screen is idle (10649: TUNO's CI failed once while tuno-beta passed the
+  // same commit; this is the race that fits).
+  const idle = () => until(() => { const s = w.MdeRolloutTool._state(); return !s.running && !s.busy && !s.enriching; }, 30000, "idle");
   offer().querySelector('[data-mrread="attach"]').click();
   ok("the read finishes and the rail renders", await until(() => $("mrBody").querySelector(".ep-rail"), 30000, "rail"));
+  await idle();
   ok("using the sign-in read asks for no fresh read, and the offer is gone", reads.refresh === 0 && !offer() && /From the sign-in read at/.test($("mrBody").textContent), JSON.stringify(reads));
   w.TunoScreenHooks["screen-mderollout"]();
   ok("once read, opening the screen again keeps the read", !!$("mrBody").querySelector(".ep-rail") && !offer());
@@ -452,7 +459,7 @@ async function run() {
   // click, 🚀 Read the tenant clears the body, and the panel went with it)
   $("mrRun").click();
   await until(() => $("mrBody").querySelector(".ep-rail"), 30000, "re-read");
-  await sleep(50);
+  await idle();
   w.MdeRolloutTool._pane("conflicts");
   const again = D.querySelector("[data-mrpair]");
   again.checked = true; again.dispatchEvent(new w.Event("change", { bubbles: true }));
@@ -600,6 +607,7 @@ async function run() {
   $("mrRun").click();
   await sleep(50);
   ok("re-read with the pilot on both AV policies", await until(() => !st().reps.busy && $("mrBody").querySelector(".ep-rail") && st().model && st().model.newP.some((P) => P.reach.inc.has(pilotId)), 30000, "pilot read"));
+  await idle();
   const avP = () => st().pairs.find((p) => p.O.name === "(TO-BE-REMOVED)PVM-DG-CORP-ENDSEC-WIN-AV-PRD" && /Defender Antivirus - D/.test(p.N.name));
   const avPil = avP().proposal.pilots;
   ok("⚔️ the AV fix takes the pilot off both sides: the new policy's include, the old policy's exclusion", avPil && avPil.steps.map((x) => `${x.side}:${x.groupName}`).sort().join() === "new:INT-SG-D-Win-Pilot,old:INT-SG-D-Win-Pilot", avPil && JSON.stringify(avPil.kept.map((k) => k.why)));
