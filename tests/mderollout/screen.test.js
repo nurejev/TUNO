@@ -716,8 +716,36 @@ async function run() {
     && st().plan.changes[0].details.filter((d) => d.action === "add-include").map((d) => d.group.displayName).every((n) => /^INT-SG-D-WAVE-/.test(n))
     && st().plan.changes[0].details.some((d) => d.group.displayName === "INT-SG-D-WAVE-Euro"), st().plan && JSON.stringify(st().plan.changes.map((o) => o.details.map((d) => d.group.displayName))));
   $("mrDiscard").click();
+  // 🧪 Add include only adds (10653, Mihai: "add include, should only add
+  // include or there should be an option to also remove the others";
+  // option A off the mockup): the pilots come off only with the bar's tick
+  const avN = st().model.newP.find((p) => /Defender Antivirus - D - AV Configuration/.test(p.name));
+  // Edge (no wave yet) and the AV policy (Euro in, the pilot on). Where the
+  // pilot may come off is ⚔️'s business (pilotsFor, tested above); here the
+  // bar is held to what it does with the answer, so the answer is fixed.
+  const realPF = w.MdeRollout.pilotsFor;
+  w.MdeRollout.pilotsFor = () => ({ steps: [{ P: avN, groupId: pilotId, groupName: "INT-SG-D-Win-Pilot", side: "new", note: "pilot: the waves take over" }], kept: [] });
+  const pkAv = D.querySelector(`[data-mrpick="${avN.key}"]`);
+  pkAv.checked = true; pkAv.dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("the bar has the pilot tick beside 🌊 Waves, off — whatever ⚔️'s own tick says", $("mrBarPilotsL").style.display !== "none" && !$("mrBarPilots").checked && st().cfg.pilotGroupsOff === true);
+  const removes = () => st().plan.changes.flatMap((o) => o.details.filter((d) => d.action === "remove"));
+  $("mrDryRun").click();
+  ok("tick off (the default): the waves in, nothing removed, no REMOVE to type", await until(() => st().plan && st().plan.changes, 10000, "add-only plan")
+    && removes().length === 0 && st().plan.changes.every((o) => o.details.every((d) => d.action === "add-include")) && !/pilot assignment/.test(st().plan.title) && !$("mrConfirmText"));
+  ok("…and the pilot kept on is said, with the tick to use", (st().plan.skipped || []).some((x) => /1 pilot assignment stays on \(INT-SG-D-Win-Pilot\)/.test(x) && /also take the pilot groups off/.test(x)), JSON.stringify(st().plan.skipped));
+  $("mrDiscard").click();
+  $("mrBarPilots").checked = true; $("mrBarPilots").dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrDryRun").click();
+  ok("tick on: the pilot comes off the AV policy as well, typed REMOVE", await until(() => st().plan && st().plan.changes, 10000, "pilot-on plan")
+    && removes().some((d) => d.group.id === pilotId) && /1 pilot assignment off/.test(st().plan.title) && !!$("mrConfirmText"));
+  w.MdeRollout.pilotsFor = realPF;
+  $("mrBarPilots").checked = false; $("mrBarPilots").dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("a change of the tick drops the plan it no longer matches", !st().plan && !$("mrDiscard"));
+  D.querySelector('#mrActSeg [data-mract="remove"]').click();
+  ok("Remove has no pilot tick", $("mrBarPilotsL").style.display === "none");
+  D.querySelector('#mrActSeg [data-mract="add-include"]').click();
   D.querySelector('#mrTargetSeg [data-mrtarget="group"]').click();
-  ok("back to Group: the box returns", $("mrGroup").style.display !== "none" && $("mrBarWaves").style.display === "none");
+  ok("back to Group: the box returns", $("mrGroup").style.display !== "none" && $("mrBarWaves").style.display === "none" && $("mrBarPilotsL").style.display === "none");
 
   // ------------------------- 🧪 pilots: ready for the wave (10647, 10649) --
   // Mihai: "select the user, and it then should be removed from the pilot

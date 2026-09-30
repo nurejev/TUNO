@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10653,
+  "date": "2026-09-30",
+  "title": "MDE rollout — Add include with the waves only adds",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "Adding the waves to policies from the policy bar (Add include or Add exclude with 🌊 Waves) no longer takes the pilot groups off as well. The dry run only adds, and names any pilot group it left on."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A tick in the policy bar, 🧪 also take the pilot groups off, adds that step back when you want it. It is off by default and applies to that dry run only. The pilot setting in ⚔️ and ⚡① is unchanged."
+    }
+  ]
+},
+{
   "build": 10652,
   "date": "2026-09-30",
   "title": "MDE rollout — five more OIB Device Security policies in the target list",

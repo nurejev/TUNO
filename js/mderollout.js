@@ -2266,6 +2266,11 @@ const MdeRolloutTool = (() => {
     $("mrGroup").style.display = mode === "policies" && tgt === "group" ? "" : "none";
     const wv = $("mrBarWaves");
     if (wv) { wv.style.display = mode === "policies" && tgt === "waves" ? "" : "none"; wv.textContent = `each policy's kind · ${rollRegions ? [...rollRegions].join(", ") || "no region" : "every region"}`; }
+    // 🧪 (10653, Mihai: "add include should only add include, or there
+    // should be an option to also remove the others"; option A off the
+    // mockup): the waves go in alone unless this is ticked
+    const pl = $("mrBarPilotsL");
+    if (pl) pl.style.display = mode === "policies" && tgt === "waves" && act !== "remove" && (cfg.pilotGroups || []).length ? "" : "none";
     $("mrGroup").placeholder = "Group name or object ID…";
     if (mode === "fixes") $("mrBarFixes").textContent = fixSummary();
     const filterable = mode === "policies" && act !== "remove";
@@ -2416,12 +2421,18 @@ const MdeRolloutTool = (() => {
         used.add(hit.displayName || g.name);
       }
     }
+    // 🧪 the pilot groups come off only when the bar's tick says so (10653):
+    // Add include only adds. The ⚔️ / ⚡ tick (cfg.pilotGroupsOff) is theirs.
     let pilots = { steps: [], kept: [] };
-    if (action !== "remove" && model.cfg.pilotGroupsOff !== false) {
-      pilots = M.pilotsFor(wants.concat(pols.map((P) => ({ P, groupId: "", action: "none" }))), Object.assign(rolloutCtx(), { cfg: model.cfg }), true);
-      for (const st of pilots.steps) if (!wants.some((x) => x.P === st.P && x.groupId === st.groupId && x.action === "remove")) wants.push({ P: st.P, groupId: st.groupId, groupName: st.groupName, action: "remove", filter: null, note: st.note, pilot: true });
+    const pilotsOn = !!($("mrBarPilots") && $("mrBarPilots").checked);
+    if (action !== "remove" && (model.cfg.pilotGroups || []).length) {
+      pilots = M.pilotsFor(wants.concat(pols.map((P) => ({ P, groupId: "", action: "none" }))), Object.assign(rolloutCtx(), { cfg: Object.assign({}, model.cfg, { pilotGroupsOff: true }) }), true);
+      if (pilotsOn) for (const st of pilots.steps) if (!wants.some((x) => x.P === st.P && x.groupId === st.groupId && x.action === "remove")) wants.push({ P: st.P, groupId: st.groupId, groupName: st.groupName, action: "remove", filter: null, note: st.note, pilot: true });
     }
-    const uniqSkip = [...new Set(skipped)].concat(pilots.kept.map((k) => `🧪 ${k.why}`));
+    const stay = !pilotsOn && pilots.steps.length
+      ? [`🧪 ${plural(pilots.steps.length, "pilot assignment")} stay${pilots.steps.length === 1 ? "s" : ""} on (${[...new Set(pilots.steps.map((x) => x.groupName))].join(", ")}): this plan only ${action === "add-include" ? "adds the waves" : "excludes the waves"}. Tick “🧪 also take the pilot groups off” in the bar to take ${pilots.steps.length === 1 ? "it" : "them"} off as well.`]
+      : [];
+    const uniqSkip = [...new Set(skipped)].concat(pilotsOn ? pilots.kept.map((k) => `🧪 ${k.why}`) : []).concat(stay);
     if (!wants.length) { plan = null; planError(`Nothing to do: the waves are already ${action === "add-include" ? "in" : action === "add-exclude" ? "excluded from" : "off"} these policies${uniqSkip.length ? ". Left out: " + uniqSkip.join(" · ") : ""}.`); return; }
     const targets = [...new Map(wants.map((x) => [x.P.key, x.P])).values()];
     const fresh = await M.readFresh(targets, (m) => { planEl().innerHTML = `<p class="mini muted">${esc(m)}</p>`; });
@@ -2435,7 +2446,7 @@ const MdeRolloutTool = (() => {
     const word = { "add-include": "Include", "add-exclude": "Exclude", remove: "Remove" }[action];
     const regions = rollRegions ? [...rollRegions] : null;
     plan = Object.assign(p, {
-      title: `${word} the waves${regions ? ` (${regions.join(", ")})` : ""} — ${plural(pols.length, "policy", "policies")}${pilots.steps.length ? `, ${plural(pilots.steps.length, "pilot assignment")} off` : ""}`,
+      title: `${word} the waves${regions ? ` (${regions.join(", ")})` : ""} — ${plural(pols.length, "policy", "policies")}${pilotsOn && pilots.steps.length ? `, ${plural(pilots.steps.length, "pilot assignment")} off` : ""}`,
       head: { tool: "TUNO T28 MDE rollout", action: `${action}-waves`, regions: regions || "all", groups: [...used] },
       memberLine: `${plural(used.size, "wave group")}: ${[...used].map(esc).join(", ")}`,
       unread, skipped: uniqSkip, skippedTitle: "Left out, with the reason:",
@@ -4034,6 +4045,7 @@ const MdeRolloutTool = (() => {
     $("mrFilterMode").addEventListener("change", clearPlan);
     $("mrGroup").addEventListener("input", clearPlan);
     $("mrDryRun").addEventListener("click", dryRun);
+    if ($("mrBarPilots")) $("mrBarPilots").addEventListener("change", clearPlan);
     $("mrSelClear").addEventListener("click", () => { if (barMode() === "fixes") selPairs.clear(); else sel.clear(); clearPlan(); render(); });
     if (typeof Suggest !== "undefined" && Suggest.attach) Suggest.attach($("mrGroup"), { kind: "group" });
     (window.TunoScreenHooks = window.TunoScreenHooks || {})["screen-mderollout"] = onShow;

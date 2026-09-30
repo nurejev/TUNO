@@ -104,6 +104,34 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 215,
+  "title": "T28 — the policy bar's Add include with 🌊 Waves only adds; a 🧪 tick for the pilot groups",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10653
+  ],
+  "risk": "medium",
+  "what": "dryRunPolicyWaves no longer follows cfg.pilotGroupsOff (⚔️ / ⚡'s tick, on by default). A bar tick #mrBarPilots ('🧪 also take the pilot groups off'), shown with 🌊 Waves and Add include / Add exclude when pilot groups are configured, OFF by default and not saved, decides. pilotsFor is still asked (with pilots on) so a pilot assignment left on is named under Left out with the tick to use. Changing the tick clears the plan.",
+  "why": "Mihai, on a dry run adding the waves to the new OIB Device Security policies that also removed INT-SG-D-Win-Pilot / Pre-Pilot: 'add include, should only add include or there should be an option to also remove the others' — 'this on new policies when adding the waves'. Mockup t28-bar-add-only-mockup.html, option A.",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/screen 249).",
+    "On PVM: tick the five Device Security policies, Add include · 🌊 Waves, ② Dry run — only include steps, no REMOVE to type, the pilots named under Left out. Tick 🧪 also take the pilot groups off and dry run again — the pilot removals are back."
+  ],
+  "files": [
+    "js/mderollout.js",
+    "index.html",
+    "css/app.css",
+    "tests/mderollout/screen.test.js",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10653.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 214,
   "title": "T28 — five more OIB Device Security policies in the ⚙️ Also-in target list",
   "tools": [
