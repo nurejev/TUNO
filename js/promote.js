@@ -103,6 +103,7 @@ const PROMOTE = {
   productionBuild: "v1.0.13",
 
   items: [
+{ n: 222, title: "T28 — parallel V2 workspace inside the existing tool", tools: ["T28 MDE rollout"], builds: [10660], files: ["js/mderolloutv2.js", "js/t28v2safety.js", "js/t28v2.js", "css/t28v2.css", "index.html"], risk: "V2 writes to the same tenant; Graph verification is eventual. No live tenant acceptance test has been performed.", why: "Requested full second version within T28 on the same URL.", test: ["npm test, including V2 integration and safety suites", "Verify Existing/V2 switching, group drift rejection and ASR risk gates in demo"], detail: "Guided overview, isolated plans and rules, ASR/retirement gates, member backup and drift preflight, verified-only readiness and exported run records. Same Graph sign-in; original controller retained." },
 {
   "n": 221,
   "title": "T28 — 👥 a primary user in no country group: the deleted user's live account, else the device name, else usage location",

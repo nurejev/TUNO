@@ -25,6 +25,7 @@
 // Newest release first.
 // ======================================================================
 const CHANGELOG = [
+{ build: 10660, title: "T28 — parallel V2 workspace inside the tool", date: "2026-09-30", items: [{ tool: "T28 MDE rollout", kind: "new", text: "V2 runs inside T28 beside Existing, sharing sign-in. Guided overview, separate naming rules, explicit ASR scope exception, retirement/enforcement risk gates, group backups and drift checks, verified-only member updates and portable session records." }] },
 {
   "build": 10659,
   "date": "2026-09-30",

@@ -1,0 +1,24 @@
+/* T28's original classes remain shared; new layout is scoped to V2. */
+#t28Workspace1[hidden], #t28Workspace2[hidden] { display:none !important; }
+.t28-versionbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.t28-versionbar > span:first-child { font-weight:700; margin-right:auto; }
+.t28-versionbar .active { background:var(--green); color:var(--bg); }
+#t28VersionStatus { width:100%; }
+#t28Workspace2 .v2-hero { border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:16px; background:var(--surface); }
+#t28Workspace2 .v2-hero h3 { font-size:26px; margin:12px 0; }
+#t28Workspace2 .v2-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+#t28Workspace2 .v2-card { display:flex; flex-direction:column; text-align:left; gap:12px; padding:20px; border:1px solid var(--border); border-radius:12px; color:var(--ink); background:var(--surface); font:inherit; cursor:pointer; }
+#t28Workspace2 .v2-card:hover { border-color:var(--green); }
+#t28Workspace2 .v2-card strong { font-size:22px; }
+#t28Workspace2 .v2-card small { line-height:1.6; }
+#t28Workspace2 .v2-card-link { margin-top:auto; font-size:13px; font-weight:700; }
+#t28Workspace2 .v2-rail-label { padding:16px 12px 6px; font-size:10px; letter-spacing:1px; font-weight:700; opacity:.7; }
+#t28Workspace2 .v2-risk { padding:16px; border:1px solid var(--report); border-radius:10px; margin:12px 0; line-height:1.6; }
+#t28Workspace2 .v2-risk textarea { width:100%; box-sizing:border-box; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; }
+#t28Workspace2 .v2-import-row { border-top:1px solid var(--border); padding:14px 0; }
+#t28Workspace2 button:focus-visible { outline:3px solid var(--green); outline-offset:3px; }
+@media(max-width:1100px) { #t28Workspace2 .ep-wrap { flex-direction:column; } #t28Workspace2 .ep-rail { position:static; width:auto; min-width:0; max-height:none; } #t28Workspace2 .mr-navigation { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; } #t28Workspace2 .v2-rail-label, #t28Workspace2 .mr-navigation hr { grid-column:1/-1; } }
+@media(max-width:650px) { #t28Workspace2 .v2-grid { grid-template-columns:1fr; } #t28Workspace2 .mr-navigation { grid-template-columns:repeat(2,minmax(0,1fr)); } #t28Workspace2 .v2-hero { padding:16px; } #t28Workspace2 .v2-hero h3 { font-size:22px; } }
+
+#mvBarPilotsL{display:inline-flex;align-items:center;gap:6px;color:#fff;white-space:nowrap;border:1px solid rgba(255,255,255,.28);border-radius:9px;padding:5px 10px;cursor:pointer}
+#mvBarPilotsL input{flex:none;min-width:0;width:auto;height:auto;margin:0;accent-color:var(--lemon)}

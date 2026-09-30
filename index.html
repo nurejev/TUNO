@@ -9,14 +9,15 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10659"></script>
+<script src="js/popup-guard.js?v=10660"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10659">
+<link rel="stylesheet" href="css/app.css?v=10660">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10659"></script>
+<script src="js/selfhost-boot.js?v=10660"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10660">
 </head>
 <body>
 
@@ -1532,6 +1533,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
        The plan node survives pane changes and remains below the active
        operational pane. Assignment/group write gates are unchanged. -->
   <section id="screen-mderollout" class="screen">
+    <div class="t28-versionbar" role="group" aria-label="T28 version"><span>T28 workspace</span><button type="button" class="btn active" id="t28Version1" aria-pressed="true">Existing</button><button type="button" class="btn" id="t28Version2" aria-pressed="false">V2 · guided rollout</button><span class="mini" id="t28VersionStatus" role="status"></span></div>
+    <div id="t28Workspace1">
     <div class="mr-header">
       <div><h2>🚀 MDE rollout <span class="tag new">BETA</span> <span class="tag">temporary</span></h2>
         <p class="mini">Review policies, waves and rollout evidence.</p></div>
@@ -1576,6 +1579,53 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <button class="ae-selbar-x" id="mrSelClear" title="Clear the selection — the bar goes with it">✕</button>
     </div>
     <div class="modal-bg" id="mrPop"><div class="modal gu-modal" id="mrPopBody"></div></div>
+    </div>
+    <div id="t28Workspace2" hidden>
+    <div class="mr-header">
+      <div><h2>🚀 MDE rollout V2 <span class="tag new">BETA</span> <span class="tag">parallel beta</span></h2>
+        <p class="mini">Review policies, waves and rollout evidence.</p></div>
+      <div class="tb-actions">
+        <button class="btn mr-exbtn" id="mvExclude" hidden title="Search a user or device and add them to the exclusion groups">⊘ Exclude user or device</button>
+        <button class="btn mr-asrbtn" id="mvAsr" hidden title="Change the ASR rule modes (off, audit, warn, block) of the new policies, with the MDE baseline beside them">🎛 Adjust settings</button>
+        <button class="btn primary" id="mvRun">↻ Read the tenant</button>
+        <details class="mr-export" id="mvGlobalExport" hidden><summary class="btn">Rollout export ▾</summary><div class="mr-export-menu">
+          <button class="btn" id="mvMd" style="display:none">Rollout Markdown</button>
+          <button class="btn" id="mvCsv" style="display:none">Collisions CSV</button>
+        </div></details>
+      </div>
+    </div>
+    <details class="mr-intro"><summary>About this tool <span class="tag block">writes to the tenant</span></summary>
+      <p class="mini">Compare the new MDE policies with the old set, prepare wave groups and members, and review retirement gaps. Reports only read data. Assignment and group changes — and, under 🎛 Adjust settings, the ASR rule modes of the new policies — use their own confirmation, read-back and session history. Rollout groups can be created or renamed; nothing is deleted. See ❓ How it works in the rail for the full workflow.</p>
+    </details>
+    <div id="mvProg" class="mini muted" role="status"></div>
+    <div id="mvBody" style="margin-top:14px"></div>
+    <div id="mvPlan"></div>
+    <div class="ae-selbar" id="mvSelbar">
+      <b id="mvSelCount">0 selected</b>
+      <span id="mvBarPolicies" style="display:contents">
+        <div class="seg" id="mvActSeg">
+          <button class="active" data-mract="add-include">Add include</button>
+          <button data-mract="add-exclude">Add exclude</button>
+          <button data-mract="remove">Remove</button>
+        </div>
+        <div class="seg" id="mvTargetSeg" title="What to include: a group, the waves, or one of Intune's two tenant-wide targets">
+          <button class="active" data-mrtarget="group">Group</button>
+          <button data-mrtarget="waves" title="The wave groups of each policy's kind (- D - → device waves, - U - → user waves), in the regions ticked in 🌊">🌊 Waves</button>
+          <button data-mrtarget="allDevices">All devices</button>
+          <button data-mrtarget="allUsers">All users</button>
+        </div>
+      </span>
+      <span id="mvBarFixes" class="mini" style="display:none">→ exclude the proposed groups from the old policies</span>
+      <input id="mvGroup" placeholder="Group name or object ID…" autocomplete="off" spellcheck="false">
+      <span id="mvBarWaves" class="mini" style="display:none"></span>
+      <label id="mvBarPilotsL" class="mini" style="display:none" title="Off: the dry run only adds the waves (Add include) or only excludes them (Add exclude). On: the pilot groups (⚙️) come off too, where every wave of the policy's kind is in the new policy and out of the old one — as ⚔️ and ⚡① do."><input type="checkbox" id="mvBarPilots"> 🧪 also take the pilot groups off</label>
+      <select id="mvFilterSel" title="Assignment filter on the includes this adds"><option value="">No filter</option></select>
+      <select id="mvFilterMode" title="How the filter applies"><option value="include">filter: include</option><option value="exclude">filter: exclude</option></select>
+      <button class="btn primary" id="mvDryRun">② Dry run</button>
+      <button class="ae-selbar-x" id="mvSelClear" title="Clear the selection — the bar goes with it">✕</button>
+    </div>
+    <div class="modal-bg" id="mvPop"><div class="modal gu-modal" id="mvPopBody"></div></div>
+    </div>
   </section>
 
   <!-- ============ ASSIGNMENT FILTERS (T14) ============
@@ -2281,55 +2331,58 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10659"></script>
-<script src="js/selfhost.js?v=10659"></script>
-<script src="js/version.js?v=10659"></script>
-<script src="js/promote.js?v=10659"></script>
-<script src="js/authConfig.js?v=10659"></script>
-<script src="js/changelog.js?v=10659"></script>
-<script src="js/msappcatalog.js?v=10659"></script>
-<script src="js/demo.js?v=10659"></script>
-<script src="js/graph.js?v=10659"></script>
-<script src="js/suggest.js?v=10659"></script>
-<script src="js/progress.js?v=10659"></script>
-<script src="js/runledger.js?v=10659"></script>
-<script src="js/groupuse.js?v=10659"></script>
-<script src="js/audit.js?v=10659"></script>
-<script src="js/devicecleanup.js?v=10659"></script>
-<script src="js/backup.js?v=10659"></script>
-<script src="js/document.js?v=10659"></script>
-<script src="js/policycache.js?v=10659"></script>
-<script src="js/overview.js?v=10659"></script>
-<script src="js/devicewhy.js?v=10659"></script>
-<script src="js/whatif.js?v=10659"></script>
-<script src="js/health.js?v=10659"></script>
-<script src="js/settingsearch.js?v=10659"></script>
-<script src="js/conflict.js?v=10659"></script>
-<script src="js/compliance.js?v=10659"></script>
-<script src="js/filterrules.js?v=10659"></script>
-<script src="js/filters.js?v=10659"></script>
-<script src="js/restore.js?v=10659"></script>
-<script src="js/platformbaseline.js?v=10659"></script>
-<script src="js/complianceevidence.js?v=10659"></script>
-<script src="js/macbaseline.js?v=10659"></script>
-<script src="js/winbaseline.js?v=10659"></script>
-<script src="js/assignedit.js?v=10659"></script>
-<script src="js/restrictedau.js?v=10659"></script>
-<script src="js/groupmigrate.js?v=10659"></script>
-<script src="js/roles.js?v=10659"></script>
-<script src="js/defender.js?v=10659"></script>
-<script src="js/endpointsec.js?v=10659"></script>
-<script src="js/report.js?v=10659"></script>
-<script src="js/securescore.js?v=10659"></script>
-<script src="js/endpointposture.js?v=10659"></script>
-<script src="js/mdemembers.js?v=10659"></script>
-<script src="js/mdereports.js?v=10659"></script>
-<script src="js/mdeexclude.js?v=10659"></script>
-<script src="js/mdeasr.js?v=10659"></script>
-<script src="js/mderollout.js?v=10659"></script>
-<script src="js/maa.js?v=10659"></script>
-<script src="js/laps.js?v=10659"></script>
-<script src="js/applocker.js?v=10659"></script>
-<script src="js/app.js?v=10659"></script>
+<script src="js/branding.js?v=10660"></script>
+<script src="js/selfhost.js?v=10660"></script>
+<script src="js/version.js?v=10660"></script>
+<script src="js/promote.js?v=10660"></script>
+<script src="js/authConfig.js?v=10660"></script>
+<script src="js/changelog.js?v=10660"></script>
+<script src="js/msappcatalog.js?v=10660"></script>
+<script src="js/demo.js?v=10660"></script>
+<script src="js/graph.js?v=10660"></script>
+<script src="js/suggest.js?v=10660"></script>
+<script src="js/progress.js?v=10660"></script>
+<script src="js/runledger.js?v=10660"></script>
+<script src="js/groupuse.js?v=10660"></script>
+<script src="js/audit.js?v=10660"></script>
+<script src="js/devicecleanup.js?v=10660"></script>
+<script src="js/backup.js?v=10660"></script>
+<script src="js/document.js?v=10660"></script>
+<script src="js/policycache.js?v=10660"></script>
+<script src="js/overview.js?v=10660"></script>
+<script src="js/devicewhy.js?v=10660"></script>
+<script src="js/whatif.js?v=10660"></script>
+<script src="js/health.js?v=10660"></script>
+<script src="js/settingsearch.js?v=10660"></script>
+<script src="js/conflict.js?v=10660"></script>
+<script src="js/compliance.js?v=10660"></script>
+<script src="js/filterrules.js?v=10660"></script>
+<script src="js/filters.js?v=10660"></script>
+<script src="js/restore.js?v=10660"></script>
+<script src="js/platformbaseline.js?v=10660"></script>
+<script src="js/complianceevidence.js?v=10660"></script>
+<script src="js/macbaseline.js?v=10660"></script>
+<script src="js/winbaseline.js?v=10660"></script>
+<script src="js/assignedit.js?v=10660"></script>
+<script src="js/restrictedau.js?v=10660"></script>
+<script src="js/groupmigrate.js?v=10660"></script>
+<script src="js/roles.js?v=10660"></script>
+<script src="js/defender.js?v=10660"></script>
+<script src="js/endpointsec.js?v=10660"></script>
+<script src="js/report.js?v=10660"></script>
+<script src="js/securescore.js?v=10660"></script>
+<script src="js/endpointposture.js?v=10660"></script>
+<script src="js/mdemembers.js?v=10660"></script>
+<script src="js/mdereports.js?v=10660"></script>
+<script src="js/mdeexclude.js?v=10660"></script>
+<script src="js/mdeasr.js?v=10660"></script>
+<script src="js/mderollout.js?v=10660"></script>
+<script src="js/t28v2safety.js?v=10660"></script>
+<script src="js/mderolloutv2.js?v=10660"></script>
+<script src="js/maa.js?v=10660"></script>
+<script src="js/laps.js?v=10660"></script>
+<script src="js/applocker.js?v=10660"></script>
+<script src="js/app.js?v=10660"></script>
+<script src="js/t28v2.js?v=10660"></script>
 </body>
 </html>
