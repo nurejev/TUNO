@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10649,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — pilot users ready for their wave",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "🧪 Pilots now shows one row per person: the user and their Windows devices. Tick a person and one plan takes them and their devices out of every pilot group and puts each device in its country device group, creating the group if it doesn't exist yet. They're then ready for their wave. Until their country is nested in the wave, the old policies reach them again, and the plan says so. A device leaves its pilot group only after it's safely in its country group, and 📜 can undo it all."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Taking someone out of the pilot no longer requires them to be in a wave already. Policies that cover a pilot group but not the wave are now shown as a warning to fix before the wave goes live, not as a block."
+    }
+  ]
+},
+{
   "build": 10648,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — find where users with no device log on",

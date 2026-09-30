@@ -2185,7 +2185,7 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
-      <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). Every direct member of the pilot groups (⚙️) with the wave its country puts it in — a device by its Intune primary user's country group, a user by their own — and where it stands: ✓ in that wave now (a device through its country device group, nested in the device wave; a user through the country group nested in the user wave, or put in directly by a pilot batch), ⏳ not yet (with what is missing), or ✗ no wave. Only ✓ members can leave the pilot: the plan only removes, each member's wave is read fresh before the plan and again before the write, and one no longer in it is left in the pilot. <b>The policy check</b> blocks a wave where a new policy includes the pilot group but not the wave, or an old policy excludes the pilot group but not the wave (or its twin) — leaving would lose a new policy or gain an old one — and names the policy.</p>
+      <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
@@ -2882,19 +2882,23 @@ const MdeRolloutTool = (() => {
     } catch { fallback(); }
   }
 
-  // 🧪 PILOTS (10647, Mihai: "an option to identify the pilot users and
-  // devices to a wave and an option to remove them from the pilot and be
-  // sure that they are then in their wave"; option A off the mockup, and
-  // "block that wave"). Every member of the pilot groups with the wave its
-  // country puts it in; only members already in their wave can be ticked,
-  // and the plan only removes them from the pilot.
+  // 🧪 PILOTS (10647; per person and "ready for the wave" since 10649, Mihai:
+  // "select the user, and it then should be removed from the pilot groups
+  // and the device should be moved to the right group. The user is then
+  // ready for the wave"; option A off the mockup — back to their country,
+  // they wait for the wave). One row per person: a pilot user, or the
+  // Intune primary user of a pilot device, with every Windows device of
+  // theirs. Tick a person whose country is known; the plan takes them and
+  // their devices out of every pilot group and puts each device in its
+  // country device group. Until the country is nested in its wave they are
+  // ordinary members of it — the old policies reach them again.
   //
-  // ⛔ The policy check: a member leaves only where its wave carries what
-  // its pilot group carries — every new policy that includes the pilot group
-  // includes the wave too (or the whole tenant), and every old policy that
-  // excludes the pilot group excludes the wave (or its twin). Otherwise the
-  // member would gain an old policy or lose a new one; that wave is blocked
-  // and the policy named. Keyed "pilot group id|wave id".
+  // ⚠ Before the waves go live: where a new policy includes a pilot group
+  // but not the wave, or an old policy excludes a pilot group but not the
+  // wave (or its twin), the people of that wave will lose a new policy or
+  // gain an old one WHEN THE WAVE GOES LIVE. Shown, per wave, so it is fixed
+  // first (⚔️ / ⚡); it does not stop anyone from going back to their
+  // country now. Keyed "pilot group id|wave id".
   function pilotBlocks(pm) {
     const out = new Map();
     if (!model || !pm) return out;
@@ -2914,95 +2918,80 @@ const MdeRolloutTool = (() => {
     }
     return out;
   }
-  // a member's standing with the policy check applied: "blocked" wins over "in"
-  function pilotRows(pm) {
-    const blocks = pilotBlocks(pm);
-    return pm.members.map((x) => {
-      const b = x.waveId ? x.groups.flatMap((g) => blocks.get(`${g.id}|${x.waveId}`) || []) : [];
-      return Object.assign({}, x, { st: b.length && x.state === "in" ? "blocked" : x.state, blocks: b });
-    });
-  }
-  const PIL_ST = { in: ["✓ in their wave", "au-op create"], wait: ["⏳ wave known, not in it yet", "gu-how priv"], none: ["✗ no wave", "au-op delete"], blocked: ["⛔ blocked by a policy", "au-op delete"] };
   function pilotsHtml(m) {
     const pm = m.pilots;
-    const rows = pilotRows(pm);
-    const key = (x) => `${x.kind}|${x.id}`;
-    for (const k of [...mem.pilSel]) if (!rows.some((x) => key(x) === k && x.st === "in")) mem.pilSel.delete(k);
-    const n = (st) => rows.filter((x) => x.st === st).length;
-    const users = rows.filter((x) => x.kind === "user").length, devs = rows.filter((x) => x.kind === "device").length;
+    const people = pm.people || [], loose = pm.loose || [];
+    for (const k of [...mem.pilSel]) if (!people.some((p) => p.key === k && p.state === "ready")) mem.pilSel.delete(k);
+    const ready = people.filter((p) => p.state === "ready"), none = people.filter((p) => p.state !== "ready");
+    const inWave = ready.filter((p) => p.ugNested && p.dgNested);
     const tile = (st, num, label) => `<button type="button" class="mr-tile mr-lotile${mem.pilState === st ? " on" : ""}" data-mrpilstate="${st || ""}"><b>${num.toLocaleString()}</b><span>${esc(label)}</span></button>`;
-    const shown = rows.filter((x) => !mem.pilState || x.st === mem.pilState);
-    const blocks = pilotBlocks(pm);
-    const allBlocks = [...new Set([...blocks.values()].flat())];
-    const standing = (x) => x.st === "in" ? `${chip("au-op create", "✓ in the wave")} <span class="muted">${esc(x.via || "")}</span>`
-      : x.st === "blocked" ? `${chip("au-op delete", "⛔ blocked")}<div style="color:var(--off)">${x.blocks.map(esc).join("<br>")}</div>`
-      : `${chip(PIL_ST[x.st][1], x.st === "wait" ? "⏳ not in it yet" : "✗ no wave")} <span class="muted">${esc(x.why || "")}</span>`;
-    const CAP = 400;
-    const trs = shown.slice(0, CAP).map((x) => `<tr class="${mem.pilSel.has(key(x)) ? "mr-selrow" : ""}"><td>${x.st === "in" ? `<input type="checkbox" data-mrpilsel="${esc(key(x))}"${mem.pilSel.has(key(x)) ? " checked" : ""} aria-label="select">` : `<span class="muted" title="Only members already in their wave can leave the pilot">—</span>`}</td>
-      <td><b>${esc(x.name)}</b><div class="mini muted">${x.kind}${x.kind === "device" && x.upn ? ` · ${esc(x.upn)}` : ""}</div></td>
-      <td class="mini">${x.groups.map((g) => esc(g.name)).join("<br>")}</td>
-      <td class="mini">${x.waveName ? `${esc(x.country)} → <code>${esc(x.waveName)}</code>` : `<span class="muted">—</span>`}</td>
-      <td class="mini">${standing(x)}</td></tr>`).join("");
-    const nSel = mem.pilSel.size;
-    const selRows = rows.filter((x) => mem.pilSel.has(key(x)));
-    const selTxt = nSel ? `→ out of the pilot · ${[selRows.filter((x) => x.kind === "device").length ? plural(selRows.filter((x) => x.kind === "device").length, "device") : "", selRows.filter((x) => x.kind === "user").length ? plural(selRows.filter((x) => x.kind === "user").length, "user") : ""].filter(Boolean).join(" · ")}` : "tick members already in their wave";
-    const inRows = shown.filter((x) => x.st === "in");
-    const allOn = inRows.length && inRows.every((x) => mem.pilSel.has(key(x)));
+    const show = (p) => !mem.pilState || (mem.pilState === "ready" ? p.state === "ready" : mem.pilState === "none" ? p.state !== "ready" : mem.pilState === "loose" ? false : true);
+    const shown = people.filter(show);
+    const allBlocks = [...new Set([...pilotBlocks(pm).values()].flat())];
+    const gnames = (list) => list.length ? list.map((g) => esc(g.name)).join("<br>") : `<span class="muted">not in a pilot group</span>`;
+    const after = (p, d) => {
+      if (p.state !== "ready") return "";
+      if (!d) return p.userPilots.length ? `${chip("au-op update", "− out of the pilot")} <span class="muted">stays in ${esc(p.userGroupName)}</span>` : `<span class="muted">not in a pilot group — stays in ${esc(p.userGroupName)}</span>`;
+      if (d.noEntra) return `<span class="muted">no Entra object — cannot be a member of any group</span>`;
+      const out = d.pilots.length ? chip("au-op update", "− out of the pilot") + " " : "";
+      if (d.held) return `${out}<span class="muted">⊘ kept on the old set — not added</span>`;
+      if (d.inGroup) return `${out}<span class="muted">already in ${esc(p.deviceGroupName)}</span>`;
+      return `${out}${chip("au-op create", `+ into ${p.deviceGroupName}`)}${p.dg ? "" : ` <span class="muted">(created first)</span>`}`;
+    };
+    const CAP = 300;
+    const trs = shown.slice(0, CAP).map((p) => {
+      const sel = mem.pilSel.has(p.key);
+      const head = `<tr class="${sel ? "mr-selrow" : ""}"><td>${p.state === "ready" ? `<input type="checkbox" data-mrpilsel="${esc(p.key)}"${sel ? " checked" : ""} aria-label="select">` : `<span class="muted" title="${esc(p.why || "")}">—</span>`}</td>
+        <td><b>${esc(p.upn)}</b><div class="mini muted">user${p.userPilots.length ? "" : " · not in a pilot group itself"}</div></td>
+        <td class="mini">${gnames(p.userPilots)}</td>
+        <td class="mini">${p.country ? `${esc(p.country)} → <code>${esc(p.waveUserName || "")}</code>${p.ugNested ? ` <span style="color:var(--on)">✓ nested</span>` : ` <span class="muted">not nested yet</span>`}` : `<span class="muted">—</span>`}</td>
+        <td class="mini">${p.state === "ready" ? after(p, null) : `${chip("au-op delete", "✗ stays")} <span class="muted">${esc(p.why)}</span>`}</td></tr>`;
+      const devs = p.devices.map((d) => `<tr class="${sel ? "mr-selrow" : ""}"><td></td>
+        <td class="mini" style="padding-left:22px">↳ <b>${esc(d.name)}</b> <span class="muted">device</span></td>
+        <td class="mini">${gnames(d.pilots)}</td>
+        <td class="mini">${p.deviceGroupName ? `→ <code>${esc(p.deviceGroupName)}</code>${p.dgNested ? ` <span style="color:var(--on)">✓ nested</span>` : ""}` : ""}</td>
+        <td class="mini">${after(p, d)}</td></tr>`).join("");
+      return head + (devs || (p.state === "ready" ? `<tr><td></td><td class="mini muted" colspan="4" style="padding-left:22px">↳ no Windows device by Intune primary user</td></tr>` : ""));
+    }).join("");
+    const looseRows = (!mem.pilState || mem.pilState === "loose") && loose.length ? `<h4 style="margin:14px 0 6px">Pilot members with no person to follow <span class="mini muted" style="font-weight:400">— listed, never planned</span></h4>
+      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30%"><col style="width:22%"><col></colgroup><thead><tr><th>Member</th><th>Pilot group</th><th>Why it stays</th></tr></thead><tbody>
+      ${loose.map((x) => `<tr><td><b>${esc(x.name)}</b><div class="mini muted">${esc(x.kind)}</div></td><td class="mini">${x.groups.map((g) => esc(g.name)).join("<br>")}</td><td class="mini muted">${esc(x.why || "")}</td></tr>`).join("")}</tbody></table></div>` : "";
+    const sel = people.filter((p) => mem.pilSel.has(p.key));
+    const prev = sel.length ? MdeMembers.planPilotsReady(pm, sel.map((p) => p.key), mcfg()) : null;
+    const nAdd = prev ? prev.ops.filter((o) => o.type === "add").reduce((a, o) => a + o.ids.length, 0) : 0;
+    const nCreate = prev ? prev.ops.filter((o) => o.type === "create").length : 0;
+    const selTxt = sel.length ? `→ out of the pilot${nAdd ? ` · ${plural(nAdd, "device")} into their country group` : ""}${nCreate ? ` · ${plural(nCreate, "device group")} created` : ""}` : "tick the people to make ready for their wave";
+    const readyShown = shown.filter((p) => p.state === "ready");
+    const allOn = readyShown.length && readyShown.every((p) => mem.pilSel.has(p.key));
     return `<div class="list-card mr-stickyhost" style="margin-top:0" id="mrPilCard">
-      <p class="mini muted" style="margin:0 0 8px">Every member of the pilot groups (⚙️: ${pm.groups.map((g) => `<code>${esc(g.name)}</code>`).join(" ") || "none found"}) with the wave its country puts it in — a device by its Intune primary user's country group, a user by their own. <b>Only members already in their wave can leave the pilot</b>; the plan only removes, and checks each member's wave again, fresh, before it is shown and again before it writes. A ⏳ member says what is missing — nest its country or run Apply in the countries view, then ↻ Read again.${pm.missing.length ? ` <span style="color:var(--report)">Not in this tenant: ${pm.missing.map(esc).join(", ")}.</span>` : ""}</p>
+      <p class="mini muted" style="margin:0 0 8px">One row per person in the pilot groups (⚙️: ${pm.groups.map((g) => `<code>${esc(g.name)}</code>`).join(" ") || "none found"}) — the user, and their Windows devices by Intune primary user. <b>Tick a person to make them ready for their wave</b>: out of every pilot group, and each device into its country device group. Until their country is nested in its wave they are ordinary members of it, so the <b>old policies reach them again</b>; when it is nested, they move with everybody else.${pm.missing.length ? ` <span style="color:var(--report)">Not in this tenant: ${pm.missing.map(esc).join(", ")}.</span>` : ""}</p>
       <div class="mr-tiles">
-        ${tile(null, rows.length, `pilot members · ${[devs ? plural(devs, "device") : "", users ? plural(users, "user") : ""].filter(Boolean).join(" · ") || "none"}`)}
-        ${tile("in", n("in"), PIL_ST.in[0])}
-        ${tile("wait", n("wait"), PIL_ST.wait[0])}
-        ${tile("none", n("none"), "✗ no wave: no country, no primary user, kept on the old set")}
-        ${n("blocked") ? tile("blocked", n("blocked"), PIL_ST.blocked[0]) : ""}
+        ${tile(null, people.length, `people in the pilot · ${plural(people.reduce((a, p) => a + p.devices.filter((d) => d.pilots.length).length, 0), "device")} and ${plural(people.filter((p) => p.userPilots.length).length, "user")} in pilot groups`)}
+        ${tile("ready", ready.length, `can be made ready — their country is known${inWave.length ? ` (${inWave.length} already in a live wave)` : ""}`)}
+        ${tile("none", none.length, "✗ no country — they stay in the pilot")}
+        ${loose.length ? tile("loose", loose.length, "members with no person: no primary user, not in Intune, a nested group") : ""}
       </div>
-      <div class="mini" style="margin:6px 0 10px"><b>Policy check:</b> ${allBlocks.length
-        ? `<span style="color:var(--off)">⛔ ${plural(allBlocks.length, "policy gap blocks", "policy gaps block")} a wave — its pilot members stay until the policy has the wave too:</span><div style="color:var(--off)">${allBlocks.slice(0, 8).map(esc).join("<br>")}${allBlocks.length > 8 ? `<br>… ${allBlocks.length - 8} more` : ""}</div>`
-        : `<span style="color:var(--on)">✓ every new policy that includes a pilot group also includes the members' waves, and every old policy that excludes one also excludes them.</span>`}</div>
-      ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:26%"><col style="width:18%"><col style="width:20%"><col></colgroup>
-        <thead><tr><th>${inRows.length ? `<input type="checkbox" data-mrpilall="1"${allOn ? " checked" : ""} aria-label="select every member already in its wave">` : ""}</th><th>Member</th><th>Pilot group</th><th>Country → wave</th><th>Standing</th></tr></thead><tbody>${trs}</tbody></table></div>${shown.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${shown.length.toLocaleString()}.</p>` : ""}`
-        : `<p class="mini muted" style="margin:0">${rows.length ? "None in this state." : "The pilot groups are empty."}</p>`}
+      ${allBlocks.length ? `<div class="mini" style="margin:6px 0 10px"><b>⚠ Before their waves go live:</b> <span style="color:var(--report)">${plural(allBlocks.length, "policy covers", "policies cover")} a pilot group but not the wave — fix it in ⚔️ or ⚡ before nesting the country, or those people lose a new policy or get an old one back:</span><div style="color:var(--report)">${allBlocks.slice(0, 6).map(esc).join("<br>")}${allBlocks.length > 6 ? `<br>… ${allBlocks.length - 6} more` : ""}</div></div>` : ""}
+      ${mem.pilState === "loose" ? "" : shown.length ? `<div style="overflow-x:auto"><table class="cg-table" style="min-width:820px"><colgroup><col style="width:30px"><col style="width:28%"><col style="width:17%"><col style="width:22%"><col></colgroup>
+        <thead><tr><th>${readyShown.length ? `<input type="checkbox" data-mrpilall="1"${allOn ? " checked" : ""} aria-label="select everybody whose country is known">` : ""}</th><th>Person · devices</th><th>Pilot groups</th><th>Country → wave</th><th>After the plan</th></tr></thead><tbody>${trs}</tbody></table></div>${shown.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${shown.length.toLocaleString()}.</p>` : ""}`
+        : `<p class="mini muted" style="margin:0">${people.length ? "Nobody in this state." : "The pilot groups have nobody to follow."}</p>`}
+      ${looseRows}
       <div class="mr-mbar" id="mrPilBar">
-        <b>${plural(nSel, "member")}</b>
+        <b>${plural(sel.length, "person", "people")}</b>
         <span class="mini">${esc(selTxt)}</span>
-        <button class="btn primary" id="mrPilDry"${nSel ? "" : " disabled"}>② Dry run</button>
+        <button class="btn primary" id="mrPilDry"${sel.length ? "" : " disabled"}>② Dry run</button>
       </div>
-      <p class="mini muted" style="margin:8px 0 0">Leaving the pilot changes where a member gets its policies from, not which: the old policies keep it out through its wave's exclusion instead of the pilot's, the new ones reach it through its wave instead of the pilot. Every run lands in 📜 with an undo that puts the members back.</p>
+      <p class="mini muted" style="margin:8px 0 0">Order: a missing country device group is created → the devices go into it (read back) → each device leaves its pilot group only once its add read back clean → the users leave theirs. Every run lands in 📜 with an undo that puts them back in the pilot and takes the devices out of the country group again.</p>
     </div>`;
   }
-  // fresh: is each member in its wave right now (transitive)?
-  async function pilotFresh(members) {
-    const ok = new Set(), why = new Map();
-    const rs = await Graph.pool(members, async (x) => {
-      const path = x.kind === "user" ? `/users/${encodeURIComponent(x.id)}/transitiveMemberOf/microsoft.graph.group?$select=id&$top=999` : `/devices/${encodeURIComponent(x.id)}/transitiveMemberOf/microsoft.graph.group?$select=id&$top=999`;
-      return Graph.readAll(path, { scopes: x.kind === "user" ? Graph.SCOPES.groups : Graph.SCOPES.deviceObjects.concat(Graph.SCOPES.groups), retry: true });
-    }, 4);
-    rs.forEach((r, i) => {
-      const x = members[i];
-      if (r.error) { why.set(`${x.kind}|${x.id}`, `its groups could not be read — ${GroupUse.shortErr(r.error, 120)}`); return; }
-      if ((r.value || []).some((g) => lc(g.id) === x.waveId)) ok.add(`${x.kind}|${x.id}`);
-      else why.set(`${x.kind}|${x.id}`, `not in ${x.waveName} when read just now`);
-    });
-    return { ok, why };
-  }
-  async function pilotDryRun() {
+  function pilotDryRun() {
     if (busy || !mem.model || !mem.model.pilots) return;
-    busy = true; planAnchor = "mrPilBar"; clearPlan(); seatPlan(); showPlan();
-    try {
-      const rows = pilotRows(mem.model.pilots).filter((x) => mem.pilSel.has(`${x.kind}|${x.id}`));
-      const ready = rows.filter((x) => x.st === "in");
-      planEl().innerHTML = `<p class="mini muted">Checking ${plural(ready.length, "member")} in their wave, fresh…</p>`;
-      await Graph.ensureScopes([...Graph.SCOPES.groups, ...Graph.SCOPES.deviceObjects]);
-      const f = await pilotFresh(ready);
-      const p = MdeMembers.planPilotsOut(mem.model.pilots, ready.filter((x) => f.ok.has(`${x.kind}|${x.id}`)).map((x) => `${x.kind}|${x.id}`));
-      p.skipped = rows.filter((x) => x.st !== "in").map((x) => `${x.name}: ${x.st === "blocked" ? x.blocks.join("; ") : x.why}`)
-        .concat(ready.filter((x) => !f.ok.has(`${x.kind}|${x.id}`)).map((x) => `${x.name}: ${f.why.get(`${x.kind}|${x.id}`)}`));
-      const members = ready.filter((x) => f.ok.has(`${x.kind}|${x.id}`));
-      plan = Object.assign(p, { members: true, pilotsOut: members, title: `Out of the pilot — ${plural(members.length, "member")}` });
-      renderMemPlan();
-    } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    planAnchor = "mrPilBar"; clearPlan(); seatPlan();
+    const pm = mem.model.pilots;
+    const keys = (pm.people || []).filter((p) => mem.pilSel.has(p.key)).map((p) => p.key);
+    const p = MdeMembers.planPilotsReady(pm, keys, mcfg());
+    plan = Object.assign(p, { members: true, title: `Ready for the wave — ${plural(keys.length, "person", "people")}` });
+    renderMemPlan();
   }
 
   function membersPane() {
@@ -3015,7 +3004,7 @@ const MdeRolloutTool = (() => {
     const m = mem.model;
     const regionChip = (rg) => fchip("data-mrmemregion", rg.region, `🌊 ${rg.region} · ${rg.rows.length}`, undefined, !mem.unmapped && mem.region === rg.region);
     const lo = leftCounts(m);
-    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${m.pilots.members.length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
+    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${(m.pilots.people || []).length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
     const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
     if (mem.pil && m.pilots) return `${chips}${top}${pilotsHtml(m)}`;
     if (mem.left && !mem.unmapped) return `${chips}${top}${leftOutHtml(m, lo)}`;
@@ -3087,16 +3076,16 @@ const MdeRolloutTool = (() => {
   const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : `${x.child.name} → ${x.parent.name}`;
   function renderMemPlan() {
     const p = plan;
-    const country = (x) => { if (x.who || p.exclusions || p.pilotsOut || p.pilotsUndo) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
+    const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
     const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${plural(x.size, x.kind === "user" ? "user" : "device")})</span>` : ""}</td></tr>`).join("");
     planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
       <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
       <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
       ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
       ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
-      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.exclusions || p.pilotsOut || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
-      <p class="mini muted" style="margin:8px 0 0">${p.pilotsOut
-        ? "Each member was read in its wave just now, and is read again right before the write — one that has left its wave by then is skipped, not taken out of the pilot. Out of the pilot, the member gets the new policies through its wave and is kept out of the old ones by the wave's exclusion. Every run lands in 📜 with an undo that puts the members back."
+      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
+      <p class="mini muted" style="margin:8px 0 0">${p.pilotsReady
+        ? "Out of the pilot, these people are ordinary members of their country: until it is nested in its wave the new policies stop reaching them and the old ones reach them again; when it is nested they move with everybody else. A device leaves its pilot group only once its add to the country group read back clean. Every run lands in 📜 with an undo that puts them back in the pilot (a device group this run created is left in place, empty after the undo)."
         : p.exclusions
         ? "The exclusion groups are excluded from the new policies (⚡②): a member added here stops receiving them. A device taken out of its country device group leaves the wave, so the old policies reach it again. Every run lands in 📜 with an exact undo."
         : "Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo."}</p>
@@ -3122,18 +3111,7 @@ const MdeRolloutTool = (() => {
     try {
       await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
       $("mrMemApply").disabled = true;
-      // 🧪 out of the pilot (10647): each member's wave, read again right
-      // before the write; one no longer in it is left in the pilot
-      let preSkipped = [];
-      if (p.pilotsOut && p.pilotsOut.length) {
-        const f = await pilotFresh(p.pilotsOut);
-        const gone = p.pilotsOut.filter((x) => !f.ok.has(`${x.kind}|${x.id}`));
-        if (gone.length) {
-          const drop = new Set(gone.map((x) => x.id));
-          p.ops = p.ops.map((o) => Object.assign({}, o, { ids: o.ids.filter((id) => !drop.has(id)), objs: (o.objs || []).filter((x) => !drop.has(x.id)) })).filter((o) => o.ids.length);
-          preSkipped = gone.map((x) => `${x.name}: ${f.why.get(`${x.kind}|${x.id}`)} — left in the pilot`);
-        }
-      }
+      const preSkipped = [];
       let me = null;
       if (p.ops.some((x) => x.type === "create")) { try { me = await M.readMe(); } catch { me = null; } }
       const L = RunLedger.create($("mrLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${opWord(x)} · ${opLabel(x)}`, sub: x.who || "" })) });
@@ -3148,10 +3126,10 @@ const MdeRolloutTool = (() => {
       if (ex.base) MdeExclude.patchBase(ex.base, r.done);
       const okN = r.results.filter((x) => x.ok && x.verified).length;
       runs.push({ at: Date.now(), title: p.title, kind: "members", exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
-        done: r.done, pilots: !!p.pilotsOut, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
+        done: r.done, pilots: !!p.pilotsReady, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
       if (p.exclusions) { ex.sel.clear(); if (ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
-      else if (p.pilotsOut) mem.pilSel.clear();
+      else if (p.pilotsReady) mem.pilSel.clear();
       else mem.sel.clear();
       const ledger = $("mrLedger").innerHTML;
       render();
@@ -3822,8 +3800,8 @@ const MdeRolloutTool = (() => {
       // 🧪 pilot members (10647)
       if (t.dataset.mrpilsel) { t.checked ? mem.pilSel.add(t.dataset.mrpilsel) : mem.pilSel.delete(t.dataset.mrpilsel); clearPlan(); render(); return; }
       if (t.dataset.mrpilall) {
-        const rows = pilotRows(mem.model.pilots).filter((x) => x.st === "in" && (!mem.pilState || x.st === mem.pilState));
-        rows.forEach((x) => t.checked ? mem.pilSel.add(`${x.kind}|${x.id}`) : mem.pilSel.delete(`${x.kind}|${x.id}`));
+        const rows = (mem.model.pilots.people || []).filter((p) => p.state === "ready");
+        rows.forEach((p) => t.checked ? mem.pilSel.add(p.key) : mem.pilSel.delete(p.key));
         clearPlan(); render(); return;
       }
       // 🧪 the pilot tick (10645)

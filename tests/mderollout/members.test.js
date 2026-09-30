@@ -183,6 +183,15 @@ async function run() {
   w.MdeRollout.createWave = async () => { throw new Error("Insufficient privileges"); };
   const res2 = await MM.applyOps(planDE.ops, { ledger });
   ok("a refused create fails its fill and its device nest; the user nest still runs", !res2.results[0].ok && !res2.results[1].ok && /not created/.test(res2.results[1].note) && res2.results[2].ok && !res2.results[3].ok);
+  // 10649: a step that needs an earlier one clean is skipped when it was not
+  members.set("pil", new Set(["d7"]));
+  const res3 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-XXX", name: "INT-SG-D-XXX" }, ids: ["d7"] },
+    { type: "remove", key: "p", group: { id: "pil", name: "INT-SG-D-Win-Pilot" }, ids: ["d7"], needsOk: [1] }], { ledger });
+  ok("needsOk: the add never happened, so the device stays in the pilot", !res3.results[2].ok && res3.results[2].skipped && /depends/.test(res3.results[2].note) && members.get("pil").has("d7"));
+  w.MdeRollout.createWave = async (name) => { members.set("newx", new Set()); return { created: true, group: { id: "newx", displayName: name }, verified: true, ownerVerified: true }; };
+  const res4 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-XXX", name: "INT-SG-D-XXX" }, ids: ["d7"] },
+    { type: "remove", key: "p", group: { id: "pil", name: "INT-SG-D-Win-Pilot" }, ids: ["d7"], needsOk: [1] }], { ledger, me: { id: "me" } });
+  ok("needsOk: …and once it read back clean, the device leaves the pilot", res4.results.every((x) => x.ok) && members.get("newx").has("d7") && !members.get("pil").has("d7"));
 
   // patchInput moves the model without a re-read
   const inp2 = JSON.parse(JSON.stringify({ deviceGroups: [] }));
@@ -289,11 +298,27 @@ async function run() {
     && pmx("user", "u3").state === "wait" && /PVM-UG-CORP-MEM-USERS-DE is not nested in INT-SG-U-WAVE-Euro yet/.test(pmx("user", "u3").why)
     && pmx("user", "u9").state === "none" && /no country group/.test(pmx("user", "u9").why));
   ok("🧪 a pilot group missing from the tenant is said", pm.missing.join() === "INT-SG-U-Win-Pre-Pilot");
-  const pp = MM.planPilotsOut(pm, ["device|e1", "user|u1", "device|e3"]);
-  ok("🧪 the plan only removes: e1 out of both pilot groups, u1 out of the user pilot; DE-1 left out with its reason",
-    pp.ops.length === 3 && pp.ops.every((o) => o.type === "remove") && pp.hasRemoval
-    && pp.ops.filter((o) => o.memberKind === "device").map((o) => o.group.id).sort().join() === "p1,p2" && pp.ops.find((o) => o.memberKind === "user").ids.join() === "u1"
-    && pp.skipped.length === 1 && /DE-1: .*INT-SG-D-DEU/.test(pp.skipped[0]));
+  // 10649 (Mihai: "select the user, and it then should be removed from the
+  // pilot groups and the device should be moved to the right group"; A)
+  const pp1 = (k) => pm.people.find((p) => p.key === k);
+  ok("🧪 one row per person: pilot users, and the primary users of pilot devices, with every Windows device of theirs",
+    pm.people.map((p) => p.userId).sort().join() === "u1,u2,u3,u9" && pp1("p|u1").devices.map((d) => d.name).join() === "NL-1" && pp1("p|u1").devices[0].pilots.length === 2
+    && pp1("p|u3").devices.map((d) => d.name).sort().join() === "DE-1,DE-NOENTRA" && pp1("p|u2").userPilots.length === 0 && pp1("p|u2").devices[0].pilots[0].name === "INT-SG-D-Win-Pilot");
+  ok("🧪 a person with a country is ready; one in no country group stays; a device with no primary user and a nested group are loose",
+    pp1("p|u1").state === "ready" && pp1("p|u1").deviceGroupName === "INT-SG-D-NLD" && pp1("p|u3").state === "ready" && !pp1("p|u3").dg
+    && pp1("p|u9").state === "none" && /no country group/.test(pp1("p|u9").why) && pm.loose.map((x) => x.id).sort().join() === "e6,gx");
+  const pr = MM.planPilotsReady(pm, ["p|u1", "p|u2", "p|u3", "p|u9"], cfg);
+  const prOp = (f) => pr.ops.findIndex(f);
+  const iAddNL = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-NLD"), iCreateDE = prOp((o) => o.type === "create" && o.name === "INT-SG-D-DEU"), iAddDE = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-DEU");
+  ok("🧪 ready for the wave: NL-2 into INT-SG-D-NLD; INT-SG-D-DEU created, then DE-1 into it; NL-1 already there is not added again",
+    iAddNL >= 0 && pr.ops[iAddNL].ids.join() === "e2" && iCreateDE >= 0 && iAddDE > iCreateDE && pr.ops[iAddDE].ids.join() === "e3" && !pr.ops.some((o) => o.type === "add" && o.ids.includes("e1")));
+  ok("🧪 …the devices leave their pilot groups after the adds, each waiting for its own country's add; NL-1 (already in) waits for nothing",
+    pr.ops.filter((o) => o.type === "remove" && o.memberKind === "device").every((o) => pr.ops.indexOf(o) > iAddDE)
+    && pr.ops.find((o) => o.type === "remove" && o.ids.includes("e3")).needsOk.join() === String(iAddDE)
+    && pr.ops.find((o) => o.type === "remove" && o.ids.includes("e2")).needsOk.join() === String(iAddNL)
+    && pr.ops.filter((o) => o.type === "remove" && o.ids.includes("e1")).every((o) => !o.needsOk) && pr.ops.filter((o) => o.type === "remove" && o.ids.includes("e1")).length === 2);
+  ok("🧪 …the users leave the user pilot last; the person with no country is left out with the reason; it removes, so REMOVE is typed",
+    pr.ops[pr.ops.length - 1].memberKind === "user" && pr.ops[pr.ops.length - 1].ids.sort().join() === "u1,u3" && pr.skipped.length === 1 && /no country group/.test(pr.skipped[0]) && pr.hasRemoval && pr.pilotsReady);
   MM.patchInput(pIn, [{ type: "remove", group: { id: "p1", name: "INT-SG-D-Win-Pilot" }, ids: ["e1"], memberKind: "device" }], []);
   const pm2 = MM.compute(cfg, pIn, waves, now).pilots;
   ok("🧪 a verified removal moves the list: e1 now only in the user pilot", pm2.members.find((x) => x.id === "e1").groups.map((g) => g.name).join() === "INT-SG-U-Win-Pilot");

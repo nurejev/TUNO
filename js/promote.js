@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 211,
+  "title": "T28 — 🧪 pilot users ready for their wave (per person: out of the pilot, devices into their country group)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10649
+  ],
+  "risk": "medium",
+  "what": "MdeMembers.pilotsOf also returns people (pilotPeople: per pilot user or pilot device's primary user, every Windows device with its pilot groups, held/noEntra/inGroup, the country row, state ready/none) and loose members. planPilotsReady: create the missing country device group, add the devices, remove each device from its device pilot with needsOk on its country's add, remove the users from the user pilots; a held device leaves the pilot but is not added. applyOps: needsOk skips a step whose dependency did not go through clean. Screen: the Pilots view per person with device sub-rows, tiles (people, ready, no country, loose), the policy gaps as a before-the-wave warning, ticks for ready people, the bar with the preview counts, the plan note on the old policies until the wave. The 10647 in-wave gate (pilotFresh, planPilotsOut, the apply-time re-check) is removed.",
+  "why": "Mihai: 'select the user, and it then should be removed from the pilot groups and the device should be moved to the right group. The user is then ready for the wave' (option A: back to their country, wait for the wave).",
+  "test": [
+    "Run npm test. mderollout/members (98) covers the people (pilot users and pilot devices' primary users, every Windows device), ready/none/loose, the plan (adds only where needed, create first, device removals after the adds with needsOk per country, users last, the no-country person skipped), and applyOps needsOk both ways. mderollout/screen (220) covers the German pilot user with their laptop, the view, the warning not blocking, the bar, the dry run order, the plan note, the plan hidden on another pane, apply (laptop in INT-SG-D-DEU, out of both pilots, person gone) and undo.",
+    "Browser DEMO (pilot groups injected): 🧪 Pilots shows the person with their device, '− out of the pilot' and '+ into INT-SG-D-DEU (created first)'; the plan is create, add, remove devices, remove users.",
+    "LIVE PENDING (PVM): 👥 → Read again → 🧪 Pilots. Tick ONE person, dry run, read the plan (their device goes to their country's INT-SG-D group), apply. Check in Entra that the user left INT-SG-U-Win-Pilot and the device is in its country group and out of INT-SG-D-Win-Pilot."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10649.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 210,
   "title": "T28 — 🔎 find where users with no device log on (Defender advanced hunting); new scope ThreatHunting.Read.All",
   "tools": [

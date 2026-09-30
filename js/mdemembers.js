@@ -528,8 +528,14 @@ const MdeMembers = (() => {
   //   wait — its wave is known, it is not in it yet (why says what is missing)
   //   none — no wave: no country group, no primary user, not in Intune or
   //          Entra, kept on the old set (⊘), or a nested group
-  // Only "in" members may leave the pilot; the screen checks each one's wave
-  // again, fresh, before the plan and before the write.
+  // 10649 (Mihai: "select the user, and it then should be removed from the
+  // pilot groups and the device should be moved to the right group. The user
+  // is then ready for the wave"; option A off the mockup — back to their
+  // country, they wait for the wave): the members are also grouped per
+  // PERSON (pilotPeople) and planPilotsReady takes a person out of every
+  // pilot group and puts each of their Windows devices in its country
+  // device group. Being in the wave is no longer the condition — a country
+  // is, since that is what the wave will take.
   function pilotsOf(input, rows) {
     const P = input.pilots || [];
     if (!P.length && !(input.pilotsMissing || []).length) return null;
@@ -568,8 +574,8 @@ const MdeMembers = (() => {
       }
       for (const d of g.devices) {
         const e = entraById.get(d.id);
-        const x = { kind: "device", id: d.id, name: d.name };
         const devId = d.deviceId || (e && lc(e.deviceId || ""));
+        const x = { kind: "device", id: d.id, name: d.name, devId: devId || "" };
         const m = devId ? managedByDev.get(devId) : null;
         if (!m) { put(Object.assign(x, { state: "none", why: e ? "not in Intune — no primary user to follow" : "not a Windows device in Entra, or not in Intune" }), g); continue; }
         x.upn = m.userPrincipalName || "";
@@ -592,32 +598,123 @@ const MdeMembers = (() => {
       for (const n of g.groups) put({ kind: "group", id: n.id, name: n.name, state: "none", why: "a nested group — T28 takes members out one by one, not groups; take it out in Entra if it should go" }, g);
     }
     const members = [...byId.values()].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "user" ? -1 : 1) || lc(a.name).localeCompare(lc(b.name)));
-    return { groups: P.map((g) => ({ id: g.id, name: g.name, count: g.users.length + g.devices.length + g.groups.length })), missing: input.pilotsMissing || [], members };
+    const out = { groups: P.map((g) => ({ id: g.id, name: g.name, count: g.users.length + g.devices.length + g.groups.length })), missing: input.pilotsMissing || [], members };
+    Object.assign(out, pilotPeople(input, rows, members, rowsOfUser, entraById, managedByDev));
+    return out;
   }
-  // The plan: each chosen member out of every pilot group it is directly in —
-  // one remove per pilot group and kind, users and devices apart (their
-  // read-back differs). Nothing is added: option A moves nobody into a wave.
-  function planPilotsOut(pilots, ids) {
-    const want = new Set((ids || []).map(String));
-    const chosen = ((pilots && pilots.members) || []).filter((x) => want.has(`${x.kind}|${x.id}`) && (x.kind === "user" || x.kind === "device"));
-    const ops = [], skipped = [];
-    const byGroup = new Map();
-    for (const x of chosen) {
-      if (x.state !== "in") { skipped.push(`${x.name}: ${x.why || "not in its wave"}`); continue; }
-      for (const g of x.groups) {
-        const k = `${g.id}|${x.kind}`;
-        if (!byGroup.has(k)) byGroup.set(k, { group: g, kind: x.kind, list: [] });
-        byGroup.get(k).list.push(x);
+  // One row per PERSON (10649): a pilot user, or the Intune primary user of
+  // a pilot device, with every Windows device of theirs — in a pilot group or
+  // not — since "ready for the wave" is about the person, not the member.
+  //   ready — a country (and its device group name) is known: the plan can
+  //           take them out of the pilot and put each device in its group
+  //   none  — no country, or a country with no device group name
+  // What cannot form a person (a device with no primary user, not in Intune,
+  // not Windows; a nested group) is LOOSE: listed, never planned.
+  function pilotPeople(input, rows, members, rowsOfUser, entraById, managedByDev) {
+    const held = input.held || new Set();
+    const pilotOfDev = new Map(), pilotOfUser = new Map();
+    for (const x of members) (x.kind === "device" ? pilotOfDev : x.kind === "user" ? pilotOfUser : new Map()).set(x.id, x);
+    const entraByDev = new Map([...entraById.values()].map((e) => [lc(e.deviceId || ""), e]));
+    const winOf = new Map();
+    for (const m of input.managed || []) if (m.userId) { const k = lc(m.userId); if (!winOf.has(k)) winOf.set(k, []); winOf.get(k).push(m); }
+    const byUser = new Map(), loose = [];
+    const person = (uid, upn) => {
+      if (byUser.has(uid)) return byUser.get(uid);
+      const p = { key: `p|${uid}`, userId: uid, upn: upn || uid, userPilots: [], devices: [] };
+      byUser.set(uid, p);
+      return p;
+    };
+    for (const x of members) {
+      if (x.kind === "user") { person(x.id, x.name).userPilots = x.groups.slice(); continue; }
+      if (x.kind === "device") {
+        const m = x.devId ? managedByDev.get(x.devId) : null;
+        if (!m || !m.userId || (m.operatingSystem && lc(m.operatingSystem) !== "windows")) { loose.push(x); continue; }
+        person(lc(m.userId), m.userPrincipalName || "");
+        continue;
+      }
+      loose.push(x);
+    }
+    const people = [...byUser.values()].map((p) => {
+      const rs = rowsOfUser.get(p.userId) || [];
+      const r = rs.find((y) => !y.pilot) || rs[0] || null;
+      p.devices = (winOf.get(p.userId) || []).map((m) => {
+        const e = m.azureADDeviceId ? entraByDev.get(lc(m.azureADDeviceId)) : null;
+        const id = e ? lc(e.id) : null;
+        const pm = id ? pilotOfDev.get(id) : null;
+        return { id, name: m.deviceName || (e && e.displayName) || m.id, pilots: pm ? pm.groups.slice() : [], held: !!(id && held.has(id)), noEntra: !id,
+          inGroup: !!(id && r && r.have.has(id)) };
+      }).sort((a, b) => (b.pilots.length - a.pilots.length) || lc(a.name).localeCompare(lc(b.name)));
+      if (!p.upn || p.upn === p.userId) { const m = (winOf.get(p.userId) || [])[0]; if (m && m.userPrincipalName) p.upn = m.userPrincipalName; }
+      const u = pilotOfUser.get(p.userId);
+      if (u && u.upn) p.upn = u.upn;
+      Object.assign(p, r ? { rowKey: r.key, country: r.country, region: r.region, userGroupName: r.userGroupName, deviceGroupName: r.deviceGroupName || "",
+        dg: r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null, dgNested: !!r.dgNested, ugNested: !!r.ugNested,
+        waveUserName: r.wave.userName, waveDeviceName: r.wave.deviceName } : {});
+      if (!r) Object.assign(p, { state: "none", why: "in no country group of the table — no wave to be ready for; stays in the pilot" });
+      else if (!r.deviceGroupName && p.devices.some((d) => d.id && !d.held)) Object.assign(p, { state: "none", why: `${r.country} has no device group name — ${r.iso3Source || "set one under ⚙️"}` });
+      else Object.assign(p, { state: "ready" });
+      p.inPilot = p.userPilots.length + p.devices.filter((d) => d.pilots.length).length;
+      return p;
+    }).filter((p) => p.userPilots.length || p.devices.some((d) => d.pilots.length))
+      .sort((a, b) => lc(a.upn).localeCompare(lc(b.upn)));
+    return { people, loose };
+  }
+  // The plan for "ready for the wave" (10649, option A): per person, out of
+  // every pilot group, and each Windows device into its country device group
+  // (created first when it does not exist). Order: create → add → take the
+  // devices out of the device pilots (each only after its country add read
+  // back clean — needsOk) → take the users out of the user pilots. A device
+  // in the device exclusion group (⊘) is taken out of the pilot but never
+  // added: it stays on the old set.
+  function planPilotsReady(pm, keys, cfg) {
+    const want = new Set(keys || []);
+    const people = ((pm && pm.people) || []).filter((p) => want.has(p.key));
+    const ops = [], skipped = [], warnings = [];
+    const whoOf = (list) => list.length <= 3 ? list.join(", ") : `${list.slice(0, 3).join(", ")} +${list.length - 3}`;
+    const adds = new Map(), devOut = new Map(), userOut = new Map();
+    for (const p of people) {
+      if (p.state !== "ready") { skipped.push(`${p.upn}: ${p.why}`); continue; }
+      for (const g of p.userPilots) {
+        if (!userOut.has(g.id)) userOut.set(g.id, { group: g, list: [] });
+        userOut.get(g.id).list.push({ id: p.userId, name: p.upn, upn: p.upn });
+      }
+      for (const d of p.devices) {
+        const needAdd = !!(d.id && !d.held && !d.inGroup);
+        if (needAdd) {
+          if (!adds.has(p.rowKey)) adds.set(p.rowKey, { p, list: [] });
+          adds.get(p.rowKey).list.push(d);
+        }
+        if (d.held && d.pilots.length) warnings.push(`${d.name} is in the device exclusion group — out of the pilot, it stays on the old set and is not added to ${p.deviceGroupName}`);
+        for (const g of d.pilots) {
+          const k = `${g.id}|${needAdd ? p.rowKey : "-"}`;
+          if (!devOut.has(k)) devOut.set(k, { group: g, rowKey: needAdd ? p.rowKey : null, list: [] });
+          devOut.get(k).list.push(d);
+        }
       }
     }
-    for (const { group, kind, list } of byGroup.values()) {
-      const who = list.length <= 3 ? list.map((x) => x.name).join(", ") : `${list.slice(0, 3).map((x) => x.name).join(", ")} +${list.length - 3}`;
-      ops.push({ type: "remove", key: `pilot|${group.id}|${kind}`, group: { id: group.id, name: group.name }, ids: list.map((x) => x.id), memberKind: kind, who,
-        label: `${list.length} ${kind}${list.length === 1 ? "" : "s"} out of the pilot`, objs: list.map((x) => ({ id: x.id, name: x.name, upn: x.upn || "" })) });
+    const addIdx = new Map();
+    for (const [rowKey, { p, list }] of adds) {
+      let ref = p.dg;
+      if (!ref) {
+        ops.push({ type: "create", key: `ready|${rowKey}`, name: p.deviceGroupName, who: p.country,
+          description: String((cfg && cfg.deviceGroupDescription) || DEFAULTS.deviceGroupDescription).replace("{userGroup}", p.userGroupName) });
+        ref = { ref: p.deviceGroupName, name: p.deviceGroupName };
+      }
+      addIdx.set(rowKey, ops.length);
+      ops.push({ type: "add", key: `ready|${rowKey}`, group: ref, ids: list.map((d) => d.id), memberKind: "device", who: whoOf(list.map((d) => d.name)),
+        label: `${list.length} device${list.length === 1 ? "" : "s"} into ${p.country}'s device group`, objs: list.map((d) => ({ id: d.id, name: d.name })) });
     }
-    return { ops, skipped, warnings: [], hasRemoval: ops.length > 0, pilotsOut: true };
+    for (const { group, rowKey, list } of devOut.values()) {
+      ops.push({ type: "remove", key: `ready|${group.id}|device`, group: { id: group.id, name: group.name }, ids: list.map((d) => d.id), memberKind: "device", who: whoOf(list.map((d) => d.name)),
+        label: `${list.length} device${list.length === 1 ? "" : "s"} out of the pilot`, objs: list.map((d) => ({ id: d.id, name: d.name })),
+        needsOk: rowKey ? [addIdx.get(rowKey)] : undefined });
+    }
+    for (const { group, list } of userOut.values()) {
+      ops.push({ type: "remove", key: `ready|${group.id}|user`, group: { id: group.id, name: group.name }, ids: list.map((x) => x.id), memberKind: "user", who: whoOf(list.map((x) => x.name)),
+        label: `${list.length} user${list.length === 1 ? "" : "s"} out of the pilot`, objs: list });
+    }
+    return { ops, skipped, warnings, hasRemoval: ops.some((o) => o.type === "remove"), pilotsReady: true };
   }
-
   // ---------------------------------------------------------- left out --
   // 🕳 (10642, Mihai: "I need a way to know who is getting left out";
   // layout A off the mockup). Who and what the waves do not reach:
@@ -848,6 +945,14 @@ const MdeMembers = (() => {
     for (let i = 0; i < ops.length; i++) {
       const op = ops[i];
       if (L && L.stopped) { L.skip(i, "stopped"); results.push({ op, ok: false, skipped: true, note: "stopped" }); continue; }
+      // a step that needs an earlier one to have gone through clean (10649:
+      // a device leaves the pilot only once it is in its country group)
+      if (op.needsOk && op.needsOk.some((j) => j != null && !(results[j] && results[j].ok && results[j].verified))) {
+        const why = "skipped — the step it depends on did not go through clean";
+        if (L) L.skip(i, why);
+        results.push({ op, ok: false, skipped: true, note: why });
+        continue;
+      }
       if (L) L.start(i);
       const fail = (why, label) => { if (L) L.fail(i, why, label); results.push({ op, ok: false, note: why }); };
       try {
@@ -968,7 +1073,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsOut, logonKql, readLogons, logonsFor,
+    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };
 })();
