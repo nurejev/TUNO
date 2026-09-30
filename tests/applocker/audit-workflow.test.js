@@ -87,6 +87,25 @@ for(const kind of ['declaration','wrapper','binary','decrypted-binary']) {
  await w.AppLockerTool._audit.selectAuditProfile(p);
  ok('encrypted placeholder survives detail read but still forces plaintext retrieval',reads===1&&w.AppLockerTool._review.getState().policy.collections[0].rules.length===1&&p.omaSettings[0].value==='PGEvPg==');
 }
+head('masked values (****) are fetched, never parsed (10641)');
+{
+ const w=boot(),p=profile();w.confirm=()=>true;w.Graph.tenantId=()=> 'tenant-a';p.omaSettings.forEach(x=>{x.value='****';x.isEncrypted=false});let reads=0,gets=0;
+ w.Graph.get=async()=>{gets++;const full=clone(p);full.omaSettings.forEach((x,i)=>x.secretReferenceValueId='secret-'+i);return full};
+ w.Graph.omaSettingPlainText=async(id,secret)=>{reads++;const i=+secret.split('-')[1];return profile().omaSettings[i].value};
+ await w.AppLockerTool._audit.selectAuditProfile(p);
+ ok('mask with isEncrypted false still forces the single-profile re-read',gets===1);
+ ok('every masked collection is fetched through its secret reference',reads===p.omaSettings.length);
+ ok('masked profile opens with its real rules',w.AppLockerTool._review.getState().policy.collections[0].rules.length===1&&!w.AppLockerTool._audit.getState().readDiagnostic);
+ ok('masked value helper recognises only asterisks',w.Graph.isMaskedOmaValue('****')&&w.Graph.isMaskedOmaValue(' ** ')&&!w.Graph.isMaskedOmaValue('<a/>')&&!w.Graph.isMaskedOmaValue('')&&!w.Graph.isMaskedOmaValue(null));
+}
+{
+ const w=boot(),p=profile();w.confirm=()=>true;w.Graph.tenantId=()=> 'tenant-a';p.omaSettings[0].value='****';p.omaSettings[0].isEncrypted=false;let reads=0;
+ w.Graph.get=async()=>clone(p);w.Graph.omaSettingPlainText=async()=>{reads++;return ''};
+ let message='';try{await w.AppLockerTool._audit.selectAuditProfile(p)}catch(e){message=e.message}
+ const report=w.AppLockerTool._audit.getState().readDiagnostic;
+ ok('mask without a secret reference is named as a mask, not invalid XML',message.includes('masked')&&!message.includes('not valid XML')&&reads===0);
+ ok('diagnostic records mask, missing reference and the read error',report&&report.schema==='tuno.applocker.read-diagnostic/2'&&report.settings[0].masked===true&&report.settings[0].hasSecretReference===false&&/masked/.test(report.settings[0].readError||''));
+}
 head('failed-read diagnostic preserves evidence without unrelated settings');
 {
  const {A,D,writes}=setup(),p=profile();p.omaSettings[0].value='&lt;RuleCollection Type="Exe" /&gt;';p.omaSettings[0].secretReferenceValueId='must-not-export';p.accessToken='must-not-export-token';

@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 203,
+  "title": "T01 — masked OMA-URI values (****) are fetched, not parsed",
+  "tools": [
+    "T01 AppLocker builder & validator",
+    "T04 Backup"
+  ],
+  "builds": [
+    10641
+  ],
+  "risk": "low",
+  "what": "Graph.hydrateOmaSettings treats a value made only of asterisks as masked regardless of isEncrypted: single-profile re-read for the secret reference, then getOmaSettingPlainTextValue. A mask with no reference is a named read error. The T01 reader refuses \"****\" with a mask message instead of \"not valid XML\"; read diagnostic schema 2 adds masked, hasSecretReference (boolean only) and readError. Backup includes masked settings in its hydration filter.",
+  "why": "Mihai's read diagnostic from build 10638: all four collections of the enforced R27.1 profile came back as \"****\" with isEncrypted false, so the reader never fetched the plain text and parsed the mask. The profile in the tenant was fine.",
+  "test": [
+    "Run npm test. The audit-workflow suite covers masked-with-reference (re-read once, one plaintext read per collection, profile opens) and masked-without-reference (mask message, no plaintext call, diagnostic schema 2 fields).",
+    "LIVE PENDING: open the enforced R27.1 profile in T01 (Analyze deployed). Expect the four collections to open. If it still fails, the diagnostic now says whether Graph gave a secret reference — send it."
+  ],
+  "files": [
+    "js/graph.js",
+    "js/applocker.js",
+    "js/backup.js",
+    "tests/applocker/audit-workflow.test.js",
+    "docs/reviews/T01-beta-10641.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "index.html",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 202,
   "title": "T28 — the pilot in four batches (users straight into the waves, the device group follows)",
   "tools": [

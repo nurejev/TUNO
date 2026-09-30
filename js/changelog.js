@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10641,
+  "date": "2026-09-30",
+  "title": "T01: a masked policy value is fetched, not parsed",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Opening a deployed AppLocker profile failed with \"the returned value is not valid XML\" on every collection. Graph had answered the values masked as \"****\" while reporting them as not encrypted, and the reader believed the flag. A masked value is now recognised by its shape and read through its secret reference, the same way as an encrypted one. If Graph gives no reference to read it with, the error says the value came back masked instead of blaming the profile. The read diagnostic also records whether a value was masked, whether a secret reference was present and why the read failed."
+    },
+    {
+      "kind": "fixed",
+      "tool": "Backup & restore",
+      "text": "Custom profiles whose OMA-URI values Graph returns masked as \"****\" are now read through their secret references before archiving, instead of saving the mask as the value."
+    }
+  ]
+},
+{
   "build": 10640,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — the pilot in four batches",

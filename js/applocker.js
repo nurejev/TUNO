@@ -769,6 +769,8 @@ const AppLockerTool = (() => {
     const fail=message=>{throw new Error(`${label}: ${message}`)};
     if(setting._decryptError) fail(`Intune could not read the encrypted value: ${setting._decryptError}`);
     let xml=String(setting.value || "").trim();
+    // "****" is Graph's mask, not the policy (10641): say so, never "invalid XML".
+    if(/^\*+$/.test(xml)) fail("Graph returned this value masked (****) and TUNO could not fetch the plain text. The profile itself is not at fault — re-read the policies; if it repeats, download the read diagnostic.");
     if(!xml) fail(setting.isEncrypted ? "encrypted value was not returned. Re-read Intune and check configuration read permissions." : "Intune returned no policy value. Re-read the profile.");
     const binary=/\.omaSettingStringXml$/i.test(setting["@odata.type"] || "");
     if(binary && !xml.startsWith('<')) {
@@ -2419,9 +2421,9 @@ const AppLockerTool = (() => {
     for(const setting of profile.omaSettings || []) {
       if(!APPLOCKER_OMA_RE.test(String(setting.omaUri || ''))) continue;
       try { appLockerSettingDocument(setting); }
-      catch(e) { settings.push({displayName:setting.displayName || '',omaUri:setting.omaUri || '',type:setting['@odata.type'] || '',isEncrypted:!!setting.isEncrypted,decrypted:!!setting._decrypted,valueType:typeof setting.value,value:setting.value ?? null,error:e.message}); }
+      catch(e) { settings.push({displayName:setting.displayName || '',omaUri:setting.omaUri || '',type:setting['@odata.type'] || '',isEncrypted:!!setting.isEncrypted,decrypted:!!setting._decrypted,masked:typeof setting.value==='string'&&/^\*+$/.test(setting.value.trim()),hasSecretReference:!!setting.secretReferenceValueId,readError:setting._decryptError || null,valueType:typeof setting.value,value:setting.value ?? null,error:e.message}); }
     }
-    return {schema:'tuno.applocker.read-diagnostic/1',capturedUtc:new Date().toISOString(),build:APP_BUILD.build,policyName:profile.displayName || '',error:error.message,settings};
+    return {schema:'tuno.applocker.read-diagnostic/2',capturedUtc:new Date().toISOString(),build:APP_BUILD.build,policyName:profile.displayName || '',error:error.message,settings};
   }
   const auditFingerprint = p => JSON.stringify([p.id,p.displayName,p.lastModifiedDateTime, p.omaSettings]);
   async function selectAuditProfile(p) {

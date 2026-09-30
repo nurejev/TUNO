@@ -667,11 +667,19 @@ const Graph = (() => {
   // in for the network at the seams. Returns a copy; `errors` names every
   // setting that could not be filled, and a caller decides what that means
   // (the AppLocker tool refuses, the backup excludes the file).
+  // A MASKED VALUE IS NOT A VALUE (10641). Graph can answer a custom
+  // OMA-URI string as a row of asterisks ("****") with isEncrypted FALSE
+  // (Mihai's read diagnostic, build 10638: all four AppLocker collections of
+  // an enforced profile). Trusting the flag sent "****" to the XML parser and
+  // blamed the profile. The mask is recognised by its shape, whatever the
+  // flag says, and fetched through the secret reference like any encrypted
+  // value.
+  const isMaskedOmaValue = (v) => typeof v === "string" && /^\*+$/.test(v.trim());
   async function hydrateOmaSettings(profile, opts) {
     const only = (opts && opts.only) || (() => true);
     const empty = (v) => v === null || v === undefined || v === "";
     let p = Object.assign({}, profile, { omaSettings: (profile.omaSettings || []).map((x) => Object.assign({}, x)) });
-    const wants = (x) => x && only(x) && (empty(x.value) || (opts && opts.forceEncrypted && x.isEncrypted && !x._decrypted));
+    const wants = (x) => x && only(x) && !x._decrypted && (empty(x.value) || isMaskedOmaValue(x.value) || (opts && opts.forceEncrypted && x.isEncrypted));
     if (p.omaSettings.some((x) => wants(x) && !x.secretReferenceValueId) && p.id) {
       const full = await API.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(p.id)}`, { scopes: SCOPES.profiles });
       if (full && Array.isArray(full.omaSettings)) {
@@ -684,7 +692,13 @@ const Graph = (() => {
     const errors = [];
     for (const x of p.omaSettings) {
       if (!wants(x)) continue;
-      if (!x.secretReferenceValueId) { errors.push({ omaUri: x.omaUri, error: "no value and no secret reference — Graph returned nothing to fetch" }); continue; }
+      if (!x.secretReferenceValueId) {
+        if (isMaskedOmaValue(x.value)) {
+          const m = "Graph returned the value masked (****) and no secret reference to fetch it with, even on the single-profile read";
+          x._masked = true; x._decryptError = m; errors.push({ omaUri: x.omaUri, error: m }); continue;
+        }
+        errors.push({ omaUri: x.omaUri, error: "no value and no secret reference — Graph returned nothing to fetch" }); continue;
+      }
       try { x.value = await API.omaSettingPlainText(p.id, x.secretReferenceValueId); x._decrypted = true; }
       catch (e) { const m = String((e && e.message) || e).slice(0, 160); x._decryptError = m; errors.push({ omaUri: x.omaUri, error: m }); }
     }
@@ -864,7 +878,7 @@ const Graph = (() => {
 
   const API = {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, collisions, createProfile,
+    get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, isMaskedOmaValue, collisions, createProfile,
     remediations, createRemediation, updateRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,

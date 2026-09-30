@@ -249,7 +249,7 @@ const Backup = (() => {
     // as a settings-catalog policy whose settings read failed.
     if (area.id === "DeviceConfigurations" && objects.length && Graph.hydrateOmaSettings) {
       const custom = objects.filter((ob) => /windows10CustomConfiguration/i.test(String(ob["@odata.type"] || ""))
-        && (ob.omaSettings || []).some((x) => x && (x.isEncrypted || x.value === null || x.value === undefined)));
+        && (ob.omaSettings || []).some((x) => x && (x.isEncrypted || x.value === null || x.value === undefined || (Graph.isMaskedOmaValue && Graph.isMaskedOmaValue(x.value)))));
       if (custom.length) {
         let done = 0;
         const res = await Graph.pool(custom, async (ob) => {
@@ -265,7 +265,7 @@ const Backup = (() => {
           // Archive the value, not the reference: a POST carrying a
           // secretReferenceValueId from another object is refused, and the
           // hydration marks are this run's, not the profile's.
-          r.value.profile.omaSettings.forEach((x) => { delete x.secretReferenceValueId; delete x._decrypted; delete x._decryptError; });
+          r.value.profile.omaSettings.forEach((x) => { delete x.secretReferenceValueId; delete x._decrypted; delete x._decryptError; delete x._masked; });
           objects[idx] = r.value.profile;
         });
         objects = objects.filter(Boolean);
