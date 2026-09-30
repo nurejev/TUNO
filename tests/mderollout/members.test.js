@@ -344,6 +344,16 @@ async function run() {
   ok("🔎 in Intune with no primary user: no wave", lg[1].kind === "intune" && /no primary user — no wave/.test(lg[1].what));
   ok("🔎 in Entra, not in Intune: no wave reaches it; Defender alone: no Entra object", lg[2].kind === "entra" && /not in Intune: no wave reaches it/.test(lg[2].what) && lg[3].kind === "defender" && /no Entra object/.test(lg[3].what));
   ok("🔎 a user with no logon found gets an empty list", MM.logonsFor(input, model.rows, [{ id: "x3", upn: "nobody@x.com" }], hunt).get("x3").length === 0);
+  // 10654 (Mihai: "devices with vdi in the name should be excluded. Named
+  // but excluded, because that's AVD and out of scope")
+  const huntVdi = hunt.concat([
+    { AccountName: "jan.smit", AccountSid: "", DeviceId: "v1", DeviceName: "PVM-VDI-017.corp.local", LastLogon: iso(now), Logons: 30, AadDeviceId: "A1" },
+    { AccountName: "vdi.only", AccountSid: "", DeviceId: "v2", DeviceName: "avd-Vdi-nl-3", LastLogon: iso(now - day), Logons: 3, AadDeviceId: "" }]);
+  const lgV = MM.logonsFor(input, model.rows, [{ id: "x1", upn: "Jan.Smit@x.com", sid: "S-1-5-21-9", sam: "JSMIT" }, { id: "x4", upn: "vdi.only@x.com" }], huntVdi);
+  const j = lgV.get("x1");
+  ok("🔎 a VDI device is named but out of scope — whatever Intune says of its id — and listed after the devices that count, however recent", j.length === 5 && j[4].device === "PVM-VDI-017" && j[4].kind === "avd" && j[4].outOfScope
+    && /AVD \(VDI in the name\) — out of scope, excluded/.test(j[4].what) && j.slice(0, 4).every((x) => !x.outOfScope) && j[0].device === "nl-1");
+  ok("🔎 a user seen only on VDI: every line out of scope, any case", lgV.get("x4").length === 1 && lgV.get("x4")[0].outOfScope && MM.isAvdName("x-vDi-1") && !MM.isAvdName("LT-NL-0412"));
 
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);

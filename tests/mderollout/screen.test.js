@@ -327,6 +327,10 @@ async function run() {
     /Logged on to · Defender, 30 days/.test($("mrBody").textContent) && /ws-fin-0142/i.test($("mrBody").textContent) && /in Intune — primary user eva@contoso\.com/.test($("mrBody").textContent)
     && /lab-pc-07/.test($("mrBody").textContent) && /Defender only — no Entra object/.test($("mrBody").textContent));
   ok("🔎 the CSV carries it", /ws-fin-0142 \(in Intune — primary user eva@contoso\.com/.test(w.MdeMembers.leftOutCsv(mm(), "Euro", st().mem.logons)));
+  const samLog = st().mem.logons.get(samId) || [];
+  ok("🔎 an AVD host (VDI in the name) is named but out of scope, after the devices that count though it is the newest (10654)", samLog.length === 3 && samLog[2].device === "cto-vdi-03" && samLog[2].outOfScope
+    && /cto-vdi-03/.test($("mrBody").textContent) && /⊘ AVD \(VDI in the name\) — out of scope, excluded/.test($("mrBody").textContent)
+    && /cto-vdi-03 \(⊘ AVD/.test(w.MdeMembers.leftOutCsv(mm(), "Euro", st().mem.logons)));
   D.querySelector("[data-mrlogonkql]").click();
   ok("⧉ with no clipboard, the KQL is saved as a file", await until(() => /Saved as a \.kql file/.test($("mrLogProg").textContent), 3000, "kql"));
   w.Graph.post = async (p) => { if (/runHuntingQuery/.test(p)) { const e = new Error("Forbidden"); e.status = 403; throw e; } return realPost(p); };

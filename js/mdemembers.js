@@ -474,6 +474,12 @@ const MdeMembers = (() => {
   // user (then it follows THAT person's country), in Entra but not in Intune
   // (no wave reaches it — the device groups follow Intune primary users), or
   // Defender only (no Entra object: it cannot be a group member at all).
+  // 10654 (Mihai: "for the defender findings, devices with vdi in the name
+  // should be excluded. Named but excluded, because that's AVD and out of
+  // scope"): a logon on such a device is listed, marked out of scope, and
+  // sorted after the devices that count.
+  const AVD_NAME = /vdi/i;
+  const isAvdName = (name) => AVD_NAME.test(String(name || ""));
   function logonsFor(input, rows, users, results) {
     const entraByDev = new Map((input.entra || []).map((e) => [lc(e.deviceId || ""), e]));
     const managedByDev = new Map();
@@ -488,6 +494,7 @@ const MdeMembers = (() => {
       const aad = lc(h.AadDeviceId || "");
       const base = { device: String(h.DeviceName || h.DeviceId || "").split(".")[0], fqdn: h.DeviceName || "", last: h.LastLogon || null, logons: Number(h.Logons) || 0, os: h.OSPlatform || "", join: h.JoinType || "" };
       const m = aad ? managedByDev.get(aad) : null, e = aad ? entraByDev.get(aad) : null;
+      if (isAvdName(h.DeviceName) || (m && isAvdName(m.deviceName))) return Object.assign(base, { kind: "avd", outOfScope: true, what: "⊘ AVD (VDI in the name) — out of scope, excluded" });
       if (m) {
         if (!m.userId) return Object.assign(base, { kind: "intune", what: "in Intune, no primary user — no wave" });
         const rs = rowsOfUser.get(lc(m.userId)) || [];
@@ -511,7 +518,9 @@ const MdeMembers = (() => {
         if (!cur) byDev.set(k, Object.assign({}, h, { Logons: Number(h.Logons) || 0 }));
         else { cur.Logons += Number(h.Logons) || 0; if (t > (Date.parse(cur.LastLogon || "") || 0)) cur.LastLogon = h.LastLogon; }
       }
-      out.set(u.id, [...byDev.values()].sort((a, b) => (Date.parse(b.LastLogon || "") || 0) - (Date.parse(a.LastLogon || "") || 0)).map(meaning));
+      // the devices that count first, newest first; AVD after them
+      out.set(u.id, [...byDev.values()].sort((a, b) => (Date.parse(b.LastLogon || "") || 0) - (Date.parse(a.LastLogon || "") || 0)).map(meaning)
+        .sort((a, b) => (a.outOfScope ? 1 : 0) - (b.outOfScope ? 1 : 0)));
     }
     return out;
   }
@@ -1072,7 +1081,7 @@ const MdeMembers = (() => {
 
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
-    iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
+    iso3Of, countryName, countryRows, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };

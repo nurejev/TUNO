@@ -1507,7 +1507,7 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // Defender advanced hunting (T28's 🔎 logon lookup, 10648): the query's
   // account names are matched against a small made-up logon history — Sam
   // (a Mac user by Intune) logs on to Eva's Windows laptop, which Intune
-  // knows, and to a lab PC only Defender sees.
+  // knows, to a lab PC only Defender sees, and to an AVD host (VDI).
   if (method === "POST" && path === "/security/runHuntingQuery") {
     const q = String((body && (body.Query || body.query)) || "");
     const names = ((/let names = dynamic\(\[([^\]]*)\]\)/.exec(q) || [])[1] || "").split(",").map((x) => x.trim().replace(/^"|"$/g, "").toLowerCase()).filter(Boolean);
@@ -1515,6 +1515,8 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const LOG = [
       { AccountName: "sam", AccountSid: "", DeviceId: "mde-0142", DeviceName: "ws-fin-0142.contoso.local", LastLogon: new Date(Date.now() - 2 * 86400000).toISOString(), Logons: 14, AadDeviceId: fin ? fin.azureADDeviceId : "", OSPlatform: "Windows11", JoinType: "Entra joined" },
       { AccountName: "sam", AccountSid: "", DeviceId: "mde-lab07", DeviceName: "lab-pc-07.contoso.local", LastLogon: new Date(Date.now() - 6 * 86400000).toISOString(), Logons: 3, AadDeviceId: "", OSPlatform: "Windows10", JoinType: "" },
+      // …and an AVD session host (10654): named, out of scope
+      { AccountName: "sam", AccountSid: "", DeviceId: "mde-vdi03", DeviceName: "cto-vdi-03.contoso.local", LastLogon: new Date(Date.now() - 1 * 86400000).toISOString(), Logons: 22, AadDeviceId: "", OSPlatform: "Windows11", JoinType: "Hybrid Azure AD Join" },
     ];
     return { schema: [], results: LOG.filter((x) => names.includes(x.AccountName)) };
   }

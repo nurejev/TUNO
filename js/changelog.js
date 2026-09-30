@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10654,
+  "date": "2026-09-30",
+  "title": "MDE rollout — AVD hosts are named but out of scope in the Defender logons",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "In Left out, the Defender logon lookup still names a device with VDI in its name, but marks it as AVD, out of scope and excluded. It is listed after the devices that count. A user seen only on VDI hosts says so, and the CSV carries the same label."
+    }
+  ]
+},
+{
   "build": 10653,
   "date": "2026-09-30",
   "title": "MDE rollout — Add include with the waves only adds",

@@ -2834,12 +2834,14 @@ const MdeRolloutTool = (() => {
     };
     // 🔎 Defender logons (10648): a column once any user in view was looked up
     const showLog = users.some((u) => mem.looked.has(u.id));
-    const LOGCOL = { intune: "var(--on)", entra: "var(--report)", defender: "var(--off)" };
+    const LOGCOL = { intune: "var(--on)", entra: "var(--report)", defender: "var(--off)", avd: "var(--muted)" };
     const logCell = (u) => {
       if (!mem.looked.has(u.id)) return `<span class="muted">not looked up</span>`;
       const l = mem.logons.get(u.id) || [];
       if (!l.length) return `<span class="muted">no logon on a Defender device in 30 days — web or mobile only, or a device Defender does not see</span>`;
-      return l.slice(0, 3).map((x) => `<div style="margin:2px 0"><b>${esc(x.device)}</b> <span class="muted">· ${esc(ago(x.last))} · ${plural(x.logons, "logon")}</span><div style="color:${LOGCOL[x.kind]}">${esc(x.what)}</div></div>`).join("") + (l.length > 3 ? `<div class="muted">+ ${l.length - 3} more — in the CSV</div>` : "");
+      // 10654: AVD (VDI in the name) is named, muted, marked out of scope
+      const only = l.every((x) => x.outOfScope) ? `<div class="muted" style="margin-bottom:2px">only AVD — no device in scope</div>` : "";
+      return only + l.slice(0, 3).map((x) => `<div style="margin:2px 0${x.outOfScope ? ";opacity:.75" : ""}"><b>${esc(x.device)}</b> <span class="muted">· ${esc(ago(x.last))} · ${plural(x.logons, "logon")}</span><div style="color:${LOGCOL[x.kind]}">${esc(x.what)}</div></div>`).join("") + (l.length > 3 ? `<div class="muted">+ ${l.length - 3} more — in the CSV</div>` : "");
     };
     const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td>${showLog ? `<td class="mini">${logCell(u)}</td>` : ""}<td class="mini">${standing(u)}</td></tr>`).join("");
     const logBar = users.length ? `<div class="toolbar" style="margin:4px 0 6px">

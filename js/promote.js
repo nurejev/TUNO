@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 216,
+  "title": "T28 — 🔎 Defender logons: VDI (AVD) devices named but out of scope",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10654
+  ],
+  "risk": "low",
+  "what": "MdeMembers.logonsFor: a device whose Defender name (or its Intune record's name) matches /vdi/i is kind 'avd', outOfScope, '⊘ AVD (VDI in the name) — out of scope, excluded', sorted after the devices that count. The 🕳 logon column mutes it and says 'only AVD — no device in scope' when that is all a user has; the CSV carries the words. isAvdName exported. Demo: Sam also logs on to cto-vdi-03.",
+  "why": "Mihai: 'for the defender findings, devices with vdi in the name should be excluded. named but excluded, because thats avd and out of scope'.",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/members 100, mderollout/screen 250).",
+    "On PVM: 👥 → 🕳 Left out → 🔎 Find their logons — AVD hosts show muted as '⊘ AVD … out of scope', after the real devices."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "js/demo.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10654.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 215,
   "title": "T28 — the policy bar's Add include with 🌊 Waves only adds; a 🧪 tick for the pilot groups",
   "tools": [
