@@ -106,6 +106,10 @@ const MdeRollout = (() => {
       "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0",
       "Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0",
     ],
+    // Policies LEFT OUT by name (10639, Mihai: "also add a same for
+    // excluding a policy") — out of scope whatever their prefix or content:
+    // listed under 🚫, never compared, planned, or pulled in by a setting.
+    leaveOut: [],
   });
   const cleanList = (a) => uniq((a || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean));
   const str = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -158,6 +162,7 @@ const MdeRollout = (() => {
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
       alsoInScope: cleanList(Array.isArray(o.alsoInScope) ? o.alsoInScope : DEFAULTS.alsoInScope),
+      leaveOut: cleanList(Array.isArray(o.leaveOut) ? o.leaveOut : DEFAULTS.leaveOut),
       // 👥 Wave members (10634): the country → region table and the device
       // group naming, kept with the rest of this tenant's rules
       members: typeof MdeMembers !== "undefined" ? MdeMembers.normConfig(o.members) : null,
@@ -192,8 +197,12 @@ const MdeRollout = (() => {
   // business); the interim marker wins over the new prefixes (a new-named
   // policy somebody already marked for removal is on its way OUT); only
   // then does a new prefix make a policy new.
+  // a name under ⚙️ "Leave out" (10639) — the same exact-name match as the
+  // "Also in" list, and it wins over it
+  const isLeftOut = (name, cfg) => ((cfg && cfg.leaveOut) || []).some((n) => normName(n) === normName(name));
   function generationOf(name, cfg) {
     const c = cfg || DEFAULTS;
+    if (isLeftOut(name, c)) return "out";
     if ((c.outPrefixes || []).some((p) => hasPrefix(name, p))) return "out";
     if (EndpointPosture.isInterim({ name })) return "retiring";
     if ((c.newPrefixes || []).some((p) => hasPrefix(name, p))) return "new";
@@ -378,6 +387,7 @@ const MdeRollout = (() => {
       technologies: lc((raw && raw.technologies) || ""),
       mdeManaged: /microsoftsense/i.test(String((raw && raw.technologies) || "")),
       detailError: item.detailError || null,
+      outWhy: isLeftOut(item.name, cfg) ? "left out by name (⚙️)" : "",
     };
   }
   function finish(p, cats, settings, format, kind) {
@@ -392,7 +402,9 @@ const MdeRollout = (() => {
   }
 
   // how: "named" (in cfg.alsoInScope) or "shares" (an old policy setting a
-  // setting a new policy sets) pulls in a policy the MDE test would leave out.
+  // setting a new policy sets) pulls in a policy the MDE test would leave out;
+  // "leftout" (cfg.leaveOut, 10639) lists it under 🚫 whatever it holds, so a
+  // name left out is seen to be left out.
   function fromCatalog(sec, item, raw, cfg, how) {
     const nodes = EndpointPosture.classify(item).map((n) => NODE_CAT[n] || n);
     const rows = EndpointSec.flattenSettings((raw && raw.__detail) || []);
@@ -412,7 +424,7 @@ const MdeRollout = (() => {
     // categories the settings name; it stays only when nothing more exact is known.
     const specific = uniq(nodes.filter((n) => n !== "mde").concat(settingCats.filter((c) => MDE_CATS.has(c))));
     if (!mde) {
-      p.scopeWhy = how === "named" ? "in the target list by name (⚙️)" : "sets a setting a new policy sets";
+      p.scopeWhy = how === "named" ? "in the target list by name (⚙️)" : how === "shares" ? "sets a setting a new policy sets" : "";
       return finish(p, uniq(settingCats).filter((c) => c !== "other").concat(settingCats.includes("other") ? ["other"] : []), settings, "catalog", kind);
     }
     return finish(p, specific.length ? specific : nodes, settings, "catalog", kind);
@@ -500,7 +512,7 @@ const MdeRollout = (() => {
         const raw = rawById.get(lc(item.id)) || {};
         let p = null;
         if (secId === "settingsCatalog") {
-          p = fromCatalog(sec, item, raw, cfg, isNamed(item.name, cfg) ? "named" : null);
+          p = fromCatalog(sec, item, raw, cfg, isLeftOut(item.name, cfg) ? "leftout" : isNamed(item.name, cfg) ? "named" : null);
           if (!p) rest.push({ sec, item, raw });
         }
         else if (secId === "intents") p = fromIntent(sec, item, raw, cfg, templates);
@@ -1331,8 +1343,16 @@ const MdeRolloutTool = (() => {
   const reps = { assign: null, config: null, conflicts: null, checks: [], busy: "", selected: "assign", error: "" };
   const mem = { input: null, model: null, loading: false, region: null, unmapped: false,
     sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false } };
+  // ⊘ Exclusions (10639, layout A off the mockup): its own read, search,
+  // the looked-up card and its ticks, and the "excluded now" rows ticked
+  const ex = { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "",
+    ticks: new Set(), sel: new Set(), keepOld: true };
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
+  // Where the plan panel opens (10639, Mihai: the dry run "appears at the
+  // bottom, not visible" — option A off the mockup): right under the card
+  // whose button made it, by that card's id; null = under the pane.
+  let planAnchor = null;
   let backupTaken = false;
   const runs = [];             // this session's writes
   let running = false, busy = false, enriching = "";
@@ -1468,6 +1488,9 @@ const MdeRolloutTool = (() => {
     runs.length = 0; filterList = null; clearPlan();
     reps.assign = null; reps.config = null; reps.conflicts = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
+    Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
+    ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
+    if ($("mrExclude")) $("mrExclude").hidden = true;
     if ($("mrBody")) $("mrBody").innerHTML = "";
     showExports(false); syncSelbar();
   }
@@ -1510,6 +1533,7 @@ const MdeRolloutTool = (() => {
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
       node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
       node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
+      (() => { const n = exNow(); return node("exclusions", "⊘", "Exclusions", n ? (n.half ? `${n.half} half` : `${n.users} · ${n.devices}`) : null, !!(n && n.half)); })(),
       "<hr>",
       node("reports", "📑", "Reports", `${made} of ${REPORTS.length}`),
       REPORTS.map(repNode).join(""),
@@ -1559,7 +1583,7 @@ const MdeRolloutTool = (() => {
         : editable ? `<span class="mini muted" title="This surface is not one the Assignment editor's engine writes">—</span>` : "";
       return `<tr>
         ${editable ? `<td style="width:26px">${pick}</td>` : ""}
-        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.scopeWhy ? ` · <span title="In scope: ${esc(P.scopeWhy)}">${/name/.test(P.scopeWhy) ? "➕ by name" : "🔗 shares a setting"}</span>` : ""}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
+        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.scopeWhy ? ` · <span title="In scope: ${esc(P.scopeWhy)}">${/name/.test(P.scopeWhy) ? "➕ by name" : "🔗 shares a setting"}</span>` : ""}${P.outWhy ? ` · <span title="Out of scope: ${esc(P.outWhy)} — never compared, planned or pulled in">➖ left out by name</span>` : ""}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
         <td style="white-space:nowrap">${catIcons(P)}</td>
         <td class="mini">${assignChips(P)}</td>
         <td class="mini">${which === "out" ? "" : col.length
@@ -1802,6 +1826,7 @@ const MdeRolloutTool = (() => {
         <label class="wi-f"><span>Device-group suffix per non-ISO2 suffix</span><textarea id="mrRuleSfx" rows="${Math.max(4, Object.keys(mcfg().deviceSuffixes).length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatOverrides(mcfg().deviceSuffixes))}</textarea></label>
       </div>
       <label class="wi-f" style="margin-top:12px"><span>➕ Also in the target list — exact policy names, one per line. They are in scope although nothing in them is an MDE area, and an old policy that sets one of their settings is pulled in too.</span>${ta("mrRuleAlso", cfg.alsoInScope)}</label>
+      <label class="wi-f" style="margin-top:12px"><span>➖ Leave out of the target list — exact policy names, one per line. They are out of scope (🚫) whatever their prefix or content: never compared, planned or pulled in by a shared setting. A name in both lists is left out.</span>${ta("mrRuleLeave", cfg.leaveOut)}</label>
       <p class="mini muted" style="margin:12px 0 6px">Each region is a PAIR: the device wave (prefix + region) for the <code>- D -</code> policies and the user wave for the <code>- U -</code> ones. Now: ${cfg.groups.filter((g) => g.role === "wave").map((g) => `<code>${esc(g.name)}</code>`).join(" ")}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🖥 Device wave prefix</span><input id="mrRuleDgPre" value="${esc(cfg.waveDevicePrefix)}"></label>
@@ -1825,7 +1850,8 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
-      <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows.</p>
+      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
+      <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed — only assignments, and only by this plan.</p>
@@ -1847,6 +1873,7 @@ const MdeRolloutTool = (() => {
     else if (pane === "retire") main = retirePane();
     else if (pane === "waves") main = wavesPane();
     else if (pane === "members") main = membersPane();
+    else if (pane === "exclusions") main = exclusionsPane();
     else if (pane === "reports") main = reportsPane();
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
@@ -1859,8 +1886,9 @@ const MdeRolloutTool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mrGlobalExport").hidden = pane === "reports";
+    if ($("mrExclude")) $("mrExclude").hidden = false;
     $("mrBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mrPlanSeat"></div></div></div>`;
-    if (pl) $("mrPlanSeat").replaceWith(pl);
+    if (pl) seatPlan(pl);
     syncSelbar();
   }
 
@@ -1903,10 +1931,21 @@ const MdeRolloutTool = (() => {
   // ---------------------------------------------------------- dry run --
   function clearPlan() { plan = null; backupTaken = false; if (planEl()) planEl().innerHTML = ""; }
   function planError(msg) { planEl().innerHTML = `<div class="list-card" style="margin-top:12px;padding:16px 18px"><div class="gu-fail"><b>${esc(msg)}</b></div></div>`; }
+  // Seat the plan node under the card that made it (planAnchor) when that
+  // card is on screen, else under the pane. Called by render() and by the
+  // launchers before their first progress line, so "reading…" shows there.
+  function seatPlan(node) {
+    const pl = node || planEl();
+    if (!pl) return;
+    const a = planAnchor ? document.getElementById(planAnchor) : null;
+    if (a && $("mrBody").contains(a)) a.after(pl);
+    else if ($("mrPlanSeat")) $("mrPlanSeat").appendChild(pl);
+  }
+  const showPlan = () => { const pl = planEl(); if (pl && pl.scrollIntoView) pl.scrollIntoView({ block: "start", behavior: "smooth" }); };
 
   async function dryRun() {
     if (busy || !model) return;
-    busy = true; clearPlan();
+    busy = true; planAnchor = null; clearPlan(); seatPlan();
     try {
       const mode = barMode();
       if (mode === "fixes") await dryRunFixes();
@@ -2051,7 +2090,7 @@ const MdeRolloutTool = (() => {
     });
     if ($("mrApply")) $("mrApply").addEventListener("click", apply);
     $("mrDiscard").addEventListener("click", clearPlan);
-    planEl().scrollIntoView({ block: "start", behavior: "smooth" });
+    showPlan();
   }
   function gateOk() {
     if (!plan || !backupTaken) return false;
@@ -2104,7 +2143,7 @@ const MdeRolloutTool = (() => {
     const r = runs[idx];
     if (!r || busy) return;
     if (r.kind === "members") { memDryRun(r); return; }
-    busy = true; clearPlan();
+    busy = true; planAnchor = null; clearPlan(); seatPlan();
     try {
       await Graph.ensureScopes(AssignEdit.READ());
       const pols = r.backup.policies.map((b) => ({ surface: b.surface, id: b.id, name: b.name }));
@@ -2122,7 +2161,7 @@ const MdeRolloutTool = (() => {
   }
   async function dryRunRollout(which) {
     if (busy || !model) return;
-    busy = true; clearPlan();
+    busy = true; planAnchor = "mrRollCard"; clearPlan(); seatPlan(); showPlan();
     try {
       const r = M.rolloutWants(which, model, rolloutCtx());
       if (!r.wants.length) { plan = null; planError(`Nothing to do: ${M.ROLLOUT[which].label.toLowerCase()} is already in place${r.skipped.length ? ". Left out: " + r.skipped.join(" · ") : ""}.`); return; }
@@ -2160,7 +2199,7 @@ const MdeRolloutTool = (() => {
     };
     const touched = new Set(M.rolloutWants("excludeWaves", model, ctx).policies.map((P) => P.key));
     const gaps = retire.filter((x) => x.verdict === "gap" && touched.has(x.O.key)).length;
-    return `<div class="list-card" style="margin-top:0;margin-bottom:12px">
+    return `<div class="list-card" id="mrRollCard" style="margin-top:0;margin-bottom:12px">
       <h4 style="margin:0 0 4px">⚡ Rollout actions</h4>
       <p class="mini muted" style="margin:0 0 8px">One plan per step, over every new or colliding old policy at once — each through the same dry run, backup, confirm and read-back as a single fix, and each undoable from 📜. The device waves go to the <code>- D -</code> policies, the user waves to the <code>- U -</code> ones.</p>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px"><span class="mini muted">Regions:</span>${chips}</div>
@@ -2196,7 +2235,7 @@ const MdeRolloutTool = (() => {
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
-      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)));
+      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device);
       memCompute();
       if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
     } catch (e) {
@@ -2225,12 +2264,12 @@ const MdeRolloutTool = (() => {
   }
   function memDetail(r) {
     const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
-      const st = !d.objId ? chip("au-op delete", d.problem) : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
+      const st = !d.objId ? chip("au-op delete", d.problem) : d.held ? `${chip("gu-how priv", "⊘ excluded")} <span class="muted">${r.have.has(d.objId) ? "take out — stays on the old set" : "kept out — on the old set"}</span>` : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
       return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
     return `<tr><td colspan="6" style="padding:0 8px 8px 36px"><div class="mr-detail">
-      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}
+      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}${r.problems.held ? ` · <span class="muted">${r.problems.held} in the device exclusion group — kept out, on the old set</span>` : ""}
       ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
       ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
     </div></td></tr>`;
@@ -2301,27 +2340,30 @@ const MdeRolloutTool = (() => {
     </div>`;
   }
   async function memDryRun(undoOf) {
-    if (busy || !mem.model) return;
-    clearPlan();
+    if (busy || (!mem.model && !(undoOf && undoOf.exclusions))) return;
+    planAnchor = null; clearPlan(); seatPlan();
     let p;
     if (undoOf) p = MdeMembers.inverseOf(undoOf.done);
     else p = MdeMembers.planOps(mem.model, new Set(mem.model.rows.filter((r) => r.region === mem.region && mem.sel.has(r.key)).map((r) => r.key)), mem.opts, mcfg());
-    plan = Object.assign(p, { members: true, title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}` });
+    plan = Object.assign(p, { members: true, exclusions: !!(undoOf && undoOf.exclusions), title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}` });
     renderMemPlan();
   }
   const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out" };
+  const opWord = (x) => (x.type === "add" || x.type === "remove") && x.memberKind === "user" ? (x.type === "add" ? "add users" : "remove users") : OP_WORD[x.type];
   const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : `${x.child.name} → ${x.parent.name}`;
   function renderMemPlan() {
     const p = plan;
-    const country = (key) => { const r = mem.model && mem.model.rows.find((x) => x.key === key); return r ? r.country : key; };
-    const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x.key))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", OP_WORD[x.type])}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${x.size.toLocaleString()} ${x.kind === "user" ? "users" : "devices"})</span>` : ""}</td></tr>`).join("");
+    const country = (x) => { if (x.who || p.exclusions) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
+    const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${x.size.toLocaleString()} ${x.kind === "user" ? "users" : "devices"})</span>` : ""}</td></tr>`).join("");
     planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
       <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
       <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
       ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
       ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
-      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>Country</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
-      <p class="mini muted" style="margin:8px 0 0">Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo.</p>
+      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.exclusions ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
+      <p class="mini muted" style="margin:8px 0 0">${p.exclusions
+        ? "The exclusion groups are excluded from the new policies (⚡②): a member added here stops receiving them. A device taken out of its country device group leaves the wave, so the old policies reach it again. Every run lands in 📜 with an exact undo."
+        : "Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo."}</p>
       ${p.ops.length ? `<div style="margin-top:12px">
         ${p.hasRemoval ? `<label class="wi-f" style="margin-top:8px"><span>This plan REMOVES members or takes groups out of a wave — type <b>REMOVE</b> to allow it</span><input id="mrConfirmText" placeholder="REMOVE" autocomplete="off" spellcheck="false"></label>`
           : `<label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mrConfirmTick"> I have read the plan — ${plural(p.ops.length, "step")}</label>`}
@@ -2335,7 +2377,7 @@ const MdeRolloutTool = (() => {
     if ($("mrConfirmTick")) $("mrConfirmTick").addEventListener("change", upd);
     if ($("mrMemApply")) $("mrMemApply").addEventListener("click", () => { if (ok()) applyMem(); });
     $("mrDiscard").addEventListener("click", clearPlan);
-    planEl().scrollIntoView({ block: "start", behavior: "smooth" });
+    showPlan();
   }
   async function applyMem() {
     if (busy || !plan || !plan.members) return;
@@ -2346,18 +2388,22 @@ const MdeRolloutTool = (() => {
       $("mrMemApply").disabled = true;
       let me = null;
       if (p.ops.some((x) => x.type === "create")) { try { me = await M.readMe(); } catch { me = null; } }
-      const L = RunLedger.create($("mrLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${OP_WORD[x.type]} · ${opLabel(x)}`, sub: "" })) });
+      const L = RunLedger.create($("mrLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${opWord(x)} · ${opLabel(x)}`, sub: x.who || "" })) });
       const r = await MdeMembers.applyOps(p.ops, { ledger: L, me });
       L.finish();
       const createdGroups = [...r.created.entries()].map(([name, id]) => ({ id, displayName: p.ops.find((x) => x.type === "create" && lc(x.name) === name) ? p.ops.find((x) => x.type === "create" && lc(x.name) === name).name : name, groupTypes: [] }));
-      MdeMembers.patchInput(mem.input, r.done, createdGroups);
+      if (mem.input) MdeMembers.patchInput(mem.input, r.done, createdGroups);
       if (found) for (const g of createdGroups) names.set(lc(g.id), g.displayName);
       memCompute();
+      // ⊘ (10639): the exclusion lists move with the run, and the open card
+      // is read again so what reaches it is the tenant's answer
+      if (ex.base) MdeExclude.patchBase(ex.base, r.done);
       const okN = r.results.filter((x) => x.ok && x.verified).length;
-      runs.push({ at: Date.now(), title: p.title, kind: "members", ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
-        done: r.done, lines: r.results.map((x) => `${OP_WORD[x.op.type]} · ${opLabel(x.op)}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`) });
+      runs.push({ at: Date.now(), title: p.title, kind: "members", exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
+        done: r.done, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`) });
       plan = null;
-      mem.sel.clear();
+      if (p.exclusions) { ex.sel.clear(); if (ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
+      else mem.sel.clear();
       const ledger = $("mrLedger").innerHTML;
       render();
       planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px"><h4 style="margin:0 0 6px">${esc(p.title)} — done</h4><div id="mrLedger">${ledger}</div><p class="mini muted" style="margin:8px 0 0">${okN} of ${r.results.length} steps written &amp; verified. The rows above moved with them; ↻ Read again for the tenant's own view. The run and its undo are in 📜 Changes this session.</p></div>`;
@@ -2365,6 +2411,204 @@ const MdeRolloutTool = (() => {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mrLedger").appendChild(el);
     } finally { busy = false; }
+  }
+
+  // -------------------------------------------------------- ⊘ exclusions --
+  // Layout A off the mockup (10639): a header button opens this pane with
+  // the cursor in the search. Search a user or a device, get both (the user
+  // with their Windows devices, or the device with its primary user) and
+  // what reaches each, tick, dry run. The plan opens under the card.
+  const exOpt = () => ({ staleDays: mcfg().staleDays || 30 });
+  function exGroups() {
+    const pick = (aud) => { const w = waveRows.find((x) => x.role === "exclusion" && x.audience === aud); return w ? (w.group || (w.legacy && w.legacy.group) || null) : null; };
+    return { user: pick("user"), device: pick("device") };
+  }
+  function exCtx() {
+    const G = exGroups();
+    return {
+      groups: G, ticks: ex.ticks, keepOld: ex.keepOld,
+      exUserId: G.user ? lc(G.user.id) : null, exDeviceId: G.device ? lc(G.device.id) : null,
+      deviceWaveIds: new Set(waveRows.filter((w) => w.role === "wave" && w.audience === "device" && w.id).map((w) => w.id)),
+      deviceGroupPrefix: mcfg().deviceGroupPrefix,
+      skipIds: new Set(waveRows.map((w) => w.group || (w.legacy && w.legacy.group)).filter(Boolean).map((g) => lc(g.id))),
+    };
+  }
+  let exNowCache = null;
+  const exNow = () => {
+    if (!ex.base) return null;
+    const sig = `${ex.base.readAt}|${ex.base.users.length}|${ex.base.devices.length}|${ex.base.users.map((u) => u.id).join()}|${ex.base.devices.map((d) => d.id).join()}`;
+    if (!exNowCache || exNowCache.sig !== sig) exNowCache = { sig, v: MdeExclude.excludedNow(ex.base, exOpt()) };
+    return exNowCache.v;
+  };
+  async function exRead() {
+    if (ex.loading) return;
+    ex.loading = true; ex.error = ""; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      ex.base = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mrExProg"); if (el) el.textContent = m; });
+    } catch (e) { ex.base = null; ex.error = GroupUse.shortErr(e, 300); }
+    finally { ex.loading = false; render(); }
+  }
+  async function exSearch() {
+    const input = $("mrExQ");
+    ex.q = input ? input.value : ex.q;
+    if (!ex.base) await exRead();
+    if (!ex.base || ex.searching) return;
+    ex.searching = true; ex.note = ""; render();
+    try {
+      const r = await MdeExclude.search(ex.q, ex.base, exOpt());
+      ex.results = r.results;
+      ex.note = r.note || [r.failed.length ? `Partly searched — ${r.failed.join("; ")}` : "", !r.results.length ? `Nothing found for “${r.term}”.` : ""].filter(Boolean).join(" ");
+    } catch (e) { ex.results = []; ex.note = GroupUse.shortErr(e, 240); }
+    finally { ex.searching = false; render(); const q = $("mrExQ"); if (q) q.focus(); }
+  }
+  // quiet: re-read after a run — the ticks the admin set are rebuilt from
+  // the new state (what is excluded now is not offered again)
+  async function exPick(pick, quiet) {
+    if (!ex.base) return;
+    ex.cardLoading = true; ex.cardError = ""; if (!quiet) ex.card = null; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      ex.card = await MdeExclude.lookup(pick, ex.base, exOpt());
+      for (const [id, n] of ex.card.names) if (!names.has(id)) names.set(id, n);
+      ex.ticks = MdeExclude.defaultTicks(ex.card);
+    } catch (e) { ex.cardError = GroupUse.shortErr(e, 300); }
+    finally { ex.cardLoading = false; render(); }
+  }
+  function exDryRun() {
+    if (busy || !ex.card) return;
+    planAnchor = "mrExCard"; clearPlan(); seatPlan();
+    const p = MdeExclude.planAdd(ex.card, exCtx());
+    const who = ex.card.user ? ex.card.user.displayName : (ex.card.devices.find((d) => d.searched) || ex.card.devices[0] || {}).name || "";
+    plan = Object.assign(p, { members: true, title: `Exclusion — ${who}` });
+    renderMemPlan();
+  }
+  function exRemoveDryRun() {
+    const n = exNow();
+    if (busy || !n) return;
+    const rows = n.rows.filter((r) => ex.sel.has(r.key));
+    if (!rows.length) return;
+    planAnchor = "mrExNow"; clearPlan(); seatPlan();
+    const p = MdeExclude.planRemove(rows, exGroups());
+    plan = Object.assign(p, { members: true, title: `Out of the exclusion groups — ${plural(rows.length, "row")}` });
+    renderMemPlan();
+  }
+  const gName = (id) => names.get(lc(id)) || (ex.card && ex.card.names.get(lc(id))) || id;
+  const shortDate = (iso) => { const t = Date.parse(iso || ""); return Number.isFinite(t) ? new Date(t).toLocaleDateString() : "never"; };
+  const ago = (iso) => { const t = Date.parse(iso || ""); if (!Number.isFinite(t)) return "never"; const h = Math.round((Date.now() - t) / 3600000); return h < 48 ? `${Math.max(h, 0)} h ago` : `${Math.round(h / 24)} days ago`; };
+  // the waves (by region) an object is in, from its transitive groups
+  const wavesIn = (groups, aud) => waveRows.filter((w) => w.role === "wave" && w.audience === aud && w.id && groups && groups.has(w.id)).map((w) => w.region);
+  function exReachHtml(rows) {
+    if (!rows.length) return "";
+    const via = (list, gen) => { const ids = [...new Set(list.flatMap((x) => x.via))].slice(0, 3); return ids.length ? `${gen} via ${ids.map((id) => /^All /.test(id) ? id : gName(id)).join(", ")}` : ""; };
+    const why = (a) => [
+      a.new.length ? `${a.new.length} new ${via(a.new, "")}` : "",
+      a.keptOut.new.length ? `kept out of ${a.keptOut.new.length} new ${via(a.keptOut.new, "")}` : "",
+      a.old.length ? `${a.old.length} old ${via(a.old, "")}` : "",
+      a.keptOut.old.length ? `kept out of ${a.keptOut.old.length} old ${via(a.keptOut.old, "")}` : "",
+    ].filter(Boolean).map((x) => x.replace(/\s+$/, "")).join(" · ") || "nothing in scope reaches it";
+    const filt = (a) => a.new.concat(a.old).some((x) => x.filtered) ? ` <span class="muted" title="An assignment filter sits on an include — a browser cannot evaluate it">· filtered</span>` : "";
+    const lines = rows.map((r) => {
+      const label = r.kind === "user" ? `👤 ${esc(r.obj.displayName)} <span class="muted">(- U - policies)</span>` : `💻 ${esc(r.obj.name)} <span class="muted">(- D - policies)</span>`;
+      const after = r.after ? `<tr class="mr-exafter"><td class="mini">→ after the run</td><td class="mini"><b>${r.after.new.length}</b></td><td class="mini"><b${r.between ? ` style="color:var(--off)"` : ""}>${r.after.old.length}${r.between ? " ⚠" : ""}</b></td>
+        <td class="mini">${r.between ? `<b style="color:var(--off)">Falls between the sets: nothing in scope reaches it</b>${r.kind === "user" ? " — the user stays in the dynamic country group, so in the user wave, which the old - U - policies exclude. T28 cannot take a user out of a dynamic group." : ""}` : r.leaves && r.leaves.length ? `out of ${esc(r.leaves.map((g) => g.name).join(", "))} — leaves the wave, back on the old set` : esc(why(r.after))}</td></tr>` : "";
+      return `<tr><td class="mini">${label}</td><td class="mini" style="color:var(--on);font-weight:700">${r.before.new.length}</td><td class="mini">${r.before.old.length}</td><td class="mini">${esc(why(r.before))}${filt(r.before)}</td></tr>${after}`;
+    }).join("");
+    return `<div class="list-card mr-exreach" style="margin-top:12px"><h4 style="margin:0 0 6px">What reaches them <span class="mini muted" style="font-weight:400">— in-scope policies, from the last read · assignment filters are not evaluated</span></h4>
+      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30%"><col style="width:64px"><col style="width:64px"><col></colgroup><thead><tr><th>Who</th><th>New</th><th>Old</th><th>Why</th></tr></thead><tbody>${lines}</tbody></table></div></div>`;
+  }
+  function exCardHtml() {
+    if (ex.cardLoading && !ex.card) return `<div class="list-card" style="margin-top:12px"><p class="mini" style="margin:0">Reading the user, the devices and their groups…</p></div>`;
+    if (ex.cardError) return `<div class="list-card" style="margin-top:12px"><div class="gu-fail"><b>${esc(ex.cardError)}</b></div></div>`;
+    const c = ex.card;
+    if (!c) return "";
+    const G = exGroups();
+    const u = c.user;
+    const tick = (key, on, dis, label) => `<input type="checkbox" data-mrextick="${esc(key)}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(label)}">`;
+    const countryOf = (groups) => [...(groups || [])].map(gName).filter((n) => lc(n).startsWith(lc(mcfg().countryPrefix)));
+    const userHtml = u ? `<div class="mr-expc">
+        <h4 style="margin:0 0 6px"><label style="display:flex;gap:8px;align-items:center">${tick(`u:${u.id}`, ex.ticks.has(`u:${u.id}`), u.excluded || !G.user, "exclude the user")} 👤 ${esc(u.displayName)}</label></h4>
+        <dl class="mr-exkv">
+          <dt>UPN</dt><dd>${esc(u.upn || "—")}</dd>
+          <dt>Country group</dt><dd>${esc(countryOf(u.groups).join(", ") || (u.groups ? "none" : "not read"))}</dd>
+          <dt>Wave</dt><dd>${u.groups ? (wavesIn(u.groups, "user").map((r) => `🌊 ${esc(r)}`).join(", ") || "none") : "not read"}</dd>
+          <dt>User exclusion</dt><dd>${u.excluded ? chip("au-op create", "excluded") : G.user ? `<span class="muted">not in</span>${ex.ticks.has(`u:${u.id}`) ? " → will be added" : ""}` : `<span style="color:var(--off)">${esc(cfg.exclusionUser)} does not exist — create it in 🌊</span>`}</dd>
+        </dl></div>`
+      : `<div class="mr-expc"><h4 style="margin:0 0 6px">👤 No primary user</h4><p class="mini muted" style="margin:0">Intune names no primary user for this device${c.devices[0] && !c.devices[0].managed ? " — it is an Entra device Intune does not manage" : ""}.</p></div>`;
+    const drows = c.devices.map((d) => {
+      const can = !d.excluded && d.objId && G.device;
+      const cg = MdeExclude.countryGroupsOf(d, exCtx()).map((g) => g.name);
+      const waves = wavesIn(d.groups, "device");
+      const st = d.excluded ? chip("au-op create", "excluded") : `<span class="muted">no</span>`;
+      return `<tr class="${ex.ticks.has(d.key) ? "mr-selrow" : ""}${!d.objId ? " mr-exdis" : ""}"><td>${tick(d.key, ex.ticks.has(d.key), !can, `exclude ${d.name}`)}</td>
+        <td><b>${esc(d.name)}</b>${d.searched ? ` <span class="gu-how priv">searched</span>` : ""}<div class="mini muted">${esc(d.os ? `Windows ${d.os}`.replace(/^Windows Windows/, "Windows") : (d.managed ? "Windows" : ""))}${d.disabled ? " · disabled in Entra" : ""}</div>${d.problem ? `<div class="mini" style="color:var(--off)">${esc(d.problem)}</div>` : ""}</td>
+        <td class="mini">${d.managed ? `${esc(ago(d.lastSync))}${d.stale ? ` ${chip("gu-how priv", "stale")}` : ""}` : `<span class="muted">not in Intune</span>`}</td>
+        <td class="mini">${esc(cg.join(", ") || "—")}${waves.length ? `<div>${waves.map((r) => `🌊 ${esc(r)}`).join(", ")}</div>` : ""}</td>
+        <td class="mini">${st}</td></tr>`;
+    }).join("");
+    const devHtml = `<div class="mr-expc"><h4 style="margin:0 0 6px">💻 ${u ? `${esc(u.displayName)}'s Windows devices` : "The device"} <span class="mini muted" style="font-weight:400">(Intune primary user)</span></h4>
+      ${c.devices.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col><col style="width:18%"><col style="width:28%"><col style="width:92px"></colgroup><thead><tr><th></th><th>Device</th><th>Last sync</th><th>Group · wave</th><th>Excluded</th></tr></thead><tbody>${drows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">No Windows device in Intune has this user as its primary user.</p>`}
+      <p class="mini muted" style="margin:6px 0 0">${c.pick.type === "user" ? `Ticked: the user and every device that synced in the last ${exOpt().staleDays} days.` : "Ticked: the device you searched — its user stays as they are unless you tick them."} Stale devices are shown, not ticked.</p></div>`;
+    const rows = MdeExclude.assess(c, model, exCtx());
+    const plan0 = MdeExclude.planAdd(c, exCtx());
+    const nU = plan0.ops.filter((x) => x.type === "add" && x.memberKind === "user").reduce((a, x) => a + x.ids.length, 0);
+    const nD = plan0.ops.filter((x) => x.type === "add" && x.memberKind === "device").reduce((a, x) => a + x.ids.length, 0);
+    const nOut = plan0.ops.filter((x) => x.type === "remove").reduce((a, x) => a + x.ids.length, 0);
+    const sum = nU || nD ? [nU ? `<b>${plural(nU, "user")}</b> → ${esc(G.user ? G.user.displayName : "")}` : "", nD ? `<b>${plural(nD, "device")}</b> → ${esc(G.device ? G.device.displayName : "")}` : "", nOut ? `${plural(nOut, "device")} out of the country device group` : ""].filter(Boolean).join(" · ") : "tick the user or a device";
+    return `<div id="mrExCard">
+      ${c.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>Partly read:</b><span class="why">${c.failed.map(esc).join("<br>")}</span></div>` : ""}
+      <div class="mr-expair">${userHtml}${devHtml}</div>
+      ${exReachHtml(rows)}
+      <div class="mr-mbar" id="mrExBar"><span>${sum}</span>
+        <label class="chk" style="margin:0" title="⚔️ action ③ takes the waves out of the old policies — a wave device excluded from the new set would get neither"><input type="checkbox" id="mrExKeep"${ex.keepOld ? " checked" : ""}> keep devices on the old set (out of their country device group)</label>
+        <button class="btn primary" id="mrExDry"${nU || nD ? "" : " disabled"}>② Dry run</button></div>
+      ${ex.cardLoading ? `<p class="mini muted" style="margin:6px 0 0">Reading again…</p>` : ""}
+    </div>`;
+  }
+  function exNowHtml() {
+    const n = exNow();
+    if (!n) return "";
+    const G = exGroups();
+    const rows = n.rows.map((r) => {
+      const who = r.user ? `👤 ${esc(r.user.displayName)} ${r.user.excluded ? chip("au-op create", "excluded") : `<span class="muted mini">not excluded</span>`}${r.user.upn && r.user.upn !== r.user.displayName ? `<div class="mini muted">${esc(r.user.upn)}</div>` : ""}` : `<span class="muted">no primary user</span>`;
+      const devs = r.devices.length ? r.devices.map((d) => `<div>💻 ${esc(d.name)} ${d.excluded ? chip("au-op create", "excluded") : chip("gu-how priv", d.stale ? "not excluded · stale" : "not excluded")}</div>`).join("") : `<span class="muted">no Windows device</span>`;
+      const state = r.state === "half" ? `<b style="color:var(--off)">half: the - D - policies still reach ${esc(r.missing.map((d) => d.name).join(", "))}</b> <button class="btn" data-mrexfix="${esc(r.key)}">+ add device</button>`
+        : r.state === "both" ? "both" : r.state === "user" ? `<span class="muted">user, no Windows device</span>` : `<span class="muted">device only</span>`;
+      return `<tr class="${ex.sel.has(r.key) ? "mr-selrow" : ""}"><td><input type="checkbox" data-mrexsel="${esc(r.key)}"${ex.sel.has(r.key) ? " checked" : ""} aria-label="select"></td><td class="mini">${who}</td><td class="mini">${devs}</td><td class="mini">${state}</td></tr>`;
+    }).join("");
+    return `<div class="list-card" id="mrExNow" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">Excluded now</h4>
+        <span class="mini muted">${esc(G.user ? G.user.displayName : cfg.exclusionUser)} <b>${n.users}</b> · ${esc(G.device ? G.device.displayName : cfg.exclusionDevice)} <b>${n.devices}</b> · read ${esc(new Date(ex.base.readAt).toLocaleTimeString())} <button class="btn" id="mrExRead">↻ Read again</button></span></div>
+      ${rows ? `<div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:28%"><col style="width:30%"><col></colgroup><thead><tr><th></th><th>User</th><th>Their devices</th><th>State</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="tb-actions" style="margin-top:8px"><button class="btn" id="mrExRemDry"${ex.sel.size ? "" : " disabled"}>Take ${plural(ex.sel.size, "row")} out → dry run</button><span class="mini muted">Direct members only. A removal is typed: REMOVE.</span></div>`
+        : `<p class="mini muted" style="margin:8px 0 0">Nobody is in the exclusion groups.</p>`}
+    </div>`;
+  }
+  function exclusionsPane() {
+    const G = exGroups();
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Search a user (name, UPN, e-mail) or a device (name). A user comes with their Windows devices, a device with its primary user, and each with what reaches it. Users go to <code>${esc(G.user ? G.user.displayName : cfg.exclusionUser)}</code> (the <code>- U -</code> policies), devices to <code>${esc(G.device ? G.device.displayName : cfg.exclusionDevice)}</code> (the <code>- D -</code> ones). An excluded device also leaves its country device group, so it stays on the old set.</p>`;
+    const missingG = [!G.user ? cfg.exclusionUser : "", !G.device ? cfg.exclusionDevice : ""].filter(Boolean);
+    const warn = missingG.length ? `<div class="gu-fail" style="margin-bottom:10px;border-color:var(--report)"><b>${missingG.map(esc).join(" and ")} ${missingG.length === 1 ? "does" : "do"} not exist.</b><span class="why">Create ${missingG.length === 1 ? "it" : "them"} in <a href="#" data-mrpane="waves">🌊 Wave groups</a> first; until then that side cannot be added.</span></div>` : "";
+    if (!ex.base) return `<div class="list-card" style="margin-top:0">${intro}${warn}
+      ${ex.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(ex.error)}</b></div>` : ""}
+      ${ex.loading ? `<p class="mini" id="mrExProg" style="margin:0">Reading…</p>` : `<div class="tb-actions"><button class="btn primary" id="mrExRead">⊘ Read the exclusion groups and devices</button></div><p class="mini muted" style="margin:8px 0 0">Reads both exclusion groups and every Windows device in Intune (its primary user). Read-only.</p>`}</div>`;
+    const res0 = ex.results || [];
+    const hits = res0.map((h, i) => `<button type="button" class="mr-exhit${ex.card && ex.card.pick === h ? " on" : ""}" data-mrexpick="${i}">
+        <span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b>
+        <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
+        <span class="mr-exr">${h.type === "user" ? `${plural(h.devices, "Windows device")}` : esc(h.os || "")}${h.excluded ? ` · <b style="color:var(--on)">excluded</b>` : ""}${h.stale ? " · stale" : ""}</span></button>`).join("");
+    return `<div class="list-card" style="margin-top:0">${intro}${warn}
+      <div class="mr-exsearch"><input id="mrExQ" type="search" placeholder="Search a user or device…" value="${esc(ex.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mrExGo"${ex.searching ? " disabled" : ""}>${ex.searching ? "Searching…" : "Search"}</button></div>
+      ${ex.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(ex.note)}</p>` : ""}
+      ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
+      ${exCardHtml()}
+    </div>${exNowHtml()}`;
+  }
+  function openExclusions() {
+    pane = "exclusions"; view.cat = null; view.state = null; view.q = "";
+    render();
+    const q = $("mrExQ"); if (q) q.focus();
+    if (!ex.base && !ex.loading) exRead().then(() => { const x = $("mrExQ"); if (x) x.focus(); });
   }
 
   // ---------------------------------------------------------- 📑 reports --
@@ -2621,6 +2865,7 @@ const MdeRolloutTool = (() => {
     if (!$("mrRun")) return;
     planEl();
     $("mrRun").addEventListener("click", () => run(false));
+    if ($("mrExclude")) $("mrExclude").addEventListener("click", openExclusions);
     $("mrMd").addEventListener("click", () => exportAs("md"));
     $("mrCsv").addEventListener("click", () => exportAs("csv"));
     const body = $("mrBody");
@@ -2690,6 +2935,17 @@ const MdeRolloutTool = (() => {
         memCompute(); clearPlan(); render(); return;
       }
       if (t.id === "mrMemRead") { memRead(); return; }
+      // ⊘ exclusions (10639)
+      if (t.id === "mrExRead") { exRead(); return; }
+      if (t.id === "mrExGo") { exSearch(); return; }
+      if (t.id === "mrExDry") { exDryRun(); return; }
+      if (t.id === "mrExRemDry") { exRemoveDryRun(); return; }
+      const xp = t.closest("[data-mrexpick]"); if (xp) { const h = (ex.results || [])[Number(xp.dataset.mrexpick)]; if (h) exPick(h); return; }
+      const xf = t.closest("[data-mrexfix]"); if (xf) {
+        const n = exNow(); const r = n && n.rows.find((x) => x.key === xf.dataset.mrexfix);
+        if (r && r.user) { exPick({ type: "user", id: r.user.id, displayName: r.user.displayName, upn: r.user.upn }); const top = $("mrExQ"); if (top && top.scrollIntoView) top.scrollIntoView({ block: "center" }); }
+        return;
+      }
       if (t.id === "mrMemDry") { memDryRun(); return; }
       if (t.id === "mrMemCsv") { if (mem.model) download(`MDE-wave-members-${stamp()}.csv`, MdeMembers.csv(mem.model), "text/csv"); return; }
       const rr = t.closest("[data-mrroll-region]"); if (rr) {
@@ -2723,7 +2979,7 @@ const MdeRolloutTool = (() => {
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
-          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"),
+          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), leaveOut: lines("mrRuleLeave"),
           renameExclusionFrom: {
             device: cfg.renameExclusionFrom.device.concat(prevPre.exD && lc($("mrRuleExD").value.trim()) !== lc(prevPre.exD) ? [prevPre.exD] : []),
             user: cfg.renameExclusionFrom.user.concat(prevPre.exU && lc($("mrRuleExU").value.trim()) !== lc(prevPre.exU) ? [prevPre.exU] : []),
@@ -2746,6 +3002,7 @@ const MdeRolloutTool = (() => {
       if (t.id === "mrRuleReset") { saveCfg(null); derive(); render(); return; }
     });
     body.addEventListener("keydown", (e) => {
+      if (e.target.id === "mrExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
       if (e.key !== "Enter" && e.key !== " ") return;
       const rep = e.target.closest("[data-mrreport]");
       if (rep) { e.preventDefault(); rep.click(); return; }
@@ -2753,6 +3010,7 @@ const MdeRolloutTool = (() => {
       if (nd && nd.tagName !== "A") { e.preventDefault(); go(nd.dataset.mrpane); }
     });
     body.addEventListener("input", (e) => {
+      if (e.target.id === "mrExQ") { ex.q = e.target.value; return; }
       if (e.target.id !== "mrQ") return;
       view.q = e.target.value;
       const pos = e.target.selectionStart;
@@ -2790,6 +3048,9 @@ const MdeRolloutTool = (() => {
         clearPlan(); render(); return;
       }
       if (t.dataset.mrmemopt) { mem.opts[t.dataset.mrmemopt] = t.checked; clearPlan(); render(); return; }
+      if (t.dataset.mrextick) { t.checked ? ex.ticks.add(t.dataset.mrextick) : ex.ticks.delete(t.dataset.mrextick); clearPlan(); render(); return; }
+      if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
+      if (t.id === "mrExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }
     });
     // the bar
     $("mrActSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-mract]"); if (!b) return; setSeg("mrActSeg", "data-mract", b.dataset.mract); clearPlan(); syncSelbar(); });
@@ -2808,7 +3069,7 @@ const MdeRolloutTool = (() => {
     init, run,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem, reps }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem, reps, ex, planAnchor }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

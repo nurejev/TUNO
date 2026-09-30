@@ -26,6 +26,33 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10639,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — exclusions: search a user or device, exclude both",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "⊘ Exclude user or device: a header button opens a new rail pane. Search a user by name, UPN or e-mail, or a device by name (part of a name is enough). A user comes with their Windows devices, and a device with its primary user. Each shows its country group, its wave, and which new and old policies reach it now and after the run. Tick them and one dry run adds the user to the user exclusion group and the devices to the device exclusion group, with a read-back and an undo from 📜."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "An excluded device stays on the old set. The old policies no longer reach the waves, so a wave device excluded from the new set would get neither. The same run takes it out of its country device group, which removes it from the wave. 👥 then keeps it out. A user can't leave a dynamic country group; the card says what that leaves. Excluded now lists both groups and flags a user whose recent device is still in (half)."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "⚙️ Leave out of the target list: exact policy names that are out of scope whatever their prefix or content. They are never compared, planned or pulled in, and are marked ➖ under 🚫. A name in both lists is left out."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "A dry run from the 🌊 rollout actions used to open below the wave table, out of sight. Now it opens right under the card you clicked, with its progress line, and the same goes for the ⊘ card and the Excluded now list."
+    }
+  ]
+},
+{
   "build": 10638,
   "date": "2026-09-29",
   "title": "T28 MDE rollout — back on the rail, reports as rail nodes",

@@ -104,6 +104,44 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 201,
+  "title": "T28 — ⊘ exclusions (search a user or device, both exclusion groups), Leave-out list, plans under their button",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10639
+  ],
+  "risk": "medium",
+  "what": "New js/mdeexclude.js (DOM-free): the exclusion groups' members plus every Windows device in Intune; search (Graph $search on users and Entra devices with ConsistencyLevel eventual, plus a local match on the Intune list); lookup (the user's devices or the device's primary user, each device's Entra object, transitive and direct groups); what reaches each object before and after; plans for adding (users → U group, devices → D group, then out of their country device group) and for removing (typed REMOVE); pairs for Excluded now, with half-excluded users. The screen adds a header button and a ⊘ rail pane (layout A off the mockup). Runs go through MdeMembers.applyOps (read-back by member kind) and 📜 undo. MdeMembers holds excluded devices out of the country device groups. ⚙️ Leave out: exact names forced out of scope. The plan panel is seated under the card that made it (option A off the mockup).",
+  "why": "Mihai: 'a new exclusion button — easy to search a user or device, get both info, and get offered to be added to the 2 exclusion groups'; 'also add a same for excluding a policy'; 'the layout in wave groups needs a change — when selecting dry run it appears at the bottom, not visible'.",
+  "test": [
+    "Run npm test; the new mderollout/exclude suite (38) covers the pairs, search, lookup, ticks, reach before and after (falls between versus kept on the old set), plans, patching and the 👥 hold. The screen suite (149) covers the header button, the pane, search by Enter, the card, the dry run under the card, apply, the demo tenant state, undo, taking a row out, Leave-out, and the rollout plan under its card.",
+    "Browser DEMO: read, ⊘, search 'eva', pick, check the card and reach, dry run (the device side needs the device exclusion group, created in 🌊 first), apply, undo from 📜. In 🌊, ① dry run opens under the rollout card. Check 1440 px light and dark, and 390 px.",
+    "LIVE PENDING (PVM): search a real user and device; check what the card says reaches them against Intune's per-device view. Exclude one test device and check that it leaves INT-SG-D-<ISO3> and that the old AV policy applies again. Undo."
+  ],
+  "files": [
+    "js/mdeexclude.js",
+    "js/mderollout.js",
+    "js/mdemembers.js",
+    "js/mdereports.js",
+    "js/demo.js",
+    "index.html",
+    "css/app.css",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/exclude.test.js",
+    "tests/mderollout/screen.test.js",
+    "tests/mderollout/engine.test.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/reports.test.js",
+    "tests/platformbaseline/screen.test.js",
+    "docs/reviews/T28-beta-10639.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 200,
   "title": "T28 — back on the rail; the three reports as rail nodes (option A)",
   "tools": [

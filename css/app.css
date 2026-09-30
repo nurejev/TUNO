@@ -2632,6 +2632,32 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-document table table td:first-child{min-width:140px}
 #screen-mderollout .mr-document tr.head td{background:var(--soft);font-weight:600}
 #screen-mderollout .mr-document code{background:var(--soft);padding:1px 4px;border-radius:4px}
+/* ⊘ Exclusions (10639, layout A off the mockup) */
+#screen-mderollout .mr-exbtn{border:2px solid var(--lemon);font-weight:700}
+#screen-mderollout .mr-exsearch{display:flex;gap:8px;flex-wrap:wrap;max-width:560px}
+#screen-mderollout .mr-exsearch input{flex:1 1 240px;min-width:0;border:1px solid var(--border);border-radius:10px;padding:7px 11px;font:inherit;background:var(--surface);color:var(--ink)}
+#screen-mderollout .mr-exresults{display:flex;flex-direction:column;gap:4px;margin-top:10px;max-width:720px}
+#screen-mderollout .mr-exhit{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;text-align:left;font:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:7px 10px;cursor:pointer}
+#screen-mderollout .mr-exhit:hover{background:var(--soft)}
+#screen-mderollout .mr-exhit.on{border:2px solid var(--green);background:color-mix(in srgb,var(--lemon) 12%,var(--surface))}
+#screen-mderollout .mr-exk{font-size:10.5px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--soft);color:var(--green)}
+#screen-mderollout .mr-exk.d{color:var(--muted)}
+#screen-mderollout .mr-exr{margin-left:auto;font-size:12px;color:var(--muted)}
+#screen-mderollout .mr-expair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px;margin-top:12px}
+#screen-mderollout .mr-expc{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface);min-width:0}
+#screen-mderollout .mr-exkv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 10px;font-size:12.5px;margin:0}
+#screen-mderollout .mr-exkv dt{color:var(--muted)}
+#screen-mderollout .mr-exkv dd{margin:0;overflow-wrap:anywhere}
+#screen-mderollout tr.mr-exdis td{color:var(--muted)}
+#screen-mderollout tr.mr-exafter td{background:var(--soft)}
+#screen-mderollout .mr-exreach{padding:12px 14px}
+#screen-mderollout .mr-exreach table{min-width:520px}
+#screen-mderollout .mr-expc table{min-width:440px}
+#screen-mderollout #mrPlan{scroll-margin-top:calc(var(--sticky-nav,106px) + 12px)}
+@media(max-width:900px){
+  #screen-mderollout .mr-expair{grid-template-columns:1fr}
+  #screen-mderollout .mr-exr{margin-left:0}
+}
 @media(max-width:900px){
   /* .ep-wrap stacks at 900px with align-items:flex-start, so the main column
      took its content's width (850px at 390) — stretch it to the screen. */

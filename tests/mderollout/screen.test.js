@@ -200,6 +200,8 @@ async function run() {
   D.querySelector('[data-mrroll="excludeExclusion"]').click();
   ok("② exclude: the device exclusion group from the four - D - policies", await until(() => st().plan, 10000, "rollout exclusion plan")
     && st().plan.changes.length === 4 && st().plan.changes.every((o) => o.details.some((d) => d.action === "add-exclude" && d.group.displayName === "INT-SG-D-MDE-Exclusion")));
+  // 10639 (Mihai: the dry run "appears at the bottom, not visible"; option A)
+  ok("the plan opens right under the rollout card, not under the wave table", $("mrRollCard").nextElementSibling === $("mrPlan") && st().planAnchor === "mrRollCard");
   w.MdeRolloutTool._pane("waves");
   D.querySelector('[data-mrroll="excludeWaves"]').click();
   ok("③ the waves out of the colliding old policies — waves only", await until(() => st().plan, 10000, "rollout wave-exclusion plan")
@@ -370,6 +372,69 @@ async function run() {
   D.querySelector(`[data-mrrenback="${nr}"]`).click();
   ok("📜 renames them back", await until(() => st().runs.length === nr + 2, 10000, "rename back") && amD().legacy && !amD().exists && exU().legacy && /back/.test(st().runs[nr + 1].title));
   w.MdeRolloutTool._pane("waves");
+
+  // ------------------------------------------------ ⊘ exclusions (10639) --
+  // Mihai: "search a user or device, get both info, and get offered to be
+  // added to the 2 exclusion groups". Layout A: the header button opens the
+  // rail pane. The user exclusion group is still under its old name here
+  // (renamed back above) and Nina is in it — her Windows laptop is not.
+  ok("the header button is there once the tenant is read", $("mrExclude") && !$("mrExclude").hidden);
+  $("mrExclude").click();
+  ok("it opens ⊘ Exclusions and reads the exclusion groups and devices", st().pane === "exclusions" && await until(() => st().ex.base, 10000, "exclusion base") && !!$("mrExQ"));
+  ok("the rail says one user is half-excluded", /1 half/.test(D.querySelector('[data-mrpane="exclusions"]').textContent) && D.querySelector('[data-mrpane="exclusions"] .ep-n').classList.contains("gap"));
+  ok("Excluded now: Nina, half — her laptop still gets the - D - policies, with + add device", /Excluded now/.test($("mrExNow").textContent) && /Nina Nieuw/.test($("mrExNow").textContent)
+    && /half: the - D - policies still reach WS-ENG-0308/.test($("mrExNow").textContent) && !!D.querySelector("[data-mrexfix]"));
+  $("mrExQ").value = "eva"; $("mrExQ").dispatchEvent(new w.Event("input", { bubbles: true }));
+  $("mrExQ").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  ok("Enter searches: Eva the user, by name", await until(() => st().ex.results && st().ex.results.some((r) => r.type === "user" && r.displayName === "Eva Employee"), 10000, "search eva"));
+  const evaHit = st().ex.results.findIndex((r) => r.type === "user" && r.displayName === "Eva Employee");
+  D.querySelector(`[data-mrexpick="${evaHit}"]`).click();
+  ok("picking her reads both sides: the user and her Windows laptop", await until(() => st().ex.card && !st().ex.cardLoading, 10000, "eva card")
+    && st().ex.card.user.upn === "eva@contoso.com" && st().ex.card.devices.map((d) => d.name).join() === "WS-FIN-0142");
+  const evaDev = st().ex.card.devices[0];
+  ok("…ticked by default: Eva and the laptop", st().ex.ticks.has(`u:${st().ex.card.user.id}`) && st().ex.ticks.has(evaDev.key));
+  ok("…the card names her country group, her wave and the laptop's device group", /PVM-UG-CORP-MEM-USERS-NL/.test($("mrExCard").textContent) && /INT-SG-D-NLD/.test($("mrExCard").textContent) && /🌊 Euro/.test($("mrExCard").textContent));
+  ok("what reaches them, before and after — the laptop goes back on the old set", /What reaches them/.test($("mrExCard").textContent) && /out of INT-SG-D-NLD — leaves the wave, back on the old set/.test($("mrExCard").textContent));
+  $("mrExDry").click();
+  ok("the dry run: the user into the user group, the laptop into the device group, then out of INT-SG-D-NLD",
+    !!st().plan && st().plan.exclusions && st().plan.ops.length === 3 && st().plan.ops[0].group.name === "PVM-UG-MDE-Exclusion" && st().plan.ops[1].group.name === "INT-SG-D-MDE-Exclusion" && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-NLD");
+  ok("…and it opens under the card, above Excluded now", $("mrExCard").nextElementSibling === $("mrPlan") && /Who/.test($("mrPlan").textContent) && /Eva Employee/.test($("mrPlan").textContent));
+  ok("an exclusion is an addition: a tick, not a typed REMOVE", !!$("mrConfirmTick") && !$("mrConfirmText"));
+  $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  const xr = st().runs.length;
+  $("mrMemApply").click();
+  ok("applied and read back: three steps verified, on 📜", await until(() => st().runs.length === xr + 1, 10000, "exclusion run") && st().runs[xr].ok === 3 && st().runs[xr].exclusions);
+  const demoG = (n) => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.id === `11111111-0000-4000-8000-${String(n).padStart(12, "0")}`);
+  ok("in the tenant: Eva in the user group, the laptop in the device group and out of INT-SG-D-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
+    && w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-Exclusion")._devices.includes("33333333-0000-4000-8000-000000000101") && !demoG(35)._devices.includes("33333333-0000-4000-8000-000000000101"));
+  ok("the lists move with the run, and the card reads again", await until(() => st().ex.card && !st().ex.cardLoading && st().ex.card.user.excluded, 10000, "card again")
+    && st().ex.base.users.length === 2 && st().ex.base.devices.length === 1 && /Eva Employee/.test($("mrExNow").textContent));
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${xr}"]`).click();
+  ok("📜 undo: the inverse, a typed REMOVE", await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "undo plan") && st().plan.exclusions && !!$("mrConfirmText") && st().plan.ops.length === 3);
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  $("mrMemApply").click();
+  ok("…and the tenant is back as it was", await until(() => st().runs.length === xr + 2, 10000, "undo run") && !demoG(37)._users.includes("22222222-0000-4000-8000-000000000002") && demoG(35)._devices.includes("33333333-0000-4000-8000-000000000101")
+    && st().ex.base.users.length === 1 && st().ex.base.devices.length === 0);
+  // Excluded now → take out (Nina)
+  w.MdeRolloutTool._pane("exclusions");
+  const nsel = D.querySelector("[data-mrexsel]"); nsel.checked = true; nsel.dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrExRemDry").click();
+  ok("taking a row out is a typed removal, planned under Excluded now", !!st().plan && st().plan.hasRemoval && st().plan.ops[0].fromExclusion && $("mrExNow").nextElementSibling === $("mrPlan") && !!$("mrConfirmText"));
+  $("mrDiscard").click();
+
+  // ------------------------------------------- ⚙️ leave out (10639) --
+  w.MdeRolloutTool._pane("rules");
+  ok("the rules have a Leave-out box beside Also-in", !!$("mrRuleLeave") && /Leave out of the target list/.test($("mrBody").textContent));
+  const avName = st().model.newP.find((P) => /Defender Antivirus - D - AV/.test(P.name)).name;
+  $("mrRuleLeave").value = avName;
+  $("mrRuleSave").click();
+  ok("a policy left out by name is out of scope, marked ➖", await until(() => st().model.outP.some((P) => P.name === avName), 5000, "left out") && !st().model.newP.some((P) => P.name === avName));
+  w.MdeRolloutTool._pane("out");
+  ok("…and the 🚫 pane says why", /➖ left out by name/.test($("mrBody").textContent));
+  w.MdeRolloutTool._pane("rules");
+  $("mrRuleLeave").value = ""; $("mrRuleSave").click();
+  ok("clearing the box brings it back", await until(() => st().model.newP.some((P) => P.name === avName), 5000, "back in"));
 
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });

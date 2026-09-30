@@ -182,10 +182,12 @@ const TUNO_DEMO = (() => {
     { id: G(36), displayName: "PVM-DG-MDE-WAVE-Americas", description: "MDE rollout wave — Americas (devices).",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 0, _kind: "device" },
-    // …and the user exclusion group under its pre-10636 name
+    // …and the user exclusion group under its pre-10636 name. FAULT (T28 ⊘,
+    // 10639): Nina is in it but her Windows laptop is not in the device
+    // exclusion group — "half": the - D - policies still reach it.
     { id: G(37), displayName: "PVM-UG-MDE-Exclusion", description: "MDE rollout exclusion — members stay off the new MDE policies.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
-      membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 0, _kind: "user" },
+      membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 1, _kind: "user", _users: [U(7)] },
     { id: G(35), displayName: "INT-SG-D-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(5 * DAY), memberCount: 2, _devices: [D(101), D(107)], memberOf: [G(21)] },
@@ -1416,7 +1418,18 @@ const TUNO_DEMO_GRAPH = (() => {
       (g.memberOf || []).forEach(walk);
     };
     (u.memberOf || []).forEach(walk);
+    // …and the groups that model their users as _users (T28's country and
+    // exclusion groups, 10634/10639)
+    T.GROUPS.filter((g) => (g._users || []).includes(userId)).forEach((g) => walk(g.id));
     return out;
+  }
+  // A device's DIRECT groups (10639, T28 ⊘): the modelled OS groups and the
+  // assigned groups that hold it — not the groups those are nested in.
+  function directGroupsOfDevice(aadDeviceId) {
+    const all = groupsOfDevice(aadDeviceId);
+    const held = T.GROUPS.filter((g) => (g._devices || []).includes(aadDeviceId));
+    const nestedOnly = new Set(all.filter((g) => !held.includes(g) && T.GROUPS.some((c) => (c._devices || []).includes(aadDeviceId) && (c.memberOf || []).includes(g.id))).map((g) => g.id));
+    return all.filter((g) => !nestedOnly.has(g.id));
   }
   function groupsOfDevice(aadDeviceId) {
     // Device group membership is modelled, not invented: the dynamic Windows
@@ -1448,7 +1461,7 @@ const TUNO_DEMO_GRAPH = (() => {
   }
 
   return { LATENCY_MS, DENIED, fault, evalFilter, strip, coll,
-           SURFACES, allObjects, byId, groupsOfUser, groupsOfDevice, membersOfGroup, T };
+           SURFACES, allObjects, byId, groupsOfUser, groupsOfDevice, directGroupsOfDevice, membersOfGroup, T };
 })();
 
 // ======================================================================
@@ -1511,6 +1524,11 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const child = T.GROUPS.find((x) => x.id === id);
     if (child) { if ((child.memberOf || []).includes(g.id)) return false; child.memberOf = (child.memberOf || []).concat(g.id); return true; }
     if (!T.DEVICES.some((d) => d.azureADDeviceId === id) && !T.USERS.some((u) => u.id === id)) return null;
+    if (T.USERS.some((u) => u.id === id)) {
+      if ((g._users || []).includes(id)) return false;
+      g._users = (g._users || []).concat(id);
+      return true;
+    }
     if ((g._devices || []).includes(id)) return false;
     g._devices = (g._devices || []).concat(id);
     return true;
@@ -1531,6 +1549,7 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const child = T.GROUPS.find((x) => x.id === memDel[2]);
     if (child && (child.memberOf || []).includes(g.id)) { child.memberOf = child.memberOf.filter((x) => x !== g.id); return null; }
     if ((g._devices || []).includes(memDel[2])) { g._devices = g._devices.filter((x) => x !== memDel[2]); return null; }
+    if ((g._users || []).includes(memDel[2])) { g._users = g._users.filter((x) => x !== memDel[2]); return null; }
     return M.fault(404, "Request_ResourceNotFound", "The member is not in the group.");
   }
   const grpPatch = /^\/groups\/([^/]+)$/.exec(path);
@@ -1549,7 +1568,7 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     if (ids.length > 20) return M.fault(400, "Request_BadRequest", "A maximum of 20 members can be added in a single request.");
     // all or nothing, as Graph: one bad or existing reference and none is added
     if (ids.some((id) => !T.GROUPS.some((x) => x.id === id) && !T.DEVICES.some((d) => d.azureADDeviceId === id) && !T.USERS.some((u) => u.id === id))) return NOPE();
-    if (ids.some((id) => { const c = T.GROUPS.find((x) => x.id === id); return c ? (c.memberOf || []).includes(g.id) : (g._devices || []).includes(id); })) return EXISTS();
+    if (ids.some((id) => { const c = T.GROUPS.find((x) => x.id === id); return c ? (c.memberOf || []).includes(g.id) : (g._devices || []).includes(id) || (g._users || []).includes(id); })) return EXISTS();
     ids.forEach((id) => memberAdd(g, id));
     return null;
   }
@@ -1747,6 +1766,13 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     if (!T.GROUPS.find((x) => x.id === m[1])) return M.fault(404, "ResourceNotFound", "Group not found.");
     return M.coll(M.membersOfGroup(m[1]).map((p) => ({ id: p.id, displayName: p.displayName, userPrincipalName: p.userPrincipalName })));
   }
+  // direct user members (10639, T28 ⊘ — the exclusion groups)
+  m = /^\/groups\/([^/]+)\/members\/microsoft\.graph\.user$/.exec(path);
+  if (m) {
+    const g = T.GROUPS.find((x) => x.id === m[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    return M.coll(T.USERS.filter((u) => (u.memberOf || []).includes(g.id) || (g._users || []).includes(u.id)).map((u) => ({ id: u.id, displayName: u.displayName, userPrincipalName: u.userPrincipalName })));
+  }
   m = /^\/groups\/([^/]+)\/members\/microsoft\.graph\.device$/.exec(path);
   if (m) {
     const g = T.GROUPS.find((x) => x.id === m[1]);
@@ -1795,7 +1821,7 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   }
 
   // ---------- users ----------
-  m = /^\/users\/([^/]+)\/transitiveMemberOf$/.exec(path);
+  m = /^\/users\/([^/]+)\/transitiveMemberOf(?:\/microsoft\.graph\.group)?$/.exec(path);
   if (m) return M.coll(M.groupsOfUser(m[1]).map((g) => ({ id: g.id, displayName: g.displayName, membershipRule: g.membershipRule, "@odata.type": "#microsoft.graph.group" })));
   m = /^\/users\/([^/]+)\/memberOf$/.exec(path);
   if (m) {
@@ -1811,6 +1837,18 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     return usr ? { id: usr.id, displayName: usr.displayName, userPrincipalName: usr.userPrincipalName, accountEnabled: usr.accountEnabled }
                : M.fault(404, "ResourceNotFound", "User not found.");
   }
+  // $search (10639, T28 ⊘): "displayName:x" OR "userPrincipalName:x" OR
+  // "mail:x" — displayName by token, the others by startsWith, as Graph
+  const searchTerms = () => {
+    const raw = String(qs.get("$search") || "");
+    return [...raw.matchAll(/"([A-Za-z]+):((?:[^"\\]|\\.)*)"/g)].map((x) => ({ prop: x[1], text: x[2].replace(/\\(.)/g, "$1").toLowerCase() }));
+  };
+  const tokenHit = (value, text) => { const toks = String(value || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean); return text.split(/[^a-z0-9]+/).filter(Boolean).every((t) => toks.some((x) => x.startsWith(t))); };
+  if (path === "/users" && qs.get("$search")) {
+    const terms = searchTerms();
+    const rows = T.USERS.filter((usr) => terms.some((t) => t.prop === "displayName" ? tokenHit(usr.displayName, t.text) : String(usr[t.prop] || "").toLowerCase().startsWith(t.text)));
+    return M.coll(rows.slice(0, 15).map((usr) => ({ id: usr.id, displayName: usr.displayName, userPrincipalName: usr.userPrincipalName, mail: usr.userPrincipalName, accountEnabled: usr.accountEnabled })));
+  }
   if (path === "/users") {
     const rows = T.USERS.filter((usr) => M.evalFilter(filter, usr));
     const top = parseInt(qs.get("$top"), 10);
@@ -1819,6 +1857,24 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   }
 
   // ---------- devices (Entra, addressed by the alternate key) ----------
+  // by object id (10639, T28 ⊘) — the demo's object id IS the device id
+  m = /^\/devices\/([^/]+)\/(transitiveMemberOf|memberOf)(?:\/microsoft\.graph\.group)?$/.exec(path);
+  if (m) {
+    if (!T.DEVICES.some((d) => d.azureADDeviceId === m[1])) return M.fault(404, "Request_ResourceNotFound", "Device not found.");
+    const list = m[2] === "memberOf" ? M.directGroupsOfDevice(m[1]) : M.groupsOfDevice(m[1]);
+    return M.coll(list.map((g) => ({ id: g.id, displayName: g.displayName, "@odata.type": "#microsoft.graph.group" })));
+  }
+  m = /^\/devices\(deviceId='([^']+)'\)$/.exec(path);
+  if (m) {
+    const d = T.DEVICES.find((x) => x.azureADDeviceId === m[1]);
+    return d ? { id: d.azureADDeviceId, deviceId: d.azureADDeviceId, displayName: d.deviceName, accountEnabled: true, operatingSystem: d.operatingSystem }
+             : M.fault(404, "Request_ResourceNotFound", "Device not found.");
+  }
+  if (path === "/devices" && qs.get("$search")) {
+    const terms = searchTerms();
+    const rows = T.DEVICES.filter((d) => d.azureADDeviceId && terms.some((t) => tokenHit(d.deviceName, t.text)));
+    return M.coll(rows.slice(0, 15).map((d) => ({ id: d.azureADDeviceId, deviceId: d.azureADDeviceId, displayName: d.deviceName, operatingSystem: d.operatingSystem, operatingSystemVersion: d.osVersion, approximateLastSignInDateTime: d.lastSyncDateTime, accountEnabled: true })));
+  }
   m = /^\/devices\(deviceId='([^']+)'\)\/(transitiveMemberOf|memberOf)$/.exec(path);
   if (m) return M.coll(M.groupsOfDevice(m[1]).map((g) => ({ id: g.id, displayName: g.displayName, membershipRule: g.membershipRule, "@odata.type": "#microsoft.graph.group" })));
   if (path === "/devices") {

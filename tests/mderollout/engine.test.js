@@ -11,7 +11,7 @@ const dom = new JSDOM(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), { 
 const w = dom.window;
 const files = ["js/version.js", "js/graph.js", "js/progress.js", "js/groupuse.js", "js/document.js", "js/overview.js",
   "js/conflict.js", "js/endpointsec.js", "js/filterrules.js", "js/endpointposture.js", "js/assignedit.js",
-  "js/groupmigrate.js", "js/mdemembers.js", "js/mdereports.js", "js/mderollout.js"];
+  "js/groupmigrate.js", "js/mdemembers.js", "js/mdereports.js", "js/mdeexclude.js", "js/mderollout.js"];
 w.eval(files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n")
   + "\n;Object.assign(window, {MdeRollout, MdeMembers, AssignEdit, Docs, Graph, Conflict, EndpointSec, EndpointPosture, GroupMigrate});");
 const M = w.MdeRollout, AE = w.AssignEdit, Docs = w.Docs;

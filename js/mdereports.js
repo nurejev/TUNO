@@ -207,6 +207,7 @@ ${body}
     const rules = `<table><tr><th style="width:30%">Rule</th><th>Value</th></tr>
       <tr><td>New set — name starts with</td><td>${c.newPrefixes.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>Also in the target list (by name)</td><td>${(c.alsoInScope || []).map(esc).join("<br>") || "—"}</td></tr>
+      <tr><td>Left out of the target list (by name)</td><td>${(c.leaveOut || []).map(esc).join("<br>") || "—"}</td></tr>
       <tr><td>Out of scope — name starts with</td><td>${c.outPrefixes.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>Wave regions</td><td>${c.waveRegions.map(esc).join(", ")}</td></tr>
       <tr><td>Wave group names</td><td><code>${esc(c.waveDevicePrefix)}&lt;region&gt;</code> (device, for "- D -" policies) · <code>${esc(c.waveUserPrefix)}&lt;region&gt;</code> (user, for "- U -")</td></tr>

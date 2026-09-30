@@ -190,7 +190,10 @@ const MdeMembers = (() => {
   // skip: lc names of the rollout's own groups (waves, exclusion groups,
   // their earlier names) — they share the INT-SG-D- prefix, and are not
   // country device groups
-  async function readInput(cfg, waveGroups, onStatus, skip) {
+  // held (10639): the device exclusion group — its devices are KEPT OUT of
+  // the country device groups (Mihai: "keep it on the old set"), so the
+  // sync never adds them and offers to take them out.
+  async function readInput(cfg, waveGroups, onStatus, skip, held) {
     const say = (m) => { if (onStatus) onStatus(m); };
     const GS = Graph.SCOPES.groups, DS = Graph.SCOPES.devices, DO = Graph.SCOPES.deviceObjects;
     say("Reading the country groups…");
@@ -227,14 +230,21 @@ const MdeMembers = (() => {
     const waves = (waveGroups || []).filter((g) => g && g.id);
     const wr = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }), 4);
     wr.forEach((r, n) => { if (r.error) failed.push(`${waves[n].displayName}: ${(r.error && r.error.message) || r.error}`); else waveChildren.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
+    let heldIds = new Set();
+    if (held && held.id) {
+      say("Reading the device exclusion group…");
+      try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id))); }
+      catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
+    }
     say("");
-    return { countryGroups, deviceGroups: dgList, managed, entra, usersByGroup, deviceMembers, waveChildren, failed, readAt: Date.now() };
+    return { countryGroups, deviceGroups: dgList, managed, entra, usersByGroup, deviceMembers, waveChildren, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ compute --
   // waves: Map lc(region) -> { user: group|null, device: group|null, userName, deviceName }
   function compute(cfg, input, waves, now) {
     const t = now || Date.now();
+    const held = input.held || new Set();
     const staleMs = cfg.staleDays * 86400000;
     const entraByDeviceId = new Map(), entraById = new Map();
     for (const e of input.entra || []) { if (e.deviceId) entraByDeviceId.set(lc(e.deviceId), e); entraById.set(lc(e.id), e); }
@@ -263,7 +273,8 @@ const MdeMembers = (() => {
           const last = Date.parse(m.lastSyncDateTime || "");
           devices.push({ managedId: m.id, name: m.deviceName || (e && e.displayName) || m.id, upn: m.userPrincipalName || u.userPrincipalName || "",
             lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
-            objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [] });
+            objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
+            held: !!(e && held.has(lc(e.id))) });
         }
       }
       const dg = r.deviceGroupName ? dgByName.get(lc(r.deviceGroupName)) || null : null;
@@ -283,11 +294,13 @@ const MdeMembers = (() => {
         // a pilot overlapping its country is expected, not a problem
         d.pilotOverlap = row.pilot || others.every((x) => x.pilot);
       }
-      row.want = new Set(row.devices.filter((d) => d.objId).map((d) => d.objId));
+      // a device in the exclusion group stays on the old set: never wanted
+      // here, and taken out when it is in (10639)
+      row.want = new Set(row.devices.filter((d) => d.objId && !d.held).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
-      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return e ? e.displayName : id; });
+      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${held.has(id) ? " (excluded)" : ""}`; });
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
       row.ugNested = row.ug && row.wave.user ? !!(kids(row.wave.user) && kids(row.wave.user).has(lc(row.ug.id))) : null;
       row.dgNested = row.dg && row.wave.device ? !!(kids(row.wave.device) && kids(row.wave.device).has(lc(row.dg.id))) : null;
@@ -296,6 +309,7 @@ const MdeMembers = (() => {
         stale: row.devices.filter((d) => d.stale).length,
         multi: row.devices.filter((d) => d.others.length && !d.pilotOverlap).length,
         pilot: row.devices.filter((d) => d.others.length && d.pilotOverlap).length,
+        held: row.devices.filter((d) => d.held).length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length;
     }
@@ -366,8 +380,10 @@ const MdeMembers = (() => {
   function inverseOf(done) {
     const out = [];
     for (const d of (done || []).slice().reverse()) {
-      if (d.type === "add" && d.ids.length) out.push({ type: "remove", key: d.key, group: d.group, ids: d.ids.slice(), label: `${d.ids.length} device${d.ids.length === 1 ? "" : "s"} this run added` });
-      else if (d.type === "remove" && d.ids.length) out.push({ type: "add", key: d.key, group: d.group, ids: d.ids.slice(), label: `${d.ids.length} device${d.ids.length === 1 ? "" : "s"} this run removed` });
+      const what = (n) => `${n} ${d.memberKind === "user" ? "user" : "device"}${n === 1 ? "" : "s"}`;
+      const kin = { memberKind: d.memberKind || "device", who: d.who || null, fromExclusion: !!d.fromExclusion, objs: d.objs };
+      if (d.type === "add" && d.ids.length) out.push(Object.assign({ type: "remove", key: d.key, group: d.group, ids: d.ids.slice(), label: `${what(d.ids.length)} this run added` }, kin));
+      else if (d.type === "remove" && d.ids.length) out.push(Object.assign({ type: "add", key: d.key, group: d.group, ids: d.ids.slice(), label: `${what(d.ids.length)} this run removed` }, kin));
       else if (d.type === "nest") out.push({ type: "unnest", key: d.key, parent: d.parent, child: d.child, kind: d.kind });
       else if (d.type === "unnest") out.push({ type: "nest", key: d.key, parent: d.parent, child: d.child, kind: d.kind });
     }
@@ -416,7 +432,7 @@ const MdeMembers = (() => {
     }
     return { done, failed };
   }
-  const readDeviceIds = async (gid) => new Set((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }) || []).map((d) => lc(d.id)));
+  const readDeviceIds = async (gid, kind) => new Set((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.${kind === "user" ? "user" : "device"}?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }) || []).map((d) => lc(d.id)));
   const readGroupIds = async (gid) => new Set((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.group?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }) || []).map((d) => lc(d.id)));
 
   // Runs the ops in order. ledger: RunLedger (one row per op). Returns
@@ -456,12 +472,13 @@ const MdeMembers = (() => {
             : await removeMembers(gid, op.ids);
           let verified = false, note = "";
           try {
-            const now = await readDeviceIds(gid);
+            const now = await readDeviceIds(gid, op.memberKind);
             verified = op.type === "add" ? r.done.every((id) => now.has(lc(id))) : r.done.every((id) => !now.has(lc(id)));
             if (!verified) note = "the read-back does not show every change yet (Entra can take a moment) — read again to check";
           } catch (e) { note = "written, but the read-back failed: " + msg(e).slice(0, 160); }
           const group = { id: gid, name: (op.group && op.group.name) || "" };
-          if (r.done.length) doneOps.push({ type: op.type, key: op.key, group, ids: r.done.slice() });
+          if (r.done.length) doneOps.push({ type: op.type, key: op.key, group, ids: r.done.slice(), memberKind: op.memberKind || "device", who: op.who || null, fromExclusion: !!op.fromExclusion,
+            objs: op.objs ? op.objs.filter((x) => r.done.some((id) => lc(id) === lc(x.id))) : undefined });
           const word = op.type === "add" ? "added" : "removed";
           if (r.failed.length) fail(`${r.done.length} ${word}, ${r.failed.length} refused — ${r.failed.slice(0, 3).map((f) => f.why).join("; ")}`, `${r.done.length}/${op.ids.length} ${word}`);
           else if (!verified) { if (L) L.fail(i, note, `${r.done.length} ${word} · NOT verified`); results.push({ op, ok: true, verified: false, note }); }
@@ -498,6 +515,12 @@ const MdeMembers = (() => {
   function patchInput(input, done, createdGroups) {
     for (const g of createdGroups || []) if (g && g.id && !(input.deviceGroups || []).some((x) => lc(x.id) === lc(g.id))) { input.deviceGroups.push(g); input.deviceMembers.set(lc(g.id), new Set()); }
     for (const d of done || []) {
+      if ((d.type === "add" || d.type === "remove") && d.memberKind === "user") continue;
+      if ((d.type === "add" || d.type === "remove") && input.heldGroup && lc(d.group.id) === input.heldGroup.id) {
+        if (!input.held) input.held = new Set();
+        d.ids.forEach((id) => d.type === "add" ? input.held.add(lc(id)) : input.held.delete(lc(id)));
+        continue;
+      }
       if (d.type === "add" || d.type === "remove") {
         const set = input.deviceMembers.get(lc(d.group.id)) || new Set();
         d.ids.forEach((id) => d.type === "add" ? set.add(lc(id)) : set.delete(lc(id)));
@@ -516,7 +539,7 @@ const MdeMembers = (() => {
     const rows = [["Region", "Country", "User group", "Device group", "Device", "Primary user", "Last sync", "Status"]];
     for (const r of model.rows) {
       for (const d of r.devices) {
-        const st = !d.objId ? d.problem : r.have.has(d.objId) ? "in group" : "to add";
+        const st = !d.objId ? d.problem : d.held ? (r.have.has(d.objId) ? "excluded — to take out" : "excluded — kept out") : r.have.has(d.objId) ? "in group" : "to add";
         rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", d.name, d.upn, d.lastSync || "", `${st}${d.stale ? " · stale" : ""}${d.others.length ? " · also in " + d.others.join(", ") : ""}`]);
       }
       r.remove.forEach((id, n) => rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", r.removeNames[n], "", "", "to remove (primary user not in the country group)"]));
