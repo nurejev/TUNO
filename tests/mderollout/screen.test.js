@@ -657,6 +657,48 @@ async function run() {
   const tg2 = D.querySelector('[data-mrbatchtoggle="NL-Breda"]'); tg2.checked = true; tg2.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("…and on again, with the progress intact", br().batch && br().batch.inCount === 1);
 
+  // 🧪 migrate to the wave (10656, Mihai: "the NL-Breda users should be
+  // excluded when NL goes live, or better there should be a migrate to wave
+  // for the pilot users"; option B). NL is live in the demo already.
+  ok("a pilot with users outside its country is not migratable, and says why", /Not migratable into Netherlands: 4 users of the pilot are not in Netherlands/.test($("mrBatch-nl-breda").textContent) && !D.querySelector('[data-mrmigrate="nl-breda"]'));
+  // as in PVM, every Breda user is also in NL
+  const nlG = TT.GROUPS.find((g) => g.displayName === "PVM-UG-CORP-MEM-USERS-NL");
+  const nlUsersBefore = nlG._users ? nlG._users.slice() : undefined;
+  nlG._users = [...new Set((nlG._users || []).concat(TT.GROUPS.find((g) => g.displayName === "PVM-UG-CORP-MEM-USERS-NL-Breda")._users))];
+  $("mrMemRead").click();
+  ok("the members read again, Breda inside NL", await until(() => st().mem.model && !st().mem.loading && br() && br().outsideParent.length === 0, 20000, "members re-read (NL ⊇ Breda)"));
+  await idle();
+  if (!$("mrBatch-nl-breda")) D.querySelector('[data-mrmemopen="nl-breda"]').click();
+  ok("the pilot knows its country, the panel offers the migration, and NL's row says going live migrates it", br().parentKey === "nl" && !!D.querySelector('[data-mrmigrate="nl-breda"]')
+    && /Migrate to the wave with Netherlands/.test($("mrBatch-nl-breda").textContent) && /going live migrates NL Breda/.test($("mrBody").textContent));
+  D.querySelector('[data-mrmigrate="nl-breda"]').click();
+  const migOps = () => st().plan.ops.filter((o) => o.migrate);
+  ok("the plan: Alex out of the user wave (in through NL), INT-SG-D-NLD-BREDA out of the device wave — typed, under the panel",
+    !!st().plan && /Netherlands goes live · 🧪 NL Breda migrated to the wave/.test(st().plan.title) && migOps().length === 2
+    && migOps()[0].type === "remove" && migOps()[0].ids.join() === "22222222-0000-4000-8000-000000000001" && migOps()[0].group.name === "INT-SG-U-WAVE-Euro"
+    && migOps()[1].type === "unnest" && migOps()[1].child.name === "INT-SG-D-NLD-BREDA" && !!$("mrConfirmText") && $("mrBatch-nl-breda").nextElementSibling === $("mrPlan")
+    && /NL Breda is migrated into Netherlands/.test($("mrPlan").textContent), st().plan && JSON.stringify(st().plan.ops.map((o) => [o.type, o.label || (o.child && o.child.name)])));
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  const migRun = st().runs.length;
+  $("mrMemApply").click();
+  ok("applied: every step verified, the migration on 📜", await until(() => st().runs.length === migRun + 1, 15000, "migrate run") && st().runs[migRun].bad === 0 && st().runs[migRun].migrate.length === 1, st().runs[migRun] && st().runs[migRun].lines.join(" | "));
+  ok("in the tenant: Alex is no longer a direct member; INT-SG-D-NLD-BREDA is out of the device wave, left in place",
+    !(TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001") && brG() && !brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
+  ok("the pilot is migrated: out of the batches, listed as migrated, not selectable", st().cfg.members.migrated.includes("NL-Breda") && !st().cfg.members.batched.includes("NL-Breda") && br().migrated && br().batch === null
+    && /🧪 migrated into Netherlands/.test($("mrBody").textContent) && !D.querySelector('[data-mrmemsel="nl-breda"]') && /Migrated into Netherlands/.test(($("mrBatch-nl-breda") || { textContent: "" }).textContent));
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${migRun}"]`).click();
+  ok("📜 undo: the inverse, typed", await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "migrate undo plan") && !!$("mrConfirmText") && st().plan.unmigrate && st().plan.unmigrate.length === 1);
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  $("mrMemApply").click();
+  ok("…the pilot is back in its batches, and the tenant as it was", await until(() => st().runs.length === migRun + 2, 15000, "migrate undo run") && st().cfg.members.batched.includes("NL-Breda") && !st().cfg.members.migrated.includes("NL-Breda")
+    && br().batch && (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
+  if (nlUsersBefore) nlG._users = nlUsersBefore; else delete nlG._users;
+  w.MdeRolloutTool._pane("members");
+  $("mrMemRead").click();
+  ok("the members read again, as before", await until(() => st().mem.model && !st().mem.loading && br() && br().outsideParent.length === 4, 20000, "members re-read (restored)"));
+  await idle();
+
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });
   ok("the markdown export carries the four sections", /## Wave and exclusion groups/.test(md) && /## New policies/.test(md) && /## Old policies colliding/.test(md) && /## Retirement check/.test(md));

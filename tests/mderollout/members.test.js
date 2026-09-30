@@ -286,6 +286,50 @@ async function run() {
   ok("patchInput moves a wave's direct users", !bInput.waveUsers.get("wu").has("b0"));
   ok("not batched: a pilot is nested whole, as before", MM.compute(MM.normConfig({ countryMap: bcfg.countryMap, pilots: ["NL-Breda"], batched: [] }), bInput, waves, now).rows.find((r) => r.suffix === "NL-Breda").batch === null);
 
+  // --------------------------- 🧪 migrate the pilot at go-live (10656) --
+  // Mihai: "the NL-Breda users should be excluded when NL goes live, or
+  // better there should be a migrate to wave for the pilot users"; option B.
+  const mUsers = Array.from({ length: 8 }, (_, i) => ({ id: `m${i}`, userPrincipalName: `m${i}@contoso.com` }));
+  const mInput = {
+    countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, { id: "gbr", displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda" }],
+    deviceGroups: [{ id: "gdb", displayName: "INT-SG-D-NLD-BREDA" }],
+    usersByGroup: new Map([["gbr", mUsers.slice(0, 6)], ["gnl", mUsers]]),
+    managed: mUsers.map((u, i) => ({ id: `mm${i}`, deviceName: `NL-${i}`, userId: u.id, azureADDeviceId: `AM${i}`, lastSyncDateTime: iso(now) })),
+    entra: mUsers.map((u, i) => ({ id: `EM${i}`, deviceId: `AM${i}`, displayName: `NL-${i}` })),
+    deviceMembers: new Map([["gdb", new Set(["em0", "em1"])]]), waveChildren: new Map([["wu", new Set()], ["wd", new Set(["gdb"])]]), waveUsers: new Map([["wu", new Set(["m0", "m1"])]]),
+    failed: [], readAt: now,
+  };
+  const mcfgB = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL-Breda", "NL"] }], pilots: ["NL-Breda"] });
+  let mmod = MM.compute(mcfgB, mInput, waves, now);
+  const mBR = mmod.rows.find((r) => r.suffix === "NL-Breda"), mNL = mmod.rows.find((r) => r.suffix === "NL");
+  ok("🧪 the pilot knows the country it overlaps", mBR.parentKey === mNL.key && mBR.parentCountry === "Netherlands" && !mBR.migrated && mBR.batch.inCount === 2 && mBR.batch.N === 6);
+  const mp = MM.planOps(mmod, new Set([mNL.key]), all, mcfgB);
+  const ix = (f) => mp.ops.findIndex(f);
+  const uNest = ix((o) => o.type === "nest" && o.kind === "user" && o.key === mNL.key), dNest = ix((o) => o.type === "nest" && o.kind === "device" && o.key === mNL.key), dAdd = ix((o) => o.type === "add" && o.key === mNL.key);
+  const rmU = mp.ops.find((o) => o.migrate && o.type === "remove"), unD = mp.ops.find((o) => o.migrate && o.type === "unnest");
+  ok("🧪 NL goes live: NL's own steps first, then Breda migrated — its direct users out once NL's user group is read back in the wave",
+    uNest >= 0 && dNest >= 0 && dAdd >= 0 && rmU && rmU.ids.sort().join() === "m0,m1" && rmU.memberKind === "user" && rmU.group.name === "INT-SG-U-WAVE-Euro" && rmU.needsOk.join() === String(uNest) && mp.ops.indexOf(rmU) > uNest);
+  ok("🧪 …and INT-SG-D-NLD-BREDA out of the device wave once INT-SG-D-NLD is filled and nested", unD && unD.kind === "device" && unD.child.name === "INT-SG-D-NLD-BREDA" && unD.needsOk.sort().join() === [dNest, dAdd].sort().join());
+  ok("🧪 …the waiting users said, typed REMOVE, the migration named for the screen", mp.warnings.some((w) => /4 NL Breda users not in a batch yet come in with Netherlands at once/.test(w)) && mp.hasRemoval
+    && mp.migrate.length === 1 && mp.migrate[0].suffix === "NL-Breda" && mp.migrate[0].into === "Netherlands" && mp.migrate[0].ops.length === 2, JSON.stringify(mp.warnings));
+  const mpNo = MM.planOps(mmod, new Set([mNL.key]), Object.assign({}, all, { nestUsers: false }), mcfgB);
+  ok("🧪 NL's user group not going in: no migration, and why", !mpNo.ops.some((o) => o.migrate) && mpNo.skipped.some((x) => /migrated into the wave only when PVM-UG-CORP-MEM-USERS-NL goes into it/.test(x)) && !mpNo.migrate.length);
+  // NL already live (the button on Breda's panel): the migration alone, with nothing to wait on
+  mInput.waveChildren.get("wu").add("gnl");
+  mInput.deviceGroups.push({ id: "gnld", displayName: "INT-SG-D-NLD" }); mInput.deviceMembers.set("gnld", new Set(mUsers.map((u, i) => `em${i}`))); mInput.waveChildren.get("wd").add("gnld");
+  mmod = MM.compute(mcfgB, mInput, waves, now);
+  const mp2 = MM.planOps(mmod, new Set([mmod.rows.find((r) => r.suffix === "NL").key]), all, mcfgB);
+  ok("🧪 NL already live: only Breda's steps, nothing to wait on", mp2.ops.length === 2 && mp2.ops.every((o) => o.migrate && !o.needsOk) && !mp2.warnings.some((w) => /not in a batch yet/.test(w)));
+  const migCfg = MM.normConfig(Object.assign({}, mcfgB, { batched: [], migrated: ["NL-Breda"] }));
+  const mm3 = MM.compute(migCfg, mInput, waves, now);
+  ok("🧪 migrated: listed, never planned again", mm3.rows.find((r) => r.suffix === "NL-Breda").migrated && MM.planOps(mm3, new Set(mm3.rows.map((r) => r.key)), all, migCfg).skipped.some((x) => /migrated into Netherlands/.test(x))
+    && !MM.planOps(mm3, new Set(mm3.rows.map((r) => r.key)), all, migCfg).ops.some((o) => o.key === "nl-breda"));
+  ok("🧪 the default has nothing migrated", MM.normConfig(null).migrated.length === 0);
+  mInput.usersByGroup.set("gbr", mUsers.slice(0, 6).concat([{ id: "x9", userPrincipalName: "outside@contoso.com" }]));
+  const mm4 = MM.compute(mcfgB, mInput, waves, now), mp4 = MM.planOps(mm4, new Set(["nl"]), all, mcfgB);
+  ok("🧪 a pilot user the country does not hold: no migration — they would leave the wave — and why", mm4.rows.find((r) => r.suffix === "NL-Breda").outsideParent.join() === "outside@contoso.com"
+    && !mp4.ops.some((o) => o.migrate) && !mp4.migrate.length && mp4.skipped.some((x) => /not migrated — 1 of its users is not in PVM-UG-CORP-MEM-USERS-NL \(outside@contoso\.com\)/.test(x)));
+
   // ------------------------------------------------ 🕳 left out (10642) --
   const lInput = {
     countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }], deviceGroups: [],

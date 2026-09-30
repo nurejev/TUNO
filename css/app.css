@@ -2654,6 +2654,7 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-lobar{position:static;margin:0 0 8px;padding:0;box-shadow:none;background:none}
 /* 🧪 pilot in batches (10640) */
 #screen-mderollout .mr-batch{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:4px 0 8px;background:var(--surface)}
+#screen-mderollout .mr-migrate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
 /* ⊘ Exclusions (10639, layout A off the mockup) */
 #screen-mderollout .mr-exbtn{border:2px solid var(--lemon);font-weight:700}
 #screen-mderollout .mr-exbtn[hidden]{display:none}

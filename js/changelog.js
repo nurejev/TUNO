@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10656,
+  "date": "2026-09-30",
+  "title": "MDE rollout — a pilot is migrated into the wave when its country goes live",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "When a country goes live, the plan also migrates a pilot that sits inside it, such as NL-Breda in the Netherlands. The pilot's users come in through the country. The users put in the wave directly come out, and the pilot's device group comes out of the device wave. Each of those steps runs only after the country's own step has been read back."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "The plan warns how many pilot users were not in a batch yet and now come in at once. The pilot's panel has a 'Migrate to the wave' button, and a migrated pilot is listed as such and no longer planned."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A pilot with users its country does not hold is not migrated, and the panel says who. The undo in Changes puts the pilot back in its batches."
+    }
+  ]
+},
+{
   "build": 10655,
   "date": "2026-09-30",
   "title": "MDE rollout — a device with no primary user still finds its country",

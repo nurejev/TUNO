@@ -69,6 +69,12 @@ const MdeMembers = (() => {
     // users already in the wave. Its user group is nested at the end.
     batched: ["NL-Breda"],
     batchCount: 4,
+    // A pilot migrated into its country (10656, Mihai: "the NL-Breda users
+    // should be excluded when NL goes live, or better there should be a
+    // migrate to wave for the pilot users"; option B off the mockup): when
+    // the country it overlaps goes live, the pilot's own route into the
+    // wave is taken down and the pilot is listed as migrated, not planned.
+    migrated: [],
     deviceGroupDescription: "Windows devices whose Intune primary user is in {userGroup}. Kept in sync by TUNO (T28 MDE rollout · wave members).",
     staleDays: 30,
     largeNest: 500,
@@ -101,6 +107,7 @@ const MdeMembers = (() => {
       deviceGroupDescription: cleanStr(o.deviceGroupDescription, DEFAULTS.deviceGroupDescription),
       pilots: uniq((Array.isArray(o.pilots) ? o.pilots : DEFAULTS.pilots).map((x) => String(x || "").trim()).filter(Boolean)),
       batched: uniq((Array.isArray(o.batched) ? o.batched : DEFAULTS.batched).map((x) => String(x || "").trim()).filter(Boolean)),
+      migrated: uniq((Array.isArray(o.migrated) ? o.migrated : DEFAULTS.migrated).map((x) => String(x || "").trim()).filter(Boolean)),
       batchCount: Number.isInteger(+o.batchCount) && +o.batchCount >= 2 && +o.batchCount <= 10 ? +o.batchCount : DEFAULTS.batchCount,
       staleDays: Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULTS.staleDays,
       largeNest: DEFAULTS.largeNest,
@@ -464,6 +471,19 @@ const MdeMembers = (() => {
         held: row.devices.filter((d) => d.held).length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length;
+    }
+    // a pilot and the country it overlaps (NL-Breda ⊂ NL); a pilot migrated
+    // into it (10656) is listed, never planned
+    for (const row of rows) {
+      if (!row.pilot) continue;
+      const parent = rows.find((p) => p !== row && !p.pilot && lc(row.userGroupName).startsWith(lc(p.userGroupName) + "-"));
+      row.parentKey = parent ? parent.key : null;
+      row.parentCountry = parent ? parent.country : "";
+      row.migrated = (cfg.migrated || []).some((x) => lc(x) === lc(row.suffix));
+      // the pilot's users its country does not hold — a migration would take
+      // them out of the wave, so there is none while there are any
+      const pu = parent && parent.ug ? new Set((input.usersByGroup.get(lc(parent.ug.id)) || []).map((u) => lc(u.id))) : null;
+      row.outsideParent = pu && row.ug ? (input.usersByGroup.get(lc(row.ug.id)) || []).filter((u) => !pu.has(lc(u.id))).map((u) => u.userPrincipalName || u.id) : [];
     }
     // prefix groups the map does not name — listed, never nested; a group
     // whose name extends a mapped one (NL-Breda ⊂ NL) is an overlap
@@ -850,9 +870,12 @@ const MdeMembers = (() => {
     const o = opts || {};
     const ops = [], skipped = [], warnings = [];
     const pick = model.rows.filter((r) => keys.has(r.key));
+    const at = new Map();   // row key → the index of its steps, for needsOk
+    const mark = (r, what) => { if (!at.has(r.key)) at.set(r.key, {}); at.get(r.key)[what] = ops.length - 1; };
     for (const r of pick) {
       const tag = `${r.country} (${r.userGroupName})`;
       if (!r.ug) { skipped.push(`${tag}: the user group is not in this tenant`); continue; }
+      if (r.migrated) { skipped.push(`${tag}: 🧪 migrated into ${r.parentCountry || "its country"} — its users and devices are in the wave through it`); continue; }
       let dgRef = r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null;
       if (o.fill) {
         if (!r.deviceGroupName) skipped.push(`${tag}: ${r.iso3Source}`);
@@ -862,7 +885,7 @@ const MdeMembers = (() => {
             ops.push({ type: "create", key: r.key, name: r.deviceGroupName, description: String((cfg && cfg.deviceGroupDescription) || DEFAULTS.deviceGroupDescription).replace("{userGroup}", r.userGroupName) });
             dgRef = { ref: r.deviceGroupName, name: r.deviceGroupName };
           }
-          if (r.add.length) ops.push({ type: "add", key: r.key, group: dgRef, ids: r.add.slice(), label: `${r.add.length} device${r.add.length === 1 ? "" : "s"}` });
+          if (r.add.length) { ops.push({ type: "add", key: r.key, group: dgRef, ids: r.add.slice(), label: `${r.add.length} device${r.add.length === 1 ? "" : "s"}` }); mark(r, "devAdd"); }
         }
       }
       if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
@@ -871,6 +894,7 @@ const MdeMembers = (() => {
         if (!r.wave.user) skipped.push(`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`);
         else {
           ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: { id: lc(r.ug.id), name: r.ug.displayName }, kind: "user", size: r.users });
+          mark(r, "userNest");
           if (r.users > cfg.largeNest) warnings.push(`${r.ug.displayName} brings ${r.users} users into ${r.wave.user.displayName} at once`);
         }
       }
@@ -880,11 +904,52 @@ const MdeMembers = (() => {
         else {
           const size = r.want.size;
           ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.device.id), name: r.wave.device.displayName }, child: dgRef, kind: "device", size });
+          mark(r, "devNest");
           if (size > cfg.largeNest) warnings.push(`${dgRef.name} brings ${size} devices into ${r.wave.device.displayName} at once`);
         }
       }
     }
-    return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove" || x.type === "unnest") };
+    // 🧪 A pilot migrated into the country it overlaps (10656, option B):
+    // once the country's user group is in the wave (now, or read back in
+    // this plan), the pilot's own route is taken down — its users put in
+    // directly come out, its groups come out of the waves — each step only
+    // after the country's step it depends on read back clean (needsOk).
+    const migrate = [];
+    for (const P of pick) {
+      if (P.pilot || !P.ug) continue;
+      for (const C of model.rows.filter((x) => x.pilot && !x.migrated && x.parentKey === P.key && x.batch)) {
+        const tag = `🧪 ${C.country} (${C.userGroupName})`;
+        const who = `${C.country} · migrate`;
+        const idx = at.get(P.key) || {};
+        const userIn = P.ugNested || idx.userNest != null;
+        if (C.outsideParent && C.outsideParent.length) { skipped.push(`${tag}: not migrated — ${C.outsideParent.length} of its users ${C.outsideParent.length === 1 ? "is" : "are"} not in ${P.userGroupName} (${C.outsideParent.slice(0, 3).join(", ")}${C.outsideParent.length > 3 ? " …" : ""}); they would leave the wave`); continue; }
+        if (!userIn) { skipped.push(`${tag}: migrated into the wave only when ${P.userGroupName} goes into it — tick "nest user groups"`); continue; }
+        const needU = idx.userNest != null ? [idx.userNest] : undefined;
+        const mine = [];
+        const b = C.batch;
+        const waiting = b.finished ? 0 : Math.max(0, b.N - b.inCount);
+        if (waiting) warnings.push(`${waiting} ${C.country} user${waiting === 1 ? "" : "s"} not in a batch yet come in with ${P.country} at once — the remaining batches are skipped`);
+        if (b.direct.length && C.wave.user) {
+          ops.push({ type: "remove", key: C.key, group: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, ids: b.direct.slice(), label: `${b.direct.length} ${C.country} user${b.direct.length === 1 ? "" : "s"} put in directly — in through ${P.ug.displayName} now`, memberKind: "user", who, needsOk: needU, migrate: true });
+          mine.push(ops.length - 1);
+        }
+        if (C.ugNested && C.wave.user) {
+          ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, child: { id: lc(C.ug.id), name: C.ug.displayName }, kind: "user", who, needsOk: needU, migrate: true });
+          mine.push(ops.length - 1);
+        }
+        if (C.dg && C.dgNested && C.wave.device) {
+          const devIn = P.dgNested || idx.devNest != null;
+          if (!devIn) skipped.push(`${tag}: ${C.dg.displayName} stays in ${C.wave.device.displayName} — ${P.deviceGroupName || "the country's device group"} is not in it yet (tick "nest device groups")`);
+          else {
+            const need = [idx.devNest, idx.devAdd].filter((x) => x != null);
+            ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.device.id), name: C.wave.device.displayName }, child: { id: lc(C.dg.id), name: C.dg.displayName }, kind: "device", who, needsOk: need.length ? need : undefined, migrate: true });
+            mine.push(ops.length - 1);
+          }
+        }
+        migrate.push({ suffix: C.suffix, country: C.country, into: P.country, ops: mine });
+      }
+    }
+    return { ops, skipped, warnings, migrate, hasRemoval: ops.some((x) => x.type === "remove" || x.type === "unnest") };
   }
   // The next batch of a pilot (10640): its users straight into the user
   // wave, then the device group (created if need be) filled with their

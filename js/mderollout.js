@@ -2760,6 +2760,7 @@ const MdeRolloutTool = (() => {
   // them, and Finish nests the group. The plan opens under this panel.
   const upnShort = (u) => String(u.upn || u.id).split("@")[0];
   function batchPanel(r) {
+    if (r.migrated) return `<div class="mr-batch" id="mrBatch-${esc(r.key)}"><b>🧪 Migrated into ${esc(r.parentCountry || "its country")}</b><p class="mini muted" style="margin:4px 0 0">Its users and devices are in the wave through ${esc(r.parentCountry || "their country")}. ${r.dg ? `<code>${esc(r.dg.displayName)}</code> is left in place, out of the wave. ` : ""}An undo of that run in 📜 puts the pilot back in its batches.</p></div>`;
     const on = !!r.batch;
     const toggle = `<label class="chk" style="margin:0"><input type="checkbox" data-mrbatchtoggle="${esc(r.suffix)}"${on ? " checked" : ""}${r.batch && r.batch.finished ? " disabled" : ""}> add this pilot in ${mcfg().batchCount} batches</label>`;
     if (!on) return `<div class="mr-batch" id="mrBatch-${esc(r.key)}"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>🧪 Pilot</b>${toggle}<span class="mini muted">Off: the whole group goes into the wave at once (nest user group).</span></div></div>`;
@@ -2779,9 +2780,24 @@ const MdeRolloutTool = (() => {
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px"><div><div class="mini muted">Progress</div><b>${b.inCount} of ${b.N} users</b> <span class="mini muted">· ${b.batches.filter((x) => x.state === "in").length} of ${b.batches.filter((x) => x.size).length} batches</span><div class="mr-meter"><i style="width:${pct}%"></i></div></div>
         ${b.inOther ? `<div class="mini muted">${plural(b.inOther, "user is", "users are")} in the wave already through ${esc(b.viaNames.join(", ") || "another group")} — not in the batches</div>` : ""}</div>
       ${b.N ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:56px"><col><col style="width:18%"><col style="width:18%"><col style="width:170px"></colgroup><thead><tr><th>Batch</th><th>Users</th><th>Devices</th><th>State</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">No user of this group is left to batch.</p>`}
+      ${r.parentKey && r.outsideParent && r.outsideParent.length ? `<div class="mr-migrate"><span class="mini" style="color:var(--report)">🧪 Not migratable into ${esc(r.parentCountry)}: ${plural(r.outsideParent.length, "user of the pilot is", "users of the pilot are")} not in ${esc(r.parentCountry)} (${esc(r.outsideParent.slice(0, 3).join(", "))}${r.outsideParent.length > 3 ? " …" : ""}) — they would leave the wave.</span></div>` : ""}
+      ${r.parentKey && !(r.outsideParent && r.outsideParent.length) ? `<div class="mr-migrate"><button class="btn" data-mrmigrate="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Migrate to the wave with ${esc(r.parentCountry)} →</button><span class="mini muted">${esc(r.parentCountry)} goes live and the pilot ends: everyone in ${esc(r.country)} comes in through ${esc(r.parentCountry)}${b.N - b.inCount > 0 ? ` (${b.N - b.inCount} not in a batch yet, at once)` : ""}; the users put in directly come out${r.dgNested ? ` and ${esc(r.deviceGroupName)} leaves the device wave` : ""}, each once ${esc(r.parentCountry)}'s step is read back.</span></div>` : ""}
       <div class="tb-actions" style="margin-top:8px"><button class="btn" data-mrbatchcsv="${esc(r.key)}">⭳ CSV of the batches</button>
         ${allIn ? `<button class="btn primary" data-mrbatchfin="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Finish: nest the pilot group →</button><span class="mini muted">nests ${esc(r.userGroupName)} and takes the direct members out, so new users flow in</span>` : `<span class="mini muted">After the last batch: 🧪 Finish nests the group.</span>`}</div>`}
     </div>`;
+  }
+  // 🧪 (10656, option B off the mockup) the pilot's own button: its country
+  // goes live (as ticked in the table with every step on) and the pilot is
+  // migrated in the same plan. The plan opens under the panel.
+  function migrateDryRun(key) {
+    if (busy || !mem.model) return;
+    const c = mem.model.rows.find((x) => x.key === key);
+    if (!c || !c.parentKey) return;
+    planAnchor = `mrBatch-${key}`; clearPlan(); seatPlan();
+    const par = mem.model.rows.find((x) => x.key === c.parentKey);
+    const p = MdeMembers.planOps(mem.model, new Set([c.parentKey]), { fill: true, nestUsers: true, nestDevices: true, removals: false }, mcfg());
+    plan = Object.assign(p, { members: true, title: `${par ? par.country : "Its country"} goes live · 🧪 ${c.country} migrated to the wave` });
+    renderMemPlan();
   }
   function batchDryRun(key, finish) {
     if (busy || !mem.model) return;
@@ -3054,12 +3070,12 @@ const MdeRolloutTool = (() => {
     const inTenant = rg.rows.filter((r) => r.ug), absent = rg.rows.filter((r) => !r.ug);
     const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
     const meter = (label, name, a, b, extra) => `<div><div class="mini muted">${esc(name || label)}</div><b>${a} of ${b}</b> <span class="mini muted">${extra}</span><div class="mr-meter"><i style="width:${pct(a, b)}%"></i></div></div>`;
-    const selectable = inTenant.filter((r) => !(r.inSync && r.ugNested && r.dgNested));
+    const selectable = inTenant.filter((r) => !(r.inSync && r.ugNested && r.dgNested) && !r.migrated);
     const allOn = selectable.length && selectable.every(memRowSel);
     const rows = inTenant.map((r) => {
       const done = r.inSync && r.ugNested && r.dgNested;
-      return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
-        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}</span>` : ""}<div class="mini muted">${esc(r.userGroupName)}</div></td>
+      return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${r.migrated ? `<span title="Migrated into ${esc(r.parentCountry)} — in the wave through it">—</span>` : done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
+        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">${r.migrated ? `🧪 migrated into ${esc(r.parentCountry)}` : `🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}`}</span>` : ""}${(() => { const kids = r.pilot ? [] : inTenant.filter((c) => c.pilot && c.parentKey === r.key && c.batch && !c.migrated && !(c.outsideParent || []).length); return kids.length ? ` <span class="gu-how" title="Going live brings every user of the pilot in through this group; the plan then takes the pilot's own route down">🧪 going live migrates ${esc(kids.map((c) => c.country).join(", "))}</span>` : ""; })()}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
         <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted"><a href="#" data-mrmemleftrow="${esc(r.key)}" title="🕳 who they are, and what Intune has for them">${plural(r.usersNoDevice, "user has", "users have")} none</a></div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
         <td class="mini">${memCell(r)}</td>
@@ -3101,7 +3117,8 @@ const MdeRolloutTool = (() => {
     let p;
     if (undoOf) p = MdeMembers.inverseOf(undoOf.done);
     else p = MdeMembers.planOps(mem.model, new Set(mem.model.rows.filter((r) => r.region === mem.region && mem.sel.has(r.key)).map((r) => r.key)), mem.opts, mcfg());
-    plan = Object.assign(p, { members: true, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}` });
+    plan = Object.assign(p, { members: true, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), unmigrate: undoOf && undoOf.migrate && undoOf.migrate.length ? undoOf.migrate : null,
+      title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}${p.migrate && p.migrate.length ? ` · 🧪 ${p.migrate.map((m) => m.country).join(", ")} migrated to the wave` : ""}` });
     renderMemPlan();
   }
   const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out" };
@@ -3121,7 +3138,7 @@ const MdeRolloutTool = (() => {
         ? "Out of the pilot, these people are ordinary members of their country: until it is nested in its wave the new policies stop reaching them and the old ones reach them again; when it is nested they move with everybody else. A device leaves its pilot group only once its add to the country group read back clean. Every run lands in 📜 with an undo that puts them back in the pilot (a device group this run created is left in place, empty after the undo)."
         : p.exclusions
         ? "The exclusion groups are excluded from the new policies (⚡②): a member added here stops receiving them. A device taken out of its country device group leaves the wave, so the old policies reach it again. Every run lands in 📜 with an exact undo."
-        : "Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo."}</p>
+        : `Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo.${p.migrate && p.migrate.length ? ` 🧪 ${p.migrate.map((m) => `${m.country} is migrated into ${m.into}`).join("; ")}: its users come in through ${p.migrate.map((m) => m.into).join(", ")}, and each step that takes the pilot's own route down waits until the step it depends on read back clean. Once they all did, the pilot is listed as migrated; the undo puts it back in its batches.` : ""}${p.unmigrate ? " 🧪 Once every step reads back clean, the pilot is back in its batches." : ""}`}</p>
       ${p.ops.length ? `<div style="margin-top:12px">
         ${p.hasRemoval ? `<label class="wi-f" style="margin-top:8px"><span>This plan REMOVES members or takes groups out of a wave — type <b>REMOVE</b> to allow it</span><input id="mrConfirmText" placeholder="REMOVE" autocomplete="off" spellcheck="false"></label>`
           : `<label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mrConfirmTick"> I have read the plan — ${plural(p.ops.length, "step")}</label>`}
@@ -3157,9 +3174,23 @@ const MdeRolloutTool = (() => {
       // ⊘ (10639): the exclusion lists move with the run, and the open card
       // is read again so what reaches it is the tenant's answer
       if (ex.base) MdeExclude.patchBase(ex.base, r.done);
+      // 🧪 a pilot migrated into its country (10656): listed as migrated once
+      // every step of its migration read back clean; an undo of that run
+      // puts it back in batches
+      const clean = (j) => r.results[j] && r.results[j].ok && r.results[j].verified;
+      const migrated = (p.migrate || []).filter((m) => m.ops.every(clean));
+      const unmigrate = p.unmigrate && r.results.length && r.results.every((x) => x.ok && x.verified) ? p.unmigrate : [];
+      if (migrated.length || unmigrate.length) {
+        const c = mcfg(), has = (list, x) => list.some((y) => lc(y) === lc(x));
+        const outOf = migrated.map((m) => m.suffix), back = unmigrate.map((m) => m.suffix);
+        saveCfg(Object.assign({}, cfg, { members: Object.assign({}, c, {
+          batched: c.batched.filter((x) => !has(outOf, x)).concat(back.filter((x) => !has(c.batched, x))),
+          migrated: c.migrated.filter((x) => !has(back, x)).concat(outOf.filter((x) => !has(c.migrated, x))) }) }));
+        memCompute();
+      }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
       runs.push({ at: Date.now(), title: p.title, kind: "members", exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [] },
-        done: r.done, pilots: !!p.pilotsReady, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
+        done: r.done, pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
       // its ticks again (what failed is ticked for another go)
@@ -3864,6 +3895,7 @@ const MdeRolloutTool = (() => {
       // 🧪 pilot batches (10640)
       const bt = t.closest("[data-mrbatch]"); if (bt) { batchDryRun(bt.dataset.mrbatch, false); return; }
       const bf = t.closest("[data-mrbatchfin]"); if (bf) { batchDryRun(bf.dataset.mrbatchfin, true); return; }
+      const mg = t.closest("[data-mrmigrate]"); if (mg) { migrateDryRun(mg.dataset.mrmigrate); return; }
       const bc = t.closest("[data-mrbatchcsv]"); if (bc) { const r = mem.model && mem.model.rows.find((x) => x.key === bc.dataset.mrbatchcsv); if (r) download(`MDE-pilot-batches-${r.suffix}-${stamp()}.csv`, MdeMembers.batchCsv(r), "text/csv"); return; }
       // ⊘ exclusions (10639)
       if (t.id === "mrExRead") { exRead(); return; }

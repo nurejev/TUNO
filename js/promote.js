@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 218,
+  "title": "T28 — 🧪 a pilot migrated into the wave when its country goes live (NL-Breda with NL)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10656
+  ],
+  "risk": "medium",
+  "what": "MdeMembers: cfg.members.migrated; compute gives a pilot row parentKey/parentCountry (the non-pilot row whose user group its name extends), migrated, outsideParent. planOps: a migrated row is skipped; for each picked country whose user group is (or in this plan becomes) nested, each batched, unmigrated pilot inside it gets migration steps — remove its direct wave users, unnest its user group if nested, unnest its device group once the country's device group is in the device wave — with needsOk on the country's user nest / device add+nest; plan.migrate. Not migrated when a pilot user is outside the country. Screen: applyMem marks migrated (out of batched) once every step verified, runs carry migrate, the undo plan carries unmigrate and restores batched; country row chips; batch panel 🧪 Migrate to the wave with <country> (migrateDryRun) or a migrated panel.",
+  "why": "Mihai: 'the nl-breda user should be excluded when nl goes live, or better there should be a migrate to wave for the pilot user be in place'. Mockup t28-breda-nl-golive-mockup.html, option B.",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/members 118, mderollout/screen 260).",
+    "On PVM: 👥 → Euro → tick Netherlands → ② Dry run — the plan shows NL's steps, then 🧪 NL Breda migrate steps, and warns how many Breda users come in at once. Or open NL Breda → 🧪 Migrate to the wave with Netherlands."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "css/app.css",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10656.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 217,
   "title": "T28 — 👥 a device with no primary user: its Entra owner's country, else the ISO3 its name starts with",
   "tools": [
