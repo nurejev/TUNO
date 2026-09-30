@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10645,
+  "date": "2026-09-30",
+  "title": "T01: deployed AppLocker profiles open again (values read on beta)",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "🔐 AppLocker builder & validator",
+      "text": "Opening a deployed AppLocker profile failed with \"Graph returned the value masked (****) and no secret reference\" on every collection. T01 read the profiles from Graph v1.0. v1.0 has no field for encrypted OMA-URI values, so it can only send the value masked with nothing to unlock it. Backup reads beta and exported the same profiles with their XML intact. The profile list, the re-read, the plain-text value and the read-back after an Audit update now all come from beta, and the list now reads every page."
+    }
+  ]
+},
+{
   "build": 10644,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — opening the tool offers the read",

@@ -2496,7 +2496,8 @@ const AppLockerTool = (() => {
     return {omaSettings}; // PATCH only policy settings: keep object ID, name, grouping and assignments.
   }
   async function readAuditTarget(id) {
-    const found=await Graph.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(id)}`,{scopes:Graph.SCOPES.profiles});
+    // beta, like every read of custom-profile values (10645): v1.0 masks them with no reference.
+    const found=await Graph.get(Graph.profileUrl ? Graph.profileUrl(id) : `/deviceManagement/deviceConfigurations/${encodeURIComponent(id)}`,{scopes:Graph.SCOPES.profiles});
     if (!found || found.id!==id) throw new Error("The selected Intune profile no longer exists. No replacement profile was created.");
     return hydrateAppLocker(found);
   }

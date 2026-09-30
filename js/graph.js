@@ -646,17 +646,27 @@ const Graph = (() => {
   // Everything Intune holds as a Windows custom profile. Read WHOLE, not
   // filtered server-side: the collision test has to look inside omaSettings,
   // and $filter cannot see in there.
+  //
+  // ON BETA, NEVER v1.0 (10645). v1.0's omaSetting has no isEncrypted and
+  // no secretReferenceValueId, so v1.0 answers an encrypted custom value as
+  // a bare "****" with nothing to fetch it with — list, single GET and all.
+  // That is what 10641's diagnostic showed for both R27.1 profiles while
+  // T04, which reads beta, archived the very same profiles with their XML.
+  // Every read of a custom profile's VALUES goes to beta: this list, the
+  // single-profile re-read and the plain-text function below. Paged, so a
+  // tenant with more profiles than one page is not silently cut short.
   async function customProfiles() {
-    const r = await get("/deviceManagement/deviceConfigurations?$top=999", { scopes: SCOPES.profiles });
-    return (r && r.value || []).filter((p) => (p["@odata.type"] || "").indexOf("windows10CustomConfiguration") >= 0);
+    const all = await readAll("/deviceManagement/deviceConfigurations", { scopes: SCOPES.profiles, beta: true });
+    return (all || []).filter((p) => (p["@odata.type"] || "").indexOf("windows10CustomConfiguration") >= 0);
   }
+  const profileUrl = (id) => `${BETA}/deviceManagement/deviceConfigurations/${encodeURIComponent(id)}`;
 
   // INTUNE ENCRYPTS CUSTOM OMA-URI VALUES AT REST (10563). The profile list
   // answers every string setting as { isEncrypted: true, value: null,
   // secretReferenceValueId } — the value itself comes only from this
   // function, one call per setting. Same scope as the list read.
   async function omaSettingPlainText(profileId, secretReferenceValueId) {
-    const r = await get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(profileId)}/getOmaSettingPlainTextValue(secretReferenceValueId='${encodeURIComponent(secretReferenceValueId)}')`, { scopes: SCOPES.profiles });
+    const r = await get(`${profileUrl(profileId)}/getOmaSettingPlainTextValue(secretReferenceValueId='${encodeURIComponent(secretReferenceValueId)}')`, { scopes: SCOPES.profiles });
     return r && typeof r.value === "string" ? r.value : (typeof r === "string" ? r : "");
   }
   // THE WHOLE ROAD TO A CUSTOM PROFILE'S VALUES (10564). The LIST endpoint
@@ -681,7 +691,7 @@ const Graph = (() => {
     let p = Object.assign({}, profile, { omaSettings: (profile.omaSettings || []).map((x) => Object.assign({}, x)) });
     const wants = (x) => x && only(x) && !x._decrypted && (empty(x.value) || isMaskedOmaValue(x.value) || (opts && opts.forceEncrypted && x.isEncrypted));
     if (p.omaSettings.some((x) => wants(x) && !x.secretReferenceValueId) && p.id) {
-      const full = await API.get(`/deviceManagement/deviceConfigurations/${encodeURIComponent(p.id)}`, { scopes: SCOPES.profiles });
+      const full = await API.get(profileUrl(p.id), { scopes: SCOPES.profiles });
       if (full && Array.isArray(full.omaSettings)) {
         p.omaSettings = p.omaSettings.map((x) => {
           const f = full.omaSettings.find((y) => y && y.omaUri === x.omaUri) || null;
@@ -694,7 +704,7 @@ const Graph = (() => {
       if (!wants(x)) continue;
       if (!x.secretReferenceValueId) {
         if (isMaskedOmaValue(x.value)) {
-          const m = "Graph returned the value masked (****) and no secret reference to fetch it with, even on the single-profile read";
+          const m = "Graph returned the value masked (****) and no secret reference to fetch it with, even on the beta single-profile read";
           x._masked = true; x._decryptError = m; errors.push({ omaUri: x.omaUri, error: m }); continue;
         }
         errors.push({ omaUri: x.omaUri, error: "no value and no secret reference — Graph returned nothing to fetch" }); continue;
@@ -878,7 +888,7 @@ const Graph = (() => {
 
   const API = {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, patch, del, customProfiles, omaSettingPlainText, hydrateOmaSettings, isMaskedOmaValue, collisions, createProfile,
+    get, post, patch, del, customProfiles, profileUrl, omaSettingPlainText, hydrateOmaSettings, isMaskedOmaValue, collisions, createProfile,
     remediations, createRemediation, updateRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,

@@ -106,6 +106,22 @@ head('masked values (****) are fetched, never parsed (10641)');
  ok('mask without a secret reference is named as a mask, not invalid XML',message.includes('masked')&&!message.includes('not valid XML')&&reads===0);
  ok('diagnostic records mask, missing reference and the read error',report&&report.schema==='tuno.applocker.read-diagnostic/2'&&report.settings[0].masked===true&&report.settings[0].hasSecretReference===false&&/masked/.test(report.settings[0].readError||''));
 }
+head('custom-profile values are read on beta, never v1.0 (10645)');
+{
+ const w=boot(),p=profile();w.confirm=()=>true;w.Graph.tenantId=()=> 'tenant-a';p.omaSettings.forEach(x=>{x.value='****'});const paths=[];
+ w.Graph.get=async(path)=>{paths.push(path);const full=clone(p);full.omaSettings.forEach((x,i)=>{x.isEncrypted=true;x.secretReferenceValueId='secret-'+i});return full};
+ w.Graph.omaSettingPlainText=async(id,secret)=>profile().omaSettings[+secret.split('-')[1]].value;
+ await w.AppLockerTool._audit.selectAuditProfile(p);
+ ok('single-profile re-read goes to beta',paths.length===1&&paths[0]==='https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations/selected-id');
+ ok('profile URL helper is beta for every caller',w.Graph.profileUrl('a b')==='https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations/a%20b');
+ ok('profile list reads beta, paged',/readAll\(/.test(String(w.Graph.customProfiles))&&/beta: true/.test(String(w.Graph.customProfiles)));
+ ok('plain-text value read goes through the beta profile URL',/profileUrl\(profileId\)/.test(String(boot().Graph.omaSettingPlainText)));
+}
+{
+ const {A,w}=setup();const paths=[];const g=w.Graph.get;w.Graph.get=async(path,o)=>{paths.push(path);return g(path,o)};
+ await A.selectAuditProfile(profile());A.select([A.auditResultRows()[0].key]);A.applyAuditSelections();await A.prepareAuditUpdate();
+ ok('audit-update read-back reads beta',paths.length>0&&paths.every(x=>x.indexOf('https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations/')===0));
+}
 head('failed-read diagnostic preserves evidence without unrelated settings');
 {
  const {A,D,writes}=setup(),p=profile();p.omaSettings[0].value='&lt;RuleCollection Type="Exe" /&gt;';p.omaSettings[0].secretReferenceValueId='must-not-export';p.accessToken='must-not-export-token';

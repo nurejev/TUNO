@@ -104,6 +104,34 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 207,
+  "title": "T01 — read custom-profile values on beta (v1.0 masks them)",
+  "tools": [
+    "T01 AppLocker builder & validator"
+  ],
+  "builds": [
+    10645
+  ],
+  "risk": "low",
+  "what": "Graph.customProfiles reads /beta/deviceManagement/deviceConfigurations, paged via readAll (was one v1.0 page, $top=999). New Graph.profileUrl(id) = the beta single-profile URL, used by the hydrate re-read, getOmaSettingPlainTextValue and T01's readAuditTarget (Audit-update compare and read-back). The PATCH and createProfile still go to v1.0, unchanged.",
+  "why": "The 10641 diagnostic for both R27.1 profiles showed masked \"****\", isEncrypted false and no secret reference, even on the single-profile re-read. The T04 export of the same two profiles (a beta read) had isEncrypted true and the full RuleCollection XML. v1.0's omaSetting has no isEncrypted or secretReferenceValueId, so a v1.0 read cannot fetch the value at all.",
+  "test": [
+    "Run npm test. The audit-workflow suite checks that the re-read, the profile URL helper, the paged list and the plain-text call use beta, and that the Audit-update read-back does too.",
+    "LIVE PENDING: T01, Analyze deployed, open the R27.1 AuditOnly profile and then the Enforced one. All four collections should open with their rules. Then Load the deployed AppLocker profile from the evidence card and do one deploy collision check (both use the same list)."
+  ],
+  "files": [
+    "js/graph.js",
+    "js/applocker.js",
+    "tests/applocker/audit-workflow.test.js",
+    "docs/reviews/T01-beta-10645.md",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "index.html",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 206,
   "title": "T28 — opening the tool offers the read instead of starting it",
   "tools": [
