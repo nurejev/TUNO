@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10644,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — opening the tool offers the read",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Opening 🚀 MDE rollout no longer starts reading the tenant. The screen says nothing is read yet and offers ↻ Read the tenant, plus the sign-in read with its time when TUNO already holds one (or waits for it while it is still running). Reading changes nothing; the tenant is only read when you click."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "The ⊘ Exclude user or device button showed before anything was read. It now appears with the read."
+    }
+  ]
+},
+{
   "build": 10643,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — fix conflicts with the waves; floating bars",

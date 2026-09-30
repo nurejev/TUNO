@@ -1594,6 +1594,7 @@ const MdeRolloutTool = (() => {
     try {
       loadCfg();
       if (!attach) { if (pane !== "reports") $("mrBody").innerHTML = ""; clearPlan(); }
+      else { const o = $("mrBody").querySelector(":scope > .mr-offer"); if (o) o.remove(); }
       if (attach && PolicyCache.reading()) res = await PolicyCache.read(prog);
       else if (attach && PolicyCache.get()) res = PolicyCache.get();
       else {
@@ -1643,9 +1644,29 @@ const MdeRolloutTool = (() => {
   function renderStatus() { const el = $("mrEnrich"); if (el) el.textContent = enriching ? `⏳ ${enriching}` : ""; }
 
   function showExports(on) { ["mrMd", "mrCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); $("mrGlobalExport").hidden = !on || pane === "reports"; }
+  // 10644 (Mihai: "clicking the tool should offer to read the tenant, and
+  // not start automatically"). Opening T28 reads nothing. The screen offers
+  // the read: a fresh one, or the sign-in read when TUNO already holds it.
+  // Either way the tenant is only read on the click.
   function onShow() {
     if (model || running) return;
-    if (PolicyCache.get() || PolicyCache.reading()) run(true);
+    offerRead();
+  }
+  function offerRead() {
+    const body = $("mrBody");
+    if (!body) return;
+    const held = PolicyCache.get(), busy = PolicyCache.reading();
+    const t = held ? PolicyCache.timeLabel() : "";
+    const alt = held
+      ? `<button class="btn" data-mrread="attach">Use the ${PolicyCache.fromSignIn() ? "sign-in" : "shared"} read from ${esc(t)}</button>`
+      : busy ? `<button class="btn" data-mrread="attach">Wait for the sign-in read</button>` : "";
+    body.innerHTML = `<div class="list-card mr-offer">
+      <h3>Nothing is read yet</h3>
+      <p class="mini">Reading takes the policies and their assignments, the legacy security templates and the wave groups. It changes nothing: T28 writes only when you apply a plan.</p>
+      <div class="mr-offer-acts"><button class="btn primary" data-mrread="fresh">↻ Read the tenant</button>${alt}</div>
+      ${held ? `<p class="mini muted">The ${PolicyCache.fromSignIn() ? "sign-in" : "shared"} read is the tenant as it was at ${esc(t)}. ↻ Read the tenant reads it now.</p>`
+        : busy ? `<p class="mini muted">TUNO is still reading the tenant from the sign-in. Waiting for it saves a second read.</p>` : ""}
+    </div>`;
   }
   function reset() {
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
@@ -2020,7 +2041,7 @@ const MdeRolloutTool = (() => {
 
   function howPane() {
     return `<div class="list-card" style="margin-top:0"><div class="mini" style="line-height:1.55">
-      <p style="margin:0 0 8px"><b>The read.</b> The shared policy read (settings catalog, legacy endpoint security intents, device configurations, administrative templates) — the same one T05, T11, T19 and T26 use — plus the legacy templates' names, the wave groups by name, and each involved group's kind. In scope is what 🧭 T20 classifies as endpoint security, MDE or Edge, plus any policy setting an MDE-area setting (BitLocker, WHfB, App Control…), and custom OMA-URIs under those CSPs.</p>
+      <p style="margin:0 0 8px"><b>The read.</b> The shared policy read (settings catalog, legacy endpoint security intents, device configurations, administrative templates) — the same one T05, T11, T19 and T26 use — plus the legacy templates' names, the wave groups by name, and each involved group's kind. In scope is what 🧭 T20 classifies as endpoint security, MDE or Edge, plus any policy setting an MDE-area setting (BitLocker, WHfB, App Control…), and custom OMA-URIs under those CSPs. Opening the tool reads nothing: it offers ↻ Read the tenant, and the sign-in read when TUNO already holds one.</p>
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
@@ -3162,6 +3183,7 @@ const MdeRolloutTool = (() => {
     const go = (p) => { pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); };
     body.addEventListener("click", (e) => {
       const t = e.target;
+      const rdb = t.closest("[data-mrread]"); if (rdb) { run(rdb.dataset.mrread === "attach"); return; }
       const reportChoice = t.closest("[data-mrreport]");
       if (reportChoice) { reps.selected = reportChoice.dataset.mrreport; reps.error = ""; pane = "reports"; render(); focusOn(`[data-mrreport="${reps.selected}"]`); return; }
       const nd = t.closest("[data-mrpane]"); if (nd) { e.preventDefault(); go(nd.dataset.mrpane); return; }

@@ -104,6 +104,35 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 206,
+  "title": "T28 — opening the tool offers the read instead of starting it",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10644
+  ],
+  "risk": "low",
+  "what": "onShow no longer calls run(true) when PolicyCache holds or is reading the sign-in read. offerRead() renders a card in #mrBody: 'Nothing is read yet', what a read takes, that it changes nothing, ↻ Read the tenant (data-mrread=fresh → run(false)) and, with the sign-in read held, 'Use the sign-in read from HH:MM' (data-mrread=attach → run(true)); while it is still reading, 'Wait for the sign-in read'. run(true) removes the card. ❓ How it works says so. Fixed: the ⊘ header button showed while hidden (.btn display beat [hidden]); .mr-exbtn[hidden]{display:none}.",
+  "why": "Mihai: 'clicking the tool should offer to read the tenant, and not start automatic'.",
+  "test": [
+    "Run npm test. mderollout/screen (186) covers: opening reads nothing (no refresh, no read, no model); the card with both buttons and the read's time; the ⊘ button hidden; opening again still only offers; the sign-in read used without a fresh read; the card gone and the read kept on re-open; cold (only ↻) and still-reading (wait) cards; ↻ in the card reads fresh.",
+    "Browser DEMO: sign in, open 🚀 MDE rollout. The card shows, the ⊘ button does not, and nothing loads until a button is clicked.",
+    "LIVE (PVM): open T28 after sign-in. Nothing reads until clicked; 'Use the sign-in read' shows the rail at once."
+  ],
+  "files": [
+    "js/mderollout.js",
+    "css/app.css",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10644.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 205,
   "title": "T28 — ⚔️ fix conflicts with the waves (include in the same plan); floating 👥/⊘ bars",
   "tools": [

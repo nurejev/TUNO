@@ -1,6 +1,7 @@
 // T28 — MDE rollout screen (build 10632), driven end to end in DEMO mode:
 // the whole app booted from index.html's own script list (so the load
 // order is the page's), signed in through the demo link, the tile opened,
+// (10644: opening offers the read and starts nothing)
 // the tenant read, every pane rendered, a fix dry-run through the gates
 // and applied on the run ledger, a manual include planned, and the wave
 // groups created and read back.
@@ -69,12 +70,33 @@ async function run() {
 
   $("demoLink").dispatchEvent(new w.Event("click", { bubbles: true }));
   await sleep(60);
+  // 10644 (Mihai: "clicking the tool should offer to read the tenant, and
+  // not start automatically"): opening T28 asks the tenant for nothing.
+  const reads = { refresh: 0, read: 0 };
+  const realRefresh = w.PolicyCache.refresh, realRead = w.PolicyCache.read;
+  w.PolicyCache.refresh = (...a) => { reads.refresh++; return realRefresh(...a); };
+  w.PolicyCache.read = (...a) => { reads.read++; return realRead(...a); };
+  await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   tile.click();
   await sleep(10);
   ok("the tile opens the screen", $("screen-mderollout").classList.contains("active"));
+  await sleep(150);
+  const offer = () => $("mrBody").querySelector(".mr-offer");
+  ok("opening reads nothing: no model, no rail, no read started", !w.MdeRolloutTool._state().model && !$("mrBody").querySelector(".ep-rail") && reads.refresh === 0 && reads.read === 0, JSON.stringify(reads));
+  ok("it offers the read instead: ↻ Read the tenant, and says reading writes nothing", !!offer() && !!offer().querySelector('[data-mrread="fresh"]') && /changes nothing/.test(offer().textContent));
+  const useHeld = offer() && offer().querySelector('[data-mrread="attach"]');
+  ok("with the sign-in read held, it also offers that read, with its time", !!useHeld && /sign-in read from \d/.test(useHeld.textContent) && useHeld.textContent.includes(w.PolicyCache.timeLabel()));
+  ok("the ⊘ header button stays hidden until something is read", $("mrExclude").hidden);
+  w.TunoScreenHooks["screen-mderollout"]();
+  await sleep(50);
+  ok("opening it again still only offers", !!offer() && !w.MdeRolloutTool._state().model && reads.refresh === 0);
 
-  $("mrRun").click();
+  offer().querySelector('[data-mrread="attach"]').click();
   ok("the read finishes and the rail renders", await until(() => $("mrBody").querySelector(".ep-rail"), 30000, "rail"));
+  ok("using the sign-in read asks for no fresh read, and the offer is gone", reads.refresh === 0 && !offer() && /From the sign-in read at/.test($("mrBody").textContent), JSON.stringify(reads));
+  w.TunoScreenHooks["screen-mderollout"]();
+  ok("once read, opening the screen again keeps the read", !!$("mrBody").querySelector(".ep-rail") && !offer());
+  w.PolicyCache.refresh = realRefresh; w.PolicyCache.read = realRead;
   // 10642 (Mihai: "should be default excluded with the option to include if
   // needed"): the demo's one-rule ASR policy is on the default leave-out
   // list — 🚫 shows it with ➕ include, which puts it back in scope. The
@@ -530,6 +552,22 @@ async function run() {
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });
   ok("the markdown export carries the four sections", /## Wave and exclusion groups/.test(md) && /## New policies/.test(md) && /## Old policies colliding/.test(md) && /## Retirement check/.test(md));
+
+  // ------------------------------------------- the offer, cold (10644) --
+  const heldGet = w.PolicyCache.get, heldReading = w.PolicyCache.reading, rf = w.PolicyCache.refresh;
+  let fresh = 0;
+  w.PolicyCache.refresh = (...a) => { fresh++; return rf(...a); };
+  w.PolicyCache.get = () => null; w.PolicyCache.reading = () => false;
+  w.dispatchEvent(new w.Event("tuno:signout"));
+  w.TunoScreenHooks["screen-mderollout"]();
+  ok("cold, with no read held: only ↻ Read the tenant is offered", !!offer() && !!offer().querySelector('[data-mrread="fresh"]') && !offer().querySelector('[data-mrread="attach"]') && fresh === 0);
+  w.PolicyCache.reading = () => true;
+  w.TunoScreenHooks["screen-mderollout"]();
+  ok("while the sign-in read still runs, it offers to wait for it", /Wait for the sign-in read/.test(offer().textContent) && fresh === 0);
+  w.PolicyCache.get = heldGet; w.PolicyCache.reading = heldReading;
+  offer().querySelector('[data-mrread="fresh"]').click();
+  ok("↻ Read the tenant in the offer reads the tenant fresh", await until(() => $("mrBody").querySelector(".ep-rail"), 30000, "fresh rail") && fresh === 1 && !offer());
+  w.PolicyCache.refresh = rf;
 }
 
 run().then(() => {
