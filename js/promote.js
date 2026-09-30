@@ -104,6 +104,33 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 214,
+  "title": "T28 — five more OIB Device Security policies in the ⚙️ Also-in target list",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10652
+  ],
+  "risk": "low",
+  "what": "DEFAULTS.alsoInScope gains Win - OIB - SC - Device Security - U - Windows Sandbox - v3.4, - D - Config Refresh - v3.2, - D - User Rights - v3.7, - U - Windows Spotlight and Org Messages - v3.0 and - D - Windows Package Manager - v3.5. normConfig merges them once into a config saved before (alsoInScopeSeed 10652; no double under other dashes or case); the rules save keeps the seed. catOfKey files windowssandbox, _configrefresh_, desktopappinstaller, windowsspotlight and organizationalmessages settings under 🔒 Device security. TOOL_VERSIONS T28 0.19 (10651 had left the number at 0.17).",
+  "why": "Mihai: 'add the to be include' — the five names.",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/engine 195).",
+    "On PVM: open T28 and read the tenant — the five policies are listed as new with ➕ by name; ⚙️ Naming rules shows them under Also in the target list; any old policy that sets one of their settings shows in ⚔️."
+  ],
+  "files": [
+    "js/mderollout.js",
+    "tests/mderollout/engine.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10652.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 213,
   "title": "T28 — ⊘ 📋 exclusions from a list (paste or .csv / .txt; one plan for every line)",
   "tools": [

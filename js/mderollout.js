@@ -105,7 +105,16 @@ const MdeRollout = (() => {
       "Win - OIB - SC - Device Security - D - Local Security Policies (24H2+) - v3.6.1",
       "Win - OIB - SC - Windows Update for Business - D - Delivery Optimisation - v3.0",
       "Win - OIB - SC - Windows Update for Business - D - Reports and Telemetry - v3.0",
+      // 10652, Mihai: "add the to be include"
+      "Win - OIB - SC - Device Security - U - Windows Sandbox - v3.4",
+      "Win - OIB - SC - Device Security - D - Config Refresh - v3.2",
+      "Win - OIB - SC - Device Security - D - User Rights - v3.7",
+      "Win - OIB - SC - Device Security - U - Windows Spotlight and Org Messages - v3.0",
+      "Win - OIB - SC - Device Security - D - Windows Package Manager - v3.5",
     ],
+    // bumped when the default list grows: a config saved before gets the
+    // new names merged in once, then keeps what was taken off by hand
+    alsoInScopeSeed: 10652,
     // Policies LEFT OUT by name (10639, Mihai: "also add a same for
     // excluding a policy") — out of scope whatever their prefix or content:
     // listed under 🚫, never compared, planned, or pulled in by a setting.
@@ -249,7 +258,10 @@ const MdeRollout = (() => {
       },
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
-      alsoInScope: cleanList(Array.isArray(o.alsoInScope) ? o.alsoInScope : DEFAULTS.alsoInScope),
+      alsoInScope: cleanList(!Array.isArray(o.alsoInScope) ? DEFAULTS.alsoInScope
+        : o.alsoInScopeSeed === DEFAULTS.alsoInScopeSeed ? o.alsoInScope
+        : o.alsoInScope.concat(DEFAULTS.alsoInScope.filter((n) => !o.alsoInScope.some((x) => normName(x) === normName(n))))),
+      alsoInScopeSeed: DEFAULTS.alsoInScopeSeed,
       leaveOut: cleanList(!Array.isArray(o.leaveOut) ? DEFAULTS.leaveOut
         : o.leaveOutSeed === DEFAULTS.leaveOutSeed ? o.leaveOut : o.leaveOut.concat(DEFAULTS.leaveOut)),
       leaveOutSeed: DEFAULTS.leaveOutSeed,
@@ -353,7 +365,10 @@ const MdeRollout = (() => {
     if (/_defender_|defender_configuration|windowsdefendersecuritycenter|microsoftdefender/.test(k)) return "av";
     // Device security (10634): audit, local security options, hardening —
     // the OIB "Device Security" policies Mihai added to the target list.
-    if (/_audit_|auditoptions|localpoliciessecurityoptions|userrights|mssecurityguide|msslegacy|_eventlogservice_|lanmanserver|lanmanworkstation|_remoteprocedurecall_|_security_|windowslogon|_credentialsui_|_credentialsdelegation_/.test(k)) return "hard";
+    // 10652: Windows Sandbox, Config Refresh, Windows Package Manager and
+    // Spotlight / organisational messages — the OIB Device Security
+    // policies added to the target list then
+    if (/_audit_|auditoptions|localpoliciessecurityoptions|userrights|mssecurityguide|msslegacy|_eventlogservice_|lanmanserver|lanmanworkstation|_remoteprocedurecall_|_security_|windowslogon|_credentialsui_|_credentialsdelegation_|windowssandbox|_configrefresh_|desktopappinstaller|windowsspotlight|organizationalmessages/.test(k)) return "hard";
     if (/deliveryoptimization|_update_|windowsupdate|allowtelemetry|configuretelemetry|diagnosticdata|limitdiagnosticlogcollection|limitdumpcollection/.test(k)) return "upd";
     return "other";
   }
@@ -3891,7 +3906,7 @@ const MdeRolloutTool = (() => {
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
-          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), leaveOut: lines("mrRuleLeave"), leaveOutSeed: cfg.leaveOutSeed,
+          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), alsoInScopeSeed: cfg.alsoInScopeSeed, leaveOut: lines("mrRuleLeave"), leaveOutSeed: cfg.leaveOutSeed,
           fixWith: cfg.fixWith, pilotGroups: lines("mrRulePilots"), pilotGroupsOff: cfg.pilotGroupsOff,
           renameExclusionFrom: {
             device: cfg.renameExclusionFrom.device.concat(prevPre.exD && lc($("mrRuleExD").value.trim()) !== lc(prevPre.exD) ? [prevPre.exD] : []),

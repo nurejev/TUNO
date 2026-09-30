@@ -460,7 +460,20 @@ async function run() {
   ok("csv has a header and quotes commas", c.split("\r\n")[0].startsWith("Old policy,") && /"[^"]*,[^"]*"/.test(c));
 
   // ------------------------------- also in scope by name (10634) --
-  ok("the five named OIB policies are in the target list by default", M.normConfig({}).alsoInScope.length === 5 && M.normConfig({}).alsoInScope.some((n) => /Delivery Optimisation/.test(n)));
+  ok("the ten named OIB policies are in the target list by default", M.normConfig({}).alsoInScope.length === 10 && M.normConfig({}).alsoInScope.some((n) => /Delivery Optimisation/.test(n))
+    && M.normConfig({}).alsoInScope.includes("Win - OIB - SC - Device Security - U - Windows Spotlight and Org Messages - v3.0"));
+  // 10652 (Mihai: "add the to be include"): five more Device Security
+  // policies; a config saved before gets them merged in once
+  const FIVE = M.DEFAULTS.alsoInScope.slice(0, 5);
+  const savedAlso = M.normConfig({ alsoInScope: FIVE.concat(["WIN - OIB - SC - Device Security - D - User Rights - v3.7", "Mine - D - x"]) });
+  ok("a config savedAlso before 10652 gets the five new names once, its own kept, no double by dash or case", savedAlso.alsoInScope.length === 11 && savedAlso.alsoInScope.includes("Mine - D - x")
+    && savedAlso.alsoInScope.includes("Win - OIB - SC - Device Security - D - Windows Package Manager - v3.5") && !savedAlso.alsoInScope.includes("Win - OIB - SC - Device Security - D - User Rights - v3.7")
+    && savedAlso.alsoInScopeSeed === M.DEFAULTS.alsoInScopeSeed);
+  const takenOff = M.normConfig(JSON.parse(JSON.stringify(Object.assign({}, savedAlso, { alsoInScope: savedAlso.alsoInScope.filter((n) => !/Sandbox/.test(n)) }))));
+  ok("…a name taken off by hand after that stays off", takenOff.alsoInScope.length === 10 && !takenOff.alsoInScope.some((n) => /Sandbox/.test(n)));
+  ok("their settings are Device security", ["device_vendor_msft_policy_config_windowssandbox_allownetworking", "device_vendor_msft_dmclient_provider_{providerid}_configrefresh_enabled",
+    "device_vendor_msft_policy_config_desktopappinstaller_enableappinstaller", "user_vendor_msft_policy_config_experience_allowwindowsspotlight",
+    "user_vendor_msft_policy_config_experience_enableorganizationalmessages", "device_vendor_msft_policy_config_userrights_debugprograms"].every((k) => M.catOfKey(k) === "hard"));
   const AUD = "device_vendor_msft_policy_config_audit_accountlogon_auditcredentialvalidation";
   const DO = "device_vendor_msft_policy_config_deliveryoptimization_dodownloadmode";
   ok("audit settings are Device security, delivery optimisation Updates & telemetry", M.catOfKey(AUD) === "hard" && M.catOfKey(DO) === "upd" && M.catMeta("hard").label === "Device security");

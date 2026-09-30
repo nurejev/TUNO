@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10652,
+  "date": "2026-09-30",
+  "title": "MDE rollout — five more OIB Device Security policies in the target list",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "Five more OIB Device Security policies are in the target list by default: Windows Sandbox, Config Refresh, User Rights, Windows Spotlight and Org Messages, and Windows Package Manager. An old policy that sets one of their settings is now compared with them."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "A tenant whose naming rules were saved before this build gets the five names added once. A name you take off afterwards stays off."
+    }
+  ]
+},
+{
   "build": 10651,
   "date": "2026-09-30",
   "title": "MDE rollout — exclude a whole list of users and devices at once",
