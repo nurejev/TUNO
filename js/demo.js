@@ -1890,6 +1890,15 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const list = m[2] === "memberOf" ? M.directGroupsOfDevice(m[1]) : M.groupsOfDevice(m[1]);
     return M.coll(list.map((g) => ({ id: g.id, displayName: g.displayName, "@odata.type": "#microsoft.graph.group" })));
   }
+  // registered owner (10655, T28 👥: a device with no Intune primary user
+  // takes its owner's country) — a device's _owner, else none
+  m = /^\/devices\/([^/]+)\/registeredOwners(?:\/microsoft\.graph\.user)?$/.exec(path);
+  if (m) {
+    const d = T.DEVICES.find((x) => x.azureADDeviceId === m[1]);
+    if (!d) return M.fault(404, "Request_ResourceNotFound", "Device not found.");
+    const o = d._owner ? T.USERS.find((x) => x.id === d._owner) : null;
+    return M.coll(o ? [{ id: o.id, userPrincipalName: o.userPrincipalName, usageLocation: o.usageLocation || null, "@odata.type": "#microsoft.graph.user" }] : []);
+  }
   m = /^\/devices\(deviceId='([^']+)'\)$/.exec(path);
   if (m) {
     const d = T.DEVICES.find((x) => x.azureADDeviceId === m[1]);

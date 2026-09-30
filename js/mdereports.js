@@ -225,7 +225,7 @@ ${body}
         `<tr><td>${esc(r.country)}${r.pilot ? ` <span class="tag">pilot</span>` : ""}</td><td>${esc(r.userGroupName)}</td><td>${r.users}</td><td>${esc(r.deviceGroupName || "—")}${r.dg ? "" : ` <span class="warn">(not created)</span>`}</td><td>${r.want.size} / ${r.have.size}</td><td>${r.dg ? (r.inSync ? `<span class="ok">in sync</span>` : `<span class="warn">+${r.add.length} −${r.remove.length}</span>`) : "—"}</td><td>${r.ugNested ? `<span class="ok">✓</span>` : "—"}</td><td>${r.dgNested ? `<span class="ok">✓</span>` : "—"}</td></tr>`).join("") + `</table>` : `<p class="muted">None of its country groups is in the tenant.</p>`)
         + (rg.rows.some((r) => !r.ug) ? `<p class="meta">Not in the tenant: ${rg.rows.filter((r) => !r.ug).map((r) => esc(r.userGroupName)).join(", ")}</p>` : "");
     }).join("") + (mem && mem.unmapped.length ? `<p class="meta">Prefix groups in no wave: ${mem.unmapped.map((u) => esc(u.group.displayName)).join(", ")}</p>` : "")
-      + (mem ? `<p class="meta">Windows devices with no Intune primary user (in no country): ${mem.noPrimary} of ${mem.managedCount}.</p>` : "");
+      + (mem ? `<p class="meta">Windows devices in no country (no Intune primary user, no Entra owner in a country, no country code at the start of the name): ${mem.noPrimary} of ${mem.managedCount}.</p>` : "");
     const newPol = model.newP.map((P) => {
       const s = settingsRows(P, ctx);
       return `<h3>${esc(P.name)}</h3><div class="meta">${esc(P.kind)}${P.audience ? " · " + esc(P.audience) + " policy" : ""} · ${P.cats.map((x) => esc(cm(x).label)).join(", ")}${P.scopeWhy ? " · in scope: " + esc(P.scopeWhy) : ""}</div>

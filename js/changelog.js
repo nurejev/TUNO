@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10655,
+  "date": "2026-09-30",
+  "title": "MDE rollout — a device with no primary user still finds its country",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "A Windows device with no Intune primary user now goes to the country device group of its Entra registered owner. If the owner is in no country group, their usage location decides. Otherwise, the country code the device name starts with decides, such as NLD- or IND5CD…"
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "The owner of such a device is no longer listed as a user with no Windows device. Only devices that none of the three rules can place stay in Left out."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "The country detail and the CSV say how each device got its country. A device whose name points to a different country than its primary user is flagged, and the primary user still decides."
+    }
+  ]
+},
+{
   "build": 10654,
   "date": "2026-09-30",
   "title": "MDE rollout — AVD hosts are named but out of scope in the Defender logons",

@@ -104,6 +104,37 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 217,
+  "title": "T28 — 👥 a device with no primary user: its Entra owner's country, else the ISO3 its name starts with",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10655
+  ],
+  "risk": "medium",
+  "what": "MdeMembers.readInput reads /devices/{id}/registeredOwners/microsoft.graph.user (id, UPN, usageLocation) for every Windows device with no Intune primary user and an Entra object (input.owners). compute: primary user → owner in a country group (the device joins byUser under the owner, via 'owner') → owner's usageLocation = a row's ISO2 suffix ('location') → the name's first three letters = a non-pilot row's 3-letter ISO3 ('name'); else left out. nameSays flags a device named for another country; problems.byOwner / byName / nameOther; model.placed; leftOutOf counts owners as having a device and noPrimary only for unplaced devices. CSV column 'Country by' (VIA_TEXT). Screen: detail shows the source, header wording, tile label. Members read asks Graph.SCOPES.directory. Demo: registeredOwners route (device _owner).",
+  "why": "Mihai: users listed with no Windows device while Entra and Intune show them a device with no primary user; 'devices mostly always have the ISO3 country code to start' (IND5CD5502ZZQ); 'other match options are where in Entra the location is set'. Mockup t28-device-country-mockup.html, option A.",
+  "test": [
+    "Run npm test: all 17 suites pass (mderollout/members 109, mderollout/screen 250).",
+    "On PVM: 👥 → ↻ Read again — the header says how many devices with no primary user were placed; open India: IND5CD5502ZZQ shows 'by Entra owner Aditya.Karadigudda@…' (or 'by name IND'); 🕳 Left out no longer lists him as a user with no Windows device."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "js/mdereports.js",
+    "js/demo.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10655.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 216,
   "title": "T28 — 🔎 Defender logons: VDI (AVD) devices named but out of scope",
   "tools": [

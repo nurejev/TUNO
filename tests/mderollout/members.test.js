@@ -98,6 +98,41 @@ async function run() {
   ok("a missing device group is 'to create' with its wanted set", DE.dg === null && DE.want.size === 2 && DE.add.length === 2);
   ok("a country group not in the tenant is a row without a group", GB.ug === null && GB.users === 0);
   ok("devices with no primary user are counted, not guessed", model.noPrimary === 1 && model.managedCount === 6);
+
+  // 10655 (Mihai: "in the users without devices I see no primary user on
+  // the device, but in Entra I get a device name"; "the 3 letter code the
+  // device name starts with is the country"; option A — the primary user,
+  // then the Entra owner, then the name)
+  const inO = Object.assign({}, input, {
+    managed: input.managed.concat([
+      { id: "m7", deviceName: "NLD5CD5502ZZQ", userId: "", azureADDeviceId: "A11", lastSyncDateTime: iso(now) },   // owner u2 (NL)
+      { id: "m8", deviceName: "DEU-LT-9", userId: "", azureADDeviceId: "A12", lastSyncDateTime: iso(now) },        // no owner → name DEU
+      { id: "m9", deviceName: "X-HALL-1", userId: "", azureADDeviceId: "A13", lastSyncDateTime: iso(now) },        // owner in no group, usage location DE
+      { id: "m10", deviceName: "KIOSK-2", userId: "", azureADDeviceId: "A14", lastSyncDateTime: iso(now) },        // nothing → left out
+      { id: "m11", deviceName: "DEU-LT-7", userId: "u1", azureADDeviceId: "A15", lastSyncDateTime: iso(now) },     // a Dutch user, a German name
+      { id: "m12", deviceName: "POL8H2", userId: "", azureADDeviceId: "A16", lastSyncDateTime: iso(now) },         // POL: Poland is split in cities — no single group
+    ]),
+    entra: input.entra.concat([{ id: "E11", deviceId: "A11", displayName: "NLD5CD5502ZZQ" }, { id: "E12", deviceId: "A12", displayName: "DEU-LT-9" }, { id: "E13", deviceId: "A13", displayName: "X-HALL-1" },
+      { id: "E14", deviceId: "A14", displayName: "KIOSK-2" }, { id: "E15", deviceId: "A15", displayName: "DEU-LT-7" }, { id: "E16", deviceId: "A16", displayName: "POL8H2" }]),
+    usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }, { id: "u5" }, { id: "u6", userPrincipalName: "u6@x" }]], [G(2), [{ id: "u3" }, { id: "u5" }]], [G(3), [{ id: "u1" }]]]),
+    owners: new Map([["e11", { id: "u6", upn: "u6@x", usageLocation: "NL" }], ["e13", { id: "u9", upn: "u9@x", usageLocation: "DE" }], ["e6", { id: "zz", upn: "zz@x", usageLocation: "" }]]),
+  });
+  const mo = MM.compute(cfg, inO, waves, now);
+  const NLo = mo.rows.find((r) => r.suffix === "NL"), DEo = mo.rows.find((r) => r.suffix === "DE"), BRo = mo.rows.find((r) => r.suffix === "NL-Breda");
+  const dev = (row, name) => row.devices.find((d) => d.name === name);
+  ok("no primary user: its Entra owner's country group takes it, said as by owner", dev(NLo, "NLD5CD5502ZZQ") && dev(NLo, "NLD5CD5502ZZQ").via === "owner" && dev(NLo, "NLD5CD5502ZZQ").owner === "u6@x" && NLo.want.has("e11")
+    && /Entra owner u6@x/.test(MM.VIA_TEXT(dev(NLo, "NLD5CD5502ZZQ"))));
+  ok("…an owner in no country group: their usage location", dev(DEo, "X-HALL-1") && dev(DEo, "X-HALL-1").via === "location" && DEo.want.has("e13"));
+  ok("…no owner: the ISO3 the name starts with (a dash after it or not)", dev(DEo, "DEU-LT-9") && dev(DEo, "DEU-LT-9").via === "name");
+  ok("…an owner in no group and no usage location falls to the name; nothing in the name, or a code with no single device group (POL: cities), is left out",
+    !mo.rows.some((r) => dev(r, "SHARED") || dev(r, "KIOSK-2") || dev(r, "POL8H2")) && mo.noPrimary === 3 && mo.placed === 3 && mo.leftOut.noPrimary.map((d) => d.name).sort().join() === "KIOSK-2,POL8H2,SHARED");
+  const inIND = Object.assign({}, inO, { managed: [{ id: "i1", deviceName: "IND5CD5502ZZQ", userId: "", azureADDeviceId: "AI", lastSyncDateTime: iso(now) }], entra: [{ id: "EI", deviceId: "AI", displayName: "IND5CD5502ZZQ" }], owners: new Map() });
+  ok("Mihai's example: IND5CD5502ZZQ, no primary user and no owner read — India, by name", MM.compute(cfg, inIND, waves, now).rows.find((r) => r.suffix === "IN").devices.some((d) => d.name === "IND5CD5502ZZQ" && d.via === "name"));
+  ok("…a pilot group never takes a device by owner location or name, only through its users", !dev(BRo, "DEU-LT-9") && !dev(BRo, "X-HALL-1"));
+  ok("the owner is no longer a user with no Windows device", !mo.leftOut.users.some((u) => u.id === "u6") && NLo.usersNoDevice === 0);
+  ok("a primary user always wins; a name for another country is said, not acted on", dev(NLo, "DEU-LT-7") && dev(NLo, "DEU-LT-7").via === "primary" && dev(NLo, "DEU-LT-7").nameSays === "Germany" && !dev(DEo, "DEU-LT-7")
+    && NLo.problems.nameOther === 1 && NLo.problems.byOwner === 1 && DEo.problems.byName === 1);
+  ok("the CSV says by what", /NLD5CD5502ZZQ,,.*,Entra owner u6@x \(no Intune primary user\)/.test(MM.csv(mo)) && /DEU-LT-9,,.*its name \(DEU…\)/.test(MM.csv(mo)) && /DEU-LT-7,.*the name says Germany,Intune primary user/.test(MM.csv(mo)));
   ok("groups with the prefix the table does not name are listed", model.unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
   const unm = MM.compute(MM.normConfig({ pilots: [], countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }] }), input, waves, now).unmapped;
   ok("…and a group extending a mapped one (NL-Breda ⊂ NL) is flagged as an overlap", unm.find((u) => /Breda/.test(u.group.displayName)).overlaps === "PVM-UG-CORP-MEM-USERS-NL");

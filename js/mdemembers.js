@@ -222,6 +222,26 @@ const MdeMembers = (() => {
     const managed = (managedAll || []).filter((m) => lc(m.operatingSystem) === "windows");
     say("Reading the Windows devices in Entra…");
     const entra = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$count=true&$select=id,deviceId,displayName,accountEnabled&$top=999`, { scopes: DO, headers: EV, retry: true });
+    // 10655 (Mihai: "in the users without devices I see no primary user on
+    // the device, but looking that user up in Entra I get a device name";
+    // option A off the mockup — primary user, then the Entra owner, then the
+    // name): the registered owner of every Windows device Intune names no
+    // primary user for, with the owner's usage location
+    const entraByDid = new Map((entra || []).filter((e) => e.deviceId).map((e) => [lc(e.deviceId), e]));
+    const orphans = managed.filter((m) => !m.userId && m.azureADDeviceId && entraByDid.has(lc(m.azureADDeviceId)));
+    const owners = new Map();
+    const ownerFailed = [];
+    let oi = 0;
+    const orr = await Graph.pool(orphans, async (m) => {
+      if (++oi % 25 === 1 || oi === orphans.length) say(`Reading the Entra owners of devices with no primary user — ${oi}/${orphans.length}…`);
+      return Graph.readAll(`/devices/${enc(entraByDid.get(lc(m.azureADDeviceId)).id)}/registeredOwners/microsoft.graph.user?$select=id,userPrincipalName,usageLocation&$top=5`, { scopes: DO, retry: true });
+    }, 6);
+    orr.forEach((r, n) => {
+      const e = entraByDid.get(lc(orphans[n].azureADDeviceId));
+      if (r.error) { ownerFailed.push(orphans[n].deviceName || orphans[n].id); return; }
+      const o = (r.value || [])[0];
+      if (o) owners.set(lc(e.id), { id: lc(o.id), upn: o.userPrincipalName || o.id, usageLocation: o.usageLocation || "" });
+    });
     const rows = countryRows(cfg);
     const wanted = new Set(rows.map((r) => lc(r.userGroupName)));
     const mapped = countryGroups.filter((g) => wanted.has(lc(g.displayName)));
@@ -271,9 +291,10 @@ const MdeMembers = (() => {
           devices: (devices || []).map((d) => ({ id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id })), groups: (groups || []).map((x) => ({ id: lc(x.id), name: x.displayName || x.id })) });
       } catch (e) { failed.push(`${name}: ${(e && e.message) || e}`); }
     }
+    if (ownerFailed.length) failed.push(`the Entra owner of ${ownerFailed.length} device${ownerFailed.length === 1 ? "" : "s"} with no primary user could not be read (${ownerFailed.slice(0, 5).join(", ")}${ownerFailed.length > 5 ? " …" : ""}) — their name decides`);
     say("");
     return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
-      pilots, pilotsMissing, failed, readAt: Date.now() };
+      pilots, pilotsMissing, owners, failed, readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -341,35 +362,66 @@ const MdeMembers = (() => {
     const staleMs = cfg.staleDays * 86400000;
     const entraByDeviceId = new Map(), entraById = new Map();
     for (const e of input.entra || []) { if (e.deviceId) entraByDeviceId.set(lc(e.deviceId), e); entraById.set(lc(e.id), e); }
-    const byUser = new Map();
-    let noPrimary = 0;
-    for (const m of input.managed || []) {
-      if (!m.userId) { noPrimary++; continue; }
-      const k = lc(m.userId);
-      if (!byUser.has(k)) byUser.set(k, []);
-      byUser.get(k).push(m);
-    }
     const groupsByName = new Map((input.countryGroups || []).map((g) => [lc(g.displayName), g]));
     const dgByName = new Map((input.deviceGroups || []).map((g) => [lc(g.displayName), g]));
-    const rows = countryRows(cfg).map((r) => {
-      const ug = groupsByName.get(lc(r.userGroupName)) || null;
-      const users = ug ? input.usersByGroup.get(lc(ug.id)) : null;
+    const defs = countryRows(cfg).map((r) => { const ug = groupsByName.get(lc(r.userGroupName)) || null; return { r, ug, users: ug ? input.usersByGroup.get(lc(ug.id)) : null }; });
+    const inRows = new Set();
+    for (const x of defs) for (const u of x.users || []) inRows.add(lc(u.id));
+    // A device's country (10655, option A): its Intune primary user; with
+    // none, its Entra registered owner (their country group, else their
+    // usage location); with neither, the ISO3 its name starts with — only a
+    // code of a country in the table, and never a pilot's group.
+    const byIso3 = new Map(), byIso2 = new Map();
+    for (const x of defs) if (!x.r.pilot) {
+      if (x.r.iso3 && /^[A-Z]{3}$/.test(x.r.iso3) && !byIso3.has(x.r.iso3)) byIso3.set(x.r.iso3, x.r);
+      if (/^[A-Za-z]{2}$/.test(x.r.suffix) && !byIso2.has(lc(x.r.suffix))) byIso2.set(lc(x.r.suffix), x.r);
+    }
+    const nameRow = (name) => byIso3.get(String(name || "").slice(0, 3).toUpperCase()) || null;
+    const byUser = new Map(), extra = new Map(), placed = new Map();
+    let noPrimary = 0;
+    for (const m of input.managed || []) {
+      let k = m.userId ? lc(m.userId) : "", via = "primary", owner = null;
+      if (!k) {
+        const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
+        owner = e && input.owners ? input.owners.get(lc(e.id)) || null : null;
+        if (owner && inRows.has(owner.id)) { k = owner.id; via = "owner"; }
+        else {
+          let row = owner && owner.usageLocation ? byIso2.get(lc(owner.usageLocation)) || null : null;
+          via = row ? "location" : "name";
+          if (!row) row = nameRow(m.deviceName);
+          if (!row) { noPrimary++; continue; }
+          if (!extra.has(row.key)) extra.set(row.key, []);
+          extra.get(row.key).push({ m, via, owner });
+          placed.set(lc(m.id), via);
+          continue;
+        }
+        placed.set(lc(m.id), via);
+      }
+      if (!byUser.has(k)) byUser.set(k, []);
+      byUser.get(k).push({ m, via, owner });
+    }
+    const rows = defs.map(({ r, ug, users }) => {
       const devices = [], seen = new Set();
       let usersNoDevice = 0;
+      const push = (m, u, via, owner) => {
+        if (seen.has(lc(m.id))) return;
+        seen.add(lc(m.id));
+        const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
+        const last = Date.parse(m.lastSyncDateTime || "");
+        const name = m.deviceName || (e && e.displayName) || m.id;
+        const nr = nameRow(name);
+        devices.push({ managedId: m.id, name, upn: m.userPrincipalName || (u && u.userPrincipalName) || (owner && owner.upn) || "", userId: u ? lc(u.id) : (owner ? owner.id : ""),
+          via, owner: owner ? owner.upn : "", nameSays: nr && nr.iso3 !== String(r.iso3 || "").slice(0, 3) ? nr.country : "",
+          lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
+          objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
+          held: !!(e && held.has(lc(e.id))) });
+      };
       for (const u of users || []) {
         const list = byUser.get(lc(u.id)) || [];
         if (!list.length) { usersNoDevice++; continue; }
-        for (const m of list) {
-          if (seen.has(lc(m.id))) continue;
-          seen.add(lc(m.id));
-          const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
-          const last = Date.parse(m.lastSyncDateTime || "");
-          devices.push({ managedId: m.id, name: m.deviceName || (e && e.displayName) || m.id, upn: m.userPrincipalName || u.userPrincipalName || "", userId: lc(u.id),
-            lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
-            objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
-            held: !!(e && held.has(lc(e.id))) });
-        }
+        for (const x of list) push(x.m, u, x.via, x.owner);
       }
+      for (const x of extra.get(r.key) || []) push(x.m, null, x.via, x.owner);
       const dg = r.deviceGroupName ? dgByName.get(lc(r.deviceGroupName)) || null : null;
       const w = waves ? waves.get(lc(r.region)) : null;
       return Object.assign({}, r, {
@@ -402,6 +454,9 @@ const MdeMembers = (() => {
       row.ugNested = row.ug && row.wave.user ? !!(kids(row.wave.user) && kids(row.wave.user).has(lc(row.ug.id))) : null;
       row.dgNested = row.dg && row.wave.device ? !!(kids(row.wave.device) && kids(row.wave.device).has(lc(row.dg.id))) : null;
       row.problems = {
+        byOwner: row.devices.filter((d) => d.via === "owner" || d.via === "location").length,
+        byName: row.devices.filter((d) => d.via === "name").length,
+        nameOther: row.devices.filter((d) => d.nameSays).length,
         noEntra: row.devices.filter((d) => !d.objId).length,
         stale: row.devices.filter((d) => d.stale).length,
         multi: row.devices.filter((d) => d.others.length && !d.pilotOverlap).length,
@@ -428,8 +483,10 @@ const MdeMembers = (() => {
         devices: rs.filter((r) => r.dgNested).reduce((a, r) => a + r.have.size, 0),
       };
     });
-    return { rows, regions, unmapped, noPrimary, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
-      leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId), pilots: pilotsOf(input, rows) };
+    const ownerUsers = new Set();
+    for (const [k, list] of byUser) if (list.some((x) => x.via === "owner")) ownerUsers.add(k);
+    return { rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
+      leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId, placed, ownerUsers), pilots: pilotsOf(input, rows) };
   }
 
   // ------------------------------------------------------------ logons --
@@ -735,7 +792,7 @@ const MdeMembers = (() => {
   //   noPrimary — Windows devices with no primary user
   //   noEntra  — a country's devices with no Entra object (cannot be members)
   //   held     — a country's devices in the device exclusion group (⊘)
-  function leftOutOf(input, rows, now, staleMs, entraByDeviceId) {
+  function leftOutOf(input, rows, now, staleMs, entraByDeviceId, placed, ownerUsers) {
     const osByUser = new Map();
     for (const m of input.managedAll || input.managed || []) {
       if (!m.userId || lc(m.operatingSystem) === "windows") continue;
@@ -743,7 +800,8 @@ const MdeMembers = (() => {
       if (!osByUser.has(k)) osByUser.set(k, {});
       osByUser.get(k)[os] = (osByUser.get(k)[os] || 0) + 1;
     }
-    const winUsers = new Set((input.managed || []).filter((m) => m.userId).map((m) => lc(m.userId)));
+    // a user who owns (in Entra) a device with no primary user has it (10655)
+    const winUsers = new Set((input.managed || []).filter((m) => m.userId).map((m) => lc(m.userId)).concat([...(ownerUsers || [])]));
     const users = [], noEntra = [], held = [];
     const inCountry = new Set();
     for (const r of rows) {
@@ -766,7 +824,7 @@ const MdeMembers = (() => {
       const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
       const x = { name: m.deviceName || m.id, upn: m.userPrincipalName || "", userId: lc(m.userId || ""), lastSync: m.lastSyncDateTime || null,
         stale: Number.isFinite(last) && now - last > staleMs, entra: !!e };
-      if (!m.userId) noPrimary.push(x);
+      if (!m.userId) { if (!(placed && placed.has(lc(m.id)))) noPrimary.push(x); }
       else if (!inCountry.has(lc(m.userId))) noCountry.push(x);
     }
     const byName = (a, b) => lc(a.upn || a.name).localeCompare(lc(b.upn || b.name));
@@ -1067,12 +1125,14 @@ const MdeMembers = (() => {
 
   // ------------------------------------------------------------- export --
   const csvCell = (s) => { const v = String(s == null ? "" : s); return /[",\r\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+  // how a device got its country (10655)
+  const VIA_TEXT = (d) => d.via === "owner" ? `Entra owner ${d.owner} (no Intune primary user)` : d.via === "location" ? `Entra owner ${d.owner}'s usage location (no primary user)` : d.via === "name" ? `its name (${String(d.name).slice(0, 3).toUpperCase()}…) — no primary user${d.owner ? `, owner ${d.owner} in no country` : ", no Entra owner"}` : "Intune primary user";
   function csv(model) {
-    const rows = [["Region", "Country", "User group", "Device group", "Device", "Primary user", "Last sync", "Status"]];
+    const rows = [["Region", "Country", "User group", "Device group", "Device", "Primary user", "Last sync", "Status", "Country by"]];
     for (const r of model.rows) {
       for (const d of r.devices) {
         const st = !d.objId ? d.problem : d.held ? (r.have.has(d.objId) ? "excluded — to take out" : "excluded — kept out") : r.have.has(d.objId) ? "in group" : "to add";
-        rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", d.name, d.upn, d.lastSync || "", `${st}${d.stale ? " · stale" : ""}${d.others.length ? " · also in " + d.others.join(", ") : ""}`]);
+        rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", d.name, d.via === "primary" || !d.via ? d.upn : "", d.lastSync || "", `${st}${d.stale ? " · stale" : ""}${d.others.length ? " · also in " + d.others.join(", ") : ""}${d.nameSays ? ` · the name says ${d.nameSays}` : ""}`, VIA_TEXT(d)]);
       }
       r.remove.forEach((id, n) => rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", r.removeNames[n], "", "", "to remove (primary user not in the country group)"]));
     }
@@ -1082,7 +1142,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
+    addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };
 })();

@@ -2708,7 +2708,7 @@ const MdeRolloutTool = (() => {
     if (mem.loading) return;
     mem.loading = true; clearPlan(); render();
     try {
-      await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects])]);
+      await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
       mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mrMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
       memCompute();
@@ -2744,11 +2744,13 @@ const MdeRolloutTool = (() => {
     const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
       const wb = r.batch && !r.batch.finished && d.objId && !d.held && !r.want.has(d.objId) ? r.batch.batches.find((b) => b.users.some((u) => u.id === d.userId)) : null;
       const st = !d.objId ? chip("au-op delete", d.problem) : wb ? `<span class="muted">🧪 waits for batch ${wb.n}</span>` : d.held ? `${chip("gu-how priv", "⊘ excluded")} <span class="muted">${r.have.has(d.objId) ? "take out — stays on the old set" : "kept out — on the old set"}</span>` : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
-      return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
+      // 10655: a device with no primary user says what placed it
+      const who = !d.via || d.via === "primary" ? esc(d.upn) : `<span class="muted">none</span> · ${chip("gu-how", d.via === "owner" ? `by Entra owner ${d.owner}` : d.via === "location" ? `by ${d.owner}'s usage location` : `by name ${String(d.name).slice(0, 3).toUpperCase()}`)}`;
+      return `<tr><td>${esc(d.name)}${d.nameSays ? `<div class="mini" style="color:var(--report)">the name says ${esc(d.nameSays)}</div>` : ""}</td><td class="mini">${who}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
     return `<tr><td colspan="6" style="padding:0 8px 8px 36px">${r.pilot ? batchPanel(r) : ""}<div class="mr-detail">
-      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}${r.problems.held ? ` · <span class="muted">${r.problems.held} in the device exclusion group — kept out, on the old set</span>` : ""}
+      <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}${r.problems.held ? ` · <span class="muted">${r.problems.held} in the device exclusion group — kept out, on the old set</span>` : ""}${r.problems.byOwner || r.problems.byName ? ` · <span class="muted">no primary user: ${[r.problems.byOwner ? `${r.problems.byOwner} by Entra owner` : "", r.problems.byName ? `${r.problems.byName} by name` : ""].filter(Boolean).join(", ")}</span>` : ""}${r.problems.nameOther ? ` · <span style="color:var(--report)">${r.problems.nameOther} named for another country — the user decides</span>` : ""}
       ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
       ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
     </div></td></tr>`;
@@ -2806,7 +2808,7 @@ const MdeRolloutTool = (() => {
   const osHas = (h) => { const e = Object.entries(h || {}); return e.length ? e.map(([os, n]) => chip("gu-how", `${os} ${n}`)).join(" ") : chip("gu-how priv", "nothing in Intune"); };
   const LEFT_WHY = {
     noCountry: { label: "primary user in no country group of the table", tile: "Windows devices whose primary user is in no country group of the table" },
-    noPrimary: { label: "no primary user", tile: "Windows devices with no primary user" },
+    noPrimary: { label: "no primary user, owner or country code", tile: "Windows devices with no primary user, no Entra owner in a country and no country code in the name" },
     noEntra: { label: "no Entra object", tile: "no Entra object — they cannot be group members" },
     held: { label: "⊘ excluded — stays on the old set", tile: "in the device exclusion group — on the old set" },
   };
@@ -3075,7 +3077,7 @@ const MdeRolloutTool = (() => {
       <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px">
         ${meter("user wave", rg.wave.userName, rg.ugNested, inTenant.length, `country groups nested · ${rg.users.toLocaleString()} users`)}
         ${meter("device wave", rg.wave.deviceName, rg.dgNested, inTenant.length, `device groups nested · ${rg.devices.toLocaleString()} devices`)}
-        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b> · Windows only · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} have no primary user</a> and are in no country</div>
+        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b>, else the Entra owner, else the country code the name starts with · Windows only${m.placed ? ` · ${m.placed.toLocaleString()} with no primary user placed that way` : ""} · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} in no country</a></div>
       </div>
       ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:8%"><col style="width:13%"><col style="width:26%"><col></colgroup>
         <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
