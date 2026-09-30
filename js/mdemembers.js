@@ -39,6 +39,13 @@ const MdeMembers = (() => {
   // ISO 3166-1 alpha-2 → alpha-3, the full list (pycountry, 249 entries).
   const ISO = "ADAND AEARE AFAFG AGATG AIAIA ALALB AMARM AOAGO AQATA ARARG ASASM ATAUT AUAUS AWABW AXALA AZAZE BABIH BBBRB BDBGD BEBEL BFBFA BGBGR BHBHR BIBDI BJBEN BLBLM BMBMU BNBRN BOBOL BQBES BRBRA BSBHS BTBTN BVBVT BWBWA BYBLR BZBLZ CACAN CCCCK CDCOD CFCAF CGCOG CHCHE CICIV CKCOK CLCHL CMCMR CNCHN COCOL CRCRI CUCUB CVCPV CWCUW CXCXR CYCYP CZCZE DEDEU DJDJI DKDNK DMDMA DODOM DZDZA ECECU EEEST EGEGY EHESH ERERI ESESP ETETH FIFIN FJFJI FKFLK FMFSM FOFRO FRFRA GAGAB GBGBR GDGRD GEGEO GFGUF GGGGY GHGHA GIGIB GLGRL GMGMB GNGIN GPGLP GQGNQ GRGRC GSSGS GTGTM GUGUM GWGNB GYGUY HKHKG HMHMD HNHND HRHRV HTHTI HUHUN IDIDN IEIRL ILISR IMIMN ININD IOIOT IQIRQ IRIRN ISISL ITITA JEJEY JMJAM JOJOR JPJPN KEKEN KGKGZ KHKHM KIKIR KMCOM KNKNA KPPRK KRKOR KWKWT KYCYM KZKAZ LALAO LBLBN LCLCA LILIE LKLKA LRLBR LSLSO LTLTU LULUX LVLVA LYLBY MAMAR MCMCO MDMDA MEMNE MFMAF MGMDG MHMHL MKMKD MLMLI MMMMR MNMNG MOMAC MPMNP MQMTQ MRMRT MSMSR MTMLT MUMUS MVMDV MWMWI MXMEX MYMYS MZMOZ NANAM NCNCL NENER NFNFK NGNGA NINIC NLNLD NONOR NPNPL NRNRU NUNIU NZNZL OMOMN PAPAN PEPER PFPYF PGPNG PHPHL PKPAK PLPOL PMSPM PNPCN PRPRI PSPSE PTPRT PWPLW PYPRY QAQAT REREU ROROU RSSRB RURUS RWRWA SASAU SBSLB SCSYC SDSDN SESWE SGSGP SHSHN SISVN SJSJM SKSVK SLSLE SMSMR SNSEN SOSOM SRSUR SSSSD STSTP SVSLV SXSXM SYSYR SZSWZ TCTCA TDTCD TFATF TGTGO THTHA TJTJK TKTKL TLTLS TMTKM TNTUN TOTON TRTUR TTTTO TVTUV TWTWN TZTZA UAUKR UGUGA UMUMI USUSA UYURY UZUZB VAVAT VCVCT VEVEN VGVGB VIVIR VNVNM VUVUT WFWLF WSWSM YEYEM YTMYT ZAZAF ZMZMB ZWZWE";
   const ISO3 = new Map(ISO.split(" ").map((x) => [x.slice(0, 2), x.slice(2)]));
+  // A DELETED primary user (10659, Mihai: "these devices have a username in
+  // their primary user. extract that name and find the real user"): Entra
+  // renames a deleted user's UPN to <object id without dashes><old UPN>, and
+  // Intune keeps showing it — 06a64d50…96caNausad.Ahmed@perfettivanmelle.com.
+  // The old UPN is the one the person's live account carries.
+  const DELETED_UPN = /^[0-9a-f]{32}(.+@.+)$/i;
+  const realUpnOf = (upn) => { const m = DELETED_UPN.exec(String(upn || "").trim()); return m ? m[1] : ""; };
 
   // ------------------------------------------------------------ config --
   // The country → region table from Mihai's sheet (29-09). Group names are
@@ -171,6 +178,11 @@ const MdeMembers = (() => {
     if (/^UAE$/i.test(s)) return "United Arab Emirates";
     return s.replace(/-/g, " ");
   }
+  // alpha-3 → the country's English name (10659, the Left out hint)
+  function countryName3(code) {
+    const two = [...ISO3.entries()].find(([, v]) => v === String(code || "").toUpperCase());
+    return two ? countryName(two[0]) : String(code || "");
+  }
   // The rows the map names, in the map's order. A suffix listed under two
   // regions is kept in the first and said.
   function countryRows(cfg) {
@@ -259,6 +271,34 @@ const MdeMembers = (() => {
       return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,onPremisesSecurityIdentifier,onPremisesSamAccountName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
     }, 4);
     ur.forEach((r, n) => { if (r.error) failed.push(`${mapped[n].displayName}: ${(r.error && r.error.message) || r.error}`); else usersByGroup.set(lc(mapped[n].id), r.value || []); });
+    // 10659: the primary users in no country group of the table — each read
+    // once: a deleted one by the UPN its name carries (the live account), a
+    // live one by id — for their usage location, and the live account's id
+    const inGroups = new Set();
+    for (const list of usersByGroup.values()) for (const u of list) inGroups.add(lc(u.id));
+    const outside = new Map();
+    for (const m of managed) if (m.userId && !inGroups.has(lc(m.userId)) && !outside.has(lc(m.userId))) outside.set(lc(m.userId), m);
+    const primaryUsers = new Map(), puFailed = [];
+    const outList = [...outside.entries()];
+    let pi = 0;
+    const pr = await Graph.pool(outList, async ([, m]) => {
+      if (++pi % 25 === 1 || pi === outList.length) say(`Looking up primary users outside the country groups — ${pi}/${outList.length}…`);
+      const real = realUpnOf(m.userPrincipalName);
+      if (real) return { real, hits: await Graph.readAll(`/users?$filter=${enc(`userPrincipalName eq '${odq(real)}'`)}&$select=id,userPrincipalName,usageLocation,accountEnabled&$top=5`, { scopes: Graph.SCOPES.directory, retry: true }) };
+      try { return { one: await Graph.get(`https://graph.microsoft.com/v1.0/users/${enc(m.userId)}?$select=id,userPrincipalName,usageLocation,accountEnabled`, { scopes: Graph.SCOPES.directory, retry: true }) }; }
+      catch (e) { if (e && e.kind === "notfound") return { gone: true }; throw e; }
+    }, 6);
+    pr.forEach((r, n) => {
+      const [k, m] = outList[n];
+      if (r.error) { puFailed.push(m.userPrincipalName || m.userId); return; }
+      const v = r.value || {};
+      if (v.real) {
+        const u = (v.hits || []).find((x) => lc(x.userPrincipalName) === lc(v.real)) || null;
+        primaryUsers.set(k, { deleted: true, realUpn: v.real, id: u ? lc(u.id) : "", upn: u ? u.userPrincipalName : v.real, usageLocation: u ? u.usageLocation || "" : "", found: !!u, enabled: u ? u.accountEnabled !== false : null });
+      } else if (v.gone) primaryUsers.set(k, { deleted: true, realUpn: "", id: "", upn: m.userPrincipalName || "", usageLocation: "", found: false, enabled: null });
+      else primaryUsers.set(k, { deleted: false, realUpn: "", id: lc(v.one.id), upn: v.one.userPrincipalName || m.userPrincipalName || "", usageLocation: v.one.usageLocation || "", found: true, enabled: v.one.accountEnabled !== false });
+    });
+    if (puFailed.length) failed.push(`${puFailed.length} primary user${puFailed.length === 1 ? "" : "s"} outside the country groups could not be looked up (${puFailed.slice(0, 5).join(", ")}${puFailed.length > 5 ? " …" : ""}) — their device's name decides`);
     const deviceMembers = new Map();
     i = 0;
     const dr = await Graph.pool(dgList, async (g) => {
@@ -301,7 +341,7 @@ const MdeMembers = (() => {
     if (ownerFailed.length) failed.push(`the Entra owner of ${ownerFailed.length} device${ownerFailed.length === 1 ? "" : "s"} with no primary user could not be read (${ownerFailed.slice(0, 5).join(", ")}${ownerFailed.length > 5 ? " …" : ""}) — their name decides`);
     say("");
     return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
-      pilots, pilotsMissing, owners, failed, readAt: Date.now() };
+      pilots, pilotsMissing, owners, primaryUsers, failed, readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -386,8 +426,29 @@ const MdeMembers = (() => {
     const nameRow = (name) => byIso3.get(String(name || "").slice(0, 3).toUpperCase()) || null;
     const byUser = new Map(), extra = new Map(), placed = new Map();
     let noPrimary = 0;
+    const pus = input.primaryUsers || new Map();
     for (const m of input.managed || []) {
       let k = m.userId ? lc(m.userId) : "", via = "primary", owner = null;
+      // 10659: a primary user in no country group of the table — a deleted
+      // one's live account when IT is in a country group; else the ISO3 the
+      // device name starts with; else the (live) user's usage location
+      if (k && !inRows.has(k)) {
+        const pu = pus.get(k) || { deleted: !!realUpnOf(m.userPrincipalName), realUpn: realUpnOf(m.userPrincipalName), id: "", upn: realUpnOf(m.userPrincipalName) || m.userPrincipalName || "", usageLocation: "", found: false };
+        const who = { id: pu.id || "", upn: pu.upn || pu.realUpn || m.userPrincipalName || "", deleted: !!pu.deleted, found: !!pu.found, outside: true, usageLocation: pu.usageLocation || "" };
+        if (pu.id && inRows.has(pu.id)) {
+          k = pu.id; via = "real"; owner = who;
+          placed.set(lc(m.id), via);
+        } else {
+          let row = nameRow(m.deviceName), how = "name";
+          if (!row && pu.usageLocation) { row = byIso2.get(lc(pu.usageLocation)) || null; how = "userloc"; }
+          if (row) {
+            if (!extra.has(row.key)) extra.set(row.key, []);
+            extra.get(row.key).push({ m, via: how, owner: who });
+            placed.set(lc(m.id), how);
+            continue;
+          }
+        }
+      }
       if (!k) {
         const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
         owner = e && input.owners ? input.owners.get(lc(e.id)) || null : null;
@@ -417,7 +478,9 @@ const MdeMembers = (() => {
         const last = Date.parse(m.lastSyncDateTime || "");
         const name = m.deviceName || (e && e.displayName) || m.id;
         const nr = nameRow(name);
-        devices.push({ managedId: m.id, name, upn: m.userPrincipalName || (u && u.userPrincipalName) || (owner && owner.upn) || "", userId: u ? lc(u.id) : (owner ? owner.id : ""),
+        const liveUpn = via === "real" || via === "userloc" || (via === "name" && owner && owner.upn) ? owner.upn : "";
+        devices.push({ managedId: m.id, name, upn: liveUpn || realUpnOf(m.userPrincipalName) || m.userPrincipalName || (u && u.userPrincipalName) || (owner && owner.upn) || "",
+          deletedUser: !!realUpnOf(m.userPrincipalName) || !!(owner && owner.deleted), outside: !!(owner && owner.outside), usageLocation: owner && owner.outside ? owner.usageLocation : "", userId: u ? lc(u.id) : (owner ? owner.id : ""),
           via, owner: owner ? owner.upn : "", nameSays: nr && nr.iso3 !== String(r.iso3 || "").slice(0, 3) ? nr.country : "",
           lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
           objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
@@ -463,6 +526,8 @@ const MdeMembers = (() => {
       row.problems = {
         byOwner: row.devices.filter((d) => d.via === "owner" || d.via === "location").length,
         byName: row.devices.filter((d) => d.via === "name").length,
+        byReal: row.devices.filter((d) => d.via === "real").length,
+        byOutside: row.devices.filter((d) => d.outside && d.via !== "real").length,
         nameOther: row.devices.filter((d) => d.nameSays).length,
         noEntra: row.devices.filter((d) => !d.objId).length,
         stale: row.devices.filter((d) => d.stale).length,
@@ -504,7 +569,7 @@ const MdeMembers = (() => {
       };
     });
     const ownerUsers = new Set();
-    for (const [k, list] of byUser) if (list.some((x) => x.via === "owner")) ownerUsers.add(k);
+    for (const [k, list] of byUser) if (list.some((x) => x.via === "owner" || x.via === "real")) ownerUsers.add(k);
     return { rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
       leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId, placed, ownerUsers), pilots: pilotsOf(input, rows) };
   }
@@ -845,7 +910,19 @@ const MdeMembers = (() => {
       const x = { name: m.deviceName || m.id, upn: m.userPrincipalName || "", userId: lc(m.userId || ""), lastSync: m.lastSyncDateTime || null,
         stale: Number.isFinite(last) && now - last > staleMs, entra: !!e };
       if (!m.userId) { if (!(placed && placed.has(lc(m.id)))) noPrimary.push(x); }
-      else if (!inCountry.has(lc(m.userId))) noCountry.push(x);
+      else if (!inCountry.has(lc(m.userId)) && !(placed && placed.has(lc(m.id)))) {
+        // 10659: say who the user really is and why nothing placed the device
+        const pu = (input.primaryUsers && input.primaryUsers.get(lc(m.userId))) || null;
+        const real = realUpnOf(m.userPrincipalName);
+        x.upn = real || x.upn;
+        x.deleted = !!real || !!(pu && pu.deleted);
+        x.found = pu ? !!pu.found : null;
+        x.usageLocation = pu ? pu.usageLocation || "" : "";
+        const code = String(x.name).slice(0, 3).toUpperCase();
+        const nameHint = /^[A-Z]{3}$/.test(code) && [...ISO3.values()].includes(code) ? `the name says ${countryName3(code)} (${code}), not in the table` : "no country code in the name";
+        x.detail = [x.deleted ? (pu && pu.found ? "primary user deleted — the live account is in no country group of the table" : real ? "primary user deleted — no live account with that name" : "primary user deleted") : "", nameHint, x.usageLocation ? `usage location ${x.usageLocation} — not in the table` : ""].filter(Boolean).join(" · ");
+        noCountry.push(x);
+      }
     }
     const byName = (a, b) => lc(a.upn || a.name).localeCompare(lc(b.upn || b.name));
     return { users: users.sort(byName), noCountry: noCountry.sort(byName), noPrimary: noPrimary.sort(byName), noEntra, held };
@@ -858,7 +935,7 @@ const MdeMembers = (() => {
     L.users.filter(inR).forEach((u) => rows.push(["user", u.region, u.country, u.upn, "", "no Windows device (Intune primary user)", has(u.has), "", lg(u)]));
     L.noEntra.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, d.why || "no Entra object", "", d.lastSync || ""]));
     L.held.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, "in the device exclusion group — stays on the old set", "", d.lastSync || ""]));
-    L.noCountry.forEach((d) => rows.push(["device", "", "", d.upn, d.name, "primary user in no country group of the table", "", d.lastSync || ""]));
+    L.noCountry.forEach((d) => rows.push(["device", "", "", d.upn, d.name, `primary user in no country group of the table${d.detail ? ` — ${d.detail}` : ""}`, "", d.lastSync || ""]));
     L.noPrimary.forEach((d) => rows.push(["device", "", "", "", d.name, "no primary user", "", d.lastSync || ""]));
     return rows.map((x) => x.map(csvCell).join(",")).join("\r\n");
   }
@@ -1191,13 +1268,14 @@ const MdeMembers = (() => {
   // ------------------------------------------------------------- export --
   const csvCell = (s) => { const v = String(s == null ? "" : s); return /[",\r\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   // how a device got its country (10655)
-  const VIA_TEXT = (d) => d.via === "owner" ? `Entra owner ${d.owner} (no Intune primary user)` : d.via === "location" ? `Entra owner ${d.owner}'s usage location (no primary user)` : d.via === "name" ? `its name (${String(d.name).slice(0, 3).toUpperCase()}…) — no primary user${d.owner ? `, owner ${d.owner} in no country` : ", no Entra owner"}` : "Intune primary user";
+  const VIA_TEXT = (d) => d.outside ? `${d.deletedUser ? "deleted primary user — " : "primary user in no country group — "}${d.via === "real" ? `live account ${d.upn} is in this country group` : d.via === "userloc" ? `${d.upn}'s usage location ${d.usageLocation}` : `its name (${String(d.name).slice(0, 3).toUpperCase()}…)`}`
+    : d.via === "owner" ? `Entra owner ${d.owner} (no Intune primary user)` : d.via === "location" ? `Entra owner ${d.owner}'s usage location (no primary user)` : d.via === "name" ? `its name (${String(d.name).slice(0, 3).toUpperCase()}…) — no primary user${d.owner ? `, owner ${d.owner} in no country` : ", no Entra owner"}` : "Intune primary user";
   function csv(model) {
     const rows = [["Region", "Country", "User group", "Device group", "Device", "Primary user", "Last sync", "Status", "Country by"]];
     for (const r of model.rows) {
       for (const d of r.devices) {
         const st = !d.objId ? d.problem : d.held ? (r.have.has(d.objId) ? "excluded — to take out" : "excluded — kept out") : r.have.has(d.objId) ? "in group" : "to add";
-        rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", d.name, d.via === "primary" || !d.via ? d.upn : "", d.lastSync || "", `${st}${d.stale ? " · stale" : ""}${d.others.length ? " · also in " + d.others.join(", ") : ""}${d.nameSays ? ` · the name says ${d.nameSays}` : ""}`, VIA_TEXT(d)]);
+        rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", d.name, d.via === "primary" || !d.via || d.outside ? d.upn : "", d.lastSync || "", `${st}${d.stale ? " · stale" : ""}${d.others.length ? " · also in " + d.others.join(", ") : ""}${d.nameSays ? ` · the name says ${d.nameSays}` : ""}`, VIA_TEXT(d)]);
       }
       r.remove.forEach((id, n) => rows.push([r.region, r.country, r.userGroupName, r.deviceGroupName || "", r.removeNames[n], "", "", "to remove (primary user not in the country group)"]));
     }
@@ -1206,7 +1284,7 @@ const MdeMembers = (() => {
 
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
-    iso3Of, countryName, countryRows, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
+    iso3Of, countryName, countryRows, realUpnOf, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };

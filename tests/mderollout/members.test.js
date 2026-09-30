@@ -133,6 +133,46 @@ async function run() {
   ok("a primary user always wins; a name for another country is said, not acted on", dev(NLo, "DEU-LT-7") && dev(NLo, "DEU-LT-7").via === "primary" && dev(NLo, "DEU-LT-7").nameSays === "Germany" && !dev(DEo, "DEU-LT-7")
     && NLo.problems.nameOther === 1 && NLo.problems.byOwner === 1 && DEo.problems.byName === 1);
   ok("the CSV says by what", /NLD5CD5502ZZQ,,.*,Entra owner u6@x \(no Intune primary user\)/.test(MM.csv(mo)) && /DEU-LT-9,,.*its name \(DEU…\)/.test(MM.csv(mo)) && /DEU-LT-7,.*the name says Germany,Intune primary user/.test(MM.csv(mo)));
+  // 10659 (Mihai: "these devices have a username in their primary user.
+  // extract that name and find the real user"; "in the devicename the
+  // country is there … mix and match"): a primary user in no country group
+  ok("a deleted user's UPN gives the live one back", MM.realUpnOf("06a64d5023c34c48bc7dda39ce1096caNausad.Ahmed@perfettivanmelle.com") === "Nausad.Ahmed@perfettivanmelle.com"
+    && MM.realUpnOf("Nausad.Ahmed@perfettivanmelle.com") === "" && MM.realUpnOf("") === "");
+  const BD = "06a64d5023c34c48bc7dda39ce1096caNausad.Ahmed@perfettivanmelle.com";
+  const inR = Object.assign({}, input, {
+    managed: input.managed.concat([
+      { id: "r1", deviceName: "BGD5CD5302DG8", userId: "dead1", userPrincipalName: BD, azureADDeviceId: "R1", lastSyncDateTime: iso(now) },          // deleted, live account not in a group → name BGD
+      { id: "r2", deviceName: "5CG0521757", userId: "dead2", userPrincipalName: "1b4ca89aabcc47d9b8f8c21d84955435Scott.Swanson@x.com", azureADDeviceId: "R2", lastSyncDateTime: iso(now) }, // deleted, live account in NL → NL
+      { id: "r3", deviceName: "DEU5CD1", userId: "dead3", userPrincipalName: "2fdebda7561244f39a0986596fe3132aAnn@x.com", azureADDeviceId: "R3", lastSyncDateTime: iso(now) },      // deleted, live account in NL, name says DEU → the live account wins
+      { id: "r4", deviceName: "5CG9999", userId: "live4", userPrincipalName: "Rocio@x.com", azureADDeviceId: "R4", lastSyncDateTime: iso(now) },                                   // live, no group, usage location DE → DE
+      { id: "r5", deviceName: "5CG8888", userId: "dead5", userPrincipalName: "3c4ee60cbc77440da8bcbcd22eef46f1Nobody@x.com", azureADDeviceId: "R5", lastSyncDateTime: iso(now) },  // deleted, no live account, no code → left out
+    ]),
+    entra: input.entra.concat(["R1", "R2", "R3", "R4", "R5"].map((a) => ({ id: "E" + a, deviceId: a, displayName: a }))),
+    usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }, { id: "u5" }, { id: "live2", userPrincipalName: "Scott.Swanson@x.com" }, { id: "live3", userPrincipalName: "Ann@x.com" }]], [G(2), [{ id: "u3" }, { id: "u5" }]], [G(3), [{ id: "u1" }]]]),
+    primaryUsers: new Map([
+      ["dead1", { deleted: true, realUpn: "Nausad.Ahmed@perfettivanmelle.com", id: "live1", upn: "Nausad.Ahmed@perfettivanmelle.com", usageLocation: "", found: true }],
+      ["dead2", { deleted: true, realUpn: "Scott.Swanson@x.com", id: "live2", upn: "Scott.Swanson@x.com", usageLocation: "US", found: true }],
+      ["dead3", { deleted: true, realUpn: "Ann@x.com", id: "live3", upn: "Ann@x.com", usageLocation: "", found: true }],
+      ["live4", { deleted: false, realUpn: "", id: "live4", upn: "Rocio@x.com", usageLocation: "DE", found: true }],
+      ["dead5", { deleted: true, realUpn: "Nobody@x.com", id: "", upn: "Nobody@x.com", usageLocation: "", found: false }],
+    ]),
+  });
+  const mr = MM.compute(cfg, inR, waves, now);
+  const rowR = (s) => mr.rows.find((r) => r.suffix === s);
+  const devR = (s, n) => (rowR(s) ? rowR(s).devices : []).find((d) => d.name === n);
+  ok("BGD5CD5302DG8: deleted primary user, live account in no group — Bangladesh by name, the live UPN shown", devR("BD", "BGD5CD5302DG8") && devR("BD", "BGD5CD5302DG8").via === "name"
+    && devR("BD", "BGD5CD5302DG8").upn === "Nausad.Ahmed@perfettivanmelle.com" && devR("BD", "BGD5CD5302DG8").deletedUser && rowR("BD").want.has("er1"));
+  ok("…a deleted user whose live account is in a country group: that country, by the live account", devR("NL", "5CG0521757") && devR("NL", "5CG0521757").via === "real" && devR("NL", "5CG0521757").userId === "live2");
+  ok("…the live account wins over the name", devR("NL", "DEU5CD1") && devR("NL", "DEU5CD1").via === "real" && !devR("DE", "DEU5CD1") && devR("NL", "DEU5CD1").nameSays === "Germany");
+  ok("…no code in the name: the live user's usage location", devR("DE", "5CG9999") && devR("DE", "5CG9999").via === "userloc");
+  ok("…nothing to go on: still left out, with the live UPN and why", mr.leftOut.noCountry.map((d) => d.name).join() === "5CG8888" && mr.leftOut.noCountry[0].upn === "Nobody@x.com"
+    && /no live account/.test(mr.leftOut.noCountry[0].detail) && /no country code in the name/.test(mr.leftOut.noCountry[0].detail));
+  ok("…a live account with a device through a deleted one is not a user with no Windows device", !mr.leftOut.users.some((u) => u.id === "live2"));
+  ok("…the CSV says by what", /BGD5CD5302DG8,Nausad\.Ahmed@perfettivanmelle\.com,.*deleted primary user — its name \(BGD…\)/.test(MM.csv(mr)) && /5CG0521757,Scott\.Swanson@x\.com,.*live account Scott\.Swanson@x\.com is in this country group/.test(MM.csv(mr)));
+  // no lookup at all (a read that failed): the UPN itself still gives the name, and the device name still places it
+  const mr2 = MM.compute(cfg, Object.assign({}, inR, { primaryUsers: new Map() }), waves, now);
+  ok("…without the lookup the device name still places it, with the live UPN", mr2.rows.find((r) => r.suffix === "BD").devices.some((d) => d.name === "BGD5CD5302DG8" && d.upn === "Nausad.Ahmed@perfettivanmelle.com"));
+
   ok("groups with the prefix the table does not name are listed", model.unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
   const unm = MM.compute(MM.normConfig({ pilots: [], countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }] }), input, waves, now).unmapped;
   ok("…and a group extending a mapped one (NL-Breda ⊂ NL) is flagged as an overlap", unm.find((u) => /Breda/.test(u.group.displayName)).overlaps === "PVM-UG-CORP-MEM-USERS-NL");
@@ -436,6 +476,31 @@ async function run() {
 
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);
+  // 10659: readInput looks the outside primary users up — a deleted one by
+  // the UPN in its name, a live one by id; a user gone from Entra is said
+  {
+    const reads = [];
+    const DEAD = "06a64d5023c34c48bc7dda39ce1096caNausad.Ahmed@perfettivanmelle.com";
+    w.Graph.readAll = async (p) => {
+      reads.push(p);
+      if (/managedDevices/.test(p)) return [
+        { id: "m1", deviceName: "BGD5CD5302DG8", userId: "dead1", userPrincipalName: DEAD, operatingSystem: "Windows" },
+        { id: "m2", deviceName: "BGDDHA52", userId: "dead1", userPrincipalName: DEAD, operatingSystem: "Windows" },
+        { id: "m3", deviceName: "MEXPF4PTVGN", userId: "live2", userPrincipalName: "antonio@x.com", operatingSystem: "Windows" },
+        { id: "m4", deviceName: "5CGGONE", userId: "gone3", userPrincipalName: "gone@x.com", operatingSystem: "Windows" }];
+      if (/^\/users\?/.test(p)) return /Nausad\.Ahmed/.test(decodeURIComponent(p)) ? [{ id: "LIVE1", userPrincipalName: "Nausad.Ahmed@perfettivanmelle.com", usageLocation: "BD", accountEnabled: true }] : [];
+      return [];
+    };
+    const gets = [];
+    w.Graph.get = async (p) => { gets.push(p); if (/live2/.test(p)) return { id: "live2", userPrincipalName: "antonio@x.com", usageLocation: "MX" }; const e = new w.Graph.GraphError("notfound", "User not found."); throw e; };
+    const inp = await MM.readInput(cfg, [], null, null, null, []);
+    const pu = inp.primaryUsers;
+    ok("readInput: the deleted user is looked up once, by the UPN its name carries", reads.filter((p) => /^\/users\?/.test(p)).length === 1 && /userPrincipalName eq 'Nausad\.Ahmed@perfettivanmelle\.com'/.test(decodeURIComponent(reads.find((p) => /^\/users\?/.test(p)))));
+    ok("…found: the live account's id and usage location", pu.get("dead1").deleted && pu.get("dead1").found && pu.get("dead1").id === "live1" && pu.get("dead1").usageLocation === "BD");
+    ok("…a live primary user by id, with their usage location", gets.some((p) => /\/users\/live2\?/.test(p)) && pu.get("live2").deleted === false && pu.get("live2").usageLocation === "MX");
+    ok("…a user Entra no longer has is marked gone, not an error", pu.get("gone3").deleted === true && pu.get("gone3").found === false && !inp.failed.some((f) => /primary user/.test(f)));
+  }
+
   ok("csv: one line per device, the removals too", c.split("\r\n")[0].startsWith("Region,Country,User group,Device group,Device") && /OLD-US.*to remove/.test(c) && /DE-NOENTRA.*no Entra object/.test(c));
 }
 

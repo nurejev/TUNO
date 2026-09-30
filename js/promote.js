@@ -104,6 +104,33 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 221,
+  "title": "T28 — 👥 a primary user in no country group: the deleted user's live account, else the device name, else usage location",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10659
+  ],
+  "risk": "medium",
+  "what": "MdeMembers: realUpnOf strips Entra's <32-hex object id> prefix off a deleted user's UPN. readInput looks every Windows primary user outside the read country groups up once (deleted: /users?$filter=userPrincipalName eq '<old UPN>'; live: /users/{id}; 404 = gone) → input.primaryUsers {deleted, realUpn, id, upn, usageLocation, found}. compute: for such a device, via 'real' (the live account is in a country group → byUser under the live id), else 'name' (ISO3 prefix of a country in the table), else 'userloc' (the user's usage location ISO2); placed ones leave 🕳 noCountry, the rest carry the live UPN, deleted flag and a detail line. VIA_TEXT/csv, the device rows' chips, problems.byReal/byOutside, ❓ How it works.",
+  "why": "Mihai, on 🕳 'Windows devices no country device group will hold' (BGD5CD5302DG8 with 06a64d50…Nausad.Ahmed@…, IDNGM15S2J3, PHL5CD51047CS …): 'these devices have a username in their primary user. extract that name and find the real user. also in most of the cases in the devicename the country is there … mix and match'.",
+  "test": [
+    "Run npm test: all 18 suites pass (mderollout/members 131, +13).",
+    "On PVM: 👥 → ↻ read → 🕳 Left out → 'primary user in no country group': BGD5CD5302DG8, IDNGM15S2J3, PHL5CD51047CS etc. are gone from the list and appear under Bangladesh / Indonesia / the Philippines with 'deleted primary user · by name BGD'. 5CG0521757 (Scott.Swanson) lands in his live account's country, or stays listed with the reason."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "tests/mderollout/members.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 220,
   "title": "T28 — 🎛 Adjust settings on a phone: each rule a card, the mode picker in view",
   "tools": [

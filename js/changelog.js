@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10659,
+  "date": "2026-09-30",
+  "title": "MDE rollout — devices whose primary user is in no country group find their country",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A device whose primary user was deleted showed a UPN like 06a64d50…Nausad.Ahmed@perfettivanmelle.com and landed in no country group. The read now takes the real UPN out of it, finds the live account, and puts the device in that account's country group."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "When the user is in no country group of the table, the country code the device name starts with decides (BGD… is Bangladesh, IDN… Indonesia, PHL… the Philippines), and failing that the user's usage location. The device list shows the live UPN, a 'deleted primary user' tag and what placed the device."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A device none of these can place stays under Left out, with the reason: no live account, no country code in the name, or a country that is not in the table."
+    }
+  ]
+},
+{
   "build": 10658,
   "date": "2026-09-30",
   "title": "MDE rollout — 🎛 Adjust settings works on a phone",
