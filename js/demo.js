@@ -1610,6 +1610,17 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     });
     return made;
   }
+  // T28 🎛 Adjust settings (10657): a settings-catalog PUT replaces the
+  // policy's settings — kept, so the read-back after it sees the write.
+  if (method === "PUT") {
+    const pm = /^\/deviceManagement\/configurationPolicies\/([^/]+)$/.exec(path);
+    const pol = pm ? T.CONFIG_POLICIES.find((x) => x.id === pm[1]) : null;
+    if (!pol) return M.fault(404, "ResourceNotFound", "Policy not found.");
+    pol._settings = JSON.parse(JSON.stringify((body && body.settings) || []));
+    pol.settingCount = pol._settings.length;
+    pol.lastModifiedDateTime = new Date().toISOString();
+    return null;
+  }
   if (method === "PATCH") return Object.assign({}, body || {}, { lastModifiedDateTime: new Date().toISOString() });
   if (method === "DELETE") return null;                       // 204, as Graph answers
 

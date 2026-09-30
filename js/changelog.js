@@ -26,6 +26,28 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10657,
+  "date": "2026-09-30",
+  "title": "MDE rollout — 🎛 Adjust settings: the ASR rule modes of the new policies",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "A 🎛 Adjust settings button in the header opens a pane of its own: every ASR rule the new policies carry, with its mode now, a mode to pick (off, audit, warn or block) and the MDE baseline's expected mode beside it. Filters show the rules that differ from the baseline, the ones changed here, and the rules no new policy carries. Set shown to baseline fills in the baseline's modes."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "The changes go through the usual gates: a dry run that reads each policy fresh, a backup of the policies and all their settings, a confirmation, then Apply. Each policy is re-read and skipped if it changed since the dry run, written with every other setting exactly as it was, and read back. The run and its undo are in Changes this session."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "Only the new set is edited, including the one-rule WIN-SEC policies that Leave out keeps out of the comparison. Old and AVD policies are never touched, a rule no new policy carries is not created, and Warn is not offered for the two rules that do not support it."
+    }
+  ]
+},
+{
   "build": 10656,
   "date": "2026-09-30",
   "title": "MDE rollout — a pilot is migrated into the wave when its country goes live",

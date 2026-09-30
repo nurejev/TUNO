@@ -2658,6 +2658,13 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 /* ⊘ Exclusions (10639, layout A off the mockup) */
 #screen-mderollout .mr-exbtn{border:2px solid var(--lemon);font-weight:700}
 #screen-mderollout .mr-exbtn[hidden]{display:none}
+/* 🎛 Adjust settings (10657) */
+#screen-mderollout .mr-asrbtn[hidden]{display:none}
+#screen-mderollout .mr-asrbtn.active{border-color:var(--lemon);font-weight:700}
+#screen-mderollout .mr-asr-table{min-width:760px}
+#screen-mderollout .mr-asr-table select{padding:2px 6px;font-size:12px;min-width:92px}
+#screen-mderollout .mr-asr-table tr.mr-asr-edited td{background:var(--ok-bg)}
+#screen-mderollout .mr-asrbar{position:sticky;bottom:12px;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow)}
 #screen-mderollout .mr-exsearch{display:flex;gap:8px;flex-wrap:wrap;max-width:560px}
 #screen-mderollout .mr-exsearch input{flex:1 1 240px;min-width:0;border:1px solid var(--border);border-radius:10px;padding:7px 11px;font:inherit;background:var(--surface);color:var(--ink)}
 #screen-mderollout .mr-exresults{display:flex;flex-direction:column;gap:4px;margin-top:10px;max-width:720px}

@@ -60,7 +60,10 @@
 //
 // WRITES: assignments (DeviceManagementConfiguration.ReadWrite.All, at the
 // Apply click, via AssignEdit) and new wave groups (Group.ReadWrite.All,
-// at the Create click, T22's scope). Nothing is deleted, nothing renamed.
+// at the Create click, T22's scope). Since 10657 also the ASR rule MODES
+// of the new set's settings-catalog policies (🎛 Adjust settings — the
+// engine is MdeAsr in js/mdeasr.js; same scope, same gates). Nothing is
+// deleted.
 //
 // TEMPORARY. Listed under Help's "Staying on this channel": it is never
 // promoted, and it is removed when the rollout it was built for is done.
@@ -1657,6 +1660,9 @@ const MdeRolloutTool = (() => {
     // 📋 a list (10651, option A off the mockup): the mode, the pasted text,
     // the looked-up list and its ticks, the running line and the last error
     mode: "one", listText: "", list: null, lticks: new Set(), listBusy: false, listNote: "", listErr: "" };
+  // 🎛 Adjust settings (10657, option B off the mockup): the modes asked for,
+  // per matrix row key, and the pane's filter
+  const asr = { edits: new Map(), filter: "all" };
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
   // Where the plan panel opens (10639, Mihai: the dry run "appears at the
@@ -1728,6 +1734,7 @@ const MdeRolloutTool = (() => {
     // selections that no longer exist are dropped, never silently kept
     for (const k of [...sel]) if (!model.byKey.has(k)) sel.delete(k);
     for (const id of [...selPairs]) if (!pairs.some((p) => p.id === id && M.needsAction(p))) selPairs.delete(id);
+    if (asr.edits.size) { const keys = new Set(MdeAsr.matrix(model).filter((r) => r.editable).map((r) => r.key)); for (const k of [...asr.edits.keys()]) if (!keys.has(k)) asr.edits.delete(k); }
     // the wave members follow the rules and the wave lookup
     if (mem.input) memCompute();
   }
@@ -1824,7 +1831,9 @@ const MdeRolloutTool = (() => {
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
+    asr.edits.clear(); asr.filter = "all";
     if ($("mrExclude")) $("mrExclude").hidden = true;
+    if ($("mrAsr")) $("mrAsr").hidden = true;
     if ($("mrBody")) $("mrBody").innerHTML = "";
     showExports(false); syncSelbar();
   }
@@ -1863,6 +1872,7 @@ const MdeRolloutTool = (() => {
     return [
       node("new", "🎯", "New policies", model.newP.length),
       node("conflicts", "⚔️", "Conflicts with old", act.length, act.length > 0),
+      (() => { const rows = MdeAsr.matrix(model); const diff = rows.filter((r) => r.P && MdeAsr.verdict(r.now, r.baseline) === "differs").length; return node("asr", "🎛", "Adjust settings", asr.edits.size ? `${asr.edits.size} ✎` : diff ? `${diff} ≠ baseline` : "✓", diff > 0 && !asr.edits.size); })(),
       node("old", "🗄", "Old policies", model.oldP.length),
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
       node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
@@ -2209,7 +2219,8 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both).</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
-      <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed — only assignments, and only by this plan.</p>
+      <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
+      <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (the header button, or the rail). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
   }
@@ -2233,6 +2244,7 @@ const MdeRolloutTool = (() => {
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
     else if (pane === "how") main = howPane();
+    else if (pane === "asr") main = asrPane();
     else main = conflictsPane();
     // The plan panel is ONE node, kept across renders and re-seated under the
     // pane — a pane switch or a filter keystroke must not throw a half-made
@@ -2242,6 +2254,7 @@ const MdeRolloutTool = (() => {
     if (pl) pl.remove();
     $("mrGlobalExport").hidden = pane === "reports";
     if ($("mrExclude")) $("mrExclude").hidden = false;
+    if ($("mrAsr")) { $("mrAsr").hidden = false; $("mrAsr").classList.toggle("active", pane === "asr"); }
     $("mrBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mrPlanSeat"></div></div></div>`;
     if (pl) seatPlan(pl);
     syncSelbar();
@@ -2618,6 +2631,7 @@ const MdeRolloutTool = (() => {
     const r = runs[idx];
     if (!r || busy) return;
     if (r.kind === "members") { memDryRun(r); return; }
+    if (r.kind === "settings") { pane = "asr"; render(); asrDryRun(MdeAsr.reverse(r.done), `Undo: ${r.title}`); return; }
     busy = true; planAnchor = null; clearPlan(); seatPlan();
     try {
       await Graph.ensureScopes(AssignEdit.READ());
@@ -2629,6 +2643,194 @@ const MdeRolloutTool = (() => {
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
     finally { busy = false; }
   }
+
+
+  // ----------------------------------------------- 🎛 adjust settings --
+  // (10657, option B off t28-adjust-settings-mockups.html) The engine is
+  // MdeAsr; this is the pane, the plan and the write.
+  const MODE_WORD = { off: "Off", audit: "Audit", warn: "Warn", block: "Block" };
+  const modeWord = (m) => MODE_WORD[m] || (m ? String(m) : "—");
+  function asrRows() {
+    const rows = MdeAsr.matrix(model);
+    const f = asr.filter;
+    return { all: rows, shown: rows.filter((r) => f === "all" ? true
+      : f === "differs" ? (r.P && MdeAsr.verdict(asr.edits.get(r.key) || r.now, r.baseline) === "differs")
+      : f === "edited" ? asr.edits.has(r.key)
+      : f === "none" ? !r.P : true).filter((r) => !view.q || lc(r.name).includes(lc(view.q)) || (r.P && lc(r.P.name).includes(lc(view.q)))) };
+  }
+  function asrPane() {
+    const { all, shown } = asrRows();
+    const n = (f) => all.filter(f).length;
+    const pend = MdeAsr.planOf(all, asr.edits);
+    const nChanges = pend.reduce((a, o) => a + o.changes.length, 0);
+    const base = typeof Defender !== "undefined" && Defender.MDE_BASELINE ? Defender.MDE_BASELINE : null;
+    const vchip = (r, want) => {
+      if (!r.P) return chip("gu-how exc", "not in the new set");
+      if (want !== r.now) return chip("au-op update", `${modeWord(r.now)} → ${modeWord(want)}`);
+      const v = MdeAsr.verdict(r.now, r.baseline);
+      return v === "match" ? chip("au-op create", "matches") : v === "differs" ? chip("au-op delete", "≠ baseline") : chip("gu-how exc", "no baseline");
+    };
+    const body = shown.map((r) => {
+      const want = asr.edits.get(r.key) || r.now;
+      const cell = !r.P ? `<span class="mini muted">—</span>`
+        : !r.editable ? `<span title="${esc(r.why)}">${esc(modeWord(r.now))} <span class="mini muted">🔒</span></span>`
+        : `<select class="btn mr-asrsel" data-mrasr="${esc(r.key)}" aria-label="${esc(`Mode for ${r.name} in ${r.P.name}`)}">${MdeAsr.modesFor(r.slug).map((m) => `<option value="${m}"${m === want ? " selected" : ""}>${modeWord(m)}${m === r.now ? " (now)" : ""}</option>`).join("")}</select>`;
+      return `<tr class="${want !== r.now ? "mr-asr-edited" : ""}">
+        <td>${esc(r.name)}${MdeAsr.NO_WARN.has(r.slug) ? ` <span class="mini muted" title="Warn is not supported for this rule (Microsoft Learn, ASR rule modes)">no warn</span>` : ""}</td>
+        <td class="mini">${r.P ? polLink(r.P) + (r.leftOut ? ` <span class="muted" title="Under ⚙️ Leave out: not compared or planned in the other panes — its settings are still edited here">➖</span>` : "") : `<span class="muted" title="${esc(r.why)}">no new policy</span>`}${r.P && !r.editable ? `<div class="mini muted">${esc(r.why)}</div>` : ""}</td>
+        <td style="white-space:nowrap">${esc(r.P ? modeWord(r.now) : "—")}</td>
+        <td style="white-space:nowrap">${cell}</td>
+        <td style="white-space:nowrap">${esc(r.baseline ? modeWord(r.baseline) : "—")}</td>
+        <td style="white-space:nowrap">${vchip(r, want)}</td></tr>`;
+    }).join("");
+    const canBase = shown.filter((r) => r.editable && r.baseline && r.baseline !== (asr.edits.get(r.key) || r.now) && MdeAsr.modesFor(r.slug).includes(r.baseline)).length;
+    return `<div class="toolbar">
+        ${fchip("data-mrasrf", "all", "ASR rules", all.length, asr.filter === "all")}
+        ${fchip("data-mrasrf", "differs", "≠ Baseline", n((r) => r.P && MdeAsr.verdict(asr.edits.get(r.key) || r.now, r.baseline) === "differs"), asr.filter === "differs")}
+        ${fchip("data-mrasrf", "edited", "✎ Changed here", asr.edits.size, asr.filter === "edited")}
+        ${fchip("data-mrasrf", "none", "Not in the new set", n((r) => !r.P), asr.filter === "none")}
+        ${searchBox()}
+      </div>
+      <div class="list-card" id="mrAsrCard" style="margin-top:0">
+        <p class="mini muted" style="margin:0 0 8px">The ASR rule modes of the <b>new set</b> — one row per rule and policy carrying it. Baseline: ${base ? `<b>${esc(base.name)}</b> (${esc(base.source)}), the one 🦠 T15 checks` : "not loaded"}. Pick a mode, ② Dry run, then the usual gates. ➖ marks a policy under ⚙️ Leave out — kept out of the comparison, still edited here. Old and out-of-scope policies (AVD among them) are never edited here — T15 counts every reaching policy, so an AVD-only policy still shows there as a conflict.</p>
+        <div class="tb-actions" style="margin:0 0 8px"><button class="btn" id="mrAsrBase"${canBase ? "" : " disabled"}>Set shown to baseline${canBase ? ` · ${canBase}` : ""}</button><button class="btn" id="mrAsrClear"${asr.edits.size ? "" : " disabled"}>Clear changes</button></div>
+        ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table mr-asr-table">
+          <colgroup><col style="width:24%"><col><col style="width:70px"><col style="width:118px"><col style="width:80px"><col style="width:130px"></colgroup>
+          <thead><tr><th>Rule</th><th>Policy (new set)</th><th>Now</th><th>New</th><th>Baseline</th><th></th></tr></thead>
+          <tbody>${body}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing matches the filters.</p>`}
+        ${nChanges ? `<div class="mr-asrbar" role="region" aria-label="Pending mode changes"><b>${plural(nChanges, "change")} in ${plural(pend.length, "policy", "policies")}</b><span class="mini">devices reached by ${pend.length === 1 ? "it" : "them"} take the new mode at their next sync</span><span style="margin-left:auto"></span><button class="btn" id="mrAsrDiscard">Discard</button><button class="btn primary" id="mrAsrDry">② Dry run →</button></div>` : ""}
+      </div>`;
+  }
+  const asrPolUrl = (id) => `/deviceManagement/configurationPolicies/${encodeURIComponent(id)}`;
+  async function asrReadOne(id) {
+    const policy = await Graph.get(Graph.BETA + asrPolUrl(id), { scopes: Graph.SCOPES.config, retry: true });
+    const settings = await Graph.readAll(`${asrPolUrl(id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true });
+    return { policy, settings };
+  }
+  // list: [{ id, key, name, changes: [{ slug, name, from, to }] }]
+  async function asrDryRun(list, title) {
+    if (busy || !model) return;
+    busy = true; planAnchor = "mrAsrCard"; clearPlan(); seatPlan();
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.config);
+      const items = [], unread = [], drifted = [];
+      for (let i = 0; i < list.length; i++) {
+        const o = list[i];
+        planEl().innerHTML = `<p class="mini muted" style="margin-top:12px">Reading ${esc(o.name)} fresh… (${i + 1} of ${list.length})</p>`;
+        let fr;
+        try { fr = await asrReadOne(o.id); } catch (e) { unread.push(`${o.name} — ${GroupUse.shortErr(e, 120)}`); continue; }
+        const keep = [];
+        for (const c of o.changes) {
+          const cur = MdeAsr.modeIn(fr.settings, c.slug);
+          if (cur === c.to) continue;                 // already as asked
+          if (cur !== c.from) { drifted.push(`${o.name} · ${c.name}: ${modeWord(cur)} in the tenant, ${modeWord(c.from)} when read`); continue; }
+          keep.push(c);
+        }
+        if (keep.length) items.push({ id: o.id, key: o.key, name: o.name, changes: keep, policy: fr.policy, settings: fr.settings, lastMod: fr.policy && fr.policy.lastModifiedDateTime });
+      }
+      plan = { kind: "asr", title: title || `Adjust ${plural(items.reduce((a, x) => a + x.changes.length, 0), "ASR rule mode")}`, items, unread, drifted, undo: /^Undo:/.test(title || "") };
+      renderAsrPlan();
+    } catch (e) { planError(GroupUse.shortErr(e, 300)); }
+    finally { busy = false; }
+  }
+  function asrDryRunEdits() {
+    const pend = MdeAsr.planOf(MdeAsr.matrix(model), asr.edits);
+    if (!pend.length) return;
+    asrDryRun(pend.map((o) => ({ id: o.P.id, key: o.P.key, name: o.P.name, changes: o.changes })));
+  }
+  function renderAsrPlan() {
+    const p = plan;
+    const n = p.items.reduce((a, x) => a + x.changes.length, 0);
+    const rows = p.items.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${x.changes.map((c) => `<div>${esc(c.name)}: ${chip("au-op update", `${modeWord(c.from)} → ${modeWord(c.to)}`)}</div>`).join("")}</td><td class="mini">${(x.settings || []).length}</td></tr>`).join("");
+    planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
+      <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
+      <p class="mini" style="margin:0 0 8px"><b>${plural(n, "mode change")}</b> in <b>${plural(p.items.length, "policy", "policies")}</b>.</p>
+      ${p.drifted.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out — the tenant moved since the read:</b><span class="why">${p.drifted.map(esc).join("<br>")}</span></div>` : ""}
+      ${p.unread.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Could not read fresh:</b><span class="why">${p.unread.map(esc).join("<br>")} — left out rather than written blind.</span></div>` : ""}
+      ${p.items.length ? `<div style="overflow-x:auto"><table class="cg-table"><thead><tr><th>Policy</th><th>Mode changes</th><th>Settings re-sent</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="mini muted" style="margin:8px 0 0">The settings catalog takes a policy's settings only as a whole: each policy is written with every setting re-sent exactly as read, the modes above changed. Each is re-read at apply time and skipped as drifted if it changed since this dry run, then read back.</p>
+      <div style="margin-top:12px">
+        <div class="tb-actions"><button class="btn" id="mrBackup">③ ⭳ Take the backup <span class="mini">— the policies and all their settings, as a file</span></button></div>
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mrConfirmTick"> I have read the plan — ${plural(p.items.length, "policy", "policies")}</label>
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 0 14px"><input type="checkbox" id="mrStop" checked> Stop at the first failure</label>
+        <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mrApply" disabled>④ Apply — write to the tenant</button><button class="btn" id="mrDiscard">Discard the plan</button></div>
+        <p id="mrGate" class="mini muted" style="margin:8px 0 0">Take the backup, confirm, apply. Apply stays locked until both.</p>
+      </div>` : `<p class="mini muted" style="margin:0">Nothing to write — every change is already in the tenant or left out above.</p><div class="tb-actions" style="margin-top:10px"><button class="btn" id="mrDiscard">Close</button></div>`}
+      <div id="mrLedger"></div>
+    </div>`;
+    const upd = () => { const b = $("mrApply"); if (b) b.disabled = !gateOk(); };
+    if ($("mrConfirmTick")) $("mrConfirmTick").addEventListener("change", upd);
+    if ($("mrBackup")) $("mrBackup").addEventListener("click", () => {
+      download(`t28-settings-before-${stamp()}.json`, asrBackup(p));
+      backupTaken = true; $("mrGate").textContent = "Backup taken. Confirm, then apply."; upd();
+    });
+    if ($("mrApply")) $("mrApply").addEventListener("click", asrApply);
+    $("mrDiscard").addEventListener("click", clearPlan);
+    showPlan();
+  }
+  const asrBackup = (p) => JSON.stringify({ tool: "TUNO T28 MDE rollout", action: "adjust ASR rule modes", title: p.title, at: new Date().toISOString(),
+    tenant: tenantName(), policies: p.items.map((x) => ({ id: x.id, name: x.name, policy: x.policy, settings: x.settings })) }, null, 2);
+  async function asrApply() {
+    if (busy || !gateOk() || !plan || plan.kind !== "asr") return;
+    busy = true;
+    const p = plan;
+    try {
+      await Graph.ensureScopes(AssignEdit.WRITE());
+      $("mrApply").disabled = true;
+      const L = RunLedger.create($("mrLedger"), { unit: "policies", title: p.title,
+        items: p.items.map((x) => ({ label: x.name, sub: x.changes.map((c) => `${c.name}: ${modeWord(c.from)} → ${modeWord(c.to)}`).join(" · ") })) });
+      const stopOnFail = $("mrStop") && $("mrStop").checked;
+      const done = [], lines = [];
+      let okN = 0, halt = false;
+      for (let i = 0; i < p.items.length; i++) {
+        const x = p.items[i];
+        if (L.stopped || halt) { L.skip(i, L.stopped ? "stopped" : "stopped at the first failure"); lines.push(`${x.name}: skipped`); continue; }
+        L.start(i);
+        try {
+          const fr = await asrReadOne(x.id);
+          const moved = (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || x.changes.some((c) => MdeAsr.modeIn(fr.settings, c.slug) !== c.from);
+          if (moved) { L.skip(i, "changed in the tenant since the dry run — not written", "drifted"); lines.push(`${x.name}: drifted — not written`); continue; }
+          const w = MdeAsr.withModes(fr.settings, x.changes);
+          if (w.missing.length) { L.fail(i, `rule not found: ${w.missing.join(", ")}`, "not written"); lines.push(`${x.name}: not written — rule not found`); halt = stopOnFail; continue; }
+          await Graph.put(Graph.BETA + asrPolUrl(x.id), MdeAsr.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() });
+          const back = await Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true });
+          const P = model.byKey.get(x.key);
+          if (P && P.raw) P.raw.__detail = back;
+          const summary = x.changes.map((c) => `${c.name} ${modeWord(c.from)} → ${modeWord(c.to)}`).join("; ");
+          if (MdeAsr.verified(back, x.changes)) {
+            L.done(i, "", "written · verified"); okN++;
+            done.push({ id: x.id, key: x.key, name: x.name, changes: x.changes });
+            lines.push(`${x.name}: ${summary} — written · verified`);
+          } else { L.fail(i, "the read-back does not show the new mode", "written · NOT verified"); lines.push(`${x.name}: ${summary} — written · NOT verified`); halt = stopOnFail; }
+        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
+      }
+      L.finish();
+      runs.push({ at: Date.now(), title: p.title, kind: "settings", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
+        backup: JSON.parse(asrBackup(p)), done, lines });
+      PolicyCache.invalidate();
+      for (const d of done) for (const c of d.changes) asr.edits.delete(`${d.key}|${c.slug}`);
+      plan = null; backupTaken = false;
+      derive();
+      render();
+      const note = document.createElement("p");
+      note.className = "mini muted"; note.style.margin = "8px 0 0";
+      note.textContent = `${okN} written & verified. The rows above read the verified settings; devices take the new modes at their next sync. The run and its undo are in 📜 Changes this session.`;
+      $("mrLedger").appendChild(note);
+      const disc = $("mrDiscard"); if (disc) disc.textContent = "Close";
+    } catch (e) {
+      const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
+      $("mrLedger").appendChild(el);
+    } finally { busy = false; }
+  }
+  function asrSetBaseline() {
+    const { shown } = asrRows();
+    for (const r of shown) {
+      if (!r.editable || !r.baseline || !MdeAsr.modesFor(r.slug).includes(r.baseline)) continue;
+      if (r.baseline === r.now) asr.edits.delete(r.key); else asr.edits.set(r.key, r.baseline);
+    }
+    clearPlan(); render();
+  }
+  function openAsr() { pane = "asr"; view.cat = null; view.state = null; view.q = ""; render(); }
 
   // -------------------------------------------------- rollout actions --
   function rolloutCtx() {
@@ -3799,6 +4001,7 @@ const MdeRolloutTool = (() => {
     planEl();
     $("mrRun").addEventListener("click", () => run(false));
     if ($("mrExclude")) $("mrExclude").addEventListener("click", openExclusions);
+    if ($("mrAsr")) $("mrAsr").addEventListener("click", () => { if (model) openAsr(); });
     $("mrMd").addEventListener("click", () => exportAs("md"));
     $("mrCsv").addEventListener("click", () => exportAs("csv"));
     const body = $("mrBody");
@@ -3846,6 +4049,11 @@ const MdeRolloutTool = (() => {
       }
       const bk = t.closest("[data-mrrunbk]"); if (bk) { const r = runs[Number(bk.dataset.mrrunbk)]; if (r) download(`t28-assignments-before-${stamp()}.json`, JSON.stringify(r.backup, null, 2), "application/json"); return; }
       const un = t.closest("[data-mrundo]"); if (un) { undoRun(Number(un.dataset.mrundo)); return; }
+      // 🎛 Adjust settings (10657)
+      const af = t.closest("[data-mrasrf]"); if (af) { asr.filter = af.dataset.mrasrf; render(); return; }
+      if (t.id === "mrAsrBase") { asrSetBaseline(); return; }
+      if (t.id === "mrAsrClear" || t.id === "mrAsrDiscard") { asr.edits.clear(); clearPlan(); render(); return; }
+      if (t.id === "mrAsrDry") { asrDryRunEdits(); return; }
       if (t.id === "mrRep_assign") { runAssignReport(); return; }
       if (t.id === "mrRep_config") { runConfigReport(); return; }
       if (t.id === "mrRep_conflicts") { runConflictCheck(); return; }
@@ -4023,6 +4231,13 @@ const MdeRolloutTool = (() => {
     });
     body.addEventListener("change", (e) => {
       const t = e.target;
+      if (t.dataset.mrasr) {
+        const r = MdeAsr.matrix(model).find((x) => x.key === t.dataset.mrasr);
+        if (r) { if (t.value === r.now) asr.edits.delete(r.key); else asr.edits.set(r.key, t.value); }
+        clearPlan(); render();
+        const again = body.querySelector(`[data-mrasr="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(t.dataset.mrasr) : t.dataset.mrasr}"]`); if (again) again.focus();
+        return;
+      }
       if (t.dataset.mrpick) { t.checked ? sel.add(t.dataset.mrpick) : sel.delete(t.dataset.mrpick); clearPlan(); syncSelbar(); return; }
       if (t.dataset.mrpickall) {
         const list = t.dataset.mrpickall === "new" ? model.newP : model.oldP;
@@ -4092,7 +4307,7 @@ const MdeRolloutTool = (() => {
     init, run,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem, reps, ex, planAnchor, running, busy, enriching }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, mem, reps, ex, asr, planAnchor, running, busy, enriching }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

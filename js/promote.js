@@ -104,6 +104,39 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 219,
+  "title": "T28 — 🎛 Adjust settings: the ASR rule modes of the new set (dedicated button, own pane)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10657
+  ],
+  "risk": "medium",
+  "what": "MdeAsr (js/mdeasr.js, DOM-free): matrix(model) — one row per EndpointSec.ASR_RULES rule and new-set settings-catalog policy carrying it (generation new, or a new-prefix name under ⚙️ Leave out; never an out-prefix or TO-BE-REMOVED name), with now, T15's baseline (Defender.MDE_BASELINE.asr), editable only when the per-rule child exists; modesFor (no warn for LSASS / Office code injection); findRule/withModes on both parent shapes, never mutating the read; putBody (name, description, platforms, technologies, scope tags, templateReference.templateId, every setting typed, ids and expansions stripped); planOf, verified, reverse. Screen: #mrAsr header button and 🎛 rail node → asrPane (filters, selects, Set shown to baseline, sticky bar), asrDryRun (fresh GET policy + settings, drifted modes left out), renderAsrPlan (backup / tick / apply gates, stop at first failure), asrApply (re-read, lastModified + mode drift check, Graph.put whole policy, read-back verify, model raw patched, run kind 'settings'), undo via 📜. Graph.put; demo PUT route for configurationPolicies/{id}.",
+  "why": "Mihai, off T15's MDE baseline ASR table (15 conflicts, WIN-SEC block where the baseline expects audit): 'for t28, make an option to adjust the settings of these policies. make it a dedicated button'. Mockup t28-adjust-settings-mockups.html, option B; ASR modes only for the first build.",
+  "test": [
+    "Run npm test: all 18 suites pass (mderollout/asr 28 new, mderollout/screen 275, +15; platformbaseline/screen's ?v= count moves to 53 for the new script tag).",
+    "On PVM: T28 → ↻ Read the tenant → 🎛 Adjust settings → ≠ Baseline → change one WIN-SEC rule (e.g. D-16 drivers Block → Audit) → ② Dry run → ③ backup → tick → ④ Apply. Check the policy in Intune (Endpoint security → ASR) shows Audit and its other settings/assignments are unchanged. Then 📜 → Undo → apply, and check it is Block again."
+  ],
+  "files": [
+    "js/mdeasr.js",
+    "js/mderollout.js",
+    "js/graph.js",
+    "js/demo.js",
+    "css/app.css",
+    "tests/mderollout/asr.test.js",
+    "tests/mderollout/screen.test.js",
+    "tests/platformbaseline/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "docs/reviews/T28-beta-10657.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 218,
   "title": "T28 — 🧪 a pilot migrated into the wave when its country goes live (NL-Breda with NL)",
   "tools": [

@@ -468,6 +468,9 @@ const Graph = (() => {
   // POST: no retry — an ambiguous timeout is said, not resent — and the
   // tenant's own words on refusal. DELETE's 204 comes back as null above.
   const patch = (path, body, opts) => call("PATCH", path, Object.assign({ body }, opts));
+  // PUT (10657): the settings catalog replaces a policy's settings only
+  // through a whole-policy PUT — T28's 🎛 Adjust settings is the one caller.
+  const put = (path, body, opts) => call("PUT", path, Object.assign({ body }, opts));
   const del = (path, opts) => call("DELETE", path, opts);
 
   // ======================================================================
@@ -896,7 +899,7 @@ const Graph = (() => {
 
   const API = {
     useProvider, signedIn, SCOPES, BETA, GraphError, adminConsentUrl,
-    get, post, patch, del, customProfiles, profileUrl, omaSettingPlainText, hydrateOmaSettings, isMaskedOmaValue, collisions, createProfile,
+    get, post, patch, put, del, customProfiles, profileUrl, omaSettingPlainText, hydrateOmaSettings, isMaskedOmaValue, collisions, createProfile,
     remediations, createRemediation, updateRemediation,
     createSite, siteOperation, tenantId, accountUpn,
     GRAPH_APP_ID, SITES_SELECTED_ROLE, findApplications, createApplication, addAppPassword, servicePrincipalByAppId, createServicePrincipal, appRoleAssignments, assignAppRole, siteByUrl, sitePermissions, grantSitePermission,

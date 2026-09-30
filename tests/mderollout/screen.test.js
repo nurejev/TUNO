@@ -46,7 +46,7 @@ function boot() {
   w.msal = undefined;
   w.fetch = () => Promise.reject(new Error("no network in tests"));
   const src = files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
-  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,MdeRolloutTool,AssignEdit,TUNO_DEMO_GRAPH,MdeMembers});";
+  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,MdeRolloutTool,AssignEdit,TUNO_DEMO_GRAPH,MdeMembers,MdeAsr});";
   const realErr = console.error, realLog = console.log, realWarn = console.warn;
   console.error = () => {}; console.log = () => {}; console.warn = () => {};
   let err = null;
@@ -850,6 +850,50 @@ async function run() {
   $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
   $("mrMemApply").click();
   ok("undone: in the pilots again, out of INT-SG-D-DEU, listed again", await until(() => gPilD._devices.includes(deDev.objId) && (TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(deUserId) && !(deuG()._devices || []).includes(deDev.objId) && !!person(), 10000, "ready undo applied"));
+
+  // ------------------------------------ 🎛 adjust settings (10657) --
+  const ASRD = "device_vendor_msft_policy_config_defender_attacksurfacereductionrules";
+  const OBFS = "blockexecutionofpotentiallyobfuscatedscripts";
+  const obfPol = TT.CONFIG_POLICIES.find((p) => /^WIN-SEC-AttackSurfaceReduction-D-02/.test(p.name));
+  const obfMode = () => { const r = w.MdeAsr.findRule(obfPol._settings, OBFS); return r ? w.MdeAsr.modeOfValue(OBFS, r.choiceSettingValue.value) : null; };
+  const oldPol = TT.CONFIG_POLICIES.find((p) => p.name === "PVM-DG-CORP-ENDSEC-WIN-ASR-PRD");
+  const oldBefore = JSON.stringify(oldPol._settings);
+  ok("🎛 the header button is shown once the tenant is read", $("mrAsr") && !$("mrAsr").hidden);
+  $("mrAsr").click();
+  ok("🎛 it opens its own pane, on the rail", st().pane === "asr" && !!$("mrBody").querySelector('.mr-navigation [data-mrpane="asr"].active') && !!$("mrAsrCard"));
+  const sel = () => $("mrBody").querySelector(`[data-mrasr$="|${OBFS}"]`);
+  const obfGen = () => st().model.policies.find((p) => p.id === obfPol.id).generation;
+  ok("🎛 the one-rule WIN-SEC policy is listed, Block now (➕ included earlier in this run, so not marked left out)", !!sel() && sel().value === "block" && obfGen() === "new" && !/➖/.test(sel().closest("tr").textContent));
+  ok("🎛 the old all-rules policy is not listed", !/PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test($("mrAsrCard").textContent));
+  ok("🎛 Block against the baseline's Audit reads ≠ baseline", /≠ baseline/.test(sel().closest("tr").textContent));
+  sel().value = "audit"; sel().dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("🎛 a change shows the bar: 1 change in 1 policy", st().asr.edits.size === 1 && /1 change in 1 policy/.test($("mrBody").querySelector(".mr-asrbar").textContent));
+  $("mrAsrDry").click();
+  ok("🎛 the dry run reads fresh and plans Block → Audit, under the card", await until(() => st().plan && st().plan.kind === "asr", 8000, "asr plan") && st().plan.items.length === 1 && st().plan.items[0].changes[0].to === "audit" && /Block → Audit/.test($("mrPlan").textContent));
+  ok("🎛 Apply is locked before the backup and the tick", $("mrApply").disabled);
+  $("mrBackup").click(); $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  ok("🎛 …and unlocked after both", !$("mrApply").disabled);
+  $("mrApply").click();
+  ok("🎛 applied: the demo tenant holds Audit, verified, the run in 📜", await until(() => obfMode() === "audit" && st().runs.some((r) => r.kind === "settings" && r.ok === 1), 8000, "asr apply"));
+  ok("🎛 the other policy's settings were not touched", JSON.stringify(oldPol._settings) === oldBefore);
+  ok("🎛 the row reads Audit now and the edit is gone", !st().asr.edits.size && sel().value === "audit" && /matches/.test(sel().closest("tr").textContent));
+  const aRun = st().runs.findIndex((r) => r.kind === "settings");
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${aRun}"]`).click();
+  ok("🎛 undo plans Audit → Block on the 🎛 pane", await until(() => st().plan && st().plan.kind === "asr" && /Undo/.test(st().plan.title), 8000, "asr undo") && st().pane === "asr" && st().plan.items[0].changes[0].to === "block");
+  $("mrBackup").click(); $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mrApply").click();
+  ok("🎛 undone: Block again in the demo tenant", await until(() => obfMode() === "block" && st().runs.filter((r) => r.kind === "settings").length === 2, 8000, "asr undo applied"));
+  // drift: the tenant moves between the dry run and apply → skipped, not written
+  sel().value = "warn"; sel().dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrAsrDry").click();
+  await until(() => st().plan && st().plan.kind === "asr" && !/Undo/.test(st().plan.title), 8000, "asr plan 2");
+  w.MdeAsr.findRule(obfPol._settings, OBFS).choiceSettingValue.value = `${ASRD}_${OBFS}_off`;
+  obfPol.lastModifiedDateTime = new Date(Date.now() + 1000).toISOString();
+  $("mrBackup").click(); $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mrApply").click();
+  ok("🎛 a policy changed since the dry run is skipped as drifted, not written", await until(() => st().runs.filter((r) => r.kind === "settings").length === 3, 8000, "asr drift") && obfMode() === "off" && /drifted/.test(st().runs[st().runs.length - 1].lines.join()));
+  w.MdeAsr.findRule(obfPol._settings, OBFS).choiceSettingValue.value = `${ASRD}_${OBFS}_block`;
 
   // ------------------------------------------- the offer, cold (10644) --
   const heldGet = w.PolicyCache.get, heldReading = w.PolicyCache.reading, rf = w.PolicyCache.refresh;
