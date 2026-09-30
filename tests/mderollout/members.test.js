@@ -242,6 +242,31 @@ async function run() {
   ok("patchInput moves a wave's direct users", !bInput.waveUsers.get("wu").has("b0"));
   ok("not batched: a pilot is nested whole, as before", MM.compute(MM.normConfig({ countryMap: bcfg.countryMap, pilots: ["NL-Breda"], batched: [] }), bInput, waves, now).rows.find((r) => r.suffix === "NL-Breda").batch === null);
 
+  // ------------------------------------------------ 🕳 left out (10642) --
+  const lInput = {
+    countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }], deviceGroups: [],
+    usersByGroup: new Map([["gnl", [{ id: "u1", userPrincipalName: "u1@x" }, { id: "u7", userPrincipalName: "u7@x" }, { id: "u8", userPrincipalName: "u8@x" }]]]),
+    managedAll: [
+      { id: "w1", deviceName: "WIN-U1", userId: "u1", azureADDeviceId: "A1", lastSyncDateTime: iso(now), operatingSystem: "Windows" },
+      { id: "w11", deviceName: "WIN-U1-NOENTRA", userId: "u1", azureADDeviceId: "AX", lastSyncDateTime: iso(now), operatingSystem: "Windows" },
+      { id: "mac7", deviceName: "MAC-U7", userId: "u7", azureADDeviceId: "A7", lastSyncDateTime: iso(now), operatingSystem: "macOS" },
+      { id: "ios7", deviceName: "IPHONE-U7", userId: "u7", azureADDeviceId: "", lastSyncDateTime: iso(now), operatingSystem: "iOS" },
+      { id: "w9", deviceName: "WIN-U9", userId: "u9", userPrincipalName: "u9@x", azureADDeviceId: "A9", lastSyncDateTime: iso(now), operatingSystem: "Windows" },
+      { id: "w10", deviceName: "WIN-NOUSER", userId: "", azureADDeviceId: "A10", lastSyncDateTime: iso(now - 60 * day), operatingSystem: "Windows" },
+    ],
+    entra: [{ id: "E1", deviceId: "A1" }, { id: "E9", deviceId: "A9" }, { id: "E10", deviceId: "A10" }],
+    deviceMembers: new Map(), waveChildren: new Map(), waveUsers: new Map(), held: new Set(["e1"]), failed: [], readAt: now,
+  };
+  lInput.managed = lInput.managedAll.filter((m) => m.operatingSystem === "Windows");
+  const lm = MM.compute(MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL"] }], pilots: [], batched: [] }), lInput, new Map(), now);
+  const LO = lm.leftOut;
+  ok("left out: the country's users with no Windows device, with what Intune has for them", LO.users.map((u) => u.upn).join() === "u7@x,u8@x" && LO.users[0].has.macOS === 1 && LO.users[0].has.iOS === 1 && Object.keys(LO.users[1].has).length === 0 && LO.users[0].country === "Netherlands");
+  ok("…a Windows device whose primary user is in no country group", LO.noCountry.map((d) => d.name).join() === "WIN-U9");
+  ok("…a Windows device with no primary user (stale said)", LO.noPrimary.map((d) => d.name).join() === "WIN-NOUSER" && LO.noPrimary[0].stale);
+  ok("…a country's device with no Entra object, and one in the exclusion group", LO.noEntra.map((d) => d.name).join() === "WIN-U1-NOENTRA" && LO.held.map((d) => d.name).join() === "WIN-U1");
+  const loc = MM.leftOutCsv(lm, "Euro");
+  ok("the left-out CSV: a line per user and device, with the reason", loc.split("\r\n").length === 7 && /u7@x,,no Windows device \(Intune primary user\),macOS 1 · iOS 1/.test(loc) && /u8@x,,no Windows device.*nothing in Intune/.test(loc) && /WIN-NOUSER,no primary user/.test(loc));
+
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);
   ok("csv: one line per device, the removals too", c.split("\r\n")[0].startsWith("Region,Country,User group,Device group,Device") && /OLD-US.*to remove/.test(c) && /DE-NOENTRA.*no Entra object/.test(c));

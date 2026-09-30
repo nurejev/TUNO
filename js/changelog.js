@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10642,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — who gets left out; 78 policies left out by default",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "🕳 Left out, in 👥: one list per wave of who and what the waves do not reach. It shows each country's users with no Windows device, with the other devices Intune has for them, and the Windows devices no country device group will hold, each with its reason: primary user in no country group, no primary user, no Entra object, or excluded. A row's \"N users have none\" opens it on that country. There is a CSV of everyone."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "78 policies (the OIB Encryption, Edge and Device Security ones, the WIN-DCP policies, the LUGM, ASR-per-rule, firewall, EDR and EPM WIN-SEC policies, and Defender Antivirus Updates Ring 3 Production) are left out of the rollout by default. 🚫 Out of scope lists them with ➕ include, which puts one back in scope for this tenant."
+    }
+  ]
+},
+{
   "build": 10641,
   "date": "2026-09-30",
   "title": "T01: a masked policy value is fetched, not parsed",

@@ -106,7 +106,10 @@ function fullRes() {
 
 async function run() {
   // -------------------------------------------------------- generations --
-  const cfg = M.normConfig({});
+  // the fixtures use the one-rule ASR policy, which is on the default
+  // leave-out list since 10642 — taken off it here, as ➕ include does
+  const cfg = M.normConfig({ leaveOut: [], leaveOutSeed: M.DEFAULTS.leaveOutSeed });
+  ok("by default the one-rule ASR policy is left out (10642)", M.generationOf(NEW_ASR.name, M.normConfig({})) === "out" && M.generationOf(NEW_ASR.name, cfg) === "new");
   ok("defaults carry the three new prefixes", cfg.newPrefixes.join("|") === "Win - OIB|WIN-SEC|WIN-DCP");
   ok("defaults carry five regions", cfg.waveRegions.join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA");
   ok("each region is a device + user pair, then the two exclusion groups (12 names)", cfg.waves.length === 12

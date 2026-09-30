@@ -75,6 +75,18 @@ async function run() {
 
   $("mrRun").click();
   ok("the read finishes and the rail renders", await until(() => $("mrBody").querySelector(".ep-rail"), 30000, "rail"));
+  // 10642 (Mihai: "should be default excluded with the option to include if
+  // needed"): the demo's one-rule ASR policy is on the default leave-out
+  // list — 🚫 shows it with ➕ include, which puts it back in scope. The
+  // rest of this suite works with it included.
+  const stE = () => w.MdeRolloutTool._state();
+  const ASR = "WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0";
+  ok("by default the ASR one-rule policy is out of scope, left out by name", stE().model.outP.some((P) => P.name === ASR && P.outWhy) && !stE().model.newP.some((P) => P.name === ASR) && stE().cfg.leaveOut.length === 78);
+  w.MdeRolloutTool._pane("out");
+  ok("🚫 marks it and offers ➕ include", /➖ left out by name/.test($("mrBody").textContent) && !!D.querySelector(`[data-mrinclude="${ASR}"]`));
+  D.querySelector(`[data-mrinclude="${ASR}"]`).click();
+  ok("➕ include: back among the new policies, off the list for this tenant", stE().model.newP.some((P) => P.name === ASR) && stE().cfg.leaveOut.length === 77 && !stE().cfg.leaveOut.includes(ASR));
+  w.MdeRolloutTool._pane("conflicts");
   // enrichment (kinds, labels) follows the first paint
   ok("group kinds and setting names settle", await until(() => !/⏳/.test(($("mrEnrich") || { textContent: "" }).textContent) && w.MdeRolloutTool._state().pairs.some((p) => p.proposal && p.proposal.steps.some((s) => s.kind === "user")), 30000, "enrich"));
   const st = () => w.MdeRolloutTool._state();
@@ -229,6 +241,23 @@ async function run() {
   ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-POL-SKARB");
   ok("devices with no primary user are counted", mm().noPrimary === 2 && /2 of \d+ have no primary user/.test($("mrBody").textContent));
   ok("PL is not in any wave", mm().unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
+  // 🕳 Left out (10642, Mihai: "I need a way to know who is getting left
+  // out"; layout A): Sam (FR) has only a Mac; svc-legacyapp's laptop has a
+  // primary user in no country group; two Windows devices have no user.
+  ok("the members read covers every platform — what a user with no Windows device has", mm().leftOut.users.some((u) => u.upn === "sam@contoso.com" && u.has.macOS === 1));
+  ok("the toolbar offers 🕳 Left out with its count", /🕳 Left out · 4/.test($("mrBody").textContent), (/🕳 Left out · \d+/.exec($("mrBody").textContent) || [""])[0]);
+  const frRow = D.querySelector('[data-mrmemleftrow="fr"]');
+  ok("a country's '1 user has none' links there", !!frRow && /1 user has none/.test(frRow.textContent));
+  frRow.click();
+  ok("…opening the view on that country: Sam, and his other devices", st().mem.left && st().mem.leftCountry === "fr" && /sam@contoso\.com/.test($("mrBody").textContent) && /macOS 1/.test($("mrBody").textContent) && /the user wave only/.test($("mrBody").textContent));
+  ok("the devices no country holds, with the reason", /WS-SALES-0077/.test($("mrBody").textContent) && /primary user in no country group of the table/.test($("mrBody").textContent)
+    && /WS-OLD-0009/.test($("mrBody").textContent) && /no primary user/.test($("mrBody").textContent));
+  D.querySelector('[data-mrmemleftwhy="noPrimary"]').click();
+  ok("a tile narrows the devices to its reason", st().mem.leftReason === "noPrimary" && !/WS-SALES-0077/.test($("mrBody").textContent) && /WS-OLD-0009/.test($("mrBody").textContent));
+  let loCsv = null; const dl0 = w.URL.createObjectURL;
+  ok("the CSV names users and devices with the reason", (() => { const c = w.MdeMembers.leftOutCsv(mm(), "Euro"); loCsv = c; return /^Kind,Region,Country,User,Device,Why/.test(c) && /user,Euro,France,sam@contoso\.com,,no Windows device.*macOS 1/.test(c) && /WS-SALES-0077,primary user in no country group/.test(c); })(), loCsv);
+  D.querySelector('[data-mrmemleft]').click();
+  ok("the chip again goes back to the countries", !st().mem.left && !!D.querySelector('[data-mrmemopen="nl"]'));
   D.querySelector('[data-mrmemopen="nl"]').click();
   ok("a country opens to its devices", /WS-FIN-0187/.test($("mrBody").textContent) && /no longer in PVM-UG-CORP-MEM-USERS-NL/.test($("mrBody").textContent));
   const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };

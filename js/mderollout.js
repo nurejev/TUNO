@@ -109,7 +109,92 @@ const MdeRollout = (() => {
     // Policies LEFT OUT by name (10639, Mihai: "also add a same for
     // excluding a policy") — out of scope whatever their prefix or content:
     // listed under 🚫, never compared, planned, or pulled in by a setting.
-    leaveOut: [],
+    // The default list (10642, Mihai: "should be default excluded with the
+    // option to include if needed", and Ring 3 Production "also exclude");
+    // ➕ include under 🚫 takes a name off it for the tenant.
+    leaveOut: [
+      "Win - OIB - ES - Encryption - D - BitLocker (OS Disk) - v3.0",
+      "Win - OIB - ES - Encryption - U - Personal Data Encryption - v3.4",
+      "Win - OIB - SC - Defender Antivirus - D - Additional Configuration - v3.5",
+      "Win - OIB - SC - Device Security - D - Security Hardening - v3.6",
+      "Win - OIB - SC - Device Security - U - Device Guard, Credential Guard and HVCI - v3.5",
+      "Win - OIB - SC - Microsoft Edge - D - Security - v3.6.1",
+      "Win - OIB - SC - Microsoft Edge - U - User Experience - v3.6",
+      "WIN-DCP-DeviceConfiguration-D-ContactMonkeySettings-v2.0",
+      "WIN-DCP-DeviceConfiguration-D-SharedDeviceSettings-GLO-v2.0",
+      "WIN-DCP-DeviceConfiguration-U-BrowserDefaultSearchEngine-GLO-v1.0",
+      "WIN-DCP-DeviceSecurity-D-MDE_Device_TAG-PILOT-v2.0",
+      "WIN-DCP-DeviceSecurity-D-MDE_Device_TAG-PRE-PILOT-v2.0",
+      "WIN-DCP-DeviceSecurity-D-MDE_Device_TAG-TUR-v2.0",
+      "WIN-DCP-MicrosoftEdge-D-CustomEdgeSettings-GBR-v1.0",
+      "WIN-DCP-MicrosoftEdge-D-CustomEdgeSettings-USA-v1.0",
+      "WIN-DCP-MicrosoftEdge-D-CustomEdgeSettings-USA2-v1.0",
+      "WIN-DCP-MicrosoftEdge-U-HomePageChange-BR-v1.0",
+      "WIN-DCP-MicrosoftEdge-U-HomePageChange-DE-v1.0",
+      "WIN-DCP-MicrosoftEdge-U-HomePageChange-ID-v3.0",
+      "WIN-DCP-MicrosoftEdge-U-OpenSite_IE_Modus-GRC-v1.0",
+      "WIN-DCP-MicrosoftEdge-U-ProfilesSign-InAndSync-v3.0.1",
+      "WIN-SEC-AccountProtection-D-LUGM-ARE-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-BGA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-BRA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-CHE-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-CHN-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-CZE-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-DNK-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-ESP-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-FRA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-GBR-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-GER-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-GRC-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-HKG-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-IDN-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-IND-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-ITA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-KOR-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-LKA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-MEX-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-NGA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-NLD-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-PHL-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-POL-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-RDP-POL-Skarb-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-SGP-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-THA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-TUR-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-USA-v1.0",
+      "WIN-SEC-AccountProtection-D-LUGM-VNM-v1.0",
+      "WIN-SEC-AppControlForBusiness-D-BlockBadScriptHost-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-01_Block Adobe Reader from creating child processes-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-03_Block Win32 API calls from Office macros-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-04_Block credential stealing from the Windows local security authority subsystem (lsass.exe)",
+      "WIN-SEC-AttackSurfaceReduction-D-05_Block executable files from running unless they meet a prevalence, age, or trusted list criterion-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-06_Block JavaScript or VBScript from launching downloaded executable content-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-07_Block Office communication application from creating child processes-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-08_Block all Office applications from creating child processes-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-09_Block untrusted and unsigned processes that run from USB-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-10_Block process creations originating from PSExec and WMI commands-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-11_Block persistence through WMI event subscription-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-12_Block Office applications from creating executable content-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-13_Block Office applications from injecting code into other processes-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-14_Use advanced protection against ransomware-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-15_Block executable content from email client and webmail-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-16_Block abuse of exploited vulnerable signed drivers-v1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-17_Block use of copied or impersonated system tools -v.1.0",
+      "WIN-SEC-AttackSurfaceReduction-D-18_Block rebooting machine in Safe Mode - v.1.0",
+      "WIN-SEC-AttackSurfaceReduction-U-BlockUSBDevices-v2.0",
+      "WIN-SEC-DefenderFirewallRules-D-AllowICMP-POL-SKARB-v1.1",
+      "WIN-SEC-DefenderFirewallRules-D-AllowMiracast-GLO-v1.2",
+      "WIN-SEC-DefenderFirewallRules-D-AllowRDP-GLO-v1.1",
+      "Win-SEC-EndpointDetectionAndResponse-D-OFFboardFromFile-v1.0",
+      "Win-SEC-EndpointDetectionAndResponse-D-OnboardFromConnector-v1.1",
+      "WIN-SEC-EndpointPrivilegeManagement-D-PilotSettings-v1.0",
+      "WIN-SEC-EndpointPrivilegeManagement-D-VNM-v1.0",
+      "Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4",
+    ],
+    // bumped when the default list grows: a config saved before gets the
+    // new defaults merged in once, then keeps what was included by hand
+    leaveOutSeed: 10642,
   });
   const cleanList = (a) => uniq((a || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean));
   const str = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -162,7 +247,9 @@ const MdeRollout = (() => {
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
       alsoInScope: cleanList(Array.isArray(o.alsoInScope) ? o.alsoInScope : DEFAULTS.alsoInScope),
-      leaveOut: cleanList(Array.isArray(o.leaveOut) ? o.leaveOut : DEFAULTS.leaveOut),
+      leaveOut: cleanList(!Array.isArray(o.leaveOut) ? DEFAULTS.leaveOut
+        : o.leaveOutSeed === DEFAULTS.leaveOutSeed ? o.leaveOut : o.leaveOut.concat(DEFAULTS.leaveOut)),
+      leaveOutSeed: DEFAULTS.leaveOutSeed,
       // 👥 Wave members (10634): the country → region table and the device
       // group naming, kept with the rest of this tenant's rules
       members: typeof MdeMembers !== "undefined" ? MdeMembers.normConfig(o.members) : null,
@@ -1342,7 +1429,10 @@ const MdeRolloutTool = (() => {
   // 📑 Reports (10635): the last run of each, and the conflict checks of this session
   const reps = { assign: null, config: null, conflicts: null, checks: [], busy: "", selected: "assign", error: "" };
   const mem = { input: null, model: null, loading: false, region: null, unmapped: false,
-    sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false } };
+    sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false },
+    // 🕳 Left out (10642): the view, the country its user list is narrowed
+    // to (a row key, null = the whole wave) and the device reason shown
+    left: false, leftCountry: null, leftReason: null };
   // ⊘ Exclusions (10639, layout A off the mockup): its own read, search,
   // the looked-up card and its ticks, and the "excluded now" rows ticked
   const ex = { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "",
@@ -1353,6 +1443,7 @@ const MdeRolloutTool = (() => {
   // bottom, not visible" — option A off the mockup): right under the card
   // whose button made it, by that card's id; null = under the pane.
   let planAnchor = null;
+  let ruleSaved = "";          // the last save's word, kept across re-renders (10642)
   let backupTaken = false;
   const runs = [];             // this session's writes
   let running = false, busy = false, enriching = "";
@@ -1488,6 +1579,7 @@ const MdeRolloutTool = (() => {
     runs.length = 0; filterList = null; clearPlan();
     reps.assign = null; reps.config = null; reps.conflicts = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
+    mem.left = false; mem.leftCountry = null; mem.leftReason = null;
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
     if ($("mrExclude")) $("mrExclude").hidden = true;
@@ -1583,7 +1675,7 @@ const MdeRolloutTool = (() => {
         : editable ? `<span class="mini muted" title="This surface is not one the Assignment editor's engine writes">—</span>` : "";
       return `<tr>
         ${editable ? `<td style="width:26px">${pick}</td>` : ""}
-        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.scopeWhy ? ` · <span title="In scope: ${esc(P.scopeWhy)}">${/name/.test(P.scopeWhy) ? "➕ by name" : "🔗 shares a setting"}</span>` : ""}${P.outWhy ? ` · <span title="Out of scope: ${esc(P.outWhy)} — never compared, planned or pulled in">➖ left out by name</span>` : ""}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
+        <td><b>${polLink(P)}</b><div class="mini muted">${genChip(P)} ${audChip(P)}${esc(P.kind)}${P.scopeWhy ? ` · <span title="In scope: ${esc(P.scopeWhy)}">${/name/.test(P.scopeWhy) ? "➕ by name" : "🔗 shares a setting"}</span>` : ""}${P.outWhy ? ` · <span title="Out of scope: ${esc(P.outWhy)} — never compared, planned or pulled in">➖ left out by name</span> <button class="btn mr-incl" type="button" data-mrinclude="${esc(P.name)}" title="Take this name off ⚙️ Leave out for this tenant — it is in scope again">➕ include</button>` : ""}${P.mdeManaged ? ` · <span title="Also delivered by MDE security settings management — device groups only, no filters">🛰 MDE-managed</span>` : ""}${P.detailError ? ` · <span style="color:var(--off)">settings unreadable</span>` : ""}</div></td>
         <td style="white-space:nowrap">${catIcons(P)}</td>
         <td class="mini">${assignChips(P)}</td>
         <td class="mini">${which === "out" ? "" : col.length
@@ -1595,7 +1687,7 @@ const MdeRolloutTool = (() => {
     const intro = {
       new: `The new set — names starting with ${cfg.newPrefixes.map((p) => `<b>${esc(p)}</b>`).join(", ")}. Tick policies and use the bar below to include a wave group (or exclude, or remove), with an assignment filter if you want one.`,
       old: "Everything MDE-related that is neither new nor out of scope. Tick old policies to add an exclusion by hand; the ⚔️ pane proposes them for you.",
-      out: `Out of scope by name (${cfg.outPrefixes.map((p) => `<b>${esc(p)}</b>`).join(", ")}) — listed so nothing is hidden, never compared, never proposed. The ⚙️ pane changes the rule.`,
+      out: `Out of scope by prefix (${cfg.outPrefixes.map((p) => `<b>${esc(p)}</b>`).join(", ")}), and the ${cfg.leaveOut.length} names under ⚙️ <b>Leave out</b> (marked ➖ — <b>➕ include</b> puts one back in scope for this tenant). Listed so nothing is hidden, never compared, never proposed.`,
     }[which];
     return `${tb}
       <div class="list-card" style="margin-top:0">
@@ -1840,7 +1932,7 @@ const MdeRolloutTool = (() => {
         <button class="btn primary" id="mrRuleSave">Save and re-sort</button>
         <button class="btn" id="mrRuleReset">Back to the defaults</button>
       </div>
-      <p class="mini muted" id="mrRuleMsg" style="margin:8px 0 0">Now: ${count("new")} new · ${count("old")} old · ${count("retiring")} TO-BE-REMOVED · ${count("out")} out of scope.</p>
+      <p class="mini muted" id="mrRuleMsg" style="margin:8px 0 0">${esc(ruleSaved)}Now: ${count("new")} new · ${count("old")} old · ${count("retiring")} TO-BE-REMOVED · ${count("out")} out of scope.</p>
     </div>`;
   }
 
@@ -1850,6 +1942,7 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
+      <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). Who and what the waves do not reach: a country's users with no Windows device by Intune primary user (they get the user wave only — the card says which other devices Intune has for them), its devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why.</p>
@@ -2325,6 +2418,59 @@ const MdeRolloutTool = (() => {
     plan = Object.assign(p, { members: true, title: finish ? `Pilot ${r ? r.country : key} — finish` : `Pilot ${r ? r.country : key} — batch ${p.batch || ""} of ${mcfg().batchCount}` });
     renderMemPlan();
   }
+  // 🕳 Left out (10642, layout A off the mockup): who and what the waves
+  // do not reach — per wave for a country's users and devices, tenant-wide
+  // for the Windows devices no country holds.
+  function leftCounts(m) {
+    const L = m.leftOut, R = mem.region || (m.regions[0] && m.regions[0].region);
+    const inR = (x) => x.region === R;
+    const users = new Set(L.users.filter(inR).map((u) => u.id)).size;
+    const noEntra = L.noEntra.filter(inR).length, held = L.held.filter(inR).length;
+    return { R, users, noEntra, held, noCountry: L.noCountry.length, noPrimary: L.noPrimary.length, total: users + noEntra + held + L.noCountry.length + L.noPrimary.length };
+  }
+  const osHas = (h) => { const e = Object.entries(h || {}); return e.length ? e.map(([os, n]) => chip("gu-how", `${os} ${n}`)).join(" ") : chip("gu-how priv", "nothing in Intune"); };
+  const LEFT_WHY = {
+    noCountry: { label: "primary user in no country group of the table", tile: "Windows devices whose primary user is in no country group of the table" },
+    noPrimary: { label: "no primary user", tile: "Windows devices with no primary user" },
+    noEntra: { label: "no Entra object", tile: "no Entra object — they cannot be group members" },
+    held: { label: "⊘ excluded — stays on the old set", tile: "in the device exclusion group — on the old set" },
+  };
+  function leftOutHtml(m, lo) {
+    const L = m.leftOut, R = lo.R, CAP = 300;
+    const tile = (key, n, label, on) => `<button type="button" class="mr-tile mr-lotile${on ? " on" : ""}" data-mrmemleftwhy="${key}"><b>${n.toLocaleString()}</b><span>${esc(label)}</span></button>`;
+    const users = L.users.filter((u) => u.region === R && (!mem.leftCountry || u.rowKey === mem.leftCountry));
+    const countries = [...new Map(L.users.filter((u) => u.region === R).map((u) => [u.rowKey, u.country])).entries()]
+      .map(([k, c]) => ({ k, c, n: L.users.filter((u) => u.region === R && u.rowKey === k).length })).sort((a, b) => b.n - a.n);
+    const cchips = countries.length > 1 ? `<div class="toolbar mr-lobar">${fchip("data-mrmemleftrow", "", `All · ${lo.users.toLocaleString()}`, undefined, !mem.leftCountry)}${countries.map((x) => fchip("data-mrmemleftrow", x.k, `${x.c} · ${x.n.toLocaleString()}`, undefined, mem.leftCountry === x.k)).join("")}</div>` : "";
+    const cgName = (k) => { const r = m.rows.find((x) => x.key === k); return r ? r.userGroupName : ""; };
+    const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td><td class="mini muted">${Object.keys(u.has).length ? "the user wave only — the <code>- U -</code> policies, on no Windows device" : "no device of theirs in scope"}</td></tr>`).join("");
+    const why = mem.leftReason;
+    const devs = [].concat(
+      (!why || why === "noEntra") ? L.noEntra.filter((d) => d.region === R).map((d) => Object.assign({ k: "noEntra" }, d)) : [],
+      (!why || why === "held") ? L.held.filter((d) => d.region === R).map((d) => Object.assign({ k: "held" }, d)) : [],
+      (!why || why === "noCountry") ? L.noCountry.map((d) => Object.assign({ k: "noCountry" }, d)) : [],
+      (!why || why === "noPrimary") ? L.noPrimary.map((d) => Object.assign({ k: "noPrimary" }, d)) : []);
+    const whyChip = (d) => d.k === "held" ? chip("gu-how", LEFT_WHY.held.label) : d.k === "noEntra" ? chip("au-op delete", d.why || LEFT_WHY.noEntra.label) : chip("gu-how priv", LEFT_WHY[d.k].label);
+    const drows = devs.slice(0, CAP).map((d) => `<tr><td><b>${esc(d.name)}</b>${d.country ? `<div class="mini muted">${esc(d.country)}</div>` : ""}</td><td class="mini">${esc(d.upn || "—")}</td><td class="mini">${whyChip(d)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", "stale")}` : ""}</td></tr>`).join("");
+    return `<div class="list-card" style="margin-top:0">
+      <p class="mini muted" style="margin:0 0 8px">Who and what the waves do not reach, with the reason. The users and a country's devices are for 🌊 <b>${esc(R)}</b>; the devices no country holds are for the whole tenant. <a href="#" data-mrmemleft="1">← back to the countries</a></p>
+      <div class="mr-tiles">
+        ${tile("users", lo.users, `users with no Windows device (the user wave only)`, !mem.leftReason)}
+        ${tile("noCountry", lo.noCountry, LEFT_WHY.noCountry.tile, mem.leftReason === "noCountry")}
+        ${tile("noPrimary", lo.noPrimary, LEFT_WHY.noPrimary.tile, mem.leftReason === "noPrimary")}
+        ${tile("noEntra", lo.noEntra, LEFT_WHY.noEntra.tile, mem.leftReason === "noEntra")}
+        ${lo.held ? tile("held", lo.held, LEFT_WHY.held.tile, mem.leftReason === "held") : ""}
+      </div>
+      <h4 style="margin:14px 0 6px">Users with no Windows device <span class="mini muted" style="font-weight:400">— by Intune primary user${mem.leftCountry ? ` · ${esc(cgName(mem.leftCountry))}` : ""}</span></h4>
+      ${cchips}
+      ${users.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:32%"><col style="width:13%"><col style="width:27%"><col></colgroup><thead><tr><th>User</th><th>Country</th><th>Their other devices</th><th>For the rollout</th></tr></thead><tbody>${urows}</tbody></table></div>${users.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${users.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
+        : `<p class="mini muted" style="margin:0">Every user of ${mem.leftCountry ? "this country" : "this wave's countries"} has a Windows device.</p>`}
+      <h4 style="margin:16px 0 6px">Windows devices no country device group will hold${why ? ` <span class="mini muted" style="font-weight:400">— ${esc(LEFT_WHY[why].label)} · <a href="#" data-mrmemleftwhy="all">show every reason</a></span>` : ""}</h4>
+      ${devs.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:28%"><col><col style="width:16%"></colgroup><thead><tr><th>Device</th><th>Primary user</th><th>Why</th><th>Last sync</th></tr></thead><tbody>${drows}</tbody></table></div>${devs.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${devs.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
+        : `<p class="mini muted" style="margin:0">None.</p>`}
+      <div class="tb-actions" style="margin-top:10px"><button class="btn" id="mrMemLeftCsv">⭳ CSV — left out, ${esc(R)}</button><span class="mini muted">Users and ${esc(R)}'s devices, plus the devices no country holds.</span></div>
+    </div>`;
+  }
   function membersPane() {
     const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave: the country <b>user</b> groups (<code>${esc(mcfg().countryPrefix)}…</code>) go into the user wave, and one <b>device</b> group per country (<code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code>, assigned) holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The device groups are synced, not filled once: every read shows what to add and what to remove. The country table is under ⚙️ Naming rules.</p>`;
     if (mem.loading) return `<div class="list-card" style="margin-top:0">${intro}<p class="mini" id="mrMemProg">Reading…</p></div>`;
@@ -2334,8 +2480,10 @@ const MdeRolloutTool = (() => {
       <p class="mini muted" style="margin:8px 0 0">Reads the country groups and their users, every Windows device in Intune and in Entra, the ${esc(mcfg().deviceGroupPrefix)}* groups and what is nested in the waves. Read-only; a large tenant takes a minute.</p></div>`;
     const m = mem.model;
     const regionChip = (rg) => fchip("data-mrmemregion", rg.region, `🌊 ${rg.region} · ${rg.rows.length}`, undefined, !mem.unmapped && mem.region === rg.region);
-    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
+    const lo = leftCounts(m);
+    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped)}<button class="btn" id="mrMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mrMemCsv">⭳ CSV</button></div>`;
     const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
+    if (mem.left && !mem.unmapped) return `${chips}${top}${leftOutHtml(m, lo)}`;
     if (mem.unmapped) {
       const suffixOf = (g) => g.displayName.slice(mcfg().countryPrefix.length);
       const regionOpts = m.regions.map((x) => `<option value="${esc(x.region)}">${esc(x.region)}</option>`).join("");
@@ -2356,7 +2504,7 @@ const MdeRolloutTool = (() => {
       return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
         <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}</span>` : ""}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
-        <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted">${plural(r.usersNoDevice, "user has", "users have")} none</div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
+        <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted"><a href="#" data-mrmemleftrow="${esc(r.key)}" title="🕳 who they are, and what Intune has for them">${plural(r.usersNoDevice, "user has", "users have")} none</a></div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
         <td class="mini">${memCell(r)}</td>
         <td class="mini">${memNestCell(r)}</td></tr>${mem.open.has(r.key) ? memDetail(r) : ""}`;
     }).join("");
@@ -2372,7 +2520,7 @@ const MdeRolloutTool = (() => {
       <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px">
         ${meter("user wave", rg.wave.userName, rg.ugNested, inTenant.length, `country groups nested · ${rg.users.toLocaleString()} users`)}
         ${meter("device wave", rg.wave.deviceName, rg.dgNested, inTenant.length, `device groups nested · ${rg.devices.toLocaleString()} devices`)}
-        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b> · Windows only · ${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} have no primary user and are in no country</div>
+        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b> · Windows only · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} have no primary user</a> and are in no country</div>
       </div>
       ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:8%"><col style="width:13%"><col style="width:26%"><col></colgroup>
         <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
@@ -2974,8 +3122,25 @@ const MdeRolloutTool = (() => {
         else download(`MDE-rollout-${name}-${stamp()}.html`, r.html, "text/html");
         return;
       }
-      const mr = t.closest("[data-mrmemregion]"); if (mr) { mem.region = mr.dataset.mrmemregion; mem.unmapped = false; clearPlan(); render(); return; }
-      if (t.closest("[data-mrmemunmapped]")) { mem.unmapped = !mem.unmapped; render(); return; }
+      const mr = t.closest("[data-mrmemregion]"); if (mr) { mem.region = mr.dataset.mrmemregion; mem.unmapped = false; mem.leftCountry = null; clearPlan(); render(); return; }
+      if (t.closest("[data-mrmemunmapped]")) { mem.unmapped = !mem.unmapped; if (mem.unmapped) mem.left = false; render(); return; }
+      // 🕳 left out (10642)
+      if (t.closest("[data-mrmemleft]")) { e.preventDefault(); mem.left = !mem.left; mem.unmapped = false; mem.leftCountry = null; mem.leftReason = null; render(); return; }
+      const lr = t.closest("[data-mrmemleftrow]"); if (lr) {
+        e.preventDefault();
+        const k = lr.dataset.mrmemleftrow || null;
+        const r = k && mem.model ? mem.model.rows.find((x) => x.key === k) : null;
+        if (r) mem.region = r.region;
+        mem.left = true; mem.unmapped = false; mem.leftCountry = k; mem.leftReason = null; render(); return;
+      }
+      const lw = t.closest("[data-mrmemleftwhy]"); if (lw) {
+        e.preventDefault();
+        const k = lw.dataset.mrmemleftwhy;
+        mem.left = true; mem.unmapped = false; mem.leftReason = k === "users" || k === "all" ? null : k;
+        if (k === "users") mem.leftCountry = null;
+        render(); return;
+      }
+      if (t.id === "mrMemLeftCsv") { if (mem.model) download(`MDE-left-out-${mem.region || "all"}-${stamp()}.csv`, MdeMembers.leftOutCsv(mem.model, mem.region), "text/csv"); return; }
       const mo = t.closest("[data-mrmemopen]"); if (mo) { e.preventDefault(); const k = mo.dataset.mrmemopen; mem.open.has(k) ? mem.open.delete(k) : mem.open.add(k); render(); return; }
       const ap = t.closest("[data-mrmempilot]"); if (ap) {
         const sel = $(ap.dataset.mrpilotsel);
@@ -3034,7 +3199,7 @@ const MdeRolloutTool = (() => {
         const okSaved = saveCfg({ newPrefixes: lines("mrRuleNew"), outPrefixes: lines("mrRuleOut"), waveRegions: lines("mrRuleWaves"),
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
-          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), leaveOut: lines("mrRuleLeave"),
+          waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), leaveOut: lines("mrRuleLeave"), leaveOutSeed: cfg.leaveOutSeed,
           renameExclusionFrom: {
             device: cfg.renameExclusionFrom.device.concat(prevPre.exD && lc($("mrRuleExD").value.trim()) !== lc(prevPre.exD) ? [prevPre.exD] : []),
             user: cfg.renameExclusionFrom.user.concat(prevPre.exU && lc($("mrRuleExU").value.trim()) !== lc(prevPre.exU) ? [prevPre.exU] : []),
@@ -3050,11 +3215,20 @@ const MdeRolloutTool = (() => {
           // a new prefix means other groups — the members read is redone, not recomputed
           if (prefixes() !== beforePre) { mem.input = null; mem.model = null; mem.sel.clear(); }
           derive(); render();
-          $("mrRuleMsg").textContent = `${okSaved ? "Saved for this tenant." : "Applied for this session — this browser would not keep it."} ${model.newP.length} new · ${model.oldP.length} old · ${model.outP.length} out of scope.`;
+          ruleSaved = `${okSaved ? "Saved for this tenant." : "Applied for this session — this browser would not keep it."} `;
+          $("mrRuleMsg").textContent = `${ruleSaved}${model.newP.length} new · ${model.oldP.length} old · ${model.outP.length} out of scope.`;
+          enrich();   // a changed scope brings groups whose kinds were never read
         })();
         return;
       }
-      if (t.id === "mrRuleReset") { saveCfg(null); derive(); render(); return; }
+      if (t.id === "mrRuleReset") { saveCfg(null); derive(); render(); enrich(); return; }
+      // ➕ include (10642): a policy left out by name is taken off the list
+      const inc = t.closest("[data-mrinclude]"); if (inc) {
+        const nm = M.normName(inc.dataset.mrinclude);
+        saveCfg(Object.assign({}, cfg, { leaveOut: cfg.leaveOut.filter((n) => M.normName(n) !== nm) }));
+        // new pairs bring groups whose kinds were never read — read them
+        derive(); render(); enrich(); return;
+      }
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mrExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }

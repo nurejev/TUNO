@@ -174,12 +174,23 @@ async function run() {
   ok("taking it out of the exclusion group lets the sync want it again", !input.held.has(O(1).toLowerCase()) && MM.compute(mcfg, input, new Map(), NOW).rows.find((x) => x.suffix === "NL").want.has(O(1).toLowerCase()));
 
   // ------------------------------------------- ⚙️ leave out (10639) --
-  const cfg = M.normConfig({ leaveOut: ["  Win - OIB - ES - Defender Antivirus - D - AV Test - v1  ", ""] });
+  const cfg = M.normConfig({ leaveOut: ["  Win - OIB - ES - Defender Antivirus - D - AV Test - v1  ", ""], leaveOutSeed: M.DEFAULTS.leaveOutSeed });
   ok("the leave-out list is kept, trimmed, empty lines dropped", cfg.leaveOut.length === 1 && cfg.leaveOut[0] === "Win - OIB - ES - Defender Antivirus - D - AV Test - v1");
   ok("a name left out is out of scope whatever its prefix — dashes and spaces folded", M.generationOf("Win – OIB – ES – Defender Antivirus – D – AV Test – v1", cfg) === "out"
     && M.generationOf("Win - OIB - ES - Defender Antivirus - D - AV Other - v1", cfg) === "new");
-  ok("the default list is empty", M.normConfig(null).leaveOut.length === 0);
-  const both = M.normConfig({ alsoInScope: ["Win - OIB - SC - X - D - Y - v1"], leaveOut: ["Win - OIB - SC - X - D - Y - v1"] });
+  // 10642 (Mihai: "should be default excluded with the option to include")
+  const def = M.normConfig(null);
+  ok("the default list: Mihai's 77 names and Ring 3 Production", def.leaveOut.length === 78 && def.leaveOut.includes("Win - OIB - ES - Defender Antivirus Updates - Ring 3 - Production - v3.4")
+    && def.leaveOut.includes("WIN-SEC-AccountProtection-D-LUGM-NLD-v1.0"));
+  ok("…each of them out of scope by default, however it is typed in Intune", M.generationOf("WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0", def) === "out"
+    && M.generationOf("WIN-SEC-AttackSurfaceReduction-D-18_Block rebooting machine in Safe Mode - v.1.0", def) === "out" && M.generationOf("Win - OIB - ES - Encryption - D - BitLocker (OS Disk) - v3.0", def) === "out"
+    && M.generationOf("Win - OIB - ES - Defender Antivirus - D - AV Configuration - v3.3", def) === "new");
+  const old10639 = M.normConfig({ leaveOut: ["Win - OIB - SC - Z - D - Mine - v1"] });
+  ok("a config saved before 10642 gets the defaults merged in once, and keeps its own", old10639.leaveOut.length === 79 && old10639.leaveOut.includes("Win - OIB - SC - Z - D - Mine - v1") && old10639.leaveOutSeed === M.DEFAULTS.leaveOutSeed);
+  const included = M.normConfig(Object.assign({}, def, { leaveOut: def.leaveOut.filter((n) => !/LUGM-NLD/.test(n)) }));
+  ok("➕ include takes a name off for good — the seed stops it coming back", included.leaveOut.length === 77 && !included.leaveOut.some((n) => /LUGM-NLD/.test(n))
+    && M.generationOf("WIN-SEC-AccountProtection-D-LUGM-NLD-v1.0", M.normConfig(JSON.parse(JSON.stringify(included)))) === "new");
+  const both = M.normConfig({ alsoInScope: ["Win - OIB - SC - X - D - Y - v1"], leaveOut: ["Win - OIB - SC - X - D - Y - v1"], leaveOutSeed: M.DEFAULTS.leaveOutSeed });
   ok("a name in both lists is left out", M.generationOf("Win - OIB - SC - X - D - Y - v1", both) === "out");
 }
 

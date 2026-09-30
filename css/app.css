@@ -2632,6 +2632,12 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-document table table td:first-child{min-width:140px}
 #screen-mderollout .mr-document tr.head td{background:var(--soft);font-weight:600}
 #screen-mderollout .mr-document code{background:var(--soft);padding:1px 4px;border-radius:4px}
+#screen-mderollout .mr-incl{padding:1px 8px;font-size:11.5px;min-height:0;margin-left:4px}
+/* 🕳 left out (10642) */
+#screen-mderollout .mr-lotile{font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+#screen-mderollout .mr-lotile.on{border:2px solid var(--green)}
+#screen-mderollout .mr-lotile span{display:block}
+#screen-mderollout .mr-lobar{position:static;margin:0 0 8px;padding:0;box-shadow:none;background:none}
 /* 🧪 pilot in batches (10640) */
 #screen-mderollout .mr-batch{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:4px 0 8px;background:var(--surface)}
 /* ⊘ Exclusions (10639, layout A off the mockup) */

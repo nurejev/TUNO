@@ -104,6 +104,39 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 204,
+  "title": "T28 — 🕳 who gets left out; 78 policies left out by default with ➕ include",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10642
+  ],
+  "risk": "low",
+  "what": "MdeMembers reads the Intune devices of every platform once (Windows is the subset used for the waves). compute adds leftOut: the country groups' users with no Windows device and the platforms they do have; Windows devices whose primary user is in no country group; devices with no primary user; a country's devices with no Entra object or in the exclusion group. leftOutCsv. Screen: a 🕳 Left out toolbar chip and view (tiles by reason, chips by country, row and header links, CSV). MdeRollout: DEFAULTS.leaveOut holds 78 names with leaveOutSeed 10642, so a config saved at 10639–10640 gets them merged in once. ➕ include in 🚫 takes a name off the list. A scope change re-reads group kinds.",
+  "why": "Mihai: 'I need a way to know who is getting left out' (layout A off the mockup); 'the policies below should be default excluded with the option to include if needed'; Ring 3 Production 'also exclude'.",
+  "test": [
+    "Run npm test. mderollout/members (76) covers the left-out lists and CSV. mderollout/exclude (41) covers the default list, the migration and the include. mderollout/screen (172) covers ASR left out by default → ➕ include → back in scope, then the Left out view (Sam with only a Mac, svc-legacyapp in no country, two devices with no primary user, the tile filter, the CSV).",
+    "Browser DEMO: 🚫 shows the ASR policy with ➕ include. In 👥 → 🕳 Left out, check the tiles and lists at 1440 px light and dark, and 390 px.",
+    "LIVE PENDING (PVM): check the 78 names are out under 🚫 (names typed differently in Intune still match: dashes, spaces and case fold). In 👥, NL's '728 users have none' should open the list; spot-check a few users' devices in Intune."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "css/app.css",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/exclude.test.js",
+    "tests/mderollout/engine.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10642.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 203,
   "title": "T01 — masked OMA-URI values (****) are fetched, not parsed",
   "tools": [

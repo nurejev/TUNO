@@ -214,8 +214,11 @@ const MdeMembers = (() => {
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
     const dgAll = dgList;
     dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))));
-    say("Reading the Windows devices in Intune…");
-    const managed = await Graph.readAll(`/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime`, { scopes: DS, retry: true });
+    // every platform, once (10642): Windows is the wave's subset; the rest
+    // says what a user with no Windows device does have (🕳 Left out)
+    say("Reading the devices in Intune…");
+    const managedAll = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem`, { scopes: DS, retry: true });
+    const managed = (managedAll || []).filter((m) => lc(m.operatingSystem) === "windows");
     say("Reading the Windows devices in Entra…");
     const entra = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$count=true&$select=id,deviceId,displayName,accountEnabled&$top=999`, { scopes: DO, headers: EV, retry: true });
     const rows = countryRows(cfg);
@@ -250,7 +253,7 @@ const MdeMembers = (() => {
       catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
     }
     say("");
-    return { countryGroups, deviceGroups: dgList, managed, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
+    return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -405,7 +408,67 @@ const MdeMembers = (() => {
         devices: rs.filter((r) => r.dgNested).reduce((a, r) => a + r.have.size, 0),
       };
     });
-    return { rows, regions, unmapped, noPrimary, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0 };
+    return { rows, regions, unmapped, noPrimary, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
+      leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId) };
+  }
+
+  // ---------------------------------------------------------- left out --
+  // 🕳 (10642, Mihai: "I need a way to know who is getting left out";
+  // layout A off the mockup). Who and what the waves do not reach:
+  //   users    — in a country group of the table, with no Windows device by
+  //              Intune primary user (they get the user wave only), each
+  //              with what Intune does have for them (any platform)
+  //   noCountry — Windows devices whose primary user is in no country
+  //              group of the table
+  //   noPrimary — Windows devices with no primary user
+  //   noEntra  — a country's devices with no Entra object (cannot be members)
+  //   held     — a country's devices in the device exclusion group (⊘)
+  function leftOutOf(input, rows, now, staleMs, entraByDeviceId) {
+    const osByUser = new Map();
+    for (const m of input.managedAll || input.managed || []) {
+      if (!m.userId || lc(m.operatingSystem) === "windows") continue;
+      const k = lc(m.userId), os = m.operatingSystem || "other";
+      if (!osByUser.has(k)) osByUser.set(k, {});
+      osByUser.get(k)[os] = (osByUser.get(k)[os] || 0) + 1;
+    }
+    const winUsers = new Set((input.managed || []).filter((m) => m.userId).map((m) => lc(m.userId)));
+    const users = [], noEntra = [], held = [];
+    const inCountry = new Set();
+    for (const r of rows) {
+      const list = r.ug ? (input.usersByGroup.get(lc(r.ug.id)) || []) : [];
+      for (const u of list) {
+        const id = lc(u.id);
+        inCountry.add(id);
+        if (!winUsers.has(id)) users.push({ id, upn: u.userPrincipalName || u.id, rowKey: r.key, country: r.country, region: r.region, has: osByUser.get(id) || {} });
+      }
+      for (const d of r.devices) {
+        const x = { name: d.name, upn: d.upn, userId: d.userId, lastSync: d.lastSync, stale: d.stale, rowKey: r.key, country: r.country, region: r.region };
+        if (!d.objId) noEntra.push(Object.assign(x, { why: d.problem }));
+        else if (d.held) held.push(x);
+      }
+    }
+    const noCountry = [], noPrimary = [];
+    for (const m of input.managed || []) {
+      const last = Date.parse(m.lastSyncDateTime || "");
+      const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
+      const x = { name: m.deviceName || m.id, upn: m.userPrincipalName || "", userId: lc(m.userId || ""), lastSync: m.lastSyncDateTime || null,
+        stale: Number.isFinite(last) && now - last > staleMs, entra: !!e };
+      if (!m.userId) noPrimary.push(x);
+      else if (!inCountry.has(lc(m.userId))) noCountry.push(x);
+    }
+    const byName = (a, b) => lc(a.upn || a.name).localeCompare(lc(b.upn || b.name));
+    return { users: users.sort(byName), noCountry: noCountry.sort(byName), noPrimary: noPrimary.sort(byName), noEntra, held };
+  }
+  function leftOutCsv(model, region) {
+    const L = model.leftOut, rows = [["Kind", "Region", "Country", "User", "Device", "Why", "What Intune has", "Last sync"]];
+    const inR = (x) => !region || x.region === region;
+    const has = (h) => Object.entries(h || {}).map(([os, n]) => `${os} ${n}`).join(" · ") || "nothing in Intune";
+    L.users.filter(inR).forEach((u) => rows.push(["user", u.region, u.country, u.upn, "", "no Windows device (Intune primary user)", has(u.has), ""]));
+    L.noEntra.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, d.why || "no Entra object", "", d.lastSync || ""]));
+    L.held.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, "in the device exclusion group — stays on the old set", "", d.lastSync || ""]));
+    L.noCountry.forEach((d) => rows.push(["device", "", "", d.upn, d.name, "primary user in no country group of the table", "", d.lastSync || ""]));
+    L.noPrimary.forEach((d) => rows.push(["device", "", "", "", d.name, "no primary user", "", d.lastSync || ""]));
+    return rows.map((x) => x.map(csvCell).join(",")).join("\r\n");
   }
 
   // --------------------------------------------------------------- plan --
@@ -683,7 +746,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv,
+    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv,
     _setWait: (fn) => { wait = fn; },
   };
 })();
