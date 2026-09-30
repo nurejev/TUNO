@@ -1941,7 +1941,18 @@ const MdeRolloutTool = (() => {
     if (a && $("mrBody").contains(a)) a.after(pl);
     else if ($("mrPlanSeat")) $("mrPlanSeat").appendChild(pl);
   }
-  const showPlan = () => { const pl = planEl(); if (pl && pl.scrollIntoView) pl.scrollIntoView({ block: "start", behavior: "smooth" }); };
+  // Scroll the plan's heading into view below the sticky header AND the
+  // pane's own sticky toolbar (👥's region chips), which would cover it.
+  const showPlan = () => {
+    const pl = planEl();
+    if (!pl || !pl.scrollIntoView) return;
+    let nav = 106;
+    try { nav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sticky-nav")) || 106; } catch { /* the default */ }
+    const tb = $("mrBody") ? $("mrBody").querySelector(".toolbar") : null;
+    const extra = tb && tb.getBoundingClientRect ? tb.getBoundingClientRect().height : 0;
+    pl.style.scrollMarginTop = `${Math.round(nav + extra + 12)}px`;
+    pl.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
 
   async function dryRun() {
     if (busy || !model) return;
@@ -2259,20 +2270,60 @@ const MdeRolloutTool = (() => {
       if (nested === null) return `<div>${icon} <span class="muted">—</span></div>`;
       return `<div>${icon} ${chip("au-op other", "offer")}</div>`;
     };
-    return one("👤", r.ug ? r.ugNested : null, r.wave.user, r.wave.userName, "user")
+    const userSide = r.batch && !r.batch.finished && r.wave.user
+      ? `<div>👤 ${chip("gu-how priv", `🧪 ${r.batch.inCount} of ${r.batch.N} users`)} <span class="muted">${r.batch.next ? `batch ${r.batch.next.n} of ${r.batch.K} next` : "all in — finish"}</span></div>`
+      : one("👤", r.ug ? r.ugNested : null, r.wave.user, r.wave.userName, "user");
+    return userSide
       + one("🖥", r.dg ? r.dgNested : (r.deviceGroupName && r.want.size ? false : null), r.wave.device, r.wave.deviceName, "device");
   }
   function memDetail(r) {
     const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
-      const st = !d.objId ? chip("au-op delete", d.problem) : d.held ? `${chip("gu-how priv", "⊘ excluded")} <span class="muted">${r.have.has(d.objId) ? "take out — stays on the old set" : "kept out — on the old set"}</span>` : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
+      const wb = r.batch && !r.batch.finished && d.objId && !d.held && !r.want.has(d.objId) ? r.batch.batches.find((b) => b.users.some((u) => u.id === d.userId)) : null;
+      const st = !d.objId ? chip("au-op delete", d.problem) : wb ? `<span class="muted">🧪 waits for batch ${wb.n}</span>` : d.held ? `${chip("gu-how priv", "⊘ excluded")} <span class="muted">${r.have.has(d.objId) ? "take out — stays on the old set" : "kept out — on the old set"}</span>` : r.have.has(d.objId) ? `<span class="muted">in group</span>` : `<b style="color:var(--on)">add</b>`;
       return `<tr><td>${esc(d.name)}</td><td class="mini">${esc(d.upn)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
-    return `<tr><td colspan="6" style="padding:0 8px 8px 36px"><div class="mr-detail">
+    return `<tr><td colspan="6" style="padding:0 8px 8px 36px">${r.pilot ? batchPanel(r) : ""}<div class="mr-detail">
       <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}${r.problems.held ? ` · <span class="muted">${r.problems.held} in the device exclusion group — kept out, on the old set</span>` : ""}
       ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
       ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
     </div></td></tr>`;
+  }
+  // 🧪 A pilot in batches (10640, option A off the mockup): its users go
+  // straight into the user wave a batch at a time, its device group follows
+  // them, and Finish nests the group. The plan opens under this panel.
+  const upnShort = (u) => String(u.upn || u.id).split("@")[0];
+  function batchPanel(r) {
+    const on = !!r.batch;
+    const toggle = `<label class="chk" style="margin:0"><input type="checkbox" data-mrbatchtoggle="${esc(r.suffix)}"${on ? " checked" : ""}${r.batch && r.batch.finished ? " disabled" : ""}> add this pilot in ${mcfg().batchCount} batches</label>`;
+    if (!on) return `<div class="mr-batch" id="mrBatch-${esc(r.key)}"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>🧪 Pilot</b>${toggle}<span class="mini muted">Off: the whole group goes into the wave at once (nest user group).</span></div></div>`;
+    const b = r.batch;
+    const pct = b.N ? Math.round(100 * b.inCount / b.N) : 100;
+    const stateChip = (x) => x.state === "in" ? chip("au-op create", "in") : x.state === "next" ? chip("gu-how priv", x.inHere ? `next · ${x.inHere} of ${x.size} in` : "next") : x.state === "empty" ? `<span class="muted">—</span>` : `<span class="muted">waiting</span>`;
+    const rows = b.batches.map((x) => `<tr${x.state === "next" ? ` class="mr-selrow"` : ""}><td><b>${x.n}</b></td>
+      <td>${x.size}${x.users.length ? ` <span class="muted">${esc(upnShort(x.users[0]))}${x.users.length > 1 ? ` … ${esc(upnShort(x.users[x.users.length - 1]))}` : ""}</span>` : ""}</td>
+      <td>${x.devices.length}${x.devices.some((d) => !d.objId || d.held) ? ` <span class="muted" title="${esc(x.devices.filter((d) => !d.objId || d.held).map((d) => `${d.name}: ${d.held ? "excluded" : d.problem}`).join("\n"))}">(${x.devices.filter((d) => !d.objId || d.held).length} left out)</span>` : ""}</td>
+      <td>${stateChip(x)}</td>
+      <td style="text-align:right">${x.state === "next" ? `<button class="btn primary" data-mrbatch="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>Batch ${x.n} → dry run</button>` : ""}</td></tr>`).join("");
+    const allIn = !b.next;
+    return `<div class="mr-batch" id="mrBatch-${esc(r.key)}">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><b>🧪 Pilot in ${b.K} batches</b>${toggle}</div>
+      ${b.finished ? `<p class="mini" style="margin:6px 0 0">${chip("au-op create", "finished")} ${esc(r.userGroupName)} is nested in ${esc(r.wave.userName)} — new users flow in with the group.</p>` : `
+      <p class="mini muted" style="margin:4px 0 8px">Each batch is an even part of the users not yet in the wave, sorted by UPN, and each user's Windows devices go with them. The next batch is cut from whoever is still left, so users who join or leave the group in between are counted in. The users go straight into <code>${esc(r.wave.userName || "the user wave")}</code>; <code>${esc(r.deviceGroupName || "the device group")}</code> holds only the devices of users already in.</p>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px"><div><div class="mini muted">Progress</div><b>${b.inCount} of ${b.N} users</b> <span class="mini muted">· ${b.batches.filter((x) => x.state === "in").length} of ${b.batches.filter((x) => x.size).length} batches</span><div class="mr-meter"><i style="width:${pct}%"></i></div></div>
+        ${b.inOther ? `<div class="mini muted">${plural(b.inOther, "user is", "users are")} in the wave already through ${esc(b.viaNames.join(", ") || "another group")} — not in the batches</div>` : ""}</div>
+      ${b.N ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:56px"><col><col style="width:18%"><col style="width:18%"><col style="width:170px"></colgroup><thead><tr><th>Batch</th><th>Users</th><th>Devices</th><th>State</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">No user of this group is left to batch.</p>`}
+      <div class="tb-actions" style="margin-top:8px"><button class="btn" data-mrbatchcsv="${esc(r.key)}">⭳ CSV of the batches</button>
+        ${allIn ? `<button class="btn primary" data-mrbatchfin="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Finish: nest the pilot group →</button><span class="mini muted">nests ${esc(r.userGroupName)} and takes the direct members out, so new users flow in</span>` : `<span class="mini muted">After the last batch: 🧪 Finish nests the group.</span>`}</div>`}
+    </div>`;
+  }
+  function batchDryRun(key, finish) {
+    if (busy || !mem.model) return;
+    planAnchor = `mrBatch-${key}`; clearPlan(); seatPlan();
+    const r = mem.model.rows.find((x) => x.key === key);
+    const p = finish ? MdeMembers.planFinish(mem.model, key) : MdeMembers.planBatch(mem.model, key, mcfg());
+    plan = Object.assign(p, { members: true, title: finish ? `Pilot ${r ? r.country : key} — finish` : `Pilot ${r ? r.country : key} — batch ${p.batch || ""} of ${mcfg().batchCount}` });
+    renderMemPlan();
   }
   function membersPane() {
     const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave: the country <b>user</b> groups (<code>${esc(mcfg().countryPrefix)}…</code>) go into the user wave, and one <b>device</b> group per country (<code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code>, assigned) holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The device groups are synced, not filled once: every read shows what to add and what to remove. The country table is under ⚙️ Naming rules.</p>`;
@@ -2303,7 +2354,7 @@ const MdeRolloutTool = (() => {
     const rows = inTenant.map((r) => {
       const done = r.inSync && r.ugNested && r.dgNested;
       return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
-        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">🧪 pilot</span>` : ""}<div class="mini muted">${esc(r.userGroupName)}</div></td>
+        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}</span>` : ""}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
         <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted">${plural(r.usersNoDevice, "user has", "users have")} none</div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
         <td class="mini">${memCell(r)}</td>
@@ -2354,7 +2405,7 @@ const MdeRolloutTool = (() => {
   function renderMemPlan() {
     const p = plan;
     const country = (x) => { if (x.who || p.exclusions) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
-    const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${x.size.toLocaleString()} ${x.kind === "user" ? "users" : "devices"})</span>` : ""}</td></tr>`).join("");
+    const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${plural(x.size, x.kind === "user" ? "user" : "device")})</span>` : ""}</td></tr>`).join("");
     planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
       <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
       <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
@@ -2935,6 +2986,10 @@ const MdeRolloutTool = (() => {
         memCompute(); clearPlan(); render(); return;
       }
       if (t.id === "mrMemRead") { memRead(); return; }
+      // 🧪 pilot batches (10640)
+      const bt = t.closest("[data-mrbatch]"); if (bt) { batchDryRun(bt.dataset.mrbatch, false); return; }
+      const bf = t.closest("[data-mrbatchfin]"); if (bf) { batchDryRun(bf.dataset.mrbatchfin, true); return; }
+      const bc = t.closest("[data-mrbatchcsv]"); if (bc) { const r = mem.model && mem.model.rows.find((x) => x.key === bc.dataset.mrbatchcsv); if (r) download(`MDE-pilot-batches-${r.suffix}-${stamp()}.csv`, MdeMembers.batchCsv(r), "text/csv"); return; }
       // ⊘ exclusions (10639)
       if (t.id === "mrExRead") { exRead(); return; }
       if (t.id === "mrExGo") { exSearch(); return; }
@@ -3048,6 +3103,12 @@ const MdeRolloutTool = (() => {
         clearPlan(); render(); return;
       }
       if (t.dataset.mrmemopt) { mem.opts[t.dataset.mrmemopt] = t.checked; clearPlan(); render(); return; }
+      if (t.dataset.mrbatchtoggle) {
+        const sfx = t.dataset.mrbatchtoggle;
+        const cur = mcfg().batched.filter((x) => lc(x) !== lc(sfx));
+        saveCfg(Object.assign({}, cfg, { members: Object.assign({}, mcfg(), { batched: t.checked ? cur.concat(sfx) : cur }) }));
+        memCompute(); clearPlan(); render(); return;
+      }
       if (t.dataset.mrextick) { t.checked ? ex.ticks.add(t.dataset.mrextick) : ex.ticks.delete(t.dataset.mrextick); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
       if (t.id === "mrExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }

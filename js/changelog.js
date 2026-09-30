@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10640,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — the pilot in four batches",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "🧪 Pilot in batches. A pilot group (NL-Breda by default, one tick per pilot) is added to its wave in four even batches of users and their Windows devices. Users already in the wave through another group are left out. A batch puts its users straight into the user wave and their devices into the pilot's device group, which follows its users. Each next batch is cut from whoever is still left, so changes in between are counted in. After the last batch, Finish nests the pilot group and takes the direct members out. Each batch has a dry run, a read-back and an undo from 📜."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "A plan now scrolls clear of the pane's sticky filter bar, so its heading is no longer hidden under the region chips in 👥."
+    }
+  ]
+},
+{
   "build": 10639,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — exclusions: search a user or device, exclude both",

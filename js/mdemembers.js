@@ -61,6 +61,13 @@ const MdeMembers = (() => {
     // overlap a country group (NL-Breda ⊂ NL): its devices then sit in both
     // device groups, which is expected, not a problem.
     pilots: ["NL-Breda"],
+    // A pilot added IN BATCHES (10640, Mihai: "split the adding of the pilot
+    // group in 4 even batches of users and devices"; option A off the
+    // mockup): its users go straight into the user wave a batch at a time,
+    // and its device group follows them — it holds only the devices of
+    // users already in the wave. Its user group is nested at the end.
+    batched: ["NL-Breda"],
+    batchCount: 4,
     deviceGroupDescription: "Windows devices whose Intune primary user is in {userGroup}. Kept in sync by TUNO (T28 MDE rollout · wave members).",
     staleDays: 30,
     largeNest: 500,
@@ -92,6 +99,8 @@ const MdeMembers = (() => {
       deviceSuffixes: o.deviceSuffixes && typeof o.deviceSuffixes === "object" ? normOverrides(o.deviceSuffixes) : normOverrides(DEFAULTS.deviceSuffixes),
       deviceGroupDescription: cleanStr(o.deviceGroupDescription, DEFAULTS.deviceGroupDescription),
       pilots: uniq((Array.isArray(o.pilots) ? o.pilots : DEFAULTS.pilots).map((x) => String(x || "").trim()).filter(Boolean)),
+      batched: uniq((Array.isArray(o.batched) ? o.batched : DEFAULTS.batched).map((x) => String(x || "").trim()).filter(Boolean)),
+      batchCount: Number.isInteger(+o.batchCount) && +o.batchCount >= 2 && +o.batchCount <= 10 ? +o.batchCount : DEFAULTS.batchCount,
       staleDays: Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULTS.staleDays,
       largeNest: DEFAULTS.largeNest,
     };
@@ -230,6 +239,10 @@ const MdeMembers = (() => {
     const waves = (waveGroups || []).filter((g) => g && g.id);
     const wr = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }), 4);
     wr.forEach((r, n) => { if (r.error) failed.push(`${waves[n].displayName}: ${(r.error && r.error.message) || r.error}`); else waveChildren.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
+    // the users put straight into a wave — a pilot's batches (10640)
+    const waveUsers = new Map();
+    const wu = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { scopes: GS, retry: true }), 4);
+    wu.forEach((r, n) => { if (r.error) failed.push(`${waves[n].displayName} (direct users): ${(r.error && r.error.message) || r.error}`); else waveUsers.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
     let heldIds = new Set();
     if (held && held.id) {
       say("Reading the device exclusion group…");
@@ -237,7 +250,64 @@ const MdeMembers = (() => {
       catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
     }
     say("");
-    return { countryGroups, deviceGroups: dgList, managed, entra, usersByGroup, deviceMembers, waveChildren, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
+    return { countryGroups, deviceGroups: dgList, managed, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
+  }
+
+  // ------------------------------------------------------------ batches --
+  // A pilot in batches (10640). The users who can be batched are the pilot
+  // group's users not already in the wave through another nested group (a
+  // Breda user is in NL too). They are split into batchCount even parts
+  // (sizes differ by one at most), sorted by UPN; the users put straight
+  // into the user wave count as in. The NEXT batch tops up the first part
+  // not yet full, cut from whoever is still left — so users who join or
+  // leave the group in between are counted in. Finished: the pilot group
+  // itself is nested in the wave.
+  function batchOf(cfg, input, row) {
+    if (!row.ug || !(cfg.batched || []).some((x) => lc(x) === lc(row.suffix))) return null;
+    const K = cfg.batchCount || DEFAULTS.batchCount;
+    const wave = row.wave && row.wave.user;
+    const direct = wave && input.waveUsers ? (input.waveUsers.get(lc(wave.id)) || new Set()) : new Set();
+    const kids = wave && input.waveChildren ? (input.waveChildren.get(lc(wave.id)) || new Set()) : new Set();
+    const finished = kids.has(lc(row.ug.id));
+    const viaOther = new Set(), viaNames = [];
+    for (const gid of kids) {
+      if (gid === lc(row.ug.id)) continue;
+      const us = input.usersByGroup.get(gid);
+      if (!us) continue;
+      const g = (input.countryGroups || []).find((x) => lc(x.id) === gid);
+      let hit = false;
+      for (const u of us) { viaOther.add(lc(u.id)); hit = true; }
+      if (hit && g) viaNames.push(g.displayName);
+    }
+    const users = (input.usersByGroup.get(lc(row.ug.id)) || []).map((u) => ({ id: lc(u.id), upn: u.userPrincipalName || u.id }));
+    const inOther = users.filter((u) => viaOther.has(u.id));
+    const batchable = users.filter((u) => !viaOther.has(u.id)).sort((a, b) => lc(a.upn).localeCompare(lc(b.upn)));
+    const inList = batchable.filter((u) => direct.has(u.id)), left = batchable.filter((u) => !direct.has(u.id));
+    const N = batchable.length;
+    const sizes = Array.from({ length: K }, (_, k) => Math.floor(N / K) + (k < N % K ? 1 : 0));
+    const devOf = (list) => { const ids = new Set(list.map((u) => u.id)); return row.devices.filter((d) => ids.has(d.userId)); };
+    const batches = [];
+    let before = 0, taken = 0, nextFound = false;
+    for (let k = 0; k < K; k++) {
+      const size = sizes[k];
+      const inHere = Math.max(0, Math.min(size, inList.length - before));
+      let list, state;
+      if (!size) { list = []; state = "empty"; }
+      else if (finished || inHere >= size) { list = inList.slice(before, before + size); state = "in"; }
+      else {
+        const need = size - inHere;
+        list = inList.slice(before, before + inHere).concat(left.slice(taken, taken + need));
+        taken += need;
+        state = nextFound ? "waiting" : "next";
+        nextFound = true;
+      }
+      batches.push({ n: k + 1, size, inHere, users: list, devices: devOf(list), state, toAdd: state === "in" ? [] : list.filter((u) => !direct.has(u.id)) });
+      before += size;
+    }
+    const inWave = new Set([...direct, ...viaOther]);
+    if (finished) users.forEach((u) => inWave.add(u.id));
+    return { K, N, finished, inCount: finished ? N : inList.length, inOther: inOther.length, viaNames, sizes, batches,
+      next: batches.find((b) => b.state === "next") || null, inWave, direct: users.filter((u) => direct.has(u.id)).map((u) => u.id) };
   }
 
   // ------------------------------------------------------------ compute --
@@ -271,7 +341,7 @@ const MdeMembers = (() => {
           seen.add(lc(m.id));
           const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
           const last = Date.parse(m.lastSyncDateTime || "");
-          devices.push({ managedId: m.id, name: m.deviceName || (e && e.displayName) || m.id, upn: m.userPrincipalName || u.userPrincipalName || "",
+          devices.push({ managedId: m.id, name: m.deviceName || (e && e.displayName) || m.id, upn: m.userPrincipalName || u.userPrincipalName || "", userId: lc(u.id),
             lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
             objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
             held: !!(e && held.has(lc(e.id))) });
@@ -297,6 +367,10 @@ const MdeMembers = (() => {
       // a device in the exclusion group stays on the old set: never wanted
       // here, and taken out when it is in (10639)
       row.want = new Set(row.devices.filter((d) => d.objId && !d.held).map((d) => d.objId));
+      row.batch = batchOf(cfg, input, row);
+      // a pilot in batches: its device group follows its users — only the
+      // devices of users already in the wave are wanted (10640)
+      if (row.batch && !row.batch.finished) row.want = new Set(row.devices.filter((d) => d.objId && !d.held && row.batch.inWave.has(d.userId)).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
@@ -357,7 +431,8 @@ const MdeMembers = (() => {
         }
       }
       if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
-      if (o.nestUsers && !r.ugNested) {
+      if (o.nestUsers && !r.ugNested && r.batch) skipped.push(`${tag}: added in batches — 🧪 its user group is nested by "Finish" after the last batch`);
+      else if (o.nestUsers && !r.ugNested) {
         if (!r.wave.user) skipped.push(`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`);
         else {
           ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: { id: lc(r.ug.id), name: r.ug.displayName }, kind: "user", size: r.users });
@@ -375,6 +450,61 @@ const MdeMembers = (() => {
       }
     }
     return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove" || x.type === "unnest") };
+  }
+  // The next batch of a pilot (10640): its users straight into the user
+  // wave, then the device group (created if need be) filled with their
+  // devices and nested in the device wave if it is not yet.
+  function planBatch(model, key, cfg) {
+    const r = model.rows.find((x) => x.key === key);
+    const ops = [], skipped = [], warnings = [];
+    if (!r || !r.batch) return { ops, skipped: ["not a pilot in batches"], warnings, hasRemoval: false };
+    const b = r.batch, nb = b.next;
+    const tag = `${r.country} (${r.userGroupName})`;
+    const who = `${r.country} · batch ${nb ? nb.n : "—"} of ${b.K}`;
+    if (!nb) return { ops, skipped: [b.finished ? `${tag}: finished — the group is nested in the wave` : `${tag}: every batch is in — 🧪 Finish nests the group`], warnings, hasRemoval: false };
+    if (!r.wave.user) return { ops, skipped: [`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`], warnings, hasRemoval: false };
+    if (nb.toAdd.length) ops.push({ type: "add", key: r.key, group: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, ids: nb.toAdd.map((u) => u.id), label: `${nb.toAdd.length} user${nb.toAdd.length === 1 ? "" : "s"} — batch ${nb.n} of ${b.K}`, memberKind: "user", who,
+      objs: nb.toAdd.map((u) => ({ id: u.id, userPrincipalName: u.upn })) });
+    const devs = nb.devices.filter((d) => d.objId && !d.held && !(r.have && r.have.has(d.objId)));
+    nb.devices.filter((d) => !d.objId).forEach((d) => skipped.push(`${d.name}: ${d.problem}`));
+    nb.devices.filter((d) => d.held).forEach((d) => skipped.push(`${d.name}: in the device exclusion group — stays on the old set`));
+    let dgRef = r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null;
+    if (devs.length) {
+      if (!r.deviceGroupName) skipped.push(`${tag}: ${r.iso3Source}`);
+      else {
+        if (!r.dg) {
+          ops.push({ type: "create", key: r.key, name: r.deviceGroupName, description: String((cfg && cfg.deviceGroupDescription) || DEFAULTS.deviceGroupDescription).replace("{userGroup}", r.userGroupName), who });
+          dgRef = { ref: r.deviceGroupName, name: r.deviceGroupName };
+        }
+        ops.push({ type: "add", key: r.key, group: dgRef, ids: devs.map((d) => d.objId), label: `${devs.length} device${devs.length === 1 ? "" : "s"} of batch ${nb.n}`, memberKind: "device", who });
+      }
+    }
+    if (dgRef && !r.dgNested) {
+      if (!r.wave.device) skipped.push(`${tag}: ${r.wave.deviceName || "the device wave"} does not exist — create it in 🌊 first`);
+      else ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.device.id), name: r.wave.device.displayName }, child: dgRef, kind: "device", size: devs.length, who });
+    }
+    const large = (cfg && cfg.largeNest) || DEFAULTS.largeNest;
+    if (nb.toAdd.length > large) warnings.push(`batch ${nb.n} brings ${nb.toAdd.length} users into ${r.wave.user.displayName} at once`);
+    return { ops, skipped, warnings, hasRemoval: false, batch: nb.n };
+  }
+  // After the last batch: nest the pilot group (new users flow in), then
+  // take its users out of the wave's direct members — they are in through
+  // the group now. The removal is typed.
+  function planFinish(model, key) {
+    const r = model.rows.find((x) => x.key === key);
+    const ops = [], skipped = [], warnings = [];
+    if (!r || !r.batch) return { ops, skipped: ["not a pilot in batches"], warnings, hasRemoval: false };
+    const who = `${r.country} · finish`;
+    if (!r.wave.user) return { ops, skipped: [`${r.wave.userName || "the user wave"} does not exist`], warnings, hasRemoval: false };
+    if (!r.batch.finished) ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: { id: lc(r.ug.id), name: r.ug.displayName }, kind: "user", size: r.users, who });
+    if (r.batch.direct.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, ids: r.batch.direct.slice(), label: `${r.batch.direct.length} user${r.batch.direct.length === 1 ? "" : "s"} — in through ${r.ug.displayName} now`, memberKind: "user", who });
+    if (r.batch.next) warnings.push(`${r.batch.N - r.batch.inCount} of ${r.batch.N} users are not in yet — nesting the group brings them in at once`);
+    return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove") };
+  }
+  function batchCsv(row) {
+    const rows = [["Batch", "State", "User", "Devices"]];
+    if (row && row.batch) for (const b of row.batch.batches) for (const u of b.users) rows.push([b.n, b.state, u.upn, row.devices.filter((d) => d.userId === u.id).map((d) => d.name).join(" ")]);
+    return rows.map((x) => x.map(csvCell).join(",")).join("\r\n");
   }
   // The inverse of what a run DID (not of what it planned), for undo.
   function inverseOf(done) {
@@ -515,7 +645,10 @@ const MdeMembers = (() => {
   function patchInput(input, done, createdGroups) {
     for (const g of createdGroups || []) if (g && g.id && !(input.deviceGroups || []).some((x) => lc(x.id) === lc(g.id))) { input.deviceGroups.push(g); input.deviceMembers.set(lc(g.id), new Set()); }
     for (const d of done || []) {
-      if ((d.type === "add" || d.type === "remove") && d.memberKind === "user") continue;
+      if ((d.type === "add" || d.type === "remove") && d.memberKind === "user") {
+        if (input.waveUsers && input.waveUsers.has(lc(d.group.id))) { const set = input.waveUsers.get(lc(d.group.id)); d.ids.forEach((id) => d.type === "add" ? set.add(lc(id)) : set.delete(lc(id))); }
+        continue;
+      }
       if ((d.type === "add" || d.type === "remove") && input.heldGroup && lc(d.group.id) === input.heldGroup.id) {
         if (!input.held) input.held = new Set();
         d.ids.forEach((id) => d.type === "add" ? input.held.add(lc(id)) : input.held.delete(lc(id)));
@@ -550,7 +683,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv,
+    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv,
     _setWait: (fn) => { wait = fn; },
   };
 })();

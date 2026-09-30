@@ -2632,6 +2632,8 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-document table table td:first-child{min-width:140px}
 #screen-mderollout .mr-document tr.head td{background:var(--soft);font-weight:600}
 #screen-mderollout .mr-document code{background:var(--soft);padding:1px 4px;border-radius:4px}
+/* 🧪 pilot in batches (10640) */
+#screen-mderollout .mr-batch{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:4px 0 8px;background:var(--surface)}
 /* ⊘ Exclusions (10639, layout A off the mockup) */
 #screen-mderollout .mr-exbtn{border:2px solid var(--lemon);font-weight:700}
 #screen-mderollout .mr-exsearch{display:flex;gap:8px;flex-wrap:wrap;max-width:560px}
@@ -2653,7 +2655,6 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-exreach{padding:12px 14px}
 #screen-mderollout .mr-exreach table{min-width:520px}
 #screen-mderollout .mr-expc table{min-width:440px}
-#screen-mderollout #mrPlan{scroll-margin-top:calc(var(--sticky-nav,106px) + 12px)}
 @media(max-width:900px){
   #screen-mderollout .mr-expair{grid-template-columns:1fr}
   #screen-mderollout .mr-exr{margin-left:0}

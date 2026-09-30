@@ -104,6 +104,37 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 202,
+  "title": "T28 — the pilot in four batches (users straight into the waves, the device group follows)",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10640
+  ],
+  "risk": "medium",
+  "what": "MdeMembers: batched pilots (cfg batched, batchCount 4). readInput reads each wave's direct users. batchOf splits the pilot's users (minus those in the wave through another nested group) into even parts sorted by UPN; the next batch tops up the first part not yet full from whoever is left. While batching, the device group wants only the devices of users in the wave, and planOps never nests the user group. planBatch: users into the user wave, then create, fill and nest the device group. planFinish: nest the pilot group, then remove the direct users (typed). patchInput updates the wave's direct users; batchCsv. Screen: the batch panel on the opened pilot row (progress, parts, next dry run with the plan under the panel, CSV, finish, a toggle per pilot). showPlan clears the pane's sticky toolbar.",
+  "why": "Mihai: 'an option to split the adding of the pilot group in 4 even batches of users and devices' — option A off the mockup (straight into the waves).",
+  "test": [
+    "Run npm test; mderollout/members (71) covers the split (even sizes), users in through NL left out, the device group following its users, the batch plan, the regular sync not nesting, a user leaving between batches, all in → no next batch, finish (nest, then typed removal), finished → every device wanted, the CSV, and patchInput on direct users. mderollout/screen (161) covers batch 1 in demo, down to the tenant: Alex a direct member of the user wave, INT-SG-D-NLD-BREDA created with his laptop and nested; the panel moving on; the toggle.",
+    "Browser DEMO: the demo's Breda group has one user, who is in through NL, so the panel says nothing is left to batch. The screen test gives it four more users to show batches.",
+    "LIVE PENDING (PVM): open NL-Breda in 👥 and check the batch sizes against the group's users. Run batch 1, check the users and devices in Entra and that the policies arrive, then run the next batches. After the last one, Finish."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "css/app.css",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10640.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 201,
   "title": "T28 — ⊘ exclusions (search a user or device, both exclusion groups), Leave-out list, plans under their button",
   "tools": [

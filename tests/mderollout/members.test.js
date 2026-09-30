@@ -190,6 +190,58 @@ async function run() {
   MM.patchInput(inp2, [{ type: "add", group: { id: "NEWG" }, ids: ["E3"] }, { type: "nest", parent: { id: "WD" }, child: { id: "NEWG" } }], [{ id: "NEWG", displayName: "INT-SG-D-DEU" }]);
   ok("patchInput: the created group, its members and its nest", inp2.deviceGroups.length === 1 && inp2.deviceMembers.get("newg").has("e3") && inp2.waveChildren.get("wd").has("newg"));
 
+  // ------------------------------------------- 🧪 pilot batches (10640) --
+  // Mihai: "split the adding of the pilot group in 4 even batches of users
+  // and devices" — option A: users straight into the wave, the device group
+  // follows them, the group nested at the end.
+  ok("the default: NL-Breda in 4 batches", cfg.batched.join() === "NL-Breda" && cfg.batchCount === 4 && MM.normConfig({ batchCount: 99 }).batchCount === 4);
+  const bUsers = Array.from({ length: 10 }, (_, i) => ({ id: `b${i}`, userPrincipalName: `user${String(i).padStart(2, "0")}@contoso.com` }));
+  const bInput = {
+    countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, { id: "gbr", displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda" }],
+    deviceGroups: [],
+    usersByGroup: new Map([["gbr", bUsers.concat([{ id: "u1", userPrincipalName: "a-first@contoso.com" }])], ["gnl", [{ id: "u1" }]]]),
+    managed: bUsers.map((u, i) => ({ id: `mb${i}`, deviceName: `BR-${i}`, userId: u.id, azureADDeviceId: `AB${i}`, lastSyncDateTime: iso(now) }))
+      .concat([{ id: "mx", deviceName: "BR-NOENTRA", userId: "b1", azureADDeviceId: "ABX", lastSyncDateTime: iso(now) }]),
+    entra: bUsers.map((u, i) => ({ id: `EB${i}`, deviceId: `AB${i}`, displayName: `BR-${i}` })),
+    deviceMembers: new Map(), waveChildren: new Map([["wu", new Set(["gnl"])]]), waveUsers: new Map([["wu", new Set()]]),
+    failed: [], readAt: now,
+  };
+  const bcfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL-Breda", "NL"] }], pilots: ["NL-Breda"] });
+  let bm = MM.compute(bcfg, bInput, waves, now);
+  let BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
+  ok("ten users to batch; the one in the wave through NL is left out of the batches", BRr.batch.N === 10 && BRr.batch.inOther === 1 && BRr.batch.viaNames.join() === "PVM-UG-CORP-MEM-USERS-NL");
+  ok("four even parts: 3, 3, 2, 2 — sorted by UPN", BRr.batch.sizes.join() === "3,3,2,2" && BRr.batch.batches[0].users.map((u) => u.upn.slice(0, 6)).join() === "user00,user01,user02");
+  ok("batch 1 is next, the rest wait", BRr.batch.next.n === 1 && BRr.batch.batches.slice(1).every((b) => b.state === "waiting"));
+  ok("the device group follows its users: nothing is wanted before batch 1", BRr.want.size === 0 && BRr.devices.length === 11);
+  const pb = MM.planBatch(bm, BRr.key, bcfg);
+  ok("batch 1: three users into the user wave, the device group created and filled with their devices, nested in the device wave", pb.ops.map((o) => o.type).join() === "add,create,add,nest"
+    && pb.ops[0].memberKind === "user" && pb.ops[0].group.name === "INT-SG-U-WAVE-Euro" && pb.ops[0].ids.join() === "b0,b1,b2"
+    && pb.ops[2].ids.join() === "eb0,eb1,eb2" && pb.ops[3].parent.name === "INT-SG-D-WAVE-Euro" && pb.batch === 1 && !pb.hasRemoval);
+  ok("…a batch device with no Entra object is left out with the reason", pb.skipped.some((x) => /BR-NOENTRA/.test(x)));
+  ok("the regular sync does not nest a batched pilot's user group", MM.planOps(bm, new Set([BRr.key]), all, bcfg).skipped.some((x) => /added in batches/.test(x)));
+  // the run lands: users in, device group made and filled
+  bInput.waveUsers.get("wu").add("b0"); bInput.waveUsers.get("wu").add("b1"); bInput.waveUsers.get("wu").add("b2");
+  bInput.deviceGroups.push({ id: "gdb", displayName: "INT-SG-D-NLD-BREDA" }); bInput.deviceMembers.set("gdb", new Set(["eb0", "eb1", "eb2"])); bInput.waveChildren.set("wd", new Set(["gdb"]));
+  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
+  ok("after batch 1: 3 of 10 in, batch 2 next, the device group in sync", BRr.batch.inCount === 3 && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.inSync && BRr.dgNested);
+  // a user leaves the group before batch 2: the next batch is cut from who is left
+  bInput.usersByGroup.set("gbr", bInput.usersByGroup.get("gbr").filter((u) => u.id !== "b9"));
+  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
+  ok("someone leaves: nine to batch, the parts become 3, 2, 2, 2 and batch 1 stays in", BRr.batch.N === 9 && BRr.batch.sizes.join() === "3,2,2,2" && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.batch.next.toAdd.length === 2);
+  // every batch in → finish
+  ["b3", "b4", "b5", "b6", "b7", "b8"].forEach((id) => bInput.waveUsers.get("wu").add(id));
+  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
+  ok("all in: no next batch", !BRr.batch.next && BRr.batch.inCount === 9 && MM.planBatch(bm, BRr.key, bcfg).ops.length === 0);
+  const pf = MM.planFinish(bm, BRr.key);
+  ok("finish: nest the pilot group, then take its direct users out — typed", pf.ops[0].type === "nest" && pf.ops[0].child.name === "PVM-UG-CORP-MEM-USERS-NL-Breda" && pf.ops[1].type === "remove" && pf.ops[1].memberKind === "user" && pf.ops[1].ids.length === 9 && pf.hasRemoval);
+  bInput.waveChildren.get("wu").add("gbr");
+  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
+  ok("nested: finished, and the device group wants every device of the group again", BRr.batch.finished && BRr.want.size === 9);
+  ok("the batches CSV: a header and one line per user, with their devices", MM.batchCsv(BRr).split("\r\n").length === 10 && /^Batch,State,User,Devices/.test(MM.batchCsv(BRr)) && /user00@contoso\.com,BR-0/.test(MM.batchCsv(BRr)));
+  MM.patchInput(bInput, [{ type: "remove", group: { id: "WU" }, ids: ["b0"], memberKind: "user" }]);
+  ok("patchInput moves a wave's direct users", !bInput.waveUsers.get("wu").has("b0"));
+  ok("not batched: a pilot is nested whole, as before", MM.compute(MM.normConfig({ countryMap: bcfg.countryMap, pilots: ["NL-Breda"], batched: [] }), bInput, waves, now).rows.find((r) => r.suffix === "NL-Breda").batch === null);
+
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);
   ok("csv: one line per device, the removals too", c.split("\r\n")[0].startsWith("Region,Country,User group,Device group,Device") && /OLD-US.*to remove/.test(c) && /DE-NOENTRA.*no Entra object/.test(c));

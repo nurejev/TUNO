@@ -45,7 +45,7 @@ function boot() {
   w.msal = undefined;
   w.fetch = () => Promise.reject(new Error("no network in tests"));
   const src = files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
-  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,MdeRolloutTool,AssignEdit,TUNO_DEMO_GRAPH});";
+  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,MdeRolloutTool,AssignEdit,TUNO_DEMO_GRAPH,MdeMembers});";
   const realErr = console.error, realLog = console.log, realWarn = console.warn;
   console.error = () => {}; console.log = () => {}; console.warn = () => {};
   let err = null;
@@ -435,6 +435,41 @@ async function run() {
   w.MdeRolloutTool._pane("rules");
   $("mrRuleLeave").value = ""; $("mrRuleSave").click();
   ok("clearing the box brings it back", await until(() => st().model.newP.some((P) => P.name === avName), 5000, "back in"));
+
+  // ------------------------------------------ 🧪 pilot batches (10640) --
+  // Mihai: "split the adding of the pilot group in 4 even batches of users
+  // and devices" — option A. The demo's Breda group is given four more
+  // users for this (Eva is in the wave through NL already).
+  const TT = w.TUNO_DEMO_GRAPH.T;
+  TT.GROUPS.find((g) => g.displayName === "PVM-UG-CORP-MEM-USERS-NL-Breda")._users = ["22222222-0000-4000-8000-000000000001", "22222222-0000-4000-8000-000000000002",
+    "22222222-0000-4000-8000-000000000004", "22222222-0000-4000-8000-000000000005", "22222222-0000-4000-8000-000000000007"];
+  w.MdeRolloutTool._pane("members");
+  $("mrMemRead").click();
+  ok("the members read again", await until(() => st().mem.model && !st().mem.loading && D.querySelector("[data-mrmemregion]"), 20000, "members re-read"));
+  const br = () => st().mem.model.rows.find((r) => r.key === "nl-breda");
+  ok("NL-Breda is added in batches: four users to batch in four parts, Eva already in through NL", br().batch && br().batch.N === 4 && br().batch.sizes.join() === "1,1,1,1" && br().batch.inOther === 1 && br().batch.next.n === 1);
+  ok("the row says it", /🧪 pilot · in batches/.test($("mrBody").textContent) && /0 of 4 users/.test($("mrBody").textContent));
+  D.querySelector('[data-mrmemopen="nl-breda"]').click();
+  ok("the pilot row opens on its batch panel", !!$("mrBatch-nl-breda") && /Pilot in 4 batches/.test($("mrBatch-nl-breda").textContent) && !!D.querySelector('[data-mrbatch="nl-breda"]'));
+  D.querySelector('[data-mrbatch="nl-breda"]').click();
+  ok("batch 1 → dry run: Alex into the user wave, INT-SG-D-NLD-BREDA created, filled with his laptop and nested", !!st().plan && st().plan.ops.map((o) => o.type).join() === "add,create,add,nest"
+    && st().plan.ops[0].group.name === "INT-SG-U-WAVE-Euro" && st().plan.ops[0].ids.join() === "22222222-0000-4000-8000-000000000001" && st().plan.ops[1].name === "INT-SG-D-NLD-BREDA"
+    && st().plan.ops[2].ids.join() === "33333333-0000-4000-8000-000000000107");
+  ok("…and the plan opens under the batch panel", $("mrBatch-nl-breda").nextElementSibling === $("mrPlan") && /batch 1 of 4/.test($("mrPlan").textContent));
+  $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  const brun = st().runs.length;
+  $("mrMemApply").click();
+  ok("applied: every step done and verified", await until(() => st().runs.length === brun + 1, 15000, "batch run") && st().runs[brun].ok === 4, st().runs[brun] && st().runs[brun].lines.join(" | "));
+  const brG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-NLD-BREDA");
+  ok("in the tenant: Alex a direct member of the user wave; the new device group holds his laptop and sits in the device wave",
+    (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001")
+    && brG() && brG()._devices.includes("33333333-0000-4000-8000-000000000107") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
+  ok("the panel moves on: 1 of 4 in, batch 2 next", br().batch.inCount === 1 && br().batch.batches[0].state === "in" && br().batch.next.n === 2);
+  ok("the regular sync would not nest the pilot group while it is batched", w.MdeMembers.planOps(st().mem.model, new Set(["nl-breda"]), { fill: true, nestUsers: true, nestDevices: true }, st().cfg.members).skipped.some((x) => /added in batches/.test(x)));
+  const tg = D.querySelector('[data-mrbatchtoggle="NL-Breda"]'); tg.checked = false; tg.dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("the batches can be switched off for a pilot (kept per tenant)", br().batch === null && !st().cfg.members.batched.includes("NL-Breda"));
+  const tg2 = D.querySelector('[data-mrbatchtoggle="NL-Breda"]'); tg2.checked = true; tg2.dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("…and on again, with the progress intact", br().batch && br().batch.inCount === 1);
 
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });
