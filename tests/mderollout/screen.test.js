@@ -623,6 +623,69 @@ async function run() {
   D.querySelector('#mrTargetSeg [data-mrtarget="group"]').click();
   ok("back to Group: the box returns", $("mrGroup").style.display !== "none" && $("mrBarWaves").style.display === "none");
 
+  // ------------------------------------ 🧪 pilots into their wave (10647) --
+  // Mihai: "an option to identify the pilot users and devices to a wave and
+  // an option to remove them from the pilot and be sure that they are then
+  // in their wave" — option A (only members already in their wave leave;
+  // the plan only removes) and "block that wave" for a policy gap.
+  const nlRow = mrow("nl");
+  const nlDev = nlRow.devices.find((d) => d.objId && nlRow.have.has(d.objId) && nlRow.want.has(d.objId));
+  const nlUser = st().mem.input.usersByGroup.get(nlRow.ug.id.toLowerCase())[0];
+  const noPrim = TT.DEVICES.find((d) => d.operatingSystem === "Windows" && !d.userId && d.azureADDeviceId);
+  const gPilD = TT.GROUPS.find((g) => g.id === pilotId);
+  gPilD._devices = [nlDev.objId].concat(noPrim ? [noPrim.azureADDeviceId] : []);
+  const pilotUId = TT.G(39);
+  TT.GROUPS.push({ id: pilotUId, displayName: "INT-SG-U-Win-Pilot", description: "MDE pilot users.", groupTypes: [], securityEnabled: true, mailEnabled: false,
+    isAssignableToRole: false, membershipRule: null, createdDateTime: new Date().toISOString(), memberCount: 1, _kind: "user", _users: [nlUser.id] });
+  w.MdeRolloutTool._pane("members");
+  $("mrMemRead").click();
+  ok("👥 read again, with the pilot groups", await until(() => !st().mem.loading && mm() && mm().pilots && mm().pilots.members.length >= 2, 20000, "pilot members"));
+  const pil = () => mm().pilots.members;
+  const pDev = () => pil().find((x) => x.kind === "device" && x.id === nlDev.objId), pUser = () => pil().find((x) => x.kind === "user" && x.id === nlUser.id);
+  ok("each pilot member with its wave: the NL device in INT-SG-D-WAVE-Euro through INT-SG-D-NLD, the NL user in INT-SG-U-WAVE-Euro through the NL group",
+    pDev() && pDev().state === "in" && pDev().waveName === "INT-SG-D-WAVE-Euro" && /INT-SG-D-NLD/.test(pDev().via)
+    && pUser() && pUser().state === "in" && pUser().waveName === "INT-SG-U-WAVE-Euro" && /PVM-UG-CORP-MEM-USERS-NL/.test(pUser().via), JSON.stringify(pil().map((x) => [x.name, x.state, x.why || x.via])));
+  ok("a device with no primary user has no wave, and says so", !noPrim || pil().some((x) => x.id === noPrim.azureADDeviceId && x.state === "none" && /primary user/.test(x.why)));
+  D.querySelector("[data-mrpilview]").click();
+  ok("🧪 Pilots opens: tiles, the wave per member", st().mem.pil && /✓ in their wave/.test($("mrBody").textContent) && /Netherlands → INT-SG-D-WAVE-Euro/.test($("mrBody").textContent), ($("mrBody").textContent.match(/\S+ → INT-SG-D-WAVE-Euro/) || [""])[0]);
+  // the old AV policy excludes the device pilot but not the Euro device wave:
+  // a device leaving the pilot would get the old policy back — blocked
+  ok("⛔ the policy check blocks the device wave, naming the old AV policy", /⛔/.test($("mrBody").textContent) && /PVM-DG-CORP-ENDSEC-WIN-AV-PRD excludes INT-SG-D-Win-Pilot but not INT-SG-D-WAVE-Euro/.test($("mrBody").textContent)
+    && !D.querySelector(`[data-mrpilsel="device|${nlDev.objId}"]`) && !!D.querySelector(`[data-mrpilsel="user|${nlUser.id}"]`));
+  // close the gap in the tenant and read the policies again
+  avOldT.assignments.push({ id: `${TT.G(21)}_exc`, source: "direct", target: { "@odata.type": "#microsoft.graph.exclusionGroupAssignmentTarget", groupId: TT.G(21), deviceAndAppManagementAssignmentFilterId: null, deviceAndAppManagementAssignmentFilterType: "none" } });
+  $("mrRun").click();
+  ok("with the wave excluded too, the device is free to leave", await until(() => !D.querySelector(".prog-card") && st().model && st().model.oldP.some((P) => /ENDSEC-WIN-AV-PRD/.test(P.name) && P.reach.exc.has(TT.G(21))) && !!D.querySelector(`[data-mrpilsel="device|${nlDev.objId}"]`), 30000, "unblocked"));
+  w.MdeRolloutTool._pane("members");
+  if (!st().mem.pil) D.querySelector("[data-mrpilview]").click();
+  const tickP = (k) => { const b = D.querySelector(`[data-mrpilsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
+  tickP(`device|${nlDev.objId}`); tickP(`user|${nlUser.id}`);
+  ok("the bar counts the ticks", /2 members/.test($("mrPilBar").textContent) && /1 device · 1 user/.test($("mrPilBar").textContent));
+  $("mrPilDry").click();
+  ok("the dry run checks each wave fresh and only removes: the device from the device pilot, the user from the user pilot", await until(() => st().plan && st().plan.pilotsOut, 10000, "pilot plan")
+    && st().plan.ops.length === 2 && st().plan.ops.every((o) => o.type === "remove") && st().plan.ops.some((o) => o.group.id === pilotId && o.memberKind === "device" && o.ids.join() === nlDev.objId)
+    && st().plan.ops.some((o) => o.group.id === pilotUId && o.memberKind === "user" && o.ids.join() === nlUser.id) && !!$("mrConfirmText"), st().plan && JSON.stringify(st().plan.skipped));
+  ok("…the plan opens under the pilots' bar", $("mrPilBar").nextElementSibling === $("mrPlan"));
+  w.MdeRolloutTool._pane("how");
+  ok("on another pane the plan is hidden (Mihai: \"the plan below shouldn't be there\")", $("mrPlan").style.display === "none" && !!st().plan);
+  w.MdeRolloutTool._pane("members");
+  ok("…and back on its own pane", $("mrPlan").style.display !== "none" && !!st().plan && $("mrPilBar").nextElementSibling === $("mrPlan"));
+  $("mrConfirmText").value = "REMOVE"; $("mrConfirmText").dispatchEvent(new w.Event("input"));
+  const pRuns = st().runs.length;
+  $("mrMemApply").click();
+  ok("applied: both out of their pilot group, read back, and the view moved with them", await until(() => st().runs.length === pRuns + 1, 10000, "pilot run")
+    && st().runs[pRuns].ok === 2 && !gPilD._devices.includes(nlDev.objId) && !(TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(nlUser.id)
+    && !pDev() && !pUser(), st().runs[pRuns] && st().runs[pRuns].lines.join(" | "));
+  // undo puts them back
+  w.MdeRolloutTool._pane("changes");
+  D.querySelector(`[data-mrundo="${pRuns}"]`).click();
+  ok("undo plans adding them back", await until(() => st().plan && /Undo/.test(st().plan.title), 5000, "pilot undo") && st().plan.ops.every((o) => o.type === "add"));
+  $("mrConfirmTick").checked = true; $("mrConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mrMemApply").click();
+  ok("undone: back in the pilot groups, and listed again", await until(() => gPilD._devices.includes(nlDev.objId) && (TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(nlUser.id) && !!pDev() && !!pUser(), 10000, "pilot undo applied"));
+  // a member not in its wave cannot be ticked, and says what is missing
+  ok("a ⏳ or ✗ member has no tick box", pil().filter((x) => x.state !== "in").every((x) => !D.querySelector(`[data-mrpilsel="${x.kind}|${x.id}"]`)));
+
   // ------------------------------------------- the offer, cold (10644) --
   const heldGet = w.PolicyCache.get, heldReading = w.PolicyCache.reading, rf = w.PolicyCache.refresh;
   let fresh = 0;

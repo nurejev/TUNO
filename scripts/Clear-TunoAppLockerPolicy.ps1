@@ -1,4 +1,4 @@
-﻿# Clear-TunoAppLockerPolicy.ps1  v1.4.0  (TUNO build 10646)
+﻿# Clear-TunoAppLockerPolicy.ps1  v1.4.0  (TUNO build 10647)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -134,7 +134,7 @@ $script:CleanupGeneration = 1
 # Two numbers, same discipline as the scan: ScriptVersion is this file's history,
 # TunoBuild the site build that served it. Held to js/version.js by the guard.
 $script:ScriptVersion = '1.4.0'
-$script:TunoBuild = 10646
+$script:TunoBuild = 10647
 
 $ErrorActionPreference = 'Stop'
 $SrpV2 = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SrpV2'

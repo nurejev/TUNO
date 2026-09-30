@@ -34,6 +34,7 @@
 const MdeMembers = (() => {
   const lc = (s) => String(s == null ? "" : s).toLowerCase();
   const uniq = (a) => [...new Set(a)];
+  const cleanNames = (a) => uniq((a || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean));
 
   // ISO 3166-1 alpha-2 → alpha-3, the full list (pycountry, 249 entries).
   const ISO = "ADAND AEARE AFAFG AGATG AIAIA ALALB AMARM AOAGO AQATA ARARG ASASM ATAUT AUAUS AWABW AXALA AZAZE BABIH BBBRB BDBGD BEBEL BFBFA BGBGR BHBHR BIBDI BJBEN BLBLM BMBMU BNBRN BOBOL BQBES BRBRA BSBHS BTBTN BVBVT BWBWA BYBLR BZBLZ CACAN CCCCK CDCOD CFCAF CGCOG CHCHE CICIV CKCOK CLCHL CMCMR CNCHN COCOL CRCRI CUCUB CVCPV CWCUW CXCXR CYCYP CZCZE DEDEU DJDJI DKDNK DMDMA DODOM DZDZA ECECU EEEST EGEGY EHESH ERERI ESESP ETETH FIFIN FJFJI FKFLK FMFSM FOFRO FRFRA GAGAB GBGBR GDGRD GEGEO GFGUF GGGGY GHGHA GIGIB GLGRL GMGMB GNGIN GPGLP GQGNQ GRGRC GSSGS GTGTM GUGUM GWGNB GYGUY HKHKG HMHMD HNHND HRHRV HTHTI HUHUN IDIDN IEIRL ILISR IMIMN ININD IOIOT IQIRQ IRIRN ISISL ITITA JEJEY JMJAM JOJOR JPJPN KEKEN KGKGZ KHKHM KIKIR KMCOM KNKNA KPPRK KRKOR KWKWT KYCYM KZKAZ LALAO LBLBN LCLCA LILIE LKLKA LRLBR LSLSO LTLTU LULUX LVLVA LYLBY MAMAR MCMCO MDMDA MEMNE MFMAF MGMDG MHMHL MKMKD MLMLI MMMMR MNMNG MOMAC MPMNP MQMTQ MRMRT MSMSR MTMLT MUMUS MVMDV MWMWI MXMEX MYMYS MZMOZ NANAM NCNCL NENER NFNFK NGNGA NINIC NLNLD NONOR NPNPL NRNRU NUNIU NZNZL OMOMN PAPAN PEPER PFPYF PGPNG PHPHL PKPAK PLPOL PMSPM PNPCN PRPRI PSPSE PTPRT PWPLW PYPRY QAQAT REREU ROROU RSSRB RURUS RWRWA SASAU SBSLB SCSYC SDSDN SESWE SGSGP SHSHN SISVN SJSJM SKSVK SLSLE SMSMR SNSEN SOSOM SRSUR SSSSD STSTP SVSLV SXSXM SYSYR SZSWZ TCTCA TDTCD TFATF TGTGO THTHA TJTJK TKTKL TLTLS TMTKM TNTUN TOTON TRTUR TTTTO TVTUV TWTWN TZTZA UAUKR UGUGA UMUMI USUSA UYURY UZUZB VAVAT VCVCT VEVEN VGVGB VIVIR VNVNM VUVUT WFWLF WSWSM YEYEM YTMYT ZAZAF ZMZMB ZWZWE";
@@ -202,7 +203,7 @@ const MdeMembers = (() => {
   // held (10639): the device exclusion group — its devices are KEPT OUT of
   // the country device groups (Mihai: "keep it on the old set"), so the
   // sync never adds them and offers to take them out.
-  async function readInput(cfg, waveGroups, onStatus, skip, held) {
+  async function readInput(cfg, waveGroups, onStatus, skip, held, pilotNames) {
     const say = (m) => { if (onStatus) onStatus(m); };
     const GS = Graph.SCOPES.groups, DS = Graph.SCOPES.devices, DO = Graph.SCOPES.deviceObjects;
     say("Reading the country groups…");
@@ -252,8 +253,27 @@ const MdeMembers = (() => {
       try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id))); }
       catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
     }
+    // 🧪 the pilot groups' direct members (10647): users, devices, and any
+    // nested group (listed, never taken out member by member)
+    const pilots = [], pilotsMissing = [];
+    for (const name of cleanNames(pilotNames)) {
+      say(`Reading the pilot group ${name}…`);
+      try {
+        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(name)}'`)}&$select=id,displayName&$top=5`, { scopes: GS, retry: true })) || [];
+        const g = hits.find((x) => lc(x.displayName) === lc(name));
+        if (!g) { pilotsMissing.push(name); continue; }
+        const [users, devices, groups] = await Promise.all([
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName,displayName&$top=999`, { scopes: GS, retry: true }),
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true }),
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }),
+        ]);
+        pilots.push({ id: lc(g.id), name: g.displayName, users: (users || []).map((u) => ({ id: lc(u.id), upn: u.userPrincipalName || "", name: u.displayName || u.userPrincipalName || u.id })),
+          devices: (devices || []).map((d) => ({ id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id })), groups: (groups || []).map((x) => ({ id: lc(x.id), name: x.displayName || x.id })) });
+      } catch (e) { failed.push(`${name}: ${(e && e.message) || e}`); }
+    }
     say("");
-    return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null, failed, readAt: Date.now() };
+    return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
+      pilots, pilotsMissing, failed, readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -409,7 +429,109 @@ const MdeMembers = (() => {
       };
     });
     return { rows, regions, unmapped, noPrimary, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
-      leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId) };
+      leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId), pilots: pilotsOf(input, rows) };
+  }
+
+  // ------------------------------------------------------------- pilots --
+  // 🧪 (10647, Mihai: "an option to identify the pilot users and devices to
+  // a wave and an option to remove them from the pilot and be sure that they
+  // are then in their wave"; option A off the mockup). Every direct member
+  // of a pilot group, with the wave its country puts it in and its standing:
+  //   in   — in that wave now: a user through its country group nested in
+  //          the user wave (or put in it directly — a pilot's batches); a
+  //          device through its country device group, which holds it and
+  //          is nested in the device wave
+  //   wait — its wave is known, it is not in it yet (why says what is missing)
+  //   none — no wave: no country group, no primary user, not in Intune or
+  //          Entra, kept on the old set (⊘), or a nested group
+  // Only "in" members may leave the pilot; the screen checks each one's wave
+  // again, fresh, before the plan and before the write.
+  function pilotsOf(input, rows) {
+    const P = input.pilots || [];
+    if (!P.length && !(input.pilotsMissing || []).length) return null;
+    const held = input.held || new Set();
+    const entraById = new Map((input.entra || []).map((e) => [lc(e.id), e]));
+    const managedByDev = new Map();
+    for (const m of input.managedAll || input.managed || []) if (m.azureADDeviceId) managedByDev.set(lc(m.azureADDeviceId), m);
+    const rowsOfUser = new Map();
+    for (const r of rows) if (r.ug) for (const u of input.usersByGroup.get(lc(r.ug.id)) || []) {
+      const k = lc(u.id);
+      if (!rowsOfUser.has(k)) rowsOfUser.set(k, []);
+      rowsOfUser.get(k).push(r);
+    }
+    const directIn = (r, uid) => !!(r.wave.user && ((input.waveUsers || new Map()).get(lc(r.wave.user.id)) || new Set()).has(uid));
+    const byId = new Map();
+    const put = (x, g) => {
+      const k = `${x.kind}|${x.id}`;
+      if (byId.has(k)) { byId.get(k).groups.push({ id: g.id, name: g.name }); return; }
+      byId.set(k, Object.assign(x, { groups: [{ id: g.id, name: g.name }] }));
+    };
+    const place = (r, kind) => ({ country: r.country, region: r.region, rowKey: r.key,
+      waveId: kind === "user" ? (r.wave.user ? lc(r.wave.user.id) : null) : (r.wave.device ? lc(r.wave.device.id) : null),
+      waveName: kind === "user" ? r.wave.userName : r.wave.deviceName });
+    for (const g of P) {
+      for (const u of g.users) {
+        const rs = rowsOfUser.get(u.id) || [];
+        const x = { kind: "user", id: u.id, name: u.upn || u.name, upn: u.upn };
+        if (!rs.length) { put(Object.assign(x, { state: "none", why: "in no country group of the table — no user wave" }), g); continue; }
+        const inR = rs.find((r) => r.wave.user && (r.ugNested || directIn(r, u.id)));
+        const r = inR || rs.find((y) => !y.pilot) || rs[0];
+        Object.assign(x, place(r, "user"));
+        if (!r.wave.user) Object.assign(x, { state: "wait", why: `${r.wave.userName || "its user wave"} does not exist yet — create it in 🌊` });
+        else if (inR) Object.assign(x, { state: "in", via: r.ugNested ? `through ${r.userGroupName}` : "directly (pilot batch)" });
+        else Object.assign(x, { state: "wait", why: r.batch ? `${r.country} goes in by batches — not in its batch yet` : `${r.userGroupName} is not nested in ${r.wave.userName} yet` });
+        put(x, g);
+      }
+      for (const d of g.devices) {
+        const e = entraById.get(d.id);
+        const x = { kind: "device", id: d.id, name: d.name };
+        const devId = d.deviceId || (e && lc(e.deviceId || ""));
+        const m = devId ? managedByDev.get(devId) : null;
+        if (!m) { put(Object.assign(x, { state: "none", why: e ? "not in Intune — no primary user to follow" : "not a Windows device in Entra, or not in Intune" }), g); continue; }
+        x.upn = m.userPrincipalName || "";
+        if (m.operatingSystem && lc(m.operatingSystem) !== "windows") { put(Object.assign(x, { state: "none", why: `${m.operatingSystem || "not Windows"} — the waves hold Windows devices` }), g); continue; }
+        if (held.has(d.id)) { put(Object.assign(x, { state: "none", why: "⊘ in the device exclusion group — it stays on the old set" }), g); continue; }
+        if (!m.userId) { put(Object.assign(x, { state: "none", why: "no Intune primary user — no country, no wave" }), g); continue; }
+        const rs = rowsOfUser.get(lc(m.userId)) || [];
+        if (!rs.length) { put(Object.assign(x, { state: "none", why: `its primary user ${m.userPrincipalName || m.userId} is in no country group of the table` }), g); continue; }
+        const inR = rs.find((r) => r.dg && r.have.has(d.id) && r.dgNested);
+        const r = inR || rs.find((y) => y.want && y.want.has(d.id) && !y.pilot) || rs.find((y) => !y.pilot) || rs[0];
+        Object.assign(x, place(r, "device"));
+        if (!r.wave.device) Object.assign(x, { state: "wait", why: `${r.wave.deviceName || "its device wave"} does not exist yet — create it in 🌊` });
+        else if (inR) Object.assign(x, { state: "in", via: `through ${r.deviceGroupName}` });
+        else if (!r.deviceGroupName) Object.assign(x, { state: "wait", why: `${r.country} has no device group name — ${r.iso3Source || "set one under ⚙️"}` });
+        else if (!r.dg) Object.assign(x, { state: "wait", why: `${r.deviceGroupName} does not exist yet — 👥 Apply creates and fills it` });
+        else if (!r.have.has(d.id)) Object.assign(x, { state: "wait", why: r.want.has(d.id) ? `not in ${r.deviceGroupName} yet — the next 👥 Apply adds it` : `${r.country} goes in by batches — its user is not in the wave yet` });
+        else Object.assign(x, { state: "wait", why: `${r.deviceGroupName} is not nested in ${r.wave.deviceName} yet` });
+        put(x, g);
+      }
+      for (const n of g.groups) put({ kind: "group", id: n.id, name: n.name, state: "none", why: "a nested group — T28 takes members out one by one, not groups; take it out in Entra if it should go" }, g);
+    }
+    const members = [...byId.values()].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "user" ? -1 : 1) || lc(a.name).localeCompare(lc(b.name)));
+    return { groups: P.map((g) => ({ id: g.id, name: g.name, count: g.users.length + g.devices.length + g.groups.length })), missing: input.pilotsMissing || [], members };
+  }
+  // The plan: each chosen member out of every pilot group it is directly in —
+  // one remove per pilot group and kind, users and devices apart (their
+  // read-back differs). Nothing is added: option A moves nobody into a wave.
+  function planPilotsOut(pilots, ids) {
+    const want = new Set((ids || []).map(String));
+    const chosen = ((pilots && pilots.members) || []).filter((x) => want.has(`${x.kind}|${x.id}`) && (x.kind === "user" || x.kind === "device"));
+    const ops = [], skipped = [];
+    const byGroup = new Map();
+    for (const x of chosen) {
+      if (x.state !== "in") { skipped.push(`${x.name}: ${x.why || "not in its wave"}`); continue; }
+      for (const g of x.groups) {
+        const k = `${g.id}|${x.kind}`;
+        if (!byGroup.has(k)) byGroup.set(k, { group: g, kind: x.kind, list: [] });
+        byGroup.get(k).list.push(x);
+      }
+    }
+    for (const { group, kind, list } of byGroup.values()) {
+      const who = list.length <= 3 ? list.map((x) => x.name).join(", ") : `${list.slice(0, 3).map((x) => x.name).join(", ")} +${list.length - 3}`;
+      ops.push({ type: "remove", key: `pilot|${group.id}|${kind}`, group: { id: group.id, name: group.name }, ids: list.map((x) => x.id), memberKind: kind, who,
+        label: `${list.length} ${kind}${list.length === 1 ? "" : "s"} out of the pilot`, objs: list.map((x) => ({ id: x.id, name: x.name, upn: x.upn || "" })) });
+    }
+    return { ops, skipped, warnings: [], hasRemoval: ops.length > 0, pilotsOut: true };
   }
 
   // ---------------------------------------------------------- left out --
@@ -708,6 +830,20 @@ const MdeMembers = (() => {
   function patchInput(input, done, createdGroups) {
     for (const g of createdGroups || []) if (g && g.id && !(input.deviceGroups || []).some((x) => lc(x.id) === lc(g.id))) { input.deviceGroups.push(g); input.deviceMembers.set(lc(g.id), new Set()); }
     for (const d of done || []) {
+      // 🧪 a pilot group's members (10647) — out, or back in by an undo
+      const pg = (d.type === "add" || d.type === "remove") && (input.pilots || []).find((g) => g.id === lc(d.group.id));
+      if (pg) {
+        const list = d.memberKind === "user" ? pg.users : pg.devices;
+        for (const id of d.ids.map(lc)) {
+          const i = list.findIndex((x) => x.id === id);
+          if (d.type === "remove" && i >= 0) list.splice(i, 1);
+          if (d.type === "add" && i < 0) {
+            const o = (d.objs || []).find((x) => lc(x.id) === id) || { id, name: id };
+            list.push(d.memberKind === "user" ? { id, upn: o.upn || o.name, name: o.name } : { id, deviceId: "", name: o.name });
+          }
+        }
+        continue;
+      }
       if ((d.type === "add" || d.type === "remove") && d.memberKind === "user") {
         if (input.waveUsers && input.waveUsers.has(lc(d.group.id))) { const set = input.waveUsers.get(lc(d.group.id)); d.ids.forEach((id) => d.type === "add" ? set.add(lc(id)) : set.delete(lc(id))); }
         continue;
@@ -746,7 +882,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv,
+    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsOut,
     _setWait: (fn) => { wait = fn; },
   };
 })();

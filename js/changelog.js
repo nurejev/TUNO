@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10647,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — pilot members into their wave",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "🧪 Pilots in 👥 Wave members lists every member of the pilot groups with the wave its country puts it in, and whether it is in that wave yet. Members already in their wave can be taken out of the pilot. The plan only removes them, checks each one's wave again right before writing, and 📜 can undo it. A wave whose policies don't match the pilot's is blocked, and the policy is named."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "A dry-run plan no longer follows you to other panes such as ❓ How it works. It stays with the pane it was made on and is there again when you go back."
+    }
+  ]
+},
+{
   "build": 10646,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — pilots off when the waves take over; 🌊 Waves in the policy bar",

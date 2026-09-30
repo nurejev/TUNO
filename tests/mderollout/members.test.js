@@ -267,6 +267,40 @@ async function run() {
   const loc = MM.leftOutCsv(lm, "Euro");
   ok("the left-out CSV: a line per user and device, with the reason", loc.split("\r\n").length === 7 && /u7@x,,no Windows device \(Intune primary user\),macOS 1 · iOS 1/.test(loc) && /u8@x,,no Windows device.*nothing in Intune/.test(loc) && /WIN-NOUSER,no primary user/.test(loc));
 
+  // ------------------------------------------------------ 🧪 pilots (10647) --
+  // Mihai: "identify the pilot users and devices to a wave … remove them
+  // from the pilot and be sure that they are then in their wave" (option A)
+  const pIn = Object.assign({}, input, {
+    pilots: [
+      { id: "p1", name: "INT-SG-D-Win-Pilot", users: [], groups: [{ id: "gx", name: "NESTED-PILOT" }],
+        devices: [{ id: "e1", deviceId: "a1", name: "NL-1" }, { id: "e2", deviceId: "a2", name: "NL-2" }, { id: "e3", deviceId: "a3", name: "DE-1" }, { id: "e6", deviceId: "a6", name: "SHARED" }] },
+      { id: "p2", name: "INT-SG-U-Win-Pilot", devices: [{ id: "e1", deviceId: "a1", name: "NL-1" }], groups: [],
+        users: [{ id: "u1", upn: "u1@x", name: "U1" }, { id: "u3", upn: "u3@x", name: "U3" }, { id: "u9", upn: "u9@x", name: "U9" }] }],
+    pilotsMissing: ["INT-SG-U-Win-Pre-Pilot"] });
+  const pm = MM.compute(cfg, pIn, waves, now).pilots;
+  const pmx = (kind, id) => pm.members.find((x) => x.kind === kind && x.id === id);
+  ok("🧪 a pilot device in its country device group, nested in the device wave: in, through INT-SG-D-NLD, both pilot groups named once",
+    pmx("device", "e1").state === "in" && pmx("device", "e1").waveName === "INT-SG-D-WAVE-Euro" && /INT-SG-D-NLD/.test(pmx("device", "e1").via) && pmx("device", "e1").groups.map((g) => g.name).join() === "INT-SG-D-Win-Pilot,INT-SG-U-Win-Pilot");
+  ok("🧪 a device its group wants but does not hold yet: waiting, the next Apply adds it", pmx("device", "e2").state === "wait" && /not in INT-SG-D-NLD yet — the next 👥 Apply adds it/.test(pmx("device", "e2").why));
+  ok("🧪 a device whose country has no device group: waiting, said", pmx("device", "e3").state === "wait" && /INT-SG-D-DEU does not exist yet/.test(pmx("device", "e3").why));
+  ok("🧪 no primary user, or a nested group: no wave", pmx("device", "e6").state === "none" && /no Intune primary user/.test(pmx("device", "e6").why) && pmx("group", "gx").state === "none" && /nested group/.test(pmx("group", "gx").why));
+  ok("🧪 users: in through the nested country group; waiting when it is not nested; none outside the table",
+    pmx("user", "u1").state === "in" && /PVM-UG-CORP-MEM-USERS-NL/.test(pmx("user", "u1").via) && pmx("user", "u1").waveName === "INT-SG-U-WAVE-Euro"
+    && pmx("user", "u3").state === "wait" && /PVM-UG-CORP-MEM-USERS-DE is not nested in INT-SG-U-WAVE-Euro yet/.test(pmx("user", "u3").why)
+    && pmx("user", "u9").state === "none" && /no country group/.test(pmx("user", "u9").why));
+  ok("🧪 a pilot group missing from the tenant is said", pm.missing.join() === "INT-SG-U-Win-Pre-Pilot");
+  const pp = MM.planPilotsOut(pm, ["device|e1", "user|u1", "device|e3"]);
+  ok("🧪 the plan only removes: e1 out of both pilot groups, u1 out of the user pilot; DE-1 left out with its reason",
+    pp.ops.length === 3 && pp.ops.every((o) => o.type === "remove") && pp.hasRemoval
+    && pp.ops.filter((o) => o.memberKind === "device").map((o) => o.group.id).sort().join() === "p1,p2" && pp.ops.find((o) => o.memberKind === "user").ids.join() === "u1"
+    && pp.skipped.length === 1 && /DE-1: .*INT-SG-D-DEU/.test(pp.skipped[0]));
+  MM.patchInput(pIn, [{ type: "remove", group: { id: "p1", name: "INT-SG-D-Win-Pilot" }, ids: ["e1"], memberKind: "device" }], []);
+  const pm2 = MM.compute(cfg, pIn, waves, now).pilots;
+  ok("🧪 a verified removal moves the list: e1 now only in the user pilot", pm2.members.find((x) => x.id === "e1").groups.map((g) => g.name).join() === "INT-SG-U-Win-Pilot");
+  MM.patchInput(pIn, [{ type: "add", group: { id: "p1", name: "INT-SG-D-Win-Pilot" }, ids: ["e1"], memberKind: "device", objs: [{ id: "e1", name: "NL-1" }] }], []);
+  ok("🧪 …and an undo puts it back, with its name", MM.compute(cfg, pIn, waves, now).pilots.members.find((x) => x.id === "e1").groups.length === 2 && pIn.pilots[0].devices.some((d) => d.id === "e1" && d.name === "NL-1"));
+  ok("🧪 no pilot groups configured or read: no pilot view", MM.compute(cfg, input, waves, now).pilots === null);
+
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);
   ok("csv: one line per device, the removals too", c.split("\r\n")[0].startsWith("Region,Country,User group,Device group,Device") && /OLD-US.*to remove/.test(c) && /DE-NOENTRA.*no Entra object/.test(c));

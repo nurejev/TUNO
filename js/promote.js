@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 209,
+  "title": "T28 — 🧪 pilot members into their wave; a plan belongs to its pane",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10647
+  ],
+  "risk": "medium",
+  "what": "MdeMembers.readInput reads the direct users, devices and nested groups of cfg.pilotGroups (input.pilots, pilotsMissing). pilotsOf(input, rows): each member with its wave (device by Intune primary user's country row: in when its country device group holds it and is nested; user: in through the nested country group or a direct wave membership) and state in / wait / none with why. planPilotsOut: removes only, one op per pilot group and kind, objs for undo; patchInput moves the pilot lists. Screen: 🧪 Pilots chip and view in 👥 (tiles, policy check, ✓-only ticks, bar), pilotBlocks (new policy includes the pilot but not the wave; old policy excludes the pilot but not the wave or twin), pilotFresh (transitiveMemberOf) at dry run and again at apply. planPane: seatPlan hides the plan on other panes.",
+  "why": "Mihai: 'an option to identify the pilot users and devices to a wave and an option to remove them from the pilot and be sure that they are then in their wave' (option A, block that wave); 'fix the layout when going to help, the plan below shouldn't be there'.",
+  "test": [
+    "Run npm test. mderollout/members (86) covers each standing (in through the device group, waiting for Apply, no device group, no primary user, nested group, users in / not nested / outside the table), the missing group, the remove-only plan with its skipped reason, and patchInput both ways. mderollout/screen (213) covers the pilot read, the standing per member, the policy check blocking and clearing, the plan under the bar, the plan hidden on another pane and back, apply and read-back, and undo.",
+    "Browser DEMO (pilot groups injected): 👥 → 🧪 Pilots shows the tiles, the ⛔ policy check and one tickable member; the dry run removes it; ❓ How it works hides the plan.",
+    "LIVE PENDING (PVM): 👥 → Read again → 🧪 Pilots. Check a few members' waves against Entra. Dry run one member that is ✓, and read the plan before applying."
+  ],
+  "files": [
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10647.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 208,
   "title": "T28 — fixes bar without the group box; 🧪 pilots off both sides; 🌊 Waves in the policy bar; Left out counts Windows devices",
   "tools": [
