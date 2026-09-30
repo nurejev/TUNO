@@ -294,11 +294,19 @@ async function run() {
   // out"; layout A): Sam (FR) has only a Mac; svc-legacyapp's laptop has a
   // primary user in no country group; two Windows devices have no user.
   ok("the members read covers every platform — what a user with no Windows device has", mm().leftOut.users.some((u) => u.upn === "sam@contoso.com" && u.has.macOS === 1));
-  ok("the toolbar offers 🕳 Left out with its count", /🕳 Left out · 4/.test($("mrBody").textContent), (/🕳 Left out · \d+/.exec($("mrBody").textContent) || [""])[0]);
+  // 10645 (Mihai: "keep the list, don't count it"): the count is Windows
+  // devices only — WS-SALES-0077 and the two with no primary user; Sam is
+  // listed, not counted
+  ok("the toolbar offers 🕳 Left out with its count — Windows devices only", /🕳 Left out · 3/.test($("mrBody").textContent), (/🕳 Left out · \d+/.exec($("mrBody").textContent) || [""])[0]);
   const frRow = D.querySelector('[data-mrmemleftrow="fr"]');
   ok("a country's '1 user has none' links there", !!frRow && /1 user has none/.test(frRow.textContent));
   frRow.click();
-  ok("…opening the view on that country: Sam, and his other devices", st().mem.left && st().mem.leftCountry === "fr" && /sam@contoso\.com/.test($("mrBody").textContent) && /macOS 1/.test($("mrBody").textContent) && /the user wave only/.test($("mrBody").textContent));
+  ok("…opening the view on that country: Sam, and his other devices", st().mem.left && st().mem.leftCountry === "fr" && /sam@contoso\.com/.test($("mrBody").textContent) && /macOS 1/.test($("mrBody").textContent) && /not counted/.test($("mrBody").textContent));
+  // "the users still need to be in the right groups" / "if they get a
+  // Windows device later, it should be added" (10645)
+  ok("…with where Sam stands: in the Euro user wave through the France group, or not yet, and where a Windows device of his would go",
+    (mrow("fr").ugNested ? /✓ in INT-SG-U-WAVE-Euro through PVM-UG-CORP-MEM-USERS-FR/ : /✗ not in INT-SG-U-WAVE-Euro yet — nest PVM-UG-CORP-MEM-USERS-FR/).test($("mrBody").textContent)
+    && /a Windows device they get joins INT-SG-D-FRA at the next 👥 read → Apply/.test($("mrBody").textContent), $("mrBody").textContent.slice(0, 0));
   ok("the devices no country holds, with the reason", /WS-SALES-0077/.test($("mrBody").textContent) && /primary user in no country group of the table/.test($("mrBody").textContent)
     && /WS-OLD-0009/.test($("mrBody").textContent) && /no primary user/.test($("mrBody").textContent));
   D.querySelector('[data-mrmemleftwhy="noPrimary"]').click();
@@ -552,6 +560,68 @@ async function run() {
   // ------------------------------------------------------- exports --
   const md = w.MdeRollout.markdown(st().model, st().pairs, st().retire, st().waveRows, { tenant: "Contoso" });
   ok("the markdown export carries the four sections", /## Wave and exclusion groups/.test(md) && /## New policies/.test(md) && /## Old policies colliding/.test(md) && /## Retirement check/.test(md));
+
+  // ------------------------------- 🧪 pilots off; the bar's box (10645) --
+  // Mihai's LAPS dry run excluded one wave only: the bar's group box still
+  // held a group typed for a policy action, and in the fixes it replaced
+  // every proposal. The fixes take no typed group now. And "when adding the
+  // wave groups to new policies remove the pilot groups" (option A: both
+  // sides) — a pilot group on the new AV policy and excluded from the old one.
+  const pilotId = TT.G(38);
+  TT.GROUPS.push({ id: pilotId, displayName: "INT-SG-D-Win-Pilot", description: "MDE pilot devices.", groupTypes: [], securityEnabled: true, mailEnabled: false,
+    isAssignableToRole: false, membershipRule: null, createdDateTime: new Date().toISOString(), memberCount: 3, _kind: "device" });
+  const avNewT = TT.CONFIG_POLICIES.find((p) => /Defender Antivirus - D - AV Configuration/.test(p.name));
+  const avOldT = TT.CONFIG_POLICIES.find((p) => p.name === "(TO-BE-REMOVED)PVM-DG-CORP-ENDSEC-WIN-AV-PRD");
+  const tgt = (type) => ({ "@odata.type": `#microsoft.graph.${type}`, groupId: pilotId, deviceAndAppManagementAssignmentFilterId: null, deviceAndAppManagementAssignmentFilterType: "none" });
+  avNewT.assignments.push({ id: `${pilotId}_inc`, source: "direct", target: tgt("groupAssignmentTarget") });
+  avOldT.assignments.push({ id: `${pilotId}_exc`, source: "direct", target: tgt("exclusionGroupAssignmentTarget") });
+  $("mrRun").click();
+  await sleep(50);
+  ok("re-read with the pilot on both AV policies", await until(() => !st().reps.busy && $("mrBody").querySelector(".ep-rail") && st().model && st().model.newP.some((P) => P.reach.inc.has(pilotId)), 30000, "pilot read"));
+  const avP = () => st().pairs.find((p) => p.O.name === "(TO-BE-REMOVED)PVM-DG-CORP-ENDSEC-WIN-AV-PRD" && /Defender Antivirus - D/.test(p.N.name));
+  const avPil = avP().proposal.pilots;
+  ok("⚔️ the AV fix takes the pilot off both sides: the new policy's include, the old policy's exclusion", avPil && avPil.steps.map((x) => `${x.side}:${x.groupName}`).sort().join() === "new:INT-SG-D-Win-Pilot,old:INT-SG-D-Win-Pilot", avPil && JSON.stringify(avPil.kept.map((k) => k.why)));
+  w.MdeRolloutTool._pane("conflicts");
+  ok("…shown in the proposal, with the tick", /− remove include INT-SG-D-Win-Pilot/.test($("mrBody").textContent) && /− remove exclusion INT-SG-D-Win-Pilot/.test($("mrBody").textContent) && !!D.querySelector("[data-mrpilots]:checked"));
+  D.querySelectorAll("[data-mrpair]:checked").forEach((b) => { b.checked = false; b.dispatchEvent(new w.Event("change", { bubbles: true })); });
+  const avBox = D.querySelector(`[data-mrpair="${avP().id}"]`);
+  avBox.checked = true; avBox.dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrGroup").value = "INT-SG-D-WAVE-Euro";   // a leftover from a policy action
+  ok("the fixes bar has no group box, and says what the dry run will do", $("mrGroup").style.display === "none" && /→ .*out of 1 old policy.*🧪 2 pilot assignments off/.test($("mrBarFixes").textContent), $("mrBarFixes").textContent);
+  $("mrDryRun").click();
+  ok("the dry run follows the proposal, not the box: the pilot off both policies", await until(() => st().plan && st().plan.changes, 10000, "pilot plan")
+    && st().plan.changes.some((o) => o.policy.name === avOldT.name && o.details.some((d) => d.action === "remove" && d.group.id === pilotId && d.removes === "exclusion"))
+    && st().plan.changes.some((o) => o.policy.name === avNewT.name && o.details.some((d) => d.action === "remove" && d.group.id === pilotId && d.removes === "include"))
+    && /pilot assignments off/.test(st().plan.title), st().plan && st().plan.title);
+  $("mrDiscard").click();
+  D.querySelector("[data-mrpilots]").click();
+  ok("the tick off: no pilot steps, kept for the tenant", st().cfg.pilotGroupsOff === false && !avP().proposal.pilots.steps.length && !/pilot assignment/.test($("mrBarFixes").textContent));
+  D.querySelector("[data-mrpilots]").click();
+  ok("…and on again", st().cfg.pilotGroupsOff === true && avP().proposal.pilots.steps.length === 2);
+  avBox.checked = false; D.querySelector(`[data-mrpair="${avP().id}"]`).checked = false; D.querySelector(`[data-mrpair="${avP().id}"]`).dispatchEvent(new w.Event("change", { bubbles: true }));
+  // ⚡① reaches the pilots too: the AV policy has its wave, the old one has it out
+  w.MdeRolloutTool._pane("waves");
+  const r1 = w.MdeRollout.rolloutWants("includeWaves", st().model, { kinds: new Map(), found: null, twins: new Map(), names: new Map(st().model.policies.flatMap((P) => (P.item.assignments || []).map((a) => [String(a.groupId || "").toLowerCase(), a.name]))), pairs: st().pairs });
+  ok("⚡① lists the pilot removals where the swap is complete, or says why not", r1.wants.some((x) => x.action === "remove" && x.groupId === pilotId) || r1.skipped.some((x) => /INT-SG-D-Win-Pilot/.test(x)));
+
+  // 🌊 Waves beside a single group in the policy bar (Mihai: "the option
+  // to add or exclude the waves beside a single group")
+  w.MdeRolloutTool._pane("new");
+  const edgeN = st().model.newP.find((p) => /Microsoft Edge - D - Security/.test(p.name));
+  D.querySelectorAll("[data-mrpick]:checked").forEach((b) => { b.checked = false; b.dispatchEvent(new w.Event("change", { bubbles: true })); });
+  const pk = D.querySelector(`[data-mrpick="${edgeN.key}"]`);
+  pk.checked = true; pk.dispatchEvent(new w.Event("change", { bubbles: true }));
+  D.querySelector('#mrActSeg [data-mract="add-include"]').click();
+  D.querySelector('#mrTargetSeg [data-mrtarget="waves"]').click();
+  ok("the bar offers 🌊 Waves beside Group: no group box, the kind and regions said", $("mrGroup").style.display === "none" && $("mrBarWaves").style.display !== "none" && /each policy's kind/.test($("mrBarWaves").textContent));
+  $("mrDryRun").click();
+  ok("🌊 Waves → include: the - D - policy gets the device waves, not the user waves", await until(() => st().plan && st().plan.changes, 10000, "waves plan")
+    && /Include the waves/.test(st().plan.title) && st().plan.changes.length === 1
+    && st().plan.changes[0].details.filter((d) => d.action === "add-include").map((d) => d.group.displayName).every((n) => /^INT-SG-D-WAVE-/.test(n))
+    && st().plan.changes[0].details.some((d) => d.group.displayName === "INT-SG-D-WAVE-Euro"), st().plan && JSON.stringify(st().plan.changes.map((o) => o.details.map((d) => d.group.displayName))));
+  $("mrDiscard").click();
+  D.querySelector('#mrTargetSeg [data-mrtarget="group"]').click();
+  ok("back to Group: the box returns", $("mrGroup").style.display !== "none" && $("mrBarWaves").style.display === "none");
 
   // ------------------------------------------- the offer, cold (10644) --
   const heldGet = w.PolicyCache.get, heldReading = w.PolicyCache.reading, rf = w.PolicyCache.refresh;

@@ -195,6 +195,9 @@ const MdeRollout = (() => {
     // bumped when the default list grows: a config saved before gets the
     // new defaults merged in once, then keeps what was included by hand
     leaveOutSeed: 10642,
+    // 🧪 the pilot groups the waves take over (10645, Mihai: "when adding
+    // the wave groups to new policies remove the pilot groups")
+    pilotGroups: ["INT-SG-D-Win-Pilot", "INT-SG-D-Win-Pre-Pilot", "INT-SG-U-Win-Pre-Pilot", "INT-SG-U-Win-Pilot"],
   });
   const cleanList = (a) => uniq((a || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean));
   const str = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -255,6 +258,10 @@ const MdeRollout = (() => {
       // policies"; option A off the mockup): the waves (default), or the
       // groups the new policy is assigned to now
       fixWith: o.fixWith === "groups" ? "groups" : "waves",
+      // 🧪 pilot groups off both sides when the waves take over (10645;
+      // option A off the mockup) — the names, and the tick (on by default)
+      pilotGroups: cleanList(Array.isArray(o.pilotGroups) ? o.pilotGroups : DEFAULTS.pilotGroups),
+      pilotGroupsOff: o.pilotGroupsOff !== false,
       // 👥 Wave members (10634): the country → region table and the device
       // group naming, kept with the rest of this tenant's rules
       members: typeof MdeMembers !== "undefined" ? MdeMembers.normConfig(o.members) : null,
@@ -812,8 +819,12 @@ const MdeRollout = (() => {
       if (st.needsInclude) st.notes.push("the new policy does not include this wave yet — it is included in the same plan");
       steps.push(st);
     }
-    const none = steps.length || includes.length ? "" : `the waves are in place — in the new policy and out of the old one${rest.length ? `; the new policy's own groups (${rest.join(", ")}) still meet the old one` : ""}`;
-    return { steps, includes, rest, byWaves: true, none };
+    // 🧪 the pilots, as this fix alone would take them off (10645)
+    const pw = [].concat(includes.map((x) => ({ P: N, groupId: x.groupId, action: "add-include" })),
+      steps.filter((st) => st.supported !== false).map((st) => ({ P: O, groupId: st.groupId, action: st.action })));
+    const pilots = c.cfg ? pilotsFor(pw.concat([{ P: N, groupId: "", action: "none" }, { P: O, groupId: "", action: "none" }]), c, false) : { steps: [], kept: [] };
+    const none = steps.length || includes.length || pilots.steps.length ? "" : `the waves are in place — in the new policy and out of the old one${rest.length ? `; the new policy's own groups (${rest.join(", ")}) still meet the old one` : ""}`;
+    return { steps, includes, rest, pilots, byWaves: true, none };
   }
   // One exclusion step on the old policy: the support matrix, the twin swap
   // and the include-to-remove rule, as proposalFor has always applied them.
@@ -849,6 +860,111 @@ const MdeRollout = (() => {
     if (O.mdeManaged && k.kind === "user") notes.push("the old policy is also delivered by MDE security settings management, which honours DEVICE groups only — a user-group change does not reach MDE-only devices");
     if (planned) notes.push("planned: the new policy is not assigned yet — this is the wave group it is expected to get");
     return { groupId: lc(g), groupName: nameOf(g), action: act, kind: k.kind, kindSource: k.source, supported: sup.ok, why: sup.why, notes, planned, twinOf, twinOfId, missingTwin };
+  }
+  // 🧪 PILOTS OFF (10645, Mihai: "when adding the wave groups to new
+  // policies remove the pilot groups"; option A off the mockup — both
+  // sides). A pilot group comes off only once the waves have taken over its
+  // job, and never so that a pilot member lands on NEITHER policy or on BOTH:
+  //  * off a NEW policy's includes — when, after the plan, the new policy
+  //    holds every wave of its kind (all regions, not only the ticked
+  //    ones), and every old policy it collides with that excludes the pilot
+  //    loses that exclusion in the same plan (else its members outside a
+  //    wave would get neither);
+  //  * off an OLD policy's exclusions — when, after the plan, every wave of
+  //    each colliding new policy's kind is out of it, and every colliding new
+  //    policy that includes the pilot loses it in the same plan (else its
+  //    members outside a wave would get both).
+  // A pilot member in a wave keeps the new policy through the wave; one
+  // whose wave has not got them yet is back on the old policy until it does.
+  // planned: { inc: Map P.key -> Set(id), exc: Map P.key -> Set(id) } — the
+  // plan's own includes, and its excludes / include removals, per policy.
+  // scope: { news: Set(N), olds: Set(O) } — the policies the plan touches.
+  // ctx: { cfg, kinds, twins, names, waves (wavePool, every region) }.
+  function pilotRemovals(ctx, pairs, planned, scope) {
+    const c = ctx || {}, cfg = c.cfg || {};
+    const out = { steps: [], kept: [] };
+    if (cfg.pilotGroupsOff === false || !(cfg.pilotGroups || []).length) return out;
+    const kinds = c.kinds || new Map(), twins = c.twins || new Map();
+    const nameOf = (id) => (c.names && c.names.get(lc(id))) || id;
+    const pilotNames = cfg.pilotGroups.map(normName);
+    const isPilot = (id) => pilotNames.includes(normName(nameOf(id)));
+    const pl = planned || {};
+    const plIn = (P) => (pl.inc && pl.inc.get(P.key)) || new Set();
+    const plOut = (P) => (pl.exc && pl.exc.get(P.key)) || new Set();
+    const waves = (k) => (c.waves || []).filter((w) => w && w.id && w.audience === k).map((w) => lc(w.id));
+    const kindOfN = (N) => policyKind(N, kinds).kind;
+    const missingIn = (N) => { if (N.reach.tenantWide) return []; const k = kindOfN(N); if (!k) return null; const w = waves(k); return w.length ? w.filter((id) => !N.reach.inc.has(id) && !plIn(N).has(id)) : null; };
+    const isOut = (O, id) => {
+      if (O.reach.exc.has(id) || plOut(O).has(id)) return true;
+      const t = twins.get(id), tid = t && t.twinId ? lc(t.twinId) : null;
+      return !!(tid && (O.reach.exc.has(tid) || plOut(O).has(tid)));
+    };
+    const missingOut = (O, N) => { const k = kindOfN(N); if (!k) return null; const w = waves(k); return w.length ? w.filter((id) => !isOut(O, id)) : null; };
+    const pairsOfN = (N) => pairs.filter((p) => p.N === N), pairsOfO = (O) => pairs.filter((p) => p.O === O);
+    const rm = new Map(), keyOf = (P, id) => `${P.key}|${id}`;
+    const keep = (P, id, side, why) => out.kept.push({ P, groupId: id, groupName: nameOf(id), side, why });
+    const names = (ids) => ids.map(nameOf).join(", ");
+    for (const N of (scope && scope.news) || []) {
+      const pil = [...N.reach.inc].filter(isPilot);
+      if (!pil.length) continue;
+      const miss = missingIn(N);
+      if (miss === null || miss.length) {
+        pil.forEach((id) => keep(N, id, "new", `${nameOf(id)} stays on ${N.name}: ${miss === null ? "its kind (- D - / - U -) or its waves are not known" : `${names(miss)} ${miss.length === 1 ? "is" : "are"} not in it after this plan`} — the pilots come off once every wave is in`));
+        continue;
+      }
+      pil.forEach((id) => rm.set(keyOf(N, id), { P: N, groupId: id, groupName: nameOf(id), side: "new" }));
+    }
+    for (const O of (scope && scope.olds) || []) {
+      const pil = [...O.reach.exc].filter(isPilot);
+      if (!pil.length) continue;
+      let lag = null;
+      for (const p of pairsOfO(O)) { const m = missingOut(O, p.N); if (m === null || m.length) { lag = { N: p.N, m }; break; } }
+      if (lag) {
+        pil.forEach((id) => keep(O, id, "old", `${nameOf(id)} stays excluded on ${O.name}: ${lag.m === null ? `the waves of ${lag.N.name} are not known` : `${names(lag.m)} ${lag.m.length === 1 ? "is" : "are"} not out of it after this plan`} — a pilot member in that wave would get it back`));
+        continue;
+      }
+      pil.forEach((id) => rm.set(keyOf(O, id), { P: O, groupId: id, groupName: nameOf(id), side: "old" }));
+    }
+    // each side needs the other: drop until stable
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const [k, st] of rm) {
+        let why = "";
+        if (st.side === "new") {
+          const o = pairsOfN(st.P).find((p) => p.O.reach.exc.has(st.groupId) && !rm.has(keyOf(p.O, st.groupId)));
+          if (o) why = `${st.groupName} stays on ${st.P.name}: ${o.O.name} still excludes it — its members outside a wave would get neither policy`;
+        } else {
+          const n = pairsOfO(st.P).find((p) => p.N.reach.inc.has(st.groupId) && !rm.has(keyOf(p.N, st.groupId)));
+          if (n) why = `${st.groupName} stays excluded on ${st.P.name}: ${n.N.name} still includes it — its members outside a wave would get both`;
+        }
+        if (why) { rm.delete(k); out.kept.push(Object.assign({}, st, { why })); changed = true; }
+      }
+    }
+    out.steps = [...rm.values()].map((st) => Object.assign(st, { action: "remove",
+      note: st.side === "new" ? "pilot: the waves take over" : "pilot: the waves take over — a member outside a wave is back on this policy until their wave has them" }));
+    return out;
+  }
+  // The pilots for a plan's WANTS ({ P, groupId, action }): what the plan
+  // includes and takes out per policy, and the policies in scope — the ones
+  // it touches, and with `wide` (the ⚡ bulk plans) the policies they
+  // collide with too, so an old policy's pilot exclusion can go with the
+  // new policy's waves. ctx: { cfg, kinds, twins, names, found, pairs }.
+  function pilotsFor(wants, ctx, wide) {
+    const c = ctx || {};
+    const pairs = c.pairs || [];
+    const inc = new Map(), exc = new Map(), touched = new Set();
+    const put = (m, P, id) => { if (!m.has(P.key)) m.set(P.key, new Set()); m.get(P.key).add(lc(id)); };
+    for (const x of wants || []) {
+      touched.add(x.P);
+      if (x.action === "add-include") put(inc, x.P, x.groupId);
+      else if (x.action === "add-exclude" || x.action === "remove") put(exc, x.P, x.groupId);
+    }
+    const news = new Set(), olds = new Set();
+    for (const P of touched) (P.generation === "new" ? news : olds).add(P);
+    if (wide) for (const pr of pairs) { if (touched.has(pr.N)) olds.add(pr.O); if (touched.has(pr.O)) news.add(pr.N); }
+    const writable = (set) => new Set([...set].filter((P) => P.surface));
+    return pilotRemovals({ cfg: c.cfg, kinds: c.kinds, twins: c.twins, names: c.names, waves: c.waves || wavePool(c.cfg || DEFAULTS, c.found) },
+      pairs, { inc, exc }, { news: writable(news), olds: writable(olds) });
   }
   function proposalFor(pr, ctx) {
     const c = ctx || {};
@@ -1022,6 +1138,13 @@ const MdeRollout = (() => {
           add(O, st.groupId, st.groupName, st.action, [st.supported === null ? `⚠ ${st.why}` : "", st.twinOf ? `twin of ${st.twinOf}` : "", st.planned ? "planned — the new policy is not assigned yet" : ""].filter(Boolean).join(" · "));
         }
       }
+    }
+    // 🧪 ① and ③ each complete the swap for some policies: the pilots come
+    // off where the waves have taken over (10645, option A — both sides)
+    if ((which === "includeWaves" || which === "excludeWaves") && cfg.pilotGroupsOff !== false) {
+      const pr = pilotsFor(wants.concat(model.newP.filter((N) => N.surface && which === "includeWaves").map((N) => ({ P: N, groupId: "", action: "none" }))), Object.assign({}, c, { cfg }), true);
+      for (const st of pr.steps) add(st.P, st.groupId, st.groupName, "remove", st.note);
+      for (const k of pr.kept) skipped.push(k.why);
     }
     for (const n of missing) skipped.push(`${n} does not exist — create it in 🌊 first`);
     return { wants, skipped: uniq(skipped), policies: uniq(wants.map((x) => x.P)) };
@@ -1462,7 +1585,7 @@ const MdeRollout = (() => {
     settingsOf, omaKey, omaSettings, normValue, SECTION_IDS, surfaceFor,
     build, pairReach, VERDICT, TYPE, compare, needsAction,
     audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants,
-    kindFromName, kindOfGroup, targetKinds, effectiveTargets, exclusionSupport, proposalFor, twinIndex, wavePool,
+    kindFromName, kindOfGroup, targetKinds, effectiveTargets, exclusionSupport, proposalFor, pilotRemovals, pilotsFor, twinIndex, wavePool,
     RETIRE, retirement, waves, composePlan, undoPlan, patchAssignments,
     readTemplates, findGroups, readKinds, readFresh, readMe, createWave, renameGroup, readLabels, labelValue, labelName,
     markdown, csv, assignText,
@@ -1575,7 +1698,7 @@ const MdeRolloutTool = (() => {
     learnNames();
     const twins = M.twinIndex(model.cfg, found);
     pairs = M.compare(model, twins);
-    const ctx = { kinds, waves: M.wavePool(model.cfg, found), twins, names, fixWith: cfg.fixWith, regions: rollRegions };
+    const ctx = { kinds, waves: M.wavePool(model.cfg, found), twins, names, fixWith: cfg.fixWith, regions: rollRegions, cfg: model.cfg, pairs, found };
     pairs.forEach((pr) => { pr.proposal = M.proposalFor(pr, ctx); });
     retire = M.retirement(model);
     waveRows = M.waves(model, found, kinds, pairs);
@@ -1811,23 +1934,32 @@ const MdeRolloutTool = (() => {
     const ov = M.labelValue(labels, d.key, d.oldValue) || d.oldDisplay;
     return { name, nv: d.redacted ? d.newDisplay : nv, ov: d.redacted ? d.oldDisplay : ov };
   };
-  const canFixPair = (pr) => M.needsAction(pr) && pr.proposal && (pr.proposal.steps.some((s) => s.supported !== false) || !!(pr.proposal.includes && pr.proposal.includes.length));
+  // 🧪 one tick for every plan that puts the waves in (⚔️, ⚡①, ⚡③, the
+  // bar's 🌊 Waves) — kept per tenant with the rules (10645)
+  const pilotTick = () => `<label class="chk mr-piltick" title="${esc(`Pilot groups (⚙️): ${cfg.pilotGroups.join(", ") || "none"}. They come off a new policy's includes and an old policy's exclusions once every wave is in the one and out of the other — a pilot member outside a wave goes back to the old policy until their wave has them.`)}"><input type="checkbox" data-mrpilots${cfg.pilotGroupsOff ? " checked" : ""}> 🧪 take the pilot groups off</label>`;
+  const canFixPair = (pr) => M.needsAction(pr) && pr.proposal && (pr.proposal.steps.some((s) => s.supported !== false) || !!(pr.proposal.includes && pr.proposal.includes.length) || !!(pr.proposal.pilots && pr.proposal.pilots.steps.length));
   function proposalHtml(pr) {
     const p = pr.proposal;
     if (!p) return "";
-    if (!p.steps.length && !(p.includes && p.includes.length)) return `<span class="mini muted">${esc(p.none)}</span>${p.byWaves && p.rest && p.rest.length && !/own groups/.test(p.none) ? `<div class="mini muted">the new policy's own groups (${esc(p.rest.join(", "))}) still meet it</div>` : ""}`;
+    const pil = p.pilots || { steps: [], kept: [] };
+    const pilHtml = (side) => { const st = pil.steps.filter((x) => x.side === side), kp = pil.kept.filter((x) => x.side === side);
+      return (st.length ? `<div style="margin:2px 0">${st.map((x) => chip("au-op update", `− remove ${side === "new" ? "include" : "exclusion"} ${x.groupName}`)).join(" ")} <span class="mini muted">🧪 pilot: the waves take over</span></div>` : "")
+        + (kp.length ? `<div class="mini" style="color:var(--report)" title="${esc(kp.map((x) => x.why).join("\n"))}">🧪 ${esc(kp.map((x) => x.groupName).join(", "))} stay${kp.length === 1 ? "s" : ""} <span style="cursor:help">ⓘ</span></div>` : ""); };
+    if (!p.steps.length && !(p.includes && p.includes.length) && !pil.steps.length) return `<span class="mini muted">${esc(p.none)}</span>${p.byWaves && p.rest && p.rest.length && !/own groups/.test(p.none) ? `<div class="mini muted">the new policy's own groups (${esc(p.rest.join(", "))}) still meet it</div>` : ""}`;
     const sub = (t) => p.byWaves ? `<div class="mr-fixsub">${t}</div>` : "";
-    const incl = p.includes && p.includes.length ? `${sub("on the new policy, in the same plan")}${p.includes.map((x) => `<div style="margin:2px 0">${chip("au-op create", `+ include ${x.groupName}`)} <span class="mini muted">not in it yet</span></div>`).join("")}` : "";
+    const newSide = pilHtml("new");
+    const incl = (p.includes && p.includes.length) || newSide ? `${sub("on the new policy, in the same plan")}${(p.includes || []).map((x) => `<div style="margin:2px 0">${chip("au-op create", `+ include ${x.groupName}`)} <span class="mini muted">not in it yet</span></div>`).join("")}${newSide}` : "";
     const rest = p.byWaves && p.rest && p.rest.length ? `<div class="mini muted" style="margin-top:4px" title="Switch to 'the new policy's groups' to exclude those">the new policy's own groups (${esc(p.rest.join(", "))}) are left as they are</div>` : "";
+    const oldSide = pilHtml("old");
     return (p.steps.length ? sub("on the old policy") : sub("on the old policy — every wave is out already")) + p.steps.map((s) => {
       const verb = s.action === "remove" ? "remove include" : "exclude";
       const cls = s.supported === false ? "au-op delete" : s.action === "remove" ? "au-op update" : "gu-how exc";
       const tk = [...M.effectiveTargets(pr.O, kinds).kinds].filter((k) => k !== "empty").join("/") || "unknown";
       const warn = s.supported === false ? `<div class="mini" style="color:var(--off)" title="${esc(s.why)}">✖ not supported — ${esc(s.kind)} group vs a ${esc(tk)}-targeted policy${s.missingTwin ? ` · create <a href="#" data-mrpane="waves">${esc(s.missingTwin)}</a> first` : ""} <span style="cursor:help">ⓘ</span></div>`
         : s.supported === null ? `<div class="mini" style="color:var(--report)" title="${esc(s.why)}">⚠ kind not certain <span style="cursor:help">ⓘ</span></div>` : "";
-      const notes = s.notes.length ? `<div class="mini muted">${s.notes.map((n) => /^planned/.test(n) ? "planned wave" : /^twin:/.test(n) ? `twin of ${s.twinOf}` : /^target kind from/.test(n) ? "target kind from the name" : /contradiction/.test(n) ? "old policy includes it → include removed" : /MDE security settings/.test(n) ? "🛰 device groups only" : /included in the same plan/.test(n) ? "+ included in the new policy" : n).map((n, i) => `<span title="${esc(s.notes[i])}">${esc(n)}</span>`).join(" · ")}</div>` : "";
+      const notes = s.notes.length ? `<div class="mini muted">${s.notes.map((n) => /^planned/.test(n) ? "planned wave" : /^twin:/.test(n) ? `twin of ${s.twinOf}` : /^target kind from/.test(n) ? "target kind from the name" : /contradiction/.test(n) ? "old policy includes it → include removed" : /MDE security settings/.test(n) ? "🛰 device groups only" : /included in the same plan/.test(n) ? "joins the new policy in this plan" : n).map((n, i) => `<span title="${esc(s.notes[i])}">${esc(n)}</span>`).join(" · ")}</div>` : "";
       return `<div style="margin:2px 0">${chip(cls, `${s.action === "remove" ? "−" : "⊘"} ${verb} ${s.groupName}`)} <span class="mini muted">${esc(s.kind)} group</span>${warn}${notes}</div>`;
-    }).join("") + incl + rest;
+    }).join("") + oldSide + incl + rest;
   }
   function conflictsPane() {
     const filt = (STATUS.find((s) => s[0] === view.status) || STATUS[0])[2];
@@ -1875,7 +2007,7 @@ const MdeRolloutTool = (() => {
     return `${tb}
       <div class="list-card" style="margin-top:0">
         <div class="mr-fixwith"><span class="mini"><b>Proposed fix excludes:</b></span><span class="seg" role="group" aria-label="What a proposed fix excludes"><button type="button" class="${cfg.fixWith === "waves" ? "active" : ""}" data-mrfixwith="waves">🌊 the waves</button><button type="button" class="${cfg.fixWith === "groups" ? "active" : ""}" data-mrfixwith="groups">the new policy's groups</button></span>
-          ${cfg.fixWith === "waves" ? `<span class="mini muted">Regions: ${esc(rollRegions ? [...rollRegions].join(" · ") || "none" : "every region")} <a href="#" data-mrpane="waves">(🌊)</a></span>` : ""}</div>
+          ${cfg.fixWith === "waves" ? `<span class="mini muted">Regions: ${esc(rollRegions ? [...rollRegions].join(" · ") || "none" : "every region")} <a href="#" data-mrpane="waves">(🌊)</a></span>${pilotTick()}` : ""}</div>
         <p class="mini muted" style="margin:0 0 6px">Old policies that set a setting a new policy sets — grouped by the old policy, because that is where the fix is written. ${cfg.fixWith === "waves"
           ? "The proposed fix takes the <b>waves</b> of the new policy's kind out of the old policy — and includes a wave in the new policy in the same plan where it is not in yet, so a wave never leaves the old policy ahead of the new one (⚡① and ⚡③ for one conflict). The new policy's own other groups are left as they are."
           : "The proposed fix excludes the <b>new policy's include groups</b> from the old policy, so those devices take the new settings alone."} Tick fixes and use the bar: <b>② Dry run</b> reads the policies fresh and shows every change before anything is written.</p>
@@ -2022,6 +2154,7 @@ const MdeRolloutTool = (() => {
       </div>
       <label class="wi-f" style="margin-top:12px"><span>➕ Also in the target list — exact policy names, one per line. They are in scope although nothing in them is an MDE area, and an old policy that sets one of their settings is pulled in too.</span>${ta("mrRuleAlso", cfg.alsoInScope)}</label>
       <label class="wi-f" style="margin-top:12px"><span>➖ Leave out of the target list — exact policy names, one per line. They are out of scope (🚫) whatever their prefix or content: never compared, planned or pulled in by a shared setting. A name in both lists is left out.</span>${ta("mrRuleLeave", cfg.leaveOut)}</label>
+      <label class="wi-f" style="margin-top:12px"><span>🧪 Pilot groups — exact group names, one per line. With the 🧪 tick on (⚔️ and ⚡), they come off a new policy's includes and an old policy's exclusions once every wave is in the one and out of the other.</span>${ta("mrRulePilots", cfg.pilotGroups)}</label>
       <p class="mini muted" style="margin:12px 0 6px">Each region is a PAIR: the device wave (prefix + region) for the <code>- D -</code> policies and the user wave for the <code>- U -</code> ones. Now: ${cfg.groups.filter((g) => g.role === "wave").map((g) => `<code>${esc(g.name)}</code>`).join(" ")}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🖥 Device wave prefix</span><input id="mrRuleDgPre" value="${esc(cfg.waveDevicePrefix)}"></label>
@@ -2045,10 +2178,11 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
-      <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). Who and what the waves do not reach: a country's users with no Windows device by Intune primary user (they get the user wave only — the card says which other devices Intune has for them), its devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
+      <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
-      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why.</p>
+      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
+      <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both).</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed — only assignments, and only by this plan.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
@@ -2100,8 +2234,15 @@ const MdeRolloutTool = (() => {
     $("mrBarPolicies").style.display = mode === "policies" ? "contents" : "none";
     $("mrBarFixes").style.display = mode === "fixes" ? "" : "none";
     const act = barAction(), tgt = barTarget();
-    $("mrGroup").style.display = mode === "fixes" || tgt === "group" ? "" : "none";
-    $("mrGroup").placeholder = mode === "fixes" ? "…or exclude this group instead (optional)" : "Group name or object ID…";
+    // 10645: the fixes take no typed group. The box is the policy actions'
+    // (it keeps what was typed there), and in the fixes it used to REPLACE
+    // every proposal and drop the "+ include" half: Mihai's LAPS dry run
+    // excluded INT-SG-D-WAVE-BAMSCA only, ahead of the new policy.
+    $("mrGroup").style.display = mode === "policies" && tgt === "group" ? "" : "none";
+    const wv = $("mrBarWaves");
+    if (wv) { wv.style.display = mode === "policies" && tgt === "waves" ? "" : "none"; wv.textContent = `each policy's kind · ${rollRegions ? [...rollRegions].join(", ") || "no region" : "every region"}`; }
+    $("mrGroup").placeholder = "Group name or object ID…";
+    if (mode === "fixes") $("mrBarFixes").textContent = fixSummary();
     const filterable = mode === "policies" && act !== "remove";
     $("mrFilterSel").style.display = filterable ? "" : "none";
     $("mrFilterMode").style.display = filterable && $("mrFilterSel").value ? "" : "none";
@@ -2165,6 +2306,7 @@ const MdeRolloutTool = (() => {
     const pols = [...sel].map((k) => model.byKey.get(k)).filter((P) => P && P.surface);
     if (!pols.length) throw new Error("Tick at least one policy.");
     const action = barAction(), tgt = barTarget();
+    if (tgt === "waves") return dryRunPolicyWaves(pols, action);
     let group, members = null, gk = null;
     if (tgt === "group") {
       await Graph.ensureScopes([...AssignEdit.READ(), ...Graph.SCOPES.groups]);
@@ -2210,32 +2352,76 @@ const MdeRolloutTool = (() => {
     renderPlan();
   }
 
-  async function dryRunFixes() {
-    const chosen = pairs.filter((pr) => selPairs.has(pr.id));
-    if (!chosen.length) throw new Error("Tick at least one fix.");
-    const override = $("mrGroup").value.trim();
+  // 🌊 Waves as the bar's target (10645, Mihai: "the option to add or
+  // exclude the waves beside a single group"): each ticked policy gets the
+  // waves of ITS kind — a - D - policy the device waves, a - U - one the user
+  // waves — in the regions ticked in 🌊. Including them in a new policy, or
+  // taking them out of an old one, can complete the swap: the 🧪 pilots then
+  // come off both sides, as in ⚡① and ⚡③.
+  async function dryRunPolicyWaves(pols, action) {
     await Graph.ensureScopes([...AssignEdit.READ(), ...Graph.SCOPES.groups]);
-    let og = null;
-    if (override) {
-      const g = await GroupUse.resolveGroup(override);
-      og = { id: lc(g.id), displayName: g.displayName };
-      names.set(og.id, og.displayName);
-      kinds = await M.readKinds([g.id], null, kinds);
+    const filter = action !== "remove" && $("mrFilterSel").value ? { id: $("mrFilterSel").value, mode: $("mrFilterMode").value } : null;
+    const inRegion = (r) => !rollRegions || rollRegions.has(r);
+    const wants = [], skipped = [], used = new Set();
+    for (const P of pols) {
+      const k = M.policyKind(P, kinds);
+      if (!k.kind) { skipped.push(`${P.name}: its name says neither "- D -" nor "- U -" and its targets do not say either (${k.source}) — use a single group`); continue; }
+      for (const g of model.cfg.groups.filter((x) => x.role === "wave" && x.audience === k.kind && inRegion(x.region))) {
+        const hit = found && found.get(lc(g.name));
+        if (!hit || !hit.id) { skipped.push(`${g.name} does not exist — create it in 🌊 first`); continue; }
+        const id = lc(hit.id);
+        if (action === "add-include" && P.reach.inc.has(id)) continue;
+        if (action === "add-exclude" && P.reach.exc.has(id)) continue;
+        if (action === "remove" && !P.reach.inc.has(id) && !P.reach.exc.has(id)) continue;
+        const notes = [];
+        if (action === "add-exclude") {
+          const s = M.exclusionSupport(k.kind, M.effectiveTargets(P, kinds).kinds);
+          if (s.ok === false) { skipped.push(`${P.name} ⊘ ${g.name}: ${s.why}`); continue; }
+          if (s.ok === null) notes.push(`⚠ ${s.why}`);
+          if (P.reach.inc.has(id)) { skipped.push(`${P.name} ⊘ ${g.name}: it INCLUDES the wave — an exclusion on top would be a contradiction; use Remove`); continue; }
+        }
+        if (P.mdeManaged && filter) notes.push("🛰 assignment filters do not apply to MDE-managed devices");
+        if (k.source === "targets") notes.push(`${k.kind} policy by its targets`);
+        wants.push({ P, groupId: id, groupName: hit.displayName || g.name, action, filter, note: notes.join(" · ") });
+        used.add(hit.displayName || g.name);
+      }
     }
-    // one entry per (old policy, group, action): two new policies that ask
-    // for the same exclusion on the same old policy ask once
+    let pilots = { steps: [], kept: [] };
+    if (action !== "remove" && model.cfg.pilotGroupsOff !== false) {
+      pilots = M.pilotsFor(wants.concat(pols.map((P) => ({ P, groupId: "", action: "none" }))), Object.assign(rolloutCtx(), { cfg: model.cfg }), true);
+      for (const st of pilots.steps) if (!wants.some((x) => x.P === st.P && x.groupId === st.groupId && x.action === "remove")) wants.push({ P: st.P, groupId: st.groupId, groupName: st.groupName, action: "remove", filter: null, note: st.note, pilot: true });
+    }
+    const uniqSkip = [...new Set(skipped)].concat(pilots.kept.map((k) => `🧪 ${k.why}`));
+    if (!wants.length) { plan = null; planError(`Nothing to do: the waves are already ${action === "add-include" ? "in" : action === "add-exclude" ? "excluded from" : "off"} these policies${uniqSkip.length ? ". Left out: " + uniqSkip.join(" · ") : ""}.`); return; }
+    const targets = [...new Map(wants.map((x) => [x.P.key, x.P])).values()];
+    const fresh = await M.readFresh(targets, (m) => { planEl().innerHTML = `<p class="mini muted">${esc(m)}</p>`; });
+    const steps = [], unread = [];
+    for (const x of wants) {
+      const f = fresh.get(`${x.P.surface}|${lc(x.P.id)}`);
+      if (!f) { if (!unread.includes(x.P.name)) unread.push(x.P.name); continue; }
+      steps.push({ policy: f, action: x.action, group: { id: x.groupId, displayName: x.groupName }, filter: x.filter || null, note: x.note });
+    }
+    const p = M.composePlan(steps);
+    const word = { "add-include": "Include", "add-exclude": "Exclude", remove: "Remove" }[action];
+    const regions = rollRegions ? [...rollRegions] : null;
+    plan = Object.assign(p, {
+      title: `${word} the waves${regions ? ` (${regions.join(", ")})` : ""} — ${plural(pols.length, "policy", "policies")}${pilots.steps.length ? `, ${plural(pilots.steps.length, "pilot assignment")} off` : ""}`,
+      head: { tool: "TUNO T28 MDE rollout", action: `${action}-waves`, regions: regions || "all", groups: [...used] },
+      memberLine: `${plural(used.size, "wave group")}: ${[...used].map(esc).join(", ")}`,
+      unread, skipped: uniqSkip, skippedTitle: "Left out, with the reason:",
+    });
+    renderPlan();
+  }
+
+  // The fixes' writes, one entry per (policy, group, action): two new
+  // policies that ask for the same exclusion on the same old policy ask
+  // once. In waves mode the pilots come off where the plan completes the
+  // swap (10645) — worked out over the whole selection, not pair by pair.
+  function fixWants(chosen) {
     const want = new Map(), skipped = [];
     for (const pr of chosen) {
-      const O = pr.O;
+      const O = pr.O, N = pr.N;
       if (!O.surface) { skipped.push(`${O.name}: not a surface the engine writes`); continue; }
-      if (og) {
-        const s = M.exclusionSupport((kinds.get(og.id) || {}).kind || "unknown", M.effectiveTargets(O, kinds).kinds);
-        if (s.ok === false) { skipped.push(`${O.name} ⊘ ${og.displayName}: ${s.why}`); continue; }
-        const act = O.reach.inc.has(og.id) ? "remove" : "add-exclude";
-        want.set(`${O.key}|${og.id}|${act}`, { O, groupId: og.id, groupName: og.displayName, action: act, note: s.ok === null ? `⚠ ${s.why}` : "" });
-        continue;
-      }
-      const N = pr.N;
       const incs = pr.proposal.includes || [];
       if (incs.length && !N.surface) { skipped.push(`${N.name}: not a surface the engine writes — its waves are not included, so they are not excluded from ${O.name} either`); continue; }
       for (const s of pr.proposal.steps) {
@@ -2249,6 +2435,37 @@ const MdeRolloutTool = (() => {
         if (!want.has(k)) want.set(k, { O: N, groupId: x.groupId, groupName: x.groupName, action: "add-include", note: `the wave into the new policy — it leaves ${O.name} in the same plan` });
       }
     }
+    let pilots = { steps: [], kept: [] };
+    if (cfg.fixWith === "waves" && model.cfg.pilotGroupsOff !== false) {
+      const touch = chosen.flatMap((pr) => [{ P: pr.N, groupId: "", action: "none" }, { P: pr.O, groupId: "", action: "none" }]);
+      pilots = M.pilotsFor([...want.values()].map((x) => ({ P: x.O, groupId: x.groupId, action: x.action })).concat(touch),
+        { cfg: model.cfg, kinds, twins: M.twinIndex(model.cfg, found), names, found, pairs }, false);
+      for (const st of pilots.steps) {
+        const k = `${st.P.key}|${st.groupId}|remove`;
+        if (!want.has(k)) want.set(k, { O: st.P, groupId: st.groupId, groupName: st.groupName, action: "remove", note: st.note, pilot: true });
+      }
+    }
+    return { want, skipped, pilots };
+  }
+  // what the bar's dry run will do, said in the bar (10645)
+  function fixSummary() {
+    if (!model) return "";
+    const chosen = pairs.filter((pr) => selPairs.has(pr.id));
+    if (!chosen.length) return "";
+    const xs = [...fixWants(chosen).want.values()];
+    const outs = xs.filter((x) => !x.pilot && x.action !== "add-include"), ins = xs.filter((x) => x.action === "add-include"), pil = xs.filter((x) => x.pilot);
+    const pols = (list) => new Set(list.map((x) => x.O.key)).size;
+    const parts = [];
+    if (outs.length) parts.push(`${plural(outs.length, "group")} out of ${plural(pols(outs), "old policy", "old policies")}`);
+    if (ins.length) parts.push(`${plural(ins.length, "wave")} into ${plural(pols(ins), "new policy", "new policies")}`);
+    if (pil.length) parts.push(`🧪 ${plural(pil.length, "pilot assignment")} off`);
+    return parts.length ? `→ ${parts.join(" · ")}` : "→ nothing writable in this selection";
+  }
+  async function dryRunFixes() {
+    const chosen = pairs.filter((pr) => selPairs.has(pr.id));
+    if (!chosen.length) throw new Error("Tick at least one fix.");
+    await Graph.ensureScopes([...AssignEdit.READ(), ...Graph.SCOPES.groups]);
+    const { want, skipped, pilots } = fixWants(chosen);
     const olds = [...new Map([...want.values()].map((x) => [x.O.key, x.O])).values()];
     if (!olds.length) { plan = null; planError(`Nothing writable in this selection.${skipped.length ? " Skipped: " + skipped.join(" · ") : ""}`); return; }
     const fresh = await M.readFresh(olds, (m) => { planEl().innerHTML = `<p class="mini muted">${esc(m)}</p>`; });
@@ -2259,10 +2476,12 @@ const MdeRolloutTool = (() => {
       steps.push({ policy: f, action: x.action, group: { id: x.groupId, displayName: x.groupName }, filter: null, note: x.note });
     }
     const p = M.composePlan(steps);
+    const kept = pilots.kept.map((k) => `🧪 ${k.why}`);
     plan = Object.assign(p, {
-      title: `Fix ${plural(chosen.length, "collision")} — ${plural(olds.length, "policy", "policies")}${og ? `, excluding ${og.displayName}` : cfg.fixWith === "waves" ? ", with the waves" : ""}`,
+      title: `Fix ${plural(chosen.length, "collision")} — ${plural(olds.length, "policy", "policies")}${cfg.fixWith === "waves" ? ", with the waves" : ""}${pilots.steps.length ? `, ${plural(pilots.steps.length, "pilot assignment")} off` : ""}`,
       head: { tool: "TUNO T28 MDE rollout", action: "fix-collisions", pairs: chosen.map((pr) => ({ newPolicy: pr.N.name, oldPolicy: pr.O.name })) },
-      memberLine: "", unread, skipped,
+      memberLine: "", unread, skipped: skipped.concat(kept),
+      skippedTitle: kept.length ? "Not in the plan, with the reason:" : undefined,
     });
     renderPlan();
   }
@@ -2417,11 +2636,11 @@ const MdeRolloutTool = (() => {
     return `<div class="list-card" id="mrRollCard" style="margin-top:0;margin-bottom:12px">
       <h4 style="margin:0 0 4px">⚡ Rollout actions</h4>
       <p class="mini muted" style="margin:0 0 8px">One plan per step, over every new or colliding old policy at once — each through the same dry run, backup, confirm and read-back as a single fix, and each undoable from 📜. The device waves go to the <code>- D -</code> policies, the user waves to the <code>- U -</code> ones.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px"><span class="mini muted">Regions:</span>${chips}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px"><span class="mini muted">Regions:</span>${chips}${pilotTick()}</div>
       <table class="cg-table"><colgroup><col style="width:30px"><col><col style="width:24%"><col style="width:110px"></colgroup><tbody>
-        ${line("includeWaves", "①", "include", "Every existing wave of the ticked regions into each new policy of its kind. Membership decides who moves, so the groups can all be in place before a wave is filled.")}
+        ${line("includeWaves", "①", "include", `Every existing wave of the ticked regions into each new policy of its kind. Membership decides who moves, so the groups can all be in place before a wave is filled.${cfg.pilotGroupsOff ? " 🧪 With every wave in a new policy and out of its old ones, the pilot groups come off both." : ""}`)}
         ${line("excludeExclusion", "②", "exclusion", `${esc(model.cfg.exclusionDevice || "—")} from the <code>- D -</code> policies, ${esc(model.cfg.exclusionUser || "—")} from the <code>- U -</code> ones — whoever stays on the old set.`)}
-        ${line("excludeWaves", "③", "change", `The ⚔️ pane's proposals, waves only: a wave leaves an old policy only where a new policy that sets the same settings includes it (or its twin), never ahead of it.${gaps ? ` <span style="color:var(--off)">${plural(gaps, "of these old policies has", "of these old policies have")} a 🧹 gap — settings the new set does not carry; wave members lose them.</span>` : ""}`)}
+        ${line("excludeWaves", "③", "change", `The ⚔️ pane's proposals, waves only: a wave leaves an old policy only where a new policy that sets the same settings includes it (or its twin), never ahead of it.${cfg.pilotGroupsOff ? " 🧪 Where that completes the swap, the pilot groups come off both sides." : ""}${gaps ? ` <span style="color:var(--off)">${plural(gaps, "of these old policies has", "of these old policies have")} a 🧹 gap — settings the new set does not carry; wave members lose them.</span>` : ""}`)}
       </tbody></table>
     </div>`;
   }
@@ -2537,7 +2756,11 @@ const MdeRolloutTool = (() => {
     const inR = (x) => x.region === R;
     const users = new Set(L.users.filter(inR).map((u) => u.id)).size;
     const noEntra = L.noEntra.filter(inR).length, held = L.held.filter(inR).length;
-    return { R, users, noEntra, held, noCountry: L.noCountry.length, noPrimary: L.noPrimary.length, total: users + noEntra + held + L.noCountry.length + L.noPrimary.length };
+    // 10645 (Mihai: "keep the list, don't count it"): MDE here is Windows,
+    // so Left out counts Windows devices only. The users with no Windows
+    // device stay listed — they are in the user wave through their country
+    // group, and a Windows device they get later is picked up by the sync.
+    return { R, users, noEntra, held, noCountry: L.noCountry.length, noPrimary: L.noPrimary.length, total: noEntra + held + L.noCountry.length + L.noPrimary.length };
   }
   const osHas = (h) => { const e = Object.entries(h || {}); return e.length ? e.map(([os, n]) => chip("gu-how", `${os} ${n}`)).join(" ") : chip("gu-how priv", "nothing in Intune"); };
   const LEFT_WHY = {
@@ -2554,7 +2777,21 @@ const MdeRolloutTool = (() => {
       .map(([k, c]) => ({ k, c, n: L.users.filter((u) => u.region === R && u.rowKey === k).length })).sort((a, b) => b.n - a.n);
     const cchips = countries.length > 1 ? `<div class="toolbar mr-lobar">${fchip("data-mrmemleftrow", "", `All · ${lo.users.toLocaleString()}`, undefined, !mem.leftCountry)}${countries.map((x) => fchip("data-mrmemleftrow", x.k, `${x.c} · ${x.n.toLocaleString()}`, undefined, mem.leftCountry === x.k)).join("")}</div>` : "";
     const cgName = (k) => { const r = m.rows.find((x) => x.key === k); return r ? r.userGroupName : ""; };
-    const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td><td class="mini muted">${Object.keys(u.has).length ? "the user wave only — the <code>- U -</code> policies, on no Windows device" : "no device of theirs in scope"}</td></tr>`).join("");
+    // "the users still need to be in the right groups" / "if they get a
+    // Windows device later, it should be added" (10645): say where the user
+    // stands, and what happens to a device they get
+    const rowOf = new Map(m.rows.map((r) => [r.key, r]));
+    const standing = (u) => {
+      const r = rowOf.get(u.rowKey);
+      if (!r) return "";
+      const wn = r.wave && r.wave.userName ? r.wave.userName : "the user wave";
+      const inWave = r.ugNested || (r.batch && r.batch.inWave && r.batch.inWave.has(u.id));
+      const now = inWave ? `<span style="color:var(--on)">✓ in <code>${esc(wn)}</code></span> through ${esc(r.userGroupName)}`
+        : r.batch ? `⏳ pilot batch — not in <code>${esc(wn)}</code> yet (🧪 batches)` : `<span style="color:var(--off)">✗ not in <code>${esc(wn)}</code> yet</span> — nest ${esc(r.userGroupName)} (👥 countries)`;
+      const later = r.deviceGroupName ? `<div class="muted">a Windows device they get joins <code>${esc(r.deviceGroupName)}</code> at the next 👥 read → Apply</div>` : "";
+      return now + later;
+    };
+    const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td><td class="mini">${standing(u)}</td></tr>`).join("");
     const why = mem.leftReason;
     const devs = [].concat(
       (!why || why === "noEntra") ? L.noEntra.filter((d) => d.region === R).map((d) => Object.assign({ k: "noEntra" }, d)) : [],
@@ -2564,9 +2801,9 @@ const MdeRolloutTool = (() => {
     const whyChip = (d) => d.k === "held" ? chip("gu-how", LEFT_WHY.held.label) : d.k === "noEntra" ? chip("au-op delete", d.why || LEFT_WHY.noEntra.label) : chip("gu-how priv", LEFT_WHY[d.k].label);
     const drows = devs.slice(0, CAP).map((d) => `<tr><td><b>${esc(d.name)}</b>${d.country ? `<div class="mini muted">${esc(d.country)}</div>` : ""}</td><td class="mini">${esc(d.upn || "—")}</td><td class="mini">${whyChip(d)}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", "stale")}` : ""}</td></tr>`).join("");
     return `<div class="list-card" style="margin-top:0">
-      <p class="mini muted" style="margin:0 0 8px">Who and what the waves do not reach, with the reason. The users and a country's devices are for 🌊 <b>${esc(R)}</b>; the devices no country holds are for the whole tenant. <a href="#" data-mrmemleft="1">← back to the countries</a></p>
+      <p class="mini muted" style="margin:0 0 8px">Windows devices the waves do not reach, with the reason — that is the count. The users and a country's devices are for 🌊 <b>${esc(R)}</b>; the devices no country holds are for the whole tenant. The users with no Windows device are listed, not counted: they are in the user wave through their country group, and a Windows device they get later joins its country device group at the next 👥 read → Apply. <a href="#" data-mrmemleft="1">← back to the countries</a></p>
       <div class="mr-tiles">
-        ${tile("users", lo.users, `users with no Windows device (the user wave only)`, !mem.leftReason)}
+        ${tile("users", lo.users, `users with no Windows device — not counted (they are in the user wave)`, !mem.leftReason)}
         ${tile("noCountry", lo.noCountry, LEFT_WHY.noCountry.tile, mem.leftReason === "noCountry")}
         ${tile("noPrimary", lo.noPrimary, LEFT_WHY.noPrimary.tile, mem.leftReason === "noPrimary")}
         ${tile("noEntra", lo.noEntra, LEFT_WHY.noEntra.tile, mem.leftReason === "noEntra")}
@@ -2574,7 +2811,7 @@ const MdeRolloutTool = (() => {
       </div>
       <h4 style="margin:14px 0 6px">Users with no Windows device <span class="mini muted" style="font-weight:400">— by Intune primary user${mem.leftCountry ? ` · ${esc(cgName(mem.leftCountry))}` : ""}</span></h4>
       ${cchips}
-      ${users.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:32%"><col style="width:13%"><col style="width:27%"><col></colgroup><thead><tr><th>User</th><th>Country</th><th>Their other devices</th><th>For the rollout</th></tr></thead><tbody>${urows}</tbody></table></div>${users.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${users.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
+      ${users.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:32%"><col style="width:13%"><col style="width:27%"><col></colgroup><thead><tr><th>User</th><th>Country</th><th>Their other devices</th><th>Their groups</th></tr></thead><tbody>${urows}</tbody></table></div>${users.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${users.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
         : `<p class="mini muted" style="margin:0">Every user of ${mem.leftCountry ? "this country" : "this wave's countries"} has a Windows device.</p>`}
       <h4 style="margin:16px 0 6px">Windows devices no country device group will hold${why ? ` <span class="mini muted" style="font-weight:400">— ${esc(LEFT_WHY[why].label)} · <a href="#" data-mrmemleftwhy="all">show every reason</a></span>` : ""}</h4>
       ${devs.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:28%"><col><col style="width:16%"></colgroup><thead><tr><th>Device</th><th>Primary user</th><th>Why</th><th>Last sync</th></tr></thead><tbody>${drows}</tbody></table></div>${devs.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${devs.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
@@ -3312,6 +3549,7 @@ const MdeRolloutTool = (() => {
           waveDevicePrefix: $("mrRuleDgPre").value, waveUserPrefix: $("mrRuleUgPre").value,
           exclusionDevice: $("mrRuleExD").value, exclusionUser: $("mrRuleExU").value,
           waveDescription: $("mrRuleDesc").value, exclusionDescription: $("mrRuleExDesc").value, alsoInScope: lines("mrRuleAlso"), leaveOut: lines("mrRuleLeave"), leaveOutSeed: cfg.leaveOutSeed,
+          fixWith: cfg.fixWith, pilotGroups: lines("mrRulePilots"), pilotGroupsOff: cfg.pilotGroupsOff,
           renameExclusionFrom: {
             device: cfg.renameExclusionFrom.device.concat(prevPre.exD && lc($("mrRuleExD").value.trim()) !== lc(prevPre.exD) ? [prevPre.exD] : []),
             user: cfg.renameExclusionFrom.user.concat(prevPre.exU && lc($("mrRuleExU").value.trim()) !== lc(prevPre.exU) ? [prevPre.exU] : []),
@@ -3373,6 +3611,8 @@ const MdeRolloutTool = (() => {
         clearPlan(); syncSelbar(); return;
       }
       if (t.dataset.mrpair) { t.checked ? selPairs.add(t.dataset.mrpair) : selPairs.delete(t.dataset.mrpair); clearPlan(); syncSelbar(); return; }
+      // 🧪 the pilot tick (10645)
+      if (t.hasAttribute("data-mrpilots")) { saveCfg(Object.assign({}, cfg, { pilotGroupsOff: t.checked })); clearPlan(); derive(); render(); syncSelbar(); return; }
       if (t.dataset.mrpairall) {
         pairs.filter((pr) => pr.O.key === t.dataset.mrpairall && M.needsAction(pr) && pr.proposal && pr.proposal.steps.some((s) => s.supported !== false))
           .forEach((pr) => (t.checked ? selPairs.add(pr.id) : selPairs.delete(pr.id)));

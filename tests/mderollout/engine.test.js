@@ -262,6 +262,60 @@ async function run() {
   ok("groups mode is unchanged: the new policy's include groups", M.proposalFor({ id: "x", N: Nd, O: Od, type: "conflict", reach: { verdict: "can", why: "" } }, Object.assign({}, wctx, { fixWith: "groups" })).steps.map((x) => x.groupId).sort().join() === ["gpilot", lcW(G(7))].sort().join());
   ok("the default is the waves; 'groups' is kept", M.normConfig({}).fixWith === "waves" && M.normConfig({ fixWith: "groups" }).fixWith === "groups");
 
+  // ---------------------------------------------- 🧪 pilots off (10645) --
+  // Mihai: "when adding the wave groups to new policies remove the pilot
+  // groups" — option A (both sides), in ⚔️ and ⚡.
+  ok("the four pilot groups are the default, the tick is on, and both are kept", M.normConfig({}).pilotGroups.join() === "INT-SG-D-Win-Pilot,INT-SG-D-Win-Pre-Pilot,INT-SG-U-Win-Pre-Pilot,INT-SG-U-Win-Pilot"
+    && M.normConfig({}).pilotGroupsOff === true && M.normConfig({ pilotGroupsOff: false, pilotGroups: ["X"] }).pilotGroupsOff === false && M.normConfig({ pilotGroups: ["X"] }).pilotGroups.join() === "X");
+  const cfgPil = M.normConfig({});
+  const namesP = new Map([...namesW, ["gpd", "INT-SG-D-Win-Pilot"], ["gpre", "INT-SG-D-Win-Pre-Pilot"], ["gpu", "INT-SG-U-Win-Pilot"]]);
+  const NdP = Object.assign({}, P("n1"), { name: "Win - OIB - ES - Windows LAPS - D - LAPS - v3.6", audience: "device", generation: "new", surface: "settingsCatalog",
+    reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: "gpd" }, { kind: "Included", groupId: lcW(G(7)) }] }) });
+  const OdP = Object.assign({}, P("o1"), { generation: "old", surface: "settingsCatalog",
+    reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }, { kind: "Excluded", groupId: "gpd" }, { kind: "Excluded", groupId: "gpre" }] }) });
+  const prP = { id: "p", N: NdP, O: OdP, type: "conflict", reach: { verdict: "can", why: "" } };
+  const pctx = Object.assign({}, wctx, { names: namesP, cfg: cfgPil, pairs: [prP] });
+  const wpP = M.proposalFor(prP, pctx);
+  const pSide = (x, side) => x.steps.filter((st) => st.side === side).map((st) => st.groupName).sort().join();
+  ok("⚔️ every wave in, every wave out: the pilot comes off the new policy and the pilot exclusions off the old one, in the same fix",
+    pSide(wpP.pilots, "new") === "INT-SG-D-Win-Pilot" && pSide(wpP.pilots, "old") === "INT-SG-D-Win-Pilot,INT-SG-D-Win-Pre-Pilot" && wpP.pilots.steps.every((st) => st.action === "remove") && !wpP.pilots.kept.length);
+  const wpPR = M.proposalFor(prP, Object.assign({}, pctx, { regions: new Set(["Euro"]) }));
+  ok("…with a region unticked, the pilots stay on both sides, and say which wave is missing", !wpPR.pilots.steps.length && wpPR.pilots.kept.length === 3
+    && wpPR.pilots.kept.every((k) => /INT-SG-D-WAVE-Americas/.test(k.why)));
+  ok("…the tick off: nothing about pilots", !M.proposalFor(prP, Object.assign({}, pctx, { cfg: M.normConfig({ pilotGroupsOff: false }) })).pilots.steps.length);
+  // another new policy on the same old one still includes the pilot, and
+  // has no waves: the old side keeps that pilot's exclusion (else a pilot
+  // member outside a wave gets both), so the new side keeps the pilot too
+  // (else neither). The Pre-Pilot exclusion, which no new policy includes, goes.
+  const N3P = Object.assign({}, P("n2"), { name: "Win - OIB - ES - Account - D - Other", audience: "device", generation: "new", surface: "settingsCatalog",
+    reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: "gpd" }] }) });
+  const pairs3 = [prP, { id: "q", N: N3P, O: OdP, type: "conflict", reach: { verdict: "can", why: "" } }];
+  const fxP = M.proposalFor(prP, Object.assign({}, pctx, { pairs: pairs3 })).pilots;
+  ok("each side needs the other: a colliding new policy still on the pilot keeps it on both sides", fxP.steps.map((st) => `${st.side}:${st.groupName}`).join() === "old:INT-SG-D-Win-Pre-Pilot"
+    && fxP.kept.some((k) => k.side === "old" && /still includes it — its members outside a wave would get both/.test(k.why)) && fxP.kept.some((k) => k.side === "new" && /still excludes it — its members outside a wave would get neither/.test(k.why)));
+  ok("a pilot-only fix is still a fix (the waves already in place)", (() => {
+    const Nin = Object.assign({}, NdP, { reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: "gpd" }, { kind: "Included", groupId: lcW(G(7)) }, { kind: "Included", groupId: lcW(G(8)) }] }) });
+    const Oout = Object.assign({}, OdP, { reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }, { kind: "Excluded", groupId: "gpd" }, { kind: "Excluded", groupId: lcW(G(7)) }, { kind: "Excluded", groupId: lcW(G(8)) }] }) });
+    const prI = { id: "i", N: Nin, O: Oout, type: "conflict", reach: { verdict: "can", why: "" } };
+    const x = M.proposalFor(prI, Object.assign({}, pctx, { pairs: [prI] }));
+    return !x.steps.length && !x.includes.length && x.pilots.steps.length === 2 && !x.none;
+  })());
+  // ⚡①: the waves into the new policy — and, where the old policy already
+  // has them out, the pilots off both sides (wide: the colliding old ones too)
+  const cfgR = M.normConfig({ waveRegions: ["Euro", "Americas"] });
+  const foundR = new Map(cfgR.groups.map((g, i) => [lcW(g.name), { id: `w${i}`, displayName: g.name }]));
+  const devW = cfgR.groups.filter((g) => g.role === "wave" && g.audience === "device").map((g) => foundR.get(lcW(g.name)).id);
+  const namesR = new Map([...namesP, ...cfgR.groups.map((g) => [foundR.get(lcW(g.name)).id, g.name])]);
+  const NR = Object.assign({}, NdP, { reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: "gpd" }] }) });
+  const OR = Object.assign({}, OdP, { reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }, { kind: "Excluded", groupId: "gpd" }].concat(devW.map((id) => ({ kind: "Excluded", groupId: id }))) }) });
+  const modelR = { cfg: cfgR, newP: [NR], oldP: [OR], policies: [NR, OR] };
+  const r1 = M.rolloutWants("includeWaves", modelR, { kinds: new Map(), found: foundR, twins: M.twinIndex(cfgR, foundR), names: namesR, pairs: [{ id: "r", N: NR, O: OR, type: "conflict", reach: { verdict: "can", why: "" } }] });
+  ok("⚡① the device waves in, and the pilot off the new policy and off the old one's exclusions", r1.wants.filter((x) => x.action === "add-include").map((x) => x.groupId).sort().join() === devW.slice().sort().join()
+    && r1.wants.filter((x) => x.action === "remove").map((x) => `${x.P === NR ? "new" : "old"}:${x.groupName}`).sort().join() === "new:INT-SG-D-Win-Pilot,old:INT-SG-D-Win-Pilot", JSON.stringify(r1.wants.map((x) => [x.action, x.groupName])));
+  const OR2 = Object.assign({}, OR, { reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }, { kind: "Excluded", groupId: "gpd" }] }) });
+  const r1b = M.rolloutWants("includeWaves", Object.assign({}, modelR, { oldP: [OR2], policies: [NR, OR2] }), { kinds: new Map(), found: foundR, twins: M.twinIndex(cfgR, foundR), names: namesR, pairs: [{ id: "r", N: NR, O: OR2, type: "conflict", reach: { verdict: "can", why: "" } }] });
+  ok("⚡① with the waves still on the old policy: the pilots stay, and the reason is listed", !r1b.wants.some((x) => x.action === "remove") && r1b.skipped.some((x) => /stays excluded on .* not out of it after this plan/.test(x)) && r1b.skipped.some((x) => /stays on .*still excludes it/.test(x)));
+
   // ---------------------------------------------------------- compose --
   const pol = (id, assignments) => ({ surface: "settingsCatalog", surfaceLabel: "Settings catalog", id, name: id, assignments });
   const A = pol("pa", [inc(G(1)), allDev()]);

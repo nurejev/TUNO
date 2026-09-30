@@ -104,6 +104,35 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 208,
+  "title": "T28 — fixes bar without the group box; 🧪 pilots off both sides; 🌊 Waves in the policy bar; Left out counts Windows devices",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10646
+  ],
+  "risk": "medium",
+  "what": "Fixes mode hides #mrGroup and no longer reads it (the override replaced every proposal and dropped the includes); #mrBarFixes = fixSummary(). fixWants() shared by the summary and dryRunFixes. Engine: DEFAULTS.pilotGroups (4 names), cfg.pilotGroups/pilotGroupsOff; pilotRemovals(ctx, pairs, planned, scope) with the both-sides fixpoint; pilotsFor(wants, ctx, wide). wavesProposal carries .pilots (a pilot-only fix is a fix); rolloutWants ① and ③ add the pilot removals (wide). Bar target 🌊 Waves: dryRunPolicyWaves (each policy's kind, ticked regions, pilots wide on include/exclude). The pilot tick in ⚔️ and ⚡; the list under ⚙️ (Save keeps fixWith). leftCounts total = Windows devices only; the users list shows the wave standing and the next-sync note.",
+  "why": "Mihai: 'why is not everything excluded as stated in the first screen?'; 'when adding the wave groups to new policies remove the pilot groups' (option A, ⚔️ and ⚡①); 'this should have the option to add or exclude the waves beside a single group'; Left out 'keep the list, don't count it', 'the users still need to be in the right groups', 'if they get a Windows device later it should be added'.",
+  "test": [
+    "Run npm test. mderollout/engine (192) covers the pilot defaults, both sides in a waves fix, a region unticked, the tick off, the fixpoint (a colliding new policy on the pilot), a pilot-only fix, ⚡① wide with and without the waves out of the old policy. mderollout/screen (198) covers the Left out count, the users' standing, the pilots in the AV fix (proposal, bar summary, dry run both sides, a leftover group in the box ignored), the tick off and on, and 🌊 Waves in the policy bar.",
+    "Browser DEMO (a pilot group added to both AV policies): ⚔️ shows − remove include / − remove exclusion; the bar says '🧪 2 pilot assignments off'; the plan removes it from both. 🎯 → 🌊 Waves hides the group box.",
+    "LIVE PENDING (PVM): the LAPS fix with every region ticked and an empty group box. The plan should exclude the five device waves from the old LAPS policy, include them in the new one, and take INT-SG-D-Win-Pilot / Win-Pre-Pilot off the old policy's exclusions. Dry run only first."
+  ],
+  "files": [
+    "js/mderollout.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/engine.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10646.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 207,
   "title": "T01 — read custom-profile values on beta (v1.0 masks them)",
   "tools": [

@@ -26,6 +26,33 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10646,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — pilots off when the waves take over; 🌊 Waves in the policy bar",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "⚔️ A dry run of the fixes could do less than the proposal. The bar's group box keeps what was typed for a policy action, and a group left in it replaced every proposed fix and dropped the \"include in the new policy\" half. The fixes no longer take a typed group, and the bar says what the dry run will do."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "🧪 Pilot groups come off when the waves take over. Once a plan leaves every wave in the new policy and out of the old one, the pilot groups (INT-SG-D/U-Win-Pilot and -Pre-Pilot, editable in ⚙️) come off both: the new policy's include and the old policy's exclusion, in the same plan. A pilot member outside a wave goes back to the old policy until their wave has them. It works in ⚔️, ⚡① and ⚡③, with one tick to switch it off; what has to stay says why."
+    },
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "The policy bar offers 🌊 Waves beside Group: include, exclude or remove the waves of each ticked policy's kind, in the regions ticked in 🌊, in one plan."
+    },
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "🕳 Left out counts Windows devices only. The users with no Windows device are still listed, with whether their country group puts them in the user wave, and where a Windows device they get later will go."
+    }
+  ]
+},
+{
   "build": 10645,
   "date": "2026-09-30",
   "title": "T01: deployed AppLocker profiles open again (values read on beta)",
