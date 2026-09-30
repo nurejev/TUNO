@@ -1,4 +1,4 @@
-# New-TunoHarvestUploaderApp.ps1  v1.0.0  (TUNO build 10647)
+# New-TunoHarvestUploaderApp.ps1  v1.0.0  (TUNO build 10648)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -112,7 +112,7 @@ param(
 # Same two numbers as every house script: this file's history, and the site build
 # that served it - held to js/version.js by _to_delete/check-script-versions.js.
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10647
+$script:TunoBuild = 10648
 
 $ErrorActionPreference = 'Stop'
 $GraphAppId = '00000003-0000-0000-c000-000000000000'   # Microsoft Graph

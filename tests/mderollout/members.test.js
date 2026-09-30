@@ -301,6 +301,25 @@ async function run() {
   ok("🧪 …and an undo puts it back, with its name", MM.compute(cfg, pIn, waves, now).pilots.members.find((x) => x.id === "e1").groups.length === 2 && pIn.pilots[0].devices.some((d) => d.id === "e1" && d.name === "NL-1"));
   ok("🧪 no pilot groups configured or read: no pilot view", MM.compute(cfg, input, waves, now).pilots === null);
 
+  // ------------------------------------------------------ 🔎 logons (10648) --
+  const kql = MM.logonKql([{ id: "x1", upn: "Jan.Smit@x.com", sid: "S-1-5-21-9", sam: "JSMIT" }, { id: "x2", upn: 'o"b@x.com' }]);
+  ok("🔎 the KQL: SIDs and names (sAMAccountName and the UPN's prefix, lower case), quotes escaped, 30 days, successful interactive logons",
+    /let sids = dynamic\(\["S-1-5-21-9"\]\);/.test(kql) && /let names = dynamic\(\["jsmit", "jan\.smit", "o\\"b"\]\);/.test(kql) && /ago\(30d\)/.test(kql) && /ActionType == "LogonSuccess"/.test(kql) && /"Unlock"/.test(kql) && /AccountSid in~ \(sids\)/.test(kql), kql);
+  const hunt = [
+    { AccountName: "jsmit", AccountSid: "", DeviceId: "d1", DeviceName: "nl-1.corp.local", LastLogon: iso(now - 3 * day), Logons: 2, AadDeviceId: "A1" },
+    { AccountName: "whatever", AccountSid: "S-1-5-21-9", DeviceId: "d1", DeviceName: "nl-1.corp.local", LastLogon: iso(now - day), Logons: 5, AadDeviceId: "A1" },
+    { AccountName: "jan.smit", AccountSid: "", DeviceId: "d6", DeviceName: "SHARED", LastLogon: iso(now - 2 * day), Logons: 1, AadDeviceId: "A6" },
+    { AccountName: "jan.smit", AccountSid: "", DeviceId: "d7", DeviceName: "old-us.corp.local", LastLogon: iso(now - 4 * day), Logons: 1, AadDeviceId: "A7" },
+    { AccountName: "jan.smit", AccountSid: "", DeviceId: "d9", DeviceName: "lab-9", LastLogon: iso(now - 5 * day), Logons: 4, AadDeviceId: "" },
+    { AccountName: "someone.else", AccountSid: "", DeviceId: "d3", DeviceName: "de-1", LastLogon: iso(now), Logons: 9, AadDeviceId: "A3" },
+  ];
+  const lg = MM.logonsFor(input, model.rows, [{ id: "x1", upn: "Jan.Smit@x.com", sid: "S-1-5-21-9", sam: "JSMIT" }, { id: "x3", upn: "nobody@x.com" }], hunt).get("x1");
+  ok("🔎 one line per device (a SID and a name match on one device add up), newest first, nobody else's logons", lg.map((x) => x.device).join() === "nl-1,SHARED,old-us,lab-9" && lg[0].logons === 7 && lg[0].last === iso(now - day));
+  ok("🔎 a device in Intune under another primary user, already in the wave through its country's device group", lg[0].kind === "intune" && lg[0].inWave && /primary user .* \(Netherlands\), in the wave through INT-SG-D-NLD/.test(lg[0].what), lg[0].what);
+  ok("🔎 in Intune with no primary user: no wave", lg[1].kind === "intune" && /no primary user — no wave/.test(lg[1].what));
+  ok("🔎 in Entra, not in Intune: no wave reaches it; Defender alone: no Entra object", lg[2].kind === "entra" && /not in Intune: no wave reaches it/.test(lg[2].what) && lg[3].kind === "defender" && /no Entra object/.test(lg[3].what));
+  ok("🔎 a user with no logon found gets an empty list", MM.logonsFor(input, model.rows, [{ id: "x3", upn: "nobody@x.com" }], hunt).get("x3").length === 0);
+
   // --------------------------------------------------------------- csv --
   const c = MM.csv(model);
   ok("csv: one line per device, the removals too", c.split("\r\n")[0].startsWith("Region,Country,User group,Device group,Device") && /OLD-US.*to remove/.test(c) && /DE-NOENTRA.*no Entra object/.test(c));

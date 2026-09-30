@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10648,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — find where users with no device log on",
+  "items": [
+    {
+      "kind": "new",
+      "tool": "MDE rollout",
+      "text": "🕳 Left out: 🔎 Find their logons in Defender asks Defender advanced hunting which devices the users with no Windows device logged on to in the last 30 days. For each device it says whether it's in Intune under someone else (and whether that person's country puts it in a wave), in Entra but not Intune, or seen by Defender only. The CSV carries the result, and ⧉ Copy the KQL gives the same query to run in the Defender portal. Read-only."
+    },
+    {
+      "kind": "improved",
+      "tool": "TUNO",
+      "text": "New permission ThreatHunting.Read.All, asked only when you click the Defender lookup. It needs admin consent, and the admin also needs Security Reader or a Defender role with advanced hunting. The app registration script and SECURITY.md list it."
+    }
+  ]
+},
+{
   "build": 10647,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — pilot members into their wave",

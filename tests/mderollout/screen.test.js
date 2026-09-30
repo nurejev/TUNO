@@ -307,6 +307,28 @@ async function run() {
   ok("…with where Sam stands: in the Euro user wave through the France group, or not yet, and where a Windows device of his would go",
     (mrow("fr").ugNested ? /✓ in INT-SG-U-WAVE-Euro through PVM-UG-CORP-MEM-USERS-FR/ : /✗ not in INT-SG-U-WAVE-Euro yet — nest PVM-UG-CORP-MEM-USERS-FR/).test($("mrBody").textContent)
     && /a Windows device they get joins INT-SG-D-FRA at the next 👥 read → Apply/.test($("mrBody").textContent), $("mrBody").textContent.slice(0, 0));
+  // 🔎 (10648, Mihai: "if a user has no device in Entra and Intune, try to
+  // search in Defender … on which device the user has logged in"; option A)
+  ok("🔎 the users list offers the Defender lookup and the KQL, and has no logon column yet", !!D.querySelector("[data-mrlogons]") && !!D.querySelector("[data-mrlogonkql]") && !/Logged on to · Defender/.test($("mrBody").textContent));
+  const samId = mm().leftOut.users.find((u) => u.upn === "sam@contoso.com").id;
+  let huntBody = null; const realPost = w.Graph.post;
+  w.Graph.post = (p, b, o) => { if (/runHuntingQuery/.test(p)) huntBody = b; return realPost(p, b, o); };
+  D.querySelector("[data-mrlogons]").click();
+  ok("🔎 one hunting query for the users in view (France: Sam), 30 days, matched by account name", await until(() => st().mem.looked.has(samId), 10000, "logons")
+    && huntBody && huntBody.Timespan === "P30D" && /DeviceLogonEvents/.test(huntBody.Query) && /let names = dynamic\(\["sam"\]\)/.test(huntBody.Query), huntBody && huntBody.Query);
+  ok("🔎 …a column says where he logged on and what each device is: Eva's laptop in Intune, a lab PC Defender alone sees",
+    /Logged on to · Defender, 30 days/.test($("mrBody").textContent) && /ws-fin-0142/i.test($("mrBody").textContent) && /in Intune — primary user eva@contoso\.com/.test($("mrBody").textContent)
+    && /lab-pc-07/.test($("mrBody").textContent) && /Defender only — no Entra object/.test($("mrBody").textContent));
+  ok("🔎 the CSV carries it", /ws-fin-0142 \(in Intune — primary user eva@contoso\.com/.test(w.MdeMembers.leftOutCsv(mm(), "Euro", st().mem.logons)));
+  D.querySelector("[data-mrlogonkql]").click();
+  ok("⧉ with no clipboard, the KQL is saved as a file", await until(() => /Saved as a \.kql file/.test($("mrLogProg").textContent), 3000, "kql"));
+  w.Graph.post = async (p) => { if (/runHuntingQuery/.test(p)) { const e = new Error("Forbidden"); e.status = 403; throw e; } return realPost(p); };
+  st().mem.looked.clear(); st().mem.logons.clear();
+  D.querySelector("[data-mrlogons]").click();
+  ok("🔎 refused: says what it needs, and points at the KQL", await until(() => /ThreatHunting\.Read\.All/.test($("mrBody").textContent) && /Security Reader/.test($("mrBody").textContent), 5000, "denied"));
+  w.Graph.post = realPost;
+  ok("🔎 the scope is taken in the open (R18): graph.js, the registration script and SECURITY.md", /hunting: \["ThreatHunting\.Read\.All"\]/.test(fs.readFileSync(path.join(ROOT, "js/graph.js"), "utf8"))
+    && /"ThreatHunting\.Read\.All"/.test(fs.readFileSync(path.join(ROOT, "New-TunoAppRegistration.ps1"), "utf8")) && /`ThreatHunting\.Read\.All`/.test(fs.readFileSync(path.join(ROOT, "SECURITY.md"), "utf8")));
   ok("the devices no country holds, with the reason", /WS-SALES-0077/.test($("mrBody").textContent) && /primary user in no country group of the table/.test($("mrBody").textContent)
     && /WS-OLD-0009/.test($("mrBody").textContent) && /no primary user/.test($("mrBody").textContent));
   D.querySelector('[data-mrmemleftwhy="noPrimary"]').click();

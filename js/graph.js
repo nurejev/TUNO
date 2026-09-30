@@ -167,6 +167,14 @@ const Graph = (() => {
     // Sites.FullControl.All (already here for one write) because a read must
     // never be bought with a write scope. Taken in the open per R18.
     sitesRead: ["Sites.Read.All"],
+    // read — T28's 🔎 logon lookup (build 10648, Mihai: "if a user has no
+    // device in Entra and Intune, try to search in Defender … on which
+    // device the user has logged in"). One advanced-hunting query
+    // (DeviceLogonEvents + DeviceInfo, 30 days) through Graph's
+    // security/runHuntingQuery. Admin consent; Graph ALSO gates it on the
+    // caller's role (Security Reader, or a Defender role with advanced
+    // hunting) — consent alone does not open it. Taken in the open per R18.
+    hunting: ["ThreatHunting.Read.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,

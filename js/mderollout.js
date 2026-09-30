@@ -1631,7 +1631,10 @@ const MdeRolloutTool = (() => {
     // to (a row key, null = the whole wave) and the device reason shown
     left: false, leftCountry: null, leftReason: null,
     // 🧪 Pilots (10647): the view, its tile filter and the members ticked
-    pil: false, pilState: null, pilSel: new Set() };
+    pil: false, pilState: null, pilSel: new Set(),
+    // 🔎 Defender logons (10648): per user id, the devices found; who was
+    // looked up; the running line and the last error
+    logons: new Map(), looked: new Set(), logBusy: "", logError: "" };
   // ⊘ Exclusions (10639, layout A off the mockup): its own read, search,
   // the looked-up card and its ticks, and the "excluded now" rows ticked
   const ex = { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "",
@@ -1800,6 +1803,7 @@ const MdeRolloutTool = (() => {
     reps.assign = null; reps.config = null; reps.conflicts = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
+    mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
     if ($("mrExclude")) $("mrExclude").hidden = true;
@@ -2180,7 +2184,7 @@ const MdeRolloutTool = (() => {
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. Devices with no primary user are counted, not guessed.</p>
-      <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
+      <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). Every direct member of the pilot groups (⚙️) with the wave its country puts it in — a device by its Intune primary user's country group, a user by their own — and where it stands: ✓ in that wave now (a device through its country device group, nested in the device wave; a user through the country group nested in the user wave, or put in directly by a pilot batch), ⏳ not yet (with what is missing), or ✗ no wave. Only ✓ members can leave the pilot: the plan only removes, each member's wave is read fresh before the plan and again before the write, and one no longer in it is left in the pilot. <b>The policy check</b> blocks a wave where a new policy includes the pilot group but not the wave, or an old policy excludes the pilot group but not the wave (or its twin) — leaving would lose a new policy or gain an old one — and names the policy.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
@@ -2799,7 +2803,21 @@ const MdeRolloutTool = (() => {
       const later = r.deviceGroupName ? `<div class="muted">a Windows device they get joins <code>${esc(r.deviceGroupName)}</code> at the next 👥 read → Apply</div>` : "";
       return now + later;
     };
-    const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td><td class="mini">${standing(u)}</td></tr>`).join("");
+    // 🔎 Defender logons (10648): a column once any user in view was looked up
+    const showLog = users.some((u) => mem.looked.has(u.id));
+    const LOGCOL = { intune: "var(--on)", entra: "var(--report)", defender: "var(--off)" };
+    const logCell = (u) => {
+      if (!mem.looked.has(u.id)) return `<span class="muted">not looked up</span>`;
+      const l = mem.logons.get(u.id) || [];
+      if (!l.length) return `<span class="muted">no logon on a Defender device in 30 days — web or mobile only, or a device Defender does not see</span>`;
+      return l.slice(0, 3).map((x) => `<div style="margin:2px 0"><b>${esc(x.device)}</b> <span class="muted">· ${esc(ago(x.last))} · ${plural(x.logons, "logon")}</span><div style="color:${LOGCOL[x.kind]}">${esc(x.what)}</div></div>`).join("") + (l.length > 3 ? `<div class="muted">+ ${l.length - 3} more — in the CSV</div>` : "");
+    };
+    const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td>${showLog ? `<td class="mini">${logCell(u)}</td>` : ""}<td class="mini">${standing(u)}</td></tr>`).join("");
+    const logBar = users.length ? `<div class="toolbar" style="margin:4px 0 6px">
+        <button class="btn" data-mrlogons="1"${mem.logBusy ? " disabled" : ""} title="One Defender advanced-hunting query for these users: the devices they logged on to (interactive, RDP, unlock) in the last 30 days. Needs ThreatHunting.Read.All and Security Reader (or a Defender role with advanced hunting).">🔎 Find their logons in Defender (30 days) · ${plural(users.length, "user")}</button>
+        <button class="btn" data-mrlogonkql="1" title="The same query, to run in the Defender portal (Hunting → Advanced hunting)">⧉ Copy the KQL</button>
+        <span class="mini muted" id="mrLogProg">${esc(mem.logBusy)}</span>
+      </div>${mem.logError ? `<div class="gu-fail" style="margin-bottom:8px"><b>${esc(mem.logError)}</b></div>` : ""}` : "";
     const why = mem.leftReason;
     const devs = [].concat(
       (!why || why === "noEntra") ? L.noEntra.filter((d) => d.region === R).map((d) => Object.assign({ k: "noEntra" }, d)) : [],
@@ -2819,7 +2837,8 @@ const MdeRolloutTool = (() => {
       </div>
       <h4 style="margin:14px 0 6px">Users with no Windows device <span class="mini muted" style="font-weight:400">— by Intune primary user${mem.leftCountry ? ` · ${esc(cgName(mem.leftCountry))}` : ""}</span></h4>
       ${cchips}
-      ${users.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:32%"><col style="width:13%"><col style="width:27%"><col></colgroup><thead><tr><th>User</th><th>Country</th><th>Their other devices</th><th>Their groups</th></tr></thead><tbody>${urows}</tbody></table></div>${users.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${users.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
+      ${logBar}
+      ${users.length ? `<div style="overflow-x:auto"><table class="cg-table"${showLog ? ' style="min-width:780px"' : ""}><colgroup>${showLog ? `<col style="width:20%"><col style="width:9%"><col style="width:14%"><col style="width:31%"><col>` : `<col style="width:32%"><col style="width:13%"><col style="width:27%"><col>`}</colgroup><thead><tr><th>User</th><th>Country</th><th style="white-space:normal">${showLog ? "Other devices" : "Their other devices"}</th>${showLog ? `<th style="white-space:normal">Logged on to · Defender, 30 days</th>` : ""}<th>Their groups</th></tr></thead><tbody>${urows}</tbody></table></div>${users.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${users.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
         : `<p class="mini muted" style="margin:0">Every user of ${mem.leftCountry ? "this country" : "this wave's countries"} has a Windows device.</p>`}
       <h4 style="margin:16px 0 6px">Windows devices no country device group will hold${why ? ` <span class="mini muted" style="font-weight:400">— ${esc(LEFT_WHY[why].label)} · <a href="#" data-mrmemleftwhy="all">show every reason</a></span>` : ""}</h4>
       ${devs.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:28%"><col><col style="width:16%"></colgroup><thead><tr><th>Device</th><th>Primary user</th><th>Why</th><th>Last sync</th></tr></thead><tbody>${drows}</tbody></table></div>${devs.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${devs.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
@@ -2827,6 +2846,42 @@ const MdeRolloutTool = (() => {
       <div class="tb-actions" style="margin-top:10px"><button class="btn" id="mrMemLeftCsv">⭳ CSV — left out, ${esc(R)}</button><span class="mini muted">Users and ${esc(R)}'s devices, plus the devices no country holds.</span></div>
     </div>`;
   }
+  // 🔎 the users in the Left out view as it stands: its wave, and the
+  // country chip when one is on (all of them, not only the rows shown)
+  function leftUsersInView() {
+    const m = mem.model;
+    if (!m) return [];
+    const R = mem.region || (m.regions[0] && m.regions[0].region);
+    return m.leftOut.users.filter((u) => u.region === R && (!mem.leftCountry || u.rowKey === mem.leftCountry));
+  }
+  async function lookupLogons() {
+    const users = leftUsersInView();
+    if (!users.length || mem.logBusy) return;
+    mem.logError = ""; mem.logBusy = "Asking Defender…"; render();
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.hunting);
+      const res = await MdeMembers.readLogons(users, (msg) => { mem.logBusy = msg; const el = $("mrLogProg"); if (el) el.textContent = msg; });
+      const found = MdeMembers.logonsFor(mem.input, mem.model.rows, users, res);
+      for (const [id, list] of found) { mem.logons.set(id, list); mem.looked.add(id); }
+    } catch (e) {
+      const denied = e && (e.status === 401 || e.status === 403 || /consent|Forbidden|Authorization|insufficient/i.test(String(e.message || e)));
+      mem.logError = denied
+        ? "Defender refused the query. It needs ThreatHunting.Read.All (admin consent) and, for the signed-in admin, Security Reader or a Defender role with advanced hunting. ⧉ Copy the KQL runs the same query in the Defender portal."
+        : `The Defender query failed: ${GroupUse.shortErr(e, 240)}`;
+    } finally { mem.logBusy = ""; render(); }
+  }
+  function copyLogonKql() {
+    const users = leftUsersInView();
+    if (!users.length) return;
+    const q = MdeMembers.logonKql(users);
+    const done = () => { const el = $("mrLogProg"); if (el) el.textContent = `Copied — the query for ${plural(users.length, "user")}; paste it into Defender → Hunting → Advanced hunting.`; };
+    const fallback = () => { download(`MDE-logons-${mem.region || "all"}-${stamp()}.kql`, q, "text/plain"); const el = $("mrLogProg"); if (el) el.textContent = "Saved as a .kql file — the clipboard was not available."; };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(q).then(done, fallback);
+      else fallback();
+    } catch { fallback(); }
+  }
+
   // 🧪 PILOTS (10647, Mihai: "an option to identify the pilot users and
   // devices to a wave and an option to remove them from the pilot and be
   // sure that they are then in their wave"; option A off the mockup, and
@@ -3640,7 +3695,9 @@ const MdeRolloutTool = (() => {
         if (k === "users") mem.leftCountry = null;
         render(); return;
       }
-      if (t.id === "mrMemLeftCsv") { if (mem.model) download(`MDE-left-out-${mem.region || "all"}-${stamp()}.csv`, MdeMembers.leftOutCsv(mem.model, mem.region), "text/csv"); return; }
+      if (t.closest("[data-mrlogons]")) { lookupLogons(); return; }
+      if (t.closest("[data-mrlogonkql]")) { copyLogonKql(); return; }
+      if (t.id === "mrMemLeftCsv") { if (mem.model) download(`MDE-left-out-${mem.region || "all"}-${stamp()}.csv`, MdeMembers.leftOutCsv(mem.model, mem.region, mem.logons), "text/csv"); return; }
       const mo = t.closest("[data-mrmemopen]"); if (mo) { e.preventDefault(); const k = mo.dataset.mrmemopen; mem.open.has(k) ? mem.open.delete(k) : mem.open.add(k); render(); return; }
       const ap = t.closest("[data-mrmempilot]"); if (ap) {
         const sel = $(ap.dataset.mrpilotsel);

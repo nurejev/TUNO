@@ -229,7 +229,7 @@ const MdeMembers = (() => {
     let i = 0;
     const ur = await Graph.pool(mapped, async (g) => {
       say(`Reading the users of the country groups — ${++i}/${mapped.length}…`);
-      return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
+      return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,onPremisesSecurityIdentifier,onPremisesSamAccountName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
     }, 4);
     ur.forEach((r, n) => { if (r.error) failed.push(`${mapped[n].displayName}: ${(r.error && r.error.message) || r.error}`); else usersByGroup.set(lc(mapped[n].id), r.value || []); });
     const deviceMembers = new Map();
@@ -432,6 +432,90 @@ const MdeMembers = (() => {
       leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId), pilots: pilotsOf(input, rows) };
   }
 
+  // ------------------------------------------------------------ logons --
+  // 🔎 (10648, Mihai: "if a user has no device in Entra and Intune, try to
+  // search in Defender or somewhere else on which device the user has logged
+  // in"; option A off the mockup — read-only). One advanced-hunting query per
+  // 200 users: DeviceLogonEvents (successful interactive, RDP, cached and
+  // unlock logons) matched by the on-premises SID (hybrid accounts) or the
+  // account name (the on-premises sAMAccountName, else the UPN's prefix),
+  // with DeviceInfo's Entra device id. Defender sees MDE-onboarded devices
+  // only, and advanced hunting keeps 30 days.
+  const kq = (v) => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const logonNames = (u) => uniq([u.sam, String(u.upn || "").split("@")[0]].filter(Boolean).map(lc));
+  function logonKql(users, days) {
+    const d = days || 30;
+    const sids = uniq((users || []).map((u) => u.sid).filter(Boolean));
+    const names = uniq((users || []).flatMap(logonNames));
+    return [
+      `let sids = dynamic([${sids.map(kq).join(", ")}]);`,
+      `let names = dynamic([${names.map(kq).join(", ")}]);`,
+      "DeviceLogonEvents",
+      `| where Timestamp > ago(${d}d) and ActionType == "LogonSuccess"`,
+      `| where LogonType in~ ("Interactive", "RemoteInteractive", "CachedInteractive", "CachedRemoteInteractive", "Unlock")`,
+      "| where AccountSid in~ (sids) or tolower(AccountName) in (names)",
+      "| summarize LastLogon = max(Timestamp), Logons = count() by AccountSid, AccountName = tolower(AccountName), DeviceId, DeviceName",
+      `| join kind=leftouter (DeviceInfo | where Timestamp > ago(${d}d) | summarize arg_max(Timestamp, AadDeviceId, OSPlatform, JoinType) by DeviceId) on DeviceId`,
+      "| project AccountSid, AccountName, DeviceId, DeviceName, LastLogon, Logons, AadDeviceId, OSPlatform, JoinType",
+    ].join("\n");
+  }
+  async function readLogons(users, onStatus) {
+    const out = [], chunks = [];
+    for (let i = 0; i < (users || []).length; i += 200) chunks.push(users.slice(i, i + 200));
+    for (let i = 0; i < chunks.length; i++) {
+      if (onStatus) onStatus(`Asking Defender — ${i + 1}/${chunks.length}…`);
+      const r = await Graph.post("/security/runHuntingQuery", { Query: logonKql(chunks[i]), Timespan: "P30D" }, { scopes: Graph.SCOPES.hunting });
+      for (const x of (r && r.results) || []) out.push(x);
+    }
+    if (onStatus) onStatus("");
+    return out;
+  }
+  // What each device means for the rollout: in Intune under another primary
+  // user (then it follows THAT person's country), in Entra but not in Intune
+  // (no wave reaches it — the device groups follow Intune primary users), or
+  // Defender only (no Entra object: it cannot be a group member at all).
+  function logonsFor(input, rows, users, results) {
+    const entraByDev = new Map((input.entra || []).map((e) => [lc(e.deviceId || ""), e]));
+    const managedByDev = new Map();
+    for (const m of input.managedAll || input.managed || []) if (m.azureADDeviceId) managedByDev.set(lc(m.azureADDeviceId), m);
+    const rowsOfUser = new Map();
+    for (const r of rows || []) if (r.ug) for (const u of input.usersByGroup.get(lc(r.ug.id)) || []) {
+      const k = lc(u.id);
+      if (!rowsOfUser.has(k)) rowsOfUser.set(k, []);
+      rowsOfUser.get(k).push(r);
+    }
+    const meaning = (h) => {
+      const aad = lc(h.AadDeviceId || "");
+      const base = { device: String(h.DeviceName || h.DeviceId || "").split(".")[0], fqdn: h.DeviceName || "", last: h.LastLogon || null, logons: Number(h.Logons) || 0, os: h.OSPlatform || "", join: h.JoinType || "" };
+      const m = aad ? managedByDev.get(aad) : null, e = aad ? entraByDev.get(aad) : null;
+      if (m) {
+        if (!m.userId) return Object.assign(base, { kind: "intune", what: "in Intune, no primary user — no wave" });
+        const rs = rowsOfUser.get(lc(m.userId)) || [];
+        const r = rs.find((y) => e && y.have.has(lc(e.id)) && y.dgNested) || rs.find((y) => !y.pilot) || rs[0] || null;
+        const inWave = !!(r && e && r.have.has(lc(e.id)) && r.dgNested);
+        return Object.assign(base, { kind: "intune", primary: m.userPrincipalName || "", country: r ? r.country : "", inWave, deviceGroup: r ? r.deviceGroupName : "",
+          what: `in Intune — primary user ${m.userPrincipalName || m.userId}${r ? ` (${r.country})` : " (in no country group)"}${inWave ? `, in the wave through ${r.deviceGroupName}` : r ? ", not in a wave yet" : ""}` });
+      }
+      if (e) return Object.assign(base, { kind: "entra", what: `Defender only — in Entra${base.join ? ` (${base.join})` : ""}, not in Intune: no wave reaches it` });
+      return Object.assign(base, { kind: "defender", what: "Defender only — no Entra object: it cannot be a group member" });
+    };
+    const out = new Map();
+    for (const u of users || []) {
+      const sid = lc(u.sid || ""), names = new Set(logonNames(u));
+      const byDev = new Map();
+      for (const h of results || []) {
+        if (!((sid && lc(h.AccountSid || "") === sid) || names.has(lc(h.AccountName || "")))) continue;
+        const k = lc(h.DeviceId || h.DeviceName || "");
+        const cur = byDev.get(k);
+        const t = Date.parse(h.LastLogon || "") || 0;
+        if (!cur) byDev.set(k, Object.assign({}, h, { Logons: Number(h.Logons) || 0 }));
+        else { cur.Logons += Number(h.Logons) || 0; if (t > (Date.parse(cur.LastLogon || "") || 0)) cur.LastLogon = h.LastLogon; }
+      }
+      out.set(u.id, [...byDev.values()].sort((a, b) => (Date.parse(b.LastLogon || "") || 0) - (Date.parse(a.LastLogon || "") || 0)).map(meaning));
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------- pilots --
   // 🧪 (10647, Mihai: "an option to identify the pilot users and devices to
   // a wave and an option to remove them from the pilot and be sure that they
@@ -561,7 +645,8 @@ const MdeMembers = (() => {
       for (const u of list) {
         const id = lc(u.id);
         inCountry.add(id);
-        if (!winUsers.has(id)) users.push({ id, upn: u.userPrincipalName || u.id, rowKey: r.key, country: r.country, region: r.region, has: osByUser.get(id) || {} });
+        if (!winUsers.has(id)) users.push({ id, upn: u.userPrincipalName || u.id, rowKey: r.key, country: r.country, region: r.region, has: osByUser.get(id) || {},
+          sid: u.onPremisesSecurityIdentifier || "", sam: u.onPremisesSamAccountName || "" });
       }
       for (const d of r.devices) {
         const x = { name: d.name, upn: d.upn, userId: d.userId, lastSync: d.lastSync, stale: d.stale, rowKey: r.key, country: r.country, region: r.region };
@@ -581,11 +666,12 @@ const MdeMembers = (() => {
     const byName = (a, b) => lc(a.upn || a.name).localeCompare(lc(b.upn || b.name));
     return { users: users.sort(byName), noCountry: noCountry.sort(byName), noPrimary: noPrimary.sort(byName), noEntra, held };
   }
-  function leftOutCsv(model, region) {
-    const L = model.leftOut, rows = [["Kind", "Region", "Country", "User", "Device", "Why", "What Intune has", "Last sync"]];
+  function leftOutCsv(model, region, logons) {
+    const L = model.leftOut, rows = [["Kind", "Region", "Country", "User", "Device", "Why", "What Intune has", "Last sync", "Logged on to (Defender, 30 days)"]];
     const inR = (x) => !region || x.region === region;
     const has = (h) => Object.entries(h || {}).map(([os, n]) => `${os} ${n}`).join(" · ") || "nothing in Intune";
-    L.users.filter(inR).forEach((u) => rows.push(["user", u.region, u.country, u.upn, "", "no Windows device (Intune primary user)", has(u.has), ""]));
+    const lg = (u) => { if (!logons || !logons.has(u.id)) return ""; const l = logons.get(u.id); return l.length ? l.map((x) => `${x.device} (${x.what})`).join(" · ") : "no logon found"; };
+    L.users.filter(inR).forEach((u) => rows.push(["user", u.region, u.country, u.upn, "", "no Windows device (Intune primary user)", has(u.has), "", lg(u)]));
     L.noEntra.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, d.why || "no Entra object", "", d.lastSync || ""]));
     L.held.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, "in the device exclusion group — stays on the old set", "", d.lastSync || ""]));
     L.noCountry.forEach((d) => rows.push(["device", "", "", d.upn, d.name, "primary user in no country group of the table", "", d.lastSync || ""]));
@@ -882,7 +968,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsOut,
+    addMembers, removeMembers, applyOps, patchInput, csv, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsOut, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };
 })();

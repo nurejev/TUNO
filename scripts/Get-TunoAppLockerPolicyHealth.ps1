@@ -1,4 +1,4 @@
-# Get-TunoAppLockerPolicyHealth.ps1  v1.1.2  (TUNO build 10647)
+# Get-TunoAppLockerPolicyHealth.ps1  v1.1.2  (TUNO build 10648)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -75,7 +75,7 @@ param(
 )
 
 $script:ScriptVersion = '1.1.2'
-$script:TunoBuild = 10647
+$script:TunoBuild = 10648
 
 $ErrorActionPreference = 'SilentlyContinue'
 

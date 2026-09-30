@@ -104,6 +104,40 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 210,
+  "title": "T28 — 🔎 find where users with no device log on (Defender advanced hunting); new scope ThreatHunting.Read.All",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10648
+  ],
+  "risk": "medium",
+  "what": "Graph.SCOPES.hunting = ThreatHunting.Read.All (R18: graph.js, New-TunoAppRegistration.ps1, SECURITY.md). MdeMembers: country users read with onPremisesSecurityIdentifier/onPremisesSamAccountName; leftOut users carry sid/sam; logonKql (escaped dynamic lists, DeviceLogonEvents 30 days, successful interactive/RDP/cached/unlock, join DeviceInfo for AadDeviceId), readLogons (POST /security/runHuntingQuery per 200 users, Timespan P30D), logonsFor (per user, devices merged across SID and name matches, newest first, each classified intune/entra/defender with the primary user's country and wave), leftOutCsv's extra column. Screen: the lookup and copy-KQL buttons over the Left out users list, the column once looked up, a refusal naming the scope and role. Demo: /security/runHuntingQuery answers from a small made-up logon history.",
+  "why": "Mihai: 'if a user has no device in Entra and Intune, try to search in Defender or somewhere else on which device the user has logged in' (option A, read-only).",
+  "test": [
+    "Run npm test. mderollout/members (92) covers the KQL (SIDs, names, escaping, filters), the per-device merge and order, and each kind (in Intune in the wave, in Intune with no primary user, Entra only, Defender only, none). mderollout/screen (220) covers the buttons, one query for the users in view, the column and its meanings, the CSV, the KQL saved as a file with no clipboard, the refusal text, and the scope declared in the three places.",
+    "Browser DEMO: 👥 → 🕳 Left out → France → 🔎: ws-fin-0142 (in Intune, Eva, Netherlands, in the wave) and lab-pc-07 (Defender only).",
+    "LIVE PENDING (PVM): an admin grants ThreatHunting.Read.All. Then 🕳 Left out → a country → 🔎. Compare two users with Defender's own advanced hunting (⧉ Copy the KQL)."
+  ],
+  "files": [
+    "js/graph.js",
+    "New-TunoAppRegistration.ps1",
+    "SECURITY.md",
+    "js/mdemembers.js",
+    "js/mderollout.js",
+    "js/demo.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/members.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10648.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 209,
   "title": "T28 — 🧪 pilot members into their wave; a plan belongs to its pane",
   "tools": [

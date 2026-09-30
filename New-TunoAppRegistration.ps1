@@ -335,7 +335,19 @@ param(
     #                                  the consent screen can show it the day
     #                                  a tenant has the feature; a tenant
     #                                  without it never sees the request.
-    "Group-NestingSupport.ReadWrite.All"
+    "Group-NestingSupport.ReadWrite.All",
+    # --- T28 MDE rollout — build 10648 ------------------------------------
+    #
+    #   ThreatHunting.Read.All  READ: one Defender advanced-hunting query
+    #                  (DeviceLogonEvents + DeviceInfo, 30 days) through
+    #                  Graph's security/runHuntingQuery, for the users the
+    #                  Left out view lists with no Windows device: which
+    #                  devices they logged on to. Asked at the click, only
+    #                  there. Admin consent; Graph ALSO gates it on the
+    #                  caller's role (Security Reader, or a Defender role
+    #                  with advanced hunting), so consent alone does not open
+    #                  it — the screen says so and offers the KQL to copy.
+    "ThreatHunting.Read.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent
