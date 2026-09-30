@@ -864,6 +864,8 @@ async function run() {
   const sel = () => $("mrBody").querySelector(`[data-mrasr$="|${OBFS}"]`);
   const obfGen = () => st().model.policies.find((p) => p.id === obfPol.id).generation;
   ok("🎛 the one-rule WIN-SEC policy is listed, Block now (➕ included earlier in this run, so not marked left out)", !!sel() && sel().value === "block" && obfGen() === "new" && !/➖/.test(sel().closest("tr").textContent));
+  ok("🎛 mobile (10658): the mode picker's cell is labelled for the card layout, beside Now and Baseline", sel().closest("td").dataset.label === "New" && !!sel().closest("tr").querySelector('td[data-label="Now"]') && !!sel().closest("tr").querySelector('td[data-label="Baseline"]'));
+  ok("🎛 mobile (10658): below 760px the table becomes cards", /@media \(max-width:760px\)\{[^]*?\.mr-asr-table tr\{display:grid/.test(require("fs").readFileSync(require("path").join(ROOT, "css/app.css"), "utf8")));
   ok("🎛 the old all-rules policy is not listed", !/PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test($("mrAsrCard").textContent));
   ok("🎛 Block against the baseline's Audit reads ≠ baseline", /≠ baseline/.test(sel().closest("tr").textContent));
   sel().value = "audit"; sel().dispatchEvent(new w.Event("change", { bubbles: true }));

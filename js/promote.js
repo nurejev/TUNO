@@ -104,6 +104,33 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 220,
+  "title": "T28 — 🎛 Adjust settings on a phone: each rule a card, the mode picker in view",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10658
+  ],
+  "risk": "low",
+  "what": "css/app.css: under 760px .mr-asr-table drops its min-width and header; each tr is a 3-column grid — rule and policy full width, Now / New / Baseline with data-label captions, the verdict chip full width; an edited row is highlighted as a whole. mderollout.js: the cells carry classes and data-label.",
+  "why": "Mihai: 'I cannot see the field in mobile' — at 390px the 10657 table scrolled sideways inside its card and the New picker started off-screen.",
+  "test": [
+    "Run npm test: all 18 suites pass (mderollout/screen 277, +2).",
+    "On a phone (or a 390px window): T28 → 🎛 Adjust settings — each rule is a card and the New picker is visible without scrolling sideways."
+  ],
+  "files": [
+    "css/app.css",
+    "js/mderollout.js",
+    "tests/mderollout/screen.test.js",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 219,
   "title": "T28 — 🎛 Adjust settings: the ASR rule modes of the new set (dedicated button, own pane)",
   "tools": [

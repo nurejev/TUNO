@@ -26,6 +26,18 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10658,
+  "date": "2026-09-30",
+  "title": "MDE rollout — 🎛 Adjust settings works on a phone",
+  "items": [
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "On a phone the mode picker in Adjust settings was off the side of the screen. Each rule is now a card: the rule, the policy, then Now, New and Baseline side by side, with the picker in reach."
+    }
+  ]
+},
+{
   "build": 10657,
   "date": "2026-09-30",
   "title": "MDE rollout — 🎛 Adjust settings: the ASR rule modes of the new policies",

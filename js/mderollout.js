@@ -2676,14 +2676,17 @@ const MdeRolloutTool = (() => {
         : !r.editable ? `<span title="${esc(r.why)}">${esc(modeWord(r.now))} <span class="mini muted">🔒</span></span>`
         : `<select class="btn mr-asrsel" data-mrasr="${esc(r.key)}" aria-label="${esc(`Mode for ${r.name} in ${r.P.name}`)}">${MdeAsr.modesFor(r.slug).map((m) => `<option value="${m}"${m === want ? " selected" : ""}>${modeWord(m)}${m === r.now ? " (now)" : ""}</option>`).join("")}</select>`;
       return `<tr class="${want !== r.now ? "mr-asr-edited" : ""}">
-        <td>${esc(r.name)}${MdeAsr.NO_WARN.has(r.slug) ? ` <span class="mini muted" title="Warn is not supported for this rule (Microsoft Learn, ASR rule modes)">no warn</span>` : ""}</td>
-        <td class="mini">${r.P ? polLink(r.P) + (r.leftOut ? ` <span class="muted" title="Under ⚙️ Leave out: not compared or planned in the other panes — its settings are still edited here">➖</span>` : "") : `<span class="muted" title="${esc(r.why)}">no new policy</span>`}${r.P && !r.editable ? `<div class="mini muted">${esc(r.why)}</div>` : ""}</td>
-        <td style="white-space:nowrap">${esc(r.P ? modeWord(r.now) : "—")}</td>
-        <td style="white-space:nowrap">${cell}</td>
-        <td style="white-space:nowrap">${esc(r.baseline ? modeWord(r.baseline) : "—")}</td>
-        <td style="white-space:nowrap">${vchip(r, want)}</td></tr>`;
+        <td class="mr-asr-rule" data-label="Rule">${esc(r.name)}${MdeAsr.NO_WARN.has(r.slug) ? ` <span class="mini muted" title="Warn is not supported for this rule (Microsoft Learn, ASR rule modes)">no warn</span>` : ""}</td>
+        <td class="mini mr-asr-pol" data-label="Policy">${r.P ? polLink(r.P) + (r.leftOut ? ` <span class="muted" title="Under ⚙️ Leave out: not compared or planned in the other panes — its settings are still edited here">➖</span>` : "") : `<span class="muted" title="${esc(r.why)}">no new policy</span>`}${r.P && !r.editable ? `<div class="mini muted">${esc(r.why)}</div>` : ""}</td>
+        <td class="mr-asr-now" data-label="Now" style="white-space:nowrap">${esc(r.P ? modeWord(r.now) : "—")}</td>
+        <td class="mr-asr-new" data-label="New" style="white-space:nowrap">${cell}</td>
+        <td class="mr-asr-base" data-label="Baseline" style="white-space:nowrap">${esc(r.baseline ? modeWord(r.baseline) : "—")}</td>
+        <td class="mr-asr-v" style="white-space:nowrap">${vchip(r, want)}</td></tr>`;
     }).join("");
     const canBase = shown.filter((r) => r.editable && r.baseline && r.baseline !== (asr.edits.get(r.key) || r.now) && MdeAsr.modesFor(r.slug).includes(r.baseline)).length;
+    // (10658, Mihai: "I cannot see the field in mobile") — under 760px
+    // each row is a card: rule, policy, then Now · New · Baseline in one
+    // line, so the mode picker is never scrolled off the side.
     return `<div class="toolbar">
         ${fchip("data-mrasrf", "all", "ASR rules", all.length, asr.filter === "all")}
         ${fchip("data-mrasrf", "differs", "≠ Baseline", n((r) => r.P && MdeAsr.verdict(asr.edits.get(r.key) || r.now, r.baseline) === "differs"), asr.filter === "differs")}
