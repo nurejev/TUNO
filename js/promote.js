@@ -104,6 +104,36 @@ const PROMOTE = {
 
   items: [
 {
+  "n": 205,
+  "title": "T28 — ⚔️ fix conflicts with the waves (include in the same plan); floating 👥/⊘ bars",
+  "tools": [
+    "T28 MDE rollout"
+  ],
+  "builds": [
+    10643
+  ],
+  "risk": "medium",
+  "what": "cfg.fixWith (waves by default, or groups). proposalFor in waves mode (wavesProposal): the waves of the new policy's kind in the ticked regions, out of the old policy, through the same support matrix, twin swap and include-to-remove rule (stepFor). Waves the new policy lacks become includes, and dryRunFixes composes them on the new policy in the same plan. rest names the new policy's other groups. rolloutWants ③ skips steps that need the include. The region chips re-derive the proposals. Screen: the switch, the proposal's two lists and the intro text. The sticky 👥/⊘ bars now float because their card allows overflow (.mr-stickyhost).",
+  "why": "Mihai: 'conflict with old: offer to add the wave groups to the old policies' (option A, include in the same plan); 'make floating, so no scrolling needed to the bottom'.",
+  "test": [
+    "Run npm test. mderollout/engine (184) covers waves mode (the device waves only, the include step, the named rest, regions, in place, groups mode unchanged, the default) and ③ skipping a wave the new policy lacks. mderollout/screen (176) covers the switch, a two-sided dry run (the wave out of the old Edge policy and into the new one), switching back and forth.",
+    "Browser DEMO: ⚔️ shows the switch and '+ include' under the staged Edge fix. In 👥, the bar floats at the bottom of a short window.",
+    "LIVE PENDING (PVM): in ⚔️, with the waves, check a Windows LAPS / Defender AV conflict. The fix should exclude INT-SG-D-WAVE-* from the old policy and include the missing waves in the new one, not AVD-Pre-Pilot / WIN365-PROD. Dry run only first."
+  ],
+  "files": [
+    "js/mderollout.js",
+    "css/app.css",
+    "index.html",
+    "js/version.js",
+    "js/changelog.js",
+    "js/promote.js",
+    "tests/mderollout/engine.test.js",
+    "tests/mderollout/screen.test.js",
+    "docs/reviews/T28-beta-10643.md",
+    "scripts/*.ps1 (build stamp only)"
+  ]
+},
+{
   "n": 204,
   "title": "T28 — 🕳 who gets left out; 78 policies left out by default with ➕ include",
   "tools": [

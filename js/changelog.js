@@ -26,6 +26,23 @@
 // ======================================================================
 const CHANGELOG = [
 {
+  "build": 10643,
+  "date": "2026-09-30",
+  "title": "T28 MDE rollout — fix conflicts with the waves; floating bars",
+  "items": [
+    {
+      "kind": "improved",
+      "tool": "MDE rollout",
+      "text": "⚔️ Conflicts with old now proposes the waves. A switch above the table chooses what a fix excludes from the old policy: 🌊 the waves (the default) or the groups the new policy is assigned to now. With the waves, a wave the new policy doesn't include yet is included there in the same plan, so no one is left between the two. The new policy's own other groups (AVD, W365, pilot rings) are named and left alone."
+    },
+    {
+      "kind": "fixed",
+      "tool": "MDE rollout",
+      "text": "The 👥 Wave members and ⊘ Exclusions action bars stayed at the end of a long table. They now float at the bottom of the window, so the Dry run is always in reach."
+    }
+  ]
+},
+{
   "build": 10642,
   "date": "2026-09-30",
   "title": "T28 MDE rollout — who gets left out; 78 policies left out by default",

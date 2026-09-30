@@ -2563,6 +2563,12 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-meter{height:6px;width:220px;max-width:100%;border-radius:99px;background:var(--border);overflow:hidden;margin-top:3px}
 #screen-mderollout .mr-meter i{display:block;height:100%;background:var(--accent2)}
 #screen-mderollout tr.mr-selrow td{background:color-mix(in srgb,var(--lemon) 16%,var(--surface))}
+/* The bar floats at the bottom of the window while its card is on screen
+   (10643, Mihai: "make floating, so no scrolling needed to the bottom").
+   position:sticky needs every ancestor to let it overflow — .list-card's
+   overflow:hidden (and overflow-x:auto on narrow screens) pinned it to the
+   end of the table instead. */
+#screen-mderollout .list-card.mr-stickyhost{overflow:visible}
 #screen-mderollout .mr-mbar{position:sticky;bottom:12px;z-index:5;margin-top:12px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;background:var(--green-deep);color:#fff;border-radius:16px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.22)}
 #screen-mderollout .mr-mbar b{color:var(--lemon)}
 #screen-mderollout .mr-mbar .chk{color:#fff;font-size:12.5px}
@@ -2633,6 +2639,9 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-document tr.head td{background:var(--soft);font-weight:600}
 #screen-mderollout .mr-document code{background:var(--soft);padding:1px 4px;border-radius:4px}
 #screen-mderollout .mr-incl{padding:1px 8px;font-size:11.5px;min-height:0;margin-left:4px}
+/* ⚔️ fix with the waves (10643) */
+#screen-mderollout .mr-fixwith{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+#screen-mderollout .mr-fixsub{font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:4px 0 1px}
 /* 🕳 left out (10642) */
 #screen-mderollout .mr-lotile{font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
 #screen-mderollout .mr-lotile.on{border:2px solid var(--green)}

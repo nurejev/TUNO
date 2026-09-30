@@ -250,6 +250,11 @@ const MdeRollout = (() => {
       leaveOut: cleanList(!Array.isArray(o.leaveOut) ? DEFAULTS.leaveOut
         : o.leaveOutSeed === DEFAULTS.leaveOutSeed ? o.leaveOut : o.leaveOut.concat(DEFAULTS.leaveOut)),
       leaveOutSeed: DEFAULTS.leaveOutSeed,
+      // ⚔️ what a proposed fix excludes from the old policy (10643, Mihai:
+      // "conflict with old: offer to add the wave groups to the old
+      // policies"; option A off the mockup): the waves (default), or the
+      // groups the new policy is assigned to now
+      fixWith: o.fixWith === "groups" ? "groups" : "waves",
       // 👥 Wave members (10634): the country → region table and the device
       // group naming, kept with the rest of this tenant's rules
       members: typeof MdeMembers !== "undefined" ? MdeMembers.normConfig(o.members) : null,
@@ -786,6 +791,65 @@ const MdeRollout = (() => {
   // A wave excluded from an old policy of the OTHER kind is Intune's
   // unsupported mix; its twin (the same region's group of the right kind)
   // is proposed instead, and a missing twin is named so it can be created.
+  function wavesProposal(pr, c, kinds, twins, nameOf) {
+    const N = pr.N, O = pr.O;
+    const pool = (c.waves || []).filter((w) => w && w.id && (!c.regions || c.regions.has(w.region)) && (!N.audience || !w.audience || w.audience === N.audience));
+    const others = [...N.reach.inc].filter((g) => !pool.some((w) => w.id === g) && !O.reach.exc.has(g));
+    const rest = others.map((g) => nameOf(g));
+    if (!pool.length) return { steps: [], includes: [], rest, byWaves: true, none: `no ${N.audience ? `${N.audience} ` : ""}wave group exists${c.regions ? " in the ticked regions" : ""} — create the waves in 🌊, or switch to "the new policy's groups"` };
+    // the waves the new policy does not include yet — included in the same
+    // plan (a tenant-wide new policy reaches them already)
+    const includes = N.reach.tenantWide ? [] : pool.filter((w) => !N.reach.inc.has(w.id)).map((w) => ({ groupId: w.id, groupName: nameOf(w.id), action: "add-include", region: w.region, audience: w.audience }));
+    const twinOut = (id) => { const t = twins.get(id); return !!(t && t.twinId && O.reach.exc.has(t.twinId)); };
+    const outs = pool.filter((w) => !O.reach.exc.has(w.id) && !twinOut(w.id)).map((w) => w.id);
+    const steps = [];
+    const tk = effectiveTargets(O, kinds);
+    for (const g0 of outs) {
+      const st = stepFor(g0, O, kinds, twins, nameOf, tk, false);
+      if (!st || steps.some((s) => s.groupId === st.groupId)) continue;
+      st.region = (pool.find((w) => w.id === g0) || {}).region || "";
+      st.needsInclude = includes.some((x) => x.groupId === g0);
+      if (st.needsInclude) st.notes.push("the new policy does not include this wave yet — it is included in the same plan");
+      steps.push(st);
+    }
+    const none = steps.length || includes.length ? "" : `the waves are in place — in the new policy and out of the old one${rest.length ? `; the new policy's own groups (${rest.join(", ")}) still meet the old one` : ""}`;
+    return { steps, includes, rest, byWaves: true, none };
+  }
+  // One exclusion step on the old policy: the support matrix, the twin swap
+  // and the include-to-remove rule, as proposalFor has always applied them.
+  function stepFor(g0, O, kinds, twins, nameOf, et, planned) {
+    const tk = et.kinds;
+    const kindOf = (g) => { const k = kinds.get(lc(g)); if (k) return { kind: k.kind, source: k.source }; const t = twins.get(lc(g)); return t ? { kind: t.audience, source: "name (wave pair)" } : { kind: "unknown", source: "not read" }; };
+    let g = g0;
+    let k = kindOf(g);
+    const incOnOld = O.reach.inc.has(g);
+    let sup = incOnOld ? { ok: true, why: "" } : exclusionSupport(k.kind, tk);
+    const notes = [];
+    let twinOf = null, twinOfId = null, missingTwin = null;
+    if (!incOnOld && sup.ok === false && twins.has(lc(g))) {
+      const t = twins.get(lc(g));
+      const want = [...tk].find((x) => x === "user" || x === "device");
+      if (want && t.twinName && want !== k.kind) {
+        if (t.twinId) {
+          if (O.reach.exc.has(lc(t.twinId))) return null;
+          twinOf = nameOf(g); twinOfId = lc(g);
+          g = lc(t.twinId);
+          k = kindOf(g);
+          sup = O.reach.inc.has(g) ? { ok: true, why: "" } : exclusionSupport(k.kind, tk);
+          notes.push(`twin: ${twinOf} is a ${t.audience} group and this old policy targets ${want} groups — Intune cannot mix the two, so the same wave's ${want} group is excluded instead`);
+        } else {
+          missingTwin = t.twinName;
+          sup = { ok: false, why: `${sup.why}. Its ${want} twin ${t.twinName} does not exist yet — create it in 🌊 Wave groups and it is proposed here instead` };
+        }
+      }
+    }
+    const act = O.reach.inc.has(g) ? "remove" : "add-exclude";
+    if (act === "remove") notes.push("the old policy INCLUDES this group — excluding it on top of the include would be a contradiction, so the include is removed instead");
+    if (et.byName && act !== "remove") notes.push(`target kind from the old policy's name (${AUD[[...tk][0]] ? AUD[[...tk][0]].tag : ""}) — its include groups could not be read`);
+    if (O.mdeManaged && k.kind === "user") notes.push("the old policy is also delivered by MDE security settings management, which honours DEVICE groups only — a user-group change does not reach MDE-only devices");
+    if (planned) notes.push("planned: the new policy is not assigned yet — this is the wave group it is expected to get");
+    return { groupId: lc(g), groupName: nameOf(g), action: act, kind: k.kind, kindSource: k.source, supported: sup.ok, why: sup.why, notes, planned, twinOf, twinOfId, missingTwin };
+  }
   function proposalFor(pr, ctx) {
     const c = ctx || {};
     const kinds = c.kinds || new Map();
@@ -793,6 +857,13 @@ const MdeRollout = (() => {
     const nameOf = (id) => (c.names && c.names.get(lc(id))) || (twins.get(lc(id)) && twins.get(lc(id)).name) || id;
     if (!needsAction(pr)) return { steps: [], none: pr.type === "duplicate" ? "same value on both sides — no device conflict; nothing to exclude" : "no collision to fix" };
     const N = pr.N, O = pr.O;
+    // 🌊 WAVES MODE (10643, option A): the fix takes the waves of the new
+    // policy's kind (in the ticked regions) out of the old policy — and,
+    // where the new policy does not include a wave yet, includes it there
+    // in the same plan, so a wave never leaves the old policy ahead of the
+    // new one (Mihai: "yes, same plan"). The new policy's own other groups
+    // are left alone and named.
+    if (c.fixWith === "waves") return wavesProposal(pr, c, kinds, twins, nameOf);
     if (N.reach.tenantWide) {
       return { steps: [], none: `the new policy targets ${N.reach.inc.size ? "a group and " : ""}the whole tenant (All devices / All users) — there is no group to exclude. Narrow the new policy to waves, or take the old policy's assignment away.` };
     }
@@ -863,7 +934,7 @@ const MdeRollout = (() => {
   // Existing wave groups with their audience — the staged proposal's pool.
   function wavePool(cfg, found) {
     if (!found) return [];
-    return cfg.groups.filter((g) => g.role === "wave").map((g) => { const hit = found.get(lc(g.name)); return hit && hit.id ? { id: lc(hit.id), audience: g.audience, name: g.name } : null; }).filter(Boolean);
+    return cfg.groups.filter((g) => g.role === "wave").map((g) => { const hit = found.get(lc(g.name)); return hit && hit.id ? { id: lc(hit.id), audience: g.audience, name: g.name, region: g.region } : null; }).filter(Boolean);
   }
 
   // ---------------------------------------------- rollout actions --
@@ -945,6 +1016,9 @@ const MdeRollout = (() => {
           if (!g || !inRegion(g.region)) continue;
           if (!O.surface) { skipped.push(`${O.name}: not a surface the engine writes`); break; }
           if (st.supported === false) { skipped.push(`${O.name} ⊘ ${st.groupName}: ${st.why}`); continue; }
+          // waves mode proposes waves the new policy has not got yet — ③
+          // still never takes a wave out ahead of it (① first, or ⚔️)
+          if (st.needsInclude) { skipped.push(`${O.name} ⊘ ${st.groupName}: ${pr.N.name} does not include it yet — ⚡① first, or fix it in ⚔️ (same plan)`); continue; }
           add(O, st.groupId, st.groupName, st.action, [st.supported === null ? `⚠ ${st.why}` : "", st.twinOf ? `twin of ${st.twinOf}` : "", st.planned ? "planned — the new policy is not assigned yet" : ""].filter(Boolean).join(" · "));
         }
       }
@@ -1501,7 +1575,7 @@ const MdeRolloutTool = (() => {
     learnNames();
     const twins = M.twinIndex(model.cfg, found);
     pairs = M.compare(model, twins);
-    const ctx = { kinds, waves: M.wavePool(model.cfg, found), twins, names };
+    const ctx = { kinds, waves: M.wavePool(model.cfg, found), twins, names, fixWith: cfg.fixWith, regions: rollRegions };
     pairs.forEach((pr) => { pr.proposal = M.proposalFor(pr, ctx); });
     retire = M.retirement(model);
     waveRows = M.waves(model, found, kinds, pairs);
@@ -1716,19 +1790,23 @@ const MdeRolloutTool = (() => {
     const ov = M.labelValue(labels, d.key, d.oldValue) || d.oldDisplay;
     return { name, nv: d.redacted ? d.newDisplay : nv, ov: d.redacted ? d.oldDisplay : ov };
   };
+  const canFixPair = (pr) => M.needsAction(pr) && pr.proposal && (pr.proposal.steps.some((s) => s.supported !== false) || !!(pr.proposal.includes && pr.proposal.includes.length));
   function proposalHtml(pr) {
     const p = pr.proposal;
     if (!p) return "";
-    if (!p.steps.length) return `<span class="mini muted">${esc(p.none)}</span>`;
-    return p.steps.map((s) => {
+    if (!p.steps.length && !(p.includes && p.includes.length)) return `<span class="mini muted">${esc(p.none)}</span>${p.byWaves && p.rest && p.rest.length && !/own groups/.test(p.none) ? `<div class="mini muted">the new policy's own groups (${esc(p.rest.join(", "))}) still meet it</div>` : ""}`;
+    const sub = (t) => p.byWaves ? `<div class="mr-fixsub">${t}</div>` : "";
+    const incl = p.includes && p.includes.length ? `${sub("on the new policy, in the same plan")}${p.includes.map((x) => `<div style="margin:2px 0">${chip("au-op create", `+ include ${x.groupName}`)} <span class="mini muted">not in it yet</span></div>`).join("")}` : "";
+    const rest = p.byWaves && p.rest && p.rest.length ? `<div class="mini muted" style="margin-top:4px" title="Switch to 'the new policy's groups' to exclude those">the new policy's own groups (${esc(p.rest.join(", "))}) are left as they are</div>` : "";
+    return (p.steps.length ? sub("on the old policy") : sub("on the old policy — every wave is out already")) + p.steps.map((s) => {
       const verb = s.action === "remove" ? "remove include" : "exclude";
       const cls = s.supported === false ? "au-op delete" : s.action === "remove" ? "au-op update" : "gu-how exc";
       const tk = [...M.effectiveTargets(pr.O, kinds).kinds].filter((k) => k !== "empty").join("/") || "unknown";
       const warn = s.supported === false ? `<div class="mini" style="color:var(--off)" title="${esc(s.why)}">✖ not supported — ${esc(s.kind)} group vs a ${esc(tk)}-targeted policy${s.missingTwin ? ` · create <a href="#" data-mrpane="waves">${esc(s.missingTwin)}</a> first` : ""} <span style="cursor:help">ⓘ</span></div>`
         : s.supported === null ? `<div class="mini" style="color:var(--report)" title="${esc(s.why)}">⚠ kind not certain <span style="cursor:help">ⓘ</span></div>` : "";
-      const notes = s.notes.length ? `<div class="mini muted">${s.notes.map((n) => /^planned/.test(n) ? "planned wave" : /^twin:/.test(n) ? `twin of ${s.twinOf}` : /^target kind from/.test(n) ? "target kind from the name" : /contradiction/.test(n) ? "old policy includes it → include removed" : /MDE security settings/.test(n) ? "🛰 device groups only" : n).map((n, i) => `<span title="${esc(s.notes[i])}">${esc(n)}</span>`).join(" · ")}</div>` : "";
+      const notes = s.notes.length ? `<div class="mini muted">${s.notes.map((n) => /^planned/.test(n) ? "planned wave" : /^twin:/.test(n) ? `twin of ${s.twinOf}` : /^target kind from/.test(n) ? "target kind from the name" : /contradiction/.test(n) ? "old policy includes it → include removed" : /MDE security settings/.test(n) ? "🛰 device groups only" : /included in the same plan/.test(n) ? "+ included in the new policy" : n).map((n, i) => `<span title="${esc(s.notes[i])}">${esc(n)}</span>`).join(" · ")}</div>` : "";
       return `<div style="margin:2px 0">${chip(cls, `${s.action === "remove" ? "−" : "⊘"} ${verb} ${s.groupName}`)} <span class="mini muted">${esc(s.kind)} group</span>${warn}${notes}</div>`;
-    }).join("");
+    }).join("") + incl + rest;
   }
   function conflictsPane() {
     const filt = (STATUS.find((s) => s[0] === view.status) || STATUS[0])[2];
@@ -1742,14 +1820,14 @@ const MdeRolloutTool = (() => {
     for (const pr of shown) { if (!groups.has(pr.O.key)) groups.set(pr.O.key, []); groups.get(pr.O.key).push(pr); }
     const body = [...groups.values()].map((list) => {
       const O = list[0].O;
-      const fixable = list.filter((pr) => M.needsAction(pr) && pr.proposal && pr.proposal.steps.some((s) => s.supported !== false));
+      const fixable = list.filter(canFixPair);
       const allOn = fixable.length && fixable.every((pr) => selPairs.has(pr.id));
       const tk = [...M.targetKinds(O, kinds)].join(" + ") || "no includes";
       const head = `<tr class="mr-oldhead"><td style="width:26px">${fixable.length ? `<input type="checkbox" data-mrpairall="${esc(O.key)}"${allOn ? " checked" : ""} aria-label="select every fix on this old policy">` : ""}</td>
         <td colspan="4"><b>${polLink(O)}</b> ${genChip(O)} <span class="mini muted">${esc(O.kind)} · targets: ${esc(tk)}${O.mdeManaged ? " · 🛰 MDE-managed" : ""}</span>
         <div class="mini" style="margin-top:4px">${assignChips(O)}</div></td></tr>`;
       const rows = list.map((pr) => {
-        const canFix = M.needsAction(pr) && pr.proposal && pr.proposal.steps.some((s) => s.supported !== false);
+        const canFix = canFixPair(pr);
         const isOpen = open.has(pr.id);
         const lines = pr.type === "review"
           ? `<span class="mini">${pr.common.map((c) => { const m = M.catMeta(c); return `${m.icon} ${esc(m.label)}`; }).join(", ")} in both — the old one is <i>${esc(pr.O.kind)}</i>, which cannot be matched setting by setting; compare them in the portal</span>`
@@ -1775,7 +1853,11 @@ const MdeRolloutTool = (() => {
     const unsupported = pairs.filter((p) => M.needsAction(p) && p.proposal && p.proposal.steps.some((s) => s.supported === false)).length;
     return `${tb}
       <div class="list-card" style="margin-top:0">
-        <p class="mini muted" style="margin:0 0 6px">Old policies that set a setting a new policy sets — grouped by the old policy, because that is where the fix is written. The proposed fix excludes the new policy's include groups from the old policy, so those devices take the new settings alone. Tick fixes and use the bar: <b>② Dry run</b> reads the policies fresh and shows every change before anything is written.</p>
+        <div class="mr-fixwith"><span class="mini"><b>Proposed fix excludes:</b></span><span class="seg" role="group" aria-label="What a proposed fix excludes"><button type="button" class="${cfg.fixWith === "waves" ? "active" : ""}" data-mrfixwith="waves">🌊 the waves</button><button type="button" class="${cfg.fixWith === "groups" ? "active" : ""}" data-mrfixwith="groups">the new policy's groups</button></span>
+          ${cfg.fixWith === "waves" ? `<span class="mini muted">Regions: ${esc(rollRegions ? [...rollRegions].join(" · ") || "none" : "every region")} <a href="#" data-mrpane="waves">(🌊)</a></span>` : ""}</div>
+        <p class="mini muted" style="margin:0 0 6px">Old policies that set a setting a new policy sets — grouped by the old policy, because that is where the fix is written. ${cfg.fixWith === "waves"
+          ? "The proposed fix takes the <b>waves</b> of the new policy's kind out of the old policy — and includes a wave in the new policy in the same plan where it is not in yet, so a wave never leaves the old policy ahead of the new one (⚡① and ⚡③ for one conflict). The new policy's own other groups are left as they are."
+          : "The proposed fix excludes the <b>new policy's include groups</b> from the old policy, so those devices take the new settings alone."} Tick fixes and use the bar: <b>② Dry run</b> reads the policies fresh and shows every change before anything is written.</p>
         ${unsupported ? `<p class="mini" style="margin:0 0 6px;color:var(--off)">✖ ${plural(unsupported, "collision")} can only be fixed with an exclusion Intune does not support (user group ↔ device group). Those steps are shown, never written — create the wave's device/user twin in 🌊 (it is proposed instead once it exists), or use an assignment filter on the new policy.</p>` : ""}
         <p class="mini muted" id="mrEnrich" style="margin:0 0 6px">${enriching ? `⏳ ${esc(enriching)}` : ""}</p>
         ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:24%"><col style="width:30%"><col style="width:15%"><col></colgroup><thead><tr><th></th><th>New policy</th><th>Settings (new → old)</th><th>Reach</th><th>Proposed fix</th></tr></thead><tbody>${body}</tbody></table></div>`
@@ -2132,10 +2214,18 @@ const MdeRolloutTool = (() => {
         want.set(`${O.key}|${og.id}|${act}`, { O, groupId: og.id, groupName: og.displayName, action: act, note: s.ok === null ? `⚠ ${s.why}` : "" });
         continue;
       }
+      const N = pr.N;
+      const incs = pr.proposal.includes || [];
+      if (incs.length && !N.surface) { skipped.push(`${N.name}: not a surface the engine writes — its waves are not included, so they are not excluded from ${O.name} either`); continue; }
       for (const s of pr.proposal.steps) {
         if (s.supported === false) { skipped.push(`${O.name} ⊘ ${s.groupName}: ${s.why}`); continue; }
         const k = `${O.key}|${s.groupId}|${s.action}`;
         if (!want.has(k)) want.set(k, { O, groupId: s.groupId, groupName: s.groupName, action: s.action, note: [s.supported === null ? `⚠ ${s.why}` : "", ...s.notes].filter(Boolean).join(" · ") });
+      }
+      // 🌊 waves mode: the wave into the new policy in the same plan (10643)
+      for (const x of incs) {
+        const k = `${N.key}|${x.groupId}|add-include`;
+        if (!want.has(k)) want.set(k, { O: N, groupId: x.groupId, groupName: x.groupName, action: "add-include", note: `the wave into the new policy — it leaves ${O.name} in the same plan` });
       }
     }
     const olds = [...new Map([...want.values()].map((x) => [x.O.key, x.O])).values()];
@@ -2149,7 +2239,7 @@ const MdeRolloutTool = (() => {
     }
     const p = M.composePlan(steps);
     plan = Object.assign(p, {
-      title: `Fix ${plural(chosen.length, "collision")} — ${plural(olds.length, "old policy", "old policies")}${og ? `, excluding ${og.displayName}` : ""}`,
+      title: `Fix ${plural(chosen.length, "collision")} — ${plural(olds.length, "policy", "policies")}${og ? `, excluding ${og.displayName}` : cfg.fixWith === "waves" ? ", with the waves" : ""}`,
       head: { tool: "TUNO T28 MDE rollout", action: "fix-collisions", pairs: chosen.map((pr) => ({ newPolicy: pr.N.name, oldPolicy: pr.O.name })) },
       memberLine: "", unread, skipped,
     });
@@ -2515,7 +2605,7 @@ const MdeRolloutTool = (() => {
     const adds = count("add").reduce((a, x) => a + x.ids.length, 0);
     const summary = nSel ? [count("create").length ? `create ${count("create").length}` : "", adds ? `add ${adds.toLocaleString()} device${adds === 1 ? "" : "s"}` : "", count("remove").length ? `remove ${count("remove").reduce((a, x) => a + x.ids.length, 0)}` : "", count("nest").length ? `nest ${count("nest").length} group${count("nest").length === 1 ? "" : "s"} into ${rg.region}` : ""].filter(Boolean).join(" · ") || "nothing to do for these" : "tick countries to plan";
     const tick = (id, key, label) => `<label class="chk" style="margin:0"><input type="checkbox" id="${id}" data-mrmemopt="${key}"${o[key] ? " checked" : ""}> ${label}</label>`;
-    return `${chips}${top}<div class="list-card" style="margin-top:0">
+    return `${chips}${top}<div class="list-card mr-stickyhost" style="margin-top:0">
       ${intro}
       <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px">
         ${meter("user wave", rg.wave.userName, rg.ugNested, inTenant.length, `country groups nested · ${rg.users.toLocaleString()} users`)}
@@ -2796,7 +2886,7 @@ const MdeRolloutTool = (() => {
         <span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b>
         <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
         <span class="mr-exr">${h.type === "user" ? `${plural(h.devices, "Windows device")}` : esc(h.os || "")}${h.excluded ? ` · <b style="color:var(--on)">excluded</b>` : ""}${h.stale ? " · stale" : ""}</span></button>`).join("");
-    return `<div class="list-card" style="margin-top:0">${intro}${warn}
+    return `<div class="list-card mr-stickyhost" style="margin-top:0">${intro}${warn}
       <div class="mr-exsearch"><input id="mrExQ" type="search" placeholder="Search a user or device…" value="${esc(ex.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mrExGo"${ex.searching ? " disabled" : ""}>${ex.searching ? "Searching…" : "Search"}</button></div>
       ${ex.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(ex.note)}</p>` : ""}
       ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
@@ -3174,7 +3264,7 @@ const MdeRolloutTool = (() => {
         const r = rr.dataset.mrrollRegion;
         cur.has(r) ? cur.delete(r) : cur.add(r);
         rollRegions = cur.size === all.length ? null : cur;
-        render(); return;
+        derive(); render(); return;   // the ⚔️ wave proposals follow the regions (10643)
       }
       const ra = t.closest("[data-mrroll]"); if (ra) { dryRunRollout(ra.dataset.mrroll); return; }
       if (t.id === "mrWaveCreate") { createWaves(); return; }
@@ -3222,6 +3312,11 @@ const MdeRolloutTool = (() => {
         return;
       }
       if (t.id === "mrRuleReset") { saveCfg(null); derive(); render(); enrich(); return; }
+      // ⚔️ what a proposed fix excludes (10643)
+      const fw = t.closest("[data-mrfixwith]"); if (fw) {
+        if (cfg.fixWith !== fw.dataset.mrfixwith) { saveCfg(Object.assign({}, cfg, { fixWith: fw.dataset.mrfixwith })); clearPlan(); derive(); render(); }
+        return;
+      }
       // ➕ include (10642): a policy left out by name is taken off the list
       const inc = t.closest("[data-mrinclude]"); if (inc) {
         const nm = M.normName(inc.dataset.mrinclude);

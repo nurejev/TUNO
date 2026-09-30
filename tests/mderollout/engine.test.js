@@ -239,6 +239,29 @@ async function run() {
   const mdeOld = Object.assign({}, pr("n1", "o1"), { O: Object.assign({}, P("o1"), { mdeManaged: true }) });
   ok("MDE-managed old policy + user group carries the device-groups-only note", M.proposalFor(mdeOld, ctx).steps[0].notes.some((n) => /DEVICE groups only/.test(n)));
 
+  // ------------------------------------------- 🌊 fix with the waves (10643) --
+  // Mihai: "conflict with old: offer to add the wave groups to the old
+  // policies" — option A, and "yes, same plan" for the include.
+  const lcW = (x) => String(x).toLowerCase();
+  const wvw = (id, audience, region) => ({ id: lcW(id), audience, region, name: `wave ${region} ${audience}` });
+  const namesW = new Map([...names, [lcW(G(7)), "INT-SG-D-WAVE-Euro"], [lcW(G(8)), "INT-SG-D-WAVE-Americas"], [lcW(G(9)), "INT-SG-U-WAVE-Euro"]]);
+  const wctx = { kinds: new Map([[lcW(G(7)), { kind: "device" }], [lcW(G(8)), { kind: "device" }], [lcW(G(9)), { kind: "user" }], [G(1), { kind: "device" }], [G(2), { kind: "user" }]]), names: namesW, fixWith: "waves",
+    waves: [wvw(G(7), "device", "Euro"), wvw(G(8), "device", "Americas"), wvw(G(9), "user", "Euro")] };
+  // a - D - new policy on a pilot group, an old one on All devices
+  const Nd = Object.assign({}, P("n1"), { name: "Win - OIB - ES - Windows LAPS - D - LAPS - v3.6", audience: "device", reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: "gpilot" }, { kind: "Included", groupId: lcW(G(7)) }] }) });
+  const Od = Object.assign({}, P("o1"), { reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }] }), item: { assignments: [{ kind: "All devices" }] } });
+  const wp = M.proposalFor({ id: "x", N: Nd, O: Od, type: "conflict", reach: { verdict: "can", why: "" } }, wctx);
+  ok("waves mode: the device waves out of the old policy — not the pilot group, not the user wave", wp.byWaves && wp.steps.map((x) => x.groupName).join() === "INT-SG-D-WAVE-Euro,INT-SG-D-WAVE-Americas" && wp.steps.every((x) => x.action === "add-exclude" && x.supported === true));
+  ok("…the wave the new policy has not got is included in the same plan", wp.includes.map((x) => x.groupName).join() === "INT-SG-D-WAVE-Americas" && wp.steps.find((x) => /Americas/.test(x.groupName)).needsInclude && !wp.steps.find((x) => /Euro/.test(x.groupName)).needsInclude);
+  ok("…and the new policy's own other group is named, left alone", wp.rest.join() === "gpilot");
+  const wpR = M.proposalFor({ id: "x", N: Nd, O: Od, type: "conflict", reach: { verdict: "can", why: "" } }, Object.assign({}, wctx, { regions: new Set(["Euro"]) }));
+  ok("…the ticked regions narrow it", wpR.steps.map((x) => x.groupName).join() === "INT-SG-D-WAVE-Euro" && wpR.includes.length === 0);
+  const OdEx = Object.assign({}, Od, { reach: w.Conflict.reachOf({ assignments: [{ kind: "All devices" }, { kind: "Excluded", groupId: lcW(G(7)) }, { kind: "Excluded", groupId: lcW(G(8)) }] }) });
+  const wpDone = M.proposalFor({ id: "x", N: Object.assign({}, Nd, { reach: w.Conflict.reachOf({ assignments: [{ kind: "Included", groupId: lcW(G(7)) }, { kind: "Included", groupId: lcW(G(8)) }, { kind: "Included", groupId: "gpilot" }] }) }), O: OdEx, type: "conflict", reach: { verdict: "can", why: "" } }, wctx);
+  ok("…in place: nothing to do, and the pilot group still meeting the old policy is said", wpDone.steps.length === 0 && wpDone.includes.length === 0 && /waves are in place/.test(wpDone.none) && /gpilot/.test(wpDone.none));
+  ok("groups mode is unchanged: the new policy's include groups", M.proposalFor({ id: "x", N: Nd, O: Od, type: "conflict", reach: { verdict: "can", why: "" } }, Object.assign({}, wctx, { fixWith: "groups" })).steps.map((x) => x.groupId).sort().join() === ["gpilot", lcW(G(7))].sort().join());
+  ok("the default is the waves; 'groups' is kept", M.normConfig({}).fixWith === "waves" && M.normConfig({ fixWith: "groups" }).fixWith === "groups");
+
   // ---------------------------------------------------------- compose --
   const pol = (id, assignments) => ({ surface: "settingsCatalog", surfaceLabel: "Settings catalog", id, name: id, assignments });
   const A = pol("pa", [inc(G(1)), allDev()]);
@@ -359,6 +382,13 @@ async function run() {
   ok("③ only waves, only old policies", xw.wants.every((x) => (x.groupId === G5 || x.groupId === G(2)) && M.isOld(x.P)));
   ok("③ a region not ticked is left alone", M.rolloutWants("excludeWaves", model, rctx({ pairs: pairsP, regions: new Set(["Italy"]) })).wants.length === 0);
   ok("rollout wants are deduped per policy, group and action", new Set(xw.wants.map((x) => `${x.P.key}|${x.groupId}|${x.action}`)).size === xw.wants.length);
+  // 10643: with the ⚔️ waves mode, ③ still never takes a wave out ahead of
+  // the new policy — a step that needs the include is left to ⚔️ / ①
+  const pairsW = M.compare(model, twins); pairsW.forEach((x) => { x.proposal = M.proposalFor(x, { kinds: kinds2, twins, names, waves: M.wavePool(model.cfg, found2), fixWith: "waves" }); });
+  const xwW = M.rolloutWants("excludeWaves", model, rctx({ pairs: pairsW }));
+  const ahead = pairsW.flatMap((x) => x.proposal.steps || []).filter((st) => st.needsInclude);
+  ok("③ in waves mode skips a wave the new policy has not got, and says so", ahead.length > 0 && xwW.skipped.some((x) => /does not include it yet/.test(x))
+    && !xwW.wants.some((x) => ahead.some((st) => st.groupId === x.groupId && pairsW.some((p) => p.O === x.P && p.proposal.steps.includes(st)))));
   names.delete(G5);
 
   // -------------------------------------------------------------- patch --

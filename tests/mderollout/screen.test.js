@@ -106,7 +106,11 @@ async function run() {
     && asr.proposal.steps[0].groupName === "INT-SG-U-WAVE-Euro" && asr.proposal.steps[0].twinOf === "INT-SG-D-WAVE-Euro");
   ok("the - D - policies are read as device policies", S.model.newP.filter((p) => / - D - |-D-/.test(p.name)).every((p) => p.audience === "device"));
   const edgeStaged = S.pairs.find((p) => p.O.name === "(TO-BE-REMOVED)PVM-DG-DEVCONF-CORP-WIN-EDGE-Security - v3.0" && /Microsoft Edge/.test(p.N.name));
-  ok("a staged - D - policy is planned with the DEVICE wave only", edgeStaged.proposal.steps.length === 1 && edgeStaged.proposal.steps[0].groupName === "INT-SG-D-WAVE-Euro" && edgeStaged.proposal.steps[0].planned);
+  // 10643: ⚔️ proposes the waves by default — the wave out of the old
+  // policy and, since the staged policy has not got it, into the new one
+  // in the same plan
+  ok("a staged - D - policy gets the DEVICE wave only: out of the old policy and into the new one", edgeStaged.proposal.byWaves && edgeStaged.proposal.steps.length === 1 && edgeStaged.proposal.steps[0].groupName === "INT-SG-D-WAVE-Euro"
+    && edgeStaged.proposal.steps[0].needsInclude && edgeStaged.proposal.includes.map((x) => x.groupName).join() === "INT-SG-D-WAVE-Euro");
   const edge = pair("(TO-BE-REMOVED)PVM-DG-DEVCONF-CORP-WIN-EDGE-Security - v3.0", "Win - OIB - SC - Microsoft Edge");
   ok("the unassigned new Edge policy is staged against the old one", edge && edge.reach.verdict === "staged");
   ok("the legacy intent meets the new AV policy by category", S.pairs.some((p) => p.O.name === "PVM Legacy — Defender antivirus (intent)" && p.type === "review"));
@@ -153,6 +157,29 @@ async function run() {
   ok("the run lands in the session log", await until(() => st().runs.length === 1, 10000, "run"));
   ok("the ledger rendered one row per policy", $("mrLedger").querySelectorAll(".rl-row").length === 1 || $("mrPlan").querySelectorAll(".rl-row").length === 1);
   ok("the run records its backup", st().runs[0].backup.policies.length === 1 && st().runs[0].backup.tool === "TUNO T28 MDE rollout");
+
+  // ------------------------------------ ⚔️ fix with the waves (10643) --
+  // Mihai: "conflict with old: offer to add the wave groups to the old
+  // policies" — option A (one switch, the waves by default) and "yes, same
+  // plan": a wave the new policy has not got is included there too.
+  w.MdeRolloutTool._pane("conflicts");
+  ok("⚔️ carries the switch, on the waves, and says what goes into the new policy", !!D.querySelector('[data-mrfixwith="waves"].active') && /Proposed fix excludes/.test($("mrBody").textContent)
+    && /\+ include INT-SG-D-WAVE-Euro/.test($("mrBody").textContent) && /on the new policy, in the same plan/.test($("mrBody").textContent));
+  const eBox = D.querySelector(`[data-mrpair="${edgeStaged.id}"]`);
+  eBox.checked = true; eBox.dispatchEvent(new w.Event("change", { bubbles: true }));
+  $("mrGroup").value = "";
+  $("mrDryRun").click();
+  ok("the dry run writes both sides: the wave out of the old Edge policy and into the new one", await until(() => st().plan && st().plan.changes, 10000, "wave fix plan") && st().plan.changes.length === 2
+    && st().plan.changes.some((o) => /PVM-DG-DEVCONF-CORP-WIN-EDGE/.test(o.policy.name) && o.details.some((d) => d.action === "add-exclude" && d.group.displayName === "INT-SG-D-WAVE-Euro"))
+    && st().plan.changes.some((o) => /Microsoft Edge - D/.test(o.policy.name) && o.details.some((d) => d.action === "add-include" && d.group.displayName === "INT-SG-D-WAVE-Euro")), st().plan && JSON.stringify(st().plan.changes.map((o) => o.policy.name)));
+  $("mrDiscard").click();
+  D.querySelector('[data-mrfixwith="groups"]').click();
+  const edgeG = st().pairs.find((p) => p.id === edgeStaged.id);
+  ok("switched to the new policy's groups: the staged pair borrows the wave, planned, as before", edgeG.proposal && !edgeG.proposal.byWaves && edgeG.proposal.steps[0].planned && st().cfg.fixWith === "groups");
+  D.querySelector('[data-mrfixwith="waves"]').click();
+  ok("…and back to the waves", st().cfg.fixWith === "waves" && st().pairs.find((p) => p.id === edgeStaged.id).proposal.byWaves);
+  const eBox2 = D.querySelector(`[data-mrpair="${edgeStaged.id}"]`);
+  if (eBox2 && eBox2.checked) { eBox2.checked = false; eBox2.dispatchEvent(new w.Event("change", { bubbles: true })); }
 
   // ---------------------------------------------- manual include plan --
   w.MdeRolloutTool._pane("new");
