@@ -351,6 +351,30 @@ a jump from a report, Back, a recent tool) switches the side quietly and
 stays on its screen; a switch by hand goes to that side's Home when the
 screen's tool is not on it. tests/shell/workspaces.test.js holds all of it.
 
+## A project tool: what 02 asks of it (build 10674)
+
+02 Projects is for tools built for one customer's project (🚀 MDE rollout,
+T28, is the first). A project tool:
+
+- lives on beta only: `data-ws="projects"` on its tile, "temporary" in its
+  registry chips, an entry in `PROMOTE.staying` — it is never promoted, so
+  production never draws 02;
+- names its customer and the date its project ends in its registry entry,
+  `project: { customer, ends: "YYYY-MM-DD" }` (js/version.js). Its head and
+  its card say both (`projectChips`): "ends 31 Dec 2026", "ended …" once the
+  day is over, "end date not set" while `ends` is empty — never leave it
+  empty once the date is known;
+- leaves beta when its project ends: the tile, its screen, its scripts and
+  its `TOOL_TABS` row go; its T-number is never reused.
+
+What it needs from 01 is a carry-over, `WORKSPACES.projects.carry` in
+js/workspaces.js — `[id, what it does for the project, rail label]`. A
+carry-over is the same screen as in 01: opened from 02 it stays in 02 (so a
+project tool's jump into it keeps the side), opened from 01 it stays in 01.
+Its card says "also in 01". 02's rail is its project tools, then its
+carry-overs; on a phone css/workspaces.css hides the carry-overs after the
+first two, by tool id, as it does for 01's.
+
 ## Home's Intune overview reads nothing (build 10671)
 
 js/home-overview.js (ENCA's js/overview.js pattern, mockup round 2's D6 A)

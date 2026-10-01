@@ -505,6 +505,14 @@ tr.grouprow:hover td{background:var(--line)}
 /* A tool that changed in the current release. Like .new it exempts the tile
    from the home-page collapse, so an update is never hidden behind a toggle. */
 .tag.upd{background:var(--ok-bg2);border-color:var(--ok-bd);color:var(--on)}
+/* A project tool's customer and end date (02 Projects, build 10674 — round
+   1's mockup: the customer lemon on the deepest green, the end in blue; not
+   named yet in the warning colours, past in the bad ones). js/version.js
+   projectChips() writes them. */
+.tag.cust{background:var(--green-deep);border-color:color-mix(in srgb,var(--lemon) 40%,var(--green-deep));color:var(--lemon)}
+.tag.ends{background:var(--blue-bg);border-color:color-mix(in srgb,var(--blue) 30%,var(--blue-bg));color:var(--blue)}
+.tag.noend{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-fg)}
+.tag.ended{background:var(--bad-bg);border-color:var(--bad-bd);color:var(--off)}
 .pcard-foot{padding:10px 22px;display:flex;align-items:center;gap:10px;background:var(--hover)}
 .dep-bar{padding:10px 22px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dep-link{cursor:pointer}

@@ -124,7 +124,7 @@ head("Signed in: the branded header");
   ok("the mark and the product name are one brand inside the logo's link", $("logoHome").querySelector(".wc-brand") && $("logoHome").querySelector(".wc-brand").firstElementChild === $("brandLogo") && $("wcBrandName").textContent === "TUNO");
   ok("the context line says where you are", $("wcHeaderContext").textContent === "Intune / Workspace 01");
   ok("All tools sits in the header, with its icon", $("wcHeaderTools") && /All tools/.test($("wcHeaderTools").textContent) && $("wcHeaderTools").querySelector("svg"));
-  ok("one side has no chip to switch with (02 is drawn once it has a tool of its own — tests/shell/workspaces.test.js)", !$("wcWsChip"));
+  ok("beside the wordmark, the workspace chip: 01 Intune (02 has 🚀 MDE rollout since 10674 — tests/shell/workspaces.test.js)", $("wcWsChip") && $("wcWsNum").textContent === "01" && $("wcWsName").textContent === "Intune");
   const b = $("acctBtn");
   ok("the account button names the tenant before the initials (round 1, D2 B)", b.firstElementChild === $("wcAccountLabel") && b.lastElementChild === $("avatar") && $("wcAccountLabel").textContent === "Contoso B.V. · Demo");
   ok("and says so to a screen reader", b.getAttribute("aria-label") === "Contoso B.V. · Demo — account options");
@@ -140,10 +140,10 @@ head("The rail: Home, seven tools in work order, All tools, Help (round 1, D1 A)
   const w = await bootShell();
   const D = w.document, $ = (id) => D.getElementById(id);
   const rail = $("wcRail");
-  const items = [...rail.querySelectorAll("button")].map((x) => (x.dataset.wcTool || (x.hasAttribute("data-wc-home") ? "home" : x.hasAttribute("data-wc-library") ? "library" : "?")) + ":" + x.querySelector("small").textContent);
+  const items = [...rail.querySelectorAll("button:not(.wc-rail-switch)")].map((x) => (x.dataset.wcTool || (x.hasAttribute("data-wc-home") ? "home" : x.hasAttribute("data-wc-library") ? "library" : "?")) + ":" + x.querySelector("small").textContent);
   ok("in this order", items.join(",") === "home:Home,toolOverview:Policies,toolGroupUse:Groups,toolDevice:Devices,toolPosture:Posture,toolAssignEdit:Assign,toolWinBaseline:Baseline,toolAppLocker:AppLocker,library:All tools,toolHelp:Help", items.join(","));
-  ok("every entry is a line icon and a word", [...rail.querySelectorAll("button")].every((x) => x.querySelector("span > svg.enca-icon") && x.querySelector("small")));
-  ok("the caption names the workspace", /WORKSPACE\s*01 · Intune/.test(rail.querySelector(".wc-rail-caption").textContent));
+  ok("every entry is a line icon and a word", [...rail.querySelectorAll("button:not(.wc-rail-switch)")].every((x) => x.querySelector("span > svg.enca-icon") && x.querySelector("small")));
+  ok("the caption names the workspace, with the switch to 02", /WORKSPACE\s*01 ⇄/.test(rail.querySelector(".wc-rail-caption").textContent) && rail.querySelector(".wc-rail-caption .wc-rail-switch").dataset.wcSwitch === "projects");
   ok("on Home, Home is the current entry", $("wcHomeButton").classList.contains("active") && $("wcHomeButton").getAttribute("aria-current") === "page");
   rail.querySelector('[data-wc-tool="toolOverview"]').click();
   await tick(30);
@@ -166,7 +166,8 @@ head("All tools opens the library");
   $("wcHeaderTools").click();
   await tick(10);
   ok("the library opens", $("wcLauncher").open === true);
-  ok("every tool is in it, grouped as on Home", D.querySelectorAll("#wcTools .wc-tool").length === 31 && D.querySelectorAll("#wcTools section > h3").length === 6, String(D.querySelectorAll("#wcTools .wc-tool").length));
+  const n01 = D.querySelectorAll('#screen-home .tools > .tool[id]:not([data-ws="projects"])').length;
+  ok("every 01 tool is in it, grouped as on Home", n01 === 30 && D.querySelectorAll("#wcTools .wc-tool").length === n01 && D.querySelectorAll("#wcTools section > h3").length === 6, String(D.querySelectorAll("#wcTools .wc-tool").length));
   ok("each card says what the tool does, in a line", [...D.querySelectorAll("#wcTools .wc-tool")].every((c) => c.querySelector("strong").textContent && c.querySelector("strong + span").textContent.length > 10));
   ok("a group keeps its section's icon", D.querySelector('#wcTools h3[data-icon="key"]') !== null);
   const s = $("wcSearch");
@@ -223,22 +224,21 @@ head("Home is ENCA's: the tenant over the heading, Recent tools, the library");
   ok("the workspace's title", $("wcHomeTitle").textContent === "Intune overview");
   ok("and what this session is", $("wcEnvironment").textContent === "Demo · sample data");
   ok("the tile grid is still in the page — the registry the rail and the library read", D.querySelectorAll("#screen-home .tools > .tool[id]").length === 31 && $("side-toolOverview"));
-  ok("the library: all 31 tools", $("wcLibraryCount").textContent === "All 31 tools" && D.querySelectorAll("#wcOverviewTools .wc-tool").length === 31);
+  ok("the library: all 30 of 01's tools — 🚀 MDE rollout is 02's", $("wcLibraryCount").textContent === "All 30 tools" && D.querySelectorAll("#wcOverviewTools .wc-tool").length === 30 && !D.querySelector('#wcOverviewTools [data-wc-tool="toolMdeRollout"]'));
   const groups = [...D.querySelectorAll("#wcOverviewTools .wc-tool-group")];
   const tileSecs = [...D.querySelectorAll("#screen-home .tool-sec h3")];
   ok("grouped as the tiles were, in their order", groups.length === 6 && groups.every((g, i) => g.querySelector("summary").firstChild.textContent.trim() === tileSecs[i].textContent.trim()));
   ok("each group keeps its section's icon and says how many tools it holds", groups.every((g, i) => g.querySelector("summary").getAttribute("data-icon") === tileSecs[i].getAttribute("data-icon")
     && g.querySelector("summary > span:last-child").textContent === `${g.querySelectorAll(".wc-tool").length} tool${g.querySelectorAll(".wc-tool").length === 1 ? "" : "s"}`));
-  ok("every card in the order of the tiles", [...D.querySelectorAll("#wcOverviewTools .wc-tool")].map((c) => c.dataset.wcTool).join() === [...D.querySelectorAll("#screen-home .tools > .tool[id]")].map((t) => t.id).join());
+  ok("every card in the order of the tiles", [...D.querySelectorAll("#wcOverviewTools .wc-tool")].map((c) => c.dataset.wcTool).join() === [...D.querySelectorAll('#screen-home .tools > .tool[id]:not([data-ws="projects"])')].map((t) => t.id).join());
   const card = (id) => D.querySelector(`#wcOverviewTools [data-wc-tool="${id}"]`);
   const chips = (id) => [...card(id).querySelectorAll("small .wc-chip")].map((c) => c.className.replace("wc-chip", "").trim() + ":" + c.textContent).join(",");
   const tags = (tile) => [...tile.querySelectorAll("h3 .tag")].map((c) => c.className.replace("tag", "").trim() + ":" + c.textContent.trim()).join(",");
-  const tiles = [...D.querySelectorAll("#screen-home .tools > .tool[id]")];
+  const tiles = [...D.querySelectorAll('#screen-home .tools > .tool[id]:not([data-ws="projects"])')];
   // On beta the queue stamps UPDATED on what production lacks (promote.js,
   // 10551), so the tags are read from the tiles as they stand, not typed here.
   ok("a card carries its tile's tags as chips, every one, in the tile's order", tiles.every((t) => chips(t.id) === tags(t)) && tiles.some((t) => tags(t)), tiles.filter((t) => chips(t.id) !== tags(t)).map((t) => t.id).join());
-  ok("the writes-to-the-tenant warning among them", chips("toolAssignEdit").split(",").indexOf("block:writes to the tenant") >= 0 && chips("toolMdeRollout") === "new:NEW,new:BETA,:temporary,block:writes to the tenant", chips("toolMdeRollout"));
-  ok("a tag's tooltip comes along", /stays on the beta channel/.test(card("toolMdeRollout").querySelector(".wc-chip:not(.new):not(.block)").title));
+  ok("the writes-to-the-tenant warning among them", chips("toolAssignEdit").split(",").indexOf("block:writes to the tenant") >= 0, chips("toolAssignEdit"));
   const bare = tiles.find((t) => !tags(t));
   ok("a card whose tile has no tags says only its number", bare && !card(bare.id).querySelector(".wc-chip") && /^T\d\d$/.test(card(bare.id).querySelector("small").textContent), bare && bare.id);
   ok("a tool with no T-number names its group, without the section's emoji", card("toolHelp").querySelector("small").textContent === "About this app" && card("toolChangelog").querySelector("small").textContent === "About this app", card("toolHelp").querySelector("small").textContent);
@@ -249,6 +249,12 @@ head("Home is ENCA's: the tenant over the heading, Recent tools, the library");
   D.querySelector('#wcHome .wc-home-foot [data-wc-tool="toolHelp"]').click();
   await tick(30);
   ok("TUNO help → opens Help", $("screen-help").classList.contains("active"));
+  // 🚀 MDE rollout's card is in 02's library (slice 13): its tags, after its
+  // customer and end date, and a tag's tooltip with them
+  w.Workspaces.switch("projects"); await tick(30);
+  const t28 = D.querySelector('#wcOverviewTools [data-wc-tool="toolMdeRollout"]');
+  ok("on 02, 🚀 MDE rollout's card carries its tile's tags after its customer and end date", t28 && [...t28.querySelectorAll("small .wc-chip")].map((c) => c.className.replace("wc-chip", "").trim() + ":" + c.textContent).slice(2).join() === "new:NEW,new:BETA,:temporary,block:writes to the tenant");
+  ok("a tag's tooltip comes along", t28 && /stays on the beta channel/.test(t28.querySelector(".wc-chip:not(.new):not(.block):not(.cust):not(.noend)").title));
 }
 
 // =====================================================================
@@ -311,8 +317,8 @@ head("The launcher's search finds a tool by its tags");
   await tick(10);
   const s = $("wcSearch");
   s.value = "writes"; s.dispatchEvent(new w.Event("input"));
-  const writers = [...D.querySelectorAll("#screen-home .tools > .tool[id]")].filter((t) => t.querySelector("h3 .tag.block")).map((t) => t.id);
-  ok("\"writes\" lists the tools that change the tenant", writers.length >= 6 && [...D.querySelectorAll("#wcTools .wc-tool")].map((c) => c.dataset.wcTool).join() === writers.join(), String(writers.length));
+  const writers = [...D.querySelectorAll('#screen-home .tools > .tool[id]:not([data-ws="projects"])')].filter((t) => t.querySelector("h3 .tag.block")).map((t) => t.id);
+  ok("\"writes\" lists the tools that change the tenant", writers.length >= 5 && [...D.querySelectorAll("#wcTools .wc-tool")].map((c) => c.dataset.wcTool).join() === writers.join(), String(writers.length));
 }
 
 });

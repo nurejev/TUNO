@@ -1,4 +1,4 @@
-# Detect-TunoAppLockerPolicy.ps1  v1.1.1  (TUNO build 10673)
+# Detect-TunoAppLockerPolicy.ps1  v1.1.1  (TUNO build 10674)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -31,7 +31,7 @@ Deploy as : Intune Remediation detection script, SYSTEM, 64-bit PowerShell.
 #>
 
 $script:ScriptVersion = '1.1.1'
-$script:TunoBuild = 10673
+$script:TunoBuild = 10674
 
 # Raise this together with the same number in Clear-TunoAppLockerPolicy.ps1 to run a
 # new cleanup campaign on devices already marked by an older one.

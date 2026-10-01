@@ -19,9 +19,20 @@
 //      takes the side with it, quietly.
 //   5. The palette's entry, sign-out, the stylesheet, the roadmap.
 //
-// Today no tile in index.html is marked (slice 13 moves 🚀 MDE rollout into
-// 02), so the two-sided blocks mark T28's tile before signing in, as slice
-// 13 will in the markup, and the one-sided block strips any mark first.
+// Parity slice 13 (build 10674): 02 Projects in use.
+//
+//   6. 🚀 MDE rollout is 02's tool in the markup, and stays on beta; its
+//      registry entry names its customer and end date, and its head and
+//      card say both — "end date not set" until the date is named, "ended"
+//      once it has passed.
+//   7. Its carry-overs: the Assignment editor, Group Analyzer, Defender
+//      status, Firewall & ASR coverage — on 02's rail and in its library,
+//      "also in 01"; T28's jump into the Assignment editor stays in 02, and
+//      a carry-over opened on 01 stays on 01. On a phone 02's bar is Home,
+//      Rollout, Assign, Groups and All tools.
+//
+// The one-sided block strips every mark to stand in for production; the
+// two-sided blocks keep the markup's (mark: true sets T28's again).
 //
 // Run with `npm test`, or alone:  node tests/shell/workspaces.test.js
 // ======================================================================
@@ -58,7 +69,7 @@ run(async () => {
 // =====================================================================
 head("One side: a page without a project tool has one workspace (production)");
 {
-  ok("no tile in the markup is marked yet — slice 13 moves 🚀 MDE rollout", !/<div class="tool[^"]*"[^>]*data-ws=/.test(read("index.html")));
+  ok("in the markup, 02 holds one tile: 🚀 MDE rollout (slice 13)", [...read("index.html").matchAll(/<div class="tool[^"]*" id="(tool\w+)"[^>]*data-ws="projects"/g)].map((m) => m[1]).join() === "toolMdeRollout");
   const w = await start({ mark: false });
   const D = w.document, $ = (id) => D.getElementById(id);
   ok("on 01", D.body.dataset.ws === "intune" && w.Workspaces.current() === "intune");
@@ -89,7 +100,7 @@ head("Two sides: a tile of its own makes 02, and the chip switches");
   ok("the chip opens the menu", $("wcWsMenu").hidden === false && $("wcWsChip").getAttribute("aria-expanded") === "true");
   const n01 = w.Workspaces && D.querySelectorAll("#screen-home .tools > .tool[id]").length - 1;
   ok("01's row is current and says what it holds", rows[0].classList.contains("cur") && rows[0].getAttribute("aria-current") === "true" && rows[0].querySelector(".wc-ws-open").textContent === `${n01} tools`, rows[0].querySelector(".wc-ws-open").textContent);
-  ok("02's row: its project tools, beta only (round 1's switcher)", rows[1].querySelector(".wc-ws-open").textContent === "1 project tool · beta only" && !rows[1].classList.contains("cur"), rows[1].querySelector(".wc-ws-open").textContent);
+  ok("02's row: its project tools and carry-overs, beta only (round 1's switcher)", rows[1].querySelector(".wc-ws-open").textContent === "1 project tool, 4 carried over · beta only" && !rows[1].classList.contains("cur"), rows[1].querySelector(".wc-ws-open").textContent);
   ok("and the foot says what a switch keeps", /keeps the open tools of the other side/.test(D.querySelector("#wcWsMenu .wc-ws-foot").textContent));
   D.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   ok("Escape closes it", $("wcWsMenu").hidden === true && $("wcWsChip").getAttribute("aria-expanded") === "false");
@@ -101,16 +112,19 @@ head("Two sides: a tile of its own makes 02, and the chip switches");
   ok("Home is 02's: the tenant over its title, its own lead", $("wcTenant").textContent === "Contoso B.V. · Workspace 02" && $("wcHomeTitle").textContent === "Projects" && /^Temporary tools for customer projects\. Each names its customer and the date it ends/.test($("wcWsLead").textContent));
   ok("its library starts open — no overview above it, as ENCA's 02", $("wcOverviewTools").hidden === false && $("wcToggleLibrary").textContent === "Hide");
   const groups = [...D.querySelectorAll("#wcOverviewTools .wc-tool-group")].map((g) => g.querySelector("summary").firstChild.textContent.trim() + ":" + [...g.querySelectorAll(".wc-tool")].map((c) => c.dataset.wcTool).join("+"));
-  ok("its own tool first, then the app's own pages", groups[0] === "🚀 Project tools:toolMdeRollout" && /:toolChangelog\+toolRoadmap\+toolHelp$/.test(groups[groups.length - 1]) && $("wcLibraryCount").textContent === "All 4 tools", groups.join(" | "));
+  ok("its own tool first, then its carry-overs, then the app's own pages", groups.join(" | ") === "🚀 Project tools:toolMdeRollout | 🔗 Carried over from 01:toolAssignEdit+toolGroupUse+toolDefender+toolEndpointSec | ❓ About this app:toolChangelog+toolRoadmap+toolHelp" && $("wcLibraryCount").textContent === "All 8 tools", groups.join(" | "));
   await tick(30);   // the line icons draw on the next frame (js/flat-icons.js)
   ok("the project tools' group draws the rocket", (() => { const sm = D.querySelector('#wcOverviewTools .wc-tool-group summary[data-icon="rocket"]'); return sm && sm.querySelector("svg.enca-icon"); })());
-  ok("the rail: Home, its own tool, All tools, Help, and the switch to 01", rail(w).join() === "home,toolMdeRollout,library,toolHelp,switch:intune", rail(w).join());
+  ok("the rail: Home, its own tool, its carry-overs, All tools, Help, and the switch to 01", rail(w).join() === "home,toolMdeRollout,toolAssignEdit,toolGroupUse,toolDefender,toolEndpointSec,library,toolHelp,switch:intune", rail(w).join());
+  ok("in round 1's words: Rollout, Assign, Groups, Defender, ASR", [...D.querySelectorAll("#wcRail button[data-wc-tool] small")].map((x) => x.textContent).join() === "Rollout,Assign,Groups,Defender,ASR,Help");
   ok("the caption's switch says where you are", /^02 ⇄$/.test(D.querySelector(".wc-rail-switch").textContent.trim()) && D.querySelector(".wc-rail-switch").title === "Switch to 01 · Intune");
   ok("an empty Recent tools offers 02's first tool", /Open MDE rollout →/.test($("wcRecent").textContent) && $("wcRecent").querySelector('[data-wc-tool="toolMdeRollout"]'));
   ok("the address says 02", w.location.search === "?ws=projects");
   ok("and this browser remembers it", w.localStorage.getItem("tuno.workspace") === "projects");
   $("wcHeaderTools").click(); await tick(10);
-  ok("All tools lists 02's tools", D.querySelectorAll("#wcTools .wc-tool").length === 4 && /4 tools · Workspace 02/.test($("wcResultCount").textContent));
+  ok("All tools lists 02's tools", D.querySelectorAll("#wcTools .wc-tool").length === 8 && /8 tools · Workspace 02/.test($("wcResultCount").textContent));
+  const s2 = $("wcSearch"); s2.value = "pvm"; s2.dispatchEvent(new w.Event("input"));
+  ok("and finds a project tool by its customer", [...D.querySelectorAll("#wcTools .wc-tool")].map((c) => c.dataset.wcTool).join() === "toolMdeRollout");
   $("wcCloseLauncher").click();
   D.querySelector(".wc-rail-switch").click(); await tick(10);
   ok("the rail's switch goes back to 01", D.body.dataset.ws === "intune" && $("wcHomeTitle").textContent === "Intune overview" && w.location.search === "");
@@ -155,7 +169,7 @@ head("Tabs survive a switch");
   ok("02's tool opens from its rail, its tab the only one shown", screen(w) === "screen-mderollout" && shown(w).join() === "toolMdeRollout");
   $("wcWsChip").click();
   const open = (id) => $("wcWsRow-" + id).querySelector(".wc-ws-open").textContent;
-  ok("the menu counts each side's open tools", / · 2 open$/.test(open("intune")) && open("projects") === "1 project tool · beta only · 1 open", open("intune") + " | " + open("projects"));
+  ok("the menu counts each side's open tools", / · 2 open$/.test(open("intune")) && open("projects") === "1 project tool, 4 carried over · beta only · 1 open", open("intune") + " | " + open("projects"));
   $("wcWsChip").click();
   $("toolHelp").click(); await tick(30);
   ok("Help belongs to both sides: opened on 02, it stays 02", D.body.dataset.ws === "projects" && shown(w).join() === "toolMdeRollout,toolHelp");
@@ -222,14 +236,79 @@ head("The stylesheet: 02's colour, the menu, hidden tabs, 02's lead");
 }
 
 // =====================================================================
+head("Slice 13: 🚀 MDE rollout is 02's, and names its customer and end date");
+{
+  const w = await start();
+  const D = w.document, $ = (id) => D.getElementById(id);
+  const T = w.TOOL_VERSIONS.toolMdeRollout;
+  ok("its tile is 02's, with its rail label", $("toolMdeRollout").getAttribute("data-ws") === "projects" && $("toolMdeRollout").getAttribute("data-rail") === "Rollout");
+  ok("its registry entry names the customer, and the end date — not named yet (T28 0.29)", T.project && T.project.customer === "PVM" && T.project.ends === "" && T.v === "0.29");
+  const projectTiles = [...D.querySelectorAll('#screen-home .tool[data-ws="projects"]')];
+  ok("every project tool is temporary and names its customer, its end a date or not yet named", projectTiles.length > 0 && projectTiles.every((t) => { const v = w.TOOL_VERSIONS[t.id]; return v && v.project && v.project.customer && /^(\d{4}-\d{2}-\d{2})?$/.test(v.project.ends) && (v.chips || []).indexOf("temporary") >= 0; }));
+  ok("and stays on beta (PROMOTE.staying)", w.PROMOTE.staying.some((x) => /T28/.test(x.title)));
+  ok("every registry entry with a project is a tile in 02", Object.keys(w.TOOL_VERSIONS).filter((id) => w.TOOL_VERSIONS[id].project).every((id) => $(id) && $(id).getAttribute("data-ws") === "projects"));
+  const hd = D.querySelector("[data-tool-head='toolMdeRollout']");
+  ok("its head names the customer, then says the end date is not set", hd && hd.querySelector(".tag.cust") && hd.querySelector(".tag.cust").textContent === "PVM" && /^Customer: PVM/.test(hd.querySelector(".tag.cust").title) && hd.querySelector(".tag.noend") && hd.querySelector(".tag.noend").textContent === "end date not set");
+  ok("on 01 it is not in the library", D.body.dataset.ws === "intune" && !D.querySelector('#wcOverviewTools [data-wc-tool="toolMdeRollout"]'));
+  key(w, 2); await tick(30);
+  const card = D.querySelector('#wcOverviewTools [data-wc-tool="toolMdeRollout"]');
+  const chips = [...card.querySelectorAll("small .wc-chip")].map((c) => c.className.replace("wc-chip", "").trim() + ":" + c.textContent);
+  const tileTags = [...$("toolMdeRollout").querySelectorAll("h3 .tag")].map((c) => c.className.replace("tag", "").trim() + ":" + c.textContent.trim());
+  ok("its card: T28, the customer, the end, then the tile's tags (round 1's mockup)", /^T28/.test(card.querySelector("small").textContent) && chips[0] === "cust:PVM" && chips[1] === "noend:end date not set" && chips.slice(2).join() === tileTags.join(), chips.join());
+  const pc = (src) => w.eval(src);
+  ok("a named date reads ends …", (() => { const c = pc('projectChips({ customer: "X", ends: "2099-12-31" })'); return c[0].txt === "X" && c[1].txt === "ends 31 Dec 2099" && c[1].cls === "ends"; })());
+  ok("a day that is over reads ended …, in the bad colours", (() => { const c = pc('projectChips({ customer: "X", ends: "2020-01-01" })'); return c[1].txt === "ended 1 Jan 2020" && c[1].cls === "ended"; })());
+  ok("the date is over at the end of that day, in this browser's time", pc('projectChips({ ends: "2026-10-01" }, new Date(2026, 9, 1, 23, 59).getTime())')[0].cls === "ends" && pc('projectChips({ ends: "2026-10-01" }, new Date(2026, 9, 2, 0, 0).getTime())')[0].cls === "ended");
+  ok("a date that is not a date is not set", pc('projectChips({ customer: "X", ends: "2026-13-01" })')[1].cls === "noend" && pc('projectChips({ customer: "X", ends: "31-12-2026" })')[1].cls === "noend");
+  ok("a tool that is not a project tool has no project chips", pc('toolProject("toolLaps")') === null && !/tag cust/.test(pc('toolHeadInner("toolLaps")')));
+  w.TOOL_VERSIONS.toolMdeRollout.project = { customer: "PVM", ends: "2099-12-31" };
+  key(w, 1); await tick(10); key(w, 2); await tick(30);
+  const c2 = [...D.querySelectorAll('#wcOverviewTools [data-wc-tool="toolMdeRollout"] small .wc-chip')].map((c) => c.className.replace("wc-chip", "").trim() + ":" + c.textContent);
+  ok("named, the card says when it ends", c2[1] === "ends:ends 31 Dec 2099", c2.join());
+  ok("and so does the head line", /<span class="tag ends"[^>]*>ends 31 Dec 2099<\/span>/.test(pc('toolHeadInner("toolMdeRollout")')));
+}
+
+// =====================================================================
+head("Slice 13: the carry-overs, and T28's jump into the Assignment editor");
+{
+  const w = await start({ url: BETA + "?ws=projects" });
+  const D = w.document, $ = (id) => D.getElementById(id);
+  ok("the link opens on 02", D.body.dataset.ws === "projects" && $("wcHomeTitle").textContent === "Projects");
+  const carried = [...D.querySelectorAll("#wcOverviewTools .wc-tool-group")][1];
+  ok("each carry-over says it is also in 01", [...carried.querySelectorAll(".wc-tool")].every((c) => { const a = c.querySelector("small .wc-chip.also"); return a && a.textContent === "also in 01" && /stays in 02/.test(a.title); }));
+  ok("in a project's words", /where MDE rollout opens a policy/.test(carried.querySelector('[data-wc-tool="toolAssignEdit"]').textContent) && /a wave/.test(carried.querySelector('[data-wc-tool="toolDefender"]').textContent));
+  D.querySelector('#wcRail [data-wc-tool="toolMdeRollout"]').click(); await tick(30);
+  ok("T28 runs from 02", screen(w) === "screen-mderollout" && D.body.dataset.ws === "projects");
+  // T28's policy popout opens the editor through AssignEditTool.openWith,
+  // which clicks the editor's tile — the click made here
+  $("toolAssignEdit").click(); await tick(30);
+  ok("its jump to the Assignment editor stays in 02", D.body.dataset.ws === "projects" && screen(w) === "screen-assignedit" && shown(w).join() === "toolMdeRollout,toolAssignEdit", shown(w).join());
+  ok("the rail marks Assign", D.querySelector('#wcRail [data-wc-tool="toolAssignEdit"]').classList.contains("active"));
+  ok("that jump goes through the tile", /AssignEditTool\.openWith\(/.test(read("js/mderolloutv2.js")) && /const tile = \$\("toolAssignEdit"\);\s*if \(tile\) tile\.click\(\);/.test(read("js/assignedit.js")));
+  key(w, 1); await tick(30);
+  ok("the editor is 01's too: back on 01 it stays on screen, T28's tab hidden", D.body.dataset.ws === "intune" && screen(w) === "screen-assignedit" && shown(w).join() === "toolAssignEdit", shown(w).join());
+  $("side-toolGroupUse").click(); await tick(30);
+  ok("a carry-over opened on 01 stays on 01", D.body.dataset.ws === "intune" && screen(w) === "screen-groupuse");
+  const css = read("css/workspaces.css"), app = read("css/app.css");
+  ok("on a phone 02's bar drops Defender and ASR: Home, Rollout, Assign, Groups, All tools", /@media\(max-width:700px\)\{body\.workspaces-shell\[data-ws="projects"\] #wcRail \[data-wc-tool="toolDefender"\],body\.workspaces-shell\[data-ws="projects"\] #wcRail \[data-wc-tool="toolEndpointSec"\]\{display:none\}\}/.test(css));
+  ok("the customer lemon on the deepest green, the end in blue — head and card", /\.wc-chip\.cust\{background:var\(--green-deep\);color:var\(--lemon\)/.test(css) && /\.wc-chip\.ends\{background:var\(--blue-bg\);color:var\(--blue\)\}/.test(css) && /\.tag\.cust\{background:var\(--green-deep\);[^}]*color:var\(--lemon\)\}/.test(app) && /\.tag\.ends\{background:var\(--blue-bg\)/.test(app));
+  ok("not named in the warning colours, past in the bad ones", /\.tag\.noend\{background:var\(--warn-bg\)/.test(app) && /\.tag\.ended\{background:var\(--bad-bg\)/.test(app) && /\.wc-chip\.noend\{background:var\(--warn-bg\)/.test(css) && /\.wc-chip\.ended\{background:var\(--bad-bg\)/.test(css));
+}
+
+// =====================================================================
 head("The roadmap and the house rules");
 {
   const w = boot();
   const r41 = [...w.document.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R41"));
   const upTo = +((/slices 1–(\d+) · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
   ok("R41 counts slice 12", upTo >= 12 && /Slice 12, two workspaces \(beta 10673\)/.test(r41.textContent), String(upTo));
+  ok("and slice 13", upTo >= 13 && /Slice 13, 02 Projects in use \(beta 10674\)/.test(r41.textContent));
+  const r40 = [...w.document.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R40"));
+  ok("R40 says where MDE rollout lives now", /Since beta 10674 it lives in 02 Projects/.test(r40.textContent));
+  ok("Help's Getting around says what 02 is and how to switch", /02 Projects, holds the tools built for one customer's project/.test(w.document.getElementById("screen-help").textContent) && /Ctrl \+ Shift \+ 1 and 2/.test(w.document.getElementById("screen-help").textContent));
   const md = read("CLAUDE.md");
   ok("CLAUDE.md: a side needs a tool of its own, and production never gets one", /## Two workspaces: a side needs a tool of its own \(build 10673\)/.test(md) && /data-ws="projects"/.test(md));
+  ok("CLAUDE.md: what 02 asks of a project tool — customer, end date, never promoted, carry-overs", /## A project tool: what 02 asks of it \(build 10674\)/.test(md) && /project: \{ customer, ends: "YYYY-MM-DD" \}/.test(md) && /WORKSPACES\.projects\.carry/.test(md));
 }
 
 });

@@ -64,6 +64,10 @@ async function run() {
   const idle = () => until(() => !st().running && !st().busy && !st().enriching, 15000, "V2 idle");
   const change = (el, value) => { if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event(el.type === "checkbox" ? "change" : "input", { bubbles: true })); };
   const originalUrl = w.location.href;
+  // Since 10674 T28 lives in workspace 02 Projects, and the shell says so in
+  // the address (?ws=projects, js/workspaces.js). That is the side, not T28:
+  // T28 itself never changes the address, which is what these checks hold.
+  const sansWs = (u) => { const x = new w.URL(u); x.searchParams.delete("ws"); return x.href; };
   const ids = [...D.querySelectorAll("[id]")].map((e) => e.id);
   ok("every DOM id is unique", ids.length === new Set(ids).size);
   ok("there is no version switch and no original screen (10661)", !$("t28Version1") && !$("t28Version2") && !$("t28Workspace1") && !!$("t28Workspace2") && !$("t28Workspace2").hidden);
@@ -71,7 +75,7 @@ async function run() {
   $("demoLink").click();
   await until(() => w.PolicyCache.get(), 20000, "demo sign in");
   $("toolMdeRollout").click();
-  ok("the tile opens the V2 screen without changing URL", w.location.href === originalUrl && $("screen-mderollout").classList.contains("active") && !$("t28Workspace2").hidden);
+  ok("the tile opens the V2 screen without changing URL", sansWs(w.location.href) === originalUrl && $("screen-mderollout").classList.contains("active") && !$("t28Workspace2").hidden);
   ok("the screen hook is V2's own", typeof w.TunoScreenHooks["screen-mderollout"] === "function" && !w.TunoScreenHooks["screen-mderollout-v2"]);
   ok("opening has no implicit tenant read", !st().model && !!$("mvBody").querySelector(".mr-offer"));
   $("mvBody").querySelector('[data-mrread="attach"]').click();
@@ -145,7 +149,8 @@ async function run() {
   await until(() => st().plan && !st().busy, 10000, "pending plan");
   $("mvDiscard").click();
   ok("Discard clears the pending plan", !st().plan);
-  ok("same URL after a complete session", w.location.href === originalUrl);
+  ok("same URL after a complete session", sansWs(w.location.href) === originalUrl);
+  ok("…on workspace 02, where T28 lives (10674)", w.document.body.dataset.ws === "projects" && new w.URL(w.location.href).searchParams.get("ws") === "projects");
   tool._pane("recovery");
   ok("run files explicitly explain reload restore limitation", /Automatic restore after reloading is not implemented/.test($("mvBody").textContent));
   const imports = { schema: "tuno.t28.v2.run-bundle/1", tenantId: w.TunoTenant.tenantId() || "demo", exportedAt: "2026-09-30", runs: [{ title: "<img src=x onerror=alert(1)>", kind: "members", lines: ["<script>bad()</script>"] }] };

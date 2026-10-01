@@ -217,7 +217,18 @@ body.workspaces-shell[data-ws="projects"] #wcWsLead{display:block}
 .wc-chip.block{background:var(--bad-bg);color:var(--off)}
 .wc-chip.new{background:var(--warn-bg);color:var(--warn-fg)}
 .wc-chip.upd{background:var(--ok-bg2);color:var(--on)}
+/* A project tool's card names its customer and the date it ends (slice 13,
+   round 1's mockup; js/version.js projectChips) — the head's chips in the
+   card's shape; a carry-over's "also in 01" keeps the plain chip. */
+.wc-chip.cust{background:var(--green-deep);color:var(--lemon);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lemon) 35%,transparent)}
+.wc-chip.ends{background:var(--blue-bg);color:var(--blue)}
+.wc-chip.noend{background:var(--warn-bg);color:var(--warn-fg)}
+.wc-chip.ended{background:var(--bad-bg);color:var(--off)}
 .wc-tool small{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+/* On a phone 02's bar is Home, its project tools, the first two carry-overs
+   and All tools — Defender status and ASR coverage stay a tap away in All
+   tools — as 01's is Home, four tools and All tools (slice 13). */
+@media(max-width:700px){body.workspaces-shell[data-ws="projects"] #wcRail [data-wc-tool="toolDefender"],body.workspaces-shell[data-ws="projects"] #wcRail [data-wc-tool="toolEndpointSec"]{display:none}}
 /* On a phone the chip is its number. ENCA's menu then opens leftwards
    (right:-40px); TUNO's chip sits mid-left, so js/workspaces.js keeps the
    menu inside the window instead (placeWsMenu). */

@@ -34,7 +34,10 @@
      its own tools first, then the 01 tools it carries over (ENCA's lens
      tools; the same screens), then the app's own pages. Its menu row says
      what it holds and that it is beta only (round 1's switcher; ENCA: the
-     open count alone).
+     open count alone). Since 10674 (slice 13) 🚀 MDE rollout is its tool,
+     with four carry-overs; a project tool's card names its customer and the
+     date it ends (round 1's mockup; ENCA's temporary tools name the date in
+     their text), a carry-over's says it is also in 01.
    * Home's library starts open only where nothing sits above it. Since
      10671 the Intune overview does (js/home-overview.js, round 2's D6 A),
      so 01's starts closed, as ENCA's; 02 has none and starts open, as
@@ -118,8 +121,15 @@
     projects: { num: '02', name: 'Projects', title: 'Projects', context: 'Projects / Workspace 02', hint: 'temporary tools for customer projects',
       lead: 'Temporary tools for customer projects. Each names its customer and the date it ends, and none of them reaches production.',
       // [tool id, what it does for a project, its rail label] — the same
-      // tool as in 01, offered here too (ENCA's lens tools)
-      carry: [] },
+      // tool as in 01, offered here too (ENCA's lens tools). Since 10674
+      // (slice 13) 🚀 MDE rollout's: the Assignment editor it opens a
+      // policy in, and the three tools a wave is checked with.
+      carry: [
+        ['toolAssignEdit', 'Bulk include, exclude and remove — where MDE rollout opens a policy.', 'Assign'],
+        ['toolGroupUse', 'Everything a wave group’s members receive, before and after a wave.', 'Groups'],
+        ['toolDefender', 'Defender on and up to date on the devices a wave reaches.', 'Defender'],
+        ['toolEndpointSec', 'Whether firewall and ASR rules reach a wave’s Windows devices.', 'ASR'],
+      ] },
   };
   // The app's own pages belong to every side (ENCA's "❓ Help" group in 02).
   const SHARED = new Set(['toolHelp', 'toolChangelog', 'toolRoadmap']);
@@ -189,6 +199,8 @@
       return [{ id: el.id, name: txt ? txt.textContent.trim() : el.id, icon: ic ? ic.textContent.trim() : '', number: num ? num.textContent.trim() : '', group, groupIcon, tags, ws: home, rail: el.getAttribute('data-rail') || '', description: blurbs[el.id] || '' }];
     });
   }
+  const projectTags = (id) => { const p = typeof toolProject === 'function' ? toolProject(id) : null; return p ? p.chips.map(c => ({ text: c.txt, cls: c.cls, title: c.title || '' })) : []; };
+  const ALSO = { text: 'also in 01', cls: 'also', title: 'The same tool as in Workspace 01. Opened from here, it stays in 02.' };
   // The tools a workspace offers, in its own order and with its own words:
   // 01 its tiles; 02 its own tools, then its carry-overs (the same tool, a
   // project's words for it), then the app's own pages.
@@ -196,10 +208,13 @@
     if (which === 'intune' || !WORKSPACES[which]) return tools.filter(t => t.ws === 'intune');
     // A group name opens with its emoji, as the tiles' sections and ENCA's
     // 02 groups do: the heading draws it as its line icon (data-icon).
-    const mine = ownOf(which).map(t => Object.assign({}, t, { group: '🚀 Project tools', groupIcon: 'rocket' }));
+    // A project tool's card names its customer and end date first (js/
+    // version.js projectChips, round 1's mockup); a carry-over's says it is
+    // also in 01.
+    const mine = ownOf(which).map(t => Object.assign({}, t, { group: '🚀 Project tools', groupIcon: 'rocket', tags: projectTags(t.id).concat(t.tags) }));
     const carried = carryOf(which).map(([id, blurb]) => {
       const t = tools.find(x => x.id === id);
-      return t ? Object.assign({}, t, { group: '🔗 Carried over from 01', groupIcon: 'link', description: blurb || t.description, carried: true }) : null;
+      return t ? Object.assign({}, t, { group: '🔗 Carried over from 01', groupIcon: 'link', description: blurb || t.description, carried: true, tags: [ALSO].concat(t.tags) }) : null;
     }).filter(Boolean);
     return mine.concat(carried, tools.filter(t => SHARED.has(t.id)));
   }
