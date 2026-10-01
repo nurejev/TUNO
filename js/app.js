@@ -354,16 +354,33 @@ const Fs = (() => {
     Brand.setActive(B);
     const set = (id, fn) => { const el = $(id); if (el) fn(el); };
     document.title = Brand.pageTitle;
-    set("favicon", (el) => { if (B.favicon) el.href = B.favicon; });
+    // The publisher's beta host wears the BETA edition of the DEFAULT mark
+    // (branding.js betaLogo/betaFavicon; ENCA 32302, ported at 10667). Not
+    // under an override or a self-hosted look - those are somebody's own
+    // logo. data-beta-mark on <html> lets css/app.css swap the dark BETA
+    // mark in dark mode.
+    const betaMark = (() => {
+      try {
+        const o = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
+        const beta = String((typeof BRANDING !== "undefined" && BRANDING.betaHost) || "").toLowerCase();
+        return !o && !!B.betaLogo && !!beta && (location.hostname || "").toLowerCase() === beta;
+      } catch { return false; }
+    })();
+    document.documentElement.toggleAttribute("data-beta-mark", betaMark);
+    set("favicon", (el) => { const f = betaMark ? (B.betaFavicon || B.favicon) : B.favicon; if (f) el.href = f; });
     // The mark is the PRODUCT's (TUNO office logo), not the org's — alt follows.
     ["brandLogo", "brandLogoLogin"].forEach((id) => set(id, (el) => {
-      if (B.logo) el.src = B.logo;
+      const logo = betaMark ? B.betaLogo : B.logo;
+      if (logo) el.src = logo;
       el.alt = B.name || B.org;
       // Wide wordmarks (the default marks are 1:1) keep their aspect: fix the
       // height the layout expects and let the width follow.
       if (B.logoWide) { el.style.height = id === "brandLogo" ? "34px" : "56px"; el.style.width = "auto"; }
       else { el.style.height = ""; el.style.width = ""; }
     }));
+    // The sign-in medallion (css/app.css, ENCA 25493) is for a round mark; a
+    // wordmark keeps the flat look.
+    document.documentElement.classList.toggle("brand-wide-logo", !!B.logoWide);
     // Dark mode swaps the DEFAULT logo via a CSS content: rule; flag the root
     // when an override is active so that rule stands down (see app.css).
     const oBrand = typeof BrandOverrides !== "undefined" ? BrandOverrides.byKey(activeOverrideKey()) : null;
@@ -432,31 +449,73 @@ const Fs = (() => {
   });
 
   // ---------- beta / preview ribbon ----------
-  // The production deployment lives on BRANDING.host; any other origin (the
-  // beta Pages site, a local dev server) is visibly not production.
+  // Is this THE production deployment? ENCA's isProdHost (ported at 10667,
+  // under TUNO's name): an origin that is not BRANDING.host — the beta Pages
+  // site, a local server, a fork — is not production, and a missing or blank
+  // host answers "no" rather than accidentally treating an unconfigured
+  // build as the real one. (It answered "yes" on an error until 10667.)
+  const isProduction = () => {
+    try {
+      const prod = ((typeof BRANDING !== "undefined" && BRANDING.host) || "").toLowerCase();
+      const here = (location.hostname || "").toLowerCase();
+      return !!prod && !!here && here === prod;
+    } catch { return false; }
+  };
+
+  // Which of the three deployments is this? (ENCA 25229, ported at 10667.)
+  // Production is BRANDING.host. The publisher's own pre-production site is
+  // BRANDING.betaHost. ANYTHING ELSE is a copy somebody else is running — a
+  // container on localhost, an Azure Container App, a fork on its own domain
+  // — and calling that "BETA" was wrong in a way that mattered: it told an
+  // organisation which had deliberately deployed TUNO on its own
+  // infrastructure that it was looking at a test build. People who are told
+  // that every day stop reading the ribbon, which is the one thing it exists
+  // to prevent.
+  //
+  // localhost counts as self-hosted, because a published container port IS
+  // the quick start self-hosting will document (slices 18–22). The build
+  // stamp on the sign-in card says which build a developer is looking at;
+  // the ribbon answers a different question — whose deployment is this.
+  const deploymentKind = () => {
+    try {
+      const here = (location.hostname || "").toLowerCase();
+      if (!here) return "unknown";
+      const prod = ((typeof BRANDING !== "undefined" && BRANDING.host) || "").toLowerCase();
+      const beta = ((typeof BRANDING !== "undefined" && BRANDING.betaHost) || "").toLowerCase();
+      if (prod && here === prod) return "production";
+      if (beta && here === beta) return "beta";
+      return "selfhosted";
+    } catch { return "unknown"; }
+  };
+
   (function markNonProduction() {
     try {
-      const prod = (BRANDING.host || "").toLowerCase();
-      const here = location.hostname.toLowerCase();
-      if (!prod || !here || here === prod) return;
+      const kind = deploymentKind();
+      if (kind === "production" || kind === "unknown") return;
+      const selfHosted = kind === "selfhosted";
       const r = document.createElement("div");
-      // The id and titleTag are the seam js/selfhost.js softens: a deployment
-      // file turns this into the neutral SELF-HOSTED ribbon.
+      // The id and title tag are also read by js/selfhost.js, which re-states
+      // the SELF-HOSTED wording once a deployment branding file has been
+      // fetched. Neither path may ever produce a ribbon that is absent or
+      // mistakable for production.
       r.id = "betaRibbon";
-      r.dataset.titleTag = "[BETA]";
-      r.textContent = "⚠ BETA — not production";
+      r.dataset.titleTag = selfHosted ? "[SELF-HOSTED]" : "[BETA]";
+      // Just the fact (ENCA 25229): "— not <publisher host>" reads as a
+      // disclaimer on somebody else's deployment and puts a vendor's domain on
+      // their sign-in page. Saying SELF-HOSTED keeps a copy from being taken
+      // for the canonical site without naming anyone.
+      r.textContent = selfHosted ? "\u2699 SELF-HOSTED" : "\u26A0 BETA \u2014 not production";
       // It hangs from the top of the HEADER, not of the window: in the demo
       // the demo bar is above the header (10662) and a ribbon at top:0 sat
       // across the middle of the bar's own warning. --demo-bar-h is 0 outside
       // the demo, so everywhere else this is the top:0 it always was.
       r.style.cssText = "position:fixed;top:var(--demo-bar-h,0px);left:50%;transform:translateX(-50%);z-index:9999;" +
-        "background:#b04a3a;color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;padding:7px 22px;" +
+        "background:" + (selfHosted ? "#3b5a72" : "#b04a3a") + ";color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;padding:7px 22px;" +
         "border-radius:0 0 10px 10px;letter-spacing:.5px;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap";
       document.body.appendChild(r);
-      document.title = "[BETA] " + document.title;
+      document.title = r.dataset.titleTag + " " + document.title;
     } catch { /* cosmetic only */ }
   })();
-  const isProduction = () => { try { return location.hostname.toLowerCase() === (BRANDING.host || "").toLowerCase(); } catch { return true; } };
 
   // ---------- "select all" for every surface picker ----------
   // Six tools render a .gu-areas grid of tick boxes and none of them offered a

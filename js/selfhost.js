@@ -25,8 +25,10 @@
 // ribbon and the export credit, and a wrong host would let a copy pass
 // itself off as production.
 //
-// When the deployment file (not just localStorage) is present, the red
-// "BETA — not production" ribbon becomes a neutral "SELF-HOSTED" one: a
+// Since 10667 (ENCA 25229) js/app.js gives every host that is neither
+// production nor the publisher's beta host a neutral "SELF-HOSTED" ribbon of
+// its own. When the deployment file (not just localStorage) is present, the
+// red "BETA — not production" ribbon becomes that neutral one here too: a
 // deliberately configured instance is not a test site, but it must still
 // never be mistakable for tuno.limon-it.nl.
 // ======================================================================
@@ -129,9 +131,17 @@
       register();
       rebrand();
       // A configured instance is not a test site: soften the ribbon, keep it.
+      //
+      // app.js already says SELF-HOSTED on any host that is neither
+      // BRANDING.host nor BRANDING.betaHost (ENCA 25229, ported at 10667), so
+      // on a real self-hosted copy this is a no-op that happens to re-state
+      // the same thing. It still earns its place for the one case app.js
+      // cannot cover: a branding file served from the publisher's OWN beta
+      // host, where the ribbon starts as BETA. Just the fact — no "not
+      // <publisher host>", which put a vendor's domain on somebody else's page.
       const rb = document.getElementById("betaRibbon");
       if (rb) {
-        rb.textContent = "⚙ SELF-HOSTED — not " + ((typeof BRANDING !== "undefined" && BRANDING.host) || "production");
+        rb.textContent = "⚙ SELF-HOSTED";
         rb.style.background = "#3b5a72";
         rb.dataset.titleTag = "[SELF-HOSTED]";
         document.title = document.title.replace(/^\[BETA\] /, "[SELF-HOSTED] ");

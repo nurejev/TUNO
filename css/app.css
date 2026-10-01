@@ -108,6 +108,20 @@ main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
   background-image:radial-gradient(500px 260px at 85% -80px,var(--glow) 0%,transparent 60%)}
 .login-card h1{font-size:24px;margin:18px 0 8px;letter-spacing:-.02em}
 .login-card p{color:var(--muted);line-height:1.55;margin-bottom:26px}
+/* The mark rides over the card's top edge on its own medallion (ENCA 25493,
+   ported at 10667): the card is lifted off the page, and the mark is lifted
+   off the card by the same shadow and border, so the sign-in screen reads as
+   one object popping up. Tokens only, so it follows every branding (Limon-IT
+   light/dark, a self-hosted look). Margin -110px = the card's 48px padding
+   plus half the 124px disc, so exactly half of it sits outside the card;
+   #screen-login gets the room above for it. A WIDE wordmark (logoWide) is not
+   a round thing and keeps the flat look - app.js and selfhost-boot.js flag it
+   on <html>. */
+#screen-login{padding-top:64px}
+.login-card{position:relative}
+:root:not(.brand-wide-logo) .login-card > img{display:block;position:relative;box-sizing:border-box;width:124px;height:124px;margin:-110px auto 0;padding:8px;
+  border-radius:50%;background:var(--surface);border:1px solid var(--border);
+  box-shadow:var(--shadow),0 0 0 6px color-mix(in srgb,var(--glow) 45%,transparent)}
 .ms-btn{width:100%;justify-content:center;padding:12px;font-size:14px}
 .login-note{margin-top:20px;font-size:12px;color:var(--muted);line-height:1.5}
 /* why a sign-in did not complete — shown in place, never as an alert */
@@ -1143,7 +1157,37 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
 :root[data-theme="dark"] .selbar, :root[data-theme="dark"] .toast{background:#0d1a12;border:1px solid var(--border)}
 :root[data-theme="dark"] .exp-ic.md{background:#4a5450}
 :root[data-theme="dark"] .fs-bg{background:rgba(0,0,0,.62)}
-:root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
+:root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg?v=3")}
+/* the publisher's beta host wears the BETA edition (data-beta-mark, set by applyBranding; ENCA 32302) */
+:root[data-beta-mark][data-theme="dark"] .logo img, :root[data-beta-mark][data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark-beta.svg?v=3")}
+
+/* A BRANDED look in dark (ENCA 32313, ported at 10667). The neutrals are
+   the Limon-IT greens - chip borders, the switch track, n/a and faint text,
+   ghost borders - and a branding file rarely names them, so a blue brand
+   would still show green edges and tracks in dark. Under any branding they
+   are mixed from that brand's own tokens instead; a branding that does name
+   one still wins (its stylesheet comes later). TUNO's own look is untouched:
+   these apply only with data-brand (in TUNO, a self-hosted look). ENCA's
+   --chip-bd and --sw-track have no rule reading them in TUNO yet; they are
+   kept so ENCA's chip and switch styles drop in branded when they arrive. */
+:root[data-brand][data-theme="dark"]{
+  --chip-bd:color-mix(in srgb,var(--green) 35%,var(--surface));
+  --sw-track:color-mix(in srgb,var(--green-deep) 55%,var(--bg));
+  --na:color-mix(in srgb,var(--muted) 45%,var(--surface));
+  --faint:color-mix(in srgb,var(--muted) 75%,var(--surface));
+  --ghost-bd:color-mix(in srgb,var(--muted) 35%,var(--surface));
+  --on-deep-mute:color-mix(in srgb,var(--ink) 65%,var(--green-deep));
+}
+@media (prefers-color-scheme: dark){
+  :root[data-brand]:not([data-theme="light"]):not([data-theme="dark"]){
+    --chip-bd:color-mix(in srgb,var(--green) 35%,var(--surface));
+    --sw-track:color-mix(in srgb,var(--green-deep) 55%,var(--bg));
+    --na:color-mix(in srgb,var(--muted) 45%,var(--surface));
+    --faint:color-mix(in srgb,var(--muted) 75%,var(--surface));
+    --ghost-bd:color-mix(in srgb,var(--muted) 35%,var(--surface));
+    --on-deep-mute:color-mix(in srgb,var(--ink) 65%,var(--green-deep));
+  }
+}
 
 /* the site's own treatment: white card titles, lemon pill, lemon CTA, hero glow */
 :root[data-theme="dark"] .tool-tile h3, :root[data-theme="dark"] .readme h3{color:var(--lemon)}
@@ -1164,7 +1208,8 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x{color:var(--green-deep)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn:hover,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x:hover{background:rgba(0,0,0,.12);color:var(--green-deep)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .fs-bg{background:rgba(0,0,0,.62)}
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg?v=3")}
+  :root[data-beta-mark]:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root[data-beta-mark]:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark-beta.svg?v=3")}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .tool-tile h3, :root:not([data-theme="light"]):not([data-theme="dark"]) .readme h3{color:var(--lemon)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary{background:var(--lemon);border-color:var(--lemon)}

@@ -32,7 +32,7 @@ Build numbers use two series (see `js/version.js`): production builds are plain 
 
 ## Beta channel
 
-Production is this repo's `main`, deployed by GitHub Pages to the custom domain. The beta channel is a second repo (`tuno-beta`) whose Pages site serves from its default `github.io` URL — no DNS, no CNAME (the `CNAME` file must NOT exist in the beta repo, or the two sites fight over the domain). Work lands on the `beta` branch here, gets pushed to the beta repo's `main`, is tested on the beta URL, and only then reaches `main` and production. Any deployment on a host other than `BRANDING.host` wears a permanent **BETA — not production** ribbon and a `[BETA]` page title.
+Production is this repo's `main`, deployed by GitHub Pages to the custom domain. The beta channel is a second repo (`tuno-beta`) whose Pages site serves from its default `github.io` URL — no DNS, no CNAME (the `CNAME` file must NOT exist in the beta repo, or the two sites fight over the domain). Work lands on the `beta` branch here, gets pushed to the beta repo's `main`, is tested on the beta URL, and only then reaches `main` and production. The beta site (`BRANDING.betaHost`) wears a permanent **BETA — not production** ribbon, a `[BETA]` page title and the BETA edition of the TUNO mark; any other host that is not `BRANDING.host` — a container, a fork, localhost — wears a neutral **SELF-HOSTED** ribbon and a `[SELF-HOSTED]` title instead (build 10667, as ENCA 25229).
 
 One-time setup: create the beta repo, add it as a remote named `tuno-beta` (NOT `beta` — a remote sharing the branch's name makes every bare `beta` ambiguous), enable Pages on it, and add the beta URL as an SPA redirect URI on the app registration.
 

@@ -40,10 +40,42 @@ const BRANDING = {
   // credit at the bottom of every Markdown export. No protocol.
   host: "tuno.limon-it.nl",
 
+  // The publisher's OWN pre-production host (ENCA 25229, build 10667).
+  // Everything that is neither `host` nor this is somebody else's copy, and
+  // the app says SELF-HOSTED there rather than BETA — a deployment an
+  // organisation stood up deliberately is not a test build, and calling it
+  // one teaches people to ignore the ribbon.
+  //
+  // Hostname only, no protocol and no path: the beta site is served from a
+  // project path under the Pages domain, and location.hostname is what the
+  // comparison has to work on. Like `host`, this is deliberately NOT reachable
+  // from selfhost-branding.json — a copy that could name itself the
+  // publisher's beta host could hide that it is a copy.
+  betaHost: "nurejev.github.io",
+
   // Assets (relative to index.html)
-  logo: "assets/logo-mark-light.svg?v=2",
-  logoDark: "assets/logo-mark-dark.svg?v=2",
-  favicon: "assets/favicon.svg?v=2",
+  // The TUNO mark, redrawn at 10667 in the family ENCA's mark joined at its
+  // 32302: pale disc, gold ring, the device in deep green with a gold gear
+  // (lime in dark). TRANSPARENT, so it carries on any header colour, and
+  // framed twice from one drawing: the mark keeps the orbit ring, the
+  // favicon is cropped to the inner disc. The dark variant is swapped in by
+  // CSS rather than by script, so it is right before the app has booted.
+  //
+  // The ?v= is not decoration: a returning visitor keeps the old artwork out
+  // of cache without it. Bump it whenever the artwork changes — a small
+  // number of its own, not the build (the build's ?v= refs in index.html are
+  // counted by tests/platformbaseline/screen.test.js).
+  logo: "assets/logo-mark-light.svg?v=3",
+  logoDark: "assets/logo-mark-dark.svg?v=3",
+  favicon: "assets/favicon.svg?v=3",
+  // The BETA edition of the same marks (a yellow BETA pill under the disc),
+  // shown in the header, on the sign-in card and as the tab icon ONLY on
+  // `betaHost` and only while no per-audience or self-hosted look is active
+  // (applyBranding in js/app.js). Exports keep the plain mark. A fork can
+  // drop these three lines to switch the behaviour off. (ENCA 32302.)
+  betaLogo: "assets/logo-mark-light-beta.svg?v=3",
+  betaLogoDark: "assets/logo-mark-dark-beta.svg?v=3",
+  betaFavicon: "assets/favicon-beta.svg?v=3",
 
   // Sign-in screen
   loginTitle: "",            // "" → `${name} — ${longName}`

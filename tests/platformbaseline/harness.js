@@ -33,16 +33,22 @@ const FILES = [
   "js/applocker.js", "js/app.js",
 ];
 
-function boot() {
+// boot({ url, storage }) serves the page from another origin — the
+// production host or a self-hosted copy — and can start with localStorage
+// entries in place, as a browser that applied a look earlier would
+// (tests/shell/brand.test.js, build 10667). The default is the beta site
+// with empty storage, which is what every other suite expects.
+function boot(opts) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  const dom = new JSDOM(html, { runScripts: "outside-only", url: "https://nurejev.github.io/tuno-beta/" });
+  const url = (opts && opts.url) || "https://nurejev.github.io/tuno-beta/";
+  const dom = new JSDOM(html, { runScripts: "outside-only", url });
   const w = dom.window;
   w.crypto = w.crypto || {};
   if (!w.crypto.getRandomValues) w.crypto.getRandomValues = (a) => { for (let i = 0; i < a.length; i++) a[i] = 1; return a; };
   if (!w.crypto.subtle) w.crypto.subtle = require("node:crypto").webcrypto.subtle;
   w.alert = () => {};
   w.matchMedia = w.matchMedia || (() => ({ matches: false, addEventListener() {}, addListener() {} }));
-  const map = new Map();
+  const map = new Map(Object.entries((opts && opts.storage) || {}));
   Object.defineProperty(w, "localStorage", { value: {
     getItem: (k) => (map.has(k) ? map.get(k) : null),
     setItem: (k, v) => map.set(k, String(v)),
@@ -51,7 +57,7 @@ function boot() {
   w.msal = undefined;              // MSAL degrades to a sign-in error, by design
   w.fetch = () => Promise.reject(new Error("no network in tests"));
   const src = FILES.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
-  const bridge = ";Object.assign(window,{APP_BUILD,TOOL_VERSIONS,CHANGELOG,PROMOTE,Graph,PolicyCache,Docs,"
+  const bridge = ";Object.assign(window,{BRANDING,APP_BUILD,TOOL_VERSIONS,CHANGELOG,PROMOTE,Graph,PolicyCache,Docs,"
     + "PlatformBaseline,MacBaseline,MacBaselineTool,WinBaseline,WinBaselineTool,Restore,Filters,RunLedger,AppLockerTool});";
   const errs = [];
   const realErr = console.error, realLog = console.log;

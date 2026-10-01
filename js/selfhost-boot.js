@@ -54,6 +54,10 @@
       (logo && b.logoWide) ? `${sel} .logo img{width:auto;height:34px} ${sel} .login-card > img{width:auto;height:56px}` : "",
       (b.hideOrgName === true) ? `${sel} .logo b{display:none}` : "",
     ].filter(Boolean).join("\n");
+    // A wordmark keeps the flat look on the sign-in card from the first
+    // paint: the medallion (css/app.css, ENCA 25493) is for a round mark,
+    // and applyBranding sets the same class once the app has booted.
+    if (logo && b.logoWide) document.documentElement.classList.add("brand-wide-logo");
     if (css) {
       const tag = document.createElement("style");
       tag.id = "selfhostBootCss";

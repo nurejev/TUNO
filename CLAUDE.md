@@ -264,3 +264,17 @@ new tool or marker needs:
   than half of them.
 - **A heading whose emoji is another tool's** names its shape:
   `data-icon="shield"` (the Home sections do).
+
+## Three deployments, and the brand assets' own ?v= (build 10667)
+
+`deploymentKind()` in js/app.js answers whose deployment this is:
+`BRANDING.host` is production (no ribbon), `BRANDING.betaHost` is the
+beta site (red BETA ribbon, `[BETA]` title, the BETA edition of the mark),
+and ANY other host is somebody's own copy (slate SELF-HOSTED ribbon,
+`[SELF-HOSTED]` title, the plain mark) — localhost included. Neither host
+is reachable from `selfhost-branding.json`. The BETA marks are never worn
+under a self-hosted look. The logo and favicon files carry a `?v=` of
+their own — a small integer in js/branding.js, css/app.css and index.html,
+bumped together when the artwork changes — never the build number, which
+would join the build's `?v=` refs that tests/platformbaseline/screen
+counts. tests/shell/brand.test.js holds all of it.
