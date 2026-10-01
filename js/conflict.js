@@ -326,8 +326,11 @@ const ConflictTool = (() => {
     }
     const nOf = (v) => scan.conflicts.filter((c) => (cfPlat === "all" || platsOfConflict(c).includes(cfPlat)) && c.verdict === v).length;
     const chip = (v, label) => `<button class="fchip${cfVerdict === v ? " active" : ""}" data-cfverdict="${v || ""}" type="button">${label} (${v ? nOf(v) : scan.conflicts.length})</button>`;
+    // Slot order (10664): the verdict chips and the platform select are both
+    // filters, so the chips sit in a .chip-filter and keep their place before
+    // the select instead of being sorted after it.
     const toolbar = scan.conflicts.length ? `<div class="toolbar">
-      ${chip(null, "All")}${chip("can", "⚔️ Can collide")}${chip("may", "❓ May")}${chip("cannot", "✅ Cannot")}
+      <span class="chip-filter">${chip(null, "All")}${chip("can", "⚔️ Can collide")}${chip("may", "❓ May")}${chip("cannot", "✅ Cannot")}</span>
       ${platSelHtml.replace('style="margin:0 0 8px"', 'style="margin:0"')}
     </div>` : "";
     $("cfBody").innerHTML = src + cards + toolbar + `<div class="list-card">${notes.join("")}

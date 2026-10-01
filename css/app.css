@@ -160,6 +160,46 @@ main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
    style="margin:0 0 6px" that were typed on the headings. 🚀 MDE rollout's
    heading sits in its workspace header and keeps that header's own rule. */
 .screen.tool > .readme > [data-tool-head]{margin:0 0 6px}
+
+/* ---- THE SLOT ORDER (build 10664; ENCA 25351) ---------------------------
+   A toolbar holds six kinds of control and they are ALWAYS in this order,
+   left to right, on every screen:
+
+     find   .search          search within what this tool loaded
+     scope  .seg .tb-scope   which set the tool is looking at (view, mode)
+     filter .chip-filter     chips that narrow the rows inside that set
+            .sel-filter      (TUNO's) a select that does the same
+     window .tb-win          the time range read from the tenant
+     extra  anything else    this tool's own controls
+     act    .tb-actions      refresh, exports, the primary write — right
+
+   ENCA found TEN different orders for these across 33 screens: a control
+   moved when you switched tools, so you looked for it again every time.
+   TUNO's toolbars are mostly rows of chips with no find box, which these
+   rules leave as they are; the one that had both, 🗂 Policy overview, put
+   its view switch before its search and now follows the contract.
+
+   The markup follows this order too, so the FOCUS order matches what you
+   see; these `order` values are the guard rail, not the mechanism, and
+   tests/shell/layout.test.js fails a static toolbar written out of order.
+
+   THE ONE REAL CULPRIT in ENCA was .search{flex:1}: the find box ate all the
+   slack in the row, so the controls after it landed wherever the box ended.
+   Inside a toolbar the find box is a fixed width and .tb-actions{margin-left:
+   auto} takes the slack. */
+.toolbar > *{order:5}
+.toolbar > .search{order:1;flex:0 0 auto;width:clamp(200px,26%,320px);min-width:0}
+.toolbar > .seg,.toolbar > .tb-scope{order:2}
+.toolbar > .chip-filter,.toolbar > .sel-filter{order:3}
+.toolbar > .tb-win{order:4}
+.toolbar > .tb-actions{order:6}
+/* The window and scope pickers are .wi-f labels — a form field borrowed into
+   a toolbar — so they need the row direction. */
+.wi-f.tb-win,.wi-f.tb-scope{flex-direction:row;align-items:center;gap:6px;flex:none}
+@media (max-width:600px){
+  /* On a phone the find box is the widest useful thing in the row. */
+  .toolbar > .search{width:100%}
+}
 .toolbar > .chk{margin:0}
 /* every control in a toolbar shares one height, so nothing sits half a row off */
 .toolbar .btn,.toolbar .seg,.toolbar .fchip,.toolbar .chk,.toolbar .search input,
@@ -218,6 +258,16 @@ table.plist tr:hover td{background:var(--hover)}
 .sel-filter select:focus{outline:none;border-color:var(--lemon)}
 /* the options themselves render in the OS palette, so they need dark text */
 .sel-filter select option{color:var(--ink);background:var(--surface)}
+/* ...and on a light surface it reads dark on light (10664). The filter was
+   written for the deep-green selection bar of 📄 Configuration documenter,
+   then reused on light toolbars and cards — 🗂 Policy overview, ⚔️ Setting
+   conflict scan, 📈 Compliance report, 🧩 Assignment filters, the restore
+   picker — where its white text sat on the page background, unreadable in
+   the light theme. Outside the selection bar it now takes the page's own
+   field colours; inside it, nothing changes. */
+.sel-filter:not(.selbar .sel-filter) > span{color:var(--muted)}
+.sel-filter:not(.selbar .sel-filter) select{background:var(--surface);border-color:var(--border);color:var(--ink)}
+.sel-filter:not(.selbar .sel-filter) select:hover{background:var(--surface);border-color:var(--accent2)}
 .selhint{color:var(--on-deep-mute)}
 /* actions on the current selection, inside the (dark) selection bar. Ghost by
    default so the highlighted one — the tool you entered from — stands out. */

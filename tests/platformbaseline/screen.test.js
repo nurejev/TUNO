@@ -651,10 +651,11 @@ head("Bookkeeping travels in the same commit");
   // (T28 wave members); 51 since 10635 added js/mdereports.js (T28
   // reports); 52 since 10639 added js/mdeexclude.js (T28 exclusions);
   // 57 with the four T28 V2 assets of 10660; 56 since 10661 removed
-  // js/t28v2.js (the T28 version switch). A new script tag moves this on purpose —
-  // the count is the proof the bookkeeping pass covered every ref, not a
-  // fixed number.
-  ok("the ?v= refs: 56 since the T28 version switch left (10661)", vs.length === 56, String(vs.length));
+  // js/t28v2.js (the T28 version switch); 58 since 10664 added
+  // css/tool-layout.css and js/tool-layout.js (the folding tool head). A new
+  // script tag moves this on purpose — the count is the proof the
+  // bookkeeping pass covered every ref, not a fixed number.
+  ok("the ?v= refs: 58 since the shared tool layout arrived (10664)", vs.length === 58, String(vs.length));
   ok("the newest changelog entry is this build", w.CHANGELOG[0].build === build, String(w.CHANGELOG[0].build));
   const q = w.PROMOTE.items.find((i) => (i.builds || []).includes(build));
   ok("a promotion-queue item names this build", !!q, "no item carries " + build);

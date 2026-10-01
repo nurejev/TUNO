@@ -1,0 +1,16 @@
+/* Shared tool presentation — ENCA's css/tool-layout.css (as at ENCA beta
+   32433), ported at build 10664 with js/tool-layout.js. Native layouts keep
+   their own controls, column definitions, status colours and responsive
+   overflow containers.
+
+   So far only the folding head is here. ENCA's body.workspaces-shell rules —
+   the flat head, panel radii, toolbar and modal surfaces of the workspace
+   shell — arrive with the shell itself in parity slice 7. */
+
+/* The head folds (ENCA 25451): the title line stays, the prose goes. The fold
+   button sits at the end of the title; a meta block beside the title (a
+   tool's counts) is not prose and stays. */
+.wc-head-fold{margin-left:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;width:24px;height:24px;line-height:22px;font-size:12px;padding:0;vertical-align:middle;cursor:pointer}
+.wc-head-fold:hover{color:var(--ink);border-color:var(--ink)}
+.wc-tool-head.wc-head-folded p,.wc-tool-head.wc-head-folded ul,.wc-tool-head.wc-head-folded details,.wc-tool-head.wc-head-folded .mini.muted:not(.wc-page-title *){display:none}
+.wc-tool-head.wc-head-folded .wc-page-title{margin-bottom:0}
