@@ -581,6 +581,10 @@ const Fs = (() => {
       const toolName = (t) => {
         const h = t.querySelector("h3");
         if (!h) return "";
+        // js/accessibility.js moves the name into a .tool-launch button (10665)
+        // so the tile opens from the keyboard; the name is its text then.
+        const b = h.querySelector(".tool-launch");
+        if (b) return b.textContent.replace(/\s+/g, " ").trim();
         return [...h.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(" ").replace(/\s+/g, " ").trim();
       };
       const lastBuild = (() => {

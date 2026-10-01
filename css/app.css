@@ -2812,3 +2812,30 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 }
 #screen-mderollout .mr-report-group{padding:12px 0}
 #screen-mderollout .mr-report-group>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* ---- column resize (js/col-resize.js; ENCA 32312, ported at 10665) ------
+   A grip on every data table header's right edge: drag it, double-click it
+   to fit; ↺ in the last header puts the tool's own layout back once a table
+   has been resized. ENCA's rules verbatim. */
+th.cr-th{background-clip:padding-box}
+.cr-grip{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;touch-action:none}
+.cr-grip::after{content:"";position:absolute;left:4px;top:28%;height:44%;width:1px;background:var(--border);transition:background .12s}
+th.cr-th:hover>.cr-grip::after{background:var(--muted)}
+.cr-grip:hover::after,.cr-grip.on::after{background:var(--accent2,var(--green));width:3px;left:3px;top:0;height:100%}
+th.cr-th:last-child>.cr-grip{right:0}
+body.cr-dragging{cursor:col-resize;user-select:none}
+table.cr-custom th{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.cr-custom td{overflow:hidden;overflow-wrap:anywhere}
+.cr-reset{display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);font:inherit;font-size:12px;line-height:1;padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;z-index:4;text-transform:none;letter-spacing:0}
+table.cr-custom .cr-reset{display:inline-block}
+.cr-reset:hover{color:var(--ink);border-color:var(--muted)}
+table.cr-custom th:last-child{padding-right:40px}
+table.cr-measuring th,table.cr-measuring td{overflow:visible}
+
+/* ---- the tile's name is a button (js/accessibility.js; ENCA 25357) -------
+   So a tile can be reached with Tab and opened with Enter or Space. It looks
+   like the heading it replaced; the tile's click listener stays the route. */
+.tool-launch{font:inherit;font-weight:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;letter-spacing:inherit}
+.tool-launch:hover{text-decoration:underline}
+.tool-launch:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;border-radius:3px}
+
