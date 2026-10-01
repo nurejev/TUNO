@@ -1662,9 +1662,6 @@ const Fs = (() => {
     PROMOTE.applyTileFlags(document, typeof TOOL_VERSIONS !== "undefined" ? TOOL_VERSIONS : {}, { beta: !isProduction() });
   }
 
-  // Line icons in the chrome (js/flat-icons.js, parity slice 5, build
-  // 10666): draw the page as it stands and keep drawing what the tools
-  // render. ENCA starts them from js/workspaces.js; TUNO's arrives in
-  // slice 7 and takes this call over.
-  if (typeof FlatIcons !== "undefined") FlatIcons.start();
+  // Line icons in the chrome (js/flat-icons.js, 10666) are started by
+  // js/workspaces.js at the end of its own boot since 10668, as in ENCA.
 })();

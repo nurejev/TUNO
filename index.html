@@ -9,17 +9,18 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10667"></script>
+<script src="js/popup-guard.js?v=10668"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=3" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10667">
-<link rel="stylesheet" href="css/tool-layout.css?v=10667">
-<link rel="stylesheet" href="css/flat-icons.css?v=10667">
+<link rel="stylesheet" href="css/app.css?v=10668">
+<link rel="stylesheet" href="css/workspaces.css?v=10668">
+<link rel="stylesheet" href="css/tool-layout.css?v=10668">
+<link rel="stylesheet" href="css/flat-icons.css?v=10668">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10667"></script>
-<link rel="stylesheet" href="css/t28v2.css?v=10667">
+<script src="js/selfhost-boot.js?v=10668"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10668">
 </head>
 <body>
 
@@ -1731,7 +1732,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R41</span> 🧭 TUNO 2.0 — ENCA's workspace shell <span class="tag grant">slices 1–6 · beta 10667</span> <span class="tag new">BETA</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R41</span> 🧭 TUNO 2.0 — ENCA's workspace shell <span class="tag grant">slices 1–7 · beta 10668</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">TUNO takes over the shell ENCA 2.0 runs on its beta: a branded header, a narrow rail, Home as an overview, and <b>two workspaces</b> — <b>01 Intune</b> for T01–T27, and <b>02 Projects</b> for temporary project tools, starting with 🚀 MDE rollout, which stays on beta. The shell is a layer over the sidebar and tab bar the two apps already share, so the tools themselves stay where they are. After the layout come ENCA's connection settings (saved connections, your own app registration) and its self-hosted image; then one promotion, as TUNO 2.0. One beta build per slice, layout first, every layout change mocked before it is built.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 1, the foundation (beta 10662).</b> The header, the tab bar and the sidebar are measured rather than assumed, the demo bar included, so in the demo the header is no longer covered and the tab bar no longer hides under it. Every tool screen has the same frame, and <b>Back</b> works from all 28 tools — eight of them never added a history entry, so Back from one of them skipped the screen you had come from.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 2, one heading per tool (beta 10663).</b> Every tool's heading — its name, its chips and its number and version — is written from one entry per tool instead of typed into each screen, so a tool's name, tab and heading cannot drift apart, and production leaves the BETA chip out by itself. 🚀 MDE rollout's heading shows its number and version for the first time.</p>
@@ -1739,6 +1740,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
             <p class="mini" style="margin:6px 0 0"><b>Slice 4, tables and the keyboard (beta 10665).</b> Every data table's columns can be dragged wider or narrower by the header edge, fitted with a double-click and reset with ↺, remembered per table in this browser. Dialogs hold the keyboard while they are open and give it back when they close, and every tile on Home opens from the keyboard.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 5, line icons (beta 10666).</b> The emoji in the chrome — tiles, sidebar, tabs, headings, buttons and chips — are drawn as ENCA's line icons, in the text colour, so they follow the theme. Each tool has its own icon wherever it appears, including the two tools that shared 🛡; markers with no line icon keep their emoji, and names, tenant data and exports are untouched.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 6, the brand (beta 10667).</b> The TUNO mark is redrawn the way ENCA redrew its own: the device in deep green with a gold gear on a pale disc, lime on a green disc in dark mode. The beta site wears a BETA edition of it — in the header, on the sign-in card and as the tab icon — and a copy running anywhere else now says <b>SELF-HOSTED</b> in a slate ribbon rather than BETA. On the sign-in card the mark rides on a round medallion over the card's top edge, and a self-hosted look's dark mode takes its neutral greens from its own colours.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Slice 7, the header and the rail (beta 10668).</b> Signed in, the header is ENCA's branded bar: the mark on a round medallion over the top of an 88&nbsp;px rail, the workspace line, <b>All tools</b> and the tenant's name beside your initials. The rail runs Home and seven tools in work order — Policies, Groups, Devices, Posture, Assign, Baseline, AppLocker — then All tools and Help; on a phone it is a bar along the bottom. The tabs carry each tool's icon, the sidebar gives way to the rail, and each tool's head sits flat on the page. Home keeps its tiles until the next slice.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R40</span> 🚀 MDE rollout <span class="tag grant">live · beta 10632</span> <span class="tag new">BETA</span> <span class="tag">temporary</span></h4>
@@ -2143,7 +2145,7 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <div class="list-card" style="padding:18px 22px">
         <h3 style="margin:0 0 6px">What TUNO is</h3>
         <p class="mini" style="margin:0 0 10px"><b>TUNO — Tenant Utilities for iNtune Operations</b> is ENCA's sister tool (<a href="https://enca.limon-it.nl" target="_blank" rel="noopener">enca.limon-it.nl</a>): the same idea — static files running entirely in your browser, minimal delegated Graph permissions asked per tool, nothing stored server-side because there is no server — applied to Intune and endpoint security instead of Conditional Access.</p>
-        <p class="mini" style="margin:0"><b>Getting around.</b> Every tool is a tile on Home and, on a window wider than 1240&nbsp;px, a row in the sidebar; a tool you open gets a tab in the bar under the header. The browser's <b>Back</b> button walks back through the screens you opened — every tool, Home, What's new, the roadmap and this page — before it leaves TUNO. Each tool's description folds away with the <b>▾</b> after its name, and stays folded for that tool until you press <b>▸</b>. A table column's width follows its header's right edge: drag it, or double-click it to fit the column; <b>↺</b> in the last header puts the table back. With the keyboard, Tab reaches every tile's name and Enter opens the tool; an open dialog keeps Tab inside it until it closes, and Escape closes it. In the demo, the <b>DEMO TENANT</b> bar stays at the top of the window, above the header, on every screen.</p>
+        <p class="mini" style="margin:0"><b>Getting around.</b> Every tool is a tile on Home and a card in <b>All tools</b> — in the header and on the rail down the left, where Home and seven tools sit in the order the work goes: Policies, Groups, Devices, Posture, Assign, Baseline, AppLocker. On a phone the rail is a bar along the bottom. A tool you open gets a tab in the strip under the header, after <b>Overview</b>; the tenant you are working in is named on the account button, and its menu holds the theme, <b>Close all tools</b> and Sign out. In All tools, type a tool's name, what it does or its T-number. The browser's <b>Back</b> button walks back through the screens you opened — every tool, Home, What's new, the roadmap and this page — before it leaves TUNO. Each tool's description folds away with the <b>▾</b> after its name, and stays folded for that tool until you press <b>▸</b>. A table column's width follows its header's right edge: drag it, or double-click it to fit the column; <b>↺</b> in the last header puts the table back. With the keyboard, Tab reaches every tile's name and Enter opens the tool; an open dialog keeps Tab inside it until it closes, and Escape closes it. In the demo, the <b>DEMO TENANT</b> bar stays at the top of the window, above the header, on every screen.</p>
       </div>
 
       <!-- Section links, ENCA's pattern: one pill per section, in the order the
@@ -2307,61 +2309,62 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10667"></script>
-<script src="js/selfhost.js?v=10667"></script>
-<script src="js/version.js?v=10667"></script>
-<script src="js/promote.js?v=10667"></script>
-<script src="js/authConfig.js?v=10667"></script>
-<script src="js/changelog.js?v=10667"></script>
-<script src="js/msappcatalog.js?v=10667"></script>
-<script src="js/demo.js?v=10667"></script>
-<script src="js/graph.js?v=10667"></script>
-<script src="js/suggest.js?v=10667"></script>
-<script src="js/progress.js?v=10667"></script>
-<script src="js/runledger.js?v=10667"></script>
-<script src="js/groupuse.js?v=10667"></script>
-<script src="js/audit.js?v=10667"></script>
-<script src="js/devicecleanup.js?v=10667"></script>
-<script src="js/backup.js?v=10667"></script>
-<script src="js/document.js?v=10667"></script>
-<script src="js/policycache.js?v=10667"></script>
-<script src="js/overview.js?v=10667"></script>
-<script src="js/devicewhy.js?v=10667"></script>
-<script src="js/whatif.js?v=10667"></script>
-<script src="js/health.js?v=10667"></script>
-<script src="js/settingsearch.js?v=10667"></script>
-<script src="js/conflict.js?v=10667"></script>
-<script src="js/compliance.js?v=10667"></script>
-<script src="js/filterrules.js?v=10667"></script>
-<script src="js/filters.js?v=10667"></script>
-<script src="js/restore.js?v=10667"></script>
-<script src="js/platformbaseline.js?v=10667"></script>
-<script src="js/complianceevidence.js?v=10667"></script>
-<script src="js/macbaseline.js?v=10667"></script>
-<script src="js/winbaseline.js?v=10667"></script>
-<script src="js/assignedit.js?v=10667"></script>
-<script src="js/restrictedau.js?v=10667"></script>
-<script src="js/groupmigrate.js?v=10667"></script>
-<script src="js/roles.js?v=10667"></script>
-<script src="js/defender.js?v=10667"></script>
-<script src="js/endpointsec.js?v=10667"></script>
-<script src="js/report.js?v=10667"></script>
-<script src="js/securescore.js?v=10667"></script>
-<script src="js/endpointposture.js?v=10667"></script>
-<script src="js/mdemembers.js?v=10667"></script>
-<script src="js/mdereports.js?v=10667"></script>
-<script src="js/mdeexclude.js?v=10667"></script>
-<script src="js/mdeasr.js?v=10667"></script>
-<script src="js/mderollout.js?v=10667"></script>
-<script src="js/t28v2safety.js?v=10667"></script>
-<script src="js/mderolloutv2.js?v=10667"></script>
-<script src="js/maa.js?v=10667"></script>
-<script src="js/laps.js?v=10667"></script>
-<script src="js/applocker.js?v=10667"></script>
-<script src="js/flat-icons.js?v=10667"></script>
-<script src="js/app.js?v=10667"></script>
-<script src="js/col-resize.js?v=10667"></script>
-<script src="js/accessibility.js?v=10667"></script>
-<script src="js/tool-layout.js?v=10667"></script>
+<script src="js/branding.js?v=10668"></script>
+<script src="js/selfhost.js?v=10668"></script>
+<script src="js/version.js?v=10668"></script>
+<script src="js/promote.js?v=10668"></script>
+<script src="js/authConfig.js?v=10668"></script>
+<script src="js/changelog.js?v=10668"></script>
+<script src="js/msappcatalog.js?v=10668"></script>
+<script src="js/demo.js?v=10668"></script>
+<script src="js/graph.js?v=10668"></script>
+<script src="js/suggest.js?v=10668"></script>
+<script src="js/progress.js?v=10668"></script>
+<script src="js/runledger.js?v=10668"></script>
+<script src="js/groupuse.js?v=10668"></script>
+<script src="js/audit.js?v=10668"></script>
+<script src="js/devicecleanup.js?v=10668"></script>
+<script src="js/backup.js?v=10668"></script>
+<script src="js/document.js?v=10668"></script>
+<script src="js/policycache.js?v=10668"></script>
+<script src="js/overview.js?v=10668"></script>
+<script src="js/devicewhy.js?v=10668"></script>
+<script src="js/whatif.js?v=10668"></script>
+<script src="js/health.js?v=10668"></script>
+<script src="js/settingsearch.js?v=10668"></script>
+<script src="js/conflict.js?v=10668"></script>
+<script src="js/compliance.js?v=10668"></script>
+<script src="js/filterrules.js?v=10668"></script>
+<script src="js/filters.js?v=10668"></script>
+<script src="js/restore.js?v=10668"></script>
+<script src="js/platformbaseline.js?v=10668"></script>
+<script src="js/complianceevidence.js?v=10668"></script>
+<script src="js/macbaseline.js?v=10668"></script>
+<script src="js/winbaseline.js?v=10668"></script>
+<script src="js/assignedit.js?v=10668"></script>
+<script src="js/restrictedau.js?v=10668"></script>
+<script src="js/groupmigrate.js?v=10668"></script>
+<script src="js/roles.js?v=10668"></script>
+<script src="js/defender.js?v=10668"></script>
+<script src="js/endpointsec.js?v=10668"></script>
+<script src="js/report.js?v=10668"></script>
+<script src="js/securescore.js?v=10668"></script>
+<script src="js/endpointposture.js?v=10668"></script>
+<script src="js/mdemembers.js?v=10668"></script>
+<script src="js/mdereports.js?v=10668"></script>
+<script src="js/mdeexclude.js?v=10668"></script>
+<script src="js/mdeasr.js?v=10668"></script>
+<script src="js/mderollout.js?v=10668"></script>
+<script src="js/t28v2safety.js?v=10668"></script>
+<script src="js/mderolloutv2.js?v=10668"></script>
+<script src="js/maa.js?v=10668"></script>
+<script src="js/laps.js?v=10668"></script>
+<script src="js/applocker.js?v=10668"></script>
+<script src="js/flat-icons.js?v=10668"></script>
+<script src="js/app.js?v=10668"></script>
+<script src="js/col-resize.js?v=10668"></script>
+<script src="js/accessibility.js?v=10668"></script>
+<script src="js/workspaces.js?v=10668"></script>
+<script src="js/tool-layout.js?v=10668"></script>
 </body>
 </html>

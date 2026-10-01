@@ -278,3 +278,22 @@ their own — a small integer in js/branding.js, css/app.css and index.html,
 bumped together when the artwork changes — never the build number, which
 would join the build's `?v=` refs that tests/platformbaseline/screen
 counts. tests/shell/brand.test.js holds all of it.
+
+## The workspace shell is drawn over the old navigation (build 10668)
+
+`js/workspaces.js` (ENCA's) draws the branded header, the 88 px rail, the
+strip of open tools and the All tools library once a session starts — over
+app.js's sidebar and tab bar, which still render and stay the registry:
+every rail, library and header click ends in the hidden sidebar's own
+`#side-<toolId>` button, so the tile is still the router. Do not take the
+sidebar out of the DOM, and hide it in CSS only. What a new tool needs:
+
+- a one-line `blurbs` entry in js/workspaces.js — its card in All tools;
+  tests/shell/header.test.js fails a card without one;
+- nothing else for the rail unless it joins the seven shortcuts (round 1,
+  D1 A, work order) — that list is `WORKSPACES.intune.shortcuts`.
+
+A fixed bar a tool adds (like the Assignment editor's selection pill) is
+laid out against `--wc-rail-width`, never the old 240 px sidebar, and sits
+above the 62 px bottom rail under 700 px — css/workspaces.css ends with
+TUNO's own.

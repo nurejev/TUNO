@@ -1,0 +1,154 @@
+/* ======================================================================
+   The workspace shell — ENCA's css/workspaces.css (25401 … 32430, as at
+   ENCA beta 32433), ported at TUNO build 10668 (TUNO–ENCA parity slice 7):
+   the branded header with the 60 px medallion (25494), the 88 px rail that
+   becomes a bottom bar under 700 px, the strip of open tools, the account
+   button with the tenant's name (round 1, D2 B) and the tool library.
+
+   Not here yet, on purpose: ENCA's Home (Recent tools, the library under the
+   overview — slice 8, which also hides the tile grid), the workspace chip's
+   second side and its colours (slice 12), the connected-app block (slice
+   16). ENCA's rules for its own screens (the CA-groups sheet, the
+   permissions overview) are not ported; TUNO's own fixed bars follow the
+   rail at the end of this file.
+   ====================================================================== */
+/* Application chrome shares TUNO's active branding palette. */
+body.workspaces-shell{--wc-rail-width:88px;--wc-brand:var(--green-deep);--wc-brand-ink:#fff;--wc-brand-muted:color-mix(in srgb,var(--wc-brand-ink) 80%,var(--wc-brand));--wc-active-bg:var(--ink);--wc-active-ink:var(--surface)}
+body.workspaces-shell header{background:var(--wc-brand);color:var(--wc-brand-ink);border-color:color-mix(in srgb,var(--wc-brand-ink) 20%,var(--wc-brand))}
+body.workspaces-shell .hwrap{max-width:none;padding:15px 22px;gap:25px;min-height:63px}
+body.workspaces-shell:has(#betaRibbon)>header{padding-top:28px}
+body.workspaces-shell #brandOrg,body.workspaces-shell #brandTag,body.workspaces-shell .hwrap>.spacer{display:none!important}
+.wc-brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:650;letter-spacing:-.8px;color:var(--wc-brand-ink);min-width:0}
+body.workspaces-shell #logoHome{min-width:0;flex-shrink:1}
+body.workspaces-shell #brandLogo{display:block;width:34px;height:34px;object-fit:contain;max-width:180px;flex-shrink:0}
+#wcBrandName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.wc-header-context{flex:1;color:var(--wc-brand-muted);font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wc-nav-icon{width:16px;height:16px;flex-shrink:0}
+#wcHeaderTools{display:flex;align-items:center;gap:8px;padding:7px 13px;background:color-mix(in srgb,var(--wc-brand-ink) 9%,var(--wc-brand));color:var(--wc-brand-ink);border:1px solid color-mix(in srgb,var(--wc-brand-ink) 24%,var(--wc-brand));border-radius:6px;font-size:11px;white-space:nowrap;flex-shrink:0}
+#wcHeaderTools:hover{background:color-mix(in srgb,var(--wc-brand-ink) 17%,var(--wc-brand))}
+body.workspaces-shell #acctBtn{border:0;border-radius:6px;background:transparent;color:var(--wc-brand-ink);padding:0;font-size:11px;gap:10px}
+body.workspaces-shell #acctBtn:hover,body.workspaces-shell #acctBtn[aria-expanded=true]{background:color-mix(in srgb,var(--wc-brand-ink) 12%,var(--wc-brand))}
+#wcAccountLabel{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+body.workspaces-shell #acctBtn #avatar{width:27px;height:27px;background:var(--surface);color:var(--ink);font-size:11px}
+body.workspaces-shell #acctMenu #themeBtn{display:block;border:0;border-radius:8px;background:transparent;color:var(--ink);font-weight:400;font-size:13px;padding:8px 10px}
+body.workspaces-shell #acctMenu #themeBtn:hover{background:var(--soft)}
+.wc-account-note{font-size:11px;line-height:1.5;color:var(--muted);border-top:1px solid var(--border);margin-top:4px;padding:10px}
+#wcCloseAll:disabled{opacity:.5;cursor:default}
+body.workspaces-shell #sideNav{display:none!important}
+body.workspaces-shell main,body.workspaces-shell.with-side.side-min main{margin:0 0 0 var(--wc-rail-width);padding:32px 32px 80px;max-width:none;min-width:0}
+body.workspaces-shell .fwrap,body.workspaces-shell.with-side.side-min .fwrap{margin-left:var(--wc-rail-width);max-width:none}
+body.workspaces-shell #screen-home{max-width:1320px;margin-inline:auto}
+body.workspaces-shell #toolNav{padding:0 0 0 var(--wc-rail-width)}
+body.workspaces-shell .toolnav-inner,body.workspaces-shell.with-side.side-min .toolnav-inner{padding:8px 16px;max-width:none;gap:5px;min-height:49px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+body.workspaces-shell .toolnav-inner>:first-child{margin-left:0}
+body.workspaces-shell .toolnav-inner>:last-child{margin-right:0}
+body.workspaces-shell .toolnav-tab{border:1px solid transparent;border-radius:6px;background:transparent;max-width:min(290px,calc(100vw - 160px));min-width:0;flex-shrink:0}
+body.workspaces-shell #toolNav .toolnav-btn.home{position:sticky;left:0;z-index:2;background:var(--surface);flex-shrink:0}
+body.workspaces-shell #toolNav .toolnav-btn{display:flex;align-items:center;gap:7px;min-width:0;padding:6px 10px;font-size:11px;font-weight:400;border-radius:6px}
+body.workspaces-shell #toolNav .toolnav-tab .toolnav-btn{flex:1}
+body.workspaces-shell #toolNav .toolnav-btn>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.workspaces-shell #toolNav .toolnav-btn.home svg{width:16px;height:16px}
+body.workspaces-shell #toolNav [data-navadd],body.workspaces-shell #toolNav [data-navhelp],body.workspaces-shell #toolNav [data-navcloseall]{display:none}
+body.workspaces-shell #toolNav .toolnav-x{padding:6px 7px 6px 0;opacity:0;font-size:13px}
+body.workspaces-shell #toolNav .toolnav-tab:hover .toolnav-x,body.workspaces-shell #toolNav .toolnav-tab:focus-within .toolnav-x{opacity:1}
+/* Invert the theme's text/surface pair so the current location stays distinct. */
+body.workspaces-shell .toolnav-tab.active{background:var(--wc-active-bg);border-color:var(--wc-active-bg)}
+body.workspaces-shell #toolNav .toolnav-tab.active .toolnav-btn,body.workspaces-shell #toolNav .toolnav-tab.active .toolnav-x{color:var(--wc-active-ink)}
+body.workspaces-shell #toolNav .toolnav-tab.active .toolnav-btn:hover,body.workspaces-shell #toolNav .toolnav-tab.active .toolnav-x:hover{background:transparent;color:var(--wc-active-ink)}
+body.workspaces-shell #toolNav .toolnav-btn.home.active{background:var(--wc-active-bg);color:var(--wc-active-ink);border-color:var(--wc-active-bg)}
+#wcRail{position:fixed;top:var(--sticky-header,66px);bottom:0;left:0;width:var(--wc-rail-width);padding:16px 8px;display:flex;flex-direction:column;gap:7px;z-index:46;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto}
+#wcRail button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:0;border-radius:8px;background:transparent;color:var(--muted);padding:11px 4px;min-height:61px;flex-shrink:0}
+#wcRail button>span{font-size:19px;line-height:1.1}
+#wcRail button>small{font-size:11px;font-weight:500}
+#wcRail button:hover{background:var(--soft);color:var(--ink)}
+#wcRail button.active{background:var(--wc-active-bg);color:var(--wc-active-ink)}
+.wc-rail-divider{border-top:1px solid var(--border);margin:7px}
+.wc-rail-caption{margin-top:auto;padding-top:26px;text-align:center;color:var(--muted);font-size:9px;line-height:1.7;letter-spacing:.08em}
+.wc-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.11em;font-weight:600;color:var(--muted)}
+.wc-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.wc-tool{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);padding:20px;min-width:0;min-height:166px;transition:border-color .15s,background .15s}
+.wc-tool:hover{border-color:var(--green);background:var(--soft2)}
+.wc-tool-icon{font-size:21px;margin-bottom:14px;line-height:1}
+.wc-tool strong{font-size:14px;font-weight:600;line-height:1.45}.wc-tool>span:not(.wc-tool-icon){font-size:12px;line-height:1.65;color:var(--muted);margin-top:6px}.wc-tool small{font-size:10px;color:var(--muted);margin-top:auto;padding-top:16px;letter-spacing:.04em}
+.wc-text-button{border:0;padding:5px 0;background:transparent;color:var(--green);font:inherit;font-size:12px;font-weight:600;text-align:left}
+.wc-text-button:hover{text-decoration:underline}
+#wcLauncher{position:fixed;inset:0;margin:auto;width:min(850px,calc(100% - 32px));max-height:85dvh;padding:28px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 24px 90px #0004;overflow:auto}
+#wcLauncher::backdrop{background:color-mix(in srgb,var(--green-deep) 65%,transparent);backdrop-filter:blur(3px)}
+.wc-launcher-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:24px}.wc-launcher-head h2{font-size:25px;letter-spacing:-.03em;margin-top:5px}
+#wcCloseLauncher{border:1px solid var(--border);border-radius:7px;background:var(--soft);color:var(--ink);width:36px;height:36px;font-size:24px}
+.wc-search-label{display:block;font-size:12px;margin-bottom:7px}
+#wcSearch{display:block;width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+#wcResultCount{font-size:11px;color:var(--muted);margin:10px 0 22px}
+#wcTools section>h3{font-size:13px;font-weight:600;margin:28px 0 12px}
+#wcTools .wc-tool{min-height:144px;padding:16px}.wc-no-results{padding:28px 0;color:var(--muted)}
+@media(min-width:1600px){.wc-tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1000px){body.workspaces-shell main,body.workspaces-shell.with-side.side-min main{padding:26px 22px 70px}.wc-tool{padding:16px}}
+/* The phone: the rail is a 62 px bottom bar. TUNO's bar is round 1's —
+   Home, Policies, Groups, Devices, Assign, All tools — so Posture, Baseline,
+   AppLocker and Help stay on the wider rail (ENCA hides its own three). */
+@media(max-width:700px){body.workspaces-shell{--wc-rail-width:0px}body.workspaces-shell .hwrap{padding:10px 14px;gap:9px;flex-wrap:wrap;min-height:60px}body.workspaces-shell .app-tag{display:none}body.workspaces-shell main,body.workspaces-shell.with-side.side-min main{margin:0;padding:22px 16px 75px}body.workspaces-shell .toolnav{top:var(--sticky-header,60px)}body.workspaces-shell .toolnav-inner,body.workspaces-shell.with-side.side-min .toolnav-inner{padding:2px 12px}#wcRail{position:fixed;top:auto;bottom:0;width:100%;height:62px;padding:5px 8px;flex-direction:row;gap:4px;overflow-x:auto;overflow-y:hidden;border-right:0;border-top:1px solid var(--border)}#wcRail [data-wc-tool="toolPosture"],#wcRail [data-wc-tool="toolWinBaseline"],#wcRail [data-wc-tool="toolAppLocker"],#wcRail [data-wc-tool="toolHelp"]{display:none}body.workspaces-shell{padding-bottom:62px}#wcRail button{flex:1;min-width:56px;min-height:50px;padding:5px 4px;gap:4px}#wcRail button>span{font-size:17px}#wcRail button>small{font-size:10px}.wc-rail-divider,.wc-rail-caption{display:none}.wc-tool-grid{gap:10px}.wc-tool{min-height:160px;padding:15px}.wc-tool strong{font-size:13px}#wcLauncher{padding:20px 16px;width:calc(100% - 20px)}#wcLauncher .wc-tool-grid{grid-template-columns:minmax(0,1fr)}#wcSearch{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.wc-tool{transition:none}}
+/* Match the selected mockup: account moves to a second line on mobile. */
+@media(max-width:850px){.wc-header-context{display:none}#wcHeaderTools{margin-left:auto}body.workspaces-shell .hwrap{gap:15px}}
+@media(max-width:600px){body.workspaces-shell .hwrap{padding:13px 15px;gap:13px;flex-wrap:wrap}body.workspaces-shell #tenantBox{width:100%}body.workspaces-shell #acctBtn{width:100%;justify-content:space-between}#wcAccountLabel{max-width:calc(100% - 42px)}body.workspaces-shell #toolNav .toolnav-inner{padding:8px 12px}}
+@media(pointer:coarse){body.workspaces-shell #toolNav .toolnav-x{opacity:1;padding:8px;min-height:36px}#wcHeaderTools,body.workspaces-shell #acctBtn{min-height:36px}}
+@media(max-width:700px){#wcBrandName{max-width:130px}body.workspaces-shell #brandLogo{max-width:96px}body.workspaces-shell.wc-wide-logo #wcBrandName{max-width:90px}}
+@media(max-width:360px){body.workspaces-shell.wc-wide-logo #wcBrandName{display:none}#wcBrandName{max-width:100px}}
+/* The shell follows the native sign-in lifecycle; no navigation before auth. */
+body.workspaces-shell:not(.with-side) #wcRail,
+body.workspaces-shell:not(.with-side) #wcHeaderTools,
+body.workspaces-shell:not(.with-side) #toolNav,
+body.workspaces-shell:not(.with-side) .wc-header-context{display:none!important}
+body.workspaces-shell:not(.with-side) main{margin:0 auto;max-width:1180px;padding:32px 24px 70px}
+body.workspaces-shell:not(.with-side) .fwrap{margin:0 auto;max-width:1180px}
+body.workspaces-shell:not(.with-side){padding-bottom:0}
+body.workspaces-shell:not(.with-side) #themeBtn{margin-left:auto}
+body.workspaces-shell #acctMenu{max-height:calc(100dvh - 150px);overflow-y:auto}
+/* The mark in the top corner hangs over the header's bottom edge on the same
+   medallion as the sign-in card (ENCA 25494): a 60px disc centred on the rail
+   column, half in the header and half over the rail, so mark and rail read as
+   one column. The header is position:sticky, so it is the containing block and
+   bottom:-30px tracks its real height (with or without the BETA ribbon). Only
+   with the rail showing (with-side, wider than 700px) and never for a wide
+   wordmark (wc-wide-logo), which keeps the flat 34px look. */
+@media(min-width:701px){
+body.workspaces-shell.with-side:not(.wc-wide-logo) .hwrap{padding-left:calc(var(--wc-rail-width) + 12px)}
+body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{position:absolute;z-index:1;left:calc(var(--wc-rail-width) / 2 - 30px);bottom:-30px;box-sizing:border-box;width:60px;height:60px;max-width:none;padding:5px;
+  border-radius:50%;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow),0 0 0 4px color-mix(in srgb,var(--glow) 45%,transparent)}
+body.workspaces-shell.with-side:not(.wc-wide-logo) #wcRail{padding-top:46px}
+/* TUNO: the medallion shows the mark's inner disc (round 1's crop), so the
+   device reads at 60 px — light, dark and the BETA editions. Somebody's own
+   logo under a self-hosted look is never cropped: app.css's data-brand rule
+   (content:normal !important) wins over these. */
+body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-light.svg?v=3")}
+:root[data-beta-mark] body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-light-beta.svg?v=3")}
+:root[data-theme="dark"] body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-dark.svg?v=3")}
+:root[data-beta-mark][data-theme="dark"] body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-dark-beta.svg?v=3")}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]) body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-dark.svg?v=3")}
+  :root[data-beta-mark]:not([data-theme="light"]):not([data-theme="dark"]) body.workspaces-shell.with-side:not(.wc-wide-logo) #brandLogo{content:url("../assets/logo-medallion-dark-beta.svg?v=3")}
+}
+}
+/* The workspace chip and its menu (ENCA 32407). Drawn only once a second
+   workspace exists (slice 12); one workspace has nothing to switch to. */
+.wc-ws{position:relative;display:inline-flex;align-items:center;flex-shrink:0}
+.wc-ws-chip{display:inline-flex;align-items:center;gap:8px;border:1px solid color-mix(in srgb,var(--wc-brand-ink) 28%,var(--wc-brand));background:color-mix(in srgb,var(--wc-brand-ink) 10%,var(--wc-brand));color:var(--wc-brand-ink);border-radius:6px;padding:6px 10px 6px 8px;font:inherit;font-size:12px;font-weight:500;letter-spacing:0;white-space:nowrap;cursor:pointer}
+.wc-ws-chip:hover,.wc-ws-chip[aria-expanded="true"]{background:color-mix(in srgb,var(--wc-brand-ink) 18%,var(--wc-brand))}
+.wc-ws-num{font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--lemon);color:#12331f;border-radius:4px;padding:4px 5px}
+.wc-ws-caret{font-size:10px;opacity:.8}
+.wc-ws-dot{width:8px;height:8px;border-radius:2px;background:var(--wc-brand)}
+#wcRail button.wc-planned{opacity:.45;cursor:default}
+#wcRail button.wc-planned:hover{background:transparent;color:var(--muted)}
+.wc-tool small{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+@media(max-width:700px){.wc-ws-chip span:not(.wc-ws-num){display:none}.wc-ws-chip{padding:6px 7px}}
+
+/* TUNO's own fixed bars follow the rail (ENCA 25474 did the same for its
+   CA-groups sheet). The Assignment editor's selection pill clears the rail
+   rather than the 240 px sidebar it was sized for; on a phone the bars and
+   the toast sit above the bottom rail. */
+body.workspaces-shell .ae-selbar,body.workspaces-shell.with-side.side-min .ae-selbar{left:calc(var(--wc-rail-width) + 24px);right:24px}
+@media(max-width:700px){
+body.workspaces-shell .ae-selbar,body.workspaces-shell.with-side.side-min .ae-selbar{left:12px;right:12px;bottom:76px}
+body.workspaces-shell .run-badge{bottom:76px}
+body.workspaces-shell .toast{bottom:86px}
+}

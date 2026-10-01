@@ -43,8 +43,8 @@
 //   * The observer draws what changed — the subtrees the mutations name —
 //     rather than the whole page on every frame: TUNO's tools re-render
 //     big tables, and a run ledger ticks its clock every second.
-//   * Started by js/app.js at the end of its boot; ENCA starts it from
-//     js/workspaces.js, which arrives in slice 7 and takes this over.
+//   * Started by js/workspaces.js, as in ENCA (since 10668; js/app.js
+//     started it at 10666–10667).
 // Rewritten without optional chaining (TUNO's house rule).
 // ======================================================================
 const FlatIcons = (() => {

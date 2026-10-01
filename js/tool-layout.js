@@ -2,11 +2,11 @@
    ported at build 10664. The tools own their data, actions and dialogs; this
    file owns how a tool screen's head behaves.
 
-   Ported so far: THE HEAD FOLDS (ENCA 25451). ENCA's second half — keeping
-   the header's text readable on a light branding colour (contrastInk,
-   --wc-brand-ink) — arrives with the branded header in parity slice 7, where
-   there is a header to measure. ENCA's #anIntro line is ENCA's own screen and
-   is not ported. Rewritten without optional chaining (TUNO's house rule). */
+   Two halves: THE HEAD FOLDS (ENCA 25451, ported at 10664), and keeping the
+   branded header's text readable on a light branding colour (contrastInk,
+   --wc-brand-ink, ported at 10668 with the header itself, parity slice 7).
+   ENCA's #anIntro line is ENCA's own screen and is not ported. Rewritten
+   without optional chaining or ** (TUNO's house rule and older browsers). */
 (() => {
   'use strict';
 
@@ -52,4 +52,36 @@
     markTitle();
     if (typeof MutationObserver !== 'undefined') new MutationObserver(markTitle).observe(head, {childList:true, subtree:true});
   });
+
+  // Custom palettes may use a light primary or dark accent. Keep text readable
+  // in the new header and selected rail item, also after a theme/brand change.
+  // (ENCA's, as at 32433; the colour is read from the header the shell paints.)
+  function contrastInk(color) {
+    const m = String(color || '').match(/^rgba?\(([^)]+)\)$/);
+    const rgb = m ? m[1].split(/[\s,\/]+/).slice(0, 3).map(Number) : null;
+    if (!rgb || rgb.length < 3 || rgb.some(Number.isNaN)) return '#fff';
+    const l = rgb.map(x => { x /= 255; return x <= .04045 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); });
+    const luminance = l[0] * .2126 + l[1] * .7152 + l[2] * .0722;
+    return luminance > .179 ? '#111111' : '#ffffff';
+  }
+  function syncContrast() {
+    const header = document.querySelector('body > header');
+    if (!header || typeof getComputedStyle !== 'function') return;
+    document.body.style.setProperty('--wc-brand-ink', contrastInk(getComputedStyle(header).backgroundColor));
+    const sample = document.createElement('span');
+    sample.style.cssText = 'position:absolute;visibility:hidden;background:var(--lemon)';
+    document.body.append(sample);
+    document.body.style.setProperty('--wc-accent-ink', contrastInk(getComputedStyle(sample).backgroundColor));
+    sample.remove();
+  }
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(syncContrast).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme','data-brand','style']});
+    new MutationObserver(syncContrast).observe(document.body, {attributes:true, attributeFilter:['class']});
+  }
+  document.addEventListener('tuno:brand-updated', syncContrast);
+  if (typeof matchMedia === 'function') {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    if (mq && mq.addEventListener) mq.addEventListener('change', syncContrast);
+  }
+  syncContrast();
 })();

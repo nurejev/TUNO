@@ -50,8 +50,8 @@ head("Loaded where ENCA loads it — before app.js, its stylesheet after tool-la
   ok("js/flat-icons.js comes before js/app.js, which starts it", at("flat-icons.js") > 0 && at("flat-icons.js") < at("app.js"));
   const css = (f) => html.indexOf(`href="css/${f}`);
   ok("css/flat-icons.css follows css/tool-layout.css", css("tool-layout.css") > 0 && css("flat-icons.css") > css("tool-layout.css"));
-  const app = fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8");
-  ok("app.js starts it at the end of its boot, guarded", /if \(typeof FlatIcons !== "undefined"\) FlatIcons\.start\(\);\s*\}\)\(\);\s*$/.test(app));
+  const ws = fs.readFileSync(path.join(ROOT, "js/workspaces.js"), "utf8"), app = fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8");
+  ok("js/workspaces.js starts it at the end of its own boot, as ENCA's does (10668)", /if \(typeof FlatIcons !== 'undefined'\) FlatIcons\.start\(\);\s*\}\)\(\);\s*$/.test(ws) && !/FlatIcons\.start\(\)/.test(app));
   ok("ENCA's sizes are kept: 18 px, 24 px in a heading, 28 px on a tile, 19 px in the sidebar",
     /\.enca-icon\{display:inline-block;width:18px;height:18px/.test(iconsCss) && /\.tool-ic \.enca-icon\{width:28px;height:28px\}/.test(iconsCss)
     && /\.sn-ic \.enca-icon\{width:19px;height:19px\}/.test(iconsCss) && /h2>\.fi-run>\.enca-icon-slot \.enca-icon/.test(iconsCss));
