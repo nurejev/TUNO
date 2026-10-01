@@ -320,9 +320,36 @@ the card's chips as they stand when the shell starts, so a tag is still
 added to the TILE, never to js/workspaces.js. Recent tools live in memory
 for the session (five, newest first, cleared on sign-out or a tenant
 switch); whether the library is open is `tuno.wcLibraryOpen:<workspace>`
-in localStorage. The library starts closed when an element `#wcOverview`
-is there — the Intune overview since 10671, which renders into `#wcHome` on
-the `tuno:wchome` event — and open where there is none.
+in localStorage. On 01 the library starts closed when an element
+`#wcOverview` is there — the Intune overview since 10671, which renders into
+`#wcHome` on the `tuno:wchome` event — and open where there is none; 02 has
+no overview and starts open.
+
+## Two workspaces: a side needs a tool of its own (build 10673)
+
+The shell has ENCA's two sides (32407, 32430): **01 Intune**, every tool,
+and **02 Projects**, temporary tools for customer projects that stay on the
+beta channel. The side is `body[data-ws]` (`intune` / `projects`), kept as
+`tuno.workspace` in localStorage and as `?ws=projects` in the address
+(replaceState; every other parameter kept). What decides where a tool is:
+
+- a tile joins 02 with `data-ws="projects"` on the tile in index.html (and
+  `data-rail="<short label>"` for its rail entry, else the rail says its
+  name) — the tile says where it lives, as everything else about a tool;
+- 02's carry-overs — 01 tools offered there too, the same screen — are
+  `WORKSPACES.projects.carry` in js/workspaces.js, `[id, blurb, rail label]`;
+  Help, What's new and the roadmap belong to both sides (`SHARED`);
+- **a side is drawn only with a tool of its own.** Carry-overs alone never
+  make one; with one side there is no chip, no rail switch, no ⌘⇧2, no
+  palette entry, and `?ws=projects` lands on 01. A project tool never goes
+  to production, so production shows one workspace — never put `data-ws`
+  on a tile that is promoted.
+
+Tabs belong to their tool's side: a switch hides the other side's tabs, it
+never closes them. A tool of the other side opened by the app (the palette,
+a jump from a report, Back, a recent tool) switches the side quietly and
+stays on its screen; a switch by hand goes to that side's Home when the
+screen's tool is not on it. tests/shell/workspaces.test.js holds all of it.
 
 ## Home's Intune overview reads nothing (build 10671)
 

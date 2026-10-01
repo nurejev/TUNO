@@ -124,7 +124,7 @@ head("Signed in: the branded header");
   ok("the mark and the product name are one brand inside the logo's link", $("logoHome").querySelector(".wc-brand") && $("logoHome").querySelector(".wc-brand").firstElementChild === $("brandLogo") && $("wcBrandName").textContent === "TUNO");
   ok("the context line says where you are", $("wcHeaderContext").textContent === "Intune / Workspace 01");
   ok("All tools sits in the header, with its icon", $("wcHeaderTools") && /All tools/.test($("wcHeaderTools").textContent) && $("wcHeaderTools").querySelector("svg"));
-  ok("one workspace has no chip to switch with (slice 12 brings 02)", !$("wcWsChip"));
+  ok("one side has no chip to switch with (02 is drawn once it has a tool of its own — tests/shell/workspaces.test.js)", !$("wcWsChip"));
   const b = $("acctBtn");
   ok("the account button names the tenant before the initials (round 1, D2 B)", b.firstElementChild === $("wcAccountLabel") && b.lastElementChild === $("avatar") && $("wcAccountLabel").textContent === "Contoso B.V. · Demo");
   ok("and says so to a screen reader", b.getAttribute("aria-label") === "Contoso B.V. · Demo — account options");
@@ -269,7 +269,7 @@ head("Without an overview above it the library starts open, and remembers");
   const w2 = await bootShell({ storage: { "tuno.wcLibraryOpen:intune": "0" } });
   ok("the next visit starts where you left it", w2.document.getElementById("wcOverviewTools").hidden === true && w2.document.getElementById("wcToggleLibrary").textContent === "Show");
   const ws = fs.readFileSync(path.join(ROOT, "js/workspaces.js"), "utf8");
-  ok("where #wcOverview exists the default is closed, as ENCA's 01 (tests/shell/home.test.js)", /const deflt = !\$\('wcOverview'\);/.test(ws));
+  ok("where 01's #wcOverview exists the default is closed, as ENCA's 01 (tests/shell/home.test.js); 02 has none", /const deflt = !\(WORKSPACES\[ws\]\.overview && \$\('wcOverview'\)\);/.test(ws));
   ok("the overview is told when Home exists (tuno:wchome)", /document\.dispatchEvent\(new CustomEvent\('tuno:wchome'\)\)/.test(ws));
 }
 
