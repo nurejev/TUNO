@@ -12,6 +12,12 @@
 // wears the tools' icons, and All tools opens the library. The markup in
 // index.html is unchanged: the shell is drawn over it once a session starts.
 //
+// Home (10669, parity slice 8 — ENCA 25401/25422/25426): the tenant and the
+// workspace over the heading, Recent tools beside the library of every tool
+// grouped as the tiles were, the tiles' tags as chips, the library's Hide /
+// Show remembered per workspace, and the tile grid hidden but still the
+// registry everything reads.
+//
 // Run with `npm test`, or alone:  node tests/shell/header.test.js
 // ======================================================================
 const { suite } = require("../platformbaseline/harness");
@@ -21,8 +27,8 @@ const iconsJs = fs.readFileSync(path.join(ROOT, "js/flat-icons.js"), "utf8");
 const tick = (ms) => new Promise((r) => setTimeout(r, ms || 0));
 // The harness boots without the shell (it loads after app.js in index.html);
 // evaluated here, with the icons it draws with, then signed in to the demo.
-const bootShell = async () => {
-  const w = boot();
+const bootShell = async (opts) => {
+  const w = boot(opts);
   w.scrollTo = () => {};
   w.eval(iconsJs + "\n;window.FlatIcons = FlatIcons;");
   w.eval(wsJs);
@@ -200,7 +206,113 @@ head("The stylesheet");
   ok("no navigation before sign-in", /body\.workspaces-shell:not\(\.with-side\) #wcRail/.test(css));
   ok("the Assignment editor's selection pill clears the rail, not the old sidebar", /body\.workspaces-shell \.ae-selbar,body\.workspaces-shell\.with-side\.side-min \.ae-selbar\{left:calc\(var\(--wc-rail-width\) \+ 24px\);right:24px\}/.test(css));
   ok("the tool head is flat under the shell (ENCA's tool-layout rules)", /body\.workspaces-shell \.screen\.tool > \.wc-tool-head\{\s*background:transparent;border:0;/.test(tl));
-  ok("Home's tile grid is not hidden yet (slice 8 replaces it)", !/#screen-home>:not\(#wcHome\)/.test(css));
+  ok("Home hides every child but its own (the tile grid stays in the page as the registry)", /body\.workspaces-shell #screen-home>:not\(#wcHome\)\{display:none!important\}/.test(css));
+  ok("ENCA's Home: two columns, one when the library is closed, one on a phone", /\.wc-home-layout\{display:grid;grid-template-columns:235px minmax\(0,1fr\);gap:32px\}/.test(css)
+    && /\.wc-home-layout\.lib-closed\{grid-template-columns:minmax\(0,1fr\);gap:18px\}/.test(css) && /@media\(max-width:700px\)\{[^}]*\}[^@]*\.wc-home-layout\{grid-template-columns:minmax\(0,1fr\);gap:28px\}/.test(css));
+  ok("the flat home of 25426", /#wcHome \.wc-tool\{box-shadow:none;border-radius:5px\}/.test(css) && /#wcHome \.wc-home-heading h1\{font-size:clamp\(26px,2\.4vw,32px\)/.test(css));
+  ok("chips in the tags' own colours", /\.wc-chip\.block\{background:var\(--bad-bg\);color:var\(--off\)\}/.test(css) && /\.wc-chip\.new\{/.test(css) && /\.wc-chip\.upd\{/.test(css));
+}
+
+// =====================================================================
+head("Home is ENCA's: the tenant over the heading, Recent tools, the library");
+{
+  const w = await bootShell();
+  const D = w.document, $ = (id) => D.getElementById(id);
+  ok("it opens Home, before the tiles", $("screen-home").firstElementChild === $("wcHome") && $("screen-home").classList.contains("active"));
+  ok("the tenant and the workspace over the heading", $("wcTenant").textContent === "Contoso B.V. · Workspace 01", $("wcTenant").textContent);
+  ok("the workspace's title", $("wcHomeTitle").textContent === "Intune overview");
+  ok("and what this session is", $("wcEnvironment").textContent === "Demo · sample data");
+  ok("the tile grid is still in the page — the registry the rail and the library read", D.querySelectorAll("#screen-home .tools > .tool[id]").length === 31 && $("side-toolOverview"));
+  ok("the library: all 31 tools", $("wcLibraryCount").textContent === "All 31 tools" && D.querySelectorAll("#wcOverviewTools .wc-tool").length === 31);
+  const groups = [...D.querySelectorAll("#wcOverviewTools .wc-tool-group")];
+  const tileSecs = [...D.querySelectorAll("#screen-home .tool-sec h3")];
+  ok("grouped as the tiles were, in their order", groups.length === 6 && groups.every((g, i) => g.querySelector("summary").firstChild.textContent.trim() === tileSecs[i].textContent.trim()));
+  ok("each group keeps its section's icon and says how many tools it holds", groups.every((g, i) => g.querySelector("summary").getAttribute("data-icon") === tileSecs[i].getAttribute("data-icon")
+    && g.querySelector("summary > span:last-child").textContent === `${g.querySelectorAll(".wc-tool").length} tool${g.querySelectorAll(".wc-tool").length === 1 ? "" : "s"}`));
+  ok("every card in the order of the tiles", [...D.querySelectorAll("#wcOverviewTools .wc-tool")].map((c) => c.dataset.wcTool).join() === [...D.querySelectorAll("#screen-home .tools > .tool[id]")].map((t) => t.id).join());
+  const card = (id) => D.querySelector(`#wcOverviewTools [data-wc-tool="${id}"]`);
+  const chips = (id) => [...card(id).querySelectorAll("small .wc-chip")].map((c) => c.className.replace("wc-chip", "").trim() + ":" + c.textContent).join(",");
+  const tags = (tile) => [...tile.querySelectorAll("h3 .tag")].map((c) => c.className.replace("tag", "").trim() + ":" + c.textContent.trim()).join(",");
+  const tiles = [...D.querySelectorAll("#screen-home .tools > .tool[id]")];
+  // On beta the queue stamps UPDATED on what production lacks (promote.js,
+  // 10551), so the tags are read from the tiles as they stand, not typed here.
+  ok("a card carries its tile's tags as chips, every one, in the tile's order", tiles.every((t) => chips(t.id) === tags(t)) && tiles.some((t) => tags(t)), tiles.filter((t) => chips(t.id) !== tags(t)).map((t) => t.id).join());
+  ok("the writes-to-the-tenant warning among them", chips("toolAssignEdit").split(",").indexOf("block:writes to the tenant") >= 0 && chips("toolMdeRollout") === "new:NEW,new:BETA,:temporary,block:writes to the tenant", chips("toolMdeRollout"));
+  ok("a tag's tooltip comes along", /stays on the beta channel/.test(card("toolMdeRollout").querySelector(".wc-chip:not(.new):not(.block)").title));
+  const bare = tiles.find((t) => !tags(t));
+  ok("a card whose tile has no tags says only its number", bare && !card(bare.id).querySelector(".wc-chip") && /^T\d\d$/.test(card(bare.id).querySelector("small").textContent), bare && bare.id);
+  ok("a tool with no T-number names its group, without the section's emoji", card("toolHelp").querySelector("small").textContent === "About this app" && card("toolChangelog").querySelector("small").textContent === "About this app", card("toolHelp").querySelector("small").textContent);
+  ok("the foot points at Help", /TUNO help/.test(D.querySelector("#wcHome .wc-home-foot").textContent));
+  card("toolLaps").click();
+  await tick(30);
+  ok("a card opens its tool through the tile's own route", $("screen-laps").classList.contains("active"));
+  D.querySelector('#wcHome .wc-home-foot [data-wc-tool="toolHelp"]').click();
+  await tick(30);
+  ok("TUNO help → opens Help", $("screen-help").classList.contains("active"));
+}
+
+// =====================================================================
+head("The library starts open until the Intune overview is there (slice 10), and remembers");
+{
+  const w = await bootShell();
+  const D = w.document, $ = (id) => D.getElementById(id);
+  const t = $("wcToggleLibrary"), layout = D.querySelector("#wcHome .wc-home-layout");
+  ok("open, with Hide", $("wcOverviewTools").hidden === false && t.textContent === "Hide" && t.getAttribute("aria-expanded") === "true" && !layout.classList.contains("lib-closed"));
+  ok("Collapse all is offered", $("wcToggleGroups").hidden === false && $("wcToggleGroups").textContent === "Collapse all");
+  $("wcToggleGroups").click();
+  ok("Collapse all closes every group", [...D.querySelectorAll("#wcHome .wc-tool-group")].every((g) => !g.open) && $("wcToggleGroups").textContent === "Expand all");
+  $("wcToggleGroups").click();
+  ok("Expand all opens them again", [...D.querySelectorAll("#wcHome .wc-tool-group")].every((g) => g.open) && $("wcToggleGroups").textContent === "Collapse all");
+  t.click();
+  ok("Hide folds the library away, one column", $("wcOverviewTools").hidden === true && t.textContent === "Show" && t.getAttribute("aria-expanded") === "false" && layout.classList.contains("lib-closed") && $("wcToggleGroups").hidden === true);
+  ok("remembered in this browser, per workspace", w.localStorage.getItem("tuno.wcLibraryOpen:intune") === "0");
+  const w2 = await bootShell({ storage: { "tuno.wcLibraryOpen:intune": "0" } });
+  ok("the next visit starts where you left it", w2.document.getElementById("wcOverviewTools").hidden === true && w2.document.getElementById("wcToggleLibrary").textContent === "Show");
+  const ws = fs.readFileSync(path.join(ROOT, "js/workspaces.js"), "utf8");
+  ok("once #wcOverview exists, the default is closed, as ENCA's 01", /const deflt = !\$\('wcOverview'\);/.test(ws));
+  ok("the overview is told when Home exists (tuno:wchome)", /document\.dispatchEvent\(new CustomEvent\('tuno:wchome'\)\)/.test(ws));
+}
+
+// =====================================================================
+head("Recent tools: the tools opened this session, newest first, five at most");
+{
+  const w = await bootShell();
+  const D = w.document, $ = (id) => D.getElementById(id);
+  const goHome = async () => { $("wcHomeButton").click(); await tick(30); };
+  const listed = () => [...D.querySelectorAll("#wcRecent .wc-recent")].map((b) => b.dataset.wcTool);
+  ok("empty, it says what will appear and offers Policies", /Your next session starts here/.test($("wcRecent").textContent) && $("wcRecent").querySelector('[data-wc-tool="toolOverview"]') && /Open Policies/.test($("wcRecent").textContent));
+  $("wcRecent").querySelector('[data-wc-tool="toolOverview"]').click();
+  await tick(30);
+  ok("which opens Policies", $("screen-overview").classList.contains("active"));
+  await goHome();
+  ok("then lists it", listed().join() === "toolOverview");
+  const first = D.querySelector("#wcRecent .wc-recent");
+  ok("by name, with its T-number and when it was opened", first.querySelector("strong").textContent === "Policy overview" && /^T\d\d · opened \S+/.test(first.querySelector("small").textContent), first.querySelector("small").textContent);
+  for (const id of ["toolGroupUse", "toolDevice", "toolPosture", "toolAssignEdit", "toolLaps"]) { $("side-" + id).click(); await tick(20); }
+  await goHome();
+  ok("five at most, newest first", listed().join() === "toolLaps,toolAssignEdit,toolPosture,toolDevice,toolGroupUse", listed().join());
+  $("side-toolDevice").click(); await tick(20); await goHome();
+  ok("opening one again moves it to the top", listed().join() === "toolDevice,toolLaps,toolAssignEdit,toolPosture,toolGroupUse", listed().join());
+  D.querySelector('#wcRecent [data-wc-tool="toolPosture"]').click();
+  await tick(30);
+  ok("an entry opens its tool", $("screen-posture").classList.contains("active"));
+  $("acctBtn").click(); $("signOutBtn").click(); await tick(30);
+  D.getElementById("demoLink").dispatchEvent(new w.Event("click", { bubbles: true }));
+  await tick(30);
+  ok("a new session starts empty", !D.querySelector("#wcRecent .wc-recent") && /Your next session starts here/.test($("wcRecent").textContent));
+}
+
+// =====================================================================
+head("The launcher's search finds a tool by its tags");
+{
+  const w = await bootShell();
+  const D = w.document, $ = (id) => D.getElementById(id);
+  $("wcHeaderTools").click();
+  await tick(10);
+  const s = $("wcSearch");
+  s.value = "writes"; s.dispatchEvent(new w.Event("input"));
+  const writers = [...D.querySelectorAll("#screen-home .tools > .tool[id]")].filter((t) => t.querySelector("h3 .tag.block")).map((t) => t.id);
+  ok("\"writes\" lists the tools that change the tenant", writers.length >= 6 && [...D.querySelectorAll("#wcTools .wc-tool")].map((c) => c.dataset.wcTool).join() === writers.join(), String(writers.length));
 }
 
 });

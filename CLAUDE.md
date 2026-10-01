@@ -297,3 +297,21 @@ A fixed bar a tool adds (like the Assignment editor's selection pill) is
 laid out against `--wc-rail-width`, never the old 240 px sidebar, and sits
 above the 62 px bottom rail under 700 px — css/workspaces.css ends with
 TUNO's own.
+
+## Home is the library; the tiles are the registry (build 10669)
+
+Under the shell, `#screen-home` shows only `#wcHome` (ENCA's Home: the
+tenant over the heading, Recent tools, the library) — one CSS rule hides
+every other child, so anything added to `#screen-home` outside `#wcHome`
+will not be seen. The tile grid stays in index.html exactly as before and is
+still what everything reads: the sidebar, the rail, the library cards and
+their order, the T-numbers, production's tile chips (promotion step 5) and
+`_to_delete/main-check.js`. A tile's tags (`h3 .tag` — writes to the
+tenant, NEW, BETA, UPDATED, temporary, and the beta queue's stamps) become
+the card's chips as they stand when the shell starts, so a tag is still
+added to the TILE, never to js/workspaces.js. Recent tools live in memory
+for the session (five, newest first, cleared on sign-out or a tenant
+switch); whether the library is open is `tuno.wcLibraryOpen:<workspace>`
+in localStorage. The library starts open until an element `#wcOverview`
+exists (the Intune overview, slice 10), then closed as ENCA's 01 does;
+the overview renders into `#wcHome` on the `tuno:wchome` event.

@@ -12,22 +12,34 @@
    over the rail, the context line, All tools, the account button with the
    tenant's name — D2 B), the 88 px rail in work order (D1 A; a bottom bar on
    a phone), the strip of open tools restyled with the tools' own icons, and
-   the tool library behind All tools.
+   the tool library behind All tools. Since 10669 (slice 8) Home is ENCA's
+   too: the tenant and workspace over a heading, Recent tools, and the
+   library grouped as the tiles were — the tile grid stays in the page as
+   the registry, hidden.
 
    TUNO DIFFERENCES, all on purpose:
    * One workspace so far, 01 Intune. The chip, its menu, the rail's switch
      and ⌘⇧1 / ⌘⇧2 are ported but drawn only once a second workspace exists
      (02 Projects, slice 12) — one workspace has nothing to switch to.
-   * Home is still the tile grid. ENCA's Home (Recent tools, the library
-     under the overview) is slice 8, which also hides the tiles; until then
-     the sidebar alone is hidden.
+   * Home's library starts OPEN until the Intune overview sits above it
+     (slice 10, round 2's D6 A); ENCA starts 01's closed because its
+     overview is there. Recent tools say the T-number and the time a tool
+     was opened (round 1's mockup; ENCA: "Opened this session").
+   * The library's group headings — on Home and in the launcher — keep their
+     section's icon (data-icon, 10666), and the cards say what each tool does
+     in TUNO's words (round 1). A card carries its tile's tags — writes to
+     the tenant, NEW, BETA, UPDATED, temporary — as chips (ENCA's cards drop
+     them; ENCA's one chip is its lens), and the launcher's search finds
+     them: "writes" lists the tools that change the tenant.
+   * The environment says "Your tenant · live reads" signed in (ENCA: "Tenant
+     · policy snapshot" — TUNO reads Graph live and keeps no snapshot), and
+     ENCA's Current snapshot panel, hidden on its Home since 25422, is not
+     ported.
    * The tenant comes from window.TunoTenant and body.demo-mode (ENCA reads
      its Workspace.context module); ENCA's ListDetail and #workspaceCounts
      have no TUNO counterpart.
    * The connected-app block in the account menu waits for slice 16, where
      Graph.connectionInfo() arrives.
-   * The launcher's group headings keep their section's icon (data-icon,
-     10666), and its cards say what each tool does in TUNO's words (round 1).
    * "Close all tools" in the account menu (ENCA: "Close all workspaces").
    Rewritten without optional chaining (TUNO's house rule).
    ====================================================================== */
@@ -86,6 +98,9 @@
   let initialized = false;
   let tools = [];
   let sessionKey = '';
+  // The tools opened this session, newest first: { id, at } (ENCA keeps ids).
+  const recent = [];
+  let lastActive = null;
 
   // The tenant this session is about (ENCA: Workspace.context).
   function context() {
@@ -116,7 +131,13 @@
     original.click(); // The existing app owns the route, subtab and state.
   }
   const nameIn = (id) => { const t = tools.find(x => x.id === id); return t ? t.name : ''; };
-  const card = t => `<button type="button" class="wc-tool" data-wc-tool="${esc(t.id)}"><span class="wc-tool-icon" aria-hidden="true">${icon(t.id)}</span><strong>${esc(t.name)}</strong><span>${esc(t.description)}</span><small>${esc(t.number || t.group)}</small></button>`;
+  // A card carries its tile's tags (writes to the tenant, NEW, BETA, UPDATED,
+  // temporary) as chips, where ENCA's cards carry their lens chip.
+  const chip = g => `<span class="wc-chip${g.cls ? ' ' + g.cls : ''}"${g.title ? ` title="${esc(g.title)}"` : ''}>${esc(g.text)}</span>`;
+  // A tool without a T-number names its group instead, as in ENCA — without
+  // the section's emoji, which only a heading draws as a line icon.
+  const plain = text => String(text).replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, '');
+  const card = t => `<button type="button" class="wc-tool" data-wc-tool="${esc(t.id)}"><span class="wc-tool-icon" aria-hidden="true">${icon(t.id)}</span><strong>${esc(t.name)}</strong><span>${esc(t.description)}</span><small>${esc(t.number || plain(t.group))}${t.tags.length ? ' · ' + t.tags.map(chip).join('') : ''}</small></button>`;
   function readTools() {
     let group = '', groupIcon = '';
     return [...document.querySelectorAll('#screen-home .tool-sec, #screen-home .tools > .tool[id]')].flatMap(el => {
@@ -124,14 +145,15 @@
       const side = $('side-' + el.id);
       if (!side) return [];
       const txt = side.querySelector('.sn-txt'), ic = side.querySelector('.sn-ic'), num = side.querySelector('.sn-t');
-      return [{ id: el.id, name: txt ? txt.textContent.trim() : el.id, icon: ic ? ic.textContent.trim() : '', number: num ? num.textContent.trim() : '', group, groupIcon, description: blurbs[el.id] || '' }];
+      const tags = [...el.querySelectorAll('h3 .tag')].map(g => ({ text: g.textContent.trim(), cls: ['block', 'new', 'upd'].filter(c => g.classList.contains(c)).join(' '), title: g.getAttribute('title') || '' }));
+      return [{ id: el.id, name: txt ? txt.textContent.trim() : el.id, icon: ic ? ic.textContent.trim() : '', number: num ? num.textContent.trim() : '', group, groupIcon, tags, description: blurbs[el.id] || '' }];
     });
   }
   // The tools a workspace offers, in its own order and with its own words.
   function toolsOf() { return tools; }
   function renderLauncher() {
     const q = $('wcSearch').value.trim().toLowerCase();
-    const matches = toolsOf(ws).filter(t => [t.name, t.group, t.number, t.description].join(' ').toLowerCase().includes(q));
+    const matches = toolsOf(ws).filter(t => [t.name, t.group, t.number, t.description].concat(t.tags.map(g => g.text)).join(' ').toLowerCase().includes(q));
     const groups = [...new Set(matches.map(t => t.group))];
     $('wcTools').innerHTML = matches.length ? groups.map(group => {
       const first = matches.find(t => t.group === group);
@@ -152,6 +174,31 @@
     const sw = others.length ? `<button type="button" class="wc-rail-switch" data-wc-switch="${others[0]}" title="Switch to ${esc(WORKSPACES[others[0]].num)} · ${esc(WORKSPACES[others[0]].name)}"><span class="wc-ws-dot" aria-hidden="true"></span>${esc(w.num)} ⇄</button>` : `${esc(w.num)} · ${esc(w.name)}`;
     $('wcRail').innerHTML = `<button type="button" id="wcHomeButton" data-wc-home><span aria-hidden="true">${icon('home')}</span><small>Home</small></button>${w.shortcuts.map(shortcut).join('')}<span class="wc-rail-divider"></span><button type="button" data-wc-library><span aria-hidden="true">${icon('overview')}</span><small>All tools</small></button><button type="button" data-wc-tool="toolHelp"><span aria-hidden="true">${icon('toolHelp')}</span><small>Help</small></button><span class="wc-rail-caption">WORKSPACE<br>${sw}</span>`;
   }
+  const hhmm = (t) => { try { return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+  function renderRecent() {
+    if (!$('wcRecent')) return;
+    $('wcRecent').innerHTML = recent.length ? recent.map(r => {
+      const t = tools.find(x => x.id === r.id); if (!t) return '';
+      return `<button type="button" class="wc-recent" data-wc-tool="${esc(r.id)}"><span aria-hidden="true">${icon(t.id)}</span><span><strong>${esc(t.name)}</strong><small>${esc([t.number, 'opened ' + hhmm(r.at)].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">↗</span></button>`;
+    }).join('') : `<div class="wc-empty"><span aria-hidden="true">↗</span><h3>Your next session starts here.</h3><p>Tools you open appear here for a quick return.</p><button type="button" class="wc-text-button" data-wc-tool="toolOverview">Open Policies →</button></div>`;
+  }
+  // The library on Home: the workspace's tools, grouped as on the tiles.
+  let bindGroups = () => {};
+  let setLib = () => {};
+  function renderHome() {
+    if (!$('wcHome')) return;
+    const w = WORKSPACES[ws];
+    $('wcHomeTitle').textContent = w.title;
+    const list = toolsOf(ws);
+    $('wcLibraryCount').textContent = `All ${list.length} tools`;
+    $('wcOverviewTools').innerHTML = [...new Set(list.map(t => t.group))].map(group => {
+      const first = list.find(t => t.group === group), n = list.filter(t => t.group === group).length;
+      const di = first && first.groupIcon ? ` data-icon="${esc(first.groupIcon)}"` : '';
+      return `<details class="wc-tool-group" open><summary${di}>${esc(group)} <span>${n} tool${n === 1 ? '' : 's'}</span></summary><div class="wc-tool-grid">${list.filter(t => t.group === group).map(card).join('')}</div></details>`;
+    }).join('');
+    bindGroups();
+    renderRecent();
+  }
   function renderChip() {
     const w = WORKSPACES[ws];
     if ($('wcWsNum')) { $('wcWsNum').textContent = w.num; $('wcWsName').textContent = w.name; }
@@ -162,7 +209,7 @@
     ws = next;
     document.body.dataset.ws = ws;
     try { localStorage.setItem(WS_KEY, ws); } catch { /* private mode */ }
-    renderChip(); renderRail();
+    renderChip(); renderRail(); renderHome(); setLib();
     synchronize();
   }
   // ⌘K entries: "Switch to 02 · …" beside the tools (slice 9's palette asks
@@ -179,7 +226,7 @@
     const signedIn = document.body.classList.contains('with-side');
     const ctx = context();
     const key = signedIn && ctx ? `${ctx.demo}:${ctx.key}` : '';
-    if (key !== sessionKey) sessionKey = key;
+    if (key !== sessionKey) { sessionKey = key; recent.length = 0; lastActive = null; renderRecent(); }
     const theme = $('themeBtn');
     if (signedIn && theme.parentElement !== $('acctMenu')) {
       theme.setAttribute('role','menuitem'); $('acctMenu').insertBefore(theme, $('signOutBtn'));
@@ -201,9 +248,18 @@
     });
     $('wcHomeButton').classList.toggle('active', home);
     home ? $('wcHomeButton').setAttribute('aria-current', 'page') : $('wcHomeButton').removeAttribute('aria-current');
+    if (active && active !== lastActive && !home) {
+      lastActive = active;
+      const index = recent.findIndex(r => r.id === active); if (index >= 0) recent.splice(index, 1);
+      recent.unshift({ id: active, at: Date.now() }); recent.splice(5);
+      renderRecent();
+    }
     const demo = !!(ctx && ctx.demo);
     const tenant = (ctx && ctx.tenant) || $('tenantName').textContent || 'Workspace';
-    $('wcAccountLabel').textContent = (demo ? tenant.replace(/\s*\(demo\)$/i, '') : tenant) + (demo ? ' · Demo' : '');
+    const tenantShown = demo ? tenant.replace(/\s*\(demo\)$/i, '') : tenant;
+    if ($('wcTenant')) $('wcTenant').textContent = `${tenantShown} · Workspace ${WORKSPACES[ws].num}`;
+    if ($('wcEnvironment')) $('wcEnvironment').textContent = demo ? 'Demo · sample data' : 'Your tenant · live reads';
+    $('wcAccountLabel').textContent = tenantShown + (demo ? ' · Demo' : '');
     $('wcSessionNote').textContent = demo ? 'Demo · changes are simulated' : 'Signed in · tenant actions use the existing confirmation steps';
     $('acctBtn').setAttribute('aria-label', $('wcAccountLabel').textContent + ' — account options');
     // Keep TUNO's tab elements and delegated handlers. Only their
@@ -289,6 +345,34 @@
     });
     menu.insertBefore(closeAll, $('signOutBtn'));
     const note = document.createElement('p'); note.className = 'wc-account-note'; note.id = 'wcSessionNote'; menu.append(note);
+    // ---- Home (ENCA 25401 / 25422 / 25426; slice 8) ----
+    const home = document.createElement('div'); home.id = 'wcHome';
+    home.innerHTML = `<div class="wc-home-heading"><div><div class="wc-eyebrow" id="wcTenant"></div><h1 id="wcHomeTitle"></h1><p id="wcHomeLead"></p></div><span class="wc-demo"><span></span><span id="wcEnvironment"></span></span></div><div class="wc-home-layout"><aside class="wc-recent-panel"><h2>Recent tools</h2><div id="wcRecent"></div></aside><section class="wc-library"><div class="wc-section-heading"><h2 id="wcLibraryCount"></h2><span class="wc-section-actions"><button type="button" id="wcToggleLibrary" class="wc-text-button" aria-expanded="false" aria-controls="wcOverviewTools">Show</button><button type="button" id="wcToggleGroups" class="wc-text-button" hidden>Collapse all</button></span></div><div id="wcOverviewTools" hidden></div></section></div><div class="wc-home-foot"><span>Open tools stay in the tabs above your workspace.</span><button type="button" class="wc-text-button" data-wc-tool="toolHelp">TUNO help →</button></div>`;
+    $('screen-home').prepend(home);
+    // The Intune overview (slice 10) renders into the home once this layout
+    // exists — say so, rather than have it poll for us.
+    document.dispatchEvent(new CustomEvent('tuno:wchome'));
+    // The library sits under the overview, closed until asked for (ENCA
+    // 25422) — once there IS an overview. Until slice 10 it starts open, so
+    // Home is not a heading and a list of nothing. The choice is remembered
+    // per browser and per workspace.
+    const libKey = () => `tuno.wcLibraryOpen:${ws}`;
+    const libToggle = $('wcToggleLibrary'), lib = $('wcOverviewTools'), layout = home.querySelector('.wc-home-layout');
+    setLib = (open) => {
+      const deflt = !$('wcOverview');
+      if (open === undefined) { try { const v = localStorage.getItem(libKey()); open = v === null ? deflt : v === '1'; } catch { open = deflt; } }
+      else { try { localStorage.setItem(libKey(), open ? '1' : '0'); } catch { /* private mode */ } }
+      lib.hidden = !open; libToggle.textContent = open ? 'Hide' : 'Show'; libToggle.setAttribute('aria-expanded', String(open)); $('wcToggleGroups').hidden = !open; layout.classList.toggle('lib-closed', !open);
+    };
+    libToggle.addEventListener('click', () => setLib(lib.hidden));
+    const toggleGroups = $('wcToggleGroups');
+    bindGroups = () => {
+      const groups = [...home.querySelectorAll('.wc-tool-group')];
+      const syncGroups = () => { toggleGroups.textContent = groups.some(g => g.open) ? 'Collapse all' : 'Expand all'; };
+      groups.forEach(g => g.addEventListener('toggle', syncGroups));
+      toggleGroups.onclick = () => { const open = !groups.some(g => g.open); groups.forEach(g => { g.open = open; }); syncGroups(); };
+      syncGroups();
+    };
     const dialog = document.createElement('dialog'); dialog.id = 'wcLauncher'; dialog.setAttribute('aria-labelledby', 'wcLauncherTitle');
     dialog.innerHTML = '<div class="wc-launcher-head"><div><span class="wc-eyebrow">TUNO tool library</span><h2 id="wcLauncherTitle">Open a tool</h2></div><button type="button" id="wcCloseLauncher" aria-label="Close tool library">×</button></div><label class="wc-search-label" for="wcSearch">Find a tool</label><input id="wcSearch" type="search" placeholder="Search by name, task or tool number…"><p id="wcResultCount" role="status"></p><div id="wcTools"></div>';
     document.body.append(dialog);
@@ -314,7 +398,7 @@
       if (!hit) return;
       e.preventDefault(); setWorkspace(hit);
     });
-    renderChip(); renderRail();
+    renderChip(); renderRail(); renderHome(); setLib();
     new MutationObserver(synchronize).observe($('toolNav'), {childList:true});
     new MutationObserver(synchronize).observe($('screen-home'), {attributes:true, attributeFilter:['class']});
     new MutationObserver(synchronize).observe(document.body, {attributes:true, attributeFilter:['class']});
