@@ -155,6 +155,11 @@ main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
 .screen.tool > .readme{padding:20px 24px}
 .screen.tool > .toolbar{margin-top:14px}
 .screen.tool > .tool-body{margin-top:14px}
+/* The head line (10663, ENCA 25352) is written by toolHeadInner() from the
+   tool's registry entry; its spacing is here instead of the 27 copies of
+   style="margin:0 0 6px" that were typed on the headings. 🚀 MDE rollout's
+   heading sits in its workspace header and keeps that header's own rule. */
+.screen.tool > .readme > [data-tool-head]{margin:0 0 6px}
 .toolbar > .chk{margin:0}
 /* every control in a toolbar shares one height, so nothing sits half a row off */
 .toolbar .btn,.toolbar .seg,.toolbar .fchip,.toolbar .chk,.toolbar .search input,

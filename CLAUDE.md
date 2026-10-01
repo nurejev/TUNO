@@ -173,7 +173,13 @@ showed the format he wants and it is this one.)
 itself here". Production never shows a BETA chip: promotion step 5 (see
 js/promote.js) relabels the tiles on `main` — `NEW` on tools new to that
 production build, `UPDATED` on tools a promoted item changed, nothing on the
-rest — and strips the chips from screen headers and roadmap cards outright.
+rest — and strips the chips from the roadmap cards outright. Screen headers
+need no step since 10663: every head is written by `toolHeadInner()` from
+the tool's entry in `js/version.js` (title and chips beside its number), and
+a production build (`APP_BUILD.isBeta` false) leaves BETA, NEW and UPDATED
+out by itself while "writes to the tenant" and "temporary" stay. A new
+tool's head is an empty `<h2 data-tool-head="toolX">` plus `head` and
+`chips` in its registry entry — never typed into index.html.
 `_to_delete/main-check.js` fails any BETA chip on production, any status
 chip other than `tag.new`>NEW or `tag.upd`>UPDATED, and a home page with no
 status chips at all (a strip is not a translation).
