@@ -9,16 +9,17 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10665"></script>
+<script src="js/popup-guard.js?v=10666"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=2" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10665">
-<link rel="stylesheet" href="css/tool-layout.css?v=10665">
+<link rel="stylesheet" href="css/app.css?v=10666">
+<link rel="stylesheet" href="css/tool-layout.css?v=10666">
+<link rel="stylesheet" href="css/flat-icons.css?v=10666">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10665"></script>
-<link rel="stylesheet" href="css/t28v2.css?v=10665">
+<script src="js/selfhost-boot.js?v=10666"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10666">
 </head>
 <body>
 
@@ -141,7 +142,7 @@
          step 5 clears UPDATED as items leave the queue; main keeps its own
          NEW/UPDATED per production release (Mihai's rule, production 10). -->
     <h2 class="home-title">What do you want to do? <span class="home-count" id="homeCount"></span></h2>
-    <div class="tool-sec"><h3>🖥 Endpoint security</h3><p>Application control and device security posture.</p></div>
+    <div class="tool-sec"><h3 data-icon="shield">🖥 Endpoint security</h3><p>Application control and device security posture.</p></div>
     <div class="tools">
       <div class="tool tool-tile" id="toolAppLocker">
         <div class="tool-ic">🔐</div><h3>AppLocker builder &amp; validator</h3>
@@ -172,7 +173,7 @@
         <p>Replacing old Defender and endpoint security policies with a new set, wave by wave: the new set, the old set and what is out of scope, sorted by <b>name</b> (editable rules, kept per tenant). <b>Which old policies collide with a new one</b> — setting by setting, ASR rule by rule, with the value on each side and whether the two reach the same devices — and the fix, proposed: <b>exclude the new policy's groups from the old one</b>, refused where Intune does not support it (user group ↔ device group). Include, exclude and remove across many policies from one bar, through the Assignment editor's own write pipeline; <b>create the wave groups</b>; a <b>retirement check</b> that names every setting an old policy would take with it; undo per run. Reads through the shared policy read.</p>
       </div>
     </div>
-    <div class="tool-sec"><h3>🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
+    <div class="tool-sec"><h3 data-icon="link">🔗 Assignments &amp; scope</h3><p>Who gets what, and why.</p></div>
     <div class="tools">
       <div class="tool tool-tile" id="toolGroupUse">
         <div class="tool-ic">🔗</div><h3>Group Analyzer</h3>
@@ -199,7 +200,7 @@
         <p>The same assignment graph, walked backwards from one machine: <b>why did THIS device get that policy?</b> Find it by name, serial, either of its two GUIDs — <b>or by its primary user</b>, since the ticket names the person far more often than the serial: a UPN resolves to their devices, with a pick list when they have more than one. Then see which of its own groups, which of its primary user's groups, or which tenant-wide target put each policy there. <b>The last check-in sits at the top of the answer</b>, because everything else is what Intune intends and a policy assigned minutes ago has not landed yet. Where the device has reported back, intended and actual sit in adjacent columns; where it has not, the state is unknown rather than assumed. Filtered assignments say <i>may</i> reach it — a browser cannot evaluate a filter rule, and this one does not pretend to. Export as Markdown, CSV or a standalone HTML report.</p>
       </div>
     </div>
-    <div class="tool-sec"><h3>📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
+    <div class="tool-sec"><h3 data-icon="box">📦 Configuration</h3><p>Read it out, keep a copy, put it back.</p></div>
     <div class="tools">
       <div class="tool tool-tile" id="toolOverview">
         <div class="tool-ic">🗂</div><h3>Policy overview</h3>
@@ -230,7 +231,7 @@
         <p><b>The same setting, configured to different values in two policies</b> — found by setting identity, never by display name: the definition id in the settings catalog, definition-plus-category in administrative templates, the typed property within one policy type in device configurations. And one step past the tools that inspired it: a collision is only a conflict <b>if the two policies can meet on a device</b>, so every finding carries a verdict — <b>can collide</b> (overlapping reach), <b>may collide</b> (different groups can share members; a filter is in the way), or <b>cannot</b> (one side reaches nobody as assigned). Redacted values are never compared — two secrets are not known to be equal. Reads only, through the documenter's own read.</p>
       </div>
     </div>
-    <div class="tool-sec"><h3>🕓 Monitoring</h3><p>What changed, and who changed it.</p></div>
+    <div class="tool-sec"><h3 data-icon="clock">🕓 Monitoring</h3><p>What changed, and who changed it.</p></div>
     <div class="tools">
       <div class="tool tool-tile" id="toolCompEv">
         <div class="tool-ic">📋</div><h3>Compliance evidence <span class="tag new">NEW</span> <span class="tag new">BETA</span></h3>
@@ -249,7 +250,7 @@
         <p>Who changed which policy, profile, script, app assignment or enrolment setting — when, from where, and <b>what actually moved</b>, field by field, rather than two blobs of JSON printed side by side. Two views over one read: <b>policy changes</b> with a severity on each, and <b>all events</b> filtered by actor, activity, category and result. Incident windows down to the last hour, review windows out to thirty days — which is where Intune's audit retention ends, and the tool says so rather than offering a window that returns a confidently empty answer.</p>
       </div>
     </div>
-    <div class="tool-sec"><h3>🛡 Access &amp; roles</h3><p>Who can change Intune, and how much of it.</p></div>
+    <div class="tool-sec"><h3 data-icon="key">🛡 Access &amp; roles</h3><p>Who can change Intune, and how much of it.</p></div>
     <div class="tools">
       <div class="tool tool-tile" id="toolRoles">
         <div class="tool-ic">🛡</div><h3>Intune RBAC</h3>
@@ -268,7 +269,7 @@
         <p>A group is made <b>role-assignable</b> for one side effect: only Global Administrator or Privileged Role Administrator may change its members. A <b>restricted management administrative unit</b> does that job better — it lets you <b>name</b> who may manage the group — and drops the role-assignable costs: the 500-per-tenant cap, no dynamic membership, no nesting control. The two can never be combined; a group that is both is a group whose members <b>nobody</b> can edit. Because <code>isAssignableToRole</code> is immutable this is a <b>recreate</b>, so the new group has a new object id: the tool repoints the seven Intune surfaces it is already permitted to write, <b>names every reference it cannot</b>, with the reason beside each one, and says out loud that anything outside Intune is invisible to it. The original is renamed aside as your rollback, never deleted. <b>Writes to the tenant.</b></p>
       </div>
     </div>
-    <div class="tool-sec"><h3>❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
+    <div class="tool-sec"><h3 data-icon="help">❓ About this app</h3><p>What changed, where it is heading, how it works.</p></div>
     <div class="tools">
       <div class="tool tool-tile tool-help" id="toolChangelog">
         <div class="tool-ic">📋</div><h3>What's new</h3>
@@ -1730,12 +1731,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R41</span> 🧭 TUNO 2.0 — ENCA's workspace shell <span class="tag grant">slices 1–4 · beta 10665</span> <span class="tag new">BETA</span></h4>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R41</span> 🧭 TUNO 2.0 — ENCA's workspace shell <span class="tag grant">slices 1–5 · beta 10666</span> <span class="tag new">BETA</span></h4>
             <p class="mini" style="margin:0">TUNO takes over the shell ENCA 2.0 runs on its beta: a branded header, a narrow rail, Home as an overview, and <b>two workspaces</b> — <b>01 Intune</b> for T01–T27, and <b>02 Projects</b> for temporary project tools, starting with 🚀 MDE rollout, which stays on beta. The shell is a layer over the sidebar and tab bar the two apps already share, so the tools themselves stay where they are. After the layout come ENCA's connection settings (saved connections, your own app registration) and its self-hosted image; then one promotion, as TUNO 2.0. One beta build per slice, layout first, every layout change mocked before it is built.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 1, the foundation (beta 10662).</b> The header, the tab bar and the sidebar are measured rather than assumed, the demo bar included, so in the demo the header is no longer covered and the tab bar no longer hides under it. Every tool screen has the same frame, and <b>Back</b> works from all 28 tools — eight of them never added a history entry, so Back from one of them skipped the screen you had come from.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 2, one heading per tool (beta 10663).</b> Every tool's heading — its name, its chips and its number and version — is written from one entry per tool instead of typed into each screen, so a tool's name, tab and heading cannot drift apart, and production leaves the BETA chip out by itself. 🚀 MDE rollout's heading shows its number and version for the first time.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 3, the folding head and the toolbar order (beta 10664).</b> A tool's description folds away under its name and stays folded for that tool; a toolbar's controls sit in one order on every screen — find, view, filters, actions — so 🗂 Policy overview's search now comes first. The platform filter on light toolbars and cards is readable in the light theme.</p>
             <p class="mini" style="margin:6px 0 0"><b>Slice 4, tables and the keyboard (beta 10665).</b> Every data table's columns can be dragged wider or narrower by the header edge, fitted with a double-click and reset with ↺, remembered per table in this browser. Dialogs hold the keyboard while they are open and give it back when they close, and every tile on Home opens from the keyboard.</p>
+            <p class="mini" style="margin:6px 0 0"><b>Slice 5, line icons (beta 10666).</b> The emoji in the chrome — tiles, sidebar, tabs, headings, buttons and chips — are drawn as ENCA's line icons, in the text colour, so they follow the theme. Each tool has its own icon wherever it appears, including the two tools that shared 🛡; markers with no line icon keep their emoji, and names, tenant data and exports are untouched.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R40</span> 🚀 MDE rollout <span class="tag grant">live · beta 10632</span> <span class="tag new">BETA</span> <span class="tag">temporary</span></h4>
@@ -2304,60 +2306,61 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10665"></script>
-<script src="js/selfhost.js?v=10665"></script>
-<script src="js/version.js?v=10665"></script>
-<script src="js/promote.js?v=10665"></script>
-<script src="js/authConfig.js?v=10665"></script>
-<script src="js/changelog.js?v=10665"></script>
-<script src="js/msappcatalog.js?v=10665"></script>
-<script src="js/demo.js?v=10665"></script>
-<script src="js/graph.js?v=10665"></script>
-<script src="js/suggest.js?v=10665"></script>
-<script src="js/progress.js?v=10665"></script>
-<script src="js/runledger.js?v=10665"></script>
-<script src="js/groupuse.js?v=10665"></script>
-<script src="js/audit.js?v=10665"></script>
-<script src="js/devicecleanup.js?v=10665"></script>
-<script src="js/backup.js?v=10665"></script>
-<script src="js/document.js?v=10665"></script>
-<script src="js/policycache.js?v=10665"></script>
-<script src="js/overview.js?v=10665"></script>
-<script src="js/devicewhy.js?v=10665"></script>
-<script src="js/whatif.js?v=10665"></script>
-<script src="js/health.js?v=10665"></script>
-<script src="js/settingsearch.js?v=10665"></script>
-<script src="js/conflict.js?v=10665"></script>
-<script src="js/compliance.js?v=10665"></script>
-<script src="js/filterrules.js?v=10665"></script>
-<script src="js/filters.js?v=10665"></script>
-<script src="js/restore.js?v=10665"></script>
-<script src="js/platformbaseline.js?v=10665"></script>
-<script src="js/complianceevidence.js?v=10665"></script>
-<script src="js/macbaseline.js?v=10665"></script>
-<script src="js/winbaseline.js?v=10665"></script>
-<script src="js/assignedit.js?v=10665"></script>
-<script src="js/restrictedau.js?v=10665"></script>
-<script src="js/groupmigrate.js?v=10665"></script>
-<script src="js/roles.js?v=10665"></script>
-<script src="js/defender.js?v=10665"></script>
-<script src="js/endpointsec.js?v=10665"></script>
-<script src="js/report.js?v=10665"></script>
-<script src="js/securescore.js?v=10665"></script>
-<script src="js/endpointposture.js?v=10665"></script>
-<script src="js/mdemembers.js?v=10665"></script>
-<script src="js/mdereports.js?v=10665"></script>
-<script src="js/mdeexclude.js?v=10665"></script>
-<script src="js/mdeasr.js?v=10665"></script>
-<script src="js/mderollout.js?v=10665"></script>
-<script src="js/t28v2safety.js?v=10665"></script>
-<script src="js/mderolloutv2.js?v=10665"></script>
-<script src="js/maa.js?v=10665"></script>
-<script src="js/laps.js?v=10665"></script>
-<script src="js/applocker.js?v=10665"></script>
-<script src="js/app.js?v=10665"></script>
-<script src="js/col-resize.js?v=10665"></script>
-<script src="js/accessibility.js?v=10665"></script>
-<script src="js/tool-layout.js?v=10665"></script>
+<script src="js/branding.js?v=10666"></script>
+<script src="js/selfhost.js?v=10666"></script>
+<script src="js/version.js?v=10666"></script>
+<script src="js/promote.js?v=10666"></script>
+<script src="js/authConfig.js?v=10666"></script>
+<script src="js/changelog.js?v=10666"></script>
+<script src="js/msappcatalog.js?v=10666"></script>
+<script src="js/demo.js?v=10666"></script>
+<script src="js/graph.js?v=10666"></script>
+<script src="js/suggest.js?v=10666"></script>
+<script src="js/progress.js?v=10666"></script>
+<script src="js/runledger.js?v=10666"></script>
+<script src="js/groupuse.js?v=10666"></script>
+<script src="js/audit.js?v=10666"></script>
+<script src="js/devicecleanup.js?v=10666"></script>
+<script src="js/backup.js?v=10666"></script>
+<script src="js/document.js?v=10666"></script>
+<script src="js/policycache.js?v=10666"></script>
+<script src="js/overview.js?v=10666"></script>
+<script src="js/devicewhy.js?v=10666"></script>
+<script src="js/whatif.js?v=10666"></script>
+<script src="js/health.js?v=10666"></script>
+<script src="js/settingsearch.js?v=10666"></script>
+<script src="js/conflict.js?v=10666"></script>
+<script src="js/compliance.js?v=10666"></script>
+<script src="js/filterrules.js?v=10666"></script>
+<script src="js/filters.js?v=10666"></script>
+<script src="js/restore.js?v=10666"></script>
+<script src="js/platformbaseline.js?v=10666"></script>
+<script src="js/complianceevidence.js?v=10666"></script>
+<script src="js/macbaseline.js?v=10666"></script>
+<script src="js/winbaseline.js?v=10666"></script>
+<script src="js/assignedit.js?v=10666"></script>
+<script src="js/restrictedau.js?v=10666"></script>
+<script src="js/groupmigrate.js?v=10666"></script>
+<script src="js/roles.js?v=10666"></script>
+<script src="js/defender.js?v=10666"></script>
+<script src="js/endpointsec.js?v=10666"></script>
+<script src="js/report.js?v=10666"></script>
+<script src="js/securescore.js?v=10666"></script>
+<script src="js/endpointposture.js?v=10666"></script>
+<script src="js/mdemembers.js?v=10666"></script>
+<script src="js/mdereports.js?v=10666"></script>
+<script src="js/mdeexclude.js?v=10666"></script>
+<script src="js/mdeasr.js?v=10666"></script>
+<script src="js/mderollout.js?v=10666"></script>
+<script src="js/t28v2safety.js?v=10666"></script>
+<script src="js/mderolloutv2.js?v=10666"></script>
+<script src="js/maa.js?v=10666"></script>
+<script src="js/laps.js?v=10666"></script>
+<script src="js/applocker.js?v=10666"></script>
+<script src="js/flat-icons.js?v=10666"></script>
+<script src="js/app.js?v=10666"></script>
+<script src="js/col-resize.js?v=10666"></script>
+<script src="js/accessibility.js?v=10666"></script>
+<script src="js/tool-layout.js?v=10666"></script>
 </body>
 </html>

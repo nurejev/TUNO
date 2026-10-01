@@ -1,0 +1,23 @@
+/* ======================================================================
+   Flat line icons — ENCA's css/flat-icons.css (25406, as at ENCA beta
+   32433), ported at TUNO build 10666 (TUNO–ENCA parity slice 5). ENCA's
+   rules first, as they are; TUNO's after them (js/flat-icons.js says
+   why).
+   ====================================================================== */
+.enca-icon{display:inline-block;width:18px;height:18px;vertical-align:-3px;flex:none;pointer-events:none}.enca-icon-slot{display:inline-flex;vertical-align:middle;margin-right:5px;pointer-events:none}.wc-nav-icon,.wc-tool-icon .enca-icon{width:21px;height:21px}#wcRail .enca-icon{width:21px;height:21px}h1>.enca-icon-slot .enca-icon,h2>.enca-icon-slot .enca-icon,h3>.enca-icon-slot .enca-icon{width:24px;height:24px}.tool-ic .enca-icon{width:28px;height:28px}.sn-ic .enca-icon{width:19px;height:19px}.lo-ic .enca-icon{width:22px;height:22px}
+
+/* TUNO: the emoji rides inside the slot as hidden text, so the label's
+   text reads as before — it is never shown. */
+.enca-icon-slot>.fi-glyph{display:none!important}
+/* TUNO: an icon that is the whole label (a tile's icon, a sidebar icon, a
+   ✕ button) sits centred, with no gap after it. */
+.enca-icon-slot.fi-solo{margin-right:0}
+/* TUNO: the icon and its words are one run (span.fi-run), so a heading's
+   icon sits one level deeper than ENCA's heading rule reaches. */
+h1>.fi-run>.enca-icon-slot .enca-icon,h2>.fi-run>.enca-icon-slot .enca-icon,h3>.fi-run>.enca-icon-slot .enca-icon{width:24px;height:24px}
+/* TUNO: the sidebar's section titles are 10.5 px capitals; their icon is
+   sized to them, not to a heading. */
+.sidenav h4 .enca-icon{width:13px;height:13px;vertical-align:-2px}
+/* TUNO: a chip (.tag, .state) is 11 px type; its icon is 13 px, so the chip
+   keeps its height and the card around it its layout. */
+.tag .enca-icon,.state .enca-icon{width:13px;height:13px;vertical-align:-2px}

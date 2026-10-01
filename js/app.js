@@ -1116,7 +1116,8 @@ const Fs = (() => {
     document.querySelectorAll("#screen-home .tool-sec, #screen-home .tool").forEach((el) => {
       if (el.classList.contains("tool-sec")) {
         const h = el.querySelector("h3");
-        cur = { title: h ? h.textContent : "", ids: [] };
+        // the section's line icon travels with its title (data-icon, 10666)
+        cur = { title: h ? h.textContent : "", icon: (h && h.getAttribute("data-icon")) || "", ids: [] };
         secs.push(cur);
       } else if (cur && el.id) cur.ids.push(el.id);
     });
@@ -1151,7 +1152,7 @@ const Fs = (() => {
     $("sideNav").innerHTML =
       `<button class="sn-toggle" id="sideToggle" data-navtoggle>«</button>` +
       `<button data-navhome id="side-home" title="🏠 Overview"><span class="sn-ic">🏠</span><span class="sn-txt">Overview</span></button>` +
-      secs.map((s) => `<h4 title="${esc(s.title)}">${esc(s.title)}</h4>` + s.ids.map(item).join("")).join("");
+      secs.map((s) => `<h4 title="${esc(s.title)}"${s.icon ? ` data-icon="${esc(s.icon)}"` : ""}>${esc(s.title)}</h4>` + s.ids.map(item).join("")).join("");
     setSideCollapsed(sideStored());
     renderSideActive();
   }
@@ -1601,4 +1602,10 @@ const Fs = (() => {
   if (typeof PROMOTE !== "undefined" && PROMOTE.applyTileFlags) {
     PROMOTE.applyTileFlags(document, typeof TOOL_VERSIONS !== "undefined" ? TOOL_VERSIONS : {}, { beta: !isProduction() });
   }
+
+  // Line icons in the chrome (js/flat-icons.js, parity slice 5, build
+  // 10666): draw the page as it stands and keep drawing what the tools
+  // render. ENCA starts them from js/workspaces.js; TUNO's arrives in
+  // slice 7 and takes this call over.
+  if (typeof FlatIcons !== "undefined") FlatIcons.start();
 })();

@@ -244,3 +244,23 @@ port rewrites it — and reads each one, because the rewrites are not all
 the same: `(x || {}).y` where `x` is an object or nothing, `x && x.y.z()`
 for a call, `!(x && x.y)` under a negation. A string or a number on the
 left is where `?.` and `||` part ways.
+
+## Icons in the chrome are line icons (build 10666)
+
+`js/flat-icons.js` (ENCA's FlatIcons) draws the emoji that opens a button,
+label, summary, heading, table header, tile, tab or chip as a line icon.
+Keep writing the emoji in the markup — it stays in the text as hidden text,
+so `textContent`, the crumbs and every suite read the same string. What a
+new tool or marker needs:
+
+- **A new tool** gets an entry in `names` (tool id → shape), or its tile,
+  tab, sidebar entry and head draw the grid. tests/shell/icons.test.js fails
+  a tile without one.
+- **A new marker emoji** draws only if it is in `glyphs`; otherwise it stays
+  an emoji (ENCA would draw a grid square). Map it to an existing shape, or
+  add a shape under TUNO's shapes.
+- **A row whose emoji are a legend** shared with cards or tags elsewhere
+  (T09's kinds) carries `data-preserve-text`, so it keeps every emoji rather
+  than half of them.
+- **A heading whose emoji is another tool's** names its shape:
+  `data-icon="shield"` (the Home sections do).
