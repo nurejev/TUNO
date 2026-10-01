@@ -1461,20 +1461,48 @@ const Fs = (() => {
     // by first number. A group row carries one tick for all its members and
     // each member keeps its own, so "all of T01 except 170" is two clicks.
     // (Guarded the same way — the pq harness may hand in a queue without it.)
-    const rows = typeof PROMOTE.queueRows === "function" ? PROMOTE.queueRows(items) : items.map((it) => ({ kind: "item", item: it }));
+    const rowsByNumber = typeof PROMOTE.queueRows === "function" ? PROMOTE.queueRows(items) : items.map((it) => ({ kind: "item", item: it }));
+    // NEWEST LAST, AND WHAT IS NEW (ENCA 32318, ported at 10672 — parity
+    // slice 11). A row — a group or a single item — sits at its NEWEST item,
+    // so the list ends with the latest work; "By number" gives the old order
+    // back, each row at its first item (10602). Items above the highest
+    // number this browser has seen carry NEW and their group says how many;
+    // on a first visit an item with a build from the last three days (dates
+    // from the changelog) is NEW, so the first view is not all NEW. Guarded:
+    // the pq harness runs this block with no localStorage and no CHANGELOG.
+    const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+    const pqOrder = lsGet("TUNO_PQ_ORDER") === "number" ? "number" : "newest";
+    const seenRaw = lsGet("TUNO_PQ_SEEN");
+    const seenN = seenRaw === null || !Number.isFinite(Number(seenRaw)) ? null : Number(seenRaw);
+    const recentBuilds = (() => {
+      const out = new Set();
+      const cut = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+      for (const r of (typeof CHANGELOG !== "undefined" ? CHANGELOG : [])) if (r && r.date && r.date >= cut) out.add(r.build);
+      return out;
+    })();
+    const isNew = (it) => (seenN === null ? (it.builds || []).some((b) => recentBuilds.has(b)) : it.n > seenN);
+    const newSet = new Set(items.filter(isNew).map((i) => i.n));
+    const newestOf = (row) => (row.kind === "group" ? Math.max(...row.group.ns) : row.item.n);
+    const rowsNewest = rowsByNumber.slice().sort((a, b) => newestOf(a) - newestOf(b));
+    const rows = pqOrder === "number" ? rowsByNumber : rowsNewest;
+    const blockOf = (row) => (row.kind === "group" ? row.group.key : `i:${row.item.n}`);
     const groups = rows.filter((r) => r.kind === "group").map((r) => r.group);
     const groupState = (g) => {
       const on = g.ns.filter((n) => picked.has(n)).length;
       return { on, all: on === g.ns.length, none: on === 0 };
     };
     const partial = groups.filter((g) => { const s = groupState(g); return !s.all && !s.none; }).length;
+    // A risk that is not one of the three levels is said, never shown as low
+    // (item 222 carried a sentence there and read "low" for twelve builds).
+    const UNRATED = { label: "unrated", cls: "block", note: "not high, medium or low — this item needs a level" };
     const itemRow = (it, g) => {
-      const r = RISK[it.risk] || RISK.low;
+      const r = RISK[it.risk] || UNRATED;
       const test = it.test || [];
-      return `<tr class="${g ? "pq-member" : ""}" ${g ? `data-pqof="${g.key}"` : ""}>
+      const fresh = newSet.has(it.n);
+      return `<tr class="${g ? "pq-member" : ""}${fresh ? " pq-new" : ""}" ${g ? `data-pqof="${g.key}"` : ""} data-pqblk="${g ? g.key : `i:${it.n}`}">
             <td><input type="checkbox" data-pqpick="${it.n}" ${picked.has(it.n) ? "checked" : ""} title="Include item ${it.n} in the promotion order"></td>
             <td><b style="font-size:15px">${it.n}</b></td>
-            <td><b>${esc(it.title)}</b>
+            <td><b>${esc(it.title)}</b>${fresh ? ' <span class="tag new pq-newtag">NEW</span>' : ""}
               <div class="mini muted">${(it.tools || []).map(esc).join(" · ")}</div>
               ${it.what ? `<div class="mini" style="margin-top:4px">${esc(it.what)}</div>` : ""}
               <div class="mini" style="margin-top:4px;color:var(--report)"><b>Why:</b> ${esc(it.why)}</div>
@@ -1487,13 +1515,14 @@ const Fs = (() => {
           </tr>`;
     };
     const groupRow = (g) => {
-      const r = RISK[g.risk] || RISK.low;
+      const r = RISK[g.risk] || UNRATED;
       const s = groupState(g);
-      return `<tr class="pq-group" data-pqgroup="${g.key}">
+      const nNew = g.ns.filter((n) => newSet.has(n)).length;
+      return `<tr class="pq-group${nNew ? " pq-new" : ""}" data-pqgroup="${g.key}" data-pqblk="${g.key}">
             <td><input type="checkbox" data-pqgrouppick="${g.key}" ${s.all ? "checked" : ""} title="Tick every item in this group — untick a row below to hold it back"></td>
             <td><b style="font-size:13px">${g.minN}–${g.maxN}</b></td>
             <td><button class="pq-fold" data-pqfold="${g.key}" aria-expanded="true" title="Fold or unfold the group's rows">▾</button>
-              <b>${esc(g.title)}</b> — ${g.ns.length} related changes, promote together
+              <b>${esc(g.title)}</b> — ${g.ns.length} related changes, promote together${nNew ? ` <span class="tag new pq-newtag">${nNew} NEW</span>` : ""}
               <span class="mini pq-gcount" data-pqgcount="${g.key}"></span>
               ${g.also.length ? `<div class="mini muted">also touches ${g.also.map(esc).join(" · ")}</div>` : ""}
               <div class="mini muted">one tick for the run; untick any row under it to hold that item back — the group then reads <i>partial</i> and the order file says which number stayed behind</div></td>
@@ -1511,7 +1540,9 @@ const Fs = (() => {
         Roadmap cards, changelog entries and this table itself are not listed: they describe the work rather
         than being it, and they travel with whatever promotion happens next.
         <b>Related changes fold into one row</b> — items naming the same tool sit under a group row with a single
-        tick, so <i>“push all of T01”</i> is one click; every row under it keeps its own tick to hold one back.</p>
+        tick, so <i>“push all of T01”</i> is one click; every row under it keeps its own tick to hold one back.
+        <b>Newest last</b> (the default) puts each row at its newest item, so the latest work is at the bottom;
+        <b>By number</b> puts it at its first. Items added since your last visit carry <b>NEW</b>.</p>
       <p class="mini muted" style="margin:-6px 0 10px"><b>Every row carries a test checklist.</b> <i>Why</i> says what the
         risk is and what would have to be true for the item to graduate; it does not say how to find out. The steps
         under <b>How to test it</b> do — each one names the tenant state it needs and the outcome you should see, so a
@@ -1521,8 +1552,10 @@ const Fs = (() => {
         <span class="mini" id="pqPickCount"><b>${picked.size}</b> of ${items.length} ticked for promotion${groups.length ? ` · ${groups.length} group${groups.length === 1 ? "" : "s"}${partial ? `, ${partial} partial` : ""}` : ""}</span>
         <button class="btn sm" id="pqExport" ${picked.size ? "" : "disabled"}>⭳ Export promotion order</button>
         <button class="btn sm" id="pqClear" ${picked.size ? "" : "disabled"}>Clear ticks</button>
+        <span class="pq-order"><span class="mini">Order</span> <button class="fchip ${pqOrder === "newest" ? "active" : ""}" data-pqorder="newest" title="A row sits at its newest item — the list ends with the latest work">Newest last</button><button class="fchip ${pqOrder === "number" ? "active" : ""}" data-pqorder="number" title="A row sits at its first item, in number order">By number</button></span>
+        ${newSet.size ? `<span class="mini" id="pqNewNote"><b>${newSet.size} new</b> since your last visit · <a href="#" id="pqSeenAll">mark all seen</a></span>` : ""}
         <span class="mini muted">tick what you have verified, export, and hand the file to the working session — it is the order, not the verification</span>
-      </div><div class="cg-tablewrap"><table class="cg-table">
+      </div><div class="cg-tablewrap"><table class="cg-table pq-table">
         <thead><tr><th style="width:34px" title="Tick to include in the promotion order"></th><th style="width:44px">#</th><th>Change</th><th style="width:90px">Risk</th><th style="width:120px">Beta builds</th></tr></thead>
         <tbody>${rows.map((row) => row.kind === "group"
           ? groupRow(row.group) + row.group.members.map((it) => itemRow(it, row.group)).join("")
@@ -1617,6 +1650,34 @@ const Fs = (() => {
       syncBar();   // also clears the group boxes — they derive from the members
     });
     syncGroups();   // paint the derived group state once, from the stored ticks
+
+    // ---- order and NEW (ENCA 32318, 10672) ----
+    // The order moves the rows in place, row by row block, so ticks, folds
+    // and open checklists stay as they are; it is remembered in this browser.
+    box.querySelectorAll("[data-pqorder]").forEach((b) => b.addEventListener("click", () => {
+      const mode = b.dataset.pqorder === "number" ? "number" : "newest";
+      try { localStorage.setItem("TUNO_PQ_ORDER", mode); } catch { /* private mode — per session only */ }
+      box.querySelectorAll("[data-pqorder]").forEach((x) => x.classList.toggle("active", x === b));
+      const tb = box.querySelector(".pq-table tbody"); if (!tb) return;
+      const byBlock = new Map();
+      [...tb.children].forEach((tr) => { const k = tr.dataset.pqblk; if (!byBlock.has(k)) byBlock.set(k, []); byBlock.get(k).push(tr); });
+      for (const row of (mode === "number" ? rowsByNumber : rowsNewest)) (byBlock.get(blockOf(row)) || []).forEach((tr) => tb.appendChild(tr));
+    }));
+    // Seen once the list has actually been ON SCREEN — opening Help is not
+    // reading the queue at its bottom. The tags stay for this visit.
+    const maxN = items.reduce((m, i) => Math.max(m, i.n), 0);
+    const markSeen = () => { if (maxN) { try { localStorage.setItem("TUNO_PQ_SEEN", String(Math.max(maxN, seenN || 0))); } catch { /* private mode */ } } };
+    if (typeof IntersectionObserver === "function") {
+      const io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) { markSeen(); io.disconnect(); } });
+      setTimeout(() => io.observe(box), 0);
+    }
+    const seenAll = $("pqSeenAll");
+    if (seenAll) seenAll.addEventListener("click", (ev) => {
+      ev.preventDefault(); markSeen();
+      box.querySelectorAll(".pq-newtag").forEach((x) => x.remove());
+      box.querySelectorAll("tr.pq-new").forEach((x) => x.classList.remove("pq-new"));
+      const nn = $("pqNewNote"); if (nn) nn.remove();
+    });
   }
 
   // ---------- the popout ----------

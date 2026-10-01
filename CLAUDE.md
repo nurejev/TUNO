@@ -207,6 +207,14 @@ verify headlessly and report the pass count; prepare push commands but never
 push — Mihai pushes; R-numbers, T-numbers and queue numbers are permanent.
 The long versions live in the project memory files named above.
 
+A queue item's `risk` is one of `high`, `medium`, `low` — nothing else. A
+sentence there rendered as "low" for twelve builds (item 222, fixed at
+10672); the risk's words go in `why`, and the queue now shows any other
+value as "unrated". Help's list ends with the newest work (a row sits at
+its newest item; By number is the old order) and marks what is NEW since
+this browser last saw it — `TUNO_PQ_ORDER` and `TUNO_PQ_SEEN` in
+localStorage (ENCA 32318).
+
 ## A script change is a page change
 
 Every T01 companion script has a row under Help & scripts, and every row

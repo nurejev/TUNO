@@ -2228,6 +2228,9 @@ td.gu-num a:hover b{color:var(--green);text-decoration:underline}
 .cg-table tr.pq-member td:first-child{box-shadow:inset 3px 0 0 var(--line)}
 .cg-table tr.pq-member.pq-folded{display:none}
 .pq-fold{border:0;background:none;cursor:pointer;color:var(--accent2);font-size:13px;padding:0 4px 0 0;line-height:1}
+/* ---- 🚚 queue: newest last and NEW (ENCA 32318, TUNO 10672) ---- */
+.pq-order{display:inline-flex;gap:4px;align-items:center}
+.cg-table.pq-table tr.pq-new>td:first-child{box-shadow:inset 3px 0 0 var(--lemon)}
 
 /* ---- "What's new" on sign-in ----
    Only the releases you have not seen, and never on a first visit. It sits over
