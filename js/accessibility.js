@@ -13,7 +13,7 @@
 //     listener stays the route.
 //   * The logo in the header is a button for the keyboard too.
 //
-// THREE TUNO DIFFERENCES, all on purpose:
+// FOUR TUNO DIFFERENCES, all on purpose:
 //   * ESCAPE GOES TO THE TOOLS FIRST. Most TUNO dialogs close on Escape
 //     through their own close function, which also takes their listeners
 //     down; ENCA's capturing handler would stop those and click a close
@@ -26,6 +26,9 @@
 //     that only removed .open would bypass it in the same way.
 //   * The ⛶ panel is named by its own title (#fsTitle) rather than
 //     "Dialog".
+//   * A dialog without a heading that names itself (aria-label on its
+//     .modal — the ⌘K palette, build 10670) keeps that name; ENCA
+//     overwrites it with "Dialog", which stays the name of one with neither.
 // Rewritten without optional chaining and without Array.prototype.at
 // (TUNO's house rule and the browsers it keeps).
 // ======================================================================
@@ -43,7 +46,7 @@
       panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.tabIndex=-1;
       const title=panel.querySelector('h1,h2,h3,h4,#fsTitle');
       if(title){if(!title.id)title.id='dialog-title-'+el.id;panel.setAttribute('aria-labelledby',title.id);}
-      else panel.setAttribute('aria-label','Dialog');
+      else if(!panel.hasAttribute('aria-label'))panel.setAttribute('aria-label','Dialog');
       stack.push({el,panel,returnTo:document.activeElement});
     });
     inerted.forEach(el=>el.inert=false);inerted=[];

@@ -308,6 +308,21 @@ const OverviewTool = (() => {
     $("ovModal").onclick = (e) => { if (e.target === $("ovModal")) closePolicy(); };
     document.addEventListener("keydown", onEsc);
   }
+  // ⌘K (R38, build 10670): the command palette offers the policies in the
+  // shared read and lands here — the tile's click has just shown this screen,
+  // and its warm start the shared read. A screen still holding an OLDER read
+  // than the cache's (opened before a refresh elsewhere) moves to the cache's
+  // first, so the card the palette offered is the card that opens.
+  function openFromPalette(key) {
+    const c = PolicyCache.get();
+    const has = (r) => {
+      const [secId, itemId] = String(key).split("|");
+      const sec = r && r.sections.find((s) => s.id === secId);
+      return !!(sec && sec.items.some((x) => x.id === itemId));
+    };
+    if (!has(res) && has(c) && !running) showRes(c, cacheNote());
+    openPolicy(key);
+  }
   function closePolicy() {
     $("ovModal").classList.remove("open");
     document.removeEventListener("keydown", onEsc);
@@ -441,7 +456,7 @@ const OverviewTool = (() => {
   }
 
   return {
-    init, run,
+    init, run, openFromPalette,
     // pure seams, driven by the headless tests
     verdictOf, filterMay,
     _view: () => view,

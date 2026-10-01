@@ -315,3 +315,15 @@ switch); whether the library is open is `tuno.wcLibraryOpen:<workspace>`
 in localStorage. The library starts open until an element `#wcOverview`
 exists (the Intune overview, slice 10), then closed as ENCA's 01 does;
 the overview renders into `#wcHome` on the `tuno:wchome` event.
+
+## The ⌘K palette reads what is already there (build 10670)
+
+Ctrl/Cmd+K (js/app.js, ENCA's R03 palette, roadmap R38) lists the tools in
+`TOOL_TABS` — a new tool is in it by being in `TOOL_TABS`, which its tab
+needs anyway — with T-numbers from `TOOL_VERSIONS`, the other workspace
+through `Workspaces.paletteItems`, and the policies of the shared read
+(`PolicyCache.get()`). It never reads the tenant: a cold cache is said
+(the "Read the tenant" row), never searched around. A chosen policy opens
+🗂 Policy overview and `OverviewTool.openFromPalette(key)` — keep that
+export if T19 changes, and keep the key `<section id>|<item id>`. It opens
+only signed in, and Ctrl/Cmd+Shift+K stays the browser's.

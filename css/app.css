@@ -1403,6 +1403,19 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .cp-empty{padding:18px;color:var(--muted);font-size:13px}
 .cp-foot{display:flex;gap:14px;align-items:center;padding:10px 18px;border-top:1px solid var(--border);background:var(--soft)}
 .cp-foot kbd{font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-right:3px}
+/* TUNO (R38, build 10670): a row leads with the tool's line icon, as the
+   rail and the library do; a policy's is the document shape. */
+.cp-item .cp-ic{display:inline-flex;flex:0 0 auto;color:var(--muted)}
+.cp-item .cp-ic .enca-icon{width:16px;height:16px}
+.cp-item.sel .cp-ic,.cp-item:hover .cp-ic{color:var(--ink)}
+/* TUNO (10670): under the shell every .modal-bg pads 24 px (10 px on a
+   phone, css/tool-layout.css), which put the palette under the BETA /
+   SELF-HOSTED ribbon (z-index 9999) at the top of the window. ENCA's 12vh
+   again, counted from below the demo bar when there is one. */
+body.workspaces-shell .modal-bg.cp-open{padding-top:calc(var(--demo-bar-h,0px) + 12vh)}
+/* On a phone a policy's surface and platform go under its name, which
+   would otherwise be squeezed into a column beside them. */
+@media(max-width:600px){.cp-item.cp-pol{flex-wrap:wrap;row-gap:3px}.cp-item.cp-pol b{flex:1 1 0;min-width:0;overflow-wrap:anywhere}.cp-item.cp-pol .cp-k{flex-basis:100%;margin-left:26px;white-space:normal}}
 
 
 .gu-tw table.plist{min-width:620px}

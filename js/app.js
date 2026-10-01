@@ -1622,6 +1622,177 @@ const Fs = (() => {
   $("fsModal").addEventListener("click", (e) => { if (e.target.id === "fsModal") Fs.close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && Fs.isOpen()) Fs.close(); });
 
+  // ---------- Command palette (R38, build 10670) ----------
+  // ENCA's (R03, build 25006; the workspace entries 32407), ported for the
+  // parity workplan's slice 9. Past twenty-odd tools a tile grid stops being
+  // the fastest way in. Ctrl/Cmd+K anywhere, type, Enter. Two sources: every
+  // tool in TOOL_TABS, and — once the tenant is read — every policy in the
+  // shared policy cache (js/policycache.js, the thirteen surfaces T05 reads),
+  // so a policy's name lands on its card in 🗂 Policy overview without going
+  // through the list first. No keystroke reaches the tenant: the tools are in
+  // the page and the policies are the read already in memory.
+  //
+  // TUNO DIFFERENCES, all on purpose:
+  // * A policy is found by its NAME — TUNO's identities are names, where
+  //   ENCA's are CA numbers — and its hint is its surface and platforms.
+  //   Choosing one opens 🗂 Policy overview (T19) on the shared read and the
+  //   policy's card there: the card lives in T19's screen, ENCA's in a modal
+  //   over any screen.
+  // * Signed in, a cold cache is SAID: with something typed, the last row is
+  //   "Read the tenant to search its policies" (T19, or the read already
+  //   running), so a policy that has not been read is never shown as absent.
+  // * It opens only signed in: TUNO's tools need a session (the shell's own
+  //   rule), and before one there is nothing to land on.
+  // * A row shows the tool's line icon and its name without the emoji (the
+  //   chrome is line icons since 10666; ENCA's rows show the emoji label),
+  //   and ties sort by that name. Policy names are tenant data and are shown
+  //   exactly as read; one that opens with punctuation is found as typed, and
+  //   a policy steps a hair behind a tool that scores the same, so an empty
+  //   query lists the tools first.
+  // * Focus goes back to where it was when the palette closes: the input is
+  //   focused after js/accessibility.js has noted where focus came from.
+  // * The tool library (All tools, a <dialog> in the top layer) closes when
+  //   the palette opens, or it would sit above it.
+  // * Ctrl/Cmd+Shift+K and Alt+K are left to the browser (Firefox's web
+  //   console is Ctrl+Shift+K); signed out, Ctrl/Cmd+K is the browser's too.
+  // * It sits 12vh below the demo bar under the shell too (css/app.css):
+  //   the shell's 24 px modal padding had put it under the BETA ribbon. On a
+  //   phone a policy's surface goes under its name.
+  let cpItems = [], cpSel = 0;
+
+  // Substring first, then initials ("gm" → Group migration, "maa" →
+  // Multi-admin approval), so short muscle-memory strings work without a
+  // fuzzy library. Score sorts exact-prefix above mid-word above initials.
+  function cpScore(hay, q) {
+    // Every tool label starts with an emoji, so score against the text after it
+    // too — otherwise the start-of-string bonus can never fire and "list" would
+    // not rank List Policies above a mid-word match elsewhere.
+    // TUNO: a policy name may open with punctuation — "(TO-BE-REMOVED)…",
+    // "[TEST] …" — and typing it as written must find it, so the whole name
+    // is tried as well.
+    const full = String(hay).toLowerCase(), h = full.replace(/^[^a-z0-9]+/, ""), s = q.toLowerCase();
+    if (!s) return 1;
+    if (h.startsWith(s) || full.startsWith(s)) return 100;
+    const i = h.indexOf(s), j = full.indexOf(s);
+    if (i > -1) return 60 - Math.min(i, 30);
+    if (j > -1) return 60 - Math.min(j, 30);
+    const initials = h.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).map((w) => w[0]).join("");
+    if (initials.startsWith(s)) return 40;
+    if (initials.includes(s)) return 25;
+    return 0;
+  }
+  // The permanent T-number, from TOOL_VERSIONS — the sidebar's own source.
+  const cpNo = (id) => {
+    const t = (typeof TOOL_VERSIONS !== "undefined" && TOOL_VERSIONS[id] || {}).t;
+    return Number.isFinite(t) ? `T${String(t).padStart(2, "0")}` : "";
+  };
+  const cpPlain = (label) => String(label).replace(/^[\p{Extended_Pictographic}️‍\s]+/u, "");
+  const cpCache = () => (signedIn && typeof PolicyCache !== "undefined" ? PolicyCache.get() : null);
+
+  function cpBuild(q) {
+    const out = [];
+    for (const [id, label] of TOOL_TABS) {
+      const el = $(id);
+      if (!el) continue;                                  // tool not on this build
+      // "T07" finds the tool, and so does "7": somebody quoting a number out
+      // of a note or a support case should not have to remember the prefix.
+      // An exact number match outranks everything, because a query that IS a
+      // tool number is not an accident.
+      const no = cpNo(id);
+      const qn = q.trim().toLowerCase();
+      const exact = no && (qn === no.toLowerCase() || qn === String(+no.slice(1)) || qn === `t${+no.slice(1)}`);
+      const sc = exact ? 200 : cpScore(label, q);
+      if (sc) out.push({ kind: "tool", id, label, hint: no ? `Tool · ${no}` : "Tool", score: sc });
+    }
+    // The other workspace is one entry — "Switch to 02 · Projects" — owned by
+    // js/workspaces.js, which knows which side is showing (none while there is
+    // one workspace).
+    if (globalThis.Workspaces && Workspaces.paletteItems) out.push(...Workspaces.paletteItems(q, cpScore));
+    const res = cpCache();
+    if (res) {
+      for (const sec of res.sections) for (const it of sec.items) {
+        const sc = cpScore(it.name, q);
+        // a hair under a tool that scores the same, so tools lead an empty
+        // query and a tie (ENCA's folded tools step aside the same way)
+        if (sc) out.push({ kind: "policy", id: `${sec.id}|${it.id}`, label: String(it.name),
+          hint: [sec.label].concat((it.platforms || []).slice(0, 2)).join(" · "), score: sc - 0.1 });
+      }
+    } else if (signedIn && q) {
+      const reading = typeof PolicyCache !== "undefined" && PolicyCache.reading();
+      out.push({ kind: "tool", id: "toolOverview", label: "Read the tenant to search its policies",
+        hint: reading ? "Reading now — Policy overview joins it" : "Policy overview · T19", score: 0.5, read: true });
+    }
+    // Ties go by the name as the row shows it — a tool's without its emoji,
+    // which would otherwise sort the tools by emoji code point.
+    const shown = (x) => (x.kind === "policy" ? x.label : cpPlain(x.label));
+    return out.sort((a, b) => b.score - a.score || shown(a).localeCompare(shown(b))).slice(0, 40);
+  }
+
+  function cpRender() {
+    const ic = (it) => typeof FlatIcons === "undefined" ? ""
+      : `<span class="cp-ic" aria-hidden="true">${it.kind === "policy" ? FlatIcons.svg("file") : it.read ? FlatIcons.tool("toolOverview") : FlatIcons.tool(it.id)}</span>`;
+    $("cpList").innerHTML = cpItems.length
+      ? cpItems.map((it, i) => `<div class="cp-item${it.kind === "policy" ? " cp-pol" : ""}${i === cpSel ? " sel" : ""}" data-cpi="${i}">
+          ${ic(it)}<b>${esc(it.kind === "policy" ? it.label : cpPlain(it.label))}</b><span class="cp-k">${esc(it.hint)}</span></div>`).join("")
+      : `<div class="cp-empty">Nothing matches — no tool, and no policy in the tenant read at ${esc(typeof PolicyCache !== "undefined" ? PolicyCache.timeLabel() : "")}. Policy overview reads it again.</div>`;
+    const sel = $("cpList").querySelector(".cp-item.sel");
+    if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest" });
+  }
+
+  function cpOpen() {
+    if (!signedIn) return;
+    const lib = $("wcLauncher");
+    if (lib && lib.open) { if (lib.close) lib.close(); else lib.removeAttribute("open"); }
+    cpSel = 0; cpItems = cpBuild("");
+    $("cpInput").value = "";
+    // Say what is searchable right now rather than always promising policies.
+    const res = cpCache(), reading = typeof PolicyCache !== "undefined" && PolicyCache.reading();
+    const n = res ? res.sections.reduce((a, sec) => a + sec.items.length, 0) : 0;
+    $("cpScopeNote").textContent = res
+      ? `${n} polic${n === 1 ? "y" : "ies"} searchable · read at ${PolicyCache.timeLabel()}`
+      : reading ? "Reading the tenant — its policies follow" : "Policies once the tenant is read";
+    $("cpModal").classList.add("open", "cp-open");
+    cpRender();
+    Promise.resolve().then(() => { if ($("cpModal").classList.contains("open")) $("cpInput").focus(); });
+  }
+  function cpClose() { $("cpModal").classList.remove("open", "cp-open"); }
+  function cpRun(it) {
+    if (!it) return;
+    cpClose();
+    if (it.go) { it.go(); return; }              // another workspace
+    if (it.kind === "tool") { const el = $(it.id); if (el) el.click(); return; }
+    // A policy: 🗂 Policy overview opens on the shared read (its screen hook),
+    // then the card.
+    const el = $("toolOverview");
+    if (el) el.click();
+    if (typeof OverviewTool !== "undefined" && OverviewTool.openFromPalette) OverviewTool.openFromPalette(it.id);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "k" || e.key === "K")) {
+      if (!signedIn && !$("cpModal").classList.contains("open")) return;
+      e.preventDefault();
+      $("cpModal").classList.contains("open") ? cpClose() : cpOpen();
+      return;
+    }
+    if (!$("cpModal").classList.contains("open")) return;
+    if (e.key === "Escape") { e.preventDefault(); cpClose(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!cpItems.length) return;
+      cpSel = (cpSel + (e.key === "ArrowDown" ? 1 : -1) + cpItems.length) % cpItems.length;
+      cpRender();
+      return;
+    }
+    if (e.key === "Enter") { e.preventDefault(); cpRun(cpItems[cpSel]); }
+  });
+  $("cpInput").addEventListener("input", (e) => { cpItems = cpBuild(e.target.value.trim()); cpSel = 0; cpRender(); });
+  $("cpList").addEventListener("click", (e) => {
+    const it = e.target.closest("[data-cpi]");
+    if (it) cpRun(cpItems[+it.dataset.cpi]);
+  });
+  $("cpModal").addEventListener("click", (e) => { if (e.target.id === "cpModal") cpClose(); });
+
   // ---------- tools ----------
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
