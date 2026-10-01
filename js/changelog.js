@@ -25,6 +25,7 @@
 // Newest release first.
 // ======================================================================
 const CHANGELOG = [
+{ build: 10661, title: "MDE rollout — V2 is the only screen", date: "2026-10-01", items: [{ tool: "MDE rollout", kind: "improved", text: "Opening T28 opens V2 straight away. The original screen and the Existing / V2 switch are gone. V2 keeps everything the original did — the original screen's full test suite now runs against V2 and passes — and adds its overview, recorded risk decisions, group backups and run files." }, { tool: "MDE rollout", kind: "improved", text: "Naming rules you saved on the original screen carry over to V2 once, for a tenant that has no V2 rules yet, and the Naming rules pane says so. Rules you already set in V2 win." }] },
 { build: 10660, title: "T28 — parallel V2 workspace inside the tool", date: "2026-09-30", items: [{ tool: "T28 MDE rollout", kind: "new", text: "V2 runs inside T28 beside Existing, sharing sign-in. Guided overview, separate naming rules, explicit ASR scope exception, retirement/enforcement risk gates, group backups and drift checks, verified-only member updates and portable session records." }] },
 {
   "build": 10659,

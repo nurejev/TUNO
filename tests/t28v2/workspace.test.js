@@ -1,10 +1,9 @@
-// T28 — MDE rollout screen (build 10632), driven end to end in DEMO mode:
-// the whole app booted from index.html's own script list (so the load
-// order is the page's), signed in through the demo link, the tile opened,
-// (10644: opening offers the read and starts nothing)
-// the tenant read, every pane rendered, a fix dry-run through the gates
-// and applied on the run ledger, a manual include planned, and the wave
-// groups created and read back.
+// T28 V2 — the gates V2 added in 10660 (risk decisions, group backups and
+// drift checks, verified-only member updates, run files), driven in DEMO
+// mode through the whole app. Since 10661 V2 is the only T28 screen: there
+// is no version switch, the tile opens V2, and the original screen's saved
+// naming rules are carried over once (the second scenario below). The
+// screen's full regression suite is tests/mderollout/screen.test.js.
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
@@ -46,7 +45,7 @@ function boot() {
   w.msal = undefined;
   w.fetch = () => Promise.reject(new Error("no network in tests"));
   const src = files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
-  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,MdeRolloutTool,AssignEdit,TUNO_DEMO_GRAPH,MdeMembers,MdeAsr,MdeRolloutV2,MdeRolloutV2Tool,T28V2Safety,TunoTenant});";
+  const bridge = ";Object.assign(window,{TOOL_VERSIONS,Graph,PolicyCache,MdeRollout,AssignEdit,TUNO_DEMO_GRAPH,MdeMembers,MdeAsr,MdeRolloutV2Tool,T28V2Safety,TunoTenant});";
   const realErr = console.error, realLog = console.log, realWarn = console.warn;
   console.error = () => {}; console.log = () => {}; console.warn = () => {};
   let err = null;
@@ -66,20 +65,20 @@ async function run() {
   const change = (el, value) => { if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event(el.type === "checkbox" ? "change" : "input", { bubbles: true })); };
   const originalUrl = w.location.href;
   const ids = [...D.querySelectorAll("[id]")].map((e) => e.id);
-  ok("both workspaces have unique DOM ids", ids.length === new Set(ids).size);
-  ok("V2 is initially hidden", $("t28Workspace2").hidden && !$("t28Workspace1").hidden);
+  ok("every DOM id is unique", ids.length === new Set(ids).size);
+  ok("there is no version switch and no original screen (10661)", !$("t28Version1") && !$("t28Version2") && !$("t28Workspace1") && !!$("t28Workspace2") && !$("t28Workspace2").hidden);
+  ok("the original controller and V2's engine copy are gone; V2 runs on the one engine", w.eval('typeof MdeRolloutTool === "undefined" && typeof MdeRolloutV2 === "undefined"') === true && typeof w.MdeRollout.build === "function");
   $("demoLink").click();
   await until(() => w.PolicyCache.get(), 20000, "demo sign in");
   $("toolMdeRollout").click();
-  $("t28Version2").click();
-  ok("V2 opens within T28 without changing URL", w.location.href === originalUrl && !$("t28Workspace2").hidden && $("t28Workspace1").hidden);
-  ok("switching has no implicit tenant read", !st().model && !!$("mvBody").querySelector(".mr-offer"));
+  ok("the tile opens the V2 screen without changing URL", w.location.href === originalUrl && $("screen-mderollout").classList.contains("active") && !$("t28Workspace2").hidden);
+  ok("the screen hook is V2's own", typeof w.TunoScreenHooks["screen-mderollout"] === "function" && !w.TunoScreenHooks["screen-mderollout-v2"]);
+  ok("opening has no implicit tenant read", !st().model && !!$("mvBody").querySelector(".mr-offer"));
   $("mvBody").querySelector('[data-mrread="attach"]').click();
   await until(() => st().model, 20000, "V2 model"); await idle();
   ok("V2 starts on the overview", st().pane === "overview" && !!$("mvBody").querySelector(".v2-overview"));
   ok("overview does not invent applied protection", /Device compliance and applied protection remain unverified/.test($("mvBody").textContent));
   ok("all six workflow steps are navigable", $("mvBody").querySelectorAll(".v2-card[data-mrpane]").length === 6);
-  ok("original model remains untouched by V2 read", !w.MdeRolloutTool._state().model);
   for (const p of ["new", "old", "retire", "waves", "members", "exclusions", "reports", "changes", "rules", "how", "out", "asr", "recovery"]) {
     tool._pane(p); ok(`V2 pane ${p} renders`, !!$("mvBody").textContent.trim());
   }
@@ -100,10 +99,9 @@ async function run() {
   ok("recorded reason and explicit acceptance unlock Apply", !$("mvApply").disabled);
   $("mvApply").click(); await until(() => st().runs.some((r) => r.kind === "settings"), 10000, "ASR apply");
   ok("real controller writes simulated Graph and records risk decision", st().runs[0].kind === "settings" && st().runs[0].ok === 1 && st().runs[0].risk.reason.includes("controlled audit"));
-  ok("original plan/history stay isolated", w.MdeRolloutTool._state().runs.length === 0 && !w.MdeRolloutTool._state().plan);
   // Include this policy using V2's naming rules; the original defaults stay intact.
   tool._pane("out"); $("mvBody").querySelector(`[data-mrinclude="${ASR}"]`).click();
-  ok("V2 rule change stored under its own tenant key", [...store.keys()].some((k) => k.startsWith("tuno.t28.v2.rules.")) && ![...store.keys()].some((k) => k.startsWith("tuno.t28.rules.")) && !st().cfg.leaveOut.includes(ASR) && w.MdeRolloutTool._state().cfg.leaveOut.includes(ASR));
+  ok("V2 rule change stored under its own tenant key, the original key never written", [...store.keys()].some((k) => k.startsWith("tuno.t28.v2.rules.")) && ![...store.keys()].some((k) => k.startsWith("tuno.t28.rules.")) && !st().cfg.leaveOut.includes(ASR));
   // Retirement gates for an old ASR policy with settings not covered by new set.
   tool._pane("old");
   const old = st().model.oldP.find((p) => /PVM-DG-CORP-ENDSEC-WIN-ASR-PRD/.test(p.name));
@@ -142,13 +140,13 @@ async function run() {
   $("mvMemApply").click(); await until(() => !st().busy && /Group membership changed/.test($("mvLedger").textContent), 10000, "drift rejection");
   ok("group drift blocks writing and preserves the run count", st().runs.length === 3 && /Group membership changed/.test($("mvLedger").textContent));
   w.T28V2Safety.unchanged = unchanged; $("mvDiscard").click();
-  // Pending plans are cleared when switching; original stays selectable.
+  // A pending plan is discarded explicitly; nothing switches it away any more.
   tool._pane("waves"); $("mvBody").querySelector('[data-mrroll="includeWaves"]').click();
-  await until(() => st().plan && !st().busy, 10000, "switch pending plan");
-  $("t28Version1").click();
-  ok("switch restores original workspace and clears V2 plan", !$("t28Workspace1").hidden && $("t28Workspace2").hidden && !st().plan);
-  ok("same URL after a complete V2 session", w.location.href === originalUrl);
-  $("t28Version2").click(); tool._pane("recovery");
+  await until(() => st().plan && !st().busy, 10000, "pending plan");
+  $("mvDiscard").click();
+  ok("Discard clears the pending plan", !st().plan);
+  ok("same URL after a complete session", w.location.href === originalUrl);
+  tool._pane("recovery");
   ok("run files explicitly explain reload restore limitation", /Automatic restore after reloading is not implemented/.test($("mvBody").textContent));
   const imports = { schema: "tuno.t28.v2.run-bundle/1", tenantId: w.TunoTenant.tenantId() || "demo", exportedAt: "2026-09-30", runs: [{ title: "<img src=x onerror=alert(1)>", kind: "members", lines: ["<script>bad()</script>"] }] };
   Object.defineProperty($("mvImportRuns"), "files", { value: [{ size: 100, text: async () => JSON.stringify(imports) }] });
@@ -169,8 +167,43 @@ async function run() {
   ok("uncertain member result clears readiness and cached inventory", st().mem.model === null && st().mem.input === null);
   ok("uncertain writes are recorded separately and omitted from blind undo", st().runs[3].done.length === 0 && st().runs[3].uncertainDone.length === 1);
   w.dispatchEvent(new w.Event("tuno:signout"));
-  ok("signout clears V2 tenant state and returns to original", !st().model && st().runs.length === 0 && $("t28Workspace2").hidden);
+  ok("signout clears T28's tenant state", !st().model && st().runs.length === 0);
   w.close();
+  await carryOver();
+}
+// 10661: the original screen kept its naming rules under
+// tuno.t28.rules.<tenant>. A tenant with no V2 rules yet starts from those
+// (same engine, same shape), saved under the V2 key once and said on the
+// Naming rules pane; V2's own rules win when both exist; the old key is
+// never written.
+async function carryOver() {
+  for (const both of [false, true]) {
+    const { w, store } = boot(), D = w.document, $ = (id) => D.getElementById(id);
+    const tool = w.MdeRolloutV2Tool, st = () => tool._state();
+    $("demoLink").click();
+    await until(() => w.PolicyCache.get(), 20000, "demo sign in (carry-over)");
+    const tid = String(w.TunoTenant.tenantId() || "default").toLowerCase();
+    const old = w.MdeRollout.normConfig(null);
+    old.newPrefixes = old.newPrefixes.concat(["WIN-CARRIED"]);
+    const oldRaw = JSON.stringify(old);
+    store.set("tuno.t28.rules." + tid, oldRaw);
+    if (both) { const own = w.MdeRollout.normConfig(null); own.newPrefixes = own.newPrefixes.concat(["WIN-OWN"]); store.set("tuno.t28.v2.rules." + tid, JSON.stringify(own)); }
+    $("toolMdeRollout").click();
+    $("mvBody").querySelector('[data-mrread="attach"]').click();
+    await until(() => st().model, 20000, "carry-over read");
+    await until(() => !st().running && !st().busy && !st().enriching, 15000, "carry-over idle");
+    tool._pane("rules");
+    if (!both) {
+      ok("no V2 rules yet: the original screen's saved rules are carried over", st().cfg.newPrefixes.includes("WIN-CARRIED"));
+      ok("…saved once under the V2 key", /WIN-CARRIED/.test(store.get("tuno.t28.v2.rules." + tid) || ""));
+      ok("…and the Naming rules pane says so", /Carried over/.test($("mvBody").textContent));
+    } else {
+      ok("V2's own rules win over the original screen's", st().cfg.newPrefixes.includes("WIN-OWN") && !st().cfg.newPrefixes.includes("WIN-CARRIED"));
+      ok("…and nothing claims a carry-over", !/Carried over/.test($("mvBody").textContent));
+    }
+    ok(`the original screen's key is left exactly as it was (${both ? "both keys" : "old key only"})`, store.get("tuno.t28.rules." + tid) === oldRaw);
+    w.close();
+  }
   console.log(`T28 V2 workspace: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 }
 run().catch((e) => { console.error(e); process.exitCode = 1; });

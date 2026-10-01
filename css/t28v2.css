@@ -1,9 +1,5 @@
-/* T28's original classes remain shared; new layout is scoped to V2. */
-#t28Workspace1[hidden], #t28Workspace2[hidden] { display:none !important; }
-.t28-versionbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
-.t28-versionbar > span:first-child { font-weight:700; margin-right:auto; }
-.t28-versionbar .active { background:var(--green); color:var(--bg); }
-#t28VersionStatus { width:100%; }
+/* T28 (the V2 design, the only T28 screen since 10661): the .mr- classes in
+   app.css are shared; the V2 layout is scoped to #t28Workspace2. */
 #t28Workspace2 .v2-hero { border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:16px; background:var(--surface); }
 #t28Workspace2 .v2-hero h3 { font-size:26px; margin:12px 0; }
 #t28Workspace2 .v2-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:16px; }

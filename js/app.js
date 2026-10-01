@@ -1562,7 +1562,7 @@ const Fs = (() => {
   if (typeof WinBaselineTool !== "undefined") WinBaselineTool.init();
   if (typeof DeviceCleanupTool !== "undefined") DeviceCleanupTool.init();
   if (typeof CompEvTool !== "undefined") CompEvTool.init();
-  if (typeof MdeRolloutTool !== "undefined") MdeRolloutTool.init();
+  if (typeof MdeRolloutV2Tool !== "undefined") MdeRolloutV2Tool.init();
   if (typeof DocsTool !== "undefined") DocsTool.init();
   if (typeof RestrictedAuTool !== "undefined") RestrictedAuTool.init();
   if (typeof GroupMigrateTool !== "undefined") GroupMigrateTool.init();
