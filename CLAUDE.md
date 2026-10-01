@@ -215,3 +215,26 @@ fails the build when the map and the files disagree, or when a bumped script
 does not name the current build. Learned at 10600: the cleanup pair gained a
 marker and the deploy panel still told people to unassign it "or it removes
 the new policy" (Mihai: "it needs to be visual that it has changed").
+
+## A tool screen is a `section.screen.tool` (build 10662)
+
+Every tool screen carries `class="screen tool"` and every tile
+`class="tool tool-tile"`. The class is what gives a screen its frame — the
+stylesheet's THE TOOL SCREEN FRAME owns the head card's and the result's
+spacing, so neither carries an inline `margin-top` — and what puts it in the
+browser history: `HISTORY_SCREENS` in js/app.js is read from it. A new tool
+that forgets the class gets no Back, which is how eight tools went without
+one until 10662. Tile styles are written against `.tool-tile`, never bare
+`.tool`, or they land on all 28 screens (ENCA shipped that for six builds).
+tests/shell/foundation.test.js holds all of it.
+
+## No optional chaining — a test now, not a reminder
+
+`?.` anywhere in `js/` fails tests/shell/foundation.test.js. It is a
+tokenizer, not a grep, so strings, comments, template text and regular
+expressions do not count; at 10662 it agreed with acorn on every file of
+TUNO and of ENCA (647 chains there). ENCA's modules use it freely, so a
+port rewrites it — and reads each one, because the rewrites are not all
+the same: `(x || {}).y` where `x` is an object or nothing, `x && x.y.z()`
+for a call, `!(x && x.y)` under a negation. A string or a number on the
+left is where `?.` and `||` part ways.

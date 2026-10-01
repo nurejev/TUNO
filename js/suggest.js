@@ -260,7 +260,7 @@ const Suggest = (() => {
       ["aeGroup", { kind: "group" }],
       ["wfGroups", { kind: "group", textarea: true }],
       ["dvTerm", { kind: "deviceUser" }],
-      ["wfSubject", { kind: () => (document.querySelector("#wfKindSeg .active") || {}).dataset?.wfkind === "device" ? "device" : "user" }],
+      ["wfSubject", { kind: () => ((document.querySelector("#wfKindSeg .active") || {}).dataset || {}).wfkind === "device" ? "device" : "user" }],
     ];
     for (const [id, opts] of REG) {
       const el = document.getElementById(id);

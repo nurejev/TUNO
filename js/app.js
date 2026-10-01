@@ -156,21 +156,76 @@ const Fs = (() => {
   // added later cannot be forgotten here.
   const fireSignOut = () => { try { window.dispatchEvent(new CustomEvent("tuno:signout")); } catch { /* no CustomEvent: nothing to drop */ } };
 
-  // ---------- sticky stack: measured, not assumed (ENCA pattern) ----------
+  // ---------- sticky stack: measured, not assumed ----------
+  // ENCA's syncStickyTops and the ResizeObserver under it (ENCA app.js, as at
+  // ENCA beta 32433), ported at build 10662. The header (top:0), the tool tab
+  // bar (under it) and the sidebar stack with position:sticky and fixed.
+  // Their offsets were hard-coded for a one-row desktop header — on a phone
+  // the header wraps taller and every layer below it overlapped the content.
+  // Measure the real heights into CSS variables and let every sticky top
+  // build on those.
+  //
+  // TUNO's one addition is the DEMO BAR (10430), which ENCA does not have. It
+  // sticks ABOVE the header, so everything that pins below the header pins
+  // below the bar as well: --sticky-header and --sticky-nav are measured from
+  // the top of the window, bar included, and --demo-bar-h is the bar alone
+  // (0 outside the demo). Until 10662 the bar was measured on its own in
+  // loadDemo(), sat after the header in the markup, and only the header and
+  // the sidebar knew it existed — the tab bar pinned at the header's height
+  // alone, so in the demo the header slid down over it.
+  //
+  // ENCA also measures --tabs-h, --sticky-tools, --gu-strip and --ld-foot.
+  // TUNO has no host tab strips, no screen-level toolbar and no list/detail
+  // panes yet, so nothing here would read them; each arrives with the slice
+  // that brings the thing it measures.
   function syncStickyTops() {
+    const d = $("demoBar");
     const h = document.querySelector("header");
     const n = $("toolNav");
+    const dh = d && d.style.display !== "none" ? Math.round(d.getBoundingClientRect().height) : 0;
     const hh = h ? Math.round(h.getBoundingClientRect().height) : 58;
     const navVisible = n && n.style.display !== "none" && n.offsetParent !== null;
     const nh = navVisible ? Math.round(n.getBoundingClientRect().height) : 0;
-    document.documentElement.style.setProperty("--sticky-header", hh + "px");
-    document.documentElement.style.setProperty("--sticky-nav", (hh + nh) + "px");
+    document.documentElement.style.setProperty("--demo-bar-h", dh + "px");
+    document.documentElement.style.setProperty("--sticky-header", (dh + hh) + "px");
+    document.documentElement.style.setProperty("--sticky-nav", (dh + hh + nh) + "px");
   }
   window.addEventListener("resize", syncStickyTops);
   syncStickyTops();
 
+  // Measuring at a few chosen moments is what made this fragile. These boxes
+  // change height for reasons nothing calls a "resize": the demo bar wraps to
+  // two lines at the width where somebody is reading it, a second row of open
+  // tabs takes the tool nav to two rows, a branding change puts a taller logo
+  // in the header. When that happens after the last measurement, everything
+  // pinned below goes on sticking at an offset for a box that is no longer
+  // that tall. So observe the boxes rather than guessing when they move. The
+  // resize listener stays as the fallback where ResizeObserver is missing.
+  let stickyRO = null;
+  if (typeof ResizeObserver !== "undefined") {
+    stickyRO = new ResizeObserver(syncStickyTops);
+    for (const el of [$("demoBar"), document.querySelector("header"), $("toolNav")]) {
+      if (el) stickyRO.observe(el);
+    }
+  }
+
   // ---------- screens + browser history ----------
-  const HISTORY_SCREENS = new Set(["screen-home", "screen-applocker", "screen-groupuse", "screen-whatif", "screen-health", "screen-setsearch", "screen-conflict", "screen-macbaseline", "screen-winbaseline", "screen-devicecleanup", "screen-compev", "screen-mderollout", "screen-filters", "screen-assignedit", "screen-device", "screen-roles", "screen-audit", "screen-compliance", "screen-backup", "screen-overview", "screen-docs", "screen-changelog", "screen-roadmap", "screen-help"]);
+  // Each tool screen pushes a state, so Back walks the screens before it ever
+  // leaves the site. WHICH screens is read from the markup, not typed: every
+  // section.screen.tool (the frame, see css/app.css), plus the four pages that
+  // are places you go without being tools. Until 10662 this was a typed list,
+  // one of the nine places a new tool has to be registered — and eight tools
+  // had never made it in: 🦠 Defender status, 🧱 Firewall & ASR coverage,
+  // 🧭 Endpoint security posture, 📊 Secure Score visualizer, 🤝 Multi-admin
+  // approval, 🔑 Windows LAPS audit, 🛡 Restricted AUs and 🔄 Group migration.
+  // Opening one of them added no entry, so Back from it skipped the screen
+  // you had come from — and after a few of them in a row it could leave TUNO
+  // altogether (checked in a browser at 10661: 10 of 28 tool-to-tool Backs
+  // went wrong, one to a blank page; 28 of 28 right at 10662). The sign-in
+  // screen is the one screen Back never returns to.
+  const HISTORY_PAGES = ["screen-home", "screen-changelog", "screen-roadmap", "screen-help"];
+  const HISTORY_SCREENS = new Set(HISTORY_PAGES.concat(
+    [...document.querySelectorAll("section.screen.tool")].map((s) => s.id)));
   // Screens that get the wide shell.
   //
   // EMPTY ON PURPOSE (build 10321). Both tools used to opt in — T01 for its
@@ -353,12 +408,14 @@ const Fs = (() => {
     // Override palettes ship as a stylesheet, scoped per theme — explicit
     // light/dark via data-theme, auto via prefers-color-scheme — so both
     // modes get a palette designed for them (appended last, so it wins ties).
-    document.getElementById("brandOverrideCss")?.remove();
+    const prevOverrideCss = document.getElementById("brandOverrideCss");
+    if (prevOverrideCss) prevOverrideCss.remove();
     // The pre-paint boot stylesheet (js/selfhost-boot.js) hands over here:
     // its palette matches what this function is about to apply, but its
     // logo content:url rule would beat the src= this function sets, so it
     // must not outlive the authoritative branding pass.
-    document.getElementById("selfhostBootCss")?.remove();
+    const bootCss = document.getElementById("selfhostBootCss");
+    if (bootCss) bootCss.remove();
     if (oBrand) {
       const decl = (obj) => Object.entries(obj || {}).filter(([k, v]) => k.startsWith("--") && v)
         .map(([k, v]) => `${k}:${v}`).join(";");
@@ -423,7 +480,11 @@ const Fs = (() => {
       r.id = "betaRibbon";
       r.dataset.titleTag = "[BETA]";
       r.textContent = "⚠ BETA — not production";
-      r.style.cssText = "position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;" +
+      // It hangs from the top of the HEADER, not of the window: in the demo
+      // the demo bar is above the header (10662) and a ribbon at top:0 sat
+      // across the middle of the bar's own warning. --demo-bar-h is 0 outside
+      // the demo, so everywhere else this is the top:0 it always was.
+      r.style.cssText = "position:fixed;top:var(--demo-bar-h,0px);left:50%;transform:translateX(-50%);z-index:9999;" +
         "background:#b04a3a;color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;padding:7px 22px;" +
         "border-radius:0 0 10px 10px;letter-spacing:.5px;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap";
       document.body.appendChild(r);
@@ -763,14 +824,12 @@ const Fs = (() => {
     const bar = $("demoBar");
     if (bar) {
       bar.style.display = "";
-      // The bar wraps to two lines on a narrow window and the fixed sidebar
-      // has to start below whatever height it actually is, so it is measured
-      // rather than assumed — and re-measured on resize, because the wrap
-      // point is exactly where somebody will be looking.
-      const measure = () => document.documentElement.style.setProperty("--demo-bar-h", `${bar.offsetHeight}px`);
-      measure();
-      if (typeof ResizeObserver === "function") new ResizeObserver(measure).observe(bar);
-      else window.addEventListener("resize", measure);
+      // The bar wraps to two lines on a narrow window, and everything that
+      // pins below it has to start below whatever height it actually is. It
+      // is one box of the sticky stack (10662): syncStickyTops measures it
+      // and the stack's ResizeObserver re-measures it when it wraps, because
+      // the wrap point is exactly where somebody will be looking.
+      syncStickyTops();
     }
     buildToolNav();
     renderSideNav();

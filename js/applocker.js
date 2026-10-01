@@ -2453,13 +2453,13 @@ const AppLockerTool = (() => {
   }
   function auditReceipt() {
     if (!auditReview || !scan) return "No device policy snapshot to compare. Import a scan from a device assigned this policy.";
-    const captured=policySnapshot("device"), groups=scan.effectivePolicy?.sources?.mdm || [];
-    if (!groups.some(g=>String(g.grouping).toLowerCase()===auditReview.grouping.toLowerCase() && g.types?.length)) return "The selected grouping was not confirmed in this device scan. Check assignment, sync and the collection date.";
+    const captured=policySnapshot("device"), groups=((scan.effectivePolicy || {}).sources || {}).mdm || [];
+    if (!groups.some(g=>String(g.grouping).toLowerCase()===auditReview.grouping.toLowerCase() && g.types && g.types.length)) return "The selected grouping was not confirmed in this device scan. Check assignment, sync and the collection date.";
     if (!captured) return "Grouping reported, but the device policy values could not be read.";
     let missing=0, modes=0;
     for(const col of auditReview.model.collections) {
       const seen=captured.collections.find(c=>c.type===col.type);
-      missing+=col.rules.filter(r=>!seen?.rules.some(x=>ruleSig(x)===ruleSig(r))).length;
+      missing+=col.rules.filter(r=>!(seen && seen.rules.some(x=>ruleSig(x)===ruleSig(r)))).length;
       if (!seen || seen.mode!==col.mode) modes++;
     }
     return missing || modes ? `Grouping reported, but ${missing} reference rule(s) are missing or differ and ${modes} collection mode(s) differ in the captured device policy. Investigate receipt before treating events as a test of this version.` : "The grouping and reference rules are present in the merged device snapshot in Audit mode. Other policy sources may also contribute; this does not isolate receipt of each individual Intune profile.";
@@ -2546,7 +2546,7 @@ const AppLockerTool = (() => {
     host.innerHTML=`<h2>Scan results against your deployed Audit policy</h2><p><b>${esc(auditReview.profile.displayName)}</b> · ${esc(machineKey(eventsEvidence || scan) || "No device results")} · collected ${esc(fmtDate(collectedAt(eventsEvidence || scan)))}</p><p class="al-review-notice">${esc(auditReceipt())}</p>
       <p>Audit events show executions that would have been blocked at the time. Suggestions below use actual execution records, not the installed-file inventory. Select only applications you intend to allow.</p>
       <div class="al-review-grid"><article class="al-review-card"><h3>${attention.length} files to review</h3><p>Includes unknown predictions and historical audit/block events now covered by the selected policy.</p></article><article class="al-review-card"><h3>${proposed} possible additions</h3><p>Not automatic approvals. An explicit deny may still take precedence after adding an allow rule.</p></article></div>
-      ${!fleetEntries()?.length ? '<p>No execution results available. Open a scan bundle on Overview.</p>' : ''}
+      ${!(fleetEntries() || []).length ? '<p>No execution results available. Open a scan bundle on Overview.</p>' : ''}
       <div class="al-review-actions"><button class="btn primary" data-audit-add ${!auditSelections.size || auditBusy ? "disabled" : ""}>Add ${auditSelections.size} selected suggestion(s) to my changes</button><button class="btn" data-review-nav="deploy">Review differences &amp; update Audit</button><button class="btn" data-review-impact="draft">Detailed file decisions / keep blocked</button></div>
       <label class="mini">Show <select data-audit-filter>${[['needed','Differences / unknown'],['history','Historical events already covered'],['scope','Outside selected collections'],['all','All review rows']].map(([key,label])=>`<option value="${key}" ${auditFilter===key?'selected':''}>${label} (${key==='all'?attention.length:attention.filter(x=>category(x)===key).length})</option>`).join('')}</select></label>
       ${!shown.length?'<p>No rows in this category. Other categories remain available above; this is not proof of readiness for enforcement.</p>':''}
@@ -2574,7 +2574,7 @@ const AppLockerTool = (() => {
       return;
     }
     const profiles = evTenant.list || deployState.checked && deployState.checked.tenantAppLocker || [];
-    const groups = new Set((scan?.effectivePolicy?.sources?.mdm || []).map(g=>String(g.grouping).toLowerCase()));
+    const groups = new Set(((((scan || {}).effectivePolicy || {}).sources || {}).mdm || []).map(g=>String(g.grouping).toLowerCase()));
     host.innerHTML = `<h2>Select the Audit policy you deployed</h2><p>Your existing Intune configuration is the reference. The scan shows what happened on the device; it does not replace this policy with a new baseline.</p>
       <article class="al-review-card"><button class="btn primary" data-review-tenant ${evTenant.busy || auditBusy ? "disabled" : ""}>${evTenant.busy ? "Reading…" : "Read deployed Intune policies"}</button><p class="mini">Select the policy assigned to this device. Names are not proof of Audit mode; T01 reads every collection before opening it.</p>${evTenant.error ? `<p role="alert">${esc(evTenant.error)}</p>` : ""}${evTenant.readDiagnostic ? '<p><button class="btn" data-audit-diagnostic>Download read diagnostic</button></p><p class="mini muted">Saves the returned values for settings that could not be parsed, plus their type and read status. The file can contain policy details; review it before sharing. Nothing is sent automatically.</p>' : ""}
       ${profiles.map((p,i)=>{const matches=(p.omaSettings || []).some(x=>groups.has(String((APPLOCKER_OMA_RE.exec(x.omaUri || "") || [])[1] || "").toLowerCase()));return `<div class="al-profile-row"><div><b>${esc(p.displayName || p.id)}</b><p class="mini muted">${matches ? "Grouping appears in the device scan" : "Device receipt not established"}</p></div><button class="btn" data-audit-profile="${i}" ${auditBusy ? "disabled" : ""}>${auditBusy ? "Reading policy…" : "Open policy for review"}</button></div>`}).join("") || '<p>No profiles loaded yet. Read Intune to choose the existing policy.</p>'}</article>
@@ -2589,7 +2589,7 @@ const AppLockerTool = (() => {
       if(e.target.closest("[data-build-new]")){ $("alNew").click();return; }
       if(e.target.closest("[data-build-import]")){ showScreen("evidence");return; }
       const ap = e.target.closest("[data-audit-profile]");
-      if (ap) { const profiles = evTenant.list || deployState.checked?.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=`Could not open “${profiles[+ap.dataset.auditProfile]?.displayName || "selected policy"}”. ${err.message}`; renderComparison(); } return; }
+      if (ap) { const profiles = evTenant.list || deployState.checked && deployState.checked.tenantAppLocker || []; try { await selectAuditProfile(profiles[+ap.dataset.auditProfile]); } catch(err) { evTenant.error=`Could not open “${(profiles[+ap.dataset.auditProfile] || {}).displayName || "selected policy"}”. ${err.message}`; renderComparison(); } return; }
       if(e.target.closest("[data-audit-diagnostic]") && evTenant.readDiagnostic) { download('T01-policy-read-diagnostic.json',JSON.stringify(evTenant.readDiagnostic,null,2),'application/json'); return; }
       if (e.target.closest("[data-audit-backup]") && auditReview) { download("AppLocker-original-Audit-profile.json",JSON.stringify(auditReview.profile,null,2),"application/json"); return; }
       if (e.target.closest("[data-audit-add]")) { applyAuditSelections(); return; }
@@ -2698,7 +2698,7 @@ const AppLockerTool = (() => {
       return {dv, cls, accepted, category:accepted && cls === "gap" ? "accepted" : cls};
     });
     const visible = rows.map((row,i)=>({row,i,...states[i]})).filter(x => !(hideDll && isDllEvent(x.row.sample)) && (impactFilter === "all" || (impactFilter === "attention" ? ["gap","undecided"].includes(x.category) : x.category === impactFilter)));
-    host.innerHTML = `<h2>Check changes before enforcement</h2><p class="mini muted">Recorded activity from ${esc((eventsEvidence || scan || {}).machine?.name || "an unknown device")} · collected ${esc(fmtDate(collectedAt(eventsEvidence || scan)))}. Recorded outcomes stay unchanged when you switch scenarios.</p>
+    host.innerHTML = `<h2>Check changes before enforcement</h2><p class="mini muted">Recorded activity from ${esc(((eventsEvidence || scan || {}).machine || {}).name || "an unknown device")} · collected ${esc(fmtDate(collectedAt(eventsEvidence || scan)))}. Recorded outcomes stay unchanged when you switch scenarios.</p>
       <label class="al-scenario-label" for="alImpactSource">Which policy would be enforced?</label><select id="alImpactSource" class="btn">${Object.entries(impactLabels).map(([key,label])=>`<option value="${key}" ${impactSource === key ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>
       <p class="al-review-notice"><b>${esc(impactLabels[impactSource])}</b>. ${model ? "Prediction for standard users: uses recorded file metadata, not a Windows execution test; administrator-only rules are excluded. Unknown group membership or version stays unknown. No policy is changed by this check." : "No policy is available for this scenario. Open a scan or create a working draft from Current policy & sources."}</p>
       ${model ? `<div class="al-review-grid"><article class="al-review-card"><span>Potential blocks</span><h3>${gs ? gs.gap + gs.accepted : "Unknown"}</h3><p class="mini">File identities, not separate applications. ${gs ? gs.accepted : 0} accepted for this exact draft.</p></article><article class="al-review-card"><span>Uncertain</span><h3>${gs ? gs.undecided : "Unknown"}</h3><p class="mini">Resolve missing evidence or collection scope.</p></article><article class="al-review-card"><span>Outside the count</span><h3>${gs ? gs.dll : "Unknown"} DLL · ${gs ? gs.probe : "Unknown"} probes</h3><p class="mini">Omitted collections are not repaired or removed from the device. PowerShell probes are shown separately.</p></article></div><p class="mini">Collections in this scenario: ${esc(collectionSummary(model))}. The prediction treats the included collections as enforced.</p>` : ""}

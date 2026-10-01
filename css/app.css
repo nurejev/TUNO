@@ -134,6 +134,27 @@ main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
   position:sticky;top:var(--sticky-nav,106px);z-index:40;background:var(--bg);
   padding:12px 0;margin:-12px 0 6px;box-shadow:0 6px 12px -8px rgba(18,51,31,.15)}
 .tb-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+
+/* ---- THE TOOL SCREEN FRAME (build 10662; ENCA 25351) ---------------------
+   Every tool screen is the same three things in the same order: a head card
+   saying what the tool is, the card of controls, and the result. That was
+   already true, and it was held together by hand: 27 copies of
+   style="margin-top:0;padding:20px 24px" on the head card and 22 of
+   style="margin-top:14px" on the result, typed screen by screen. They agreed
+   because somebody was careful, not because anything made them. Now the
+   stylesheet owns the spacing, the markup says nothing about it, and a new
+   screen is spaced right by existing.
+
+   .screen.tool is the opt-in, and it is also what puts a screen in the
+   browser history (HISTORY_SCREENS in js/app.js is read from it). The
+   sign-in, home, Help, roadmap and changelog screens are not tool screens
+   and deliberately do not carry it. The padding line is TUNO's: its head
+   cards were always a little tighter than .readme's 26px, and stay so. */
+.screen.tool > .readme,
+.screen.tool > .list-card:first-child{margin-top:0}
+.screen.tool > .readme{padding:20px 24px}
+.screen.tool > .toolbar{margin-top:14px}
+.screen.tool > .tool-body{margin-top:14px}
 .toolbar > .chk{margin:0}
 /* every control in a toolbar shares one height, so nothing sits half a row off */
 .toolbar .btn,.toolbar .seg,.toolbar .fchip,.toolbar .chk,.toolbar .search input,
@@ -903,11 +924,18 @@ main input[type=checkbox],main input[type=radio]{height:auto;width:auto;padding:
 @keyframes ruFlash{0%{box-shadow:0 0 0 3px var(--accent2)}100%{box-shadow:0 0 0 0 transparent}}
 
 
-.tool{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;cursor:pointer;transition:.15s;
+/* .tool-tile, not .tool (build 10662, ENCA's split at 25357). Since 10662
+   every tool SCREEN carries class "screen tool" (the frame, see THE TOOL
+   SCREEN FRAME), and a tile style written against bare .tool would land on
+   all 28 screens: a 26px padding, a card border round the whole page, and a
+   2px jump whenever the pointer crossed it. ENCA shipped exactly that for six
+   builds before splitting the names. Tiles carry both classes — app.js and
+   the sidebar still find them as .tool children of a .tools grid. */
+.tool-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;cursor:pointer;transition:.15s;
   background-image:radial-gradient(300px 160px at 90% -40px,var(--glow) 0%,transparent 60%)}
-.tool:hover{border-color:var(--accent2);transform:translateY(-2px)}
+.tool-tile:hover{border-color:var(--accent2);transform:translateY(-2px)}
 .tool-ic{font-size:30px;margin-bottom:12px}
-.tool h3{font-size:17px;letter-spacing:-.01em;margin-bottom:8px;color:var(--green)}
+.tool-tile h3{font-size:17px;letter-spacing:-.01em;margin-bottom:8px;color:var(--green)}
 /* CLAMPED. The tile CSS is otherwise ENCA's byte for byte; what differed was
    the prose. ENCA's blurbs run 17-63 words, ours 111-175, and a grid row takes
    the height of its tallest card - so one long description inflated the whole
@@ -916,7 +944,7 @@ main input[type=checkbox],main input[type=radio]{height:auto;width:auto;padding:
    TILE shows four lines. Clamping rather than rewriting is the durable half of
    the choice: the next long blurb someone writes clamps too, instead of
    reopening this. */
-.tool p{font-size:13px;color:var(--muted);line-height:1.5;
+.tool-tile p{font-size:13px;color:var(--muted);line-height:1.5;
   display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .readme{margin-top:26px;padding:26px;max-width:1180px}
 .readme h3{font-size:16px;margin-bottom:10px;color:var(--green)}
@@ -1063,7 +1091,7 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
 :root[data-theme="dark"] .logo img, :root[data-theme="dark"] .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
 
 /* the site's own treatment: white card titles, lemon pill, lemon CTA, hero glow */
-:root[data-theme="dark"] .tool h3, :root[data-theme="dark"] .readme h3{color:var(--lemon)}
+:root[data-theme="dark"] .tool-tile h3, :root[data-theme="dark"] .readme h3{color:var(--lemon)}
 :root[data-theme="dark"] .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 :root[data-theme="dark"] .btn.primary{background:var(--lemon);border-color:var(--lemon)}
 :root[data-theme="dark"] .btn.primary:hover{background:var(--lemon-deep);border-color:var(--lemon-deep)}
@@ -1082,7 +1110,7 @@ table.gc-matrix{border-collapse:collapse;width:100%;min-width:760px}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-btn:hover,:root:not([data-theme="light"]):not([data-theme="dark"]) .toolnav-tab.active .toolnav-x:hover{background:rgba(0,0,0,.12);color:var(--green-deep)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .fs-bg{background:rgba(0,0,0,.62)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .logo img, :root:not([data-theme="light"]):not([data-theme="dark"]) .login-card > img{content:url("../assets/logo-mark-dark.svg?v=2")}
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .tool h3, :root:not([data-theme="light"]):not([data-theme="dark"]) .readme h3{color:var(--lemon)}
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .tool-tile h3, :root:not([data-theme="light"]):not([data-theme="dark"]) .readme h3{color:var(--lemon)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .tag.new{background:var(--soft);border-color:var(--ghost-bd);color:var(--lemon);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary{background:var(--lemon);border-color:var(--lemon)}
   :root:not([data-theme="light"]):not([data-theme="dark"]) .btn.primary:hover{background:var(--lemon-deep);border-color:var(--lemon-deep)}
@@ -1157,7 +1185,7 @@ table.matrix tbody tr.hl-row > td.hl-col,
 footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospace,Consolas,monospace}
 
 /* per-tool version, tucked into the tile corner */
-.tool{position:relative}
+.tool-tile{position:relative}
 .tool-ver{position:absolute;top:14px;right:16px;font-size:10.5px;letter-spacing:.04em;
   font-family:ui-monospace,Consolas,monospace;color:var(--muted);background:var(--soft);
   border:1px solid var(--border);border-radius:999px;padding:2px 8px;cursor:help;white-space:nowrap}
@@ -1165,8 +1193,8 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
    ON it. Carrying the T-number as well as the version made it wide enough for
    that to matter, so the heading is kept clear of it and its NEW / UPDATED
    chips wrap instead of sliding underneath. */
-.tool h3{padding-right:104px}
-.tool:hover .tool-ver{border-color:var(--accent2);color:var(--green)}
+.tool-tile h3{padding-right:104px}
+.tool-tile:hover .tool-ver{border-color:var(--accent2);color:var(--green)}
 /* the same stamp, on the tool's own header card */
 .tool-ver-head{margin-left:9px;font-size:10.5px;letter-spacing:.04em;font-weight:400;vertical-align:middle;
   font-family:ui-monospace,Consolas,monospace;color:var(--muted);background:var(--soft);
@@ -2272,15 +2300,19 @@ button.au-card-btn:disabled{cursor:default;opacity:.6}
 .demo-bar a{color:var(--warn-fg);font-weight:600;white-space:nowrap}
 /* The bar sticks ABOVE the header rather than scrolling away, because a
    warning you can leave behind by scrolling is one you will forget by the
-   second screen. The header then sticks below it, and the sidebar — which is
-   position:fixed and knows nothing about either — has to be told.
+   second screen. The header then sticks below it.
 
-   --demo-bar-h is MEASURED in js/app.js rather than assumed: the bar wraps to
-   two lines on a narrow window, and a hardcoded height would slide the rail
-   under it at exactly the width where the rail matters most. */
+   Since 10662 the bar is the first thing in the body and one box of the
+   measured sticky stack: --demo-bar-h is its height (0 outside the demo),
+   and --sticky-header and --sticky-nav, which the tab bar, the sidebar and
+   every pinned toolbar already build on, include it. So this rule is the
+   only one that names the bar; the sidebar's own demo offset
+   (calc(58px + bar), which forgot the tab bar) is gone. All of it MEASURED in
+   js/app.js rather than assumed: the bar wraps to two lines on a narrow
+   window, and a hardcoded height would slide the rail under it at exactly
+   the width where the rail matters most. */
 .demo-bar{position:sticky;top:0;z-index:60}
 body.demo-mode header{top:var(--demo-bar-h,40px)}
-body.demo-mode .sidenav{top:calc(58px + var(--demo-bar-h,40px))}
 /* The merged Rules-and-findings card header stays IN SIGHT while the long
    card scrolls (10443). Theme vars only; inside the ⛶ panel the sticky
    anchors to the panel top instead of the page header. */

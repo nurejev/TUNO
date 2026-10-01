@@ -725,7 +725,7 @@ const AssignEditTool = (() => {
       const action = document.querySelector("[data-aeact].active").dataset.aeact;
       // the target: a group, or one of Graph's two tenant-wide targets
       // (build 10404 — Toolkit parity)
-      const tsel = (document.querySelector("[data-aetarget].active") || {}).dataset?.aetarget || "group";
+      const tsel = ((document.querySelector("[data-aetarget].active") || {}).dataset || {}).aetarget || "group";
       let group, members = null;
       if (tsel === "group") {
         prog("Finding the group…");
@@ -904,8 +904,8 @@ const AssignEditTool = (() => {
     // filter (they take the whole assignment, filter included), and a
     // tenant-wide target has no group box to fill.
     const syncBarControls = () => {
-      const action = (document.querySelector("[data-aeact].active") || {}).dataset?.aeact;
-      const tsel = (document.querySelector("[data-aetarget].active") || {}).dataset?.aetarget || "group";
+      const action = ((document.querySelector("[data-aeact].active") || {}).dataset || {}).aeact;
+      const tsel = ((document.querySelector("[data-aetarget].active") || {}).dataset || {}).aetarget || "group";
       $("aeGroup").style.display = tsel === "group" ? "" : "none";
       const filterable = action !== "remove";
       $("aeFilterSel").style.display = filterable ? "" : "none";
