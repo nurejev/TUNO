@@ -312,9 +312,33 @@ the card's chips as they stand when the shell starts, so a tag is still
 added to the TILE, never to js/workspaces.js. Recent tools live in memory
 for the session (five, newest first, cleared on sign-out or a tenant
 switch); whether the library is open is `tuno.wcLibraryOpen:<workspace>`
-in localStorage. The library starts open until an element `#wcOverview`
-exists (the Intune overview, slice 10), then closed as ENCA's 01 does;
-the overview renders into `#wcHome` on the `tuno:wchome` event.
+in localStorage. The library starts closed when an element `#wcOverview`
+is there — the Intune overview since 10671, which renders into `#wcHome` on
+the `tuno:wchome` event — and open where there is none.
+
+## Home's Intune overview reads nothing (build 10671)
+
+js/home-overview.js (ENCA's js/overview.js pattern, mockup round 2's D6 A)
+is the counts, Worth a look first, the read surface by surface and Your
+checks — all of it from `PolicyCache.get()` and `RunMeta.last(tool)`. It
+never reads the tenant; its one read is the button that says so (Read the
+tenant / Read again), at a click, through the cache. Unknown is "—" and a
+count over an unread surface is "N+" — never 0. Rules for what changes it:
+
+- a finding is pure, in `HomeOverview.model`'s `findings()` — rank, rows
+  (the evidence), meaning, next step, the tool that owns it; a finding on a
+  read with gaps says Partial;
+- an on-demand tool joins Your checks by calling `RunMeta.publish(toolId,
+  { completeness }, { n, unit }, data)` when its read lands (T15, T18, T13,
+  T21, T25 do) and a row in `HomeOverview.CHECKS` with its run button's id;
+  `n` is "Unknown" when the read did not establish it, never 0;
+- a count or row that opens 🗂 Policy overview goes through
+  `OverviewTool.openWith({ surf | surfs, verdict })`, so the list shown is
+  the list counted (filters, scope tags and enrolment tokens are not
+  policies, and Home's policy counts leave them out);
+- the cache tells Home when the read changes (`PolicyCache.on`: start,
+  done, failed, dropped, cleared, cold); a writer still calls
+  `PolicyCache.invalidate()`, and Home then says the policies changed.
 
 ## The ⌘K palette reads what is already there (build 10670)
 

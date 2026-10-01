@@ -982,6 +982,8 @@ const Fs = (() => {
     // The cache holds tenant data and the next sign-in may be a different
     // tenant — it does not survive the account that read it.
     if (typeof PolicyCache !== "undefined") PolicyCache.clear();
+    // Home's Your checks are this session's runs (js/runmeta.js, 10671).
+    if (typeof RunMeta !== "undefined") RunMeta.clear();
     // …and neither does anything a TOOL kept (finding 1). PolicyCache.clear()
     // only empties the shared read; a screen that had already landed one
     // held its own copy — comparisons, plans, fetched catalogs — and went

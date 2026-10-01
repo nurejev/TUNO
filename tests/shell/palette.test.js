@@ -232,7 +232,9 @@ head("The roadmap and Help say so");
   const r38 = card("R38");
   ok("R38 is shipped, in beta today, live at 10670", r38 && r38.dataset.shipped === "1" && r38.closest(".rm-era.beta") && /live · beta 10670/.test(r38.querySelector("h4").textContent));
   ok("and has left Next", ![...D.querySelectorAll(".rm-era.next .rm-card .rm-ref")].some((r) => r.textContent === "R38"));
-  ok("R41 counts slice 9", /slices 1–9 · beta 10670/.test(card("R41").querySelector("h4").textContent) && /Slice 9, the command palette \(beta 10670\)/.test(card("R41").textContent));
+  // the tag counts the slices shipped so far, so it moves on with each one
+  const upTo = +((/slices 1–(\d+) · beta \d+/.exec(card("R41").querySelector("h4").textContent) || [])[1] || 0);
+  ok("R41 counts slice 9", upTo >= 9 && /Slice 9, the command palette \(beta 10670\)/.test(card("R41").textContent), String(upTo));
   ok("Help's Getting around names the keys", /Ctrl \+ K[\s\S]*⌘ \+ K on a Mac/.test(D.getElementById("screen-help").textContent));
 }
 

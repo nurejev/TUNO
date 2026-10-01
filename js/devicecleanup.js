@@ -264,6 +264,13 @@ const DeviceCleanupTool = (() => {
     deleteDays: Math.max(2, +($("dcuDeleteDays").value || 0) || DeviceCleanup.DEFAULTS.deleteDays),
   });
 
+  // Home's Your checks (build 10671, js/runmeta.js): this read's headline.
+  function publishRun() {
+    if (typeof RunMeta === "undefined" || !buckets) return;
+    const b = buckets, all = (devices || []).length;
+    RunMeta.publish("toolDeviceCleanup", { completeness: "complete" }, { n: all, unit: `device${all === 1 ? "" : "s"} · ${b.stale.length} stale and enabled · ${b.deletable.length} to delete` });
+  }
+
   async function run() {
     if (running) return;
     running = true; $("dcuRun").disabled = true; $("dcuBody").innerHTML = ""; lastResults = null;
@@ -275,6 +282,7 @@ const DeviceCleanupTool = (() => {
       dcuPane = "overview"; selD.clear(); selX.clear(); selE.clear(); resultsHtml = "";
       prog("");
       render();
+      publishRun();
     } catch (e) {
       prog("");
       $("dcuBody").innerHTML = `<div class="gu-fail"><b>The read failed.</b><span class="why">${esc((e && e.message) || e)}</span></div>`;

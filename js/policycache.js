@@ -34,6 +34,10 @@ const PolicyCache = (() => {
   let warmed = false;    // true when res came from the sign-in prefetch
   let inflight = null;   // the running read's promise, for dedupe
   let gen = 0;           // bumped by invalidate()/clear(); stale reads discard
+  // When a write last made the cache a liar (build 10671): Home's overview
+  // says "the policies changed in this session" rather than "not read yet".
+  // Sign-out's clear() resets it — the next session has written nothing.
+  let dropped = 0;
 
   // While a read runs, every interested tool can watch it — the prefetch
   // has no screen, but a tool opened mid-prefetch attaches its progress
@@ -47,6 +51,15 @@ const PolicyCache = (() => {
   // bodies-full one instead of guessing from the data.
   let hasBodies = false;
   const status = (m) => statusFns.forEach((f) => { try { f(m); } catch { /* a broken listener must not sink the read */ } });
+  // WHO WANTS TO KNOW WHEN THE HELD READ CHANGES (build 10671, for Home's
+  // overview, which has no screen hook firing while the sign-in read lands
+  // under it): "start" when a read begins, "done" when one lands, "failed",
+  // "dropped" when a write invalidates, "cold" when the sign-in prefetch
+  // finds no consent. A listener that throws never sinks the read.
+  const watchers = new Set();
+  const emit = (kind) => watchers.forEach((f) => { try { f(kind); } catch { /* ignore */ } });
+  let warming = false;      // the prefetch's silent consent check is running
+  let warmPending = false;  // the read about to start IS the sign-in prefetch
 
   const scopesNeeded = () => [...new Set([...Docs.scopesFor(Docs.allSectionIds()), ...Graph.SCOPES.directory])];
 
@@ -56,7 +69,8 @@ const PolicyCache = (() => {
   function read(onStatus) {
     if (onStatus) statusFns.add(onStatus);
     if (!inflight) {
-      const g = gen;
+      const g = gen, fromWarm = warmPending;
+      warmPending = false;
       inflight = Docs.collect({ onStatus: status, keepRaw: true, bodies: wantBodies })
         .then((r) => {
           inflight = null; statusFns.clear();
@@ -69,10 +83,16 @@ const PolicyCache = (() => {
             // res can say when the tenant was read without asking the cache,
             // and a document exported from it can print the read time.
             r.readAt = at;
+            // set here rather than after warm()'s await (10671), so a
+            // listener told "done" already knows where the read came from
+            warmed = fromWarm;
+            if (fromWarm) r.fromWarm = true;
           }
+          emit("done");
           return r;
         })
-        .catch((e) => { inflight = null; statusFns.clear(); throw e; });
+        .catch((e) => { inflight = null; statusFns.clear(); emit("failed"); throw e; });
+      emit("start");
     }
     return inflight;
   }
@@ -84,9 +104,13 @@ const PolicyCache = (() => {
   async function warm() {
     if (res || inflight) return;
     let okScopes = false;
+    warming = true;
     try { okScopes = await Graph.silentScopes(scopesNeeded()); } catch { okScopes = false; }
-    if (!okScopes) return;
-    try { await read(); warmed = true; if (res) res.fromWarm = true; } catch { /* cold start */ }
+    warming = false;
+    if (!okScopes) { emit("cold"); return; }
+    if (res || inflight) return;            // a click read while the check ran
+    warmPending = true;                     // read() marks its result as the sign-in one
+    try { await read(); } catch { /* cold start */ }
   }
 
   // Refresh: a deliberate fresh read. An inflight read is already the
@@ -104,10 +128,12 @@ const PolicyCache = (() => {
   }
 
   // A write happened: whatever is held describes the tenant before it.
-  function invalidate() { res = null; at = 0; warmed = false; hasBodies = false; gen++; }
+  const drop = () => { res = null; at = 0; warmed = false; hasBodies = false; gen++; };
+  function invalidate() { drop(); dropped = Date.now(); emit("dropped"); }
 
-  // Sign-out: same as invalidate, but also the name says why it is called.
-  function clear() { invalidate(); }
+  // Sign-out: same as invalidate, but also the name says why it is called —
+  // and the next session has written nothing, so nothing was dropped.
+  function clear() { drop(); dropped = 0; emit("cleared"); }
 
   const timeLabel = () => {
     if (!at) return "";
@@ -122,6 +148,9 @@ const PolicyCache = (() => {
     readAt: () => at,
     timeLabel,
     fromSignIn: () => warmed,
+    droppedAt: () => (res ? 0 : dropped),
+    warming: () => warming,
+    on: (fn) => { watchers.add(fn); return () => watchers.delete(fn); },
     hasBodies: () => hasBodies,
     scopesNeeded,
   };

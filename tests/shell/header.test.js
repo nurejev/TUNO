@@ -252,7 +252,7 @@ head("Home is ENCA's: the tenant over the heading, Recent tools, the library");
 }
 
 // =====================================================================
-head("The library starts open until the Intune overview is there (slice 10), and remembers");
+head("Without an overview above it the library starts open, and remembers");
 {
   const w = await bootShell();
   const D = w.document, $ = (id) => D.getElementById(id);
@@ -269,7 +269,7 @@ head("The library starts open until the Intune overview is there (slice 10), and
   const w2 = await bootShell({ storage: { "tuno.wcLibraryOpen:intune": "0" } });
   ok("the next visit starts where you left it", w2.document.getElementById("wcOverviewTools").hidden === true && w2.document.getElementById("wcToggleLibrary").textContent === "Show");
   const ws = fs.readFileSync(path.join(ROOT, "js/workspaces.js"), "utf8");
-  ok("once #wcOverview exists, the default is closed, as ENCA's 01", /const deflt = !\$\('wcOverview'\);/.test(ws));
+  ok("where #wcOverview exists the default is closed, as ENCA's 01 (tests/shell/home.test.js)", /const deflt = !\$\('wcOverview'\);/.test(ws));
   ok("the overview is told when Home exists (tuno:wchome)", /document\.dispatchEvent\(new CustomEvent\('tuno:wchome'\)\)/.test(ws));
 }
 

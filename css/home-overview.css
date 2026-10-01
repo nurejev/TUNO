@@ -1,0 +1,84 @@
+/* ======================================================================
+   Home's Intune overview (js/home-overview.js, TUNO build 10671 — parity
+   slice 10, mockup round 2's D6 A). ENCA's dashboard rules from its
+   css/app.css (25419 … 25426, 32308's five-count strip), with #overview
+   read as #wcOverview; its configuration map, advisories, report-only and
+   Identity Secure Score rules are not ported (ENCA-only bands). TUNO's own
+   rules follow ENCA's at the end of the file.
+   ====================================================================== */
+.db-head{margin-bottom:28px}
+.db-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--border);padding-block:16px}
+.db-count{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;text-align:left;font:inherit;color:var(--ink);cursor:pointer;background:transparent;border:0;border-right:1px solid var(--border);border-radius:0;padding:4px 22px;box-shadow:none}
+.db-count:first-child{padding-left:0}.db-count:last-child{border-right:0}.db-count:hover{background:var(--soft)}
+.db-count b{font-size:34px;font-weight:650;line-height:1.15;letter-spacing:-.04em}.db-count span{font-size:13px;font-weight:500}.db-count small{font-size:11px;color:var(--muted)}
+.db-status{margin-top:12px;padding:10px 12px;border-left:3px solid var(--accent2);font-size:12.5px;line-height:1.5;background:var(--soft)}
+.db-status.failed,.db-status.empty{border-color:var(--warn-fg);background:var(--warn-bg2)}.db-status.failed{color:var(--warn-fg)}.db-status .fchip{margin-left:4px}
+.db-primary{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:32px;align-items:start;margin-bottom:28px}
+.db-band{min-width:0;margin:0}.db-band>h3{font-size:16px;line-height:1.4;font-weight:600;letter-spacing:-.015em;text-transform:none;color:var(--ink);margin:0 0 14px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.db-band>h3 .mini{font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+.db-context{padding-left:28px;border-left:1px solid var(--border)}
+.db-tiles{display:flex;flex-direction:column}
+.db-tile{min-width:0;padding:13px 0;border-top:1px solid var(--border)}.db-tile:first-child{padding-top:0;border-top:0}
+.db-tile-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;align-items:baseline;width:100%;font:inherit;color:var(--ink);text-align:left;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+button.db-tile-main{cursor:pointer}button.db-tile-main:hover .l{text-decoration:underline;text-underline-offset:3px}
+.db-tile .n{grid-column:2;grid-row:1;font-size:17px;line-height:1.3;font-weight:600;max-width:160px;text-align:right;overflow-wrap:anywhere}
+.db-tile .l{grid-column:1;grid-row:1;font-size:12.5px;line-height:1.4;color:var(--ink)}
+.db-tile .s{grid-column:1/-1;font-size:12px;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}
+.db-tile.warn .n{color:var(--warn-fg)}.db-tile.bad .n{color:var(--off)}
+.db-context-note{margin:8px 0 0;line-height:1.6}
+.db-worths{display:flex;flex-direction:column}
+.db-worth-wrap{border-top:1px solid var(--border)}
+.db-worth{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 10px;align-items:start;width:100%;padding:16px 0;text-align:left;font:inherit;font-size:13px;color:var(--ink);background:transparent;border:0;border-radius:0;box-shadow:none;cursor:pointer}
+.db-worth:hover{background:var(--soft)}.db-worth .sv{grid-column:1;grid-row:1;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;border-radius:3px;padding:2px 6px;background:var(--soft);color:var(--muted)}
+.db-worth.sev-critical .sv{background:var(--crit-bg);color:var(--crit-fg)}.db-worth.sev-high .sv{background:var(--high-bg);color:var(--high-fg)}.db-worth.sev-medium .sv{background:var(--warn-bg);color:var(--warn-fg)}
+.db-worth .tx{grid-column:2/-1;grid-row:1;min-width:0;font-weight:500;line-height:1.55;overflow-wrap:anywhere}.db-worth .tx .mini{display:block;font-weight:400;margin-top:3px}
+.db-worth>.db-ev{grid-column:2;grid-row:2;justify-self:start}.db-worth .to{grid-column:3;grid-row:2;color:var(--muted);white-space:nowrap;font-size:11.5px}
+.db-ev,.db-na{display:inline-block;font-size:11px;font-weight:500;border-radius:3px;padding:2px 6px;background:var(--soft);color:var(--muted)}
+.db-ev.ok{background:var(--ok-bg);color:var(--on)}.db-ev.warn,.db-na{background:var(--warn-bg);color:var(--warn-fg)}.db-ev.bad{background:var(--bad-bg);color:var(--off)}
+.db-worth-empty,.db-worth-note{padding:8px 0;line-height:1.6}
+.db-more{border:0;background:transparent;color:var(--green);font:inherit;font-size:12.5px;font-weight:600;padding:8px 0;cursor:pointer;text-align:left;border-radius:0;box-shadow:none}.db-more:hover{text-decoration:underline;text-underline-offset:3px}
+.db-worth-wrap.open{border-bottom:1px solid var(--border)}.db-worth-wrap.open .db-worth{background:var(--soft)}
+.db-evid{border-left:2px solid var(--accent2);background:var(--surface);padding:14px 16px;margin-bottom:16px;display:flex;flex-direction:column;gap:12px;font-size:12.5px;line-height:1.55;overflow-wrap:anywhere}
+.db-evid-row{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px}.db-evid-row .l{font-size:11px;color:var(--muted);padding-top:2px}
+.db-evid-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.db-check-section{padding-block:22px;border-top:1px solid var(--border)}
+.db-checks{display:flex;flex-direction:column}
+.db-check{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,1fr) auto;gap:20px;align-items:center;padding:14px 0;border-top:1px solid var(--border);background:transparent;border-radius:0;box-shadow:none}
+.db-check .t{font-weight:600;font-size:13px}.db-check .t small{display:block;font-weight:400;font-size:12px;line-height:1.5;color:var(--muted);margin-top:3px}
+.db-check .s{font-size:12.5px;line-height:1.55;color:var(--muted);min-width:0;overflow-wrap:anywhere}.db-check .s b{color:var(--ink);font-size:14px}.db-check.stale .s,.db-check.partial .s{color:var(--warn-fg)}
+.db-check .a{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#wcOverview .fchip{border-radius:5px;box-shadow:none;background:var(--surface);font-size:12px;min-height:32px;padding:5px 10px}#wcOverview .fchip:hover{background:var(--soft)}
+#wcOverview button:focus-visible,#wcOverview summary:focus-visible{outline:2px solid var(--green);outline-offset:4px}
+.db-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.db-list li{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:5px 0}.db-list .nm{min-width:0;overflow-wrap:anywhere}.db-list li>.mini{flex:none;white-space:normal;margin-left:auto}
+@media(max-width:1100px){.db-primary{gap:24px;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}.db-context{padding-left:22px}.db-tile .n{font-size:15px;max-width:120px}}
+@media(max-width:850px){.db-primary{grid-template-columns:minmax(0,1fr);gap:24px}.db-context{padding:22px 0 0;border-left:0;border-top:1px solid var(--border)}.db-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}.db-tile:nth-child(2){padding-top:0;border-top:0}}
+@media(max-width:600px){.db-counts{grid-template-columns:repeat(2,minmax(0,1fr));padding:0}.db-count{padding:15px 12px}.db-count:first-child{padding-left:12px}.db-count:nth-child(2){border-right:0}.db-count:nth-child(n+3){border-top:1px solid var(--border)}.db-count b{font-size:28px}.db-count small{font-size:11px}.db-tiles{display:flex;gap:0}.db-tile:nth-child(2){padding-top:13px;border-top:1px solid var(--border)}.db-tile .n{max-width:160px}.db-check{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}.db-check .t{grid-column:1/-1}.db-check .s{grid-column:1}.db-check .a{grid-column:2}.db-evid-row{grid-template-columns:minmax(0,1fr)}.db-evid{padding:12px}.db-worth{column-gap:8px}.db-worth .to{font-size:11px}.db-worth>.db-ev{font-size:10.5px}}
+@media(pointer:coarse){#wcOverview .fchip{min-height:44px}.db-more{min-height:36px;display:flex;align-items:center}}
+.db-counts.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:900px){.db-counts.five{grid-template-columns:repeat(4,minmax(0,1fr))}.db-counts.five .db-count:nth-child(5){grid-column:1/-1;border-top:1px solid var(--border);border-right:0;padding:12px 0 0}}
+
+/* ---- TUNO ---- */
+#wcOverview{margin:2px 0 6px}
+/* a count nobody read is muted, never a 0; one with something to look at is red */
+.db-count.unk b{color:var(--muted)}
+.db-count.warn b{color:var(--off)}
+/* the read, one line a surface (D6 A's rows) — sixteen of ENCA's tiles
+   would run three times the height of the findings beside them; the
+   surfaces that are not policies (filters, scope tags, tokens) last, muted */
+.db-context .db-tile{padding:7px 0}
+.db-context .db-tile .n{font-size:14px}
+.db-tile.minor .l{color:var(--muted)}
+button.db-tile-main:disabled{cursor:default}
+.db-evid-row>div{min-width:0}
+/* line icons inside the buttons and rows, sized to their text */
+#wcOverview .fchip .enca-icon{width:14px;height:14px;vertical-align:-2px}
+.db-check .t .enca-icon{width:16px;height:16px;vertical-align:-3px;margin-right:2px}
+.db-worth .to .enca-icon{width:14px;height:14px;vertical-align:-3px}
+/* Read again, in the line under the page title */
+#wcHomeLead .ho-reread{display:inline-flex;align-items:center;gap:5px;padding:0;margin-left:6px;font-size:12px;vertical-align:baseline}
+#wcHomeLead .ho-reread .enca-icon{width:14px;height:14px}
+/* ENCA's 900 px rule puts the fifth count on a row of its own; the fourth
+   then ends the first row and needs no rule after it. On a phone the five
+   are two columns, the fifth across both (ENCA's rule would keep four). */
+@media(max-width:900px){.db-counts.five .db-count:nth-child(4){border-right:0}}
+@media(max-width:600px){.db-counts.five{grid-template-columns:repeat(2,minmax(0,1fr))}.db-counts.five .db-count:nth-child(4){border-right:0}.db-counts.five .db-count:nth-child(5){grid-column:1/-1;padding:15px 12px}}

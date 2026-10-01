@@ -59,6 +59,12 @@ const OverviewTool = (() => {
   let res = null, running = false;
   let surfFilter = "all", verdictFilter = "all";
   let platFilter = "All";     // T05's platform filter, same words (build 10522)
+  // HOME'S POLICY SURFACES (build 10671). Home counts policies and profiles
+  // apart from what is not assigned at all — assignment filters, scope
+  // tags, enrolment tokens — and a count opened here must show the list it
+  // counted, so openWith can narrow to a SET of surfaces. Said above the
+  // cards with a way out; a rail click or a fresh read clears it.
+  let surfSet = null;
   // Cards or list — T20's own seg (10477), ported rather than reinvented,
   // because two tools showing the same policies must offer the same two
   // faces or the eye has to relearn the screen. Cards default: the tenant
@@ -103,7 +109,7 @@ const OverviewTool = (() => {
   const platMatch = (r) => platFilter === "All"
     || (platFilter === Docs.NOT_SPECIFIC ? !r.it.platforms.length : r.it.platforms.includes(platFilter));
   // Surface + search + platform first (the chips count THIS set), verdict last.
-  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && matches(r, q) && platMatch(r));
+  const surfed = (q) => flat().filter((r) => (surfFilter === "all" || r.sec.id === surfFilter) && (!surfSet || surfSet.has(r.sec.id)) && matches(r, q) && platMatch(r));
   const shown = (q) => surfed(q).filter((r) => verdictFilter === "all" || r.v === verdictFilter);
 
   // -------------------------------------------------------------- cards --
@@ -226,11 +232,13 @@ const OverviewTool = (() => {
     // grid becomes one very narrow grid item, which is how this looked the
     // first time it was tried.
     host.classList.toggle("cards", view === "cards");
-    host.innerHTML = !rows.length
+    const left = surfSet && res ? res.sections.filter((s) => !surfSet.has(s.id) && s.items.length).map((s) => s.label) : [];
+    const scope = surfSet ? `<p class="mini muted ov-scope" style="grid-column:1/-1;margin:0 0 4px">Policies and profiles only, as Home counted them${left.length ? ` — ${esc(left.join(", "))} left out` : ""}. <button type="button" class="fchip" data-ovscope-clear>Show everything</button></p>` : "";
+    host.innerHTML = scope + (!rows.length
       ? `<p class="mini muted" style="grid-column:1/-1">Nothing matches — the filters are the claim, not the tenant: clear a chip or the surface card and the objects come back.</p>`
       : view === "list"
         ? `<div class="cg-tablewrap" style="margin-top:0"><table class="cg-table"><thead><tr><th>Policy</th><th>Surface</th><th>Included</th><th>Reach</th><th>Platform</th><th>Settings</th><th>Verdict</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`
-        : rows.map(card).join("");
+        : rows.map(card).join(""));
     $("ovCount").textContent = `${rows.length} shown`;
   }
   function renderView() {
@@ -323,6 +331,23 @@ const OverviewTool = (() => {
     if (!has(res) && has(c) && !running) showRes(c, cacheNote());
     openPolicy(key);
   }
+  // Home's counts and surface rows (build 10671, parity slice 10) land here
+  // filtered to what they counted — a surface, or a verdict — on the shared
+  // read, moved to the cache's first as above. Search and platform reset, so
+  // the list is exactly what the count said.
+  function openWith(o) {
+    const c = PolicyCache.get();
+    if (c && res !== c && !running) showRes(c, cacheNote());
+    if (!res) return false;
+    const opt = o || {};
+    surfFilter = opt.surf && res.sections.some((s) => s.id === opt.surf) ? opt.surf : "all";
+    surfSet = Array.isArray(opt.surfs) && opt.surfs.length ? new Set(opt.surfs) : null;
+    verdictFilter = opt.verdict && VLABEL[opt.verdict] ? opt.verdict : "all";
+    platFilter = "All"; if ($("ovSearch")) $("ovSearch").value = "";
+    fillPlatformSelect();
+    render();
+    return true;
+  }
   function closePolicy() {
     $("ovModal").classList.remove("open");
     document.removeEventListener("keydown", onEsc);
@@ -351,7 +376,7 @@ const OverviewTool = (() => {
 
   function showRes(r, sourceNote) {
     res = r;
-    surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; $("ovSearch").value = "";
+    surfFilter = "all"; verdictFilter = "all"; platFilter = "All"; view = "cards"; surfSet = null; $("ovSearch").value = "";
     fillPlatformSelect();
     const sum = Docs.summarize(res);
     const notes = [];
@@ -447,16 +472,18 @@ const OverviewTool = (() => {
       const c = e.target.closest("[data-surf]"); if (!c) return;
       const k = c.getAttribute("data-surf");
       surfFilter = (surfFilter === k && k !== "all") ? "all" : k;         // click again for everything
+      surfSet = null;                                                     // the rail is a choice of its own
       render();
     });
     $("ovCards").addEventListener("click", (e) => {
+      if (e.target.closest("[data-ovscope-clear]")) { surfSet = null; render(); return; }
       const c = e.target.closest("[data-open]"); if (!c) return;
       openPolicy(c.getAttribute("data-open"));
     });
   }
 
   return {
-    init, run, openFromPalette,
+    init, run, openFromPalette, openWith,
     // pure seams, driven by the headless tests
     verdictOf, filterMay,
     _view: () => view,

@@ -21,10 +21,10 @@
    * One workspace so far, 01 Intune. The chip, its menu, the rail's switch
      and ⌘⇧1 / ⌘⇧2 are ported but drawn only once a second workspace exists
      (02 Projects, slice 12) — one workspace has nothing to switch to.
-   * Home's library starts OPEN until the Intune overview sits above it
-     (slice 10, round 2's D6 A); ENCA starts 01's closed because its
-     overview is there. Recent tools say the T-number and the time a tool
-     was opened (round 1's mockup; ENCA: "Opened this session").
+   * Home's library starts open only where nothing sits above it. Since
+     10671 the Intune overview does (js/home-overview.js, round 2's D6 A),
+     so 01's starts closed, as ENCA's. Recent tools say the T-number and the
+     time a tool was opened (round 1's mockup; ENCA: "Opened this session").
    * The library's group headings — on Home and in the launcher — keep their
      section's icon (data-icon, 10666), and the cards say what each tool does
      in TUNO's words (round 1). A card carries its tile's tags — writes to
@@ -349,13 +349,13 @@
     const home = document.createElement('div'); home.id = 'wcHome';
     home.innerHTML = `<div class="wc-home-heading"><div><div class="wc-eyebrow" id="wcTenant"></div><h1 id="wcHomeTitle"></h1><p id="wcHomeLead"></p></div><span class="wc-demo"><span></span><span id="wcEnvironment"></span></span></div><div class="wc-home-layout"><aside class="wc-recent-panel"><h2>Recent tools</h2><div id="wcRecent"></div></aside><section class="wc-library"><div class="wc-section-heading"><h2 id="wcLibraryCount"></h2><span class="wc-section-actions"><button type="button" id="wcToggleLibrary" class="wc-text-button" aria-expanded="false" aria-controls="wcOverviewTools">Show</button><button type="button" id="wcToggleGroups" class="wc-text-button" hidden>Collapse all</button></span></div><div id="wcOverviewTools" hidden></div></section></div><div class="wc-home-foot"><span>Open tools stay in the tabs above your workspace.</span><button type="button" class="wc-text-button" data-wc-tool="toolHelp">TUNO help →</button></div>`;
     $('screen-home').prepend(home);
-    // The Intune overview (slice 10) renders into the home once this layout
-    // exists — say so, rather than have it poll for us.
+    // The Intune overview (js/home-overview.js, 10671) renders into the home
+    // once this layout exists — say so, rather than have it poll for us.
     document.dispatchEvent(new CustomEvent('tuno:wchome'));
     // The library sits under the overview, closed until asked for (ENCA
-    // 25422) — once there IS an overview. Until slice 10 it starts open, so
-    // Home is not a heading and a list of nothing. The choice is remembered
-    // per browser and per workspace.
+    // 25422). Where no overview is there it starts open, so Home is not a
+    // heading and a list of nothing. The choice is remembered per browser
+    // and per workspace.
     const libKey = () => `tuno.wcLibraryOpen:${ws}`;
     const libToggle = $('wcToggleLibrary'), lib = $('wcOverviewTools'), layout = home.querySelector('.wc-home-layout');
     setLib = (open) => {

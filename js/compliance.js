@@ -355,6 +355,18 @@ const ComplianceTool = (() => {
   }
   function showExports(on) { ["cpMd", "cpCsv", "cpStale", "cpCov"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
 
+  // Home's Your checks (build 10671, js/runmeta.js): the estate's headline,
+  // and the coverage rows — Home's compliance finding is exact once they
+  // exist, where the policy read alone can only estimate it.
+  function publishRun() {
+    if (typeof RunMeta === "undefined" || !rep) return;
+    const cov = rep.coverage ? { coverage: rep.coverage, secureByDefault: rep.secureByDefault } : null;
+    if (!rep.devices) { RunMeta.publish("toolCompliance", { completeness: "failed" }, { n: "Unknown", unit: "the device estate could not be read" }, cov); return; }
+    const t = rep.devices.totals;
+    RunMeta.publish("toolCompliance", { completeness: rep.policyError || rep.settingError ? "partial" : "complete" },
+      { n: t.total, unit: `device${t.total === 1 ? "" : "s"} · ${t.noncompliant} non-compliant · ${t.grace} in grace · ${t.stale} stale` }, cov);
+  }
+
   async function run() {
     if (running) return;
     running = true; $("cpRun").disabled = true; showExports(false); $("cpBody").innerHTML = ""; open.clear(); cpPlat = "all"; pane = "estate";
@@ -363,6 +375,7 @@ const ComplianceTool = (() => {
       rep = await Compliance.report({ staleDays: $("cpStaleDays").value, onStatus: prog });
       prog("");
       render();
+      publishRun();
       showExports(true);
     } catch (e) {
       $("cpBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>`;

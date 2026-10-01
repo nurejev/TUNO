@@ -655,10 +655,12 @@ head("Bookkeeping travels in the same commit");
   // css/tool-layout.css and js/tool-layout.js (the folding tool head); 60
   // since 10665 added js/col-resize.js and js/accessibility.js; 62 since
   // 10666 added css/flat-icons.css and js/flat-icons.js (line icons); 64
-  // since 10668 added css/workspaces.css and js/workspaces.js (the shell).
+  // since 10668 added css/workspaces.css and js/workspaces.js (the shell);
+  // 67 since 10671 added css/home-overview.css, js/runmeta.js and
+  // js/home-overview.js (Home's Intune overview).
   // A new script tag moves this on purpose — the count is the proof the
   // bookkeeping pass covered every ref, not a fixed number.
-  ok("the ?v= refs: 64 since the workspace shell arrived (10668)", vs.length === 64, String(vs.length));
+  ok("the ?v= refs: 67 since Home's Intune overview arrived (10671)", vs.length === 67, String(vs.length));
   ok("the newest changelog entry is this build", w.CHANGELOG[0].build === build, String(w.CHANGELOG[0].build));
   const q = w.PROMOTE.items.find((i) => (i.builds || []).includes(build));
   ok("a promotion-queue item names this build", !!q, "no item carries " + build);

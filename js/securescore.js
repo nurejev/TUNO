@@ -667,6 +667,7 @@ const SecureScoreTool = (() => {
       // The same reading T20 will find — one read per session unless
       // somebody asks for a fresh one.
       lastRead = shape(r);
+      publishRun(r);
       res = r; uploaded = []; search = ""; view = "value"; face = "cards"; cat = null;
       rebuild();
       prog("");
@@ -1060,6 +1061,15 @@ const SecureScoreTool = (() => {
   // Written by BOTH paths — this screen's run() and T20's readFor() — so
   // whichever tool asks first, the other one has it.
   let lastRead = null;
+  // Home's Your checks (build 10671, js/runmeta.js): the score this read
+  // found — from T21's own Read or T20's, the one reader either way.
+  function publishRun(r) {
+    if (typeof RunMeta === "undefined" || !r) return;
+    if (r.empty) { RunMeta.publish("toolSecureScore", { completeness: "complete" }, { n: "No", unit: "readings yet — the tenant has none" }); return; }
+    const l = r.latest || {};
+    const pct = l.maxScore ? Math.round((l.currentScore / l.maxScore) * 100) : null;
+    RunMeta.publish("toolSecureScore", { completeness: "complete" }, { n: `${l.currentScore} of ${l.maxScore}`, unit: `points${pct != null ? ` · ${pct}%` : ""}` });
+  }
   const shape = (r) => Object.assign(
     { controls: r.empty ? [] : SecureScore.controlsFrom(r.latest, r.profiles), readAt: Date.now() }, r);
   const current = () => lastRead;
@@ -1072,6 +1082,7 @@ const SecureScoreTool = (() => {
     await Graph.ensureScopes(SecureScore.SCOPE);
     const r = await SecureScore.collect({ onStatus });
     lastRead = shape(r);
+    publishRun(r);
     return lastRead;
   }
 

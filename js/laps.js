@@ -206,6 +206,15 @@ const LapsTool = (() => {
   }
   function showExports(on) { ["lpMd", "lpCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
 
+  // Home's Your checks (build 10671, js/runmeta.js): the headline of this
+  // read, partial when one of its two halves could not be read.
+  function publishRun() {
+    if (typeof RunMeta === "undefined" || !rep) return;
+    if (!rep.totals) { RunMeta.publish("toolLaps", { completeness: "failed" }, { n: "Unknown", unit: rep.credError ? "the escrow store could not be read" : "the device list could not be read" }); return; }
+    const t = rep.totals, all = (rep.rows || []).length;
+    RunMeta.publish("toolLaps", { completeness: rep.credError || rep.deviceError ? "partial" : "complete" }, { n: all, unit: `device${all === 1 ? "" : "s"} · ${t.notEscrowed} not escrowed · ${t.stale} stale` });
+  }
+
   async function run() {
     if (running) return;
     running = true; $("lpRun").disabled = true; showExports(false); $("lpBody").innerHTML = ""; open.clear(); bucketFilter = null;
@@ -214,6 +223,7 @@ const LapsTool = (() => {
       rep = await Laps.report({ maxAgeDays: $("lpDays").value, onStatus: prog });
       prog("");
       render();
+      publishRun();
       showExports(!!rep.totals);
     } catch (e) {
       $("lpBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc((e && e.message) || e)}</b></div></div>`;

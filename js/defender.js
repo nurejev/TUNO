@@ -510,6 +510,15 @@ const DefenderTool = (() => {
   }
   function showExports(on) { ["dfMd", "dfCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); }
 
+  // Home's Your checks (build 10671, js/runmeta.js): the fleet read's
+  // headline, bound to the run that made it. Unknown is said, never 0.
+  function publishRun() {
+    if (typeof RunMeta === "undefined" || !rep) return;
+    if (rep.deviceError) { RunMeta.publish("toolDefender", { completeness: "failed" }, { n: "Unknown", unit: "the Windows device list could not be read" }); return; }
+    const t = rep.totals;
+    RunMeta.publish("toolDefender", { completeness: "complete" }, { n: t.windows, unit: `Windows device${t.windows === 1 ? "" : "s"} · ${t.issues} with findings · ${t.nostate} with no state` });
+  }
+
   async function run() {
     if (running || baseRunning) return;
     running = true; $("dfRun").disabled = true; showExports(false); $("dfBody").innerHTML = ""; open.clear(); bucketFilter = null; dfPane = "fleet";
@@ -519,6 +528,7 @@ const DefenderTool = (() => {
       rep = await Defender.report({ onStatus: prog });
       prog("");
       render();
+      publishRun();
       showExports(!rep.deviceError);
       if (!rep.deviceError && $("dfSearchWrap")) $("dfSearchWrap").style.display = "";
     } catch (e) {
@@ -549,6 +559,7 @@ const DefenderTool = (() => {
       dfPane = "baseline";   // the click asked for the match — land on it
       prog("");
       render();
+      publishRun();
       showExports(!rep.deviceError);
       if (!rep.deviceError && $("dfSearchWrap")) $("dfSearchWrap").style.display = "";
     } catch (e) {
