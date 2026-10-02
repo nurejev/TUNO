@@ -2852,6 +2852,37 @@ button.sc-cat-btn.active{border-color:var(--accent2);background:var(--soft)}
 #screen-mderollout .mr-exk{font-size:10.5px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--soft);color:var(--green)}
 #screen-mderollout .mr-exk.d{color:var(--muted)}
 #screen-mderollout .mr-exr{margin-left:auto;font-size:12px;color:var(--muted)}
+/* 🧩 Edge extensions (10678, option A off the mockup round): the policy
+   card's head and lookup-route line, the approved list's chips and bulk
+   row, the two list tables (an add is ok-bg, a removal bad-bg, a finding
+   carries a red edge), the store hits (a div of buttons, not one button,
+   so .mr-exhit's hand cursor is taken back), the plan's two boxes. */
+#screen-mderollout .mr-exthead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#screen-mderollout .mr-exthead h3,#screen-mderollout .mr-exthead h4{margin:0}
+#screen-mderollout .mr-exthead .tb-actions{margin-left:auto}
+#screen-mderollout .mr-extroute{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+#screen-mderollout .mr-extroute input{flex:1 1 220px;min-width:0;max-width:420px;border:1px solid var(--border);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;background:var(--surface);color:var(--ink)}
+#screen-mderollout .mr-extid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+#screen-mderollout .mr-extchips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+#screen-mderollout .mr-extname{margin-top:4px}
+#screen-mderollout .mr-extname input{width:100%;max-width:320px;border:1px solid var(--border);border-radius:8px;padding:3px 8px;font:inherit;font-size:12px;background:var(--surface);color:var(--ink)}
+#screen-mderollout .mr-extbulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:13px}
+#screen-mderollout .mr-extbox{border:1px solid var(--border);border-left:3px solid var(--report);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:13px}
+#screen-mderollout .mr-extbox.ok{border-left-color:var(--on);margin-top:10px}
+#screen-mderollout .mr-extbox .mini{margin-top:4px;line-height:1.55}
+#screen-mderollout .mr-ext-table{min-width:720px}
+#screen-mderollout .mr-ext-table tr.mr-ext-added td{background:var(--ok-bg)}
+#screen-mderollout .mr-ext-table tr.mr-ext-removed td{background:var(--bad-bg2)}
+#screen-mderollout .mr-ext-table tr.mr-ext-finding td:first-child{box-shadow:inset 3px 0 0 var(--off)}
+#screen-mderollout .mr-extsel{padding:2px 6px;font-size:12px;min-width:150px}
+#screen-mderollout .mr-extsel.on{border-color:var(--accent2);color:var(--green)}
+#screen-mderollout .mr-extsel.off{border-color:var(--off);color:var(--off)}
+#screen-mderollout .mr-extmini{padding:3px 9px;font-size:12px;border-radius:8px}
+#screen-mderollout .mr-exthit{cursor:default}
+#screen-mderollout .mr-exthit:hover{background:var(--surface)}
+#screen-mderollout .mr-extacts{margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+#screen-mderollout .mr-extpick{border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:8px;padding:2px 8px;font:inherit;font-size:12px;cursor:pointer;margin:2px 0}
+#screen-mderollout .mr-extpick:hover{border-color:var(--accent2)}
 #screen-mderollout .mr-expair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px;margin-top:12px}
 #screen-mderollout .mr-expc{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface);min-width:0}
 #screen-mderollout .mr-exkv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 10px;font-size:12.5px;margin:0}

@@ -4,7 +4,8 @@
 // Mihai, off T15's MDE baseline table ("ASR rules — 3 match · 15
 // conflict"): "for t28, make an option to adjust the settings of these
 // policies. make it a dedicated button". Option B off
-// t28-adjust-settings-mockups.html: a header button and a pane of its own,
+// t28-adjust-settings-mockups.html: a header button (gone since 10678 —
+// the rail node is the way in) and a pane of its own,
 // one row per ASR rule across the whole new set, the baseline beside it.
 // First build: ASR rule MODES only (off / audit / warn / block).
 //

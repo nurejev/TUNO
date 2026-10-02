@@ -104,7 +104,7 @@ async function run() {
   ok("it offers the read instead: ↻ Read the tenant, and says reading writes nothing", !!offer() && !!offer().querySelector('[data-mrread="fresh"]') && /changes nothing/.test(offer().textContent));
   const useHeld = offer() && offer().querySelector('[data-mrread="attach"]');
   ok("with the sign-in read held, it also offers that read, with its time", !!useHeld && /sign-in read from \d/.test(useHeld.textContent) && useHeld.textContent.includes(w.PolicyCache.timeLabel()));
-  ok("the ⊘ header button stays hidden until something is read", $("mvExclude").hidden);
+  ok("10678: no ⊘ or 🎛 button in the header — the rail is where the adjustments live", !$("mvExclude") && !$("mvAsr"));
   w.TunoScreenHooks["screen-mderollout"]();
   await sleep(50);
   ok("opening it again still only offers", !!offer() && !w.MdeRolloutV2Tool._state().model && reads.refresh === 0);
@@ -523,8 +523,10 @@ async function run() {
   // added to the 2 exclusion groups". Layout A: the header button opens the
   // rail pane. The user exclusion group is still under its old name here
   // (renamed back above) and Nina is in it — her Windows laptop is not.
-  ok("the header button is there once the tenant is read", $("mvExclude") && !$("mvExclude").hidden);
-  $("mvExclude").click();
+  ok("the rail node is there once the tenant is read (10678: no header button)", !!D.querySelector('[data-mrpane="exclusions"]') && !$("mvExclude"));
+  D.querySelector('[data-mrpane="exclusions"]').click();
+  await until(() => st().pane === "exclusions", 5000, "exclusions pane");
+  if (!st().ex.base && !st().ex.loading) $("mvExRead").click();
   ok("it opens ⊘ Exclusions and reads the exclusion groups and devices", st().pane === "exclusions" && await until(() => st().ex.base, 10000, "exclusion base") && !!$("mvExQ"));
   ok("the rail says one user is half-excluded", /1 half/.test(D.querySelector('[data-mrpane="exclusions"]').textContent) && D.querySelector('[data-mrpane="exclusions"] .ep-n').classList.contains("gap"));
   ok("Excluded now: Nina, half — her laptop still gets the - D - policies, with + add device", /Excluded now/.test($("mvExNow").textContent) && /Nina Nieuw/.test($("mvExNow").textContent)
@@ -883,8 +885,8 @@ async function run() {
   const obfMode = () => { const r = w.MdeAsr.findRule(obfPol._settings, OBFS); return r ? w.MdeAsr.modeOfValue(OBFS, r.choiceSettingValue.value) : null; };
   const oldPol = TT.CONFIG_POLICIES.find((p) => p.name === "PVM-DG-CORP-ENDSEC-WIN-ASR-PRD");
   const oldBefore = JSON.stringify(oldPol._settings);
-  ok("🎛 the header button is shown once the tenant is read", $("mvAsr") && !$("mvAsr").hidden);
-  $("mvAsr").click();
+  ok("🎛 its rail node is there once the tenant is read (10678: no header button)", !!D.querySelector('[data-mrpane="asr"]') && !$("mvAsr"));
+  D.querySelector('[data-mrpane="asr"]').click();
   ok("🎛 it opens its own pane, on the rail", st().pane === "asr" && !!$("mvBody").querySelector('.mr-navigation [data-mrpane="asr"].active') && !!$("mvAsrCard"));
   const sel = () => $("mvBody").querySelector(`[data-mrasr$="|${OBFS}"]`);
   const obfGen = () => st().model.policies.find((p) => p.id === obfPol.id).generation;

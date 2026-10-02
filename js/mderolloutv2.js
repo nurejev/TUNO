@@ -109,6 +109,7 @@ const MdeRolloutV2Tool = (() => {
     const rank = { off: 0, audit: 1, warn: 2, block: 3 };
     for (const x of plan.items || []) for (const c of x.changes || []) if (rank[c.to] < rank[c.from]) issues.push(`${x.name}: ${c.name} ${c.from} → ${c.to} reduces enforcement.`);
     if (plan.kind === "asr" && v2AllowLeftOut) issues.push("The ASR exception for Leave out policies is enabled. Confirm this scope deliberately.");
+    if (plan.kind === "edgeext") for (const x of plan.items || []) for (const c of x.changes || []) if (c.list === "force" && c.op === "remove" && extNameOf(c.entry.id).status !== "404") issues.push(`${x.name}: ${extNameOf(c.entry.id).name || c.entry.id} comes off Installed silently — Edge uninstalls it from every reached user at the next policy refresh.`);
     return issues;
   }
   function v2Gate() {
@@ -208,6 +209,7 @@ const MdeRolloutV2Tool = (() => {
       if (cfgCarried) { try { window.localStorage.setItem(cfgKey(), JSON.stringify(cfg)); } catch { /* private window */ } }
     }
     catch { cfg = M.normConfig(null); cfgCarried = false; }
+    extLoadStored();   // 🧩 (10678): the approved list and the names given by hand, per tenant like the rules
   }
   function saveCfg(c) {
     cfg = M.normConfig(c);
@@ -341,8 +343,7 @@ const MdeRolloutV2Tool = (() => {
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
     asr.edits.clear(); asr.filter = "all";
-    if ($("mvExclude")) $("mvExclude").hidden = true;
-    if ($("mvAsr")) $("mvAsr").hidden = true;
+    ext.edits.clear(); ext.names.clear(); ext.list = null; ext.policyKey = null; ext.filter = "all"; ext.q = ""; ext.hits = null; ext.note = ""; ext.err = ""; ext.looking = ""; ext.routeMsg = "";
     if ($("mvBody")) $("mvBody").innerHTML = "";
     showExports(false); syncSelbar();
   }
@@ -384,6 +385,8 @@ const MdeRolloutV2Tool = (() => {
       node("new", "🎯", "New policies", model.newP.length),
       node("conflicts", "⚔️", "Conflicts with old", act.length, act.length > 0),
       (() => { const rows = MdeAsr.matrix(model); const diff = rows.filter((r) => r.P && MdeAsr.verdict(r.now, r.baseline) === "differs").length; return node("asr", "🎛", "Adjust settings", asr.edits.size ? `${asr.edits.size} ✎` : diff ? `${diff} ≠ baseline` : "✓", diff > 0 && !asr.edits.size); })(),
+      // 🧩 (10678): the Edge extensions policy's two lists — its own node, nothing in the header
+      (() => { const P = extPolicy(); if (!P) return node("edgeext", "🧩", "Edge extensions", "none", false); const now = extNow(P); const bad = extIdsOf(now).filter((id) => extNameOf(id).status === "404").length; return node("edgeext", "🧩", "Edge extensions", ext.edits.size ? `${ext.edits.size} ✎` : bad ? `${bad} ⚠` : `${now.force.length} · ${now.allow.length}`, bad > 0 && !ext.edits.size); })(),
       node("old", "🗄", "Old policies", model.oldP.length),
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
       `<div class="v2-rail-label">ROLLOUT</div>`,
@@ -729,13 +732,14 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. A device with no primary user takes its Entra owner's country, else the ISO3 its name starts with. A primary user in no country group of the table (10659) — often a DELETED user, whose UPN Entra renamed to <code>&lt;object id&gt;&lt;old UPN&gt;</code> — is looked up: a deleted one by the old UPN (the live account), a live one by id. The device then takes the live account's country group when it is in one, else the ISO3 its name starts with (BGD…, IDN…, PHL…), else the user's usage location; what none of those places is listed under 🕳 with the reason.</p>
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
-      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, or the header button). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
+      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
-      <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (the header button, or the rail). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
+      <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (on the rail). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
+      <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (on the rail, 10678). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
   }
@@ -762,6 +766,7 @@ const MdeRolloutV2Tool = (() => {
     else if (pane === "rules") main = rulesPane();
     else if (pane === "how") main = howPane();
     else if (pane === "asr") main = asrPane();
+    else if (pane === "edgeext") main = extPane();
     else main = conflictsPane();
     // The plan panel is ONE node, kept across renders and re-seated under the
     // pane — a pane switch or a filter keystroke must not throw a half-made
@@ -770,8 +775,6 @@ const MdeRolloutV2Tool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mvGlobalExport").hidden = pane === "reports";
-    if ($("mvExclude")) $("mvExclude").hidden = false;
-    if ($("mvAsr")) { $("mvAsr").hidden = false; $("mvAsr").classList.toggle("active", pane === "asr"); }
     $("mvBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mvPlanSeat"></div></div></div>`;
     if (pl) seatPlan(pl);
     syncSelbar();
@@ -1240,6 +1243,7 @@ const MdeRolloutV2Tool = (() => {
     if (!r || busy) return;
     if (r.kind === "members") { memDryRun(r); return; }
     if (r.kind === "settings") { pane = "asr"; render(); asrDryRun(MdeAsr.reverse(r.done), `Undo: ${r.title}`); return; }
+    if (r.kind === "edgeext") { pane = "edgeext"; render(); extDryRun(MdeEdgeExt.reverse(r.done), `Undo: ${r.title}`); return; }
     busy = true; planAnchor = null; clearPlan(); seatPlan();
     try {
       await Graph.ensureScopes(AssignEdit.READ());
@@ -1446,6 +1450,522 @@ const MdeRolloutV2Tool = (() => {
     clearPlan(); render();
   }
   function openAsr() { pane = "asr"; view.cat = null; view.state = null; view.q = ""; render(); }
+
+  // ----------------------------------------------- 🧩 edge extensions --
+  // (10678, option A off the mockup round — its own rail node, nothing in
+  // the header: "only show them on left rail") The engine is MdeEdgeExt,
+  // the store is TunoAddons; this is the pane, the plan and the write.
+  //
+  // The policy: the new set's settings-catalog policy carrying the Edge
+  // force list or allow list (one at PVM: Win - OIB - SC - Microsoft Edge
+  // - U - Extensions - v3.1.2; a select appears when there are more). Its
+  // two lists are rows; a row's name is the store's answer for its ID,
+  // 🔒 built-in for the two Copilot components, ⚠ not in the store for
+  // an ID the store answers 404 to. The approved list (TSV / CSV, kept per
+  // tenant in this browser) is matched to the store by name, by the ID a
+  // column or the operator gives when the name search does not decide it;
+  // "if the store cannot be called, the option to self insert the right id
+  // should be there" — an ID or a store link is always accepted, with the
+  // name unverified until a route answers.
+  const ext = { policyKey: null, list: null, edits: new Map(), filter: "all", q: "", hits: null, searching: false, note: "", err: "",
+    names: new Map(), looking: "", routeMsg: "", bulk: "allow" };
+  const EXTL = MdeEdgeExt.LISTS;
+  const extListKey = () => `tuno.t28.edgeext.list.${tenantKey()}`;
+  const extNamesKey = () => `tuno.t28.edgeext.names.${tenantKey()}`;
+  function extLoadStored() {
+    try {
+      const raw = window.localStorage.getItem(extListKey());
+      ext.list = raw ? JSON.parse(raw) : null;
+      if (ext.list && !ext.list.ids) ext.list.ids = {};
+    } catch { ext.list = null; }
+    try {
+      const raw = window.localStorage.getItem(extNamesKey());
+      const given = raw ? JSON.parse(raw) : {};
+      for (const id of Object.keys(given || {})) if (!ext.names.has(id)) ext.names.set(id, { status: "unverified", name: String(given[id]), source: "operator" });
+    } catch { /* nothing kept */ }
+  }
+  function extSaveList() {
+    try { if (ext.list) window.localStorage.setItem(extListKey(), JSON.stringify(ext.list)); else window.localStorage.removeItem(extListKey()); return true; } catch { return false; }
+  }
+  function extSaveName(id, name) {
+    ext.names.set(lc(id), { status: "unverified", name, source: "operator" });
+    try {
+      const raw = window.localStorage.getItem(extNamesKey());
+      const given = raw ? JSON.parse(raw) : {};
+      given[lc(id)] = name;
+      window.localStorage.setItem(extNamesKey(), JSON.stringify(given));
+    } catch { /* this browser would not keep it */ }
+  }
+  function extPolicies() {
+    if (!model) return [];
+    return model.policies.filter((P) => P.sectionId === "settingsCatalog" && MdeAsr.inNewSet(P, model.cfg) && P.raw && MdeEdgeExt.isEdgeExtPolicy(P.raw.__detail || []));
+  }
+  function extPolicy() {
+    const list = extPolicies();
+    if (!list.length) return null;
+    const hit = ext.policyKey ? list.find((P) => P.key === ext.policyKey) : null;
+    return hit || list[0];
+  }
+  const extNow = (P) => MdeEdgeExt.listsIn(P && P.raw ? P.raw.__detail || [] : []);
+  const extModified = (P) => (P.raw && P.raw.lastModifiedDateTime) || (P.item && P.item.lastModifiedDateTime) || "";
+  // What is known about an ID: the store's answer, 🔒 built-in, an
+  // operator's or the list's name (unverified), or nothing but the ID.
+  function extNameOf(id) {
+    const k = lc(id);
+    if (MdeEdgeExt.isBuiltIn(k)) return { status: "builtin", name: MdeEdgeExt.BUILT_IN[k] };
+    const n = ext.names.get(k);
+    if (n) return n;
+    const c = typeof TunoAddons !== "undefined" ? TunoAddons._cached(`id:${k}`) : null;
+    if (c) { ext.names.set(k, Object.assign({ source: "store" }, c)); return ext.names.get(k); }
+    return { status: "unknown", name: "" };
+  }
+  const extIdsOf = (now) => [...new Set([].concat(now.force, now.allow).map((e) => e.id).filter(MdeEdgeExt.isId))];
+  // Ask the store for every ID it has not answered yet — only with a route.
+  // Sequential, cached a day by TunoAddons; the pane shows the running line.
+  async function extLookup(ids, force) {
+    if (!TunoAddons.hasRoute()) return;
+    const todo = ids.filter((id) => { const n = extNameOf(id); return force ? n.status !== "builtin" : (n.status === "unknown" || n.status === "unverified" || n.status === "error"); });
+    if (!todo.length) return;
+    for (let i = 0; i < todo.length; i++) {
+      ext.looking = `Looking up ${i + 1} of ${todo.length} in the store…`;
+      const el = $("mvExtLooking"); if (el) el.textContent = ext.looking;
+      try {
+        const a = await TunoAddons.detail(todo[i]);
+        // a 404 keeps the name the operator or the list gave — the store
+        // knows nothing about it, the operator may
+        const prev = ext.names.get(todo[i]);
+        ext.names.set(todo[i], Object.assign({ source: "store" }, a, a.status === "404" && prev && prev.name ? { name: prev.name, source: prev.source } : {}));
+      } catch (e) { const prev = ext.names.get(todo[i]); ext.names.set(todo[i], { status: "error", name: prev && prev.name ? prev.name : "", source: prev ? prev.source : "", err: GroupUse.shortErr(e, 160) }); }
+    }
+    ext.looking = "";
+    if (pane === "edgeext") render();
+  }
+  // The approved list's Edge rows against the store: a row with an ID
+  // column keeps it; else the name is searched and MdeEdgeExt.matchHits
+  // decides; several hits are kept for the operator to pick from.
+  async function extResolve(force) {
+    if (!ext.list || !TunoAddons.hasRoute()) return;
+    const rows = ext.list.parsed.rows.filter((r) => r.edge);
+    const todo = rows.filter((r) => force || !(ext.list.ids[r.key] && ext.list.ids[r.key].id) && !(ext.list.ids[r.key] && ext.list.ids[r.key].hits));
+    if (!todo.length) return;
+    for (let i = 0; i < todo.length; i++) {
+      const r = todo[i];
+      ext.looking = `Searching the store for ${i + 1} of ${todo.length}: ${r.name}…`;
+      const el = $("mvExtLooking"); if (el) el.textContent = ext.looking;
+      if (r.id) { ext.list.ids[r.key] = { id: r.id, how: "column" }; continue; }
+      try {
+        const hits = await TunoAddons.search(r.name);
+        const m = MdeEdgeExt.matchHits(r.name, hits);
+        ext.list.ids[r.key] = m ? { id: m.id, how: "store", name: m.name } : { id: "", how: "none", hits: hits.slice(0, 6).map((h) => ({ id: h.id, name: h.name, developer: h.developer })) };
+        if (m) ext.names.set(m.id, { status: "ok", source: "store", name: m.name, developer: m.developer, rating: m.rating, ratings: m.ratings });
+      } catch (e) { ext.list.ids[r.key] = { id: "", how: "error", err: GroupUse.shortErr(e, 160) }; }
+    }
+    ext.looking = "";
+    extSaveList();
+    const ids = Object.values(ext.list.ids).map((x) => x.id).filter(MdeEdgeExt.isId);
+    if (pane === "edgeext") render();
+    await extLookup(ids, false);
+  }
+  async function extListFile(f) {
+    if (!f) return;
+    let text = "";
+    try {
+      text = typeof f.text === "function" ? await f.text() : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(r.error); r.readAsText(f); });
+    } catch (e) { ext.err = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; render(); return; }
+    extListText(text, f.name);
+  }
+  function extListText(text, name) {
+    const parsed = MdeEdgeExt.parseApproved(text);
+    if (!parsed.total) { ext.err = `Nothing to read in ${name || "the pasted text"} — a header row with an Extension column, or one name per line.`; render(); return; }
+    ext.list = { name: name || "pasted list", at: new Date().toISOString(), parsed, ids: {} };
+    ext.err = "";
+    extSaveList();
+    render();
+    extResolve(false);
+  }
+  // The row an approved entry is matched to: the ID it resolved to, and
+  // where that ID stands against the policy and the plan.
+  function extRowState(r, now, planned) {
+    const res = (ext.list.ids || {})[r.key] || null;
+    const id = res && MdeEdgeExt.isId(res.id) ? res.id : "";
+    const inForce = id && now.force.some((e) => e.id === id), inAllow = id && now.allow.some((e) => e.id === id);
+    const add = id ? planned.changes.find((c) => c.op === "add" && c.entry.id === id) : null;
+    const same = id ? ext.list.parsed.rows.find((x) => x !== r && x.edge && (ext.list.ids[x.key] || {}).id === id) : null;
+    return { res, id, inForce, inAllow, add, same, name: id ? extNameOf(id) : null };
+  }
+  const extStatusChip = (n) => n.status === "ok" ? chip("au-op create", "✓ store") : n.status === "builtin" ? chip("au-op other", "🔒 built-in")
+    : n.status === "404" ? chip("au-op delete", "⚠ not in the store") : n.status === "unverified" ? chip("au-op update", "unverified") : n.status === "error" ? chip("au-op delete", "lookup failed") : chip("au-op other", "name unknown");
+  const extStoreWord = (e) => { const s = MdeEdgeExt.storeOf(e); return s === "edge" ? "Edge Add-ons" : s === "chrome" ? "🌐 Chrome Web Store" : "own update URL"; };
+  const extCode = (id) => `<code class="mr-extid">${esc(id)}</code>`;
+  function extNameCell(id, e, listName) {
+    const n = extNameOf(id);
+    const sub = [];
+    if (n.status === "ok") sub.push([n.developer, n.version ? `v${n.version}` : "", n.installs != null ? `${n.installs.toLocaleString()} users` : "", n.rating != null && n.ratings ? `★ ${n.rating} (${n.ratings})` : ""].filter(Boolean).join(" · "));
+    if (n.status === "builtin") sub.push("Edge's own component, OIB's default — kept under a block list of *");
+    if (n.status === "404") sub.push(e && MdeEdgeExt.storeOf(e) === "chrome" ? "⚠ not in the Edge store — a Chrome Web Store entry; Edge's policy text limits forced installs outside its own store to domain-joined Windows, so prove it on a pilot device" : "⚠ not in the Edge store — the store answers 404: retired, unlisted, or another store's ID without its update URL; it installs nothing here");
+    if (n.status === "unverified") sub.push(n.source === "list" ? "the name from the approved list — not verified by the store" : n.source === "slug" ? "the name from the link — not verified by the store" : "named by hand — not verified by the store");
+    if (n.status === "error") sub.push(`the store could not be asked: ${n.err || ""}`);
+    if (n.status === "unknown") sub.push(TunoAddons.hasRoute() ? "not looked up yet" : "no lookup route — name it below, or set a route");
+    const title = n.name ? `<b>${esc(n.name)}</b>` : `<b class="muted">${esc(id)}</b>`;
+    const nameBox = n.status === "unknown" || n.status === "unverified" || n.status === "error"
+      ? `<div class="mr-extname"><input type="text" data-mrextname="${esc(id)}" value="${esc(n.status === "unverified" && n.source === "operator" ? n.name : "")}" placeholder="Name this ID…" aria-label="${esc(`Name for ${id}`)}" spellcheck="false"></div>` : "";
+    return `${title}${sub.length ? `<div class="mini muted">${esc(sub.join(" · "))}</div>` : ""}${nameBox}`;
+  }
+  function extApprovedOf(id) {
+    if (!ext.list) return null;
+    for (const r of ext.list.parsed.rows) { const x = ext.list.ids[r.key]; if (x && x.id === lc(id) && r.edge) return r; }
+    return null;
+  }
+  function extPane() {
+    const pols = extPolicies();
+    const P = extPolicy();
+    const routeLine = () => {
+      const r = TunoAddons.route();
+      return `<div class="mr-extroute"><span class="mini">🔎 Store lookup route</span><input id="mvExtRoute" type="text" value="${esc(r)}" placeholder="/addons or https://…" aria-label="Store lookup route" spellcheck="false"><button class="btn" id="mvExtRouteSave">Save</button>${r ? `<button class="btn" id="mvExtLookupAll" title="Ask the store again for every ID on this pane">↻ Look up every name</button>` : ""}<span class="mini muted" id="mvExtRouteMsg">${esc(ext.routeMsg || (r ? `${TunoAddons.crossOrigin(r) ? "cross-origin — its host must be in the page's connect-src" : "same origin"} · answers cached a day` : "none — paste mode: IDs and store links are accepted, names stay unverified"))}</span></div>`;
+    };
+    if (!P) return `<div class="list-card" style="margin-top:0">
+        <p class="mini muted" style="margin:0 0 10px">No Edge extensions policy in the new set: none of its settings-catalog policies carries <b>Control which extensions are installed silently</b> or <b>Allow specific extensions to be installed</b>. The OIB one is <code>Win - OIB - SC - Microsoft Edge - U - Extensions</code>; a policy under ⚙️ Leave out is still found here, one with another prefix is not.</p>
+        ${routeLine()}
+      </div>`;
+    const now = extNow(P);
+    const planned = MdeEdgeExt.planOf(now, ext.edits);
+    const chg = planned.changes;
+    const count = (f) => f.length;
+    const ids = extIdsOf(now);
+    const findings = ids.filter((id) => { const n = extNameOf(id); return n.status === "404"; }).length;
+    const notApproved = ext.list ? ids.filter((id) => !MdeEdgeExt.isBuiltIn(id) && !extApprovedOf(id)).length : 0;
+    const pickPol = pols.length > 1 ? `<label class="mini" style="display:inline-flex;gap:6px;align-items:center">Policy <select id="mvExtPol" class="btn" style="padding:2px 6px">${pols.map((x) => `<option value="${esc(x.key)}"${x === P ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>` : "";
+    const q = lc(view.q);
+    const matchRow = (id) => !q || lc(id).includes(q) || lc(extNameOf(id).name).includes(q);
+    const f = ext.filter;
+    const showList = (k) => f === "all" || f === k || f === "edited" || f === "findings" || f === "notapproved";
+    // one table per list: the entries as they are, then the pending adds
+    const table = (k) => {
+      const have = now[k];
+      const adds = chg.filter((c) => c.list === k && c.op === "add");
+      const rows = [];
+      for (const e of have) {
+        const key = MdeEdgeExt.keyOf(k, e.id);
+        const ed = ext.edits.get(key);
+        const n = extNameOf(e.id);
+        const removed = ed && ed.op === "remove";
+        if (f === "edited" && !removed) continue;
+        if (f === "findings" && n.status !== "404") continue;
+        if (f === "notapproved" && (MdeEdgeExt.isBuiltIn(e.id) || !ext.list || extApprovedOf(e.id))) continue;
+        if (!matchRow(e.id)) continue;
+        const appr = ext.list ? (MdeEdgeExt.isBuiltIn(e.id) ? `<span class="mini muted">— not a store extension</span>` : extApprovedOf(e.id) ? chip("gu-how inc", "✓ approved") : chip("gu-how exc", "✗ not in the list")) : `<span class="mini muted">no list loaded</span>`;
+        const otherEd = ext.edits.get(MdeEdgeExt.keyOf(k === "force" ? "allow" : "force", e.id));
+        const moved = removed && otherEd && otherEd.op === "add";
+        const change = n.status === "builtin" ? `<span class="mini muted" title="Edge's own component — kept">keep 🔒</span>`
+          : `<select class="btn mr-extsel${removed ? " off" : ""}" data-mrextchg="${esc(key)}" aria-label="${esc(`Change for ${n.name || e.id}`)}"><option value="keep"${!removed ? " selected" : ""}>keep (now)</option><option value="remove"${removed && !moved ? " selected" : ""}>remove${k === "force" ? (n.status === "404" ? " — installs nothing today" : " — uninstalls it") : " — blocks it again"}</option><option value="move"${moved ? " selected" : ""}>move to ${k === "force" ? "exempt" : "installed silently"}</option></select>`;
+        rows.push(`<tr class="${removed ? "mr-ext-removed" : ""}${n.status === "404" ? " mr-ext-finding" : ""}">
+          <td>${extNameCell(e.id, e, k)}</td>
+          <td>${extCode(MdeEdgeExt.formatEntry(e))}</td>
+          <td class="mini" style="white-space:nowrap">${n.status === "builtin" ? "🔒 built-in" : n.status === "404" ? `<span style="color:var(--off)">⚠ 404</span>` : esc(extStoreWord(e))}</td>
+          <td>${appr}</td>
+          <td>${change}</td></tr>`);
+      }
+      for (const c of adds) {
+        const n = extNameOf(c.entry.id);
+        if (f === "findings" && n.status !== "404") continue;
+        if (f === "notapproved" && (!ext.list || extApprovedOf(c.entry.id))) continue;
+        if (!matchRow(c.entry.id)) continue;
+        const key = MdeEdgeExt.keyOf(k, c.entry.id);
+        const other = k === "force" ? "allow" : "force";
+        rows.push(`<tr class="mr-ext-added${n.status === "404" ? " mr-ext-finding" : ""}">
+          <td>${extNameCell(c.entry.id, c.entry, k)}</td>
+          <td>${extCode(MdeEdgeExt.formatEntry(c.entry))}</td>
+          <td class="mini" style="white-space:nowrap">${n.status === "404" ? `<span style="color:var(--off)">⚠ 404</span>` : esc(extStoreWord(c.entry))}</td>
+          <td>${ext.list ? (extApprovedOf(c.entry.id) ? chip("gu-how inc", "✓ approved") : chip("gu-how priv", "not in the list")) : `<span class="mini muted">no list loaded</span>`}</td>
+          <td><select class="btn mr-extsel on" data-mrextchg="${esc(key)}" aria-label="${esc(`Change for ${n.name || c.entry.id}`)}"><option value="add" selected>add ✎ — ${k === "force" ? "installed silently" : "exempt"}</option><option value="addother">add — ${other === "force" ? "install silently" : "exempt"} instead</option><option value="drop">don't add</option></select></td></tr>`);
+      }
+      const after = planned.after[k].length;
+      const head = `<div class="mr-exthead"><h4 style="margin:0">${EXTL[k].icon} ${esc(EXTL[k].word)}</h4><span class="mini muted">${esc(EXTL[k].setting)} · ${have.length} now${after !== have.length ? ` → ${after} after` : ""} · ${k === "force" ? "goes on every user the policy reaches; they cannot remove it; it wins over the block list" : "users may install these themselves; nothing is installed for them"}${!now.on[k] && !have.length ? " · the setting is off in the policy — the first add turns it on" : ""}</span></div>`;
+      return `${head}${rows.length ? `<div style="overflow-x:auto"><table class="cg-table mr-ext-table">
+          <colgroup><col style="width:30%"><col><col style="width:130px"><col style="width:130px"><col style="width:200px"></colgroup>
+          <thead><tr><th>Extension (store name)</th><th>ID · update URL</th><th>Store</th><th>Approved</th><th>Change</th></tr></thead>
+          <tbody>${rows.join("")}</tbody></table></div>` : `<p class="mini muted" style="margin:6px 0 0">${have.length || adds.length ? "Nothing matches the filter." : "Empty."}</p>`}`;
+    };
+    // the approved list card
+    const listCard = () => {
+      if (!ext.list) return `<div class="list-card" id="mvExtListCard">
+          <div class="mr-exthead"><h4 style="margin:0">📋 Approved extensions</h4><span class="mini muted">a TSV or CSV with a header row (Extension, Browser, Installed, Band, ApPo…) — or one name per line; Edge rows only count</span></div>
+          ${ext.err ? `<div class="gu-fail" style="margin:8px 0"><b>${esc(ext.err)}</b></div>` : ""}
+          <div class="mr-exsearch" style="margin-top:8px"><label class="btn" for="mvExtFile">⭱ Load a list (TSV · CSV · TXT)</label><input type="file" id="mvExtFile" accept=".tsv,.csv,.txt,text/plain,text/csv,text/tab-separated-values" style="position:absolute;left:-9999px"><span class="mini muted">or paste below and press Ctrl/⌘ + Enter</span></div>
+          <textarea id="mvExtListText" rows="4" placeholder="Extension&#9;Browser&#9;Installed&#9;Band&#9;ApPo&#10;Tango – Document and Automate Your Processes&#9;Edge&#9;2&#9;Allow - ApPo&#9;Yes" style="width:100%;margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:12px"></textarea>
+          <p class="mini muted" style="margin:8px 0 0">Kept for this tenant in this browser once loaded. The list drives the plan, never the tenant: nothing is written until ② Dry run and ④ Apply.</p>
+        </div>`;
+      const L = ext.list, rowsE = L.parsed.rows.filter((r) => r.edge);
+      const st = rowsE.map((r) => extRowState(r, now, planned));
+      const named = st.filter((s) => s.id && s.name && (s.name.status === "ok" || s.name.status === "builtin")).length;
+      const byId = st.filter((s) => s.id && s.res && (s.res.how === "column" || s.res.how === "operator" || s.res.how === "pick")).length;
+      const gone = st.filter((s) => s.id && s.name && s.name.status === "404").length;
+      const open = st.filter((s) => !s.id).length;
+      const addable = st.filter((s) => s.id && !s.inForce && !s.inAllow && !s.add && !s.same && !(s.name && s.name.status === "404")).length;
+      const rowHtml = (r, s) => {
+        const hits = s.res && s.res.hits ? s.res.hits : [];
+        const store = s.id
+          ? `${extStatusChip(s.name)} ${s.name.name ? `<b>${esc(s.name.name)}</b> ` : ""}${s.name.developer ? `<span class="mini muted">${esc(s.name.developer)} · </span>` : ""}${extCode(s.id)}${s.res.how === "column" ? ` <span class="mini muted">from the list's ID column</span>` : s.res.how === "operator" ? ` <span class="mini muted">pasted</span>` : s.res.how === "pick" ? ` <span class="mini muted">picked</span>` : ""}${s.name.status === "404" ? ` <span class="mini" style="color:var(--off)">— the store answers 404; it cannot be installed from a list</span>` : ""}`
+          : `${s.res && s.res.how === "error" ? chip("au-op delete", "lookup failed") + ` <span class="mini muted">${esc(s.res.err || "")}</span>` : hits.length ? chip("au-op update", "❓ pick") + ` <span class="mini muted">${hits.length} hits:</span> ` + hits.map((h) => `<button type="button" class="mr-extpick" data-mrextpick="${esc(r.key)}" data-mrextpickid="${esc(h.id)}" title="${esc(h.id)}">${esc(h.name)}<span class="muted"> · ${esc(h.developer)}</span></button>`).join(" ")
+            : s.res && s.res.how === "none" ? chip("au-op update", "❓ no store match") + ` <span class="mini muted">the store search misses unlisted extensions — paste the ID or the store link</span>` : TunoAddons.hasRoute() ? `<span class="mini muted">not searched yet</span>` : chip("au-op other", "no route") + ` <span class="mini muted">paste the ID or the store link</span>`}
+            <div class="mr-extname"><input type="text" data-mrextrowid="${esc(r.key)}" placeholder="ID or store link…" aria-label="${esc(`ID for ${r.name}`)}" spellcheck="false"></div>`;
+        const plan = !s.id ? `<span class="mini muted">— unresolved</span>`
+          : s.same ? `<span class="mini muted">same ID as ${esc(s.same.name)}</span>`
+          : s.inForce && s.inAllow ? `<span class="mini muted">already in both lists</span>` : s.inForce ? `<span class="mini muted">already installed silently</span>` : s.inAllow ? `<span class="mini muted">already exempt</span>`
+          : s.add ? chip("au-op update", `+ ${s.add.list === "force" ? "installed silently" : "exempt"}`) + ` <button type="button" class="btn mr-extmini" data-mrextdrop="${esc(MdeEdgeExt.keyOf(s.add.list, s.id))}" title="Take it out of the plan">✕</button>`
+          : s.name.status === "404" ? `<span class="mini muted">— not offered</span>`
+          : `<button type="button" class="btn mr-extmini" data-mrextadd="allow" data-mrextaddid="${esc(s.id)}">+ exempt</button> <button type="button" class="btn mr-extmini" data-mrextadd="force" data-mrextaddid="${esc(s.id)}">+ silent</button>`;
+        return `<tr><td><b>${esc(r.name)}</b>${r.closest ? `<div class="mini muted">${esc(r.closest)}</div>` : ""}</td><td class="mini muted" style="white-space:nowrap">${r.installed != null ? `×${esc(r.installed)}` : ""}</td><td class="mini muted">${esc([r.band, r.appo].filter(Boolean).join(" · "))}</td><td>${store}</td><td style="white-space:nowrap">${plan}</td></tr>`;
+      };
+      const shown = rowsE.map((r, i) => [r, st[i]]).filter(([r, s]) => !q || lc(r.name).includes(q) || lc(s.id).includes(q)).sort((a, b) => (b[0].installed || 0) - (a[0].installed || 0));
+      return `<div class="list-card" id="mvExtListCard">
+          <div class="mr-exthead"><h4 style="margin:0">📋 Approved extensions</h4><span class="mini muted">${esc(L.name)} · ${plural(L.parsed.total, "row")} · loaded ${esc(new Date(L.at).toLocaleString())} · kept in this browser for this tenant</span>
+            <span class="tb-actions"><label class="btn" for="mvExtFile">⭱ Load another list</label><input type="file" id="mvExtFile" accept=".tsv,.csv,.txt,text/plain,text/csv,text/tab-separated-values" style="position:absolute;left:-9999px">${TunoAddons.hasRoute() ? `<button class="btn" id="mvExtResolve" title="Search the store again for every Edge row">↻ Match again</button>` : ""}<button class="btn" id="mvExtListClear">Clear</button></span></div>
+          <div class="mr-extchips">${chip("au-op create", `${rowsE.length} Edge rows`)} ${chip("au-op create", `${named} named by the store`)} ${byId ? chip("au-op create", `${byId} by ID`) + " " : ""}${open ? chip("au-op update", `${open} to resolve`) + " " : ""}${gone ? chip("au-op delete", `${gone} gone from the store`) + " " : ""}${L.parsed.chrome ? chip("au-op other", `${L.parsed.chrome} Chrome rows — not this policy`) : ""}</div>
+          ${ext.err ? `<div class="gu-fail" style="margin:8px 0"><b>${esc(ext.err)}</b></div>` : ""}
+          <p class="mini muted" style="margin:0 0 8px">Each Edge row is searched in the store by name: a unique hit names it, several hits ask you to pick, none asks for the ID or the store link — the store search misses unlisted extensions (UiPath's, Microsoft Multimedia Redirection among them), and an ID is named by the store the moment it is pasted. ${TunoAddons.hasRoute() ? "" : "Without a route, paste the ID or the store link in each row; the list's name is used, unverified."}</p>
+          ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table mr-ext-table">
+            <colgroup><col style="width:28%"><col style="width:60px"><col style="width:150px"><col><col style="width:190px"></colgroup>
+            <thead><tr><th>Approved extension (list)</th><th>Seen on</th><th>Band · ApPo</th><th>In the store</th><th>In the plan</th></tr></thead>
+            <tbody>${shown.map(([r, s]) => rowHtml(r, s)).join("")}</tbody></table></div>` : `<p class="mini muted" style="margin:0">${rowsE.length ? "Nothing matches the filter." : "No Edge rows in this list."}</p>`}
+          <div class="mr-extbulk"><span>Add the <b>${addable}</b> named approved extensions not in the policy yet as</span><select id="mvExtBulk" class="btn" style="padding:2px 6px"><option value="allow"${ext.bulk === "allow" ? " selected" : ""}>exempt from the block list — users may install them</option><option value="force"${ext.bulk === "force" ? " selected" : ""}>installed silently — on every user, cannot be removed</option></select><button class="btn" id="mvExtBulkGo"${addable ? "" : " disabled"}>➕ Add to the plan</button><span class="mini muted">— then move single rows between the lists below.</span></div>
+        </div>`;
+    };
+    // the add box: a store search, or a pasted ID / link
+    const addCard = () => {
+      const pasted = MdeEdgeExt.fromInput(ext.q);
+      const hits = (ext.hits || []).map((h) => {
+        const inF = now.force.some((e) => e.id === h.id), inA = now.allow.some((e) => e.id === h.id);
+        const add = chg.find((c) => c.op === "add" && c.entry.id === h.id);
+        const state = inF && inA ? "already in both lists" : inF ? "already installed silently" : inA ? "already exempt" : add ? `already in the plan — ${add.list === "force" ? "installed silently" : "exempt"}` : "";
+        return `<div class="mr-exhit mr-exthit"><b>${esc(h.name)}</b><span class="muted">${esc([h.developer, h.rating != null && h.ratings ? `★ ${h.rating} (${h.ratings})` : ""].filter(Boolean).join(" · "))}</span>${extCode(h.id)}<span class="mr-extacts">${state ? chip("au-op update", state) : `<button type="button" class="btn mr-extmini" data-mrextadd="allow" data-mrextaddid="${esc(h.id)}" data-mrextaddname="${esc(h.name)}">+ exempt</button><button type="button" class="btn mr-extmini" data-mrextadd="force" data-mrextaddid="${esc(h.id)}" data-mrextaddname="${esc(h.name)}">+ install silently</button>`}<a class="mini" href="https://microsoftedge.microsoft.com/addons/detail/${esc(h.id)}" target="_blank" rel="noopener">store ↗</a></span></div>`;
+      }).join("");
+      const pasteLine = pasted ? (() => {
+        const n = extNameOf(pasted.id);
+        const inF = now.force.some((e) => e.id === pasted.id), inA = now.allow.some((e) => e.id === pasted.id);
+        const add = chg.find((c) => c.op === "add" && c.entry.id === pasted.id);
+        const state = inF && inA ? "already in both lists" : inF ? "already installed silently" : inA ? "already exempt" : add ? `already in the plan — ${add.list === "force" ? "installed silently" : "exempt"}` : "";
+        return `<div class="mr-exhit mr-exthit on"><b>${esc(n.name || (pasted.slug ? MdeEdgeExt.slugName(pasted.slug) : pasted.id))}</b>${extStatusChip(n)}<span class="muted">${pasted.store === "chrome" ? "Chrome Web Store link — the entry carries the Chrome update URL" : pasted.store === "edge" ? "Edge Add-ons" : "own update URL"}</span>${extCode(MdeEdgeExt.formatEntry(pasted))}<span class="mr-extacts">${state ? chip("au-op update", state) : `<button type="button" class="btn mr-extmini" data-mrextadd="allow" data-mrextaddid="${esc(pasted.id)}" data-mrextaddurl="${esc(pasted.updateUrl)}" data-mrextaddname="${esc(n.name || (pasted.slug ? MdeEdgeExt.slugName(pasted.slug) : ""))}" data-mrextaddsrc="${pasted.slug ? "slug" : ""}">+ exempt</button><button type="button" class="btn mr-extmini" data-mrextadd="force" data-mrextaddid="${esc(pasted.id)}" data-mrextaddurl="${esc(pasted.updateUrl)}" data-mrextaddname="${esc(n.name || (pasted.slug ? MdeEdgeExt.slugName(pasted.slug) : ""))}" data-mrextaddsrc="${pasted.slug ? "slug" : ""}">+ install silently</button>`}</span></div>`;
+      })() : "";
+      return `<div class="list-card" id="mvExtAddCard">
+          <div class="mr-exthead"><h4 style="margin:0">🔎 Add an extension</h4><span class="mini muted">search the Edge Add-ons store by name, or paste an ID (32 letters a–p), an Edge store link or a Chrome Web Store link — a Chrome one gets <code>;${esc(MdeEdgeExt.CHROME_UPDATE)}</code> behind the ID, the way Edge's force list wants it</span></div>
+          <div class="mr-exsearch" style="margin-top:8px"><input id="mvExtQ" type="search" placeholder="${TunoAddons.hasRoute() ? "Name, ID or store link…" : "ID or store link… (no lookup route — set one above to search by name)"}" value="${esc(ext.q)}" autocomplete="off" spellcheck="false" aria-label="Search the store or paste an ID"><button class="btn primary" id="mvExtGo"${ext.searching || (!pasted && !TunoAddons.hasRoute()) ? " disabled" : ""}>${ext.searching ? "Searching…" : pasted ? "Look it up" : "Search the store"}</button></div>
+          ${ext.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(ext.note)}</p>` : ""}
+          ${pasteLine || hits ? `<div class="mr-exresults">${pasteLine}${hits}</div>` : ""}
+        </div>`;
+    };
+    const bar = chg.length ? `<div class="mr-asrbar" role="region" aria-label="Pending list changes"><b>${plural(chg.length, "change")} in 1 policy</b><span class="mini">${[chg.filter((c) => c.op === "remove").length ? plural(chg.filter((c) => c.op === "remove").length, "removal") : "", chg.filter((c) => c.op === "add" && c.list === "force").length ? plural(chg.filter((c) => c.op === "add" && c.list === "force").length, "silent install") : "", chg.filter((c) => c.op === "add" && c.list === "allow").length ? plural(chg.filter((c) => c.op === "add" && c.list === "allow").length, "exemption") : ""].filter(Boolean).join(" · ")} — users reached take the new lists at their next policy refresh</span><span style="margin-left:auto"></span><button class="btn" id="mvExtDiscard">Discard</button><button class="btn primary" id="mvExtDry">② Dry run →</button></div>` : "";
+    return `<div class="toolbar">
+        ${fchip("data-mrextf", "all", "Both lists", count(now.force) + count(now.allow) + chg.filter((c) => c.op === "add").length, f === "all")}
+        ${fchip("data-mrextf", "force", `${EXTL.force.icon} Installed silently`, planned.after.force.length, f === "force")}
+        ${fchip("data-mrextf", "allow", `${EXTL.allow.icon} Exempt from the block list`, planned.after.allow.length, f === "allow")}
+        ${fchip("data-mrextf", "edited", "✎ Changed here", chg.length, f === "edited")}
+        ${fchip("data-mrextf", "findings", "⚠ Findings", findings, f === "findings")}
+        ${ext.list ? fchip("data-mrextf", "notapproved", "✗ Not approved", notApproved, f === "notapproved") : ""}
+        ${searchBox()}
+      </div>
+      <div class="list-card" id="mvExtCard" style="margin-top:0">
+        <div class="mr-exthead"><h3 style="margin:0;font-size:15px">${polLink(P)}</h3>${pickPol}<span class="mini muted">${genChip(P)} ${audChip(P)}settings catalog${extModified(P) ? ` · last modified ${esc(new Date(extModified(P)).toLocaleString())}` : ""}${P.generation !== "new" ? ` · <span title="Under ⚙️ Leave out: not compared or planned in the other panes — its lists are still edited here">➖</span>` : ""}</span><span class="mini">${assignChips(P)}</span></div>
+        <p class="mini muted" style="margin:8px 0 0">The two lists of this policy, each row named by the Edge Add-ons store from its ID. <b>${esc(EXTL.force.word)}</b> is Edge's force list: it goes on every user the policy reaches and they cannot remove it; it also wins over the block list. <b>${esc(EXTL.allow.word)}</b> only lets a user install that extension themselves. An ID the store does not know is a finding, not a guess. Change a row, add from the approved list or the store, then <b>② Dry run</b>: the policy is read fresh and every change is shown before anything is written. 🔒 Block list: ${now.on.block ? `<code>${esc(now.block.map((e) => e.raw).join(", ") || "on")}</code>${now.block.some((e) => e.raw === "*") ? " — everything blocked" : ""}` : "off"} · external extensions ${now.external === null ? "not set" : now.external ? "blocked" : "allowed"} — read, never edited here.</p>
+        ${routeLine()}
+        <p class="mini muted" id="mvExtLooking" style="margin:6px 0 0${ext.looking ? "" : ";display:none"}">${esc(ext.looking)}</p>
+      </div>
+      ${listCard()}
+      ${showList("force") ? `<div class="list-card" id="mvExtForce">${table("force")}</div>` : ""}
+      ${showList("allow") ? `<div class="list-card" id="mvExtAllow">${table("allow")}</div>` : ""}
+      ${addCard()}
+      ${bar}`;
+  }
+  // an add from a hit, a pasted entry or the approved list
+  function extAdd(list, id, updateUrl, name, source) {
+    const k = lc(id);
+    if (!MdeEdgeExt.isId(k)) return;
+    const other = list === "force" ? "allow" : "force";
+    ext.edits.delete(MdeEdgeExt.keyOf(other, k));
+    ext.edits.set(MdeEdgeExt.keyOf(list, k), { op: "add", entry: { id: k, updateUrl: updateUrl || "" } });
+    const n = extNameOf(k);
+    if (name && (n.status === "unknown")) ext.names.set(k, { status: "unverified", name, source: source || "list" });
+    clearPlan();
+    if (TunoAddons.hasRoute() && (n.status === "unknown" || n.status === "unverified")) extLookup([k], false);
+  }
+  function extChange(key, value) {
+    const [list, id] = key.split("|");
+    const P = extPolicy(); if (!P) return;
+    const now = extNow(P);
+    const other = list === "force" ? "allow" : "force";
+    const have = now[list].find((e) => e.id === id);
+    if (have) {
+      // an entry the policy has: keep, remove, or move to the other list
+      ext.edits.delete(MdeEdgeExt.keyOf(list, id));
+      ext.edits.delete(MdeEdgeExt.keyOf(other, id));
+      if (value === "remove") ext.edits.set(MdeEdgeExt.keyOf(list, id), { op: "remove", entry: { id, updateUrl: have.updateUrl } });
+      if (value === "move") { ext.edits.set(MdeEdgeExt.keyOf(list, id), { op: "remove", entry: { id, updateUrl: have.updateUrl } }); if (!now[other].some((e) => e.id === id)) ext.edits.set(MdeEdgeExt.keyOf(other, id), { op: "add", entry: { id, updateUrl: have.updateUrl } }); }
+    } else {
+      // a pending add: keep it, move it to the other list, or drop it
+      const ed = ext.edits.get(MdeEdgeExt.keyOf(list, id));
+      if (!ed) return;
+      if (value === "drop") ext.edits.delete(MdeEdgeExt.keyOf(list, id));
+      if (value === "addother") { ext.edits.delete(MdeEdgeExt.keyOf(list, id)); if (!now[other].some((e) => e.id === id)) ext.edits.set(MdeEdgeExt.keyOf(other, id), ed); }
+    }
+    clearPlan();
+  }
+  async function extSearch() {
+    const P = extPolicy(); if (!P || ext.searching) return;
+    const pasted = MdeEdgeExt.fromInput(ext.q);
+    ext.hits = null; ext.note = "";
+    if (pasted) {
+      if (!TunoAddons.hasRoute()) { ext.note = "No lookup route — the ID is accepted as pasted; name it after adding, or set a route."; render(); return; }
+      ext.searching = true; render();
+      try { const a = await TunoAddons.detail(pasted.id); ext.names.set(pasted.id, Object.assign({ source: "store" }, a)); ext.note = a.status === "ok" ? `The store names it: ${a.name}.` : "The store does not know this ID (404)."; }
+      catch (e) { ext.note = `Lookup failed: ${GroupUse.shortErr(e, 200)}`; }
+      finally { ext.searching = false; render(); }
+      return;
+    }
+    if (!ext.q.trim()) return;
+    if (!TunoAddons.hasRoute()) { ext.note = "No lookup route — a name cannot be searched. Paste the ID or the store link, or set a route above."; render(); return; }
+    ext.searching = true; render();
+    try {
+      const hits = await TunoAddons.search(ext.q);
+      ext.hits = hits;
+      ext.note = hits.length ? `${plural(hits.length, "hit")} for “${ext.q.trim()}” — an extension already in a list or in the plan is shown, not offered twice.` : `No hits for “${ext.q.trim()}” — the store search misses unlisted extensions; paste the ID or the store link instead.`;
+    } catch (e) { ext.note = `Search failed: ${GroupUse.shortErr(e, 200)}`; }
+    finally { ext.searching = false; render(); const q = $("mvExtQ"); if (q) q.focus(); }
+  }
+  // the plan: read the policy fresh, keep every change that still applies
+  async function extDryRun(changes, title) {
+    const P = extPolicy();
+    if (busy || !model || !P) return;
+    busy = true; planAnchor = "mvExtCard"; clearPlan(); seatPlan();
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.config);
+      planEl().innerHTML = `<p class="mini muted" style="margin-top:12px">Reading ${esc(P.name)} fresh…</p>`;
+      let fr;
+      try { fr = await asrReadOne(P.id); } catch (e) { plan = { kind: "edgeext", title: title || "Adjust the Edge extension lists", items: [], unread: [`${P.name} — ${GroupUse.shortErr(e, 120)}`], drifted: [], undo: /^Undo:/.test(title || "") }; renderExtPlan(); return; }
+      const now = MdeEdgeExt.listsIn(fr.settings);
+      const edits = changes ? MdeEdgeExt.editsOf(changes) : ext.edits;
+      const planned = MdeEdgeExt.planOf(now, edits);
+      const drifted = [];
+      // an edit that no longer applies — the tenant moved since the read
+      for (const [key, ed] of edits) {
+        const [list, id] = key.split("|");
+        const has = now[list].some((e) => e.id === id);
+        if (ed.op === "remove" && !has) drifted.push(`${extNameOf(id).name || id}: no longer in ${EXTL[list].word} — removed by somebody else`);
+        if (ed.op === "add" && has) drifted.push(`${extNameOf(id).name || id}: already in ${EXTL[list].word}`);
+      }
+      const items = planned.changes.length ? [{ id: P.id, key: P.key, name: P.name, policy: fr.policy, settings: fr.settings, lastMod: fr.policy && fr.policy.lastModifiedDateTime, before: now, after: planned.after, changes: planned.changes }] : [];
+      plan = { kind: "edgeext", title: title || `Adjust the Edge extension lists · ${P.name}`, items, unread: [], drifted, undo: /^Undo:/.test(title || "") };
+      renderExtPlan();
+    } catch (e) { planError(GroupUse.shortErr(e, 300)); }
+    finally { busy = false; }
+  }
+  const extChangeLine = (c) => { const n = extNameOf(c.entry.id); return `${c.op === "add" ? "+" : "−"} ${n.name || c.entry.id} (${EXTL[c.list].word})`; };
+  function renderExtPlan() {
+    v2Bind();
+    const p = plan;
+    const n = p.items.reduce((a, x) => a + x.changes.length, 0);
+    const P = extPolicy();
+    const reach = P ? assignChips(P) : "";
+    const rows = p.items.map((x) => x.changes.map((c) => {
+      const nm = extNameOf(c.entry.id);
+      const what = c.list === "force"
+        ? (c.op === "add" ? (nm.status === "404" ? "nothing — the store does not know this ID, so Edge installs nothing" : "installed in their Edge at the next policy refresh · they cannot remove or disable it") : (nm.status === "404" ? "nothing changes on any device — it never installed" : "uninstalled from their Edge at the next policy refresh"))
+        : (c.op === "add" ? "may install it from the store themselves · nothing is installed for them" : "blocked again — disabled where a user installed it");
+      return `<tr><td>${esc(EXTL[c.list].word)}</td><td>${chip(c.op === "add" ? "au-op create" : "au-op delete", c.op === "add" ? "+ add" : "− remove")}</td><td>${nm.name ? `<b>${esc(nm.name)}</b> ` : ""}${extCode(MdeEdgeExt.formatEntry(c.entry))}${nm.status === "404" ? `<div class="mini" style="color:var(--off)">⚠ not in the Edge store</div>` : nm.status === "unverified" ? `<div class="mini muted">name unverified</div>` : ""}</td><td class="mini muted">${esc(what)}</td></tr>`;
+    }).join("")).join("");
+    const removesLive = p.items.reduce((a, x) => a + x.changes.filter((c) => c.list === "force" && c.op === "remove" && extNameOf(c.entry.id).status !== "404").length, 0);
+    const addsForce = p.items.reduce((a, x) => a + x.changes.filter((c) => c.list === "force" && c.op === "add").length, 0);
+    const addsAllow = p.items.reduce((a, x) => a + x.changes.filter((c) => c.list === "allow" && c.op === "add").length, 0);
+    const removesAllow = p.items.reduce((a, x) => a + x.changes.filter((c) => c.list === "allow" && c.op === "remove").length, 0);
+    planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
+      <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
+      <p class="mini" style="margin:0 0 8px"><b>${plural(n, "change")}</b> in <b>${plural(p.items.length, "policy", "policies")}</b>${p.items.length ? ` · read fresh · last modified ${esc(p.items[0].lastMod ? new Date(p.items[0].lastMod).toLocaleString() : "unknown")} · ${plural((p.items[0].settings || []).length, "setting")} re-sent, the two lists changed` : ""}.</p>
+      ${p.drifted.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out — the tenant moved since the read:</b><span class="why">${p.drifted.map(esc).join("<br>")}</span></div>` : ""}
+      ${p.unread.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Could not read fresh:</b><span class="why">${p.unread.map(esc).join("<br>")} — left out rather than written blind.</span></div>` : ""}
+      ${p.items.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:170px"><col style="width:90px"><col><col style="width:34%"></colgroup><thead><tr><th>List</th><th>Change</th><th>Extension</th><th>What the reached users get</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="mr-extbox warn"><b>Likely impact</b><div class="mini muted">Reaches ${reach}. The settings catalog takes a policy's settings only as a whole: the policy is re-sent with every setting exactly as read, the two lists changed; the block list and the external-extensions block ride along untouched. Edge applies the lists at its next policy refresh after the Intune sync — minutes to hours, not at once.${addsForce ? ` <b>Silent installs:</b> the ${plural(addsForce, "added extension")} appear${addsForce === 1 ? "s" : ""} in every reached user's Edge and cannot be removed or disabled by them; the force list also wins over the block list.` : ""}${removesLive ? ` <b>Removals:</b> ${plural(removesLive, "extension")} ${removesLive === 1 ? "is" : "are"} uninstalled from every reached user's Edge at the next refresh.` : ""}${addsAllow ? ` <b>Exemptions:</b> the ${plural(addsAllow, "added extension")} become${addsAllow === 1 ? "s" : ""} installable by the user; nothing is installed for them.` : ""}${removesAllow ? ` <b>Exemptions taken away:</b> ${plural(removesAllow, "extension")} ${removesAllow === 1 ? "is" : "are"} blocked again and disabled where a user installed ${removesAllow === 1 ? "it" : "them"}.` : ""}</div></div>
+      <div class="mr-extbox ok"><b>The way back</b><div class="mini muted">③ takes the backup — the policy and all its settings, as a file. After the apply, 📜 Changes this session holds this run with an <b>Undo</b> that writes the previous lists back through the same pipeline — fresh read, drift check, read-back. An undo takes a silent install away again (uninstalled at the next refresh) and puts an exemption back under the block list. A policy that changed in the tenant since this dry run is skipped as drifted, never overwritten.</div></div>
+      <div style="margin-top:12px">
+        <div class="tb-actions"><button class="btn" id="mvBackup">③ ⭳ Take the backup <span class="mini">— the policy and all its settings, as a file</span></button></div>
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mvConfirmTick"> I have read the plan — ${plural(p.items.length, "policy", "policies")}</label>
+        <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin:8px 0 0 14px"><input type="checkbox" id="mvStop" checked> Stop at the first failure</label>
+        <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mvApply" disabled>④ Apply — write to the tenant</button><button class="btn" id="mvDiscard">Discard the plan</button></div>
+        <p id="mvGate" class="mini muted" style="margin:8px 0 0">Take the backup, confirm, apply. Apply stays locked until both.</p>
+      </div>` : `<p class="mini muted" style="margin:0">Nothing to write — every change is already in the tenant or left out above.</p><div class="tb-actions" style="margin-top:10px"><button class="btn" id="mvDiscard">Close</button></div>`}
+      <div id="mvLedger"></div>
+    </div>`;
+    const upd = () => { const b = $("mvApply"); if (b) b.disabled = !gateOk(); };
+    if ($("mvConfirmTick")) $("mvConfirmTick").addEventListener("change", upd);
+    if ($("mvBackup")) $("mvBackup").addEventListener("click", () => {
+      download(`t28-edge-extensions-before-${stamp()}.json`, extBackup(p));
+      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; upd();
+    });
+    if ($("mvApply")) $("mvApply").addEventListener("click", extApply);
+    $("mvDiscard").addEventListener("click", clearPlan);
+    v2AttachGate();
+    showPlan();
+  }
+  const extBackup = (p) => JSON.stringify({ tool: "TUNO T28 MDE rollout", action: "adjust Edge extension lists", title: p.title, at: new Date().toISOString(),
+    tenant: tenantName(), policies: p.items.map((x) => ({ id: x.id, name: x.name, policy: x.policy, settings: x.settings, lists: { before: { force: x.before.force.map(MdeEdgeExt.formatEntry), allow: x.before.allow.map(MdeEdgeExt.formatEntry) }, after: { force: x.after.force.map(MdeEdgeExt.formatEntry), allow: x.after.allow.map(MdeEdgeExt.formatEntry) } } })) }, null, 2);
+  async function extApply() {
+    if (busy || !gateOk() || !plan || plan.kind !== "edgeext") return;
+    busy = true;
+    const p = plan;
+    try {
+      await Graph.ensureScopes(AssignEdit.WRITE());
+      if (plan !== p || !gateOk()) throw new Error("Plan context changed. Create a new plan.");
+      $("mvApply").disabled = true;
+      const L = RunLedger.create($("mvLedger"), { unit: "policies", title: p.title,
+        items: p.items.map((x) => ({ label: x.name, sub: x.changes.map(extChangeLine).join(" · ") })) });
+      const stopOnFail = $("mvStop") && $("mvStop").checked;
+      const done = [], lines = [];
+      let okN = 0, halt = false;
+      for (let i = 0; i < p.items.length; i++) {
+        const x = p.items[i];
+        if (L.stopped || halt) { L.skip(i, L.stopped ? "stopped" : "stopped at the first failure"); lines.push(`${x.name}: skipped`); continue; }
+        L.start(i);
+        try {
+          const fr = await asrReadOne(x.id);
+          const nowL = MdeEdgeExt.listsIn(fr.settings);
+          const moved = (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || !MdeEdgeExt.same(nowL.force, x.before.force) || !MdeEdgeExt.same(nowL.allow, x.before.allow);
+          if (moved) { L.skip(i, "changed in the tenant since the dry run — not written", "drifted"); lines.push(`${x.name}: drifted — not written`); continue; }
+          const w = MdeEdgeExt.withLists(fr.settings, x.after);
+          if (w.missing.length) { L.fail(i, `setting not found: ${w.missing.join(", ")}`, "not written"); lines.push(`${x.name}: not written — setting not found`); halt = stopOnFail; continue; }
+          await Graph.put(Graph.BETA + asrPolUrl(x.id), MdeEdgeExt.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() });
+          const back = await Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true });
+          const P = model.byKey.get(x.key);
+          if (P && P.raw) P.raw.__detail = back;
+          const summary = x.changes.map(extChangeLine).join("; ");
+          if (MdeEdgeExt.verified(back, x.after)) {
+            L.done(i, "", "written · verified"); okN++;
+            done.push({ id: x.id, key: x.key, name: x.name, changes: x.changes });
+            lines.push(`${x.name}: ${summary} — written · verified`);
+          } else { L.fail(i, "the read-back does not show the new lists", "written · NOT verified"); lines.push(`${x.name}: ${summary} — written · NOT verified`); halt = stopOnFail; }
+        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
+      }
+      L.finish();
+      runs.push({ at: Date.now(), title: p.title, kind: "edgeext", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
+        risk: v2Risk, backup: JSON.parse(extBackup(p)), done: done.length ? done[0].changes : [], lines });
+      PolicyCache.invalidate();
+      for (const d of done) for (const c of d.changes) ext.edits.delete(MdeEdgeExt.keyOf(c.list, c.entry.id));
+      plan = null; backupTaken = false;
+      derive();
+      render();
+      const note = document.createElement("p");
+      note.className = "mini muted"; note.style.margin = "8px 0 0";
+      note.textContent = `${okN} written & verified. The lists above read the verified settings; users take the new lists at their next policy refresh. The run and its undo are in 📜 Changes this session.`;
+      $("mvLedger").appendChild(note);
+      const disc = $("mvDiscard"); if (disc) disc.textContent = "Close";
+    } catch (e) {
+      const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
+      $("mvLedger").appendChild(el);
+    } finally { busy = false; }
+  }
+  function openEdgeExt() {
+    pane = "edgeext"; view.cat = null; view.state = null; view.q = "";
+    render();
+    const P = extPolicy();
+    if (P) { extLookup(extIdsOf(extNow(P)), false); extResolve(false); }
+  }
 
   // -------------------------------------------------- rollout actions --
   function rolloutCtx() {
@@ -2042,7 +2562,9 @@ const MdeRolloutV2Tool = (() => {
   }
 
   // -------------------------------------------------------- ⊘ exclusions --
-  // Layout A off the mockup (10639): a header button opens this pane with
+  // Layout A off the mockup (10639): a header button opened this pane — the
+  // button left the header at 10678 (Mihai: "only show them on left rail"),
+  // the rail node is the way in — with
   // the cursor in the search. Search a user or a device, get both (the user
   // with their Windows devices, or the device with its primary user) and
   // what reaches each, tick, dry run. The plan opens under the card.
@@ -2632,13 +3154,11 @@ const MdeRolloutV2Tool = (() => {
     if (!$("mvRun")) return;
     planEl();
     $("mvRun").addEventListener("click", () => run(false));
-    if ($("mvExclude")) $("mvExclude").addEventListener("click", openExclusions);
-    if ($("mvAsr")) $("mvAsr").addEventListener("click", () => { if (model) openAsr(); });
     $("mvMd").addEventListener("click", () => exportAs("md"));
     $("mvCsv").addEventListener("click", () => exportAs("csv"));
     const body = $("mvBody");
     const focusOn = (sel) => { const el = body.querySelector(sel); if (el) el.focus(); };
-    const go = (p) => { pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); };
+    const go = (p) => { if (p === "edgeext") { openEdgeExt(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); return; } pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); };
     body.addEventListener("change", (e) => { if (e.target.id === "mvLeftOutOpt") { v2AllowLeftOut = e.target.checked; asr.edits.clear(); clearPlan(); render(); } if (e.target.id === "mvImportRuns") v2Import(e.target.files[0]); });
     body.addEventListener("click", (e) => {
       const t = e.target;
@@ -2688,6 +3208,42 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvAsrBase") { asrSetBaseline(); return; }
       if (t.id === "mvAsrClear" || t.id === "mvAsrDiscard") { asr.edits.clear(); clearPlan(); render(); return; }
       if (t.id === "mvAsrDry") { asrDryRunEdits(); return; }
+      // 🧩 Edge extensions (10678)
+      const xtf = t.closest("[data-mrextf]"); if (xtf) { ext.filter = xtf.dataset.mrextf; render(); return; }
+      if (t.id === "mvExtDiscard") { ext.edits.clear(); clearPlan(); render(); return; }
+      if (t.id === "mvExtDry") { extDryRun(null, null); return; }
+      if (t.id === "mvExtGo") { extSearch(); return; }
+      if (t.id === "mvExtRouteSave") {
+        const c = TunoAddons.checkRoute($("mvExtRoute") ? $("mvExtRoute").value : "");
+        if (!c.ok) { ext.routeMsg = c.why; const m = $("mvExtRouteMsg"); if (m) m.textContent = c.why; return; }
+        TunoAddons.setRoute(c.value); ext.routeMsg = c.value ? "Saved for this browser." : "Route removed — paste mode."; ext.hits = null; ext.note = "";
+        render();
+        const P = extPolicy(); if (P && c.value) { extLookup(extIdsOf(extNow(P)), true); extResolve(false); }
+        return;
+      }
+      if (t.id === "mvExtLookupAll") { const P = extPolicy(); if (P) { extLookup(extIdsOf(extNow(P)).concat([...ext.edits.values()].map((e) => e.entry.id)), true); extResolve(true); } return; }
+      if (t.id === "mvExtResolve") { if (ext.list) { for (const k of Object.keys(ext.list.ids)) if (ext.list.ids[k].how !== "operator" && ext.list.ids[k].how !== "pick" && ext.list.ids[k].how !== "column") delete ext.list.ids[k]; extResolve(true); } return; }
+      if (t.id === "mvExtListClear") { ext.list = null; ext.err = ""; extSaveList(); clearPlan(); render(); return; }
+      const xa = t.closest("[data-mrextadd]"); if (xa) { extAdd(xa.dataset.mrextadd, xa.dataset.mrextaddid, xa.dataset.mrextaddurl || "", xa.dataset.mrextaddname || (extApprovedOf(xa.dataset.mrextaddid) ? extApprovedOf(xa.dataset.mrextaddid).name : ""), xa.dataset.mrextaddsrc || "list"); render(); return; }
+      const xd = t.closest("[data-mrextdrop]"); if (xd) { ext.edits.delete(xd.dataset.mrextdrop); clearPlan(); render(); return; }
+      const xtp = t.closest("[data-mrextpick]"); if (xtp) {
+        if (!ext.list) return;
+        const h = ((ext.list.ids[xtp.dataset.mrextpick] || {}).hits || []).find((x) => x.id === xtp.dataset.mrextpickid);
+        ext.list.ids[xtp.dataset.mrextpick] = { id: xtp.dataset.mrextpickid, how: "pick", name: h ? h.name : "" };
+        if (h) ext.names.set(h.id, { status: "ok", source: "store", name: h.name, developer: h.developer });
+        extSaveList(); render(); extLookup([xtp.dataset.mrextpickid], false); return;
+      }
+      if (t.id === "mvExtBulkGo") {
+        if (!ext.list) return;
+        const P = extPolicy(); if (!P) return;
+        const now = extNow(P), planned = MdeEdgeExt.planOf(now, ext.edits);
+        for (const r of ext.list.parsed.rows.filter((x) => x.edge)) {
+          const s = extRowState(r, now, planned);
+          if (!s.id || s.inForce || s.inAllow || s.add || s.same || (s.name && s.name.status === "404")) continue;
+          extAdd(ext.bulk, s.id, "", r.name, "list");
+        }
+        render(); return;
+      }
       if (t.id === "mvRep_assign") { runAssignReport(); return; }
       if (t.id === "mvRep_config") { runConfigReport(); return; }
       if (t.id === "mvRep_conflicts") { runConflictCheck(); return; }
@@ -2834,6 +3390,9 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mvExtQ" && e.key === "Enter") { e.preventDefault(); extSearch(); return; }
+      if (e.target.id === "mvExtRoute" && e.key === "Enter") { e.preventDefault(); const b = $("mvExtRouteSave"); if (b) b.click(); return; }
+      if (e.target.id === "mvExtListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); extListText(e.target.value, "pasted list"); } return; }
       if (e.target.id === "mvExListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); exListRun(); } return; }
       if (e.key !== "Enter" && e.key !== " ") return;
       const rep = e.target.closest("[data-mrreport]");
@@ -2851,6 +3410,7 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("input", (e) => {
       if (e.target.id === "mvExQ") { ex.q = e.target.value; return; }
+      if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
       if (e.target.id === "mvExListText") {
         ex.listText = e.target.value;
         const b = $("mvExListGo"), n = MdeExclude.parseList(ex.listText).lines.length;
@@ -2872,6 +3432,21 @@ const MdeRolloutV2Tool = (() => {
         const again = body.querySelector(`[data-mrasr="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(t.dataset.mrasr) : t.dataset.mrasr}"]`); if (again) again.focus();
         return;
       }
+      // 🧩 Edge extensions (10678)
+      if (t.dataset.mrextchg) { extChange(t.dataset.mrextchg, t.value); render(); const again = body.querySelector(`[data-mrextchg="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(t.dataset.mrextchg) : t.dataset.mrextchg}"]`); if (again) again.focus(); return; }
+      if (t.id === "mvExtFile") { const f = t.files && t.files[0]; t.value = ""; extListFile(f); return; }
+      if (t.dataset.mrextname !== undefined) { const v = t.value.trim(); if (v) extSaveName(t.dataset.mrextname, v); render(); return; }
+      if (t.dataset.mrextrowid !== undefined) {
+        const p = MdeEdgeExt.fromInput(t.value);
+        if (!p) { t.value = ""; ext.err = "That is not an ID (32 letters a–p) or a store link."; render(); return; }
+        if (!ext.list) return;
+        const r = ext.list.parsed.rows.find((x) => x.key === t.dataset.mrextrowid);
+        ext.list.ids[t.dataset.mrextrowid] = { id: p.id, how: "operator", updateUrl: p.updateUrl };
+        if (r && extNameOf(p.id).status === "unknown") ext.names.set(p.id, { status: "unverified", name: p.slug ? MdeEdgeExt.slugName(p.slug) : r.name, source: p.slug ? "slug" : "list" });
+        ext.err = ""; extSaveList(); render(); extLookup([p.id], false); return;
+      }
+      if (t.id === "mvExtPol") { ext.policyKey = t.value; ext.edits.clear(); clearPlan(); openEdgeExt(); return; }
+      if (t.id === "mvExtBulk") { ext.bulk = t.value; return; }
       if (t.dataset.mrpick) { t.checked ? sel.add(t.dataset.mrpick) : sel.delete(t.dataset.mrpick); clearPlan(); syncSelbar(); return; }
       if (t.dataset.mrpickall) {
         const list = t.dataset.mrpickall === "new" ? model.newP : model.oldP;
@@ -2942,7 +3517,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, planAnchor, running, busy, enriching }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, planAnchor, running, busy, enriching }),
     _pane: (p) => { pane = p; render(); },
   };
 })();
