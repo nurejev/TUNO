@@ -97,6 +97,12 @@ const AppLockerTool = (() => {
   const saveAccepted = () => { try { localStorage.setItem("tuno.t01.decisions.v2", JSON.stringify([...acceptedBreaks])); } catch { } };
   let auditReview = null, auditSelections = new Set(), auditUpdatePlan = null, auditUpdateMessage = "", auditBusy = false, auditFilter = "needed";
   let draftOrigin = "", importNotice = "", expectedHarvest = null, pilotReview = "";
+  // 10676: the tenant profile the draft was PULLED from — { id, displayName,
+  // enforced, snapshot, stamp }. Deploy updates that profile in place, and a
+  // profile already enforced in the tenant that the draft only widens is a
+  // maintenance update, not a first enforcement (readiness()).
+  let adoptedFrom = null;
+  let draftsNote = "";
   const machineKey = (b) => String(b && b.machine && b.machine.name || "").trim().toUpperCase();
   const collectedAt = (b) => b && ((b.machine || {}).collectedUtc || (b.generator || {}).generatedUtc) || "";
   const fmtDate = (v) => v && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString().replace("T", " ").slice(0,16) + " UTC" : "Unknown";
@@ -340,6 +346,144 @@ const AppLockerTool = (() => {
     return `${base} ${token}`;
   }
 
+  // ================================================================
+  // 10676 — THE TENANT COPY IS THE POLICY. The custom profile's OMA-URI
+  // values ARE the policy (one RuleCollection each, EnforcementMode kept), so
+  // the full XML is recoverable from the profile by reassembly, with nothing
+  // lost — policyOfProfile(). What the description gets is a one-line STAMP,
+  // never a second copy of the XML: a copy drifts the moment someone edits a
+  // value in the portal and hides that it did; the stamp detects it.
+  //   [TUNO T01 · build N · <grouping> · EXE MSI Script StoreApps · N rules · fnv:xxxxxxxx · <UTC minute>Z]
+  // The hash is FNV-1a over the values exactly as written, joined by \n, in
+  // collection order; stampOf() hashes the values read back the same way.
+  // ================================================================
+  function fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ("0000000" + h.toString(16)).slice(-8);
+  }
+  const STAMP_RE = /\[TUNO T01 · [^\]]*\]/;
+  const appLockerValues = (p) => (p && p.omaSettings || []).filter((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || ""))).map((s) => String(s.value || ""));
+  function t01Stamp(omaSettings, grouping) {
+    const vals = omaSettings.map((s) => String(s.value || ""));
+    const rules = vals.reduce((n, v) => n + (v.match(/<(FilePathRule|FilePublisherRule|FileHashRule)\b/g) || []).length, 0);
+    return `[TUNO T01 · build ${APP_BUILD.build} · ${grouping} · ${omaSettings.map((s) => s.displayName).join(" ")} · ${rules} rules · fnv:${fnv1a(vals.join("\n"))} · ${new Date().toISOString().slice(0, 16)}Z]`;
+  }
+  function stampDescription(desc, stamp) {
+    const d = String(desc || "").replace(STAMP_RE, "").replace(/\s+$/, "");
+    return (d ? d + "\n" : "") + stamp;
+  }
+  function stampOf(p) {
+    const m = STAMP_RE.exec(String((p && p.description) || ""));
+    if (!m) return null;
+    const parts = m[0].slice(1, -1).split(" · ");
+    const hash = (parts.find((x) => x.startsWith("fnv:")) || "").slice(4);
+    const vals = appLockerValues(p);
+    const readable = vals.length > 0 && vals.every((v) => v && !/^\*+$/.test(v));
+    return { text: m[0], build: (parts[1] || "").replace("build ", ""), when: parts[parts.length - 1] || "", hash, drift: readable && hash ? fnv1a(vals.join("\n")) !== hash : null };
+  }
+  // The mode a deployed profile actually runs — its values first (they say
+  // EnforcementMode), its name second (a token is a claim, not a reading),
+  // the mode chosen on the table last.
+  function deployedMode(p, fallback) {
+    const vals = appLockerValues(p).filter((v) => /EnforcementMode=/i.test(v));
+    if (vals.length && vals.every((v) => /EnforcementMode="Enabled"/i.test(v))) return "Enforce";
+    if (vals.length && vals.every((v) => /EnforcementMode="AuditOnly"/i.test(v))) return "Audit";
+    if (/\(Enforced\)/i.test(String((p && p.displayName) || ""))) return "Enforce";
+    if (/AuditOnly/i.test(String((p && p.displayName) || ""))) return "Audit";
+    return fallback || "Audit";
+  }
+  // A pulled profile that is ALREADY ENFORCED in the tenant, where the draft
+  // only widens — allow rules added, nothing removed or changed, no mode
+  // moved — is a maintenance update: the audit-first gates are for a first
+  // enforcement, and this is the case somebody is in when a program must be
+  // allowed on a live policy (Mihai, 2 Oct).
+  function maintenanceUpdate() {
+    if (!adoptedFrom || !adoptedFrom.enforced || !policy) return null;
+    let d;
+    try { d = diffPolicies(adoptedFrom.snapshot, policy); } catch { return null; }
+    if (d.removed || d.changed || d.modeChanges) return null;
+    if (!d.collections.every((c) => (c.added || []).every((r) => r && r.action === "Allow"))) return null;
+    return { added: d.added, id: adoptedFrom.id, displayName: adoptedFrom.displayName };
+  }
+  // THE DRAFT RING — the last five drafts of this tenant, in this browser
+  // (tuno.t01.drafts.<tenantId>; every TUNO key starts with tuno, the origin
+  // is shared with ENCA beta). Written on every create and update in place,
+  // and by 💾. The Policy XML download content is what is kept, so a saved
+  // draft loads through the same parser as an uploaded XML.
+  const draftsKey = () => `tuno.t01.drafts.${(typeof Graph !== "undefined" && Graph.tenantId && Graph.tenantId()) || "offline"}`;
+  function readDrafts() { try { const a = JSON.parse(localStorage.getItem(draftsKey()) || "[]"); return Array.isArray(a) ? a : []; } catch { return []; } }
+  function writeDrafts(list) { try { localStorage.setItem(draftsKey(), JSON.stringify(list)); return true; } catch { return false; } }
+  function saveDraftNow(meta) {
+    if (!policy) return { ok: false, why: "no draft on the table" };
+    const xml = exportXml();
+    if (xml.length > 1000000) return { ok: false, why: "the draft is over 1 MB — download it instead" };
+    const entry = Object.assign({ at: new Date().toISOString(), build: APP_BUILD.build, grouping: intuneCfg.grouping, mode: intuneCfg.mode, name: intuneCfg.displayName, rules: policy.collections.reduce((n, c) => n + c.rules.length, 0), xml }, meta || {});
+    const list = [entry].concat(readDrafts()).slice(0, 5);
+    if (JSON.stringify(list).length > 4000000) return { ok: false, why: "the saved drafts are over 4 MB — delete one first" };
+    const ok = writeDrafts(list);
+    draftsNote = ok ? `saved ${entry.at.slice(0, 16).replace("T", " ")}` : "could not save — this browser refuses storage";
+    renderTenantCard();
+    return { ok, why: ok ? "" : "storage refused" };
+  }
+  function loadSavedDraft(d) {
+    let next;
+    try { next = parsePolicy(String(d.xml || ""), d.name || "saved draft"); } catch (err) { draftsNote = `could not load: ${(err && err.message) || err}`; renderTenantCard(); return; }
+    if (!confirmDraftReplacement()) return;
+    clearAuditReview();
+    policy = next; scanSource = ""; draftOrigin = `Saved draft · ${d.name || ""} · ${String(d.at || "").slice(0, 10)}`; pilotReview = "";
+    importedXmlName = `${d.name || "saved draft"} — from this browser`;
+    if (d.grouping) { intuneCfg.grouping = d.grouping; if ($("alIntuneGrouping")) $("alIntuneGrouping").value = d.grouping; }
+    if (d.name) { intuneCfg.displayName = d.name; if ($("alIntuneName")) $("alIntuneName").value = d.name; }
+    if (d.mode) { intuneCfg.mode = d.mode; if ($("alIntuneMode")) $("alIntuneMode").value = d.mode; }
+    loadFresh();
+  }
+  // A Graph failure says what failed: status, code, kind, request id — not
+  // "could not load".
+  const graphErrText = (e) => {
+    if (!e) return "unknown error";
+    const parts = [String((e && e.message) || e)];
+    if (e.name === "GraphError") { if (e.status) parts.push(`HTTP ${e.status}`); if (e.code) parts.push(`code ${e.code}`); if (e.kind) parts.push(`kind ${e.kind}`); if (e.requestId) parts.push(`request-id ${e.requestId}`); }
+    return parts.join(" · ");
+  };
+  // THE TENANT CARD on Evidence: the deployed profiles, always reachable
+  // (the 10622 chooser showed them only once an events bundle was loaded and
+  // no draft was — which is how a deployed policy became unreachable), each
+  // with its grouping, its mode by its values, its stamp and whether the
+  // values still match it; and the drafts saved in this browser.
+  function renderTenantCard() {
+    const host = $("alTenantCard");
+    if (!host) return;
+    const noGraph = typeof Graph === "undefined", signedIn = !noGraph && Graph.signedIn && Graph.signedIn();
+    const drafts = readDrafts(), list = evTenant.list;
+    const groupingOf = (p) => (APPLOCKER_OMA_RE.exec(String(((p.omaSettings || []).find((s) => APPLOCKER_OMA_RE.test(String(s.omaUri || ""))) || {}).omaUri || "")) || [])[1] || "?";
+    host.style.display = "";
+    host.innerHTML = `<h3 style="margin:0 0 6px">☁️ The policy in the tenant <span class="mini muted">— the deployed profile is the policy; pull it here to adjust it, then Deploy updates it in place</span></h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${noGraph ? "" : !signedIn ? `<span class="mini muted">Sign in (top right) to read the tenant's AppLocker profiles.</span>` : `<button class="btn sm primary" id="alTcRead" ${evTenant.busy ? "disabled" : ""}>${evTenant.busy ? "Reading the tenant…" : list ? "↻ Read the tenant's AppLocker profiles again" : "⤓ Read the tenant's AppLocker profiles"}</button>`}
+        ${policy ? `<button class="btn sm" id="alTcSave" title="Keep this draft in this browser (the last five), with its grouping, name and mode">💾 Save the draft in this browser</button>` : ""}
+        ${draftsNote ? `<span class="mini muted">${esc(draftsNote)}</span>` : ""}
+      </div>
+      ${evTenant.error ? `<div class="al-dep-err mini" style="margin-top:8px">${esc(evTenant.error)}</div>` : ""}
+      ${list && !list.length ? `<div class="mini muted" style="margin-top:8px">No custom profile in this tenant carries AppLocker OMA-URIs.</div>` : ""}
+      ${list && list.length ? `<table class="plist" style="margin-top:8px"><tbody>${list.map((p, i) => { const st = stampOf(p); return `<tr><td><b>${esc(p.displayName || "(unnamed profile)")}</b><div class="mini muted">grouping ${esc(groupingOf(p))} · ${esc(deployedMode(p, "mode unread"))}${p.lastModifiedDateTime ? ` · changed ${esc(String(p.lastModifiedDateTime).slice(0, 10))}` : ""} · ${st ? `<span class="tag ${st.drift ? "audit" : "grant"}">T01 build ${esc(st.build)} · ${esc(st.when.slice(0, 10))}${st.drift ? " · values differ from the stamp — edited since, or re-encoded by Intune" : st.drift === false ? " · unchanged since" : ""}</span>` : `<span class="tag">no T01 stamp — written before 10676 or by hand</span>`}</div></td><td style="width:1%;white-space:nowrap"><button class="btn sm primary al-tc-adopt" data-i="${i}" title="Replace the draft with this profile's policy; Deploy then updates it in place">⤓ Pull into the draft</button> ${policy ? `<button class="btn sm al-tc-identity" data-i="${i}" title="Keep the rules on the table; take this profile's name and grouping so Deploy edits it instead of creating a second one">✏️ Keep my draft, deploy over it</button>` : ""}</td></tr>`; }).join("")}</tbody></table>` : ""}
+      ${drafts.length ? `<h4 class="mini" style="margin:12px 0 6px">💾 Drafts saved in this browser</h4><table class="plist"><tbody>${drafts.map((e, i) => `<tr><td><b>${esc(e.name || "draft")}</b><div class="mini muted">${esc(String(e.at || "").slice(0, 16).replace("T", " "))} · build ${esc(String(e.build || ""))} · grouping ${esc(e.grouping || "?")} · ${esc(e.mode || "")} · ${esc(String(e.rules || 0))} rules${e.profileName ? ` · deployed as ${esc(e.profileName)}` : ""}</div></td><td style="width:1%;white-space:nowrap"><button class="btn sm al-tc-load" data-i="${i}">⤓ Load</button> <button class="btn sm al-tc-dl" data-i="${i}" title="The Policy XML, as downloaded">⭳ XML</button> <button class="btn sm danger al-tc-del" data-i="${i}" title="Forget this saved draft">🗑</button></td></tr>`).join("")}</tbody></table>` : `<p class="mini muted" style="margin:8px 0 0">No drafts saved in this browser yet — every deploy saves one here, and 💾 saves one now.</p>`}`;
+    host.onclick = async (e) => {
+      const t = e.target.closest("button");
+      if (!t) return;
+      if (t.id === "alTcRead") { await loadTenantProfiles(); return; }
+      if (t.id === "alTcSave") { const r = saveDraftNow(); if (!r.ok) { draftsNote = r.why; renderTenantCard(); } return; }
+      const i = +t.dataset.i;
+      if (t.classList.contains("al-tc-adopt")) { const p = (evTenant.list || [])[i]; if (!p) return; try { await adoptTenantProfile(p); } catch (err) { evTenant.error = graphErrText(err); renderTenantCard(); } return; }
+      if (t.classList.contains("al-tc-identity")) { const p = (evTenant.list || [])[i]; if (p) adoptTenantIdentity(p); return; }
+      const d = readDrafts()[i];
+      if (!d) return;
+      if (t.classList.contains("al-tc-dl")) { download(`${String(d.name || "AppLockerPolicy").replace(/[^\w.-]+/g, "_")}.xml`, d.xml, "application/xml"); return; }
+      if (t.classList.contains("al-tc-del")) { writeDrafts(readDrafts().filter((x, k) => k !== i)); renderTenantCard(); return; }
+      if (t.classList.contains("al-tc-load")) loadSavedDraft(d);
+    };
+  }
+
   function intuneProfile(mode) {
     const grouping = intuneGrouping();
     const target = mode === "Enforce" ? "Enabled" : "AuditOnly";
@@ -365,7 +509,7 @@ const AppLockerTool = (() => {
     return {
       "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
       displayName: intuneProfileName(mode),
-      description: `AppLocker ${mode} policy built in ${BRANDING.name} ${APP_BUILD.label}${importedXmlName ? ` from ${importedXmlName}` : ""} on ${new Date().toISOString().slice(0, 10)}.${mode === "Enforce" && deployState.enforceOverride ? " Created past the evidence gates on the operator's decision — no scan bundle stood behind it." : ""}`,
+      description: stampDescription(`AppLocker ${mode} policy built in ${BRANDING.name} ${APP_BUILD.label}${importedXmlName ? ` from ${importedXmlName}` : ""} on ${new Date().toISOString().slice(0, 10)}.${mode === "Enforce" && deployState.enforceOverride ? " Created past the evidence gates on the operator's decision — no scan bundle stood behind it." : ""}`, t01Stamp(omaSettings, grouping)),
       omaSettings,
     };
   }
@@ -878,6 +1022,10 @@ const AppLockerTool = (() => {
     if (!confirmDraftReplacement()) return;
     clearAuditReview();
     policy = next; scanSource = ""; draftOrigin = "Intune profile · " + (p.displayName || p.id); pilotReview = "";
+    const enforced = next.collections.length > 0 && next.collections.every((c) => c.mode === "Enabled");
+    adoptedFrom = { id: p.id, displayName: p.displayName || "", enforced, snapshot: JSON.parse(JSON.stringify(next)), stamp: stampOf(hydrated) };
+    intuneCfg.mode = enforced ? "Enforce" : "Audit";
+    if ($("alIntuneMode")) $("alIntuneMode").value = intuneCfg.mode;
     const settings = (hydrated.omaSettings || []).filter((x) => APPLOCKER_OMA_RE.test(String(x.omaUri || "")));
     importedXmlName = `${p.displayName || "profile"} — pulled from the tenant`;
     // Adopt the profile's identity so the export EDITS rather than duplicates.
@@ -918,14 +1066,16 @@ const AppLockerTool = (() => {
   async function loadTenantProfiles() {
     evTenant.busy = true; evTenant.error = ""; evTenant.list = null;
     renderEventsCard();
+    renderTenantCard();
     try {
       const all = await Graph.customProfiles();
       evTenant.list = appLockerProfilesOf(all);
     } catch (e) {
-      evTenant.error = (e && e.message) || String(e);
+      evTenant.error = graphErrText(e);
     }
     evTenant.busy = false;
     renderEventsCard();
+    renderTenantCard();
   }
 
   function renderEventsCard() {
@@ -2165,7 +2315,7 @@ const AppLockerTool = (() => {
   const sevTag = (s) => `<span class="sev ${s.toLowerCase()}">${s}</span>`;
   const verdictTag = (v, audit) =>
     v === "allowed" ? `<span class="tag grant">✓ allowed${audit ? " · audit" : ""}</span>` :
-    v === "blocked" ? `<span class="tag block">✕ ${audit ? "would be blocked (audit)" : "BLOCKED"}</span>` :
+    v === "blocked" ? (audit ? `<span class="tag audit">△ would be blocked (audit)</span>` : `<span class="tag block">✕ BLOCKED</span>`) :
     v === "conditional" ? `<span class="tag new">△ group-scoped</span>` :
     `<span class="tag">— not enforced</span>`;
 
@@ -2352,6 +2502,7 @@ const AppLockerTool = (() => {
     screen = name;
     document.querySelectorAll("[data-alpane]").forEach((el) => { el.style.display = el.dataset.alpane === name ? "" : "none"; });
     renderRail();
+    if (name === "evidence") renderTenantCard();
   }
   // The status line under the title: device, when, what the tenant says,
   // and whether Enforce is open — the four facts every screen shares.
@@ -2618,6 +2769,7 @@ const AppLockerTool = (() => {
 
   // ---- 1 · Evidence: what is on the table, and what is missing ----
   function renderEvidence() {
+    renderTenantCard();
     const host = $("alEvidence");
     if (!host) return;
     const items = evidenceItems();
@@ -3280,6 +3432,11 @@ const AppLockerTool = (() => {
     if (policy) autoTenantCheck().catch(() => {});
   }
   function confirmDraftReplacement() {
+    const ok = confirmDraftReplacementRaw();
+    if (ok) adoptedFrom = null;
+    return ok;
+  }
+  function confirmDraftReplacementRaw() {
     if (auditBusy) return false;
     return !policy || window.confirm("Replace the working draft? Export it first if you want to keep it. Device evidence stays unchanged.");
   }
@@ -3398,6 +3555,11 @@ const AppLockerTool = (() => {
   }
 
   function init() {
+    // 10676: the tenant card is drawn with whatever sign-in state there was
+    // at init; the tile click redraws it, so a sign-in that landed since
+    // shows the read button instead of "sign in".
+    const tileAl = $("toolAppLocker");
+    if (tileAl) tileAl.addEventListener("click", () => setTimeout(renderTenantCard, 0));
     workspaceEmptyDeploy = JSON.parse(JSON.stringify(deployState));
     wireReview();
     wireJump();
@@ -3875,6 +4037,8 @@ const AppLockerTool = (() => {
     return [...new Set(out)];
   }
   function readiness() {
+    const maint = maintenanceUpdate();
+    if (maint) return { ready: true, reasons: [], limits: [], gs: policy ? fleetGapStats() : null, receipt: true, rules: 0, signature: "", auditMatches: true, maintenance: maint, label: `Enforced in the tenant · maintenance update (${maint.added} allow rule${maint.added === 1 ? "" : "s"} added)` };
     const gs = policy ? fleetGapStats() : null, limits = evidenceLimitations();
     const rules = findings.filter((f) => f.source !== "fleet" && ["High","Medium"].includes(f.sev)).length;
     const receipt = !!(scan && scan.effectivePolicy && scan.effectivePolicy.sources && (scan.effectivePolicy.sources.mdm || []).some((g) => String(g.grouping).toLowerCase() === String(intuneCfg.grouping).toLowerCase() && (g.types || []).length));
@@ -3899,6 +4063,7 @@ const AppLockerTool = (() => {
   }
   function enforceGates() {
     const r = readiness();
+    if (r.maintenance) return [{ ok: true, label: r.label, detail: `Pulled from “${r.maintenance.displayName}”, already enforced in the tenant; this draft only adds allow rules, so Deploy is an update in place of that profile, not a first enforcement. Removing or changing a rule, or moving a collection's mode, brings the audit-first gates back.` }];
     return [
       {ok:!!policy && !!auditProfileInTenant() && r.receipt && r.auditMatches, label:"Draft and matching audit policy verified", detail:"Intune values must be readable and the grouping must be present in the device snapshot."},
       {ok:!r.limits.length, label:"Usable, recent device evidence", detail:r.limits.join(" ") || "Collection metadata and entries are available; see the evidence scope."},
@@ -4755,6 +4920,7 @@ const AppLockerTool = (() => {
       made._name = intuneProfileName(mode);
       made._grouping = intuneGrouping();
       d.created = Object.assign({}, d.created, mode === "Audit" ? { audit: made } : { enforce: made });
+      saveDraftNow({ profileId: made.id, profileName: made.displayName || intuneProfileName(mode), mode });
       d.busy = "";
       renderDeploy();
     } catch (e) { depFail(e); }
@@ -4911,7 +5077,9 @@ const AppLockerTool = (() => {
       const existing = await Graph.customProfiles();
       const target = existing.find((p) => p.id === u.id);
       if (!target) throw new Error("That profile is no longer in the tenant — someone deleted it since the check. Re-run the deploy; there may be nothing in the way any more.");
-      const mode = /Enforced/i.test(target.displayName || "") ? "Enforce" : "Audit";
+      // 10676: the mode the profile RUNS — its values first; a name without
+      // the token used to write AuditOnly over an enforced profile.
+      const mode = deployedMode(target, intuneCfg.mode);
       const body = intuneProfile(mode);
       // AN UPDATE MOVES THE VERSION (10578). The name on the table is the
       // next version; if it still equals the deployed name — the field was
@@ -4937,6 +5105,7 @@ const AppLockerTool = (() => {
       }
       await Graph.patch(`/deviceManagement/deviceConfigurations/${encodeURIComponent(u.id)}`, body, { scopes: Graph.SCOPES.profiles });
       d.updated = { id: u.id, displayName: body.displayName };
+      saveDraftNow({ profileId: u.id, profileName: body.displayName, mode });
       d.updating = null;
       // The stop was about the state before this write; after it, the profile
       // in the way IS the profile on screen. The next create-click re-reads
@@ -5036,6 +5205,8 @@ const AppLockerTool = (() => {
   }
 
   return { init,
+    _tenant: { fnv1a, t01Stamp, stampDescription, stampOf, deployedMode, maintenanceUpdate, readiness, enforceGates, saveDraftNow, readDrafts, loadSavedDraft, renderTenantCard, policyOfProfile, intuneProfile, exportXml,
+      adopted: () => adoptedFrom, setAdopted: (a) => { adoptedFrom = a; }, policy: () => policy, tenantState: () => evTenant },
     _audit: {switchWorkspace,workspace:()=>workspace,selectAuditProfile,auditResultRows,applyAuditSelections,auditBody,prepareAuditUpdate,writeAuditUpdate,auditReceipt,getState:()=>({reference:auditReview,plan:auditUpdatePlan,message:auditUpdateMessage,readDiagnostic:evTenant.readDiagnostic}),select:(keys)=>{auditSelections=new Set(keys)}},
     _review: { impactModel, readiness, evidenceLimitations, createDraft, draftVerdictForEvent, fleetGapStats, render, showScreen, markdown, adoptTenantProfile, getState: () => ({scan,eventsEvidence,policy,draftOrigin}), setExpectedHarvest: (x) => { expectedHarvest=x; } },
     // the compare engine, for the headless suite (10560)

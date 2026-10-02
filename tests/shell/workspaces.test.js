@@ -242,7 +242,10 @@ head("Slice 13: 🚀 MDE rollout is 02's, and names its customer and end date");
   const D = w.document, $ = (id) => D.getElementById(id);
   const T = w.TOOL_VERSIONS.toolMdeRollout;
   ok("its tile is 02's, with its rail label", $("toolMdeRollout").getAttribute("data-ws") === "projects" && $("toolMdeRollout").getAttribute("data-rail") === "Rollout");
-  ok("its registry entry names the customer, and the end date — not named yet (T28 0.29)", T.project && T.project.customer === "PVM" && T.project.ends === "" && T.v === "0.29");
+  // The version is read, not pinned (10676): "0.29" here rotted on the first
+  // T28 build after slice 13 — tuno-beta CI #56 at 10675. A project tool is
+  // beta-only, so 0.x is the claim; the number itself is js/version.js's.
+  ok("its registry entry names the customer, and the end date — not named yet (T28 0.x)", T.project && T.project.customer === "PVM" && T.project.ends === "" && /^0\.\d+$/.test(T.v));
   const projectTiles = [...D.querySelectorAll('#screen-home .tool[data-ws="projects"]')];
   ok("every project tool is temporary and names its customer, its end a date or not yet named", projectTiles.length > 0 && projectTiles.every((t) => { const v = w.TOOL_VERSIONS[t.id]; return v && v.project && v.project.customer && /^(\d{4}-\d{2}-\d{2})?$/.test(v.project.ends) && (v.chips || []).indexOf("temporary") >= 0; }));
   ok("and stays on beta (PROMOTE.staying)", w.PROMOTE.staying.some((x) => /T28/.test(x.title)));

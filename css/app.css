@@ -501,6 +501,8 @@ tr.grouprow:hover td{background:var(--line)}
 .tag{display:inline-block;background:var(--soft);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;color:var(--green);margin:1px 2px 1px 0}
 .tag.grant{background:var(--ok-bg);border-color:var(--ok-bd)}
 .tag.block{background:var(--bad-bg);border-color:var(--bad-bd);color:var(--off)}
+/* 10676: the middle light — would have been blocked (audit), neither blocked nor allowed */
+.tag.audit{background:var(--warn-bg2);border-color:var(--warn-bd);color:var(--report)}
 .tag.new{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-fg)}
 /* A tool that changed in the current release. Like .new it exempts the tile
    from the home-page collapse, so an update is never hidden behind a toggle. */
