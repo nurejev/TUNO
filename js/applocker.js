@@ -86,6 +86,7 @@ const AppLockerTool = (() => {
   // the table at a time — evidence | policy | breaks | deploy — plus help.
   let screen = "evidence";
   let workspace = "improve", workspaceSessions = {}, workspaceEmptyDeploy = null;
+  let loopNote = "", stageOn = null, goingStage = false; // 10677: the loop rail's own state
   // Breaks the admin has ACCEPTED: files that ran on the device, that the
   // draft would block, and that are meant to be blocked. Keyed by the event
   // path; kept for the session and in localStorage so a reload does not
@@ -2477,29 +2478,101 @@ const AppLockerTool = (() => {
   }
   function switchWorkspace(next) {
     if (!["create","improve"].includes(next) || next===workspace || auditBusy || deployState.busy || evTenant.busy) return;
-    workspaceSessions[workspace]={policy,scan,eventsEvidence,scanSource,importedXmlName,draftOrigin,undoState,editsSinceLoad,screen,pane,deployState,evTenant,auditReview,auditSelections,auditUpdatePlan,auditUpdateMessage,pilotReview,intuneCfg:{...intuneCfg},importNotice,expectedHarvest,impactSource,impactFilter};
-    workspace=next;
-    const saved=workspaceSessions[next] || {policy:null,scan:null,eventsEvidence:null,scanSource:"",importedXmlName:"",draftOrigin:"",undoState:null,editsSinceLoad:0,screen:next==="create"?"compare":"evidence",pane:"xml",deployState:JSON.parse(JSON.stringify(workspaceEmptyDeploy)),evTenant:{busy:false,list:null,error:""},auditReview:null,auditSelections:new Set(),auditUpdatePlan:null,auditUpdateMessage:"",pilotReview:"",intuneCfg:{displayName:"Win - SEC - Device Security - AppLocker (AuditOnly) - R27.1 - V4.0",grouping:newGrouping(),mode:"Audit"},importNotice:"",expectedHarvest:null,impactSource:"device",impactFilter:"all"};
-    ({policy,scan,eventsEvidence,scanSource,importedXmlName,draftOrigin,undoState,editsSinceLoad,screen,pane,deployState,evTenant,auditReview,auditSelections,auditUpdatePlan,auditUpdateMessage,pilotReview,importNotice,expectedHarvest,impactSource,impactFilter}=saved);
-    Object.assign(intuneCfg,saved.intuneCfg); fixOpen=null; autoCheckedFor=null;
-    for(const [id,key] of [["alIntuneName","displayName"],["alIntuneGrouping","grouping"],["alIntuneMode","mode"]]) if($(id)) $(id).value=intuneCfg[key];
+    // 10677 (Option B, Mihai's pick): ONE session. The draft, the evidence,
+    // the tenant read and the deploy state follow you around the loop; a
+    // workspace is only which set of panes the shared screen ids show, and
+    // the loop rail picks it per stage. Until 10676 each workspace kept its
+    // own draft and evidence, swapped on the switch — the bundle loaded on
+    // one side was gone on the other, and "Next" was a sentence per side.
+    workspaceSessions[workspace] = { screen };
+    workspace = next;
+    screen = (workspaceSessions[next] && workspaceSessions[next].screen) || (next === "create" ? "compare" : "evidence");
+    fixOpen=null; autoCheckedFor=null;
     recompute(); showScreen(screen);
   }
   function renderWorkspace() {
     const host=$("alWorkspaces"); if(!host) return;
     const busy=auditBusy || deployState.busy || evTenant.busy;
-    host.innerHTML=`<div class="al-workspaces" aria-label="T01 workspaces">${[["create","1 · Create & deploy","Build a new Audit policy, publish it to Intune and set up the scan."],["improve","2 · Analyze & improve","Use real scan results to adjust the Audit policy already deployed."]].map(([key,title,desc])=>`<button type="button" class="al-workspace ${workspace===key?'active':''}" data-al-workspace="${key}" aria-pressed="${workspace===key}" ${busy?'disabled':''}><strong>${title}</strong><span>${desc}</span></button>`).join('')}</div><p class="mini muted">Each workspace keeps its own draft and evidence for this browser session. Switching does not publish or replace the other workspace’s policy.${busy?' An operation is in progress; switching is temporarily unavailable.':''}</p>`;
+    host.innerHTML = "";   // 10677: the loop rail replaced the two-workspace switcher
     for(const id of ["alSample","alNew"]) if($(id)) $(id).style.display=workspace==='create'?'':'none';
+  }
+  // ================================================================
+  // 10677 — THE LOOP IS THE SPINE (Option B, Mihai's pick, 2 Oct). One rail
+  // in loop order — 1 Draft · 2 Audit in tenant · 3 Harvest · 4 Analyze ·
+  // 5 Adjust and re-audit · 6 Enforce · Help and scripts — lit from STATE:
+  // the draft, the tenant read, the evidence, the deploy state. "Next" is
+  // computed from the same state, never from a workspace name (it used to say
+  // "select your deployed Audit policy" on one side whatever was loaded, which
+  // is how an enforced profile got refused at a step that was never its).
+  // ================================================================
+  function deviceAuditState() {
+    const ep = scan && scan.effectivePolicy;
+    if (!ep || !ep.xml) return null;
+    const modes = [...String(ep.xml).matchAll(/<RuleCollection Type="(\w+)" EnforcementMode="(\w+)"/g)].map((m) => ({ type: m[1], mode: m[2] }));
+    const mdm = ((ep.sources || {}).mdm || []).filter((g) => g && g.grouping);
+    const shipped = modes.filter((m) => m.type !== "Dll" && m.type !== "ManagedInstaller");
+    return { grouping: mdm.length ? String(mdm[0].grouping) : "", mdm: mdm.length > 0,
+      enforced: shipped.length > 0 && shipped.every((m) => m.mode === "Enabled"), audit: shipped.length > 0 && shipped.every((m) => m.mode === "AuditOnly") };
+  }
+  const tenantProfiles = () => evTenant.list || (deployState.checked && deployState.checked.tenantAppLocker) || [];
+  const tenantEnforcedProfile = () => tenantProfiles().find((p) => deployedMode(p, "") === "Enforce") || null;
+  function eventSummary() {
+    const b = eventsEvidence || scan, sm = b && b.events && b.events.summary;
+    return sm ? { blocked: +sm.blocked || 0, audited: +sm.audited || 0, allowed: +sm.allowed || 0, total: +sm.total || 0 } : null;
+  }
+  function loopStages() {
+    const dev = deviceAuditState(), ev = eventSummary();
+    const harvested = !!(scan || eventsEvidence);
+    let gs = null; try { gs = policy && harvested ? fleetGapStats() : null; } catch { gs = null; }
+    const device = machineKey(scan || eventsEvidence) || "";
+    let audit = null; try { audit = auditProfileInTenant(); } catch { audit = null; }
+    const enf = tenantEnforcedProfile();
+    const rules = policy ? policy.collections.reduce((n, c) => n + c.rules.length, 0) : 0;
+    const S = [];
+    S.push({ n: 1, label: "Draft", ws: "create", screen: policy ? "policy" : "compare", status: policy ? "done" : "now",
+      fact: policy ? `${rules} rules · ${intuneCfg.displayName}` : "create, pull from the tenant, or import" });
+    const auditLive = !!audit || !!(dev && dev.mdm && dev.audit);
+    S.push({ n: 2, label: "Audit in tenant", ws: "create", screen: "deploy", status: auditLive ? "done" : policy ? "next" : "wait",
+      fact: audit ? String(audit.displayName || "") : dev && dev.mdm && dev.audit ? `live on ${device} · ${dev.grouping.slice(0, 18)}…` : "publish the draft in AuditOnly" });
+    S.push({ n: 3, label: "Harvest", ws: "create", screen: "evidence", status: harvested ? "done" : auditLive ? "next" : "wait",
+      fact: harvested ? `${device} · ${fmtDate(collectedAt(scan || eventsEvidence))}${ev ? ` · ${ev.total} events` : ""}` : "scan and events from the harvest site" });
+    const undecided = gs ? (gs.gap || 0) + (gs.undecided || 0) : 0;
+    S.push({ n: 4, label: "Analyze", ws: auditReview ? "improve" : "create", screen: auditReview ? "audit" : "breaks", status: !harvested || !policy ? "wait" : undecided ? "now" : "done",
+      fact: ev ? `${ev.blocked} blocked · ${ev.audited} would be blocked · ${ev.allowed} allowed${undecided ? ` · ${undecided} to decide` : ""}` : "every event against the draft" });
+    const adjusted = !!(deployState.updated || auditUpdateMessage);
+    S.push({ n: 5, label: "Adjust and re-audit", ws: auditReview ? "improve" : "create", screen: "deploy", status: adjusted ? "done" : harvested && policy && !undecided ? "next" : "wait",
+      fact: adjusted ? `updated ${(deployState.updated || {}).displayName || "the audit policy"}` : "update the audit policy in place, harvest again" });
+    let r = null; try { r = policy ? readiness() : null; } catch { r = null; }
+    S.push({ n: 6, label: "Enforce", ws: "create", screen: "deploy", status: r && r.ready ? "ready" : "wait",
+      fact: enf ? `${enf.displayName} exists${dev && dev.mdm && !dev.enforced ? ` · not on ${device}` : ""}` : r && r.ready ? r.label : "when a harvest after the adjustment is clean" });
+    S.push({ n: 7, label: "Help and scripts", ws: workspace, screen: "help", status: "", fact: "" });
+    const first = S.find((x) => x.status === "now") || S.find((x) => x.status === "next") || S.find((x) => x.status === "ready");
+    const NEXT = { 1: "create a draft, pull the deployed profile, or import one", 2: "publish the draft in AuditOnly to the pilot ring", 3: "harvest — the scan and events bundles from the harvest site",
+      4: `judge the ${ev ? ev.audited + " " : ""}would-be-blocked executions: allow, or accept as an intended block`, 5: "update the audit policy in place, then harvest again in a few days", 6: "the loop is clean — deploy the enforcement version under the same grouping" };
+    return { stages: S, now: first ? first.n : null, next: first ? `Next: ${NEXT[first.n]}` : "Next: the loop is complete for this evidence" };
+  }
+  function goStage(n) {
+    const st = loopStages().stages.find((x) => x.n === n);
+    if (!st) return;
+    stageOn = n; goingStage = true;
+    try { if (st.ws !== workspace) switchWorkspace(st.ws); showScreen(st.screen); } finally { goingStage = false; }
   }
   function renderRail() {
     const host = $("alRail"); if (!host) return;
     renderWorkspace();
-    const steps=workspace === "create" ? [{id:"compare",ico:"＋",label:"1 · Start a new policy"},{id:"policy",ico:"✎",label:"2 · Build & review rules"},{id:"deploy",ico:"↑",label:"3 · Publish in Audit"},{id:"help",ico:"⚙",label:"4 · Set up Device Scan"},{id:"evidence",ico:"◉",label:"Reference scan / imports"},{id:"breaks",ico:"◈",label:"Advanced scenarios"}] : SCREENS;
-    host.innerHTML = steps.map((sc) => `<button type="button" class="ep-node al-node ${screen === sc.id ? "active" : ""}" data-alscreen="${sc.id}" ${screen === sc.id ? 'aria-current="page"' : ""}>${sc.ico} ${esc(sc.label)}</button>`).join("") + `<hr>${workspace === "improve" ? `<button type="button" class="ep-node al-node ${screen === "help" ? "active" : ""}" data-alscreen="help">⚙ Run / configure Device Scan</button>` : ""}`;
+    const L = loopStages();
+    const mark = { done: "✓", now: "◉", next: "→", ready: "✓", wait: "○" };
+    const here = L.stages.filter((x) => x.n !== 7 && x.ws === workspace && x.screen === screen);
+    const activeN = screen === "help" ? 7 : (stageOn && here.some((x) => x.n === stageOn)) ? stageOn : here.length ? here[0].n : null;
+    host.innerHTML = L.stages.map((x) => {
+      const active = x.n === activeN;
+      return `<button type="button" class="ep-node al-node${x.status ? ` is-${x.status}` : ""} ${active ? "active" : ""}" data-alstage="${x.n}" data-alscreen="${esc(x.screen)}" ${active ? 'aria-current="page"' : ""}>${x.n === 7 ? "⚙ " : `${mark[x.status] || "○"} ${x.n} · `}${esc(x.label)}${x.fact ? `<span class="al-fact">${esc(x.fact)}</span>` : ""}</button>`;
+    }).join("");
   }
   function showScreen(name) {
     if (!SCREENS.some((sc) => sc.id === name) && name !== "help") name = "evidence";
     screen = name;
+    if (!goingStage) stageOn = null;
     document.querySelectorAll("[data-alpane]").forEach((el) => { el.style.display = el.dataset.alpane === name ? "" : "none"; });
     renderRail();
     if (name === "evidence") renderTenantCard();
@@ -2510,7 +2583,7 @@ const AppLockerTool = (() => {
     const host = $("alStatus"); if (!host) return;
     if (auditReview) { host.innerHTML = `<b>${esc(machineKey(scan || eventsEvidence) || "No device scan")}</b><span>Reference: ${esc(auditReview.profile.displayName)} · AuditOnly</span><span>Scan results → selected changes → update same profile in Audit</span>`; return; }
     const b = scan || eventsEvidence;
-    const stage=workspace=== "improve" ? "Next: select your deployed Audit policy" : policy ? "Review rules → publish in Audit → collect results" : "Start a new Audit draft";
+    const stage = (loopNote ? loopNote + " · " : "") + loopStages().next;
     host.innerHTML = `<b>${esc(b ? (b.machine || {}).name || "Unknown device" : "No device evidence loaded")}</b><span>Collected ${esc(fmtDate(collectedAt(b)))}</span><span>Draft: ${esc(draftOrigin || (policy ? importedXmlName : "not created"))}</span><span>${esc(stage)}</span>`;
   }
 
@@ -2584,6 +2657,15 @@ const AppLockerTool = (() => {
     let hydrated;
     try {
     const tenant = auditTenant(); hydrated = await hydrateAppLocker(p);
+    // 10677: an ENFORCED profile is stage 6's, not this step's. It is pulled
+    // into the draft and the rail goes there — never refused.
+    if (deployedMode(hydrated, "Audit") === "Enforce") {
+      auditBusy = false;
+      await adoptTenantProfile(hydrated);
+      loopNote = `“${hydrated.displayName}” is the enforced profile — stage 6's, pulled into the draft; Deploy updates it in place`;
+      goStage(6);
+      return;
+    }
     const source = auditProfileIdentity(hydrated);
     if (tenant !== auditTenant() || selectedWorkspace !== workspace) throw new Error("The tenant or workspace changed during the read. Read the policies again.");
     auditBusy=false;
@@ -3573,6 +3655,8 @@ const AppLockerTool = (() => {
         if (typeof el.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
+      const sg = e.target.closest("[data-alstage]");
+      if (sg) { goStage(+sg.dataset.alstage); return; }
       const n = e.target.closest("[data-alscreen]");
       if (n) showScreen(n.dataset.alscreen);
     });
@@ -5205,6 +5289,7 @@ const AppLockerTool = (() => {
   }
 
   return { init,
+    _loop: { loopStages, goStage, workspace: () => workspace, stageOn: () => stageOn, note: () => loopNote },
     _tenant: { fnv1a, t01Stamp, stampDescription, stampOf, deployedMode, maintenanceUpdate, readiness, enforceGates, saveDraftNow, readDrafts, loadSavedDraft, renderTenantCard, policyOfProfile, intuneProfile, exportXml,
       adopted: () => adoptedFrom, setAdopted: (a) => { adoptedFrom = a; }, policy: () => policy, tenantState: () => evTenant },
     _audit: {switchWorkspace,workspace:()=>workspace,selectAuditProfile,auditResultRows,applyAuditSelections,auditBody,prepareAuditUpdate,writeAuditUpdate,auditReceipt,getState:()=>({reference:auditReview,plan:auditUpdatePlan,message:auditUpdateMessage,readDiagnostic:evTenant.readDiagnostic}),select:(keys)=>{auditSelections=new Set(keys)}},

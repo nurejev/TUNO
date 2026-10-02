@@ -73,7 +73,7 @@ head('unknown evidence never produces a green assessment');
 {
  const {R,D}=setup(bundle('DEVICE-A',[]));R.createDraft('generated-audit');
  ok('empty logs are not readiness proof',!R.readiness().ready&&R.readiness().limits.some(x=>/No execution/.test(x)));
- ok('overview points to deployed Audit selection; advanced review retains readiness',txt(D,'alStatus').includes('select your deployed Audit policy')&&txt(D,'alBreaks').includes(R.readiness().label));
+ ok('the status line carries the loop\'s Next, computed from state (10677); advanced review retains readiness',/Next: /.test(txt(D,'alStatus'))&&txt(D,'alBreaks').includes(R.readiness().label));
  ok('no competing audit loop',D.getElementById('alLoop').hidden);
 }
 {

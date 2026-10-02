@@ -133,13 +133,12 @@ head('failed-read diagnostic preserves evidence without unrelated settings');
  ok('failed read offers explicit diagnostic download',!!D.querySelector('[data-audit-diagnostic]'));
  await A.selectAuditProfile(profile());ok('successful selection clears obsolete diagnostic',!A.getState().readDiagnostic&&!D.querySelector('[data-audit-diagnostic]'));
 }
-head('two workspaces keep independent policies and evidence');
+head('one session: the draft and the evidence follow you across the loop (10677, Option B)');
 {
  const {A,R,D}=setup();await A.selectAuditProfile(profile());const before=JSON.stringify(R.getState().policy);
- A.switchWorkspace('create');ok('create workspace starts independently',!R.getState().policy&&!R.getState().scan&&!A.getState().reference);
- D.querySelector('[data-build-new]').click();ok('first draft starts in AuditOnly',R.getState().policy.collections.every(c=>c.mode==='AuditOnly'));
- D.getElementById('alNewPath').value='C:\\NewPolicy\\*';D.getElementById('alNewAdd').click();const created=JSON.stringify(R.getState().policy);
- A.switchWorkspace('improve');ok('analyze workspace restores its deployed reference and scan',JSON.stringify(R.getState().policy)===before&&R.getState().scan.machine.name==='DEVICE-A'&&A.getState().reference.profile.id==='selected-id');
- A.switchWorkspace('create');ok('new-policy draft restored separately',JSON.stringify(R.getState().policy)===created&&!A.getState().reference);
+ A.switchWorkspace('create');ok('the create side sees the same draft, scan and reference — nothing is swapped away',JSON.stringify(R.getState().policy)===before&&R.getState().scan.machine.name==='DEVICE-A'&&A.getState().reference.profile.id==='selected-id');
+ D.getElementById('alNewPath').value='C:\\NewPolicy\\*';D.getElementById('alNewAdd').click();const edited=JSON.stringify(R.getState().policy);
+ ok('an edit on the create side changes the one draft',edited!==before);
+ A.switchWorkspace('improve');ok('the improve side shows that same edited draft, with the reference still there',JSON.stringify(R.getState().policy)===edited&&A.getState().reference.profile.id==='selected-id');
 }
 });

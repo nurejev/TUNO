@@ -503,6 +503,12 @@ tr.grouprow:hover td{background:var(--line)}
 .tag.block{background:var(--bad-bg);border-color:var(--bad-bd);color:var(--off)}
 /* 10676: the middle light — would have been blocked (audit), neither blocked nor allowed */
 .tag.audit{background:var(--warn-bg2);border-color:var(--warn-bd);color:var(--report)}
+/* 10677: the T01 loop rail — a stage's fact under its label, lit by state */
+.al-node .al-fact{display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;white-space:normal;line-height:1.3}
+.al-node.is-now{box-shadow:inset 3px 0 0 var(--accent2)}
+.al-node.is-done .al-fact,.al-node.is-ready .al-fact{color:var(--on)}
+.al-node.is-next .al-fact{color:var(--accent2)}
+.al-node.is-wait{color:var(--muted)}
 .tag.new{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-fg)}
 /* A tool that changed in the current release. Like .new it exempts the tile
    from the home-page collapse, so an update is never hidden behind a toggle. */
