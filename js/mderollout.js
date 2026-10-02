@@ -768,6 +768,31 @@ const MdeRollout = (() => {
     const byName = kindFromName(g && g.displayName);
     return { kind: byName === "unknown" ? "empty" : byName, source: byName === "unknown" ? "members" : "name (group is empty)" };
   }
+  // 🧪 The pilot groups (⚙️) by TIER (10675, Mihai: "add or remove the pilot
+  // groups just as with the waves, selecting a policy"): a device name and a
+  // user name that differ only by their "- D -" / "- U -" token are one
+  // tier's two halves — INT-SG-D-Win-Pilot + INT-SG-U-Win-Pilot = "Win-Pilot"
+  // — and a - D - policy takes the device half, a - U - one the user half,
+  // exactly as the waves pair up. A name with no kind token is a tier on its
+  // own, offered to neither kind until the tenant says what the group is.
+  // Returns [{ key, label, groups: [{ name, audience }] }], in config order.
+  function pilotTiers(names) {
+    const tiers = new Map();
+    for (const raw of uniq((names || []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean))) {
+      const m = NAME_DEVICE.exec(raw) ? { x: NAME_DEVICE.exec(raw), audience: "device" } : NAME_USER.exec(raw) ? { x: NAME_USER.exec(raw), audience: "user" } : null;
+      let rest = raw, label = raw, audience = "unknown";
+      if (m) {
+        const x = m.x, head = raw.slice(0, x.index), tail = raw.slice(x.index + x[0].length);
+        rest = head + (x[1] || "") + tail;
+        label = tail || head || raw;
+        audience = m.audience;
+      }
+      const key = normName(rest) || normName(raw);
+      if (!tiers.has(key)) tiers.set(key, { key, label, groups: [] });
+      tiers.get(key).groups.push({ name: raw, audience });
+    }
+    return [...tiers.values()];
+  }
   // What a policy is TARGETED at: the kinds of its include groups, plus the
   // tenant-wide targets (All devices is a device assignment, All users a
   // user one). Unknown kinds are carried so the check can say it guessed.
@@ -1607,7 +1632,7 @@ const MdeRollout = (() => {
     settingsOf, omaKey, omaSettings, normValue, SECTION_IDS, surfaceFor,
     build, pairReach, VERDICT, TYPE, compare, needsAction,
     audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants,
-    kindFromName, kindOfGroup, targetKinds, effectiveTargets, exclusionSupport, proposalFor, pilotRemovals, pilotsFor, twinIndex, wavePool,
+    kindFromName, kindOfGroup, pilotTiers, targetKinds, effectiveTargets, exclusionSupport, proposalFor, pilotRemovals, pilotsFor, twinIndex, wavePool,
     RETIRE, retirement, waves, composePlan, undoPlan, patchAssignments,
     readTemplates, findGroups, readKinds, readFresh, readMe, createWave, renameGroup, readLabels, labelValue, labelName,
     markdown, csv, assignText,

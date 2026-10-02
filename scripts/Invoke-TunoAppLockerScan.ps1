@@ -1,4 +1,4 @@
-# Invoke-TunoAppLockerScan.ps1  v1.14.0  (TUNO build 10674)
+# Invoke-TunoAppLockerScan.ps1  v1.14.0  (TUNO build 10675)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -406,7 +406,7 @@ trap {
 # They already did once: the script shipped two substantive changes still calling
 # itself 1.0.0, and a bundle could not be traced back to the build that wrote it.
 $script:ScriptVersion = '1.14.0'
-$script:TunoBuild = 10674
+$script:TunoBuild = 10675
 
 # The scan window (1.14.0): a harvest catch-up with the newest bundle younger
 # than this does not rescan. KEEP EQUAL to $MaxAgeDays in
