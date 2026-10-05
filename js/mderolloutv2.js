@@ -393,7 +393,7 @@ const MdeRolloutV2Tool = (() => {
       node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
       `<div class="v2-rail-label">ROLLOUT</div>`,
       node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
-      node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
+      (() => { const st = memStale(); return node("members", "👥", "Wave members", st ? st.label : null, st ? st.bad : false); })(),
       // 🔄 / ↩ (10679): the static country groups and the way back to the old set
       (() => { const sm = csModel(); return node("countrysync", "🔄", "Country groups", sm ? (sm.drift ? `${sm.drift} drift` : "✓") : null, !!(sm && sm.stale)); })(),
       (() => { const n = exNow(); return node("exclusions", "⊘", "Exclusions", n ? (n.half ? `${n.half} half` : `${n.users} · ${n.devices}`) : null, !!(n && n.half)); })(),
@@ -704,6 +704,12 @@ const MdeRolloutV2Tool = (() => {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>Country user groups start with</span><input id="mvRuleCtyPre" value="${esc(mcfg().countryPrefix)}"></label>
         <label class="wi-f"><span>Device groups start with</span><input id="mvRuleDgrpPre" value="${esc(mcfg().deviceGroupPrefix)}"></label>
+      </div>
+      <p class="mini muted" style="margin:12px 0 6px"><b>How a device finds its country.</b> ① the Intune primary user, then — when that person is in no country group, or there is none — ② the last logged-on user Intune reports, ③ the person with the most interactive logons in Defender (both within the days below, only people in a country group, AVD names skipped), ④ the Entra owner, ⑤ the code the name starts with. A device whose primary user is in a country stays there; when someone of another country logs on to it, 👥 says "check the primary user".</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center">
+        <label class="chk" style="margin:0"><input type="checkbox" id="mvRuleIntLog"${mcfg().useIntuneLogons ? " checked" : ""}> ② Intune last logged-on user</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="mvRuleDefLog"${mcfg().useDefenderLogons ? " checked" : ""}> ③ Defender logons <span class="muted">(ThreatHunting.Read.All)</span></label>
+        <label class="wi-f" style="margin:0;display:flex;gap:6px;align-items:center"><span>within</span><input id="mvRuleLogDays" type="number" min="1" max="30" value="${mcfg().logonDays}" style="width:70px"><span>days</span></label>
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:10px">
         <label class="wi-f"><span>🌍 Countries per region</span><textarea id="mvRuleMap" rows="${Math.max(4, mcfg().countryMap.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatMap(mcfg().countryMap, mcfg().pilots))}</textarea></label>
@@ -2050,11 +2056,28 @@ const MdeRolloutV2Tool = (() => {
     return out;
   }
   function memCompute() { if (mem.input) mem.model = MdeMembers.compute(mcfg(), mem.input, memWaves()); }
+  // 10682 (option B of the coverage round): how long the groups have gone
+  // without a sync, on the rail — the countries with something to add or
+  // remove, by the oldest sync this browser recorded for them
+  function memStale() {
+    if (!mem.model) return null;
+    const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false));
+    if (!todo.length) return { label: "✓", bad: false, rows: [] };
+    const synced = readJson(syncKey()), days = mcfg().syncStaleDays || 14, now = Date.now();
+    const drift = todo.filter((r) => !r.inSync);
+    const age = (r) => { const t = Date.parse(synced[r.key] || ""); return Number.isFinite(t) ? Math.floor((now - t) / 86400000) : null; };
+    const stale = drift.filter((r) => { const a = age(r); return a === null || a >= days; });
+    const synced0 = drift.map(age).filter((a) => a !== null);
+    const oldest = synced0.length ? Math.max(...synced0) : null;
+    const adds = drift.reduce((a, r) => a + r.add.length + (r.uAdd ? r.uAdd.length : 0), 0);
+    const label = drift.length ? `${oldest === null ? "never synced" : `${oldest} d`} · ${adds.toLocaleString()} to add` : `${todo.length} to do`;
+    return { label, bad: stale.length > 0, rows: stale.map((r) => ({ r, age: age(r) })) };
+  }
   async function memRead() {
     if (mem.loading) return;
     mem.loading = true; clearPlan(); render();
     try {
-      await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory])]);
+      await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
       mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
       // 🔄 / ↩ (10679): the static user groups and the Revert pair, read
@@ -2110,6 +2133,21 @@ const MdeRolloutV2Tool = (() => {
     return userSide
       + one("🖥", r.dg ? r.dgNested : (r.deviceGroupName && r.want.size ? false : null), r.wave.device, r.wave.deviceName, "device");
   }
+  // How the Windows devices found their country (10682): one line, each
+  // source counted, the two logon steps marked when they were not read
+  function memPlacedLine(m) {
+    const P = m.placedBy || {}, R = m.logonRead || {}, C = mcfg();
+    const step = (n, label, on, read) => `<span style="white-space:nowrap">${on === false ? `<s class="muted">${label}</s>` : read === false ? `<span style="color:var(--off)" title="not read — see Partly read above">${label} ✗</span>` : `${label} <b>${(n || 0).toLocaleString()}</b>`}</span>`;
+    return `<p class="mini" style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px 14px" title="Each Windows device goes to the first step that places it: primary user, then the last logged-on user (Intune), then Defender logons (within ${C.logonDays} days, a person in a country group), then the Entra owner, then the code the name starts with. ⚙️ switches the logon steps.">
+      <span class="muted">Devices placed by:</span>
+      ${step((P.primary || 0) + (P.real || 0), "① primary user")}
+      ${step(P.lastlogon, "② Intune last logon", C.useIntuneLogons, R.intune)}
+      ${step(P.defender, "③ Defender logons", C.useDefenderLogons, R.defender)}
+      ${step((P.owner || 0) + (P.location || 0), "④ Entra owner")}
+      ${step((P.name || 0) + (P.userloc || 0), "⑤ name / location")}
+      ${m.rows.some((r) => r.problems.check) ? `<span style="color:var(--report)">⚠ ${m.rows.reduce((a, r) => a + r.problems.check, 0)} where another country's user logs on — check the primary user</span>` : ""}
+      ${m.pinned && m.pinned.size ? `<span>📌 ${m.pinned.size} pinned</span>` : ""}</p>`;
+  }
   function memDetail(r) {
     const rows = r.devices.slice().sort((a, b) => (!a.objId) - (!b.objId) || a.name.localeCompare(b.name)).slice(0, 200).map((d) => {
       const wb = r.batch && !r.batch.finished && d.objId && !d.held && !r.want.has(d.objId) ? r.batch.batches.find((b) => b.users.some((u) => u.id === d.userId)) : null;
@@ -2119,8 +2157,10 @@ const MdeRolloutV2Tool = (() => {
       // live account, else the device's name, else the user's usage location
       const who = !d.via || d.via === "primary" ? esc(d.upn)
         : d.outside ? `${esc(d.upn)}${d.deletedUser ? ` ${chip("gu-how priv", "deleted primary user")}` : ""} · ${chip("gu-how", d.via === "real" ? "live account in this country group" : d.via === "userloc" ? `by usage location ${d.usageLocation}` : `by name ${String(d.name).slice(0, 3).toUpperCase()}`)}`
+        : d.via === "lastlogon" || d.via === "defender" ? `${esc(d.upn)} · ${chip("gu-how", d.via === "lastlogon" ? `by last logon${d.logon && d.logon.at ? ` · ${ago(d.logon.at)}` : ""}` : `by Defender logons${d.logon && d.logon.n ? ` · ${d.logon.n}×` : ""}`)}${d.logon && d.logon.primary ? `<div class="muted">primary user ${esc(d.logon.primary)} — in no country</div>` : ""}`
         : `<span class="muted">none</span> · ${chip("gu-how", d.via === "owner" ? `by Entra owner ${d.owner}` : d.via === "location" ? `by ${d.owner}'s usage location` : `by name ${String(d.name).slice(0, 3).toUpperCase()}`)}`;
-      return `<tr><td>${esc(d.name)}${d.nameSays ? `<div class="mini" style="color:var(--report)">the name says ${esc(d.nameSays)}</div>` : ""}</td><td class="mini">${who}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
+      const extra = `${d.check ? `<div style="color:var(--report)">⚠ ${esc(d.check.upn)} (${esc(d.check.country)}) logs on here — check the primary user</div>` : ""}${d.pinned ? `<div>${chip("gu-how priv", "📌 pinned")}</div>` : ""}`;
+      return `<tr><td>${esc(d.name)}${d.nameSays ? `<div class="mini" style="color:var(--report)">the name says ${esc(d.nameSays)}</div>` : ""}</td><td class="mini">${who}${extra}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
     return `<tr><td colspan="7" style="padding:0 8px 8px 36px">${r.pilot ? batchPanel(r) : ""}<div class="mr-detail">
@@ -2233,7 +2273,10 @@ const MdeRolloutV2Tool = (() => {
       if (!l.length) return `<span class="muted">no logon on a Defender device in 30 days — web or mobile only, or a device Defender does not see</span>`;
       // 10654: AVD (VDI in the name) is named, muted, marked out of scope
       const only = l.every((x) => x.outOfScope) ? `<div class="muted" style="margin-bottom:2px">only AVD — no device in scope</div>` : "";
-      return only + l.slice(0, 3).map((x) => `<div style="margin:2px 0${x.outOfScope ? ";opacity:.75" : ""}"><b>${esc(x.device)}</b> <span class="muted">· ${esc(ago(x.last))} · ${plural(x.logons, "logon")}</span><div style="color:${LOGCOL[x.kind]}">${esc(x.what)}</div></div>`).join("") + (l.length > 3 ? `<div class="muted">+ ${l.length - 3} more — in the CSV</div>` : "");
+      // 📌 (10682): a device with an Entra object can be pinned to the user's country
+      const r = rowOf.get(u.rowKey);
+      const pinBtn = (x) => !x.outOfScope && x.aad && (x.kind === "intune" || x.kind === "entra") && r && r.dg ? ` <button class="btn" data-mrpin="${esc(u.id)}|${esc(x.aad)}|${esc(x.device)}" title="Into ${esc(mcfg().pinnedDevice)} and ${esc(r.deviceGroupName)}; a sync keeps it there">📌 Pin to ${esc(r.deviceGroupName)}</button>` : "";
+      return only + l.slice(0, 3).map((x) => `<div style="margin:2px 0${x.outOfScope ? ";opacity:.75" : ""}"><b>${esc(x.device)}</b> <span class="muted">· ${esc(ago(x.last))} · ${plural(x.logons, "logon")}</span>${pinBtn(x)}<div style="color:${LOGCOL[x.kind]}">${esc(x.what)}</div></div>`).join("") + (l.length > 3 ? `<div class="muted">+ ${l.length - 3} more — in the CSV</div>` : "");
     };
     const urows = users.slice(0, CAP).map((u) => `<tr><td>${esc(u.upn)}</td><td class="mini">${esc(u.country)}</td><td class="mini">${osHas(u.has)}</td>${showLog ? `<td class="mini">${logCell(u)}</td>` : ""}<td class="mini">${standing(u)}</td></tr>`).join("");
     const logBar = users.length ? `<div class="toolbar" style="margin:4px 0 6px">
@@ -2267,7 +2310,35 @@ const MdeRolloutV2Tool = (() => {
       ${devs.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:28%"><col><col style="width:16%"></colgroup><thead><tr><th>Device</th><th>Primary user</th><th>Why</th><th>Last sync</th></tr></thead><tbody>${drows}</tbody></table></div>${devs.length > CAP ? `<p class="mini muted" style="margin:4px 0 0">First ${CAP} of ${devs.length.toLocaleString()} — ⭳ CSV has them all.</p>` : ""}`
         : `<p class="mini muted" style="margin:0">None.</p>`}
       <div class="tb-actions" style="margin-top:10px"><button class="btn" id="mvMemLeftCsv">⭳ CSV — left out, ${esc(R)}</button><span class="mini muted">Users and ${esc(R)}'s devices, plus the devices no country holds.</span></div>
+      ${pinnedHtml(m)}
     </div>`;
+  }
+  // 📌 the pinned devices (10682): where each sits, unpin by tick
+  function pinnedHtml(m) {
+    const P = m.pinned || new Set();
+    if (!P.size) return `<p class="mini muted" style="margin:12px 0 0">📌 No device is pinned. A device found by 🔎 for a user above can be pinned to the user's country device group; a sync keeps it there.</p>`;
+    const where = new Map();
+    for (const r of m.rows) for (const id of r.pinnedIn || []) where.set(id, (where.get(id) || []).concat(r.deviceGroupName));
+    const ent = new Map(((mem.input && mem.input.entra) || []).map((e) => [lc(e.id), e]));
+    const rows = [...P].map((id) => `<tr><td><input type="checkbox" data-mrunpin="${esc(id)}"${mem.unpin && mem.unpin.has(id) ? " checked" : ""} aria-label="unpin"></td><td class="mini"><b>${esc((ent.get(id) || {}).displayName || id)}</b></td><td class="mini">${(where.get(id) || []).map((n) => `<code>${esc(n)}</code>`).join(" ") || `<span class="muted">in no country device group</span>`}</td></tr>`).join("");
+    const n = mem.unpin ? mem.unpin.size : 0;
+    return `<h4 style="margin:16px 0 6px">📌 Pinned · ${P.size} <span class="mini muted" style="font-weight:400">— <code>${esc((m.pinnedGroup && m.pinnedGroup.name) || mcfg().pinnedDevice)}</code>, assigned to nothing</span></h4>
+      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:40%"><col></colgroup><thead><tr><th></th><th>Device</th><th>In</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tb-actions" style="margin-top:8px"><button class="btn" id="mvUnpinDry"${n ? "" : " disabled"}>Unpin ${plural(n, "device")} → dry run</button><span class="mini muted">Out of the pinned group; a 👥 run with “apply removals” then takes it out of the country group if no rule places it there.</span></div>`;
+  }
+  function pinDryRun(userId, aad, name) {
+    if (busy || !mem.model || !mem.input) return;
+    planAnchor = null; clearPlan(); seatPlan();
+    const p = MdeMembers.planPin(mem.model, mem.input, [{ userId, aad, name }], mcfg());
+    plan = Object.assign(p, { members: true, title: `📌 Pin ${name}` });
+    renderMemPlan();
+  }
+  function unpinDryRun() {
+    if (busy || !mem.model || !mem.unpin || !mem.unpin.size) return;
+    planAnchor = null; clearPlan(); seatPlan();
+    const p = MdeMembers.planUnpin(mem.model, [...mem.unpin]);
+    plan = Object.assign(p, { members: true, title: `📌 Unpin ${plural(mem.unpin.size, "device")}` });
+    renderMemPlan();
   }
   // 🔎 the users in the Left out view as it stands: its wave, and the
   // country chip when one is on (all of them, not only the rows shown)
@@ -2469,8 +2540,10 @@ const MdeRolloutV2Tool = (() => {
       <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px">
         ${meter("user wave", rg.wave.userName, rg.ugNested, inTenant.length, `country groups nested · ${rg.users.toLocaleString()} users`)}
         ${meter("device wave", rg.wave.deviceName, rg.dgNested, inTenant.length, `device groups nested · ${rg.devices.toLocaleString()} devices`)}
-        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b>, else the Entra owner, else the country code the name starts with · Windows only${m.placed ? ` · ${m.placed.toLocaleString()} with no primary user placed that way` : ""} · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} in no country</a></div>
+        <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · Windows only · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} in no country</a></div>
       </div>
+      ${memPlacedLine(m)}
+      ${(() => { const st = memStale(); return st && st.rows.length ? `<p class="mini" style="margin:0 0 10px;color:var(--report)">⏳ Not synced in ${mcfg().syncStaleDays} days and drifted: ${st.rows.slice(0, 8).map((x) => `${esc(x.r.country)} (${x.age === null ? "never" : `${x.age} d`})`).join(", ")}${st.rows.length > 8 ? ` +${st.rows.length - 8}` : ""} — tick them and ② Dry run.</p>` : ""; })()}
       ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:20%"><col style="width:7%"><col style="width:11%"><col style="width:20%"><col style="width:20%"><col></colgroup>
         <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>User group · sync</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
         <tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None of this wave's country groups is in the tenant.</p>`}
@@ -2558,6 +2631,8 @@ const MdeRolloutV2Tool = (() => {
       const actualDone = T28V2Safety.actualOps(r, v2MemberBackup);
       const verifiedDone = T28V2Safety.verifiedOps(Object.assign({}, r, { done: actualDone }));
       const uncertain = actualDone.length !== verifiedDone.length;
+      const pinMade = createdGroups.find((g) => lc(g.displayName) === lc(mcfg().pinnedDevice));
+      if (mem.input && pinMade) { mem.input.pinnedGroup = { id: lc(pinMade.id), name: pinMade.displayName }; if (!mem.input.pinned) mem.input.pinned = new Set(); }
       if (mem.input) MdeMembers.patchInput(mem.input, verifiedDone, createdGroups);
       if (cs.extra) MdeRevert.patch(cs.extra, mem.input, verifiedDone, mcfg());
       if (uncertain) { mem.input = null; mem.model = null; cs.extra = null; }
@@ -2583,6 +2658,14 @@ const MdeRolloutV2Tool = (() => {
       }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
       csAfterRun(p, r, verifiedDone);
+      // 👥 runs move "last synced" too (10682): every country whose steps all read back clean
+      if (!p.runKind && !p.exclusions && !p.pilotsReady && !p.pins && mem.model) {
+        const keys = new Set(mem.model.rows.map((x) => x.key)), okBy = new Map();
+        p.ops.forEach((op, i) => { if (keys.has(op.key)) okBy.set(op.key, (okBy.has(op.key) ? okBy.get(op.key) : true) && !!(r.results[i] && r.results[i].ok && r.results[i].verified)); });
+        const synced = readJson(syncKey()), at = new Date().toISOString();
+        for (const [k, v] of okBy) if (v) synced[k] = at;
+        writeJson(syncKey(), synced);
+      }
       runs.push({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
         done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)), pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
@@ -2595,6 +2678,7 @@ const MdeRolloutV2Tool = (() => {
       }
       if (p.exclusions) { ex.sel.clear(); if (!p.bulk && ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
       else if (p.pilotsReady) mem.pilSel.clear();
+      else if (p.pins) { if (mem.unpin) mem.unpin.clear(); }
       else mem.sel.clear();
       const ledger = $("mvLedger").innerHTML;
       render();
@@ -3602,6 +3686,8 @@ const MdeRolloutV2Tool = (() => {
         render(); return;
       }
       if (t.closest("[data-mrlogons]")) { lookupLogons(); return; }
+      const pn = t.closest("[data-mrpin]"); if (pn) { const [u, a, ...nm] = pn.dataset.mrpin.split("|"); pinDryRun(u, a, nm.join("|")); return; }
+      if (t.id === "mvUnpinDry") { unpinDryRun(); return; }
       if (t.closest("[data-mrlogonkql]")) { copyLogonKql(); return; }
       if (t.id === "mvMemLeftCsv") { if (mem.model) download(`MDE-left-out-${mem.region || "all"}-${stamp()}.csv`, MdeMembers.leftOutCsv(mem.model, mem.region, mem.logons), "text/csv"); return; }
       const mo = t.closest("[data-mrmemopen]"); if (mo) { e.preventDefault(); const k = mo.dataset.mrmemopen; mem.open.has(k) ? mem.open.delete(k) : mem.open.add(k); render(); return; }
@@ -3679,7 +3765,8 @@ const MdeRolloutV2Tool = (() => {
         const lines = (id) => $(id).value.split(/\r?\n/);
         const before = cfg.lookup.join("\n");
         const prevPre = { device: cfg.waveDevicePrefix, user: cfg.waveUserPrefix, exD: cfg.exclusionDevice, exU: cfg.exclusionUser };
-        const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}`;
+        // 10682: the logon steps change what is read — a change re-reads too
+        const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}|${mcfg().useIntuneLogons}|${mcfg().useDefenderLogons}|${mcfg().logonDays}`;
         const beforePre = prefixes();
         const okSaved = saveCfg({ newPrefixes: lines("mvRuleNew"), outPrefixes: lines("mvRuleOut"), waveRegions: lines("mvRuleWaves"),
           waveDevicePrefix: $("mvRuleDgPre").value, waveUserPrefix: $("mvRuleUgPre").value,
@@ -3695,6 +3782,7 @@ const MdeRolloutV2Tool = (() => {
             user: cfg.renameFrom.user.concat(lc($("mvRuleUgPre").value.trim()) !== lc(prevPre.user) ? [prevPre.user] : []),
           },
           members: Object.assign({}, mcfg(), { countryPrefix: $("mvRuleCtyPre").value, deviceGroupPrefix: $("mvRuleDgrpPre").value,
+            useIntuneLogons: !!($("mvRuleIntLog") && $("mvRuleIntLog").checked), useDefenderLogons: !!($("mvRuleDefLog") && $("mvRuleDefLog").checked), logonDays: $("mvRuleLogDays") ? +$("mvRuleLogDays").value : 30,
             countryMap: MdeMembers.parseMap($("mvRuleMap").value), pilots: MdeMembers.parsePilots($("mvRuleMap").value), deviceSuffixes: MdeMembers.parseOverrides($("mvRuleSfx").value) }) });
         (async () => {
           if (cfg.lookup.join("\n") !== before) { try { const f = await M.findGroups(cfg.lookup); found = f.found; dupes = f.dupes; } catch { found = null; } }
@@ -3827,6 +3915,7 @@ const MdeRolloutV2Tool = (() => {
         saveCfg(Object.assign({}, cfg, { members: Object.assign({}, mcfg(), { batched: t.checked ? cur.concat(sfx) : cur }) }));
         memCompute(); clearPlan(); render(); return;
       }
+      if (t.dataset.mrunpin) { if (!mem.unpin) mem.unpin = new Set(); t.checked ? mem.unpin.add(t.dataset.mrunpin) : mem.unpin.delete(t.dataset.mrunpin); clearPlan(); render(); return; }
       if (t.dataset.mrextick) { t.checked ? ex.ticks.add(t.dataset.mrextick) : ex.ticks.delete(t.dataset.mrextick); clearPlan(); render(); return; }
       // 🔄 / ↩ (10679)
       if (t.dataset.mrcstick && cs.ticks) { t.checked ? cs.ticks.add(t.dataset.mrcstick) : cs.ticks.delete(t.dataset.mrcstick); cs.confirm = ""; clearPlan(); render(); return; }

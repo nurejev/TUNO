@@ -316,7 +316,7 @@ async function run() {
   ok("FR: a Mac-only user — no Windows device, nothing to create", mrow("fr").devices.length === 0 && mrow("fr").usersNoDevice === 1);
   ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-POL-SKARB");
   ok("devices with no primary user, owner or country code are counted — and the header says how a country is found (10655)", mm().noPrimary === 2 && /2 of \d+ in no country/.test($("mvBody").textContent)
-    && /else the Entra owner, else the country code the name starts with/.test($("mvBody").textContent) && !mm().failed.some((f) => /owner/.test(f)));
+    && /Devices placed by:[\s\S]*① primary user[\s\S]*② Intune last logon[\s\S]*③ Defender logons[\s\S]*④ Entra owner[\s\S]*⑤ name \/ location/.test($("mvBody").textContent) && !mm().failed.some((f) => /owner/.test(f)));
   ok("PL is not in any wave", mm().unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
   // 🕳 Left out (10642, Mihai: "I need a way to know who is getting left
   // out"; layout A): Sam (FR) has only a Mac; svc-legacyapp's laptop has a

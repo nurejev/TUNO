@@ -1,4 +1,4 @@
-# Initialize-TunoItToolsFolders.ps1  v1.2.0  (TUNO build 10681)
+# Initialize-TunoItToolsFolders.ps1  v1.2.0  (TUNO build 10682)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -74,7 +74,7 @@ param(
 # Same discipline as the other scripts: ScriptVersion is this file's history,
 # TunoBuild the site build that served it, held to js/version.js by the guard.
 $script:ScriptVersion = '1.2.0'
-$script:TunoBuild = 10681
+$script:TunoBuild = 10682
 
 $ErrorActionPreference = 'Stop'
 

@@ -97,6 +97,17 @@ const MdeMembers = (() => {
     revertDescription: "MDE rollout revert — members were taken out of their wave and are back on the old MDE policies. Not assigned to any policy. Created by TUNO (T28 MDE rollout · ↩ Revert).",
     // Mihai (5 Oct): a sync older than this is shown in the warning colour
     syncStaleDays: 14,
+    // 10682 (Mihai: "i want to make sure that most devices are included in
+    // the waves"; the recommendation he agreed to): two more ways a device
+    // finds its person, BELOW the primary user — Intune's last logged-on
+    // users, then Defender's interactive logons — within logonDays; and a
+    // PINNED list for the few devices no rule places (kiosks, service-account
+    // primary users), kept in the tenant as a group assigned to nothing.
+    useIntuneLogons: true,
+    useDefenderLogons: true,
+    logonDays: 30,
+    pinnedDevice: "INT-SG-D-MDE-Pinned",
+    pinnedDescription: "MDE rollout pinned devices — kept in their country device group by TUNO (T28) although no rule places them there. Not assigned to any policy.",
   });
 
   const cleanStr = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -136,6 +147,11 @@ const MdeMembers = (() => {
       revertDevice: cleanStr(o.revertDevice, DEFAULTS.revertDevice),
       revertDescription: cleanStr(o.revertDescription, DEFAULTS.revertDescription),
       syncStaleDays: Number.isFinite(+o.syncStaleDays) && +o.syncStaleDays > 0 ? +o.syncStaleDays : DEFAULTS.syncStaleDays,
+      useIntuneLogons: o.useIntuneLogons !== false,
+      useDefenderLogons: o.useDefenderLogons !== false,
+      logonDays: Number.isInteger(+o.logonDays) && +o.logonDays >= 1 && +o.logonDays <= 30 ? +o.logonDays : DEFAULTS.logonDays,
+      pinnedDevice: cleanStr(o.pinnedDevice, DEFAULTS.pinnedDevice),
+      pinnedDescription: cleanStr(o.pinnedDescription, DEFAULTS.pinnedDescription),
     };
   }
   // The ⚙️ pane edits both tables as text: "Euro: *NL-Breda, GB, BE, NL"
@@ -230,6 +246,35 @@ const MdeMembers = (() => {
     return out;
   }
 
+  // ------------------------------------------------------- logons (10682) --
+  // An Entra-joined device logs an Entra account on with an Entra SID,
+  // S-1-12-1-a-b-c-d: the four numbers are the object id's sixteen bytes,
+  // little-endian — the account IS the user, no lookup needed. A hybrid
+  // account's on-premises SID is matched to onPremisesSecurityIdentifier.
+  function sidToObjectId(sid) {
+    const m = /^S-1-12-1-(\d+)-(\d+)-(\d+)-(\d+)$/i.exec(String(sid || "").trim());
+    if (!m) return "";
+    const b = [];
+    for (let i = 1; i <= 4; i++) { const n = Number(m[i]) >>> 0; b.push(n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255); }
+    const h = (x) => x.toString(16).padStart(2, "0");
+    return [[b[3], b[2], b[1], b[0]], [b[5], b[4]], [b[7], b[6]], b.slice(8, 10), b.slice(10)].map((p) => p.map(h).join("")).join("-");
+  }
+  // Every device's interactive logons per account in logonDays, with the
+  // device's Entra id (DeviceInfo) — one row per device and account
+  function deviceLogonKql(days) {
+    const d = days || 30;
+    return [
+      `DeviceLogonEvents`,
+      `| where Timestamp > ago(${d}d) and ActionType == "LogonSuccess"`,
+      `| where LogonType in~ ("Interactive", "RemoteInteractive", "CachedInteractive", "CachedRemoteInteractive", "Unlock")`,
+      `| where AccountSid startswith "S-1-12-1-" or AccountSid startswith "S-1-5-21-"`,
+      `| summarize Logons = count(), Last = max(Timestamp) by DeviceId, AccountSid`,
+      `| join kind=inner (DeviceInfo | where Timestamp > ago(${d}d) | summarize arg_max(Timestamp, AadDeviceId, DeviceName) by DeviceId) on DeviceId`,
+      `| where isnotempty(AadDeviceId)`,
+      `| project AadDeviceId, DeviceName, AccountSid, Logons, Last`,
+    ].join("\n");
+  }
+
   // ------------------------------------------------------------- reads --
   const EV = { ConsistencyLevel: "eventual" };
   const odq = (s) => String(s).replace(/'/g, "''");
@@ -252,7 +297,7 @@ const MdeMembers = (() => {
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
     const dgAll = dgList;
     // the ↩ Revert device group shares the prefix too (10679) — never a country group
-    const own = new Set([lc(cfg.revertDevice), lc(cfg.revertUser)]);
+    const own = new Set([lc(cfg.revertDevice), lc(cfg.revertUser), lc(cfg.pinnedDevice)]);
     dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))) && !own.has(lc(g.displayName)));
     // every platform, once (10642): Windows is the wave's subset; the rest
     // says what a user with no Windows device does have (🕳 Left out)
@@ -359,8 +404,52 @@ const MdeMembers = (() => {
       } catch (e) { failed.push(`${name}: ${(e && e.message) || e}`); }
     }
     if (ownerFailed.length) failed.push(`the Entra owner of ${ownerFailed.length} device${ownerFailed.length === 1 ? "" : "s"} with no primary user could not be read (${ownerFailed.slice(0, 5).join(", ")}${ownerFailed.length > 5 ? " …" : ""}) — their name decides`);
+    // 10682: who logs on where — Intune's last logged-on users, Defender's
+    // interactive logons — and the pinned devices
+    const logonRead = { intune: null, defender: null };
+    const intuneLogons = new Map();
+    if (cfg.useIntuneLogons) {
+      say("Reading Intune's last logged-on users…");
+      try {
+        const list = await Graph.readAll(`https://graph.microsoft.com/beta/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,usersLoggedOn`, { scopes: DS, retry: true });
+        for (const x of list || []) if (x && Array.isArray(x.usersLoggedOn) && x.usersLoggedOn.length) intuneLogons.set(lc(x.id), x.usersLoggedOn.map((u) => ({ userId: lc(u.userId || ""), at: u.lastLogOnDateTime || null })));
+        // the list may leave the collection out — then the devices the primary
+        // user does not place are read one by one (Learn: usersLoggedOn is
+        // returned on a GET of the device)
+        if (!intuneLogons.size) {
+          const need = managed.filter((m) => !(m.userId && inGroups.has(lc(m.userId)))).slice(0, 4000);
+          let li = 0;
+          const lr = await Graph.pool(need, async (m) => {
+            if (++li % 50 === 1 || li === need.length) say(`Reading Intune's last logged-on users — ${li}/${need.length}…`);
+            return Graph.get(`https://graph.microsoft.com/beta/deviceManagement/managedDevices/${enc(m.id)}?$select=id,usersLoggedOn`, { scopes: DS, retry: true });
+          }, 6);
+          lr.forEach((x, n) => { const v = x.value; if (!x.error && v && Array.isArray(v.usersLoggedOn) && v.usersLoggedOn.length) intuneLogons.set(lc(need[n].id), v.usersLoggedOn.map((u) => ({ userId: lc(u.userId || ""), at: u.lastLogOnDateTime || null }))); });
+        }
+        logonRead.intune = true;
+      } catch (e) { logonRead.intune = false; failed.push(`Intune's last logged-on users could not be read — that step places nothing this read: ${String((e && e.message) || e).slice(0, 160)}`); }
+    }
+    let defLogons = [];
+    if (cfg.useDefenderLogons) {
+      say("Asking Defender who logs on where…");
+      try {
+        const r = await Graph.post("/security/runHuntingQuery", { Query: deviceLogonKql(cfg.logonDays), Timespan: `P${cfg.logonDays || 30}D` }, { scopes: Graph.SCOPES.hunting });
+        defLogons = (r && r.results) || [];
+        logonRead.defender = true;
+      } catch (e) { logonRead.defender = false; failed.push(`Defender's logons could not be read — that step places nothing this read: ${String((e && e.message) || e).slice(0, 160)}`); }
+    }
+    let pinned = new Set(), pinnedGroup = null;
+    if (cfg.pinnedDevice) {
+      try {
+        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(cfg.pinnedDevice)}'`)}&$select=id,displayName&$top=5`, { scopes: GS, retry: true })) || [];
+        const g = hits.find((x) => lc(x.displayName) === lc(cfg.pinnedDevice));
+        if (g) {
+          pinnedGroup = { id: lc(g.id), name: g.displayName };
+          pinned = new Set(((await Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id)));
+        }
+      } catch (e) { failed.push(`${cfg.pinnedDevice}: ${String((e && e.message) || e).slice(0, 160)}`); }
+    }
     say("");
-    return { countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
+    return { intuneLogons, defLogons, logonRead, pinned, pinnedGroup, countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
       pilots, pilotsMissing, owners, primaryUsers, failed, readAt: Date.now() };
   }
 
@@ -465,6 +554,39 @@ const MdeMembers = (() => {
     const nameRow = (name) => byIso3.get(String(name || "").slice(0, 3).toUpperCase()) || null;
     const byUser = new Map(), extra = new Map(), placed = new Map();
     let noPrimary = 0;
+    // 10682: who logs on to a device, for the steps below the primary user —
+    // only people in a country group of the table, only within logonDays
+    const since = t - (cfg.logonDays || DEFAULTS.logonDays) * 86400000;
+    const rowOfUser = new Map(), upnOf = new Map(), sidOf = new Map();
+    for (const pass of [false, true]) for (const x of defs) if (x.r.pilot === pass) for (const u of x.users || []) {
+      const id = lc(u.id);
+      if (!rowOfUser.has(id)) rowOfUser.set(id, x.r);
+      if (u.userPrincipalName) upnOf.set(id, u.userPrincipalName);
+      if (u.onPremisesSecurityIdentifier) sidOf.set(lc(u.onPremisesSecurityIdentifier), id);
+    }
+    const defBy = new Map();
+    for (const h of input.defLogons || []) {
+      if (isAvdName(h.DeviceName)) continue;
+      const aad = lc(h.AadDeviceId || "");
+      const sid = String(h.AccountSid || "");
+      const id = sidOf.get(lc(sid)) || lc(sidToObjectId(sid));
+      if (!aad || !id || !inRows.has(id)) continue;
+      if (!defBy.has(aad)) defBy.set(aad, []);
+      defBy.get(aad).push({ id, n: Number(h.Logons) || 0, at: h.Last || null });
+    }
+    const logonPick = (m) => {
+      if (cfg.useIntuneLogons !== false) {
+        const l = ((input.intuneLogons && input.intuneLogons.get(lc(m.id))) || []).filter((x) => inRows.has(x.userId) && Date.parse(x.at || "") >= since)
+          .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+        if (l.length) return { id: l[0].userId, via: "lastlogon", at: l[0].at, n: 0, upn: upnOf.get(l[0].userId) || l[0].userId };
+      }
+      if (cfg.useDefenderLogons !== false) {
+        const l = (defBy.get(lc(m.azureADDeviceId || "")) || []).slice().sort((a, b) => b.n - a.n || (Date.parse(b.at || "") || 0) - (Date.parse(a.at || "") || 0));
+        if (l.length) return { id: l[0].id, via: "defender", at: l[0].at, n: l[0].n, upn: upnOf.get(l[0].id) || l[0].id };
+      }
+      return null;
+    };
+    const logonOwner = (lp, m) => ({ id: lp.id, upn: lp.upn, deleted: false, found: true, outside: false, usageLocation: "", at: lp.at, n: lp.n, primary: m.userPrincipalName || "" });
     const pus = input.primaryUsers || new Map();
     for (const m of input.managed || []) {
       let k = m.userId ? lc(m.userId) : "", via = "primary", owner = null;
@@ -477,6 +599,11 @@ const MdeMembers = (() => {
         if (pu.id && inRows.has(pu.id)) {
           k = pu.id; via = "real"; owner = who;
           placed.set(lc(m.id), via);
+        } else if (logonPick(m)) {
+          // 10682: the primary user is in no country — whoever logs on is
+          const lp = logonPick(m);
+          k = lp.id; via = lp.via; owner = logonOwner(lp, m);
+          placed.set(lc(m.id), via);
         } else {
           let row = nameRow(m.deviceName), how = "name";
           if (!row && pu.usageLocation) { row = byIso2.get(lc(pu.usageLocation)) || null; how = "userloc"; }
@@ -488,6 +615,8 @@ const MdeMembers = (() => {
           }
         }
       }
+      const lp0 = !k ? logonPick(m) : null;
+      if (lp0) { k = lp0.id; via = lp0.via; owner = logonOwner(lp0, m); placed.set(lc(m.id), via); }
       if (!k) {
         const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
         owner = e && input.owners ? input.owners.get(lc(e.id)) || null : null;
@@ -504,31 +633,41 @@ const MdeMembers = (() => {
         }
         placed.set(lc(m.id), via);
       }
+      // 10682: the primary user decides, but when the person who logs on
+      // belongs to another country the row says "check the primary user"
+      let check = null;
+      if (via === "primary" && inRows.has(k)) {
+        const lp = logonPick(m);
+        const a = lp && rowOfUser.get(lp.id), b = rowOfUser.get(k);
+        if (lp && lp.id !== k && a && b && a.key !== b.key) check = { upn: lp.upn, country: a.country, via: lp.via, at: lp.at, n: lp.n };
+      }
       if (!byUser.has(k)) byUser.set(k, []);
-      byUser.get(k).push({ m, via, owner });
+      byUser.get(k).push({ m, via, owner, check });
     }
     const rows = defs.map(({ r, ug, users }) => {
       const devices = [], seen = new Set();
       let usersNoDevice = 0;
-      const push = (m, u, via, owner) => {
+      const push = (m, u, via, owner, check) => {
         if (seen.has(lc(m.id))) return;
         seen.add(lc(m.id));
         const e = m.azureADDeviceId ? entraByDeviceId.get(lc(m.azureADDeviceId)) : null;
         const last = Date.parse(m.lastSyncDateTime || "");
         const name = m.deviceName || (e && e.displayName) || m.id;
         const nr = nameRow(name);
-        const liveUpn = via === "real" || via === "userloc" || (via === "name" && owner && owner.upn) ? owner.upn : "";
+        const liveUpn = via === "real" || via === "userloc" || via === "lastlogon" || via === "defender" || (via === "name" && owner && owner.upn) ? owner.upn : "";
         devices.push({ managedId: m.id, name, upn: liveUpn || realUpnOf(m.userPrincipalName) || m.userPrincipalName || (u && u.userPrincipalName) || (owner && owner.upn) || "",
           deletedUser: !!realUpnOf(m.userPrincipalName) || !!(owner && owner.deleted), outside: !!(owner && owner.outside), usageLocation: owner && owner.outside ? owner.usageLocation : "", userId: u ? lc(u.id) : (owner ? owner.id : ""),
           via, owner: owner ? owner.upn : "", nameSays: nr && nr.iso3 !== String(r.iso3 || "").slice(0, 3) ? nr.country : "",
           lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
           objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
-          held: !!(e && held.has(lc(e.id))), reverted: !!(e && reverted.has(lc(e.id))) });
+          held: !!(e && held.has(lc(e.id))), reverted: !!(e && reverted.has(lc(e.id))),
+          logon: via === "lastlogon" || via === "defender" ? { at: owner.at || null, n: owner.n || 0, primary: owner.primary || "" } : null, check: check || null,
+          pinned: !!(e && (input.pinned || new Set()).has(lc(e.id))) });
       };
       for (const u of users || []) {
         const list = byUser.get(lc(u.id)) || [];
         if (!list.length) { usersNoDevice++; continue; }
-        for (const x of list) push(x.m, u, x.via, x.owner);
+        for (const x of list) push(x.m, u, x.via, x.owner, x.check);
       }
       for (const x of extra.get(r.key) || []) push(x.m, null, x.via, x.owner);
       const dg = r.deviceGroupName ? dgByName.get(lc(r.deviceGroupName)) || null : null;
@@ -579,6 +718,9 @@ const MdeMembers = (() => {
       // devices of users already in the wave are wanted (10640)
       if (row.batch && !row.batch.finished) row.want = new Set(row.devices.filter((d) => d.objId && !d.held && row.batch.inWave.has(d.userId)).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
+      // 📌 a pinned device in this group stays (10682) — unless held
+      row.pinnedIn = [...row.have].filter((id) => (input.pinned || new Set()).has(id) && !held.has(id));
+      row.pinnedIn.forEach((id) => row.want.add(id));
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
       row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
@@ -602,6 +744,10 @@ const MdeMembers = (() => {
         pilot: row.devices.filter((d) => d.others.length && d.pilotOverlap).length,
         held: row.devices.filter((d) => d.held).length,
         reverted: row.devices.filter((d) => d.reverted).length,
+        byLogon: row.devices.filter((d) => d.via === "lastlogon").length,
+        byDefender: row.devices.filter((d) => d.via === "defender").length,
+        check: row.devices.filter((d) => d.check).length,
+        pinned: row.pinnedIn.length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length && row.uInSync;
     }
@@ -637,8 +783,14 @@ const MdeMembers = (() => {
       };
     });
     const ownerUsers = new Set();
-    for (const [k, list] of byUser) if (list.some((x) => x.via === "owner" || x.via === "real")) ownerUsers.add(k);
-    return { rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
+    for (const [k, list] of byUser) if (list.some((x) => x.via === "owner" || x.via === "real" || x.via === "lastlogon" || x.via === "defender")) ownerUsers.add(k);
+    // 10682: how each Windows device found its country, counted once
+    const placedBy = { primary: 0, real: 0, lastlogon: 0, defender: 0, owner: 0, location: 0, name: 0, userloc: 0 };
+    const seenM = new Set();
+    for (const [k, list] of byUser) if (inRows.has(k)) for (const x of list) if (!seenM.has(x.m.id)) { seenM.add(x.m.id); placedBy[x.via] = (placedBy[x.via] || 0) + 1; }
+    for (const list of extra.values()) for (const x of list) if (!seenM.has(x.m.id)) { seenM.add(x.m.id); placedBy[x.via] = (placedBy[x.via] || 0) + 1; }
+    return { placedBy, logonRead: input.logonRead || { intune: null, defender: null }, pinned: input.pinned || new Set(), pinnedGroup: input.pinnedGroup || null,
+      rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
       leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId, placed, ownerUsers), pilots: pilotsOf(input, rows) };
   }
 
@@ -702,7 +854,7 @@ const MdeMembers = (() => {
     }
     const meaning = (h) => {
       const aad = lc(h.AadDeviceId || "");
-      const base = { device: String(h.DeviceName || h.DeviceId || "").split(".")[0], fqdn: h.DeviceName || "", last: h.LastLogon || null, logons: Number(h.Logons) || 0, os: h.OSPlatform || "", join: h.JoinType || "" };
+      const base = { aad: lc(h.AadDeviceId || ""), device: String(h.DeviceName || h.DeviceId || "").split(".")[0], fqdn: h.DeviceName || "", last: h.LastLogon || null, logons: Number(h.Logons) || 0, os: h.OSPlatform || "", join: h.JoinType || "" };
       const m = aad ? managedByDev.get(aad) : null, e = aad ? entraByDev.get(aad) : null;
       if (isAvdName(h.DeviceName) || (m && isAvdName(m.deviceName))) return Object.assign(base, { kind: "avd", outOfScope: true, what: "⊘ AVD (VDI in the name) — out of scope, excluded" });
       if (m) {
@@ -1226,6 +1378,52 @@ const MdeMembers = (() => {
     if (row && row.batch) for (const b of row.batch.batches) for (const u of b.users) rows.push([b.n, b.state, u.upn, row.devices.filter((d) => d.userId === u.id).map((d) => d.name).join(" ")]);
     return rows.map((x) => x.map(csvCell).join(",")).join("\r\n");
   }
+  // ------------------------------------------------------------ 📌 pins --
+  // 10682: a device no rule places, kept in its user's country device group.
+  // items: [{ userId, aad, name }] — the user it belongs with, the device's
+  // Entra device id. Into the pinned group first, then into the country
+  // device group once that read back; a held device (⊘ / ↩) is not pinned.
+  function planPin(model, input, items, cfg) {
+    const c = cfg || DEFAULTS;
+    const ops = [], skipped = [], warnings = [];
+    const entraByDev = new Map((input.entra || []).map((e) => [lc(e.deviceId || ""), e]));
+    const held = new Set([...(input.held || []), ...(input.reverted || [])]);
+    const pinned = input.pinned || new Set();
+    const rowOfUser = (id) => model.rows.find((r) => r.ug && !r.pilot && (input.usersByGroup.get(lc(r.ug.id)) || []).some((u) => lc(u.id) === id))
+      || model.rows.find((r) => r.ug && (input.usersByGroup.get(lc(r.ug.id)) || []).some((u) => lc(u.id) === id)) || null;
+    const toPin = [], intoRow = new Map();
+    for (const it of items || []) {
+      const e = entraByDev.get(lc(it.aad || ""));
+      const name = it.name || (e && e.displayName) || it.aad;
+      if (!e) { skipped.push(`${name}: no Entra object — it cannot be a group member`); continue; }
+      const id = lc(e.id);
+      if (held.has(id)) { skipped.push(`${name}: in the exclusion or Revert group — it stays on the old set`); continue; }
+      const r = rowOfUser(lc(it.userId));
+      if (!r) { skipped.push(`${name}: its user is in no country group of the table`); continue; }
+      if (!r.dg) { skipped.push(`${name}: ${r.deviceGroupName || "the country device group"} does not exist — create & fill it in 👥 first`); continue; }
+      if (!pinned.has(id)) toPin.push({ id, name });
+      if (!r.have.has(id)) { if (!intoRow.has(r.key)) intoRow.set(r.key, { r, list: [] }); intoRow.get(r.key).list.push({ id, name }); }
+      else if (pinned.has(id)) skipped.push(`${name}: pinned and in ${r.dg.displayName} already`);
+    }
+    let pinIdx = null;
+    if (toPin.length) {
+      let ref = model.pinnedGroup ? { id: model.pinnedGroup.id, name: model.pinnedGroup.name } : null;
+      if (!ref) { ops.push({ type: "create", key: "pin", name: c.pinnedDevice, who: "📌 pins", description: c.pinnedDescription }); ref = { ref: c.pinnedDevice, name: c.pinnedDevice }; }
+      pinIdx = ops.length;
+      ops.push({ type: "add", key: "pin", group: ref, ids: toPin.map((x) => x.id), memberKind: "device", who: "📌 pins", label: toPin.map((x) => x.name).join(", "), objs: toPin.map((x) => ({ id: x.id, displayName: x.name })) });
+    }
+    for (const { r, list } of intoRow.values()) ops.push({ type: "add", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: list.map((x) => x.id), memberKind: "device", who: r.country,
+      label: `${list.map((x) => x.name).join(", ")} — pinned`, needsOk: pinIdx != null ? [pinIdx] : undefined, objs: list.map((x) => ({ id: x.id, displayName: x.name })) });
+    if (ops.length) warnings.push("A pinned device gets what its country's wave is assigned at its next Intune check-in. Unpin it under 🕳 Left out → 📌 Pinned; the next 👥 run with “apply removals” then takes it out of the country group if no rule places it there.");
+    return { ops, skipped, warnings, hasRemoval: false, pins: true };
+  }
+  function planUnpin(model, ids) {
+    const g = model.pinnedGroup;
+    if (!g || !(ids || []).length) return { ops: [], skipped: [g ? "nothing ticked" : "no pinned group"], warnings: [], hasRemoval: false, pins: true };
+    return { ops: [{ type: "remove", key: "pin", group: { id: g.id, name: g.name }, ids: ids.slice(), memberKind: "device", who: "📌 pins", batch: true, label: `${ids.length} device${ids.length === 1 ? "" : "s"} unpinned` }],
+      skipped: [], warnings: ["Unpinned devices stay in their country group until a 👥 run with “apply removals” takes out the ones no rule places there."], hasRemoval: true, pins: true };
+  }
+
   // The inverse of what a run DID (not of what it planned), for undo.
   function inverseOf(done) {
     const out = [];
@@ -1424,6 +1622,12 @@ const MdeMembers = (() => {
         if (input.waveUsers && input.waveUsers.has(lc(d.group.id))) { const set = input.waveUsers.get(lc(d.group.id)); d.ids.forEach((id) => d.type === "add" ? set.add(lc(id)) : set.delete(lc(id))); }
         continue;
       }
+      // 📌 the pinned group (10682)
+      if ((d.type === "add" || d.type === "remove") && input.pinnedGroup && lc(d.group.id) === input.pinnedGroup.id) {
+        if (!input.pinned) input.pinned = new Set();
+        d.ids.forEach((id) => d.type === "add" ? input.pinned.add(lc(id)) : input.pinned.delete(lc(id)));
+        continue;
+      }
       if ((d.type === "add" || d.type === "remove") && input.heldGroup && lc(d.group.id) === input.heldGroup.id) {
         if (!input.held) input.held = new Set();
         d.ids.forEach((id) => d.type === "add" ? input.held.add(lc(id)) : input.held.delete(lc(id)));
@@ -1445,6 +1649,8 @@ const MdeMembers = (() => {
   const csvCell = (s) => { const v = String(s == null ? "" : s); return /[",\r\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   // how a device got its country (10655)
   const VIA_TEXT = (d) => d.outside ? `${d.deletedUser ? "deleted primary user — " : "primary user in no country group — "}${d.via === "real" ? `live account ${d.upn} is in this country group` : d.via === "userloc" ? `${d.upn}'s usage location ${d.usageLocation}` : `its name (${String(d.name).slice(0, 3).toUpperCase()}…)`}`
+    : d.via === "lastlogon" ? `Intune last logged-on user ${d.upn}${d.logon && d.logon.primary ? ` (primary user ${d.logon.primary})` : " (no primary user)"}`
+    : d.via === "defender" ? `Defender logons of ${d.upn}${d.logon && d.logon.n ? ` (${d.logon.n})` : ""}${d.logon && d.logon.primary ? ` (primary user ${d.logon.primary})` : " (no primary user)"}`
     : d.via === "owner" ? `Entra owner ${d.owner} (no Intune primary user)` : d.via === "location" ? `Entra owner ${d.owner}'s usage location (no primary user)` : d.via === "name" ? `its name (${String(d.name).slice(0, 3).toUpperCase()}…) — no primary user${d.owner ? `, owner ${d.owner} in no country` : ", no Entra owner"}` : "Intune primary user";
   function csv(model) {
     const rows = [["Region", "Country", "User group", "Device group", "Device", "Primary user", "Last sync", "Status", "Country by"]];
@@ -1461,7 +1667,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
+    addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };
 })();
