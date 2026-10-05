@@ -666,20 +666,21 @@ async function run() {
   D.querySelector('[data-mrmemopen="nl-breda"]').click();
   ok("the pilot row opens on its batch panel", !!$("mvBatch-nl-breda") && /Pilot in 4 batches/.test($("mvBatch-nl-breda").textContent) && !!D.querySelector('[data-mrbatch="nl-breda"]'));
   D.querySelector('[data-mrbatch="nl-breda"]').click();
-  ok("batch 1 → dry run: Alex into the user wave, INT-SG-D-NLD-BREDA created, filled with his laptop and nested", !!st().plan && st().plan.ops.map((o) => o.type).join() === "add,create,add,nest"
-    && st().plan.ops[0].group.name === "INT-SG-U-WAVE-Euro" && st().plan.ops[0].ids.join() === "22222222-0000-4000-8000-000000000001" && st().plan.ops[1].name === "INT-SG-D-NLD-BREDA"
-    && st().plan.ops[2].ids.join() === "33333333-0000-4000-8000-000000000107");
+  ok("batch 1 → dry run (10681): INT-SG-U-NLD-BREDA created with Alex in it and nested; INT-SG-D-NLD-BREDA created, filled with his laptop and nested", !!st().plan && st().plan.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
+    && st().plan.ops[0].name === "INT-SG-U-NLD-BREDA" && st().plan.ops[1].ids.join() === "22222222-0000-4000-8000-000000000001" && st().plan.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && st().plan.ops[3].name === "INT-SG-D-NLD-BREDA"
+    && st().plan.ops[4].ids.join() === "33333333-0000-4000-8000-000000000107", st().plan && st().plan.ops.map((o) => o.type).join());
   ok("…and the plan opens under the batch panel", $("mvBatch-nl-breda").nextElementSibling === $("mvPlan") && /batch 1 of 4/.test($("mvPlan").textContent));
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   const brun = st().runs.length;
   await v2Gates(); $("mvMemApply").click();
-  ok("applied: every step done and verified", await until(() => st().runs.length === brun + 1, 15000, "batch run") && st().runs[brun].ok === 4, st().runs[brun] && st().runs[brun].lines.join(" | "));
+  ok("applied: every step done and verified", await until(() => st().runs.length === brun + 1, 15000, "batch run") && st().runs[brun].ok === 6, st().runs[brun] && st().runs[brun].lines.join(" | "));
   const brG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-NLD-BREDA");
-  ok("in the tenant: Alex a direct member of the user wave; the new device group holds his laptop and sits in the device wave",
-    (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001")
+  ok("in the tenant: Alex in INT-SG-U-NLD-BREDA, which sits in the user wave (not a direct wave member); the new device group holds his laptop and sits in the device wave",
+    (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA")._users || []).includes("22222222-0000-4000-8000-000000000001") && (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA").memberOf || []).includes("11111111-0000-4000-8000-000000000020")
+    && !(TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001")
     && brG() && brG()._devices.includes("33333333-0000-4000-8000-000000000107") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
   ok("the panel moves on: 1 of 4 in, batch 2 next", br().batch.inCount === 1 && br().batch.batches[0].state === "in" && br().batch.next.n === 2);
-  ok("the regular sync would not nest the pilot group while it is batched", w.MdeMembers.planOps(st().mem.model, new Set(["nl-breda"]), { fill: true, nestUsers: true, nestDevices: true }, st().cfg.members).skipped.some((x) => /added in batches/.test(x)));
+  ok("the regular sync neither fills nor nests the pilot's user group while it is batched", !w.MdeMembers.planOps(st().mem.model, new Set(["nl-breda"]), { fill: true, nestUsers: true, nestDevices: true }, st().cfg.members).ops.some((o) => o.memberKind === "user" || o.kind === "user"));
   const tg = D.querySelector('[data-mrbatchtoggle="NL-Breda"]'); tg.checked = false; tg.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("the batches can be switched off for a pilot (kept per tenant)", br().batch === null && !st().cfg.members.batched.includes("NL-Breda"));
   const tg2 = D.querySelector('[data-mrbatchtoggle="NL-Breda"]'); tg2.checked = true; tg2.dispatchEvent(new w.Event("change", { bubbles: true }));
@@ -701,17 +702,18 @@ async function run() {
     && /Migrate to the wave with Netherlands/.test($("mvBatch-nl-breda").textContent) && /going live migrates NL Breda/.test($("mvBody").textContent));
   D.querySelector('[data-mrmigrate="nl-breda"]').click();
   const migOps = () => st().plan.ops.filter((o) => o.migrate);
-  ok("the plan: Alex out of the user wave (in through NL), INT-SG-D-NLD-BREDA out of the device wave — typed, under the panel",
+  ok("the plan: INT-SG-U-NLD-BREDA out of the user wave (Alex in through NL), INT-SG-D-NLD-BREDA out of the device wave — typed, under the panel",
     !!st().plan && /Netherlands goes live · 🧪 NL Breda migrated to the wave/.test(st().plan.title) && migOps().length === 2
-    && migOps()[0].type === "remove" && migOps()[0].ids.join() === "22222222-0000-4000-8000-000000000001" && migOps()[0].group.name === "INT-SG-U-WAVE-Euro"
+    && migOps()[0].type === "unnest" && migOps()[0].child.name === "INT-SG-U-NLD-BREDA" && migOps()[0].parent.name === "INT-SG-U-WAVE-Euro"
     && migOps()[1].type === "unnest" && migOps()[1].child.name === "INT-SG-D-NLD-BREDA" && !!$("mvConfirmText") && $("mvBatch-nl-breda").nextElementSibling === $("mvPlan")
     && /NL Breda is migrated into Netherlands/.test($("mvPlan").textContent), st().plan && JSON.stringify(st().plan.ops.map((o) => [o.type, o.label || (o.child && o.child.name)])));
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   const migRun = st().runs.length;
   await v2Gates(); $("mvMemApply").click();
   ok("applied: every step verified, the migration on 📜", await until(() => st().runs.length === migRun + 1, 15000, "migrate run") && st().runs[migRun].bad === 0 && st().runs[migRun].migrate.length === 1, st().runs[migRun] && st().runs[migRun].lines.join(" | "));
-  ok("in the tenant: Alex is no longer a direct member; INT-SG-D-NLD-BREDA is out of the device wave, left in place",
-    !(TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001") && brG() && !brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
+  const brU = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA");
+  ok("in the tenant: INT-SG-U-NLD-BREDA and INT-SG-D-NLD-BREDA are out of the waves, left in place",
+    !(brU().memberOf || []).includes("11111111-0000-4000-8000-000000000020") && brG() && !brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
   ok("the pilot is migrated: out of the batches, listed as migrated, not selectable", st().cfg.members.migrated.includes("NL-Breda") && !st().cfg.members.batched.includes("NL-Breda") && br().migrated && br().batch === null
     && /🧪 migrated into Netherlands/.test($("mvBody").textContent) && !D.querySelector('[data-mrmemsel="nl-breda"]') && /Migrated into Netherlands/.test(($("mvBatch-nl-breda") || { textContent: "" }).textContent));
   w.MdeRolloutV2Tool._pane("changes");
@@ -720,7 +722,7 @@ async function run() {
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   await v2Gates(); $("mvMemApply").click();
   ok("…the pilot is back in its batches, and the tenant as it was", await until(() => st().runs.length === migRun + 2, 15000, "migrate undo run") && st().cfg.members.batched.includes("NL-Breda") && !st().cfg.members.migrated.includes("NL-Breda")
-    && br().batch && (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
+    && br().batch && (brU().memberOf || []).includes("11111111-0000-4000-8000-000000000020") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
   if (nlUsersBefore) nlG._users = nlUsersBefore; else delete nlG._users;
   w.MdeRolloutV2Tool._pane("members");
   $("mvMemRead").click();

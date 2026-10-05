@@ -1,4 +1,4 @@
-# Detect-TunoItToolsFolders.ps1  v1.0.0  (TUNO build 10680)
+# Detect-TunoItToolsFolders.ps1  v1.0.0  (TUNO build 10681)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -40,7 +40,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10680
+$script:TunoBuild = 10681
 
 $ErrorActionPreference = 'SilentlyContinue'
 $found = @()

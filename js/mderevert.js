@@ -141,7 +141,10 @@ const MdeRevert = (() => {
       const have = ug ? (X.userMembers.get(lc(ug.id)) || new Set()) : new Set();
       const srcIds = new Set(src.map((u) => u.id));
       const user = { add: [], leave: [], held: [], heldIn: [] };
+      // a pilot in batches fills its static group batch by batch (10681)
+      const batchOpen = !!(r.batch && !r.batch.finished);
       for (const u of src) {
+        if (batchOpen && !have.has(u.id) && !X.revertUsers.has(u.id)) continue;
         if (X.revertUsers.has(u.id)) { if (have.has(u.id)) user.heldIn.push(u); else user.held.push(Object.assign({ reason: (reasons[u.id] || {}).reason || "" }, u)); }
         else if (!have.has(u.id)) user.add.push(u);
       }

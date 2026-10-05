@@ -311,6 +311,7 @@ async function run() {
       .concat([{ id: "mx", deviceName: "BR-NOENTRA", userId: "b1", azureADDeviceId: "ABX", lastSyncDateTime: iso(now) }]),
     entra: bUsers.map((u, i) => ({ id: `EB${i}`, deviceId: `AB${i}`, displayName: `BR-${i}` })),
     deviceMembers: new Map(), waveChildren: new Map([["wu", new Set(["gnl"])]]), waveUsers: new Map([["wu", new Set()]]),
+    userGroups: new Map(), userMembers: new Map(), revertUsers: new Map(),   // 10681: the static user groups read
     failed: [], readAt: now,
   };
   const bcfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL-Breda", "NL"] }], pilots: ["NL-Breda"] });
@@ -321,33 +322,50 @@ async function run() {
   ok("batch 1 is next, the rest wait", BRr.batch.next.n === 1 && BRr.batch.batches.slice(1).every((b) => b.state === "waiting"));
   ok("the device group follows its users: nothing is wanted before batch 1", BRr.want.size === 0 && BRr.devices.length === 11);
   const pb = MM.planBatch(bm, BRr.key, bcfg);
-  ok("batch 1: three users into the user wave, the device group created and filled with their devices, nested in the device wave", pb.ops.map((o) => o.type).join() === "add,create,add,nest"
-    && pb.ops[0].memberKind === "user" && pb.ops[0].group.name === "INT-SG-U-WAVE-Euro" && pb.ops[0].ids.join() === "b0,b1,b2"
-    && pb.ops[2].ids.join() === "eb0,eb1,eb2" && pb.ops[3].parent.name === "INT-SG-D-WAVE-Euro" && pb.batch === 1 && !pb.hasRemoval);
+  // 10681 (Mihai, off batch 1's plan: "the breda pilot. where is user groups
+  // creation?"): a batch goes into the pilot's STATIC user group, created on
+  // batch 1 and nested in the user wave — never straight into the wave
+  ok("batch 1: INT-SG-U-NLD-BREDA created, three users in it, nested in the user wave; the device group created, filled, nested", pb.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
+    && pb.ops[0].name === "INT-SG-U-NLD-BREDA" && pb.ops[1].memberKind === "user" && pb.ops[1].group.ref === "INT-SG-U-NLD-BREDA" && pb.ops[1].ids.join() === "b0,b1,b2"
+    && pb.ops[2].child.ref === "INT-SG-U-NLD-BREDA" && pb.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && pb.ops[2].needsOk.join() === "0,1"
+    && pb.ops[4].ids.join() === "eb0,eb1,eb2" && pb.ops[5].parent.name === "INT-SG-D-WAVE-Euro" && pb.batch === 1 && !pb.hasRemoval, pb.ops.map((o) => o.type).join());
+  ok("…nothing goes straight into the wave", !pb.ops.some((o) => o.type === "add" && o.group.name === "INT-SG-U-WAVE-Euro"));
   ok("…a batch device with no Entra object is left out with the reason", pb.skipped.some((x) => /BR-NOENTRA/.test(x)));
-  ok("the regular sync does not nest a batched pilot's user group", MM.planOps(bm, new Set([BRr.key]), all, bcfg).skipped.some((x) => /added in batches/.test(x)));
-  // the run lands: users in, device group made and filled
-  bInput.waveUsers.get("wu").add("b0"); bInput.waveUsers.get("wu").add("b1"); bInput.waveUsers.get("wu").add("b2");
+  const regular = MM.planOps(bm, new Set([BRr.key]), all, bcfg);
+  ok("the regular sync neither nests nor fills a batched pilot's user group", regular.skipped.some((x) => /added in batches/.test(x)) && !regular.ops.some((o) => o.memberKind === "user" || o.kind === "user"));
+  // the run lands: the static group made, filled and nested; the device group likewise
+  bInput.userGroups.set("int-sg-u-nld-breda", { id: "sbr", displayName: "INT-SG-U-NLD-BREDA" }); bInput.userMembers.set("sbr", new Set(["b0", "b1", "b2"])); bInput.waveChildren.get("wu").add("sbr");
   bInput.deviceGroups.push({ id: "gdb", displayName: "INT-SG-D-NLD-BREDA" }); bInput.deviceMembers.set("gdb", new Set(["eb0", "eb1", "eb2"])); bInput.waveChildren.set("wd", new Set(["gdb"]));
   bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
-  ok("after batch 1: 3 of 10 in, batch 2 next, the device group in sync", BRr.batch.inCount === 3 && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.inSync && BRr.dgNested);
+  ok("after batch 1: 3 of 10 in through the static group, batch 2 next, both groups in sync", BRr.batch.inCount === 3 && BRr.batch.staticNested && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.inSync && BRr.dgNested && !BRr.batch.finished);
   // a user leaves the group before batch 2: the next batch is cut from who is left
   bInput.usersByGroup.set("gbr", bInput.usersByGroup.get("gbr").filter((u) => u.id !== "b9"));
   bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
   ok("someone leaves: nine to batch, the parts become 3, 2, 2, 2 and batch 1 stays in", BRr.batch.N === 9 && BRr.batch.sizes.join() === "3,2,2,2" && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.batch.next.toAdd.length === 2);
-  // every batch in → finish
-  ["b3", "b4", "b5", "b6", "b7", "b8"].forEach((id) => bInput.waveUsers.get("wu").add(id));
+  const pb2 = MM.planBatch(bm, BRr.key, bcfg);
+  ok("batch 2: two users into the existing static group, no create, no second nest", pb2.ops.filter((o) => o.memberKind === "user").map((o) => `${o.type}:${o.group.id}:${o.ids.join("+")}`).join() === "add:sbr:b3+b4" && !pb2.ops.some((o) => o.type === "create" || (o.type === "nest" && o.kind === "user")));
+  // every batch in → finished, nothing left to do
+  ["b3", "b4", "b5", "b6", "b7", "b8"].forEach((id) => bInput.userMembers.get("sbr").add(id));
   bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
-  ok("all in: no next batch", !BRr.batch.next && BRr.batch.inCount === 9 && MM.planBatch(bm, BRr.key, bcfg).ops.length === 0);
-  ok("finish with the static user groups unread: nothing planned, said (10680: never the dynamic group)", !MM.planFinish(bm, BRr.key, bcfg).ops.length && /not read/.test(MM.planFinish(bm, BRr.key, bcfg).skipped.join()));
-  Object.assign(bInput, { userGroups: new Map(), userMembers: new Map(), revertUsers: new Map() });
-  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
-  const pf = MM.planFinish(bm, BRr.key, bcfg);
-  ok("finish (10680): create and fill INT-SG-U-NLD-BREDA, nest it, then take the direct users out once it read back — typed", pf.ops.map((o) => o.type).join() === "create,add,nest,remove" && pf.ops[0].name === "INT-SG-U-NLD-BREDA" && pf.ops[1].ids.length === 10
-    && pf.ops[2].child.ref === "INT-SG-U-NLD-BREDA" && pf.ops[2].needsOk.join() === "0,1" && pf.ops[3].memberKind === "user" && pf.ops[3].ids.length === 9 && pf.ops[3].needsOk.join() === "2" && pf.hasRemoval);
-  bInput.waveChildren.get("wu").add("gbr");
-  bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
-  ok("nested: finished, and the device group wants every device of the group again", BRr.batch.finished && BRr.want.size === 9);
+  ok("all in the static group: finished, no next batch, the device group wants every device", BRr.batch.finished && !BRr.batch.next && BRr.batch.inCount === 9 && MM.planBatch(bm, BRr.key, bcfg).ops.length === 0 && BRr.want.size === 9);
+  // an earlier build put batches straight into the wave: they move into the static group
+  const legIn = Object.assign({}, bInput, { userGroups: new Map(), userMembers: new Map(), waveChildren: new Map([["wu", new Set(["gnl"])], ["wd", new Set(["gdb"])]]), waveUsers: new Map([["wu", new Set(["b0", "b1", "b2"])]]) });
+  let legM = MM.compute(bcfg, legIn, waves, now), legR = legM.rows.find((r) => r.suffix === "NL-Breda");
+  ok("legacy: three put in directly count as in; batch 2 is next", legR.batch.inCount === 3 && legR.batch.next.n === 2 && legR.batch.direct.length === 3);
+  const pl = MM.planBatch(legM, legR.key, bcfg);
+  ok("legacy batch 2: the static group gets batches 1 and 2, is nested, then the three come out of the wave's direct members — typed", pl.ops.slice(0, 4).map((o) => o.type).join() === "create,add,nest,remove" && pl.ops[1].ids.length === 5
+    && pl.ops[3].group.name === "INT-SG-U-WAVE-Euro" && pl.ops[3].ids.join() === "b0,b1,b2" && pl.ops[3].needsOk.join() === "2" && pl.hasRemoval);
+  ["b3", "b4", "b5", "b6", "b7", "b8"].forEach((id) => legIn.waveUsers.get("wu").add(id));
+  legM = MM.compute(bcfg, legIn, waves, now); legR = legM.rows.find((r) => r.suffix === "NL-Breda");
+  const pf = MM.planFinish(legM, legR.key, bcfg);
+  ok("legacy finish: create and fill INT-SG-U-NLD-BREDA, nest it, then the nine direct users out once all read back — typed", pf.ops.map((o) => o.type).join() === "create,add,nest,remove" && pf.ops[0].name === "INT-SG-U-NLD-BREDA" && pf.ops[1].ids.length === 10
+    && pf.ops[2].child.ref === "INT-SG-U-NLD-BREDA" && pf.ops[2].needsOk.join() === "0,1" && pf.ops[3].memberKind === "user" && pf.ops[3].ids.length === 9 && pf.ops[3].needsOk.join() === "0,1,2" && pf.hasRemoval);
+  // a static group filled whole by an earlier "create & fill", not in the wave: cut back before the nest
+  const fInput = Object.assign({}, legIn, { userGroups: new Map([["int-sg-u-nld-breda", { id: "sbr", displayName: "INT-SG-U-NLD-BREDA" }]]), userMembers: new Map([["sbr", new Set(bUsers.map((u) => u.id).concat("u1"))]]), waveUsers: new Map([["wu", new Set()]]) });
+  const fm = MM.compute(bcfg, fInput, waves, now), FR = fm.rows.find((r) => r.suffix === "NL-Breda");
+  const pfill = MM.planBatch(fm, FR.key, bcfg);
+  ok("a static group filled whole and not nested: batch 1 takes the rest out first, so the nest brings in batch 1 only", FR.batch.inCount === 0 && pfill.ops[0].type === "remove" && pfill.ops[0].group.id === "sbr" && pfill.ops[0].ids.length === 8
+    && pfill.ops[1].type === "nest" && pfill.ops[1].needsOk.join() === "0" && pfill.hasRemoval, pfill.ops.map((o) => o.type).join());
   ok("the batches CSV: a header and one line per user, with their devices", MM.batchCsv(BRr).split("\r\n").length === 10 && /^Batch,State,User,Devices/.test(MM.batchCsv(BRr)) && /user00@contoso\.com,BR-0/.test(MM.batchCsv(BRr)));
   MM.patchInput(bInput, [{ type: "remove", group: { id: "WU" }, ids: ["b0"], memberKind: "user" }]);
   ok("patchInput moves a wave's direct users", !bInput.waveUsers.get("wu").has("b0"));
