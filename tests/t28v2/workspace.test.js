@@ -83,7 +83,7 @@ async function run() {
   ok("V2 starts on the overview", st().pane === "overview" && !!$("mvBody").querySelector(".v2-overview"));
   ok("overview does not invent applied protection", /Device compliance and applied protection remain unverified/.test($("mvBody").textContent));
   ok("all six workflow steps are navigable", $("mvBody").querySelectorAll(".v2-card[data-mrpane]").length === 6);
-  for (const p of ["new", "old", "retire", "waves", "members", "exclusions", "reports", "changes", "rules", "how", "out", "asr", "edgeext", "recovery"]) {
+  for (const p of ["new", "old", "retire", "waves", "members", "exclusions", "reports", "changes", "rules", "how", "out", "asr", "edgeext", "countrysync", "revert", "recovery"]) {
     tool._pane(p); ok(`V2 pane ${p} renders`, !!$("mvBody").textContent.trim());
   }
   const ASR = "WIN-SEC-AttackSurfaceReduction-D-02_Block execution of potentially obfuscated scripts-v1.0";

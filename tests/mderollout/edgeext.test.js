@@ -328,7 +328,8 @@ async function screen() {
   // ---- the How it works paragraph and the registry ----
   w.MdeRolloutV2Tool._pane("how");
   ok("❓ How it works has the 🧩 paragraph and the rail-only wording for 🎛", /🧩 Edge extensions/.test(text("mvBody")) && /paste mode/.test(text("mvBody")) && /Adjust settings<\/b> \(on the rail\)|Adjust settings \(on the rail\)/.test($("mvBody").innerHTML));
-  ok("T28 is 0.31 and its note names the build", w.TOOL_VERSIONS.toolMdeRollout.v === "0.31" && /10678/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
+  // 10679: not pinned to 0.31 — the next T28 build moved it and turned this red
+  ok("T28 is 0.31 or later and its note names the build", parseFloat(w.TOOL_VERSIONS.toolMdeRollout.v.replace(/^0\./, "")) >= 31 && /build 10678/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
 }
 
 screen().then(() => {

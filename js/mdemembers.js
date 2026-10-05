@@ -85,6 +85,18 @@ const MdeMembers = (() => {
     deviceGroupDescription: "Windows devices whose Intune primary user is in {userGroup}. Kept in sync by TUNO (T28 MDE rollout · wave members).",
     staleDays: 30,
     largeNest: 500,
+    // ↩ Revert and 🔄 country groups (10679, Mihai 5 Oct: "user groups mirror
+    // the device groups" — INT-SG-U-<ISO3> beside INT-SG-D-<ISO3>, both
+    // static; the Revert pair holds whoever is back on the old policies and
+    // a sync never takes them back in without a confirm). The ISO3 of a
+    // country is the device group's (countryRows), never a second table.
+    userGroupPrefix: "INT-SG-U-",
+    userGroupDescription: "Users of {userGroup} (transitive), as direct members. Static — kept in sync by TUNO (T28 MDE rollout · 🔄 country groups).",
+    revertUser: "INT-SG-U-MDE-Revert",
+    revertDevice: "INT-SG-D-MDE-Revert",
+    revertDescription: "MDE rollout revert — members were taken out of their wave and are back on the old MDE policies. Not assigned to any policy. Created by TUNO (T28 MDE rollout · ↩ Revert).",
+    // Mihai (5 Oct): a sync older than this is shown in the warning colour
+    syncStaleDays: 14,
   });
 
   const cleanStr = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
@@ -118,6 +130,12 @@ const MdeMembers = (() => {
       batchCount: Number.isInteger(+o.batchCount) && +o.batchCount >= 2 && +o.batchCount <= 10 ? +o.batchCount : DEFAULTS.batchCount,
       staleDays: Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULTS.staleDays,
       largeNest: DEFAULTS.largeNest,
+      userGroupPrefix: cleanStr(o.userGroupPrefix, DEFAULTS.userGroupPrefix),
+      userGroupDescription: cleanStr(o.userGroupDescription, DEFAULTS.userGroupDescription),
+      revertUser: cleanStr(o.revertUser, DEFAULTS.revertUser),
+      revertDevice: cleanStr(o.revertDevice, DEFAULTS.revertDevice),
+      revertDescription: cleanStr(o.revertDescription, DEFAULTS.revertDescription),
+      syncStaleDays: Number.isFinite(+o.syncStaleDays) && +o.syncStaleDays > 0 ? +o.syncStaleDays : DEFAULTS.syncStaleDays,
     };
   }
   // The ⚙️ pane edits both tables as text: "Euro: *NL-Breda, GB, BE, NL"
@@ -233,7 +251,9 @@ const MdeMembers = (() => {
     // not country device groups, so their members are not read here
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
     const dgAll = dgList;
-    dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))));
+    // the ↩ Revert device group shares the prefix too (10679) — never a country group
+    const own = new Set([lc(cfg.revertDevice), lc(cfg.revertUser)]);
+    dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))) && !own.has(lc(g.displayName)));
     // every platform, once (10642): Windows is the wave's subset; the rest
     // says what a user with no Windows device does have (🕳 Left out)
     say("Reading the devices in Intune…");
@@ -405,7 +425,10 @@ const MdeMembers = (() => {
   // waves: Map lc(region) -> { user: group|null, device: group|null, userName, deviceName }
   function compute(cfg, input, waves, now) {
     const t = now || Date.now();
-    const held = input.held || new Set();
+    // held: the device exclusion group (⊘, 10639) and the ↩ Revert device
+    // group (10679) — both stay on the old set, so neither is wanted here
+    const reverted = input.reverted || new Set();
+    const held = new Set([...(input.held || new Set()), ...reverted]);
     const staleMs = cfg.staleDays * 86400000;
     const entraByDeviceId = new Map(), entraById = new Map();
     for (const e of input.entra || []) { if (e.deviceId) entraByDeviceId.set(lc(e.deviceId), e); entraById.set(lc(e.id), e); }
@@ -484,7 +507,7 @@ const MdeMembers = (() => {
           via, owner: owner ? owner.upn : "", nameSays: nr && nr.iso3 !== String(r.iso3 || "").slice(0, 3) ? nr.country : "",
           lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
           objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
-          held: !!(e && held.has(lc(e.id))) });
+          held: !!(e && held.has(lc(e.id))), reverted: !!(e && reverted.has(lc(e.id))) });
       };
       for (const u of users || []) {
         const list = byUser.get(lc(u.id)) || [];
@@ -519,7 +542,7 @@ const MdeMembers = (() => {
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
-      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${held.has(id) ? " (excluded)" : ""}`; });
+      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
       row.ugNested = row.ug && row.wave.user ? !!(kids(row.wave.user) && kids(row.wave.user).has(lc(row.ug.id))) : null;
       row.dgNested = row.dg && row.wave.device ? !!(kids(row.wave.device) && kids(row.wave.device).has(lc(row.dg.id))) : null;
@@ -534,6 +557,7 @@ const MdeMembers = (() => {
         multi: row.devices.filter((d) => d.others.length && !d.pilotOverlap).length,
         pilot: row.devices.filter((d) => d.others.length && d.pilotOverlap).length,
         held: row.devices.filter((d) => d.held).length,
+        reverted: row.devices.filter((d) => d.reverted).length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length;
     }
@@ -1129,8 +1153,19 @@ const MdeMembers = (() => {
     }
     return { done, failed };
   }
-  async function removeMembers(gid, ids, onProgress) {
+  // opt.batch (10679, the 🔄 sync and ↩ Revert): DELETE …/$ref folded into
+  // $batch, twenty per round trip (Graph.batch — a 404 is "not in it", done)
+  async function removeMembers(gid, ids, onProgress, opt) {
     const done = [], failed = [];
+    if (opt && opt.batch && ids.length > 1 && typeof Graph.batch === "function") {
+      const r = await Graph.batch(ids.map((id, i) => ({ id: String(i), method: "DELETE", url: `/groups/${enc(gid)}/members/${enc(id)}/$ref` })), { scopes: W(), onProgress });
+      ids.forEach((id, i) => {
+        const x = r[String(i)];
+        if (!x || !x.error || x.status === 404) done.push(id);
+        else failed.push({ id, why: String(x.error).slice(0, 200) });
+      });
+      return { done, failed };
+    }
     let n = 0;
     for (const id of ids) {
       try { await Graph.del(`/groups/${enc(gid)}/members/${enc(id)}/$ref`, { scopes: W() }); done.push(id); }
@@ -1184,7 +1219,7 @@ const MdeMembers = (() => {
           if (!gid) { fail(op.group && op.group.ref && failedCreates.has(lc(op.group.ref)) ? "its group was not created" : "its group has no id"); continue; }
           const r = op.type === "add"
             ? await addMembers(gid, op.ids, (a, b) => { if (L && L.progress) L.progress(i, `${a}/${b}`); })
-            : await removeMembers(gid, op.ids);
+            : await removeMembers(gid, op.ids, null, { batch: !!op.batch });
           let verified = false, note = "";
           try {
             const now = await readDeviceIds(gid, op.memberKind);
@@ -1198,6 +1233,28 @@ const MdeMembers = (() => {
           if (r.failed.length) fail(`${r.done.length} ${word}, ${r.failed.length} refused — ${r.failed.slice(0, 3).map((f) => f.why).join("; ")}`, `${r.done.length}/${op.ids.length} ${word}`);
           else if (!verified) { if (L) L.fail(i, note, `${r.done.length} ${word} · NOT verified`); results.push({ op, ok: true, verified: false, note }); }
           else { if (L) L.done(i, "", `${r.done.length} ${word} · verified`); results.push({ op, ok: true, verified: true }); }
+          continue;
+        }
+        // ⇄ the swap's check (10679): before a wave lets go of a dynamic
+        // country group, every user that reaches the wave through it must be
+        // a direct member of the static group nested in its place — and that
+        // group must be in the wave. Otherwise the unnest after it (needsOk)
+        // is not run, and the difference is said.
+        if (op.type === "swapcheck") {
+          const tid = idOf(op.target);
+          if (!tid) { fail(op.target && op.target.ref && failedCreates.has(lc(op.target.ref)) ? "its group was not created" : "the static group has no id"); continue; }
+          const src = await Graph.readAll(`/groups/${enc(op.source.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName&$count=true&$top=999`, { scopes: Graph.SCOPES.groups, headers: EV, retry: true });
+          const tgt = await readDeviceIds(tid, "user");
+          const inWave = await readGroupIds(op.wave.id);
+          const missing = (src || []).filter((u) => !tgt.has(lc(u.id)));
+          if (!inWave.has(lc(tid))) { fail(`${(op.target && op.target.name) || "the static group"} is not in ${op.wave.name} by the read-back — ${op.source.name} stays`, "sets NOT checked"); continue; }
+          if (missing.length) {
+            const who = missing.slice(0, 5).map((u) => u.userPrincipalName || u.id).join(", ");
+            fail(`${missing.length} user${missing.length === 1 ? "" : "s"} reach ${op.wave.name} through ${op.source.name} but are not in ${(op.target && op.target.name) || "the static group"} (${who}${missing.length > 5 ? " …" : ""}) — ${op.source.name} stays in the wave`, "sets differ");
+            continue;
+          }
+          if (L) L.done(i, "", `same ${(src || []).length} users · verified`);
+          results.push({ op, ok: true, verified: true, note: `${(src || []).length} users` });
           continue;
         }
         if (op.type === "nest" || op.type === "unnest") {

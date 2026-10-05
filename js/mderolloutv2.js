@@ -342,6 +342,8 @@ const MdeRolloutV2Tool = (() => {
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
+    Object.assign(cs, { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" }); csCache = null;
+    Object.assign(rv, { q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "", reason: "", error: "" }); rv.ticks.clear(); rv.sel.clear();
     asr.edits.clear(); asr.filter = "all";
     ext.edits.clear(); ext.names.clear(); ext.list = null; ext.policyKey = null; ext.filter = "all"; ext.q = ""; ext.hits = null; ext.note = ""; ext.err = ""; ext.looking = ""; ext.routeMsg = "";
     if ($("mvBody")) $("mvBody").innerHTML = "";
@@ -392,7 +394,10 @@ const MdeRolloutV2Tool = (() => {
       `<div class="v2-rail-label">ROLLOUT</div>`,
       node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
       node("members", "👥", "Wave members", mem.model ? (() => { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return todo ? `${todo} to do` : "✓"; })() : null, mem.model ? mem.model.rows.some((r) => r.ug && !r.inSync) : false),
+      // 🔄 / ↩ (10679): the static country groups and the way back to the old set
+      (() => { const sm = csModel(); return node("countrysync", "🔄", "Country groups", sm ? (sm.drift ? `${sm.drift} drift` : "✓") : null, !!(sm && sm.stale)); })(),
       (() => { const n = exNow(); return node("exclusions", "⊘", "Exclusions", n ? (n.half ? `${n.half} half` : `${n.users} · ${n.devices}`) : null, !!(n && n.half)); })(),
+      (() => { const sm = csModel(); return node("revert", "↩", "Revert", sm ? `${sm.revertUsers.size} · ${sm.revertDevices.size}` : null, false); })(),
       "<hr>",
       `<div class="v2-rail-label">CHECK & RECOVER</div>`,
       node("recovery", "⭳", "Run files", runs.length),
@@ -733,6 +738,8 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
+      <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). <b>⇄ Swap</b>, per wave, fills the static user group from the dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
+      <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
@@ -761,6 +768,8 @@ const MdeRolloutV2Tool = (() => {
     else if (pane === "waves") main = wavesPane();
     else if (pane === "members") main = membersPane();
     else if (pane === "exclusions") main = exclusionsPane();
+    else if (pane === "countrysync") main = countrySyncPane();
+    else if (pane === "revert") main = revertPane();
     else if (pane === "reports") main = reportsPane();
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
@@ -2048,10 +2057,17 @@ const MdeRolloutV2Tool = (() => {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
       mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
+      // 🔄 / ↩ (10679): the static user groups and the Revert pair, read
+      // with the country groups — a reverted device is held like an excluded one
+      try {
+        cs.extra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; });
+        mem.input.reverted = new Set(cs.extra.revertDevices.keys());
+        cs.error = "";
+      } catch (e) { cs.extra = null; cs.error = `The static country groups and the Revert groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
       memCompute();
       if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
     } catch (e) {
-      mem.model = null; mem.input = null;
+      mem.model = null; mem.input = null; cs.extra = null;
       mem.error = GroupUse.shortErr(e, 300);
     } finally { mem.loading = false; render(); }
   }
@@ -2458,13 +2474,13 @@ const MdeRolloutV2Tool = (() => {
     let p;
     if (undoOf) p = MdeMembers.inverseOf(undoOf.done);
     else p = MdeMembers.planOps(mem.model, new Set(mem.model.rows.filter((r) => r.region === mem.region && mem.sel.has(r.key)).map((r) => r.key)), mem.opts, mcfg());
-    plan = Object.assign(p, { members: true, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), unmigrate: undoOf && undoOf.migrate && undoOf.migrate.length ? undoOf.migrate : null,
+    plan = Object.assign(p, { members: true, runKind: undoOf ? (undoOf.runKind === "revert" ? "revert" : null) : p.runKind, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), unmigrate: undoOf && undoOf.migrate && undoOf.migrate.length ? undoOf.migrate : null,
       title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}${p.migrate && p.migrate.length ? ` · 🧪 ${p.migrate.map((m) => m.country).join(", ")} migrated to the wave` : ""}` });
     renderMemPlan();
   }
-  const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out" };
+  const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out", swapcheck: "check the sets" };
   const opWord = (x) => (x.type === "add" || x.type === "remove") && x.memberKind === "user" ? (x.type === "add" ? "add users" : "remove users") : OP_WORD[x.type];
-  const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : `${x.child.name} → ${x.parent.name}`;
+  const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : x.type === "swapcheck" ? `every user of ${x.source.name} is in ${x.target.name}, and it is in ${x.wave.name} — else ${x.source.name} stays` : `${x.child.name} → ${x.parent.name}`;
   function renderMemPlan() {
     v2Bind();
     const p = plan;
@@ -2476,7 +2492,14 @@ const MdeRolloutV2Tool = (() => {
       ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
       ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
       ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
-      <p class="mini muted" style="margin:8px 0 0">${p.pilotsReady
+      ${p.runKind === "revert" && p.reason ? `<p class="mini" style="margin:8px 0 0"><b>Reason:</b> “${esc(p.reason)}”</p>` : ""}
+      <p class="mini muted" style="margin:8px 0 0">${p.runKind === "waveswap"
+        ? "Likely impact: none — the static group holds the same users, so the wave's membership and every policy stay as they are. A country whose check finds a difference keeps its dynamic group and is said in the ledger. Way back: 📜 Undo re-nests the dynamic group and takes the static one out (a group this run created is left in place)."
+        : p.runKind === "groupsync"
+        ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Reverted members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
+        : p.runKind === "revert"
+        ? "Likely impact: at the next Intune check-in the new MDE policies come off and the old ones apply — ASR sits at “not configured” until the old policy lands. A member leaves its country group only once it is in Revert (read back), so a sync never takes it back in by accident. Way back: ↩ Back into the wave under Reverted now, or 📜 Undo."
+        : p.pilotsReady
         ? "Out of the pilot, these people are ordinary members of their country: until it is nested in its wave the new policies stop reaching them and the old ones reach them again; when it is nested they move with everybody else. A device leaves its pilot group only once its add to the country group read back clean. Every run lands in 📜 with an undo that puts them back in the pilot (a device group this run created is left in place, empty after the undo)."
         : p.exclusions
         ? "The exclusion groups are excluded from the new policies (⚡②): a member added here stops receiving them. A device taken out of its country device group leaves the wave, so the old policies reach it again. Every run lands in 📜 with an exact undo."
@@ -2517,7 +2540,8 @@ const MdeRolloutV2Tool = (() => {
       const verifiedDone = T28V2Safety.verifiedOps(Object.assign({}, r, { done: actualDone }));
       const uncertain = actualDone.length !== verifiedDone.length;
       if (mem.input) MdeMembers.patchInput(mem.input, verifiedDone, createdGroups);
-      if (uncertain) { mem.input = null; mem.model = null; }
+      if (cs.extra) MdeRevert.patch(cs.extra, mem.input, verifiedDone, mcfg());
+      if (uncertain) { mem.input = null; mem.model = null; cs.extra = null; }
       if (found) for (const g of createdGroups) names.set(lc(g.id), g.displayName);
       memCompute();
       // ⊘ (10639): the exclusion lists move with the run, and the open card
@@ -2539,7 +2563,8 @@ const MdeRolloutV2Tool = (() => {
         memCompute();
       }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
-      runs.push({ at: Date.now(), title: p.title, kind: "members", exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
+      csAfterRun(p, r, verifiedDone);
+      runs.push({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
         done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)), pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
@@ -2559,6 +2584,287 @@ const MdeRolloutV2Tool = (() => {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
     } finally { busy = false; }
+  }
+
+  // ------------------------------------------- 🔄 country groups (10679) --
+  // Mihai (5 Oct 2026): the user groups mirror the device groups — a static
+  // INT-SG-U-<ISO3> beside every INT-SG-D-<ISO3> — the waves nest only those,
+  // and one 🔄 sync keeps both pairs from the PVM-UG sources, holding back
+  // whoever ↩ Revert put on the old set. The read is 👥's (memRead) plus
+  // MdeRevert.readExtra; the engine is js/mderevert.js.
+  const cs = { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" };
+  const rv = { q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "", ticks: new Set(), reason: "", sel: new Set(), error: "" };
+  const syncKey = () => `tuno.t28.groupsync.${tenantKey()}`;
+  const reasonsKey = () => `tuno.t28.revert.reasons.${tenantKey()}`;
+  const readJson = (k) => { try { return JSON.parse(window.localStorage.getItem(k) || "{}") || {}; } catch { return {}; } };
+  const writeJson = (k, v) => { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } };
+  let csCache = null;
+  function csModel() {
+    if (!mem.model || !mem.input || !cs.extra) return null;
+    const sig = `${mem.model.readAt}|${cs.extra.readAt}|${runs.length}|${mem.model.rows.map((r) => `${r.add.length}.${r.remove.length}.${r.have.size}.${r.ugNested}`).join()}|${cs.extra.revertUsers.size}.${cs.extra.revertDevices.size}|${[...cs.extra.userMembers.values()].map((s) => s.size).join()}`;
+    if (!csCache || csCache.sig !== sig) csCache = { sig, v: MdeRevert.model(mcfg(), mem.model, mem.input, cs.extra, { lastSynced: readJson(syncKey()), reasons: readJson(reasonsKey()) }) };
+    return csCache.v;
+  }
+  const csMapSig = () => MdeRevert.mappingSig(MdeMembers.countryRows(mcfg()), mcfg());
+  function csItems(sm) {
+    const items = MdeRevert.syncItems(sm, cs.scope);
+    const sig = `${cs.scope}|${items.map((x) => x.key).join()}`;
+    if (!cs.ticks || cs.sig !== sig) { cs.ticks = MdeRevert.defaultSyncTicks(items); cs.sig = sig; cs.confirm = ""; }
+    return items;
+  }
+  function csAge(iso) {
+    if (!iso) return "never (this browser)";
+    return ago(iso);
+  }
+  function countrySyncPane() {
+    const C = mcfg();
+    const intro = `<p class="mini muted" style="margin:0 0 10px">The waves nest <b>static</b> groups only: per country <code>${esc(C.userGroupPrefix)}&lt;ISO3&gt;</code> for the users and <code>${esc(C.deviceGroupPrefix)}&lt;ISO3&gt;</code> for their Windows devices, filled from <code>${esc(C.countryPrefix)}*</code> (users: transitive members; devices: 👥's rule — Intune primary user). Whoever is in <code>${esc(C.revertUser)}</code> / <code>${esc(C.revertDevice)}</code> is held back: a sync never puts them back without a tick and a confirm. Nothing is written without ② Dry run, ③ backup and ④ Apply.</p>`;
+    if (!mem.model || !cs.extra) return `<div class="list-card" style="margin-top:0">${intro}
+      ${cs.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(cs.error)}</b></div>` : ""}${mem.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(mem.error)}</b></div>` : ""}
+      ${mem.loading ? `<p class="mini" id="mvMemProg" style="margin:0">Reading…</p>` : `<div class="tb-actions"><button class="btn primary" id="mvCsRead">🔄 Read the country groups</button></div><p class="mini muted" style="margin:8px 0 0">Reads the country user groups and their users, the Windows devices, the static user and device groups, the waves and the Revert pair — the same read as 👥 Wave members. Read-only.</p>`}</div>`;
+    const sm = csModel();
+    const sigOk = cs.mapOk === csMapSig();
+    // the mapping per ISO3 (§1)
+    const mapRows = MdeRevert.mapping(MdeMembers.countryRows(C), C).map((x) => `<tr><td class="mini">${esc(x.region)}</td><td class="mini"><code>${esc(x.source)}</code>${x.pilot ? " 🧪" : ""}</td>
+      <td class="mini">${x.user ? `<code>${esc(x.user)}</code>` : `<span style="color:var(--off)">${esc(x.why)}</span>`}</td><td class="mini">${x.device ? `<code>${esc(x.device)}</code>` : "—"}</td></tr>`).join("");
+    const unm = mem.model.unmapped || [];
+    const mapping = `<div class="list-card" id="mvCsMap" style="margin-top:0">
+      <h4 style="margin:0 0 6px">Mapping per ISO3</h4>
+      <p class="mini muted" style="margin:0 0 8px">The code is the device group's own — the country table and its suffix overrides under ⚙️, never a second list. A site group keeps its own pair (NL-Breda → NLD-BREDA).</p>
+      <details${sigOk ? "" : " open"}><summary class="mini">${plural(MdeMembers.countryRows(C).length, "source group")}${unm.length ? ` · <b style="color:var(--report)">${plural(unm.length, "unmapped group")}</b>` : ""}</summary>
+      <div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Wave</th><th>Source</th><th>User group</th><th>Device group</th></tr></thead><tbody>${mapRows}</tbody></table></div>
+      ${unm.length ? `<p class="mini" style="margin:8px 0 0"><b>Not mapped — never guessed:</b> ${unm.map((u) => `<code>${esc(u.group.displayName)}</code>`).join(" ")}. Map one under ⚙️ (or 👥 → ⚠ Not in any wave) to give it a pair.</p>` : ""}</details>
+      <label class="chk" style="margin:8px 0 0"><input type="checkbox" id="mvCsMapOk"${sigOk ? " checked" : ""}> This mapping is right — groups may be created from it</label></div>`;
+    if (!sm) return `<div class="list-card" style="margin-top:0">${intro}</div>${mapping}`;
+    // the waves (§1 swap) and the per-ISO3 head (§2): last synced, drift
+    const regions = sm.regions.map((g) => {
+      const rows = g.rows.map((r) => {
+        const route = r.sourceNested && r.staticNested ? chip("gu-how priv", "both") : r.sourceNested ? chip("au-op other", "dynamic") : r.staticNested ? chip("au-op create", "static") : `<span class="muted">not in the wave</span>`;
+        const ug = r.ug ? `<code>${esc(r.ug.name)}</code> <span class="muted">${r.userHave}</span>` : r.userGroupName ? `<code>${esc(r.userGroupName)}</code> ${chip("gu-how priv", "to create")}` : `<span style="color:var(--off)">no code</span>`;
+        const d = r.drift ? `<b style="color:${r.stale ? "var(--report)" : "var(--on)"}">${r.drift}</b>` : `<span class="muted">0</span>`;
+        const held = r.user.held.length + r.device.held.length;
+        return `<tr><td class="mini">${esc(r.country)}${r.pilot ? " 🧪" : ""}<div class="muted">${esc(r.source.name)} · ${r.sourceCount}</div></td><td class="mini">${ug}</td><td class="mini">${route}</td>
+          <td class="mini"${r.stale ? ` style="color:var(--report)" title="More than ${C.syncStaleDays} days, and it has drifted"` : ""}>${esc(csAge(r.lastSynced))}</td><td class="mini">${d}${held ? ` <span class="muted">· ${held} held</span>` : ""}</td></tr>`;
+      }).join("");
+      return `<div style="margin-top:10px"><div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>🌊 ${esc(g.region)}</b><span class="mini muted">${esc((g.wave && g.wave.userName) || "")} — ${g.toSwap ? `${plural(g.toSwap, "dynamic group")} still nested` : "static only"}</span>
+        <button class="btn" data-mrcsswap="${esc(g.region)}"${g.toSwap ? "" : " disabled"} style="margin-left:auto">⇄ Swap to static → dry run</button></div>
+        <div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:26%"><col style="width:14%"><col style="width:16%"><col></colgroup><thead><tr><th>Country · source</th><th>Static user group</th><th>In the user wave</th><th>Last synced</th><th>Drift</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }).join("");
+    const waves = `<div class="list-card" id="mvCsWaves" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">Waves</h4><span class="mini muted">read ${esc(new Date(sm.readAt).toLocaleTimeString())} · drift: <b>${sm.drift}</b>${sm.stale ? ` · <b style="color:var(--report)">${plural(sm.stale, "country", "countries")} not synced in ${C.syncStaleDays} days</b>` : ""} <button class="btn" id="mvCsRead">↻ Read again</button></span></div>
+      <p class="mini muted" style="margin:6px 0 0"><b>⇄ Swap</b>, per wave: the static user group is filled and nested, the wave's users are read back, and only when every user of the dynamic group is in the static one does the dynamic group come out. Effective membership is identical, so no policy moves; a difference stops that country before the unnest and says who. <b>Last synced</b> is this browser's record; the drift is read now.</p>
+      ${regions}</div>`;
+    // the sync preview (§2)
+    const items = csItems(sm);
+    const scopeOpts = [`<option value="all"${cs.scope === "all" ? " selected" : ""}>All countries</option>`].concat(sm.rows.filter((r) => r.iso3).map((r) => `<option value="${esc(r.key)}"${cs.scope === r.key ? " selected" : ""}>${esc(r.iso3)} · ${esc(r.country)}${r.drift ? ` (${r.drift})` : ""}</option>`)).join("");
+    const sec = (dir, title, help) => {
+      const list = items.filter((x) => x.dir === dir);
+      if (!list.length) return "";
+      const on = list.filter((x) => cs.ticks.has(x.key)).length;
+      const rows = list.slice(0, 400).map((x) => `<tr class="${cs.ticks.has(x.key) ? "mr-selrow" : ""}"><td><input type="checkbox" data-mrcstick="${esc(x.key)}"${cs.ticks.has(x.key) ? " checked" : ""} aria-label="${esc(x.name)}"></td>
+        <td class="mini">${x.kind === "user" ? "👤" : "💻"} ${esc(x.name)}</td><td class="mini"><code>${esc(x.group || "—")}</code>${x.row ? ` <span class="muted">${esc(x.row.country)}</span>` : ""}</td>
+        <td class="mini">${x.reason ? `“${esc(x.reason)}”` : ""}${x.why ? `<span class="muted">${x.reason ? " · " : ""}${esc(x.why)}</span>` : ""}</td></tr>`).join("");
+      return `<details open style="margin-top:10px"><summary><b>${esc(title)}</b> <span class="mini muted">${on} of ${list.length} ticked — ${esc(help)}</span></summary>
+        <div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:32%"><col style="width:30%"><col></colgroup><tbody>${rows}</tbody></table></div>${list.length > 400 ? `<p class="mini muted">… and ${list.length - 400} more (CSV in 👥)</p>` : ""}</details>`;
+    };
+    const line = MdeRevert.reincludeLine(items, cs.ticks);
+    const sync = `<div class="list-card" id="mvCsSync" style="margin-top:14px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><h4 style="margin:0">🔄 Sync</h4><select id="mvCsScope" aria-label="Which countries" style="max-width:320px">${scopeOpts}</select><span class="mini muted">users and devices together</span></div>
+      ${sm.failed.length ? `<div class="gu-fail" style="margin-top:8px"><b>Partly read:</b><span class="why">${sm.failed.slice(0, 5).map(esc).join("<br>")}</span></div>` : ""}
+      ${items.length ? [sec("add", "Add", "ticked by default"), sec("leave", "Remove — leavers", "never ticked by default: a removal changes what policies the member gets"),
+        sec("heldin", "Remove — held, still in", "in Revert or ⊘, yet in a country group"), sec("reinc", "Reverted, held back", "never ticked by default; re-including one needs the confirm below"),
+        sec("clean", "Revert clean-up", "in Revert, in no country any more")].join("") : `<p class="mini muted" style="margin:8px 0 0">In sync — nothing to add or remove${cs.scope === "all" ? "" : " for this country"}.</p>`}
+      ${line ? `<label class="chk" style="margin:10px 0 0;color:var(--report)"><input type="checkbox" id="mvCsConfirm"${cs.confirm === line ? " checked" : ""}> ${esc(line)}</label>` : ""}
+      <div class="mr-mbar"><span class="mini">${plural(cs.ticks.size, "member")} ticked</span><button class="btn primary" id="mvCsDry"${cs.ticks.size ? "" : " disabled"}>② Dry run</button></div></div>`;
+    return `<div class="list-card" style="margin-top:0">${intro}</div>${mapping}${waves}${sync}`;
+  }
+  async function csRead() {
+    cs.error = "";
+    await memRead();
+  }
+  function csSyncDry() {
+    const sm = csModel();
+    if (busy || !sm) return;
+    planAnchor = "mvCsSync"; clearPlan(); seatPlan();
+    const items = csItems(sm);
+    const scopeRows = cs.scope === "all" ? sm.rows.map((r) => r.key) : [cs.scope];
+    const p = MdeRevert.planSync(sm, items, cs.ticks, { confirm: cs.confirm, mapConfirmed: cs.mapOk === csMapSig(), scopeRows });
+    if (p.refused) { planError(p.refused); showPlan(); return; }
+    const r = sm.rows.find((x) => x.key === cs.scope);
+    plan = Object.assign(p, { members: true, title: `🔄 Country groups — ${r ? `${r.iso3} · ${r.country}` : "all countries"}` });
+    renderMemPlan();
+  }
+  function csSwapDry(region) {
+    const sm = csModel();
+    if (busy || !sm) return;
+    planAnchor = "mvCsWaves"; clearPlan(); seatPlan();
+    const p = MdeRevert.planSwap(sm, region, { mapConfirmed: cs.mapOk === csMapSig() });
+    if (p.refused) { planError(p.refused); showPlan(); return; }
+    plan = Object.assign(p, { members: true, title: `⇄ Swap ${region} to static user groups` });
+    renderMemPlan();
+  }
+
+  // ------------------------------------------------------- ↩ revert (10679) --
+  // §3: a user, a device, or the pair — out of their static country group,
+  // into the Revert group, in one run with a reason. The search and the
+  // device list are ⊘'s (MdeExclude); what reaches them, before and after,
+  // is T28's reach model, per policy.
+  function rvCtx(ticks) {
+    const sm = csModel();
+    return {
+      ticks: ticks || rv.ticks, rows: mem.model ? mem.model.rows : [], cfg: mcfg(),
+      revert: cs.extra ? cs.extra.revert : {}, revertUsers: cs.extra ? cs.extra.revertUsers : new Map(), revertDevices: cs.extra ? cs.extra.revertDevices : new Map(),
+      reason: rv.reason, sm,
+      userWaveIds: new Set(waveRows.filter((w) => w.role === "wave" && w.audience === "user" && w.id).map((w) => w.id)),
+      deviceWaveIds: new Set(waveRows.filter((w) => w.role === "wave" && w.audience === "device" && w.id).map((w) => w.id)),
+    };
+  }
+  async function rvRead() {
+    rv.error = "";
+    if (!mem.model || !cs.extra) await memRead();
+    if (!ex.base) await exRead();
+    if (!mem.model || !cs.extra) rv.error = cs.error || mem.error || "The country groups could not be read.";
+    render();
+  }
+  async function rvSearch() {
+    const input = $("mvRvQ");
+    rv.q = input ? input.value : rv.q;
+    if (!ex.base) await exRead();
+    if (!ex.base || rv.searching) return;
+    rv.searching = true; rv.note = ""; render();
+    try {
+      const r = await MdeExclude.search(rv.q, ex.base, exOpt());
+      rv.results = r.results;
+      rv.note = r.note || [r.failed.length ? `Partly searched — ${r.failed.join("; ")}` : "", !r.results.length ? `Nothing found for “${r.term}”.` : ""].filter(Boolean).join(" ");
+    } catch (e) { rv.results = []; rv.note = GroupUse.shortErr(e, 240); }
+    finally { rv.searching = false; render(); const q = $("mvRvQ"); if (q) q.focus(); }
+  }
+  async function rvPick(pick, quiet) {
+    if (!ex.base) return;
+    rv.cardLoading = true; rv.cardError = ""; if (!quiet) rv.card = null; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      rv.card = await MdeRevert.lookup(pick, ex.base, exOpt());
+      for (const [id, n] of rv.card.names) if (!names.has(id)) names.set(id, n);
+      rv.ticks = MdeRevert.defaultTicks(rv.card);
+    } catch (e) { rv.cardError = GroupUse.shortErr(e, 300); }
+    finally { rv.cardLoading = false; render(); }
+  }
+  function rvDryRun() {
+    if (busy || !rv.card) return;
+    planAnchor = "mvRvCard"; clearPlan(); seatPlan();
+    const p = MdeRevert.planRevert(rv.card, rvCtx());
+    const who = rv.card.user ? rv.card.user.displayName : (rv.card.devices.find((d) => d.searched) || rv.card.devices[0] || {}).name || "";
+    plan = Object.assign(p, { members: true, title: `↩ Revert — ${who}` });
+    renderMemPlan();
+  }
+  function rvUndoDry() {
+    const sm = csModel();
+    if (busy || !sm || !rv.sel.size) return;
+    planAnchor = "mvRvNow"; clearPlan(); seatPlan();
+    const items = [...rv.sel].map((k) => {
+      const [t, id] = [k.slice(0, 1), k.slice(2)];
+      if (t === "u") { const u = sm.revertUsers.get(id); return { kind: "user", id, name: u ? u.upn : id }; }
+      const d = sm.revertDevices.get(id); return { kind: "device", id, name: d ? d.name : id };
+    });
+    const p = MdeRevert.planUnrevert(sm, items);
+    plan = Object.assign(p, { members: true, title: `↩ Back into the wave — ${plural(items.length, "member")}` });
+    renderMemPlan();
+  }
+  function rvCardHtml() {
+    if (rv.cardError) return `<div class="gu-fail" style="margin-top:12px"><b>${esc(rv.cardError)}</b></div>`;
+    if (!rv.card) return rv.cardLoading ? `<p class="mini muted" style="margin:10px 0 0">Reading their groups…</p>` : "";
+    const c = rv.card, C = mcfg(), ctx = rvCtx();
+    const N = MdeRevert.countryNames(ctx.rows, C);
+    const tick = (key, on, dis, label) => `<input type="checkbox" data-mrrvtick="${esc(key)}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(label)}">`;
+    const cg = (list, map) => (list || []).filter((g) => map.has(lc(g.name))).map((g) => g.name);
+    const u = c.user;
+    const uRev = u && ctx.revertUsers.has(u.id);
+    const dynOf = (groups) => (mem.model ? mem.model.rows : []).filter((r) => r.ug && r.ugNested && groups && groups.has(lc(r.ug.id))).map((r) => r.ug.displayName);
+    const userHtml = u ? `<div class="mr-expc" style="margin-top:12px">
+      <h4 style="margin:0 0 6px"><label style="display:flex;gap:8px;align-items:center">${tick(`u:${u.id}`, rv.ticks.has(`u:${u.id}`), uRev || u.unread, "revert the user")} 👤 ${esc(u.displayName)}</label></h4>
+      <dl class="mr-exkv">
+        <dt>UPN</dt><dd>${esc(u.upn || "—")}</dd>
+        <dt>Static country group</dt><dd>${cg(u.direct, N.user).map((n) => `<code>${esc(n)}</code>`).join(" ") || (u.direct ? "none" : "not read")}</dd>
+        <dt>Wave</dt><dd>${u.groups ? (wavesIn(u.groups, "user").map((r) => `🌊 ${esc(r)}`).join(", ") || "none") : "not read"}${dynOf(u.groups).length ? ` <span style="color:var(--report)">through ${esc(dynOf(u.groups).join(", "))} (dynamic) — ⇄ swap it in 🔄 first</span>` : ""}</dd>
+        <dt>Now</dt><dd>${uRev ? chip("au-op create", "reverted") : `<span class="muted">not reverted</span>`}${u.excluded ? ` ${chip("gu-how priv", "⊘ excluded")}` : ""}</dd>
+      </dl></div>` : "";
+    const drows = c.devices.map((d) => {
+      const dRev = d.objId && ctx.revertDevices.has(d.objId);
+      return `<tr class="${rv.ticks.has(d.key) ? "mr-selrow" : ""}"><td>${tick(d.key, rv.ticks.has(d.key), !d.objId || dRev, `revert ${d.name}`)}</td><td class="mini">💻 ${esc(d.name)}${d.searched ? " ⟵" : ""}</td>
+        <td class="mini">${esc(ago(d.lastSync))}${d.stale ? " · stale" : ""}</td><td class="mini">${cg(d.direct, N.device).map((n) => `<code>${esc(n)}</code>`).join(" ") || `<span class="muted">${esc(d.problem || "in no country device group")}</span>`}</td>
+        <td class="mini">${dRev ? chip("au-op create", "reverted") : ""}${d.excluded ? ` ${chip("gu-how priv", "⊘")}` : ""}</td></tr>`;
+    }).join("");
+    const as = MdeRevert.assess(c, model, ctx);
+    const pol = (list) => list.length ? list.map((P) => esc(P.name)).join("<br>") : `<span class="muted">—</span>`;
+    const verdict = (x) => x.state === "gap" ? `<b style="color:var(--off)">⚠ neither set — a gap</b>` : x.state === "both" ? `<b style="color:var(--off)">⚠ both sets — a conflict</b>` : x.state === "none" ? `<span class="muted">not in a static country group — nothing changes</span>` : `<span style="color:var(--on)">old set takes over</span>`;
+    const arows = as.map((x) => `<tr><td class="mini">${x.kind === "user" ? "👤" : "💻"} ${esc(x.kind === "user" ? x.obj.displayName : x.obj.name)}${x.leaves.length ? `<div class="muted">out of ${esc(x.leaves.map((g) => g.name).join(", "))}</div>` : ""}</td><td class="mini">${pol(x.drops)}</td><td class="mini">${pol(x.takes)}</td><td class="mini">${verdict(x)}</td></tr>`).join("");
+    const p0 = MdeRevert.planRevert(c, ctx);
+    const n = p0.ops.filter((o) => o.type === "add").reduce((a, o) => a + o.ids.length, 0);
+    const why = !n && rv.ticks.size && p0.skipped.length ? `<span style="color:var(--report)">Nothing to revert — ${esc(p0.skipped[0])}${p0.skipped.length > 1 ? ` (+${p0.skipped.length - 1})` : ""}</span>` : "";
+    return `<div id="mvRvCard">
+      ${c.failed.length ? `<div class="gu-fail" style="margin-top:12px"><b>Partly read:</b><span class="why">${c.failed.map(esc).join("<br>")}</span></div>` : ""}
+      ${userHtml}
+      ${c.devices.length ? `<div style="overflow-x:auto;margin-top:10px"><table class="cg-table"><colgroup><col style="width:30px"><col><col style="width:16%"><col style="width:30%"><col style="width:90px"></colgroup><thead><tr><th></th><th>Device</th><th>Last sync</th><th>Country device group</th><th></th></tr></thead><tbody>${drows}</tbody></table></div>` : `<p class="mini muted" style="margin:8px 0 0">No Windows device in Intune has this user as its primary user.</p>`}
+      <p class="mini muted" style="margin:6px 0 0">Ticked by default: the pair — ${c.pick.type === "user" ? `the user and their devices that synced in the last ${exOpt().staleDays} days` : "the device and its primary user"}. Reverting one side only leaves a mix of new device-scoped and old user-scoped policies.</p>
+      ${arows ? `<h4 style="margin:12px 0 6px">What changes, per policy</h4><div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:26%"><col style="width:26%"><col></colgroup><thead><tr><th>Who</th><th>New policies that drop off</th><th>Old policies that take over</th><th>After</th></tr></thead><tbody>${arows}</tbody></table></div>
+        <p class="mini muted" style="margin:6px 0 0">T28's reach model: an exclusion wins over an include of its kind; assignment filters are not evaluated. Likely impact: the next Intune check-in removes the new MDE policies and applies the old ones — ASR sits at “not configured” until the old policy lands.</p>` : ""}
+      <label class="wi-f" style="margin-top:10px"><span>Reason — kept with the run and shown in the 🔄 sync preview</span><input id="mvRvReason" value="${esc(rv.reason)}" placeholder="e.g. LOB app blocked by the new ASR rules — ticket 4711" autocomplete="off"></label>
+      <div class="mr-mbar" id="mvRvBar"><span>${n ? `<b>${plural(n, "member")}</b> → ${esc(C.revertUser)} / ${esc(C.revertDevice)}, out of their country group` : why || "tick the user or a device"}</span><button class="btn primary" id="mvRvDry"${n ? "" : " disabled"}>② Dry run</button></div>
+    </div>`;
+  }
+  function rvNowHtml() {
+    const sm = csModel();
+    if (!sm) return "";
+    const reasons = readJson(reasonsKey());
+    const C = mcfg();
+    const row = (k, icon, name, sub) => `<tr class="${rv.sel.has(k) ? "mr-selrow" : ""}"><td><input type="checkbox" data-mrrvsel="${esc(k)}"${rv.sel.has(k) ? " checked" : ""} aria-label="select"></td><td class="mini">${icon} ${esc(name)}${sub ? `<div class="muted">${esc(sub)}</div>` : ""}</td><td class="mini">${reasons[k.slice(2)] ? `“${esc(reasons[k.slice(2)].reason)}” <span class="muted">${esc(shortDate(reasons[k.slice(2)].at))}</span>` : `<span class="muted">no reason recorded in this browser</span>`}</td></tr>`;
+    const rows = [...sm.revertUsers.values()].map((u) => row(`u:${u.id}`, "👤", u.name || u.upn, u.upn !== u.name ? u.upn : "")).concat([...sm.revertDevices.values()].map((d) => row(`d:${d.id}`, "💻", d.name, ""))).join("");
+    return `<div class="list-card" id="mvRvNow" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">Reverted now</h4>
+        <span class="mini muted">${esc(sm.revert.user ? sm.revert.user.displayName : C.revertUser)} <b>${sm.revertUsers.size}</b> · ${esc(sm.revert.device ? sm.revert.device.displayName : C.revertDevice)} <b>${sm.revertDevices.size}</b>${!sm.revert.user || !sm.revert.device ? " · created by the first revert" : ""}</span></div>
+      ${rows ? `<div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:40%"><col></colgroup><thead><tr><th></th><th>Member</th><th>Reason</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="tb-actions" style="margin-top:8px"><button class="btn" id="mvRvUndoDry"${rv.sel.size ? "" : " disabled"}>↩ Back into the wave — ${plural(rv.sel.size, "member")} → dry run</button><span class="mini muted">Out of Revert, back into their country group. Or untick them in a later 🔄 sync with the confirm.</span></div>`
+        : `<p class="mini muted" style="margin:8px 0 0">Nobody is reverted.</p>`}</div>`;
+  }
+  function revertPane() {
+    const C = mcfg();
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Take a user and/or device out of their wave so the <b>old</b> MDE policies reach them again: out of their static country group (<code>${esc(C.userGroupPrefix)}&lt;ISO3&gt;</code> / <code>${esc(C.deviceGroupPrefix)}&lt;ISO3&gt;</code>) and into <code>${esc(C.revertUser)}</code> / <code>${esc(C.revertDevice)}</code>, in one run, with a reason. The Revert groups are assigned to nothing; they are the list 🔄 holds back, in the tenant, so another admin's sync holds them back too. <b>⊘ Exclude</b> is different: an excluded member stays in the wave and skips the new policies.</p>`;
+    if (!mem.model || !cs.extra || !ex.base) return `<div class="list-card" style="margin-top:0">${intro}
+      ${rv.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(rv.error)}</b></div>` : ""}
+      ${mem.loading || ex.loading ? `<p class="mini" id="mvMemProg" style="margin:0">Reading…</p><p class="mini muted" id="mvExProg" style="margin:0"></p>` : `<div class="tb-actions"><button class="btn primary" id="mvRvRead">↩ Read the country groups, Revert and the devices</button></div><p class="mini muted" style="margin:8px 0 0">The 🔄 read plus the Windows devices in Intune (their primary users). Read-only.</p>`}</div>`;
+    const hits = (rv.results || []).map((h, i) => `<button type="button" class="mr-exhit${rv.card && rv.card.pick === h ? " on" : ""}" data-mrrvpick="${i}">
+        <span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b>
+        <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
+        <span class="mr-exr">${h.type === "user" ? plural(h.devices, "Windows device") : esc(h.os || "")}${h.stale ? " · stale" : ""}</span></button>`).join("");
+    return `<div class="list-card mr-stickyhost" style="margin-top:0">${intro}
+      <div class="mr-exsearch"><input id="mvRvQ" type="search" placeholder="Search a user or device…" value="${esc(rv.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mvRvGo"${rv.searching ? " disabled" : ""}>${rv.searching ? "Searching…" : "Search"}</button></div>
+      ${rv.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(rv.note)}</p>` : ""}
+      ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
+      ${rvCardHtml()}
+    </div>${rvNowHtml()}`;
+  }
+  // After a verified run: what the Revert and 🔄 panes keep in this browser
+  // (the reasons, the last sync per country) and the open card read again.
+  function csAfterRun(p, r, verifiedDone) {
+    const C = mcfg();
+    if (p.runKind === "groupsync") {
+      const synced = readJson(syncKey()), at = new Date().toISOString();
+      MdeRevert.syncedRows(p, r.results).forEach((k) => { synced[k] = at; });
+      writeJson(syncKey(), synced);
+      cs.ticks = null; cs.confirm = "";
+    }
+    if (p.runKind === "revert" || p.runKind === "groupsync") {
+      const reasons = readJson(reasonsKey());
+      for (const d of verifiedDone) {
+        if (d.type !== "add" && d.type !== "remove") continue;
+        const isRev = [C.revertUser, C.revertDevice].some((n) => lc(n) === lc(d.group.name));
+        if (!isRev) continue;
+        for (const id of d.ids) { if (d.type === "add") reasons[lc(id)] = { reason: p.reason || "", at: new Date().toISOString() }; else delete reasons[lc(id)]; }
+      }
+      writeJson(reasonsKey(), reasons);
+    }
+    if (p.runKind === "revert") { rv.sel.clear(); if (rv.card) setTimeout(() => rvPick(rv.card.pick, true), 0); }
   }
 
   // -------------------------------------------------------- ⊘ exclusions --
@@ -3295,6 +3601,15 @@ const MdeRolloutV2Tool = (() => {
       const bf = t.closest("[data-mrbatchfin]"); if (bf) { batchDryRun(bf.dataset.mrbatchfin, true); return; }
       const mg = t.closest("[data-mrmigrate]"); if (mg) { migrateDryRun(mg.dataset.mrmigrate); return; }
       const bc = t.closest("[data-mrbatchcsv]"); if (bc) { const r = mem.model && mem.model.rows.find((x) => x.key === bc.dataset.mrbatchcsv); if (r) download(`MDE-pilot-batches-${r.suffix}-${stamp()}.csv`, MdeMembers.batchCsv(r), "text/csv"); return; }
+      // 🔄 / ↩ (10679)
+      if (t.id === "mvCsRead") { csRead(); return; }
+      if (t.id === "mvCsDry") { csSyncDry(); return; }
+      const sw = t.closest("[data-mrcsswap]"); if (sw) { csSwapDry(sw.dataset.mrcsswap); return; }
+      if (t.id === "mvRvRead") { rvRead(); return; }
+      if (t.id === "mvRvGo") { rvSearch(); return; }
+      if (t.id === "mvRvDry") { rvDryRun(); return; }
+      if (t.id === "mvRvUndoDry") { rvUndoDry(); return; }
+      const rp = t.closest("[data-mrrvpick]"); if (rp) { const h = (rv.results || [])[Number(rp.dataset.mrrvpick)]; if (h) rvPick(h); return; }
       // ⊘ exclusions (10639)
       if (t.id === "mvExRead") { exRead(); return; }
       if (t.id === "mvExGo") { exSearch(); return; }
@@ -3390,6 +3705,7 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mvRvQ" && e.key === "Enter") { e.preventDefault(); rvSearch(); return; }
       if (e.target.id === "mvExtQ" && e.key === "Enter") { e.preventDefault(); extSearch(); return; }
       if (e.target.id === "mvExtRoute" && e.key === "Enter") { e.preventDefault(); const b = $("mvExtRouteSave"); if (b) b.click(); return; }
       if (e.target.id === "mvExtListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); extListText(e.target.value, "pasted list"); } return; }
@@ -3410,6 +3726,8 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("input", (e) => {
       if (e.target.id === "mvExQ") { ex.q = e.target.value; return; }
+      if (e.target.id === "mvRvQ") { rv.q = e.target.value; return; }
+      if (e.target.id === "mvRvReason") { rv.reason = e.target.value; if (plan && plan.runKind === "revert" && !busy) clearPlan(); return; }
       if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
       if (e.target.id === "mvExListText") {
         ex.listText = e.target.value;
@@ -3492,6 +3810,13 @@ const MdeRolloutV2Tool = (() => {
         memCompute(); clearPlan(); render(); return;
       }
       if (t.dataset.mrextick) { t.checked ? ex.ticks.add(t.dataset.mrextick) : ex.ticks.delete(t.dataset.mrextick); clearPlan(); render(); return; }
+      // 🔄 / ↩ (10679)
+      if (t.dataset.mrcstick && cs.ticks) { t.checked ? cs.ticks.add(t.dataset.mrcstick) : cs.ticks.delete(t.dataset.mrcstick); cs.confirm = ""; clearPlan(); render(); return; }
+      if (t.id === "mvCsConfirm") { const sm = csModel(); cs.confirm = t.checked && sm ? MdeRevert.reincludeLine(csItems(sm), cs.ticks) : ""; clearPlan(); render(); return; }
+      if (t.id === "mvCsMapOk") { cs.mapOk = t.checked ? csMapSig() : ""; clearPlan(); render(); return; }
+      if (t.id === "mvCsScope") { cs.scope = t.value || "all"; cs.ticks = null; clearPlan(); render(); return; }
+      if (t.dataset.mrrvtick) { t.checked ? rv.ticks.add(t.dataset.mrrvtick) : rv.ticks.delete(t.dataset.mrrvtick); clearPlan(); render(); return; }
+      if (t.dataset.mrrvsel) { t.checked ? rv.sel.add(t.dataset.mrrvsel) : rv.sel.delete(t.dataset.mrrvsel); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
       if (t.id === "mvExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }
       if (t.dataset.mrexltick) { t.checked ? ex.lticks.add(t.dataset.mrexltick) : ex.lticks.delete(t.dataset.mrexltick); clearPlan(); render(); return; }
@@ -3517,7 +3842,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, planAnchor, running, busy, enriching }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching }),
     _pane: (p) => { pane = p; render(); },
   };
 })();
