@@ -373,9 +373,10 @@ async function run() {
   ok("a country opens to its devices", /WS-FIN-0187/.test($("mvBody").textContent) && /no longer in PVM-UG-CORP-MEM-USERS-NL/.test($("mvBody").textContent));
   const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
   tickMem("de");
-  ok("ticking a country fills the bar", /create 1 · add 2 devices · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
+  ok("ticking a country fills the bar — 10680: the static user group beside the device group", /create 2 · add 2 users · add 2 devices · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
   $("mvMemDry").click();
-  ok("the dry run: create → add → nest → nest", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,nest,nest");
+  ok("the dry run: create → add for INT-SG-D-DEU and INT-SG-U-DEU, then nest both static groups", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,create,add,nest,nest"
+    && st().plan.ops[4].child.ref === "INT-SG-U-DEU" && st().plan.ops[2].name === "INT-SG-U-DEU");
   ok("no removals, so a tick confirms", !!$("mvConfirmTick") && $("mvMemApply").disabled);
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   await v2Gates(); $("mvMemApply").click();
@@ -383,11 +384,11 @@ async function run() {
   ok("applied: DE's device group exists, filled, and both groups are in the Euro waves", await until(() => st().runs.length === nRuns + 1 || st().runs.some((r) => r.kind === "members"), 10000, "members run")
     && mrow("de").dg && mrow("de").inSync && mrow("de").ugNested && mrow("de").dgNested, JSON.stringify(st().runs[st().runs.length - 1].lines));
   const mrun = st().runs.filter((r) => r.kind === "members").pop();
-  ok("the run is logged with every step verified", mrun.ok === 4 && mrun.bad === 0 && /INT-SG-D-DEU/.test(mrun.lines.join()));
+  ok("the run is logged with every step verified", mrun.ok === 6 && mrun.bad === 0 && /INT-SG-D-DEU/.test(mrun.lines.join()));
   // undo from 📜
   w.MdeRolloutV2Tool._pane("changes");
   D.querySelector(`[data-mrundo="${st().runs.indexOf(mrun)}"]`).click();
-  ok("undo plans the reverse: take out, take out, remove the added devices", await until(() => st().plan && st().plan.members && /Undo/.test(st().plan.title), 5000, "undo plan") && st().plan.ops.map((o) => o.type).join() === "unnest,unnest,remove" && st().plan.hasRemoval);
+  ok("undo plans the reverse: take out, take out, remove the added users and devices", await until(() => st().plan && st().plan.members && /Undo/.test(st().plan.title), 5000, "undo plan") && st().plan.ops.map((o) => o.type).join() === "unnest,unnest,remove,remove" && st().plan.hasRemoval);
   ok("…with the created group left in place, said", /left in place/.test($("mvPlan").textContent));
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   await v2Gates(); $("mvMemApply").click();

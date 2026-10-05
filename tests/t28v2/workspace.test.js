@@ -126,12 +126,12 @@ async function run() {
   ok("membership backup unlocks Apply", !$("mvMemApply").disabled);
   $("mvMemApply").click(); await until(() => st().runs.some((r) => r.kind === "members"), 15000, "member apply");
   const mr = st().runs.find((r) => r.kind === "members");
-  ok("all member steps verified", mr.ok === 4 && mr.bad === 0, JSON.stringify(mr.lines));
+  ok("all member steps verified (10680: both static groups)", mr.ok === 6 && mr.bad === 0, JSON.stringify(mr.lines));
   ok("new group reference resolved in verified done", mr.done.some((d) => d.type === "add") && mr.done.some((d) => d.type === "nest" && d.child.id));
   ok("member backup retained with run", Array.isArray(mr.backup.membership) && mr.backup.membership.length > 0);
   tool._pane("changes"); $("mvBody").querySelector(`[data-mrundo="${st().runs.indexOf(mr)}"]`).click();
   await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "member undo plan");
-  ok("undo is planned from actual verified deltas", st().plan.ops.map((o) => o.type).join() === "unnest,unnest,remove");
+  ok("undo is planned from actual verified deltas", st().plan.ops.map((o) => o.type).join() === "unnest,unnest,remove,remove");
   change($("mvConfirmText"), "REMOVE"); $("mvMemberBackup").click(); await until(() => !$("mvMemApply").disabled, 10000, "undo backup");
   $("mvMemApply").click(); await until(() => st().runs.filter((r) => r.kind === "members").length === 2, 10000, "undo write");
   ok("member undo also verified", st().runs.filter((r) => r.kind === "members")[1].bad === 0);

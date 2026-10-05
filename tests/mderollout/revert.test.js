@@ -89,43 +89,50 @@ async function run() {
   ok("staleness: GB synced 20 days ago with drift → stale (14 days)", R("GB").stale && R("GB").drift > 0 && sm.stale >= 1);
 
   // ------------------------------------------------------------ 🔄 sync --
-  const items = MR.syncItems(sm, "all");
+  // 10680 (Mihai: "the group creations should be one and the same … at the
+  // wave members, keep it there — user and device, same place"): 🔄 creates
+  // nothing. NL has no static user group in sm — its user lines are not
+  // offered; the rest of the tests run with INT-SG-U-NLD existing, empty.
+  ok("10680: a country with no static user group offers no user lines in 🔄", !MR.syncItems(sm, "all").some((x) => x.kind === "user" && x.row && x.row.key === "nl" && x.dir !== "leave"));
+  ok("10680: …and a plan never creates one", !MR.planSync(sm, MR.syncItems(sm, "all"), MR.defaultSyncTicks(MR.syncItems(sm, "all")), {}).ops.some((o) => o.type === "create"));
+  const extraN = Object.assign({}, extra, { userGroups: new Map([...extra.userGroups, ["int-sg-u-nld", { id: "su-nld", displayName: "INT-SG-U-NLD" }]]), userMembers: new Map([...extra.userMembers, ["su-nld", new Set()]]) });
+  const smN = MR.model(cfg, mm, input, extraN, { now, lastSynced: { gb: iso(now - 20 * day) }, reasons: { u2: { reason: "kiosk app breaks under ASR" } } });
+  const items = MR.syncItems(smN, "all");
   const ticks = MR.defaultSyncTicks(items);
   const k = (dir, kind, row, id) => `${dir}|${kind}|${row}|${id}`;
   ok("the default write set: adds only", [...ticks].every((x) => x.startsWith("add|")) && ticks.has(k("add", "u", "nl", "u1")) && ticks.has(k("add", "d", "nl", "e3")));
   ok("a reverted member is never in the default write set", !ticks.has(k("reinc", "u", "nl", "u2")) && !ticks.has(k("reinc", "d", "nl", "e2")) && items.some((x) => x.key === k("reinc", "u", "nl", "u2")));
   ok("leavers and the clean-up are offered, unticked", items.some((x) => x.key === k("leave", "u", "gb", "u8")) && !ticks.has(k("leave", "u", "gb", "u8")) && items.some((x) => x.key === k("clean", "u", "-", "u7")) && !ticks.has(k("clean", "u", "-", "u7")));
-  ok("a per-ISO3 scope shows that row only, and no clean-up", MR.syncItems(sm, "gb").every((x) => x.row && x.row.key === "gb"));
-  const p0 = MR.planSync(sm, items, ticks, {});
-  ok("creating a static group asks for the mapping confirm first", !!p0.refused && /mapping/.test(p0.refused) && !p0.ops.length);
-  const p1 = MR.planSync(sm, items, ticks, { mapConfirmed: true });
-  ok("the default plan: create INT-SG-U-NLD, add ann and cat, add NLD3 — no removal", !p1.refused && p1.runKind === "groupsync" && p1.ops[0].type === "create" && p1.ops[0].name === "INT-SG-U-NLD"
-    && p1.ops[1].type === "add" && p1.ops[1].ids.join() === "u1,u3" && p1.ops[1].group.ref === "INT-SG-U-NLD" && p1.ops.some((o) => o.type === "add" && o.memberKind === "device" && o.ids.join() === "e3") && !p1.hasRemoval);
+  ok("a per-ISO3 scope shows that row only, and no clean-up", MR.syncItems(smN, "gb").every((x) => x.row && x.row.key === "gb"));
+  const p1 = MR.planSync(smN, items, ticks, {});
+  ok("the default plan: add ann and cat to INT-SG-U-NLD, add NLD3 — no create, no removal", !p1.refused && p1.runKind === "groupsync" && !p1.ops.some((o) => o.type === "create")
+    && p1.ops[0].type === "add" && p1.ops[0].ids.join() === "u1,u3" && p1.ops[0].group.id === "su-nld" && p1.ops.some((o) => o.type === "add" && o.memberKind === "device" && o.ids.join() === "e3") && !p1.hasRemoval);
   const t2 = new Set(ticks); t2.add(k("reinc", "u", "nl", "u2")); t2.add(k("reinc", "d", "nl", "e2"));
   const line = MR.reincludeLine(items, t2);
   ok("the confirm names the count and the wave", line === "re-include 1 user and 1 device in wave Euro; they lose the old MDE policies", line);
-  const p2 = MR.planSync(sm, items, t2, { mapConfirmed: true });
+  const p2 = MR.planSync(smN, items, t2, {});
   ok("a ticked re-include without the confirm is refused", !!p2.refused && /re-include 1 user and 1 device/.test(p2.refused) && !p2.ops.length);
-  const p3 = MR.planSync(sm, items, t2, { mapConfirmed: true, confirm: "re-include 1 user in wave Euro; they lose the old MDE policies" });
+  const p3 = MR.planSync(smN, items, t2, { confirm: "re-include 1 user in wave Euro; they lose the old MDE policies" });
   ok("a confirm for another count does not count", !!p3.refused);
-  const p4 = MR.planSync(sm, items, t2, { mapConfirmed: true, confirm: line });
+  const p4 = MR.planSync(smN, items, t2, { confirm: line });
   const rvU = p4.ops.find((o) => o.type === "remove" && o.group.id === "rv-u");
   const addU = p4.ops.findIndex((o) => o.type === "add" && o.memberKind === "user");
   ok("with the confirm: Bob into INT-SG-U-NLD and out of Revert only after that add (needsOk)", !p4.refused && p4.ops[addU].ids.includes("u2") && rvU && rvU.ids.join() === "u2" && rvU.needsOk.join() === String(addU) && rvU.batch);
   const t3 = new Set([k("leave", "u", "gb", "u8"), k("clean", "u", "-", "u7"), k("clean", "d", "-", "e7")]);
-  const p5 = MR.planSync(sm, items, t3, {});
+  const p5 = MR.planSync(smN, items, t3, {});
   ok("leavers out of the country group and the clean-up out of Revert, by $batch", p5.ops.length === 3 && p5.ops.every((o) => o.type === "remove" && o.batch) && p5.ops[0].group.id === "su-gbr" && p5.ops[1].group.id === "rv-u" && p5.ops[2].group.id === "rv-d" && p5.hasRemoval);
 
   // ------------------------------------------------------------ ⇄ swap --
-  const sm2 = MR.model(cfg, mm, input, Object.assign({}, extra, { revertUsers: new Map(), revertDevices: new Map() }), { now });
-  const sw0 = MR.planSwap(sm2, "Euro", {});
-  ok("the swap creates INT-SG-U-NLD — the mapping confirm comes first", !!sw0.refused && /INT-SG-U-NLD/.test(sw0.refused));
-  const sw = MR.planSwap(sm2, "Euro", { mapConfirmed: true });
+  const sm0 = MR.model(cfg, mm, input, Object.assign({}, extra, { revertUsers: new Map(), revertDevices: new Map() }), { now });
+  const sw0 = MR.planSwap(sm0, "Euro");
+  ok("10680: no INT-SG-U-NLD yet — the swap creates nothing and points at 👥", !sw0.ops.some((o) => o.key === "nl") && sw0.skipped.some((x) => /INT-SG-U-NLD does not exist — create & fill it in 👥 Wave members/.test(x)));
+  const sm2 = MR.model(cfg, mm, input, Object.assign({}, extraN, { revertUsers: new Map(), revertDevices: new Map() }), { now });
+  const sw = MR.planSwap(sm2, "Euro");
   const nlOps = sw.ops.filter((o) => o.key === "nl");
-  ok("NL: create → fill → nest → check → unnest, in that order", nlOps.map((o) => o.type).join() === "create,add,nest,swapcheck,unnest" && sw.runKind === "waveswap");
-  ok("the unnest waits for the check, the check for the create, fill and nest", nlOps[4].needsOk.join() === String(sw.ops.indexOf(nlOps[3])) && nlOps[3].needsOk.length === 3 && nlOps[4].child.id === "src-nl" && nlOps[4].parent.id === "wu-euro");
+  ok("NL: top up → nest → check → unnest, in that order", nlOps.map((o) => o.type).join() === "add,nest,swapcheck,unnest" && sw.runKind === "waveswap");
+  ok("the unnest waits for the check, the check for the fill and nest", nlOps[3].needsOk.join() === String(sw.ops.indexOf(nlOps[2])) && nlOps[2].needsOk.length === 2 && nlOps[3].child.id === "src-nl" && nlOps[3].parent.id === "wu-euro");
   ok("GB is already swapped — said, not planned", sw.skipped.some((s) => /GB|United Kingdom/.test(s) && /already swapped/.test(s)) && !sw.ops.some((o) => o.key === "gb"));
-  const swHeld = MR.planSwap(sm, "Euro", { mapConfirmed: true });
+  const swHeld = MR.planSwap(smN, "Euro");
   ok("a source with a reverted user is not swapped: the wave would change", !swHeld.ops.some((o) => o.key === "nl") && swHeld.skipped.some((s) => /Revert/.test(s)));
 
   // applyOps runs the check: equal sets → the unnest runs; different → it does not

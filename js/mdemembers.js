@@ -379,13 +379,17 @@ const MdeMembers = (() => {
     const wave = row.wave && row.wave.user;
     const direct = wave && input.waveUsers ? (input.waveUsers.get(lc(wave.id)) || new Set()) : new Set();
     const kids = wave && input.waveChildren ? (input.waveChildren.get(lc(wave.id)) || new Set()) : new Set();
-    const finished = kids.has(lc(row.ug.id));
+    // finished: the pilot's own group is in the wave — its static user group
+    // (10680), or the dynamic one an earlier build nested
+    const own = new Set([lc(row.ug.id)].concat(row.sug ? [lc(row.sug.id)] : []));
+    const finished = [...own].some((id) => kids.has(id));
     const viaOther = new Set(), viaNames = [];
     for (const gid of kids) {
-      if (gid === lc(row.ug.id)) continue;
-      const us = input.usersByGroup.get(gid);
+      if (own.has(gid)) continue;
+      // a static country user group (10680) holds its users directly
+      const us = input.usersByGroup.get(gid) || (input.userMembers && input.userMembers.has(gid) ? [...input.userMembers.get(gid)].map((id) => ({ id })) : null);
       if (!us) continue;
-      const g = (input.countryGroups || []).find((x) => lc(x.id) === gid);
+      const g = (input.countryGroups || []).find((x) => lc(x.id) === gid) || (input.userGroups ? [...input.userGroups.values()].find((x) => lc(x.id) === gid) : null);
       let hit = false;
       for (const u of us) { viaOther.add(lc(u.id)); hit = true; }
       if (hit && g) viaNames.push(g.displayName);
@@ -535,6 +539,26 @@ const MdeMembers = (() => {
       // a device in the exclusion group stays on the old set: never wanted
       // here, and taken out when it is in (10639)
       row.want = new Set(row.devices.filter((d) => d.objId && !d.held).map((d) => d.objId));
+      // 👤 the STATIC user group beside the device group (10680, Mihai: "users
+      // groups should be created here next to the device groups. then the
+      // option to nest the groups to the wave groups"): INT-SG-U- plus the
+      // device group's own code, holding the source's users (transitive) as
+      // direct members, minus whoever is in the ↩ Revert user group. Read by
+      // MdeRevert.readExtra; unread → uRead false and nothing is planned on it.
+      row.uRead = !!input.userMembers;
+      row.userGroupStatic = row.iso3 && cfg.userGroupPrefix ? `${cfg.userGroupPrefix}${row.iso3}` : null;
+      row.sug = row.userGroupStatic && input.userGroups ? input.userGroups.get(lc(row.userGroupStatic)) || null : null;
+      {
+        const revU = input.revertUsers || new Map();
+        const src = row.ug ? (input.usersByGroup.get(lc(row.ug.id)) || []) : [];
+        const srcIds = new Set(src.map((u) => lc(u.id)));
+        row.uWant = new Set([...srcIds].filter((id) => !revU.has(id)));
+        row.uHave = row.sug && input.userMembers ? (input.userMembers.get(lc(row.sug.id)) || new Set()) : new Set();
+        row.uAdd = [...row.uWant].filter((id) => !row.uHave.has(id));
+        row.uRemove = [...row.uHave].filter((id) => !srcIds.has(id) || revU.has(id));
+        row.uHeld = [...srcIds].filter((id) => revU.has(id)).length;
+        row.uInSync = !row.uRead || (row.sug ? !row.uAdd.length && !row.uRemove.length : !row.uWant.size);
+      }
       row.batch = batchOf(cfg, input, row);
       // a pilot in batches: its device group follows its users — only the
       // devices of users already in the wave are wanted (10640)
@@ -544,7 +568,12 @@ const MdeMembers = (() => {
       row.remove = [...row.have].filter((id) => !row.want.has(id));
       row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
-      row.ugNested = row.ug && row.wave.user ? !!(kids(row.wave.user) && kids(row.wave.user).has(lc(row.ug.id))) : null;
+      // in the user wave through the static group (10680) or, from before
+      // it, through the dynamic source — 🔄 ⇄ swaps the second for the first
+      const uk = kids(row.wave.user);
+      row.ugNestedSrc = row.ug && row.wave.user ? !!(uk && uk.has(lc(row.ug.id))) : null;
+      row.ugNestedStatic = row.ug && row.wave.user ? !!(row.sug && uk && uk.has(lc(row.sug.id))) : null;
+      row.ugNested = row.ug && row.wave.user ? !!(row.ugNestedSrc || row.ugNestedStatic) : null;
       row.dgNested = row.dg && row.wave.device ? !!(kids(row.wave.device) && kids(row.wave.device).has(lc(row.dg.id))) : null;
       row.problems = {
         byOwner: row.devices.filter((d) => d.via === "owner" || d.via === "location").length,
@@ -559,7 +588,7 @@ const MdeMembers = (() => {
         held: row.devices.filter((d) => d.held).length,
         reverted: row.devices.filter((d) => d.reverted).length,
       };
-      row.inSync = !!row.dg && !row.add.length && !row.remove.length;
+      row.inSync = !!row.dg && !row.add.length && !row.remove.length && row.uInSync;
     }
     // a pilot and the country it overlaps (NL-Breda ⊂ NL); a pilot migrated
     // into it (10656) is listed, never planned
@@ -978,6 +1007,7 @@ const MdeMembers = (() => {
       if (!r.ug) { skipped.push(`${tag}: the user group is not in this tenant`); continue; }
       if (r.migrated) { skipped.push(`${tag}: 🧪 migrated into ${r.parentCountry || "its country"} — its users and devices are in the wave through it`); continue; }
       let dgRef = r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null;
+      let ugRef = r.sug ? { id: lc(r.sug.id), name: r.sug.displayName } : null;
       if (o.fill) {
         if (!r.deviceGroupName) skipped.push(`${tag}: ${r.iso3Source}`);
         else if (!r.dg && !r.want.size) skipped.push(`${tag}: no Windows device with a primary user in this group — ${r.deviceGroupName} not created`);
@@ -988,17 +1018,34 @@ const MdeMembers = (() => {
           }
           if (r.add.length) { ops.push({ type: "add", key: r.key, group: dgRef, ids: r.add.slice(), label: `${r.add.length} device${r.add.length === 1 ? "" : "s"}` }); mark(r, "devAdd"); }
         }
-      }
-      if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
-      if (o.nestUsers && !r.ugNested && r.batch) skipped.push(`${tag}: added in batches — 🧪 its user group is nested by "Finish" after the last batch`);
-      else if (o.nestUsers && !r.ugNested) {
-        if (!r.wave.user) skipped.push(`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`);
+        // 👤 the static user group beside it (10680)
+        if (!r.uRead) skipped.push(`${tag}: the static user groups were not read — ↻ Read again`);
+        else if (!r.userGroupStatic) { if (r.deviceGroupName) skipped.push(`${tag}: ${r.iso3Source}`); }
+        else if (!r.sug && !r.uWant.size) skipped.push(`${tag}: no users in ${r.userGroupName}${r.uHeld ? " outside Revert" : ""} — ${r.userGroupStatic} not created`);
         else {
-          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: { id: lc(r.ug.id), name: r.ug.displayName }, kind: "user", size: r.users });
-          mark(r, "userNest");
-          if (r.users > cfg.largeNest) warnings.push(`${r.ug.displayName} brings ${r.users} users into ${r.wave.user.displayName} at once`);
+          if (!r.sug) {
+            ops.push({ type: "create", key: r.key, name: r.userGroupStatic, description: String((cfg && cfg.userGroupDescription) || DEFAULTS.userGroupDescription).replace("{userGroup}", r.userGroupName) });
+            ugRef = { ref: r.userGroupStatic, name: r.userGroupStatic };
+          }
+          if (r.uAdd.length) { ops.push({ type: "add", key: r.key, group: ugRef, ids: r.uAdd.slice(), memberKind: "user", label: `${r.uAdd.length} user${r.uAdd.length === 1 ? "" : "s"} of ${r.userGroupName}` }); mark(r, "userAdd"); }
+          if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} — held back, not added (↩ Revert)`);
         }
       }
+      if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
+      if (o.removals && r.sug && r.uRemove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.sug.id), name: r.sug.displayName }, ids: r.uRemove.slice(), memberKind: "user", batch: true, label: `${r.uRemove.length} user${r.uRemove.length === 1 ? "" : "s"} no longer in ${r.userGroupName} (or reverted)` });
+      if (o.nestUsers && !r.ugNested && r.batch) skipped.push(`${tag}: added in batches — 🧪 its user group is nested by "Finish" after the last batch`);
+      else if (o.nestUsers && !r.ugNested) {
+        // the STATIC user group goes into the wave, never the dynamic source (10680)
+        if (!r.wave.user) skipped.push(`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`);
+        else if (!r.uRead) skipped.push(`${tag}: the static user groups were not read — ↻ Read again`);
+        else if (!ugRef) skipped.push(`${tag}: no ${r.userGroupStatic || "static user group"} to nest yet — tick "create & fill groups"`);
+        else {
+          const size = r.uWant.size;
+          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: ugRef, kind: "user", size });
+          mark(r, "userNest");
+          if (size > cfg.largeNest) warnings.push(`${ugRef.name} brings ${size} users into ${r.wave.user.displayName} at once`);
+        }
+      } else if (o.nestUsers && r.ugNestedSrc && !r.ugNestedStatic) skipped.push(`${tag}: in ${r.wave.userName} through ${r.ug.displayName} (dynamic) — ⇄ swap it to ${r.userGroupStatic || "the static group"} in 🔄 Country groups`);
       if (o.nestDevices && !r.dgNested) {
         if (!r.wave.device) skipped.push(`${tag}: ${r.wave.deviceName || "the device wave"} does not exist — create it in 🌊 first`);
         else if (!dgRef) skipped.push(`${tag}: no device group to nest yet — tick "create & fill"`);
@@ -1034,8 +1081,11 @@ const MdeMembers = (() => {
           ops.push({ type: "remove", key: C.key, group: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, ids: b.direct.slice(), label: `${b.direct.length} ${C.country} user${b.direct.length === 1 ? "" : "s"} put in directly — in through ${P.ug.displayName} now`, memberKind: "user", who, needsOk: needU, migrate: true });
           mine.push(ops.length - 1);
         }
-        if (C.ugNested && C.wave.user) {
-          ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, child: { id: lc(C.ug.id), name: C.ug.displayName }, kind: "user", who, needsOk: needU, migrate: true });
+        // the pilot's own group(s) in the user wave: the static one (10680),
+        // or the dynamic one an earlier build nested
+        for (const g of [C.ugNestedStatic ? C.sug : null, C.ugNestedSrc ? C.ug : null].filter(Boolean)) {
+          if (!C.wave.user) break;
+          ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, child: { id: lc(g.id), name: g.displayName }, kind: "user", who, needsOk: needU, migrate: true });
           mine.push(ops.length - 1);
         }
         if (C.dg && C.dgNested && C.wave.device) {
@@ -1091,14 +1141,31 @@ const MdeMembers = (() => {
   // After the last batch: nest the pilot group (new users flow in), then
   // take its users out of the wave's direct members — they are in through
   // the group now. The removal is typed.
-  function planFinish(model, key) {
+  function planFinish(model, key, cfg) {
     const r = model.rows.find((x) => x.key === key);
     const ops = [], skipped = [], warnings = [];
     if (!r || !r.batch) return { ops, skipped: ["not a pilot in batches"], warnings, hasRemoval: false };
     const who = `${r.country} · finish`;
     if (!r.wave.user) return { ops, skipped: [`${r.wave.userName || "the user wave"} does not exist`], warnings, hasRemoval: false };
-    if (!r.batch.finished) ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: { id: lc(r.ug.id), name: r.ug.displayName }, kind: "user", size: r.users, who });
-    if (r.batch.direct.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, ids: r.batch.direct.slice(), label: `${r.batch.direct.length} user${r.batch.direct.length === 1 ? "" : "s"} — in through ${r.ug.displayName} now`, memberKind: "user", who });
+    // 10680: the pilot's STATIC user group goes in (created and filled
+    // first), and the users put in directly come out only once it read back
+    let nestIdx = null, through = r.sug ? r.sug.displayName : r.userGroupStatic;
+    if (!r.batch.finished) {
+      if (!r.uRead) return { ops, skipped: [`${r.country}: the static user groups were not read — ↻ Read again`], warnings, hasRemoval: false };
+      if (!r.userGroupStatic) return { ops, skipped: [`${r.country}: ${r.iso3Source}`], warnings, hasRemoval: false };
+      let ref = r.sug ? { id: lc(r.sug.id), name: r.sug.displayName } : null;
+      const need = [];
+      if (!ref) {
+        need.push(ops.length);
+        ops.push({ type: "create", key: r.key, name: r.userGroupStatic, who, description: String((cfg && cfg.userGroupDescription) || DEFAULTS.userGroupDescription).replace("{userGroup}", r.userGroupName) });
+        ref = { ref: r.userGroupStatic, name: r.userGroupStatic };
+      }
+      if (r.uAdd.length) { need.push(ops.length); ops.push({ type: "add", key: r.key, group: ref, ids: r.uAdd.slice(), memberKind: "user", who, label: `${r.uAdd.length} user${r.uAdd.length === 1 ? "" : "s"} of ${r.userGroupName}` }); }
+      nestIdx = ops.length;
+      ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: ref, kind: "user", size: r.uWant.size, who, needsOk: need.length ? need : undefined });
+      through = ref.name;
+    }
+    if (r.batch.direct.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, ids: r.batch.direct.slice(), label: `${r.batch.direct.length} user${r.batch.direct.length === 1 ? "" : "s"} — in through ${through} now`, memberKind: "user", who, needsOk: nestIdx != null ? [nestIdx] : undefined });
     if (r.batch.next) warnings.push(`${r.batch.N - r.batch.inCount} of ${r.batch.N} users are not in yet — nesting the group brings them in at once`);
     return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove") };
   }

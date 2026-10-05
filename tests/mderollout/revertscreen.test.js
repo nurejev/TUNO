@@ -1,5 +1,6 @@
 // T28 — 🔄 Country groups and ↩ Revert on the screen (build 10679), driven
-// end to end in DEMO mode: the rail nodes, the read, the mapping confirm,
+// end to end in DEMO mode: the rail nodes, the read, the mapping (10680:
+// the groups are created in 👥 Wave members only — user and device together),
 // ⇄ the Euro swap (create → fill → nest → check → unnest, read back), the
 // 🔄 sync (adds ticked, leavers not), ↩ a revert of Eva and her laptop with
 // a reason, the sync holding them back (a re-include refused without the
@@ -98,40 +99,47 @@ async function run() {
   ok("🔄 opens and offers its read", st().pane === "countrysync" && !!$("mvCsRead"));
   $("mvCsRead").click();
   ok("the read lands: the country groups and the extra (static groups, Revert)", await until(() => st().cs.extra && st().mem.model && !st().mem.loading, 15000, "cs read"));
-  ok("the mapping per ISO3 is shown, open, unconfirmed: NL → INT-SG-U-NLD beside INT-SG-D-NLD", /INT-SG-U-NLD/.test($("mvCsMap").textContent) && /INT-SG-D-NLD/.test($("mvCsMap").textContent) && !$("mvCsMapOk").checked);
-  ok("the head per country: NL's source is still dynamic in the Euro wave, never synced", /dynamic/.test($("mvCsWaves").textContent) && /never/.test($("mvCsWaves").textContent));
+  ok("the mapping per ISO3 is shown, and says the groups are created in 👥 (10680)", /INT-SG-U-NLD/.test($("mvCsMap").textContent) && /INT-SG-D-NLD/.test($("mvCsMap").textContent) && !$("mvCsMapOk") && /created in one place/.test($("mvCsMap").textContent));
+  ok("the head per country: NL's source is still dynamic in the Euro wave, never synced; its static group to create in 👥", /dynamic/.test($("mvCsWaves").textContent) && /never/.test($("mvCsWaves").textContent) && /create in 👥/.test($("mvCsWaves").textContent));
   const swapBtn = () => D.querySelector('[data-mrcsswap="Euro"]');
   ok("⇄ Swap Euro is offered", swapBtn() && !swapBtn().disabled);
   swapBtn().click();
-  ok("without the mapping confirm the swap is refused, said under the waves card", !st().plan && /Confirm the mapping/.test($("mvPlan").textContent));
-  check($("mvCsMapOk"), true);
-  ok("the confirm is kept", st().cs.mapOk && $("mvCsMapOk").checked);
+  ok("10680: 🔄 creates nothing — without INT-SG-U-NLD the swap plans nothing for NL and points at 👥", st().plan && !st().plan.ops.length && /INT-SG-U-NLD does not exist — create & fill it in 👥 Wave members/.test($("mvPlan").textContent));
+
+  // ------------------------------------------- 👥 creates both groups --
+  node("members").click();
+  ok("👥 shows the static user group beside the device group: INT-SG-U-NLD to create, NL in the wave through its dynamic group", st().pane === "members" && /User group · sync/.test($("mvBody").textContent) && /INT-SG-U-NLD/.test($("mvBody").textContent) && /user wave · dynamic/.test($("mvBody").textContent));
+  check(D.querySelector('[data-mrmemsel="nl"]'), true);
+  $("mvMemDry").click();
+  const mp = st().plan;
+  ok("👥 NL: INT-SG-U-NLD created and filled beside the device group's top-up; no second user nest, the swap named", mp && mp.ops.some((o) => o.type === "create" && o.name === "INT-SG-U-NLD") && mp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.length === 2)
+    && !mp.ops.some((o) => o.type === "nest" && o.kind === "user") && mp.skipped.some((x) => /⇄ swap/.test(x)), mp && JSON.stringify(mp.ops.map((o) => o.type)));
+  const mr = await apply();
+  const G = (n) => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === n);
+  ok("applied: INT-SG-U-NLD holds Eva and Milan", mr.ok === mp.ops.length && G("INT-SG-U-NLD") && G("INT-SG-U-NLD")._users.length === 2);
 
   // ------------------------------------------------------------ ⇄ swap --
+  node("countrysync").click();
   swapBtn().click();
   const sp = st().plan;
-  ok("the swap plan: create INT-SG-U-NLD, fill Eva and Milan, nest, check, unnest the PVM group", sp && sp.runKind === "waveswap" && sp.ops.map((o) => o.type).join() === "create,add,nest,swapcheck,unnest"
-    && sp.ops[1].ids.length === 2 && sp.ops[4].child.name === "PVM-UG-CORP-MEM-USERS-NL", sp && sp.ops.map((o) => o.type).join());
+  ok("the swap plan: nest INT-SG-U-NLD, check, unnest the PVM group", sp && sp.runKind === "waveswap" && sp.ops.map((o) => o.type).join() === "nest,swapcheck,unnest" && sp.ops[2].child.name === "PVM-UG-CORP-MEM-USERS-NL", sp && sp.ops.map((o) => o.type).join());
   ok("…its impact and way back are said, and the unnest is typed", /Likely impact: none/.test($("mvPlan").textContent) && /Way back/.test($("mvPlan").textContent) && !!$("mvConfirmText") && /check the sets/.test($("mvPlan").textContent));
   const sr = await apply();
-  ok("applied: five steps written and verified, the check among them", sr.ok === 5 && sr.runKind === "waveswap", JSON.stringify(sr.lines));
-  const G = (n) => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === n);
-  ok("the tenant: INT-SG-U-NLD holds Eva and Milan, sits in the Euro user wave; the PVM group does not", G("INT-SG-U-NLD") && G("INT-SG-U-NLD")._users.length === 2 && (G("INT-SG-U-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id)
-    && !(G("PVM-UG-CORP-MEM-USERS-NL").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id));
+  ok("applied: three steps written and verified, the check among them", sr.ok === 3 && sr.runKind === "waveswap", JSON.stringify(sr.lines));
+  ok("the tenant: INT-SG-U-NLD sits in the Euro user wave; the PVM group does not", (G("INT-SG-U-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id) && !(G("PVM-UG-CORP-MEM-USERS-NL").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id));
   ok("the head moved with it: NL static, nothing left to swap in Euro", st().pane === "countrysync" && /static/.test($("mvCsWaves").textContent) && swapBtn().disabled);
 
   // ------------------------------------------------------------ 🔄 sync --
-  const sm = st().csModel();
-  const items = w.MdeRevert.syncItems(sm, "all");
-  ok("the sync preview: Milan's laptop to add (ticked), Alex's leaver unticked", items.some((x) => x.dir === "add" && x.kind === "device" && x.row.suffix === "NL") && items.some((x) => x.dir === "leave" && x.kind === "device")
-    && [...st().cs.ticks].every((k) => k.startsWith("add|")));
-  ok("…sections Add and Remove — leavers are drawn", /Add/.test($("mvCsSync").textContent) && /Remove — leavers/.test($("mvCsSync").textContent));
+  const items = w.MdeRevert.syncItems(st().csModel(), "all");
+  ok("the sync preview: Alex's laptop in INT-SG-D-NLD is a leaver, unticked; countries without groups point at 👥", items.some((x) => x.dir === "leave" && x.kind === "device") && [...st().cs.ticks].every((k) => k.startsWith("add|")) && /create &amp; fill them|create & fill them/.test($("mvCsSync").innerHTML));
   const nlScope = $("mvCsScope");
   nlScope.value = "nl"; nlScope.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("a per-ISO3 scope: NL only", st().cs.scope === "nl" && w.MdeRevert.syncItems(st().csModel(), "nl").every((x) => x.row.key === "nl"));
+  const lv = w.MdeRevert.syncItems(st().csModel(), "nl").find((x) => x.dir === "leave");
+  check(D.querySelector(`[data-mrcstick="${lv.key}"]`), true);
   $("mvCsDry").click();
   const syp = st().plan;
-  ok("the NL sync plan adds only (no typed removal)", syp && syp.runKind === "groupsync" && syp.ops.every((o) => o.type === "add") && !$("mvConfirmText") && /🔄 Country groups — NLD/.test(syp.title));
+  ok("the NL sync plan: the leaver out by $batch, typed", syp && syp.runKind === "groupsync" && syp.ops.length === 1 && syp.ops[0].type === "remove" && syp.ops[0].batch && !!$("mvConfirmText") && /🔄 Country groups — NLD/.test(syp.title));
   const syr = await apply();
   ok("applied and read back; NL's last sync is stamped in this browser", syr.ok === syp.ops.length && syr.runKind === "groupsync" && JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.groupsync\./.test(k))) || "{}").nl);
 
@@ -182,7 +190,7 @@ async function run() {
   const eva = w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id;
   const reasons = JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.reasons\./.test(k))) || "{}");
   ok("applied: Eva back in INT-SG-U-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-Revert")._users.length && G("INT-SG-U-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
-  ok("📜 lists the four runs with their kinds", ["waveswap", "groupsync", "revert", "revert"].every((k, i) => st().runs[i].runKind === k));
+  ok("📜 lists the five runs with their kinds", [null, "waveswap", "groupsync", "revert", "revert"].every((k, i) => (st().runs[i].runKind || null) === k));
 
   console.log(`T28 revert & country groups screen: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

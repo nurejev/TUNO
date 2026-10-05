@@ -738,7 +738,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
-      <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). <b>⇄ Swap</b>, per wave, fills the static user group from the dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
+      <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
       <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
@@ -2062,6 +2062,9 @@ const MdeRolloutV2Tool = (() => {
       try {
         cs.extra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; });
         mem.input.reverted = new Set(cs.extra.revertDevices.keys());
+        // 👥 plans the static user groups too (10680) — the same maps, shared,
+        // so a run's patch moves both panes
+        Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers });
         cs.error = "";
       } catch (e) { cs.extra = null; cs.error = `The static country groups and the Revert groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
       memCompute();
@@ -2080,6 +2083,17 @@ const MdeRolloutV2Tool = (() => {
     const diff = r.inSync ? `<span class="muted">in sync · ${r.have.size} in</span>` : `${r.add.length ? `<span style="color:var(--on);font-weight:700">+${r.add.length}</span>` : ""}${r.add.length && r.remove.length ? " · " : ""}${r.remove.length ? `<span style="color:var(--off);font-weight:700" title="${esc(r.removeNames.join("\n"))}">−${r.remove.length}</span>` : ""} <span class="muted">· ${r.have.size} in</span>`;
     return `${name} ${chip("au-op create", "exists")}<div class="mini">${diff}</div>`;
   }
+  // 👤 the static user group beside the device group (10680)
+  function memUserCell(r) {
+    if (!r.uRead) return `<span class="muted" title="${esc(cs.error || "")}">not read</span>`;
+    if (!r.userGroupStatic) return `<span class="au-op delete" title="${esc(r.iso3Source)}">no code</span>`;
+    const name = `<b>${esc(r.userGroupStatic)}</b>`;
+    const held = r.uHeld ? ` <span class="muted" title="In ${esc(mcfg().revertUser)} — held back">· ${r.uHeld} held</span>` : "";
+    if (!r.sug) return `${name} ${chip("gu-how priv", "to create")}<div class="mini">${r.uWant.size ? `<span style="color:var(--on);font-weight:700">+${r.uWant.size}</span> to fill` : `<span class="muted">no users to put in it</span>`}${held}</div>`;
+    const ok = !r.uAdd.length && !r.uRemove.length;
+    const diff = ok ? `<span class="muted">in sync · ${r.uHave.size} in</span>` : `${r.uAdd.length ? `<span style="color:var(--on);font-weight:700">+${r.uAdd.length}</span>` : ""}${r.uAdd.length && r.uRemove.length ? " · " : ""}${r.uRemove.length ? `<span style="color:var(--off);font-weight:700">−${r.uRemove.length}</span>` : ""} <span class="muted">· ${r.uHave.size} in</span>`;
+    return `${name} ${chip("au-op create", "exists")}<div class="mini">${diff}${held}</div>`;
+  }
   function memNestCell(r) {
     const one = (icon, nested, wave, waveName, what) => {
       if (!wave) return `<div>${icon} <span class="muted" title="${esc(waveName)} does not exist — create it in 🌊">no wave group</span></div>`;
@@ -2089,7 +2103,9 @@ const MdeRolloutV2Tool = (() => {
     };
     const userSide = r.batch && !r.batch.finished && r.wave.user
       ? `<div>👤 ${chip("gu-how priv", `🧪 ${r.batch.inCount} of ${r.batch.N} users`)} <span class="muted">${r.batch.next ? `batch ${r.batch.next.n} of ${r.batch.K} next` : "all in — finish"}</span></div>`
-      : one("👤", r.ug ? r.ugNested : null, r.wave.user, r.wave.userName, "user");
+      : r.ugNestedSrc && !r.ugNestedStatic && r.wave.user
+        ? `<div>👤 ${chip("au-op other", "✓ user wave · dynamic")} <a href="#" data-mrpane="countrysync" class="mini" title="${esc(r.ug.displayName)} is nested, not ${esc(r.userGroupStatic || "the static group")}">⇄ swap in 🔄</a></div>`
+        : one("👤", r.ug ? (r.ugNested || (r.uRead && r.userGroupStatic && (r.sug || r.uWant.size) ? false : null)) : null, r.wave.user, r.wave.userName, "user");
     return userSide
       + one("🖥", r.dg ? r.dgNested : (r.deviceGroupName && r.want.size ? false : null), r.wave.device, r.wave.deviceName, "device");
   }
@@ -2106,7 +2122,7 @@ const MdeRolloutV2Tool = (() => {
       return `<tr><td>${esc(d.name)}${d.nameSays ? `<div class="mini" style="color:var(--report)">the name says ${esc(d.nameSays)}</div>` : ""}</td><td class="mini">${who}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", `stale > ${mcfg().staleDays} d`)}` : ""}</td><td class="mini">${st}${d.others.length ? `<div style="color:${d.pilotOverlap ? "var(--muted)" : "var(--report)"}">also in ${esc(d.others.join(", "))}${d.pilotOverlap ? " — pilot overlap, expected" : ""}</div>` : ""}</td></tr>`;
     }).join("");
     const rem = r.remove.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)">In ${esc(r.deviceGroupName)} but the primary user is no longer in ${esc(r.userGroupName)} (${r.remove.length}): ${esc(r.removeNames.slice(0, 12).join(", "))}${r.remove.length > 12 ? " …" : ""} — removed only with “apply removals” ticked.</p>` : "";
-    return `<tr><td colspan="6" style="padding:0 8px 8px 36px">${r.pilot ? batchPanel(r) : ""}<div class="mr-detail">
+    return `<tr><td colspan="7" style="padding:0 8px 8px 36px">${r.pilot ? batchPanel(r) : ""}<div class="mr-detail">
       <b>${esc(r.country)} — ${plural(r.devices.length, "Windows device")}</b> · ${plural(r.usersNoDevice, "user")} without one${r.problems.noEntra ? ` · <span style="color:var(--off)">${r.problems.noEntra} without an Entra object (cannot be a member)</span>` : ""}${r.problems.stale ? ` · ${r.problems.stale} stale` : ""}${r.problems.multi ? ` · <span style="color:var(--report)">${r.problems.multi} also in another country group</span>` : ""}${r.problems.pilot ? ` · <span class="muted">${r.problems.pilot} also in ${r.pilot ? "its country group" : "the pilot"} (expected)</span>` : ""}${r.problems.held ? ` · <span class="muted">${r.problems.held} in the device exclusion group — kept out, on the old set</span>` : ""}${r.problems.byOwner || r.problems.byName - r.problems.byOutside > 0 ? ` · <span class="muted">no primary user: ${[r.problems.byOwner ? `${r.problems.byOwner} by Entra owner` : "", r.problems.byName - r.problems.byOutside > 0 ? `${r.problems.byName - r.problems.byOutside} by name` : ""].filter(Boolean).join(", ")}</span>` : ""}${r.problems.byReal || r.problems.byOutside ? ` · <span class="muted">primary user outside the country groups: ${[r.problems.byReal ? `${r.problems.byReal} by the deleted user's live account` : "", r.problems.byOutside ? `${r.problems.byOutside} by name or usage location` : ""].filter(Boolean).join(", ")}</span>` : ""}${r.problems.nameOther ? ` · <span style="color:var(--report)">${r.problems.nameOther} named for another country — the user decides</span>` : ""}
       ${r.devices.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Device</th><th>Primary user</th><th>Last sync</th><th>Plan</th></tr></thead><tbody>${rows}</tbody></table></div>${r.devices.length > 200 ? `<p class="mini muted" style="margin:4px 0 0">First 200 of ${r.devices.length} — ⭳ CSV has them all.</p>` : ""}` : ""}
       ${rem}${r.notes.length ? `<p class="mini" style="margin:6px 0 0;color:var(--report)">${r.notes.map(esc).join("<br>")}</p>` : ""}
@@ -2132,7 +2148,7 @@ const MdeRolloutV2Tool = (() => {
     const allIn = !b.next;
     return `<div class="mr-batch" id="mvBatch-${esc(r.key)}">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><b>🧪 Pilot in ${b.K} batches</b>${toggle}</div>
-      ${b.finished ? `<p class="mini" style="margin:6px 0 0">${chip("au-op create", "finished")} ${esc(r.userGroupName)} is nested in ${esc(r.wave.userName)} — new users flow in with the group.</p>` : `
+      ${b.finished ? `<p class="mini" style="margin:6px 0 0">${chip("au-op create", "finished")} ${esc(r.ugNestedStatic ? r.userGroupStatic : r.userGroupName)} is nested in ${esc(r.wave.userName)} — new users come in with the 🔄 sync.</p>` : `
       <p class="mini muted" style="margin:4px 0 8px">Each batch is an even part of the users not yet in the wave, sorted by UPN, and each user's Windows devices go with them. The next batch is cut from whoever is still left, so users who join or leave the group in between are counted in. The users go straight into <code>${esc(r.wave.userName || "the user wave")}</code>; <code>${esc(r.deviceGroupName || "the device group")}</code> holds only the devices of users already in.</p>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px"><div><div class="mini muted">Progress</div><b>${b.inCount} of ${b.N} users</b> <span class="mini muted">· ${b.batches.filter((x) => x.state === "in").length} of ${b.batches.filter((x) => x.size).length} batches</span><div class="mr-meter"><i style="width:${pct}%"></i></div></div>
         ${b.inOther ? `<div class="mini muted">${plural(b.inOther, "user is", "users are")} in the wave already through ${esc(b.viaNames.join(", ") || "another group")} — not in the batches</div>` : ""}</div>
@@ -2140,7 +2156,7 @@ const MdeRolloutV2Tool = (() => {
       ${r.parentKey && r.outsideParent && r.outsideParent.length ? `<div class="mr-migrate"><span class="mini" style="color:var(--report)">🧪 Not migratable into ${esc(r.parentCountry)}: ${plural(r.outsideParent.length, "user of the pilot is", "users of the pilot are")} not in ${esc(r.parentCountry)} (${esc(r.outsideParent.slice(0, 3).join(", "))}${r.outsideParent.length > 3 ? " …" : ""}) — they would leave the wave.</span></div>` : ""}
       ${r.parentKey && !(r.outsideParent && r.outsideParent.length) ? `<div class="mr-migrate"><button class="btn" data-mrmigrate="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Migrate to the wave with ${esc(r.parentCountry)} →</button><span class="mini muted">${esc(r.parentCountry)} goes live and the pilot ends: everyone in ${esc(r.country)} comes in through ${esc(r.parentCountry)}${b.N - b.inCount > 0 ? ` (${b.N - b.inCount} not in a batch yet, at once)` : ""}; the users put in directly come out${r.dgNested ? ` and ${esc(r.deviceGroupName)} leaves the device wave` : ""}, each once ${esc(r.parentCountry)}'s step is read back.</span></div>` : ""}
       <div class="tb-actions" style="margin-top:8px"><button class="btn" data-mrbatchcsv="${esc(r.key)}">⭳ CSV of the batches</button>
-        ${allIn ? `<button class="btn primary" data-mrbatchfin="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Finish: nest the pilot group →</button><span class="mini muted">nests ${esc(r.userGroupName)} and takes the direct members out, so new users flow in</span>` : `<span class="mini muted">After the last batch: 🧪 Finish nests the group.</span>`}</div>`}
+        ${allIn ? `<button class="btn primary" data-mrbatchfin="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Finish: nest the pilot group →</button><span class="mini muted">creates and fills ${esc(r.userGroupStatic || "the static user group")} from ${esc(r.userGroupName)}, nests it, and takes the direct members out once it read back</span>` : `<span class="mini muted">After the last batch: 🧪 Finish nests the group.</span>`}</div>`}
     </div>`;
   }
   // 🧪 (10656, option B off the mockup) the pilot's own button: its country
@@ -2160,7 +2176,7 @@ const MdeRolloutV2Tool = (() => {
     if (busy || !mem.model) return;
     planAnchor = `mvBatch-${key}`; clearPlan(); seatPlan();
     const r = mem.model.rows.find((x) => x.key === key);
-    const p = finish ? MdeMembers.planFinish(mem.model, key) : MdeMembers.planBatch(mem.model, key, mcfg());
+    const p = finish ? MdeMembers.planFinish(mem.model, key, mcfg()) : MdeMembers.planBatch(mem.model, key, mcfg());
     plan = Object.assign(p, { members: true, title: finish ? `Pilot ${r ? r.country : key} — finish` : `Pilot ${r ? r.country : key} — batch ${p.batch || ""} of ${mcfg().batchCount}` });
     renderMemPlan();
   }
@@ -2401,7 +2417,7 @@ const MdeRolloutV2Tool = (() => {
   }
 
   function membersPane() {
-    const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave: the country <b>user</b> groups (<code>${esc(mcfg().countryPrefix)}…</code>) go into the user wave, and one <b>device</b> group per country (<code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code>, assigned) holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The device groups are synced, not filled once: every read shows what to add and what to remove. The country table is under ⚙️ Naming rules.</p>`;
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave, per country, two <b>static</b> groups: <code>${esc(mcfg().userGroupPrefix)}&lt;ISO3&gt;</code> holding the users of <code>${esc(mcfg().countryPrefix)}…</code> as direct members goes into the user wave, and <code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code> holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The dynamic country groups are never nested. Both are synced, not filled once: every read shows what to add and what to remove; whoever is in ↩ Revert is held back. The country table is under ⚙️ Naming rules.</p>`;
     if (mem.loading) return `<div class="list-card" style="margin-top:0">${intro}<p class="mini" id="mvMemProg">Reading…</p></div>`;
     if (!mem.model) return `<div class="list-card" style="margin-top:0">${intro}
       ${mem.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(mem.error)}</b></div>` : ""}
@@ -2435,6 +2451,7 @@ const MdeRolloutV2Tool = (() => {
         <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">${r.migrated ? `🧪 migrated into ${esc(r.parentCountry)}` : `🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}`}</span>` : ""}${(() => { const kids = r.pilot ? [] : inTenant.filter((c) => c.pilot && c.parentKey === r.key && c.batch && !c.migrated && !(c.outsideParent || []).length); return kids.length ? ` <span class="gu-how" title="Going live brings every user of the pilot in through this group; the plan then takes the pilot's own route down">🧪 going live migrates ${esc(kids.map((c) => c.country).join(", "))}</span>` : ""; })()}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
         <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted"><a href="#" data-mrmemleftrow="${esc(r.key)}" title="🕳 who they are, and what Intune has for them">${plural(r.usersNoDevice, "user has", "users have")} none</a></div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
+        <td class="mini">${memUserCell(r)}</td>
         <td class="mini">${memCell(r)}</td>
         <td class="mini">${memNestCell(r)}</td></tr>${mem.open.has(r.key) ? memDetail(r) : ""}`;
     }).join("");
@@ -2442,8 +2459,9 @@ const MdeRolloutV2Tool = (() => {
     const o = mem.opts;
     const preview = MdeMembers.planOps(m, new Set(inTenant.filter(memRowSel).map((r) => r.key)), o, mcfg());
     const count = (t) => preview.ops.filter((x) => x.type === t);
-    const adds = count("add").reduce((a, x) => a + x.ids.length, 0);
-    const summary = nSel ? [count("create").length ? `create ${count("create").length}` : "", adds ? `add ${adds.toLocaleString()} device${adds === 1 ? "" : "s"}` : "", count("remove").length ? `remove ${count("remove").reduce((a, x) => a + x.ids.length, 0)}` : "", count("nest").length ? `nest ${count("nest").length} group${count("nest").length === 1 ? "" : "s"} into ${rg.region}` : ""].filter(Boolean).join(" · ") || "nothing to do for these" : "tick countries to plan";
+    const adds = count("add").filter((x) => x.memberKind !== "user").reduce((a, x) => a + x.ids.length, 0);
+    const uAdds = count("add").filter((x) => x.memberKind === "user").reduce((a, x) => a + x.ids.length, 0);
+    const summary = nSel ? [count("create").length ? `create ${count("create").length}` : "", uAdds ? `add ${uAdds.toLocaleString()} user${uAdds === 1 ? "" : "s"}` : "", adds ? `add ${adds.toLocaleString()} device${adds === 1 ? "" : "s"}` : "", count("remove").length ? `remove ${count("remove").reduce((a, x) => a + x.ids.length, 0)}` : "", count("nest").length ? `nest ${count("nest").length} group${count("nest").length === 1 ? "" : "s"} into ${rg.region}` : ""].filter(Boolean).join(" · ") || "nothing to do for these" : "tick countries to plan";
     const tick = (id, key, label) => `<label class="chk" style="margin:0"><input type="checkbox" id="${id}" data-mrmemopt="${key}"${o[key] ? " checked" : ""}> ${label}</label>`;
     return `${chips}${top}<div class="list-card mr-stickyhost" style="margin-top:0">
       ${intro}
@@ -2452,20 +2470,20 @@ const MdeRolloutV2Tool = (() => {
         ${meter("device wave", rg.wave.deviceName, rg.dgNested, inTenant.length, `device groups nested · ${rg.devices.toLocaleString()} devices`)}
         <div class="mini muted" style="margin-left:auto">Read ${esc(new Date(m.readAt).toLocaleTimeString())} · devices by <b>Intune primary user</b>, else the Entra owner, else the country code the name starts with · Windows only${m.placed ? ` · ${m.placed.toLocaleString()} with no primary user placed that way` : ""} · <a href="#" data-mrmemleftwhy="noPrimary">${m.noPrimary.toLocaleString()} of ${m.managedCount.toLocaleString()} in no country</a></div>
       </div>
-      ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:8%"><col style="width:13%"><col style="width:26%"><col></colgroup>
-        <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
+      ${inTenant.length ? `<div style="overflow-x:auto"><table class="cg-table mr-memtable"><colgroup><col style="width:30px"><col style="width:20%"><col style="width:7%"><col style="width:11%"><col style="width:20%"><col style="width:20%"><col></colgroup>
+        <thead><tr><th><input type="checkbox" data-mrmemall="1"${allOn ? " checked" : ""} aria-label="select all in this wave"></th><th>Country · user group</th><th style="text-align:right">Users</th><th style="text-align:right">Win devices</th><th>User group · sync</th><th>Device group · sync</th><th>In the wave</th></tr></thead>
         <tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None of this wave's country groups is in the tenant.</p>`}
       ${absent.length ? `<p class="mini muted" style="margin:8px 0 0">Not in this tenant: ${absent.map((r) => `<code>${esc(r.userGroupName)}</code>`).join(" ")}</p>` : ""}
       <div class="mr-mbar">
         <b>${plural(nSel, "country", "countries")}</b>
-        ${tick("mvMemFill", "fill", "create &amp; fill device groups")}
+        ${tick("mvMemFill", "fill", "create &amp; fill groups")}
         ${tick("mvMemNestU", "nestUsers", "nest user groups")}
         ${tick("mvMemNestD", "nestDevices", "nest device groups")}
         ${tick("mvMemRem", "removals", "apply removals")}
         <span class="mini" id="mvMemSum">${esc(summary)}</span>
         <button class="btn primary" id="mvMemDry"${nSel ? "" : " disabled"}>② Dry run</button>
       </div>
-      <p class="mini muted" style="margin:8px 0 0">Order per country: create → fill (20 per request, then read back) → remove (only when ticked) → nest. A device group is nested only after it exists; a large nest is warned about (Microsoft Learn: “Don't make large group nesting changes all at once.”).</p>
+      <p class="mini muted" style="margin:8px 0 0">Order per country: create → fill the device and user groups (20 per request, then read back) → remove (only when ticked) → nest the two static groups. A device group is nested only after it exists; a large nest is warned about (Microsoft Learn: “Don't make large group nesting changes all at once.”).</p>
     </div>`;
   }
   async function memDryRun(undoOf) {
@@ -2605,7 +2623,6 @@ const MdeRolloutV2Tool = (() => {
     if (!csCache || csCache.sig !== sig) csCache = { sig, v: MdeRevert.model(mcfg(), mem.model, mem.input, cs.extra, { lastSynced: readJson(syncKey()), reasons: readJson(reasonsKey()) }) };
     return csCache.v;
   }
-  const csMapSig = () => MdeRevert.mappingSig(MdeMembers.countryRows(mcfg()), mcfg());
   function csItems(sm) {
     const items = MdeRevert.syncItems(sm, cs.scope);
     const sig = `${cs.scope}|${items.map((x) => x.key).join()}`;
@@ -2623,7 +2640,6 @@ const MdeRolloutV2Tool = (() => {
       ${cs.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(cs.error)}</b></div>` : ""}${mem.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(mem.error)}</b></div>` : ""}
       ${mem.loading ? `<p class="mini" id="mvMemProg" style="margin:0">Reading…</p>` : `<div class="tb-actions"><button class="btn primary" id="mvCsRead">🔄 Read the country groups</button></div><p class="mini muted" style="margin:8px 0 0">Reads the country user groups and their users, the Windows devices, the static user and device groups, the waves and the Revert pair — the same read as 👥 Wave members. Read-only.</p>`}</div>`;
     const sm = csModel();
-    const sigOk = cs.mapOk === csMapSig();
     // the mapping per ISO3 (§1)
     const mapRows = MdeRevert.mapping(MdeMembers.countryRows(C), C).map((x) => `<tr><td class="mini">${esc(x.region)}</td><td class="mini"><code>${esc(x.source)}</code>${x.pilot ? " 🧪" : ""}</td>
       <td class="mini">${x.user ? `<code>${esc(x.user)}</code>` : `<span style="color:var(--off)">${esc(x.why)}</span>`}</td><td class="mini">${x.device ? `<code>${esc(x.device)}</code>` : "—"}</td></tr>`).join("");
@@ -2631,16 +2647,16 @@ const MdeRolloutV2Tool = (() => {
     const mapping = `<div class="list-card" id="mvCsMap" style="margin-top:0">
       <h4 style="margin:0 0 6px">Mapping per ISO3</h4>
       <p class="mini muted" style="margin:0 0 8px">The code is the device group's own — the country table and its suffix overrides under ⚙️, never a second list. A site group keeps its own pair (NL-Breda → NLD-BREDA).</p>
-      <details${sigOk ? "" : " open"}><summary class="mini">${plural(MdeMembers.countryRows(C).length, "source group")}${unm.length ? ` · <b style="color:var(--report)">${plural(unm.length, "unmapped group")}</b>` : ""}</summary>
+      <details><summary class="mini">${plural(MdeMembers.countryRows(C).length, "source group")}${unm.length ? ` · <b style="color:var(--report)">${plural(unm.length, "unmapped group")}</b>` : ""}</summary>
       <div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>Wave</th><th>Source</th><th>User group</th><th>Device group</th></tr></thead><tbody>${mapRows}</tbody></table></div>
       ${unm.length ? `<p class="mini" style="margin:8px 0 0"><b>Not mapped — never guessed:</b> ${unm.map((u) => `<code>${esc(u.group.displayName)}</code>`).join(" ")}. Map one under ⚙️ (or 👥 → ⚠ Not in any wave) to give it a pair.</p>` : ""}</details>
-      <label class="chk" style="margin:8px 0 0"><input type="checkbox" id="mvCsMapOk"${sigOk ? " checked" : ""}> This mapping is right — groups may be created from it</label></div>`;
+      <p class="mini muted" style="margin:8px 0 0">The groups are created in one place — <a href="#" data-mrpane="members">👥 Wave members</a>, user and device side by side. This pane creates nothing.</p></div>`;
     if (!sm) return `<div class="list-card" style="margin-top:0">${intro}</div>${mapping}`;
     // the waves (§1 swap) and the per-ISO3 head (§2): last synced, drift
     const regions = sm.regions.map((g) => {
       const rows = g.rows.map((r) => {
         const route = r.sourceNested && r.staticNested ? chip("gu-how priv", "both") : r.sourceNested ? chip("au-op other", "dynamic") : r.staticNested ? chip("au-op create", "static") : `<span class="muted">not in the wave</span>`;
-        const ug = r.ug ? `<code>${esc(r.ug.name)}</code> <span class="muted">${r.userHave}</span>` : r.userGroupName ? `<code>${esc(r.userGroupName)}</code> ${chip("gu-how priv", "to create")}` : `<span style="color:var(--off)">no code</span>`;
+        const ug = r.ug ? `<code>${esc(r.ug.name)}</code> <span class="muted">${r.userHave}</span>` : r.userGroupName ? `<code>${esc(r.userGroupName)}</code> <a href="#" data-mrpane="members" class="mini">create in 👥</a>` : `<span style="color:var(--off)">no code</span>`;
         const d = r.drift ? `<b style="color:${r.stale ? "var(--report)" : "var(--on)"}">${r.drift}</b>` : `<span class="muted">0</span>`;
         const held = r.user.held.length + r.device.held.length;
         return `<tr><td class="mini">${esc(r.country)}${r.pilot ? " 🧪" : ""}<div class="muted">${esc(r.source.name)} · ${r.sourceCount}</div></td><td class="mini">${ug}</td><td class="mini">${route}</td>
@@ -2652,7 +2668,7 @@ const MdeRolloutV2Tool = (() => {
     }).join("");
     const waves = `<div class="list-card" id="mvCsWaves" style="margin-top:14px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">Waves</h4><span class="mini muted">read ${esc(new Date(sm.readAt).toLocaleTimeString())} · drift: <b>${sm.drift}</b>${sm.stale ? ` · <b style="color:var(--report)">${plural(sm.stale, "country", "countries")} not synced in ${C.syncStaleDays} days</b>` : ""} <button class="btn" id="mvCsRead">↻ Read again</button></span></div>
-      <p class="mini muted" style="margin:6px 0 0"><b>⇄ Swap</b>, per wave: the static user group is filled and nested, the wave's users are read back, and only when every user of the dynamic group is in the static one does the dynamic group come out. Effective membership is identical, so no policy moves; a difference stops that country before the unnest and says who. <b>Last synced</b> is this browser's record; the drift is read now.</p>
+      <p class="mini muted" style="margin:6px 0 0"><b>⇄ Swap</b>, per wave, for a country still nested through its dynamic group: its static user group (created and filled in 👥) is topped up and nested, the wave's users are read back, and only when every user of the dynamic group is in the static one does the dynamic group come out. Effective membership is identical, so no policy moves; a difference stops that country before the unnest and says who. <b>Last synced</b> is this browser's record; the drift is read now.</p>
       ${regions}</div>`;
     // the sync preview (§2)
     const items = csItems(sm);
@@ -2670,6 +2686,7 @@ const MdeRolloutV2Tool = (() => {
     const line = MdeRevert.reincludeLine(items, cs.ticks);
     const sync = `<div class="list-card" id="mvCsSync" style="margin-top:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><h4 style="margin:0">🔄 Sync</h4><select id="mvCsScope" aria-label="Which countries" style="max-width:320px">${scopeOpts}</select><span class="mini muted">users and devices together</span></div>
+      ${(() => { const miss = sm.rows.filter((r) => (cs.scope === "all" || r.key === cs.scope) && r.iso3 && (!r.ug || !r.dg) && (r.sourceCount || r.device.add.length)); return miss.length ? `<p class="mini" style="margin:8px 0 0;color:var(--report)">${plural(miss.length, "country", "countries")} without ${miss.length === 1 ? "its" : "their"} static groups yet (${esc(miss.slice(0, 6).map((r) => r.iso3).join(", "))}${miss.length > 6 ? " …" : ""}) — create &amp; fill them in <a href="#" data-mrpane="members">👥 Wave members</a>; this sync only keeps existing groups in step.</p>` : ""; })()}
       ${sm.failed.length ? `<div class="gu-fail" style="margin-top:8px"><b>Partly read:</b><span class="why">${sm.failed.slice(0, 5).map(esc).join("<br>")}</span></div>` : ""}
       ${items.length ? [sec("add", "Add", "ticked by default"), sec("leave", "Remove — leavers", "never ticked by default: a removal changes what policies the member gets"),
         sec("heldin", "Remove — held, still in", "in Revert or ⊘, yet in a country group"), sec("reinc", "Reverted, held back", "never ticked by default; re-including one needs the confirm below"),
@@ -2688,7 +2705,7 @@ const MdeRolloutV2Tool = (() => {
     planAnchor = "mvCsSync"; clearPlan(); seatPlan();
     const items = csItems(sm);
     const scopeRows = cs.scope === "all" ? sm.rows.map((r) => r.key) : [cs.scope];
-    const p = MdeRevert.planSync(sm, items, cs.ticks, { confirm: cs.confirm, mapConfirmed: cs.mapOk === csMapSig(), scopeRows });
+    const p = MdeRevert.planSync(sm, items, cs.ticks, { confirm: cs.confirm, scopeRows });
     if (p.refused) { planError(p.refused); showPlan(); return; }
     const r = sm.rows.find((x) => x.key === cs.scope);
     plan = Object.assign(p, { members: true, title: `🔄 Country groups — ${r ? `${r.iso3} · ${r.country}` : "all countries"}` });
@@ -2698,7 +2715,7 @@ const MdeRolloutV2Tool = (() => {
     const sm = csModel();
     if (busy || !sm) return;
     planAnchor = "mvCsWaves"; clearPlan(); seatPlan();
-    const p = MdeRevert.planSwap(sm, region, { mapConfirmed: cs.mapOk === csMapSig() });
+    const p = MdeRevert.planSwap(sm, region);
     if (p.refused) { planError(p.refused); showPlan(); return; }
     plan = Object.assign(p, { members: true, title: `⇄ Swap ${region} to static user groups` });
     renderMemPlan();
@@ -3813,7 +3830,6 @@ const MdeRolloutV2Tool = (() => {
       // 🔄 / ↩ (10679)
       if (t.dataset.mrcstick && cs.ticks) { t.checked ? cs.ticks.add(t.dataset.mrcstick) : cs.ticks.delete(t.dataset.mrcstick); cs.confirm = ""; clearPlan(); render(); return; }
       if (t.id === "mvCsConfirm") { const sm = csModel(); cs.confirm = t.checked && sm ? MdeRevert.reincludeLine(csItems(sm), cs.ticks) : ""; clearPlan(); render(); return; }
-      if (t.id === "mvCsMapOk") { cs.mapOk = t.checked ? csMapSig() : ""; clearPlan(); render(); return; }
       if (t.id === "mvCsScope") { cs.scope = t.value || "all"; cs.ticks = null; clearPlan(); render(); return; }
       if (t.dataset.mrrvtick) { t.checked ? rv.ticks.add(t.dataset.mrrvtick) : rv.ticks.delete(t.dataset.mrrvtick); clearPlan(); render(); return; }
       if (t.dataset.mrrvsel) { t.checked ? rv.sel.add(t.dataset.mrrvsel) : rv.sel.delete(t.dataset.mrrvsel); clearPlan(); render(); return; }

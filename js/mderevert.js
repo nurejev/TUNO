@@ -164,7 +164,7 @@ const MdeRevert = (() => {
         batchOpen: !!(r.batch && !r.batch.finished), source: { id: lc(r.ug.id), name: r.ug.displayName }, sourceCount: src.length,
         userGroupName: uName, ug: ug ? { id: lc(ug.id), name: ug.displayName } : null, userHave: have.size, user,
         deviceGroupName: r.deviceGroupName, dg: r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null, device,
-        wave: r.wave, sourceNested: !!r.ugNested, staticNested, dgNested: r.dgNested,
+        wave: r.wave, sourceNested: !!(r.ugNestedSrc === undefined ? r.ugNested : r.ugNestedSrc), staticNested, dgNested: r.dgNested,
         drift, lastSynced: last, stale: drift > 0 && !(age <= staleMs), why: r.iso3 ? "" : r.iso3Source });
     }
     // the Revert clean-up: a member of a Revert group no country source
@@ -192,14 +192,18 @@ const MdeRevert = (() => {
     for (const r of rows) {
       if (r.migrated) continue;
       const w = r.wave || {};
-      for (const u of r.user.add) out.push({ key: `add|u|${r.key}|${u.id}`, dir: "add", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName });
-      for (const d of r.device.add) out.push({ key: `add|d|${r.key}|${d.id}`, dir: "add", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName });
+      // 10680 (Mihai: "the group creations should be one and the same … at
+      // the wave members, keep it there — user and device, same place"):
+      // 🔄 syncs groups that exist; 👥 Wave members creates them
+      if (!r.ug && !r.dg) continue;
+      if (r.ug) for (const u of r.user.add) out.push({ key: `add|u|${r.key}|${u.id}`, dir: "add", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName });
+      if (r.dg) for (const d of r.device.add) out.push({ key: `add|d|${r.key}|${d.id}`, dir: "add", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName });
       for (const u of r.user.leave) out.push({ key: `leave|u|${r.key}|${u.id}`, dir: "leave", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, why: `no longer in ${r.source.name}` });
       for (const d of r.device.leave) out.push({ key: `leave|d|${r.key}|${d.id}`, dir: "leave", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, why: "its primary user is no longer in the country" });
       for (const u of r.user.heldIn) out.push({ key: `heldin|u|${r.key}|${u.id}`, dir: "heldin", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, why: "in Revert, yet still in the country group" });
       for (const d of r.device.heldIn) out.push({ key: `heldin|d|${r.key}|${d.id}`, dir: "heldin", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, why: d.why === "reverted" ? "in Revert, yet still in the country group" : "⊘ excluded — kept on the old set" });
-      for (const u of r.user.held) out.push({ key: `reinc|u|${r.key}|${u.id}`, dir: "reinc", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, reason: u.reason, wave: w.userName || r.region });
-      for (const d of r.device.held) out.push({ key: `reinc|d|${r.key}|${d.id}`, dir: "reinc", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, reason: d.reason, wave: w.deviceName || r.region });
+      if (r.ug) for (const u of r.user.held) out.push({ key: `reinc|u|${r.key}|${u.id}`, dir: "reinc", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, reason: u.reason, wave: w.userName || r.region });
+      if (r.dg) for (const d of r.device.held) out.push({ key: `reinc|d|${r.key}|${d.id}`, dir: "reinc", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, reason: d.reason, wave: w.deviceName || r.region });
     }
     if (!scope || scope === "all") {
       for (const u of sm.cleanup.users) out.push({ key: `clean|u|-|${u.id}`, dir: "clean", kind: "user", row: null, id: u.id, name: u.upn, group: sm.cfg.revertUser, reason: u.reason, why: "in no country source any more" });
@@ -216,7 +220,8 @@ const MdeRevert = (() => {
     const waves = [...new Set(re.map((x) => x.row.region))];
     return `re-include ${[u ? plural(u, "user") : "", d ? plural(d, "device") : ""].filter(Boolean).join(" and ")} in wave ${waves.join(", ")}; they lose the old MDE policies`;
   }
-  // opt: { confirm: the line the admin ticked, mapConfirmed }
+  // opt: { confirm: the line the admin ticked, scopeRows }. Creates nothing
+  // (10680) — a missing group is created in 👥 Wave members.
   function planSync(sm, items, ticks, opt) {
     const o = opt || {};
     const cfg = sm.cfg;
@@ -226,7 +231,6 @@ const MdeRevert = (() => {
     if (line && o.confirm !== line) return { ops: [], skipped: [], warnings: [], refused: `A reverted member is ticked to go back in. Tick the confirm line — “${line}” — or untick the row.`, runKind: "groupsync" };
     const byRow = new Map();
     for (const x of picked) { const k = x.row ? x.row.key : "-"; if (!byRow.has(k)) byRow.set(k, []); byRow.get(k).push(x); }
-    const needsCreate = [];
     for (const [k, list] of byRow) {
       if (k === "-") continue;
       const r = list[0].row;
@@ -240,12 +244,9 @@ const MdeRevert = (() => {
       if (uIn.length) {
         if (!r.userGroupName) skipped.push(`${tag}: ${r.why || "no ISO3 code"}`);
         else {
-          if (!uRef) {
-            needsCreate.push(r.userGroupName);
-            ops.push({ type: "create", key: r.key, name: r.userGroupName, who, description: cfg.userGroupDescription.replace("{userGroup}", r.source.name) });
-            uRef = { ref: r.userGroupName, name: r.userGroupName };
-          }
-          uAddIdx = ops.length;
+          if (!uRef) { skipped.push(`${tag}: ${r.userGroupName} does not exist — create it in 👥 Wave members`); uAddIdx = null; }
+          else uAddIdx = ops.length;
+          if (uRef)
           ops.push({ type: "add", key: r.key, group: uRef, ids: uIn.map((x) => x.id), memberKind: "user", who, label: short(uIn.map((x) => x.name)),
             objs: uIn.map((x) => ({ id: x.id, userPrincipalName: x.name, displayName: x.name })) });
         }
@@ -260,12 +261,9 @@ const MdeRevert = (() => {
       if (dIn.length) {
         if (!r.deviceGroupName) skipped.push(`${tag}: ${r.why || "no device group name"}`);
         else {
-          if (!dRef) {
-            needsCreate.push(r.deviceGroupName);
-            ops.push({ type: "create", key: r.key, name: r.deviceGroupName, who, description: String(cfg.deviceGroupDescription || "").replace("{userGroup}", r.source.name) });
-            dRef = { ref: r.deviceGroupName, name: r.deviceGroupName };
-          }
-          dAddIdx = ops.length;
+          if (!dRef) { skipped.push(`${tag}: ${r.deviceGroupName} does not exist — create it in 👥 Wave members`); dAddIdx = null; }
+          else dAddIdx = ops.length;
+          if (dRef)
           ops.push({ type: "add", key: r.key, group: dRef, ids: dIn.map((x) => x.id), memberKind: "device", who, label: short(dIn.map((x) => x.name)), objs: dIn.map((x) => ({ id: x.id, displayName: x.name })) });
         }
       }
@@ -285,7 +283,6 @@ const MdeRevert = (() => {
       label: `${short(cu.map((x) => x.name))} — in no country source`, objs: cu.map((x) => ({ id: x.id, userPrincipalName: x.name, displayName: x.name })) });
     if (cd.length && sm.revert.device) ops.push({ type: "remove", key: "revert-cleanup", group: { id: lc(sm.revert.device.id), name: sm.revert.device.displayName }, ids: cd.map((x) => x.id), memberKind: "device", who: "Revert clean-up", batch: true,
       label: `${short(cd.map((x) => x.name))} — in no country any more`, objs: cd.map((x) => ({ id: x.id, displayName: x.name })) });
-    if (needsCreate.length && !o.mapConfirmed) return { ops: [], skipped, warnings, refused: `This sync creates ${short(needsCreate)}. Confirm the mapping per ISO3 first.`, runKind: "groupsync" };
     if (picked.some((x) => x.dir === "leave" || x.dir === "heldin")) warnings.push("A member taken out of a country group leaves its wave: the new MDE policies stop reaching it and the old ones reach it again.");
     const large = cfg.largeNest || 500;
     for (const op of ops) if (op.type === "add" && op.ids.length > large) warnings.push(`${op.group.name}: ${op.ids.length} members at once`);
@@ -302,7 +299,6 @@ const MdeRevert = (() => {
     const cfg = sm.cfg;
     const ops = [], skipped = [], warnings = [];
     const rows = sm.rows.filter((r) => r.region === region);
-    const needsCreate = [];
     for (const r of rows) {
       const tag = `${r.country} (${r.source.name})`;
       if (!r.sourceNested) { if (r.staticNested) skipped.push(`${tag}: already swapped — ${r.userGroupName} is in the wave`); continue; }
@@ -313,14 +309,9 @@ const MdeRevert = (() => {
       if (r.user.held.length || r.user.heldIn.length) { skipped.push(`${tag}: ${plural(r.user.held.length + r.user.heldIn.length, "user")} of the source ${r.user.held.length + r.user.heldIn.length === 1 ? "is" : "are"} in ${cfg.revertUser} — the wave's membership would change; sort that out in 🔄 first`); continue; }
       const who = `${r.country} · swap`;
       const wave = { id: lc(r.wave.user.id), name: r.wave.user.displayName };
-      let ref = r.ug ? { id: r.ug.id, name: r.ug.name } : null;
+      if (!r.ug) { skipped.push(`${tag}: ${r.userGroupName} does not exist — create & fill it in 👥 Wave members first`); continue; }
+      const ref = { id: r.ug.id, name: r.ug.name };
       const need = [];
-      if (!ref) {
-        needsCreate.push(r.userGroupName);
-        need.push(ops.length);
-        ops.push({ type: "create", key: r.key, name: r.userGroupName, who, description: cfg.userGroupDescription.replace("{userGroup}", r.source.name) });
-        ref = { ref: r.userGroupName, name: r.userGroupName };
-      }
       if (r.user.add.length) {
         need.push(ops.length);
         ops.push({ type: "add", key: r.key, group: ref, ids: r.user.add.map((u) => u.id), memberKind: "user", who, label: `${plural(r.user.add.length, "user")} of ${r.source.name}`,
@@ -335,7 +326,6 @@ const MdeRevert = (() => {
       ops.push({ type: "swapcheck", key: r.key, source: r.source, target: ref, wave, who, needsOk: need.length ? need : undefined });
       ops.push({ type: "unnest", key: r.key, parent: wave, child: { id: r.source.id, name: r.source.name }, kind: "user", who, needsOk: [check] });
     }
-    if (needsCreate.length && !o.mapConfirmed) return { ops: [], skipped, warnings, refused: `The swap creates ${short(needsCreate)}. Confirm the mapping per ISO3 first.`, runKind: "waveswap" };
     return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "unnest"), runKind: "waveswap", region };
   }
 
@@ -379,7 +369,7 @@ const MdeRevert = (() => {
     // the sources still nested in a user wave — a user who reaches the wave
     // only through one cannot be reverted until that wave is swapped
     const dyn = new Map();
-    for (const r of ctx.rows || []) if (r.ug && r.ugNested) dyn.set(lc(r.ug.id), r);
+    for (const r of ctx.rows || []) if (r.ug && (r.ugNestedSrc === undefined ? r.ugNested : r.ugNestedSrc)) dyn.set(lc(r.ug.id), r);
     let uDone = false, dDone = false;
     if (uTick) {
       const u = card.user;
