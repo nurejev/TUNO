@@ -70,7 +70,8 @@ async function run() {
     pinned: new Set(["e9"]), pinnedGroup: { id: "gpin", name: "INT-SG-D-MDE-Pinned" },
     logonRead: { intune: true, defender: true }, failed: [], readAt: now,
   };
-  const cfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }], pilots: [], batched: [] });
+  // the chain on its own first: a user's other devices (10683) off
+  const cfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }], pilots: [], batched: [], useUsersDevices: false });
   const waves = new Map([["euro", { user: null, device: null, userName: "U", deviceName: "D" }]]);
   const m = MM.compute(cfg, input, waves, now);
   const NL = m.rows.find((r) => r.suffix === "NL"), DE = m.rows.find((r) => r.suffix === "DE");
@@ -104,6 +105,40 @@ async function run() {
   MM.patchInput(input, [{ type: "remove", group: { id: "gpin" }, ids: ["e9"], memberKind: "device" }]);
   const m2 = MM.compute(cfg, input, waves, now);
   ok("unpinned: PINNED-9 becomes a removal of INT-SG-D-NLD (taken out with “apply removals”)", !input.pinned.has("e9") && m2.rows.find((r) => r.suffix === "NL").remove.includes("e9"));
+
+  // ---------------------------------------------- a user's devices (10683) --
+  // Mihai: "user with multiple devices which have sign-in in last 30 days
+  // should be included for that user and there should then be option to
+  // unselect a certain device"
+  const inU = Object.assign({}, input, {
+    pinned: new Set(), skip: new Set(), skipGroup: { id: "gskip", name: "INT-SG-D-MDE-Skip" },
+    entra: input.entra.map((e) => Object.assign({}, e, { approximateLastSignInDateTime: e.id === "e5" ? iso(now - 45 * day) : iso(now - day) })),
+    deviceMembers: new Map([["dnl", new Set(["e3", "e9", "e4"])]]),
+    entraUsers: new Map([["e3", new Set([uNL])], ["e4", new Set([uNL])], ["e5", new Set([uNL])], ["e2", new Set([uDE])]]),
+  });
+  const cfgU = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL", "DE"] }], pilots: [], batched: [] });
+  const mu = MM.compute(cfgU, inU, waves, now);
+  const NLu = mu.rows.find((r) => r.suffix === "NL"), DEu = mu.rows.find((r) => r.suffix === "DE");
+  ok("a user's devices: SHARED-04 (Nina's in Entra and by logon) is in NL too, beside DE where Dirk's logons put it", dev(NLu, "SHARED-04") && dev(NLu, "SHARED-04").via === "also" && dev(DEu, "SHARED-04") && NLu.want.has("e4") && DEu.want.has("e4"));
+  ok("…its row names the sources, and a device in two countries this way is not 'to look at'", dev(NLu, "SHARED-04").also.join() === "entra,defender" && dev(NLu, "SHARED-04").shared && NLu.problems.multi === 0);
+  ok("NLD3 (Nina's by primary user) is Dirk's device too by his Defender logons — in DE as well", dev(DEu, "NLD3") && dev(DEu, "NLD3").via === "also" && dev(DEu, "NLD3").also.join() === "defender");
+  ok("LAB-02 is Dirk's in Entra (active yesterday): in DE as well as NL (Noor's logons)", dev(DEu, "LAB-02") && dev(NLu, "LAB-02"));
+  ok("an Entra device inactive for 45 days is not added (XYZ-05)", !mu.rows.some((r) => r.devices.some((d) => d.name === "XYZ-05")));
+  ok("the count of devices added as a user's device", mu.alsoCount >= 3, String(mu.alsoCount));
+  const offU = MM.compute(MM.normConfig(Object.assign({}, cfgU, { useUsersDevices: false })), inU, waves, now);
+  ok("switched off: no device is added as another user's", !offU.rows.some((r) => r.devices.some((d) => d.via === "also")));
+  // ⊝ untick SHARED-04 for everyone, and NLD3 (its primary user keeps it in NL)
+  const ps = MM.planSkip(mu, inU, ["e4", "e3"], [], cfgU);
+  ok("untick: into the skip group first, then out of the country groups it is in — not where its primary user keeps it", ps.skips && ps.ops[0].type === "add" && ps.ops[0].group.id === "gskip" && ps.ops[0].ids.join() === "e4,e3"
+    && ps.ops.filter((o) => o.type === "remove").every((o) => o.needsOk.join() === "0" && !o.ids.includes("e3")) && ps.hasRemoval && ps.warnings.some((x) => /primary user/.test(x)), JSON.stringify(ps.ops.map((o) => [o.type, o.group.name || o.group.id, o.ids])));
+  inU.skip.add("e4"); inU.skip.add("e3"); inU.deviceMembers.get("dnl").delete("e4");   // the run landed
+  const ms = MM.compute(cfgU, inU, waves, now);
+  const NLs = ms.rows.find((r) => r.suffix === "NL"), DEs = ms.rows.find((r) => r.suffix === "DE");
+  ok("unticked: SHARED-04 is wanted nowhere (also not by Dirk's Defender step); NLD3 stays in NL by its primary user, not in DE", !NLs.add.includes("e4") && !NLs.want.has("e4") && !DEs.want.has("e4") && dev(DEs, "SHARED-04").skipped && NLs.want.has("e3") && !DEs.want.has("e3") && NLs.problems.skipped >= 1);
+  const pi = MM.planSkip(ms, inU, [], ["e4"], cfgU);
+  ok("tick again: out of the skip group, then back where a rule wants it", pi.ops[0].type === "remove" && pi.ops[0].group.id === "gskip" && pi.ops.filter((o) => o.type === "add").every((o) => o.needsOk.join() === "0") && pi.ops.some((o) => o.type === "add" && o.ids.includes("e4")));
+  MM.patchInput(inU, [{ type: "remove", group: { id: "gskip" }, ids: ["e4"], memberKind: "device" }]);
+  ok("patchInput moves the skip set", !inU.skip.has("e4") && inU.skip.has("e3"));
 
   console.log(`T28 wave coverage: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

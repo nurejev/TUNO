@@ -21,3 +21,7 @@ h1>.fi-run>.enca-icon-slot .enca-icon,h2>.fi-run>.enca-icon-slot .enca-icon,h3>.
 /* TUNO: a chip (.tag, .state) is 11 px type; its icon is 13 px, so the chip
    keeps its height and the card around it its layout. */
 .tag .enca-icon,.state .enca-icon{width:13px;height:13px;vertical-align:-2px}
+/* TUNO (10683): a click on a button's words lands on the button. The words
+   sit in span.fi-run with the icon, and a tool that checks the click's
+   target id (T28's ⭳ CSV did) missed every click on them. */
+button .fi-run,a .fi-run,[role="button"] .fi-run{pointer-events:none}

@@ -318,6 +318,18 @@ async function run() {
   ok("devices with no primary user, owner or country code are counted — and the header says how a country is found (10655)", mm().noPrimary === 2 && /2 of \d+ in no country/.test($("mvBody").textContent)
     && /Devices placed by:[\s\S]*① primary user[\s\S]*② Intune last logon[\s\S]*③ Defender logons[\s\S]*④ Entra owner[\s\S]*⑤ name \/ location/.test($("mvBody").textContent) && !mm().failed.some((f) => /owner/.test(f)));
   ok("PL is not in any wave", mm().unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
+  // 10683 (Mihai: "button not working"): a click on the words of ⭳ CSV — the
+  // span flat-icons wraps them in — is the button's
+  {
+    let blobs = 0; const realUrl = w.URL.createObjectURL; w.URL.createObjectURL = () => { blobs++; return "blob:x"; };
+    // flat-icons wraps the icon and the words in span.fi-run in a browser; do the same here
+    let run = $("mvMemCsv").querySelector(".fi-run");
+    if (!run) { run = D.createElement("span"); run.className = "fi-run"; while ($("mvMemCsv").firstChild) run.appendChild($("mvMemCsv").firstChild); $("mvMemCsv").appendChild(run); }
+    (run || $("mvMemCsv")).dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    w.URL.createObjectURL = realUrl;
+    ok("⭳ CSV: a click on its words downloads the CSV", !!run && blobs === 1, `run=${!!run} blobs=${blobs}`);
+    ok("…and the stylesheet lets such a click through to the button", /button \.fi-run[^{]*\{pointer-events:none\}/.test(fs.readFileSync(path.join(ROOT, "css/flat-icons.css"), "utf8")));
+  }
   // 🕳 Left out (10642, Mihai: "I need a way to know who is getting left
   // out"; layout A): Sam (FR) has only a Mac; svc-legacyapp's laptop has a
   // primary user in no country group; two Windows devices have no user.
