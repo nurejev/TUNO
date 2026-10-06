@@ -62,6 +62,10 @@ const MdeRolloutV2Tool = (() => {
   // the new and old policies — the index, when it was read, the previous
   // read's counts (so a fix shows "was 12 → 0 cleared"), and its running line
   const dv = { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" };
+  // 🧪 Test members per wave (10688, option A off the mockup): the region
+  // whose panel is open, each region's test groups as read, the list looked
+  // up from a CSV / paste, its ticks, and the current members ticked out
+  const tm = { region: null, test: new Map(), loading: false, error: "", text: "", note: "", busy: false, list: [], ticks: new Set(), rem: new Set(), misses: [] };
   const devCounts = () => (dv.idx ? M.deviceCounts(pairs, dv.idx) : null);
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
@@ -346,6 +350,7 @@ const MdeRolloutV2Tool = (() => {
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(dv, { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" });
+    Object.assign(tm, { region: null, loading: false, error: "", text: "", note: "", busy: false, list: [], misses: [] }); tm.test.clear(); tm.ticks.clear(); tm.rem.clear();
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
     Object.assign(cs, { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" }); csCache = null;
@@ -690,14 +695,23 @@ const MdeRolloutV2Tool = (() => {
         const fixable = new Set(pairs.filter((pr) => M.needsAction(pr) && pr.N.reach.inc.has(w.id) && pr.proposal && pr.proposal.steps.some((st) => (st.groupId === w.id || st.twinOfId === w.id) && st.supported !== false)).map((pr) => pr.O.key)).size;
         return `${plural(w.pending.length, "old policy", "old policies")}${fixable ? ` · <a href="#" data-mrwavefix="${esc(w.id)}">select the ${fixable} fixable →</a>` : ""}${fixable < w.pending.length ? `<div style="color:var(--off)">${w.pending.length - fixable} need ${w.twinId ? "an assignment filter" : `${esc(w.twin)} (create it here)`}</div>` : ""}`;
       })() : `<span class="muted">none</span>`) : "—";
+      // 🧪 (10688): the region's test group, its count once read
+      let testCell = `<span class="mini muted">—</span>`;
+      if (w.role === "wave") {
+        const t = tm.test.get(w.region), side = t && t[w.audience];
+        const btn = w.audience === "user" ? `<div><button class="btn" type="button" data-mrtest="${esc(w.region)}">🧪 Test members${tm.region === w.region ? " ▴" : " ▾"}</button></div>` : "";
+        testCell = side ? (side.group ? `<b>${plural(side.members.length, w.audience)}</b> in <code>${esc(side.name)}</code>${side.nested ? "" : ` <span style="color:var(--report)">· not nested</span>`}` : `<span class="muted">no test group yet</span>`) + btn
+          : btn || `<span class="muted">—</span>`;
+      }
       return `<tr><td style="width:26px">${pick}</td>
         <td><b>${esc(w.name)}</b><div class="mini muted">${w.id ? `<code data-selall>${esc(w.id)}</code>` : ""}</div></td>
         <td>${status}</td>
         <td class="mini">${kindCell}</td>
         <td class="mini">${newCell}</td>
-        <td class="mini">${oldCell}</td></tr>`;
+        <td class="mini">${oldCell}</td>
+        <td class="mini">${testCell}</td></tr>`;
     };
-    const head = (label, sub) => `<tr class="mr-oldhead"><td colspan="6"><b>${esc(label)}</b>${sub ? ` <span class="mini muted">${esc(sub)}</span>` : ""}</td></tr>`;
+    const head = (label, sub) => `<tr class="mr-oldhead"><td colspan="7"><b>${esc(label)}</b>${sub ? ` <span class="mini muted">${esc(sub)}</span>` : ""}</td></tr>`;
     let rows = "";
     const regions = [...new Set(waveRows.filter((w) => w.role === "wave").map((w) => w.region))];
     for (const r of regions) {
@@ -711,7 +725,8 @@ const MdeRolloutV2Tool = (() => {
     return `${rolloutCard()}<div class="list-card" style="margin-top:0">
       <p class="mini muted" style="margin:0 0 10px">The rollout's groups, from the ⚙️ naming rules: per region a <b>device</b> wave for the <code>- D -</code> policies and a <b>user</b> wave for the <code>- U -</code> ones, plus one device and one user <b>exclusion</b> group to exclude from the new policies. A missing one can be created here as an <b>assigned (static) security group</b> — empty, not mail-enabled, not role-assignable — the same payload T22 creates, <b>owned by you</b>: Graph does not make an admin the owner of a security group they create, so you are named owner in the create and the owners are read back. Membership is yours to fill (Entra, or 🔄 T22). Each group is looked up again by name right before it is created, so a group made meanwhile is never made twice.</p>
       <p class="mini" style="margin:0 0 10px;color:var(--report)">⚠ Intune does not exclude a user group from a policy assigned to device groups, or the reverse — it does not evaluate user-to-device relationships (Microsoft Learn, assignment support matrix). So the ⚔️ pane excludes the wave of the old policy's kind: a device-targeted old policy gets the region's device wave, even when the new policy included the user wave.</p>
-      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:27%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col></colgroup><thead><tr><th></th><th>Group</th><th>Status</th><th>For · kind</th><th title="New policies of this group's kind (or whose name does not say) that include it — or, for an exclusion group, exclude it">New policies</th><th>Old to exclude it</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:10%"><col style="width:14%"><col style="width:17%"><col style="width:16%"><col></colgroup><thead><tr><th></th><th>Group</th><th>Status</th><th>For · kind</th><th title="New policies of this group's kind (or whose name does not say) that include it — or, for an exclusion group, exclude it">New policies</th><th>Old to exclude it</th><th title="Users and devices put in this wave ahead of their country, through a test group nested in it">🧪 Test members</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${tm.region ? tmPanelHtml() : ""}
       <div class="tb-actions" style="margin-top:12px">
         <label class="chk" style="margin:0"><input type="checkbox" id="mvWaveOk"${nSel ? "" : " disabled"}> Create ${plural(nSel, "group")} in this tenant</label>
         <button class="btn primary" id="mvWaveCreate" disabled>🌊 Create the selected groups</button>
@@ -725,6 +740,140 @@ const MdeRolloutV2Tool = (() => {
           <a href="#" data-mrrenameall="1" class="mini">tick all ${waveRows.filter((w) => w.legacy && !w.exists).length}</a>
         </div></div>` : ""}
       <div id="mvWaveLedger"></div>
+    </div>`;
+  }
+
+  // ------------------------------------------- 🧪 test members (10688) --
+  // Mihai (6 Oct 2026): "need a option per wave to add testusers and
+  // devices based on a import csv file" — option A (a test group per wave,
+  // nested in it), one file per wave. The engine is js/mdetest.js; the
+  // lookup is ⊘'s list with ↩'s lookup; the plan, gates and apply are 👥's.
+  const regionOfSuffix = (suf) => {
+    const s = lc(String(suf || "").replace(/^\*/, ""));
+    for (const r of mcfg().countryMap || []) if ((r.suffixes || []).some((x) => lc(String(x).replace(/^\*/, "")) === s)) return r.region;
+    return null;
+  };
+  function tmCountryRegion(card) {
+    const u = card && card.user;
+    if (!u || !u.direct) return null;
+    const pre = lc(mcfg().countryPrefix);
+    const stat = MdeRevert.countryNames(mem.model ? mem.model.rows : [], mcfg()).user;
+    for (const g of u.direct) {
+      const n = lc(g.name);
+      if (stat.has(n)) return stat.get(n).region;
+      if (pre && n.startsWith(pre)) { const r = regionOfSuffix(g.name.slice(pre.length)); if (r) return r; }
+    }
+    return null;
+  }
+  const tmCtx = () => ({ cfg: mcfg(), region: tm.region, countryRegion: tmCountryRegion });
+  async function tmRead(region) {
+    tm.loading = true; tm.error = ""; render();
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.groups);
+      tm.test.set(region, await MdeTest.read(waveRows, region, (m) => { const el = $("mvTmProg"); if (el) el.textContent = m; }));
+      // the list's "already a test member" follows the read
+      if (tm.region === region && tm.list.length) {
+        const t = tm.test.get(region);
+        const ids = { u: new Set(t.user ? t.user.members.map((m) => m.id) : []), d: new Set(t.device ? t.device.members.map((m) => m.id) : []) };
+        for (const e of tm.list) {
+          if (e.user) { e.user.already = ids.u.has(e.user.id); if (e.user.already) tm.ticks.delete(MdeTest.userKey(e.user)); }
+          for (const d of e.devices) { d.already = !!(d.objId && ids.d.has(d.objId)); if (d.already) tm.ticks.delete(MdeTest.devKey(d)); }
+        }
+      }
+    } catch (e) { tm.error = GroupUse.shortErr(e, 300); }
+    finally { tm.loading = false; render(); }
+  }
+  function tmOpen(region) {
+    if (tm.region === region) { tm.region = null; render(); return; }
+    Object.assign(tm, { region, error: "", text: "", note: "", list: [], misses: [] });
+    tm.ticks.clear(); tm.rem.clear();
+    if (plan && !busy && planAnchor === "mvTmPanel") clearPlan();
+    tmRead(region);
+  }
+  async function tmLookup() {
+    const t = $("mvTmText"); if (t) tm.text = t.value;
+    const parsed = MdeTest.parse(tm.text);
+    if (!parsed.lines.length || tm.busy || !tm.region) return;
+    tm.busy = true; tm.error = ""; tm.note = `Looking up ${plural(parsed.lines.length, "line")}…`; render();
+    try {
+      if (!ex.base) await exRead();
+      if (!ex.base) throw new Error(ex.error || "The Intune device list could not be read.");
+      await Graph.ensureScopes(MdeExclude.scopes());
+      const L = await MdeExclude.resolveList(parsed.lines, ex.base, Object.assign({}, exOpt(), { light: false, lookup: MdeRevert.lookup }),
+        (m) => { if (!m) return; tm.note = m; const el = $("mvTmProg"); if (el) el.textContent = m; });
+      const fresh = MdeTest.entries(L.items, tm.test.get(tm.region), tmCtx());
+      const have = new Set(tm.list.map((e) => e.key));
+      const added = fresh.filter((e) => !have.has(e.key));
+      tm.list = tm.list.concat(added);
+      MdeTest.defaultTicks(added).forEach((k) => tm.ticks.add(k));
+      tm.misses = L.items.filter((it) => !it.card);
+      tm.note = `${plural(added.length, "line")} found${tm.misses.length ? ` · ${tm.misses.length} not` : ""}${parsed.truncated ? ` · only the first ${parsed.max} of ${parsed.total} looked up` : ""}${L.failed.length ? ` · partly read: ${L.failed.slice(0, 2).join("; ")}` : ""}.`;
+      if (!parsed.truncated) tm.text = "";
+      if (plan && !busy && planAnchor === "mvTmPanel") clearPlan();
+    } catch (e) { tm.error = GroupUse.shortErr(e, 300); tm.note = ""; }
+    finally { tm.busy = false; render(); }
+  }
+  async function tmFile(f) {
+    if (!f) return;
+    try {
+      const p = MdeTest.parse(await fileText(f));
+      tm.text = p.values.join("\n");
+      tm.note = p.total ? `${f.name}: ${plural(p.total, "line")}${p.column ? ` from “${p.column}”` : ""} — 🔎 Look up to check them.` : `Nothing to look up in ${f.name}.`;
+      tm.error = "";
+    } catch (e) { tm.error = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; }
+    render();
+  }
+  function tmDry() {
+    if (busy || !tm.region) return;
+    const t = tm.test.get(tm.region);
+    if (!t) return;
+    planAnchor = "mvTmPanel"; clearPlan(); seatPlan();
+    const p = MdeTest.plan(t, tm.list, tm.ticks, tm.rem, tm.region);
+    plan = Object.assign(p, { members: true });
+    renderMemPlan();
+  }
+  function tmPanelHtml() {
+    const r = tm.region, t = tm.test.get(r), N = MdeTest.names(waveRows, r);
+    const sideHtml = (a) => {
+      const side = t && t[a];
+      if (!N[a].name) return `<p class="mini muted" style="margin:4px 0">No ${a} wave for ${esc(r)} in ⚙️.</p>`;
+      if (!t) return `<p class="mini muted" style="margin:4px 0"><code>${esc(N[a].name)}</code> — ${tm.loading ? "reading…" : "not read"}</p>`;
+      const head = `<p class="mini" style="margin:6px 0 4px"><b>${a === "user" ? "👤" : "💻"} <code>${esc(side.name)}</code></b> — ${side.dupes ? `<span style="color:var(--off)">${side.dupes} groups share this name</span>`
+        : side.group ? `${plural(side.members.length, a)} · ${side.nested ? `nested in ${esc(side.wave.name)}` : `<span style="color:var(--report)">not nested in ${esc(side.wave ? side.wave.name : "the wave")} yet — the dry run nests it</span>`}`
+        : `<span class="muted">not created yet — the first apply creates it and nests it in ${esc(side.wave ? side.wave.name : "the wave")}</span>`}${side.wave && !side.wave.exists ? ` · <span style="color:var(--off)">${esc(side.wave.name)} does not exist — create it above first</span>` : ""}</p>`;
+      const rows = side.members.map((m) => `<label class="chk" style="display:inline-flex;gap:6px;margin:2px 10px 2px 0"><input type="checkbox" data-mrtmrem="${esc(m.id)}"${tm.rem.has(m.id) ? "" : " checked"}> ${esc(m.name)}${m.upn && m.upn !== m.name ? ` <span class="muted">${esc(m.upn)}</span>` : ""}</label>`).join("");
+      return head + (rows ? `<div class="mini" style="margin:0 0 4px">${rows}</div>` : "");
+    };
+    const parsed = MdeTest.parse(tm.text);
+    const flag = (x, kind) => [x.already ? chip("au-op create", "already a test member") : "", x.avd ? chip("au-op delete", "-vdi- · out of scope") : "", x.revert ? chip("au-op update", "in ↩ Revert") : "", x.excluded ? chip("gu-how priv", "in ⊘ Exclusion") : "",
+      kind === "device" && x.stale ? chip("gu-how priv", "no sync lately") : "", kind === "device" && x.problem ? `<span class="mini" style="color:var(--off)">${esc(x.problem)}</span>` : ""].filter(Boolean).join(" ");
+    const tk = (key, on, dis, label) => `<input type="checkbox" data-mrtmtick="${esc(key)}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(label)}">`;
+    const rows = tm.list.map((e) => {
+      const u = e.user;
+      const uCell = u ? `${tk(MdeTest.userKey(u), tm.ticks.has(MdeTest.userKey(u)), !MdeTest.tickable.user(u), u.name)} <b>${esc(u.name)}</b> <span class="muted">${esc(u.upn)}</span> ${flag(u, "user")}` : `<span class="muted">— a device line</span>`;
+      const dCell = e.devices.length ? e.devices.map((d) => `<div>${tk(MdeTest.devKey(d), tm.ticks.has(MdeTest.devKey(d)), !MdeTest.tickable.device(d), d.name)} ${esc(d.name)} ${flag(d, "device")}</div>`).join("") : `<span class="muted">no Windows device</span>`;
+      return `<tr><td class="mini"><code>${esc(e.line)}</code></td><td class="mini">${uCell}${e.note ? `<div style="color:var(--report)">⚠ ${esc(e.note)}</div>` : ""}</td><td class="mini">${dCell}</td></tr>`;
+    }).join("");
+    const missWhy = (it) => it.kind === "many" ? `${it.count} ${it.what} answer to it` : it.kind === "notwin" ? `not a Windows device (${it.note})` : it.kind === "listed" ? `already listed with ${it.note}` : it.kind === "error" ? `not read: ${it.note}` : it.line.includes("@") ? "no user has this UPN or e-mail" : "no device in Intune or Entra has this name";
+    const nTick = tm.ticks.size, nRem = tm.rem.size;
+    return `<div class="ep-brief" id="mvTmPanel" style="margin:12px 0 0">
+      <h4 style="margin:0 0 4px">🧪 Test members · ${esc(r)} <span class="mini muted" style="font-weight:400">— into ${[N.user.name, N.device.name].filter(Boolean).map((n) => `<code>${esc(n)}</code>`).join(" / ")}, nested in the waves</span></h4>
+      ${sideHtml("user")}${sideHtml("device")}
+      <p class="mini muted" id="mvTmProg" style="margin:4px 0">${esc(tm.loading || tm.busy ? tm.note : "")}</p>
+      ${tm.error ? `<div class="gu-fail"><b>${esc(tm.error)}</b></div>` : ""}
+      <p class="mini" style="margin:10px 0 4px"><b>Add from a CSV</b> — a <code>UserPrincipalName</code> (or UPN / Mail) column, a <code>DeviceName</code> column, or both; or one value per line. A user brings their Windows devices, each with a tick.</p>
+      <textarea id="mvTmText" class="mr-exlisttext" rows="4" spellcheck="false" autocomplete="off" placeholder="UserPrincipalName,DeviceName&#10;anna.bakker@contoso.com,NLD5CD5502ZZQ&#10;jan.devries@contoso.com," aria-label="Test users and devices">${esc(tm.text)}</textarea>
+      <div class="tb-actions" style="margin-top:8px;align-items:center">
+        <label class="btn mr-exfile" title="A .csv with a UPN / Mail and/or DeviceName column, or a .txt with one per line">⭱ Load .csv / .txt<input type="file" id="mvTmFile" accept=".csv,.txt,text/csv,text/plain"></label>
+        <button class="btn primary" id="mvTmLookup"${tm.busy || !parsed.lines.length || !t ? " disabled" : ""}>${tm.busy ? "Looking up…" : `🔎 Look up · ${plural(parsed.lines.length, "line")}`}</button>
+        ${tm.note && !tm.busy && !tm.loading ? `<span class="mini muted">${esc(tm.note)}</span>` : ""}</div>
+      ${tm.misses.length ? `<details style="margin-top:8px"><summary class="mini"><b style="color:var(--report)">${plural(tm.misses.length, "line")} not found</b></summary><ul class="mini" style="margin:6px 0 0">${tm.misses.map((it) => `<li><code>${esc(it.line)}</code> — ${esc(missWhy(it))}</li>`).join("")}</ul></details>` : ""}
+      ${rows ? `<div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><colgroup><col style="width:22%"><col style="width:38%"><col></colgroup><thead><tr><th>Line</th><th>User</th><th>Devices</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+      <div class="tb-actions" style="margin-top:10px;align-items:center">
+        <button class="btn primary" id="mvTmDry"${busy || !t || (!nTick && !nRem) ? " disabled" : ""}>② Dry run — ${plural(nTick, "addition")}${nRem ? ` · ${nRem} out` : ""}</button>
+        ${tm.list.length ? `<button class="btn" id="mvTmClear">Clear the list</button>` : ""}
+        <button class="btn" id="mvTmReread"${tm.loading ? " disabled" : ""}>↻ Read the test groups again</button></div>
+      <p class="mini muted" style="margin:8px 0 0">-vdi- devices are never added. A member of ↩ Revert starts unticked; a member of ⊘ Exclusion is said — in the wave, still skipping the new policies. Unticking a current test member takes it out (typed REMOVE). Dry run, group backup and ④ Apply as in 👥, every write read back, undo in 📜.</p>
     </div>`;
   }
 
@@ -2642,7 +2791,8 @@ const MdeRolloutV2Tool = (() => {
     let p;
     if (undoOf) p = MdeMembers.inverseOf(undoOf.done);
     else p = MdeMembers.planOps(mem.model, new Set(mem.model.rows.filter((r) => r.region === mem.region && mem.sel.has(r.key)).map((r) => r.key)), mem.opts, mcfg());
-    plan = Object.assign(p, { members: true, runKind: undoOf ? (undoOf.runKind === "revert" ? "revert" : null) : p.runKind, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), unmigrate: undoOf && undoOf.migrate && undoOf.migrate.length ? undoOf.migrate : null,
+    plan = Object.assign(p, { members: true, runKind: undoOf ? (undoOf.runKind === "revert" || undoOf.runKind === "testmembers" ? undoOf.runKind : null) : p.runKind, exclusions: !!(undoOf && undoOf.exclusions), pilotsUndo: !!(undoOf && undoOf.pilots), unmigrate: undoOf && undoOf.migrate && undoOf.migrate.length ? undoOf.migrate : null,
+      region: undoOf ? undoOf.region : p.region,
       title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}${p.migrate && p.migrate.length ? ` · 🧪 ${p.migrate.map((m) => m.country).join(", ")} migrated to the wave` : ""}` });
     renderMemPlan();
   }
@@ -2665,6 +2815,8 @@ const MdeRolloutV2Tool = (() => {
         ? "Likely impact: none — the static group holds the same users, so the wave's membership and every policy stay as they are. A country whose check finds a difference keeps its dynamic group and is said in the ledger. Way back: 📜 Undo re-nests the dynamic group and takes the static one out (a group this run created is left in place)."
         : p.runKind === "groupsync"
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Reverted members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
+        : p.runKind === "testmembers"
+        ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A test member taken out goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
         : p.runKind === "revert"
         ? "Likely impact: at the next Intune check-in the new MDE policies come off and the old ones apply — ASR sits at “not configured” until the old policy lands. A member leaves its country group only once it is in Revert (read back), so a sync never takes it back in by accident. Way back: ↩ Back into the wave under Reverted now, or 📜 Undo."
         : p.pilotsReady
@@ -2738,6 +2890,19 @@ const MdeRolloutV2Tool = (() => {
       }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
       csAfterRun(p, r, verifiedDone);
+      // 🧪 (10688): the region's test groups are read again, the list's
+      // added rows leave it, the ticked-out members are forgotten
+      if (p.runKind === "testmembers" && p.region) {
+        const added = new Set(verifiedDone.filter((d) => d.type === "add").flatMap((d) => d.ids.map(lc)));
+        const done = (k) => added.has(k.slice(2));
+        tm.list = tm.list.filter((e) => {
+          const keys = [e.user ? MdeTest.userKey(e.user) : null].concat(e.devices.filter((d) => d.objId).map(MdeTest.devKey)).filter((k) => k && tm.ticks.has(k));
+          return !(keys.length && keys.every(done));
+        });
+        [...tm.ticks].forEach((k) => { if (done(k)) tm.ticks.delete(k); });
+        tm.rem.clear();
+        setTimeout(() => tmRead(p.region), 0);
+      }
       // 👥 runs move "last synced" too (10682): every country whose steps all read back clean
       if (!p.runKind && !p.exclusions && !p.pilotsReady && !p.pins && !p.skips && mem.model) {
         const keys = new Set(mem.model.rows.map((x) => x.key)), okBy = new Map();
@@ -2746,7 +2911,7 @@ const MdeRolloutV2Tool = (() => {
         for (const [k, v] of okBy) if (v) synced[k] = at;
         writeJson(syncKey(), synced);
       }
-      runs.push({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
+      runs.push({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
         done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)), pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
@@ -3812,6 +3977,11 @@ const MdeRolloutV2Tool = (() => {
       const st = t.closest("[data-mrstate]"); if (st) { view.state = st.dataset.mrstate || null; render(); return; }
       const ss = t.closest("[data-mrstatus]"); if (ss) { view.status = ss.dataset.mrstatus; render(); return; }
       if (t.closest("[data-mrdvread]")) { readDevices(); return; }
+      const tmb = t.closest("[data-mrtest]"); if (tmb) { tmOpen(tmb.dataset.mrtest); return; }
+      if (t.id === "mvTmLookup") { tmLookup(); return; }
+      if (t.id === "mvTmDry") { tmDry(); return; }
+      if (t.id === "mvTmClear") { tm.list = []; tm.ticks.clear(); tm.misses = []; tm.note = ""; if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      if (t.id === "mvTmReread") { if (tm.region) tmRead(tm.region); return; }
       const fo = t.closest("[data-mrfold]"); if (fo) { e.preventDefault(); const k = fo.dataset.mrfold; open.has(k) ? open.delete(k) : open.add(k); render(); return; }
       const gg = t.closest("[data-mrgo]"); if (gg) { e.preventDefault(); const P = model.byKey.get(gg.dataset.mrgo); pane = "conflicts"; view.status = "act"; view.cat = null; view.q = P ? P.name : ""; render(); return; }
       const wi = t.closest("[data-mrwaveinc]"); if (wi) {
@@ -4086,6 +4256,12 @@ const MdeRolloutV2Tool = (() => {
         if (b && !rv.listBusy) { b.textContent = `＋ Add · ${plural(n, "line")}`; b.disabled = !n; }
         return;
       }
+      if (e.target.id === "mvTmText") {
+        tm.text = e.target.value;
+        const b = $("mvTmLookup"), n = MdeTest.parse(tm.text).lines.length;
+        if (b && !tm.busy) { b.textContent = `🔎 Look up · ${plural(n, "line")}`; b.disabled = !n || !tm.test.get(tm.region); }
+        return;
+      }
       if (e.target.id === "mvRvReason") { rv.reason = e.target.value; if (plan && plan.runKind === "revert" && !busy) clearPlan(); return; }
       if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
       if (e.target.id === "mvExListText") {
@@ -4188,6 +4364,9 @@ const MdeRolloutV2Tool = (() => {
         rvListChanged(); render(); return;
       }
       if (t.id === "mvRvListFile") { const f = t.files && t.files[0]; t.value = ""; rvListFile(f); return; }
+      if (t.id === "mvTmFile") { const f = t.files && t.files[0]; t.value = ""; tmFile(f); return; }
+      if (t.dataset && t.dataset.mrtmtick) { const k = t.dataset.mrtmtick; t.checked ? tm.ticks.add(k) : tm.ticks.delete(k); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      if (t.dataset && t.dataset.mrtmrem) { const k = t.dataset.mrtmrem; t.checked ? tm.rem.delete(k) : tm.rem.add(k); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
       if (t.dataset.mrrvsel) { t.checked ? rv.sel.add(t.dataset.mrrvsel) : rv.sel.delete(t.dataset.mrrvsel); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
       if (t.id === "mvExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }
@@ -4214,7 +4393,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm }),
     _pane: (p) => { pane = p; render(); },
   };
 })();
