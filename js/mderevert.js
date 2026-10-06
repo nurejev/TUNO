@@ -32,6 +32,9 @@
 //   planRevert  ↩ one person: into Revert, out of their country group(s)
 //               (run kind revert); planUnrevert the way back
 //   assess      what reaches each ticked object before and after, per policy
+//   the list    (10685) many people at once — listAdd / listTicks, one
+//               merged plan (planRevertMany) behind a confirm line, the
+//               per-policy counts (assessMany), a group's members as lines
 //
 // Ops are MdeMembers.applyOps' — every write read back, the undo the
 // inverse of what was done.
@@ -422,6 +425,158 @@ const MdeRevert = (() => {
     if ((uDone || dDone) && !reason) warnings.push("No reason given — it is kept with the run and shown in the 🔄 sync preview. Add one.");
     return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason };
   }
+  // ------------------------------------------------- ↩ the list (10685) --
+  // Mihai (6 Oct 2026): "revert should also be possible in bulk" — option C
+  // off the mockup: ONE list, filled three ways (a search hit's card, a
+  // pasted list or .csv, the members of a group), each entry a card with
+  // its own ticks; one reason; one dry run; one run. The gate is a confirm
+  // line naming the counts and the waves (his pick: "confirm line always").
+  //
+  // entries: [{ key, card, ticks: Set, line?, source }]. key = the card's own
+  // object ("u:<id>", else its first device's key) — an entry added twice is
+  // replaced, never doubled.
+  function entryKey(card) {
+    if (card.user) return `u:${lc(card.user.id)}`;
+    const d = card.devices.find((x) => x.searched) || card.devices[0];
+    return d ? d.key : null;
+  }
+  function listAdd(entries, card, ticks, extra) {
+    const key = entryKey(card);
+    if (!key) return entries;
+    const e = Object.assign({ key, card, ticks: new Set(ticks || defaultTicks(card)) }, extra || {});
+    const i = entries.findIndex((x) => x.key === key);
+    if (i >= 0) entries[i] = e; else entries.push(e);
+    return entries;
+  }
+  // The ticks a list entry starts with: the pair (defaultTicks), minus any
+  // member the dry run would leave with neither set (a gap) — those are
+  // listed and left for the admin to tick (Mihai: gaps "listed and unticked
+  // by default"). pmodel/ctx as assess's; no pmodel → the pair as is.
+  function listTicks(card, pmodel, ctx) {
+    const t = defaultTicks(card);
+    if (!pmodel) return t;
+    for (const x of assess(card, pmodel, Object.assign({}, ctx, { ticks: t }))) if (x.state === "gap") t.delete(x.kind === "user" ? `u:${x.obj.id}` : x.obj.key);
+    return t;
+  }
+  // The whole list as one plan: planRevert per entry, merged — one create
+  // per Revert group, one add per Revert group, one removal per country
+  // group, each removal waiting for the add of its kind to read back. The
+  // same reason for every member.
+  function planRevertMany(entries, ctx) {
+    const cfg = ctx.cfg;
+    const N = countryNames(ctx.rows, cfg);
+    const skipped = [], warnings = [];
+    const creates = new Map(), adds = new Map(), removes = new Map(), order = [];
+    const seen = new Set();
+    for (const e of entries || []) {
+      const p = planRevert(e.card, Object.assign({}, ctx, { ticks: e.ticks }));
+      skipped.push(...p.skipped);
+      // the one-side and Revert-vs-⊘ notes are per person; "no reason" once
+      p.warnings.filter((w) => !/^No reason given/.test(w)).forEach((w) => warnings.push(w));
+      for (const op of p.ops) {
+        if (op.type === "create") { if (!creates.has(lc(op.name))) creates.set(lc(op.name), Object.assign({}, op, { key: "revert-list", who: "↩ the list" })); continue; }
+        const bag = op.type === "add" ? adds : removes;
+        const k = `${lc(op.group.id || op.group.ref || op.group.name)}|${op.memberKind}`;
+        if (!bag.has(k)) { bag.set(k, { op, ids: [], objs: [], names: [] }); order.push(`${op.type}|${k}`); }
+        const m = bag.get(k);
+        op.ids.forEach((id, i) => {
+          if (m.ids.includes(id)) return;
+          m.ids.push(id);
+          const o = (op.objs || [])[i];
+          m.objs.push(o || { id });
+          m.names.push(o ? (o.userPrincipalName || o.displayName || id) : id);
+        });
+        seen.add(op.memberKind);
+      }
+    }
+    const ops = [...creates.values()];
+    const addIdx = {};
+    for (const kind of ["user", "device"]) {
+      for (const [k, m] of adds) {
+        if (!k.endsWith(`|${kind}`)) continue;
+        addIdx[kind] = ops.length;
+        ops.push({ type: "add", key: "revert-list", group: m.op.group, ids: m.ids, memberKind: kind, who: plural(m.ids.length, kind), label: short(m.names), reason: ctx.reason ? String(ctx.reason).trim() : "", objs: m.objs });
+      }
+    }
+    const waves = new Set();
+    for (const kind of ["user", "device"]) {
+      for (const [k, m] of removes) {
+        if (!k.endsWith(`|${kind}`)) continue;
+        const r = (kind === "user" ? N.user : N.device).get(lc(m.op.group.name));
+        if (r && r.region) waves.add(r.region);
+        ops.push({ type: "remove", key: "revert-list", group: m.op.group, ids: m.ids, memberKind: kind, who: r ? r.country : plural(m.ids.length, kind), batch: m.ids.length > 1,
+          label: `${short(m.names)} — out of the wave, back on the old set`, reason: ctx.reason ? String(ctx.reason).trim() : "", needsOk: addIdx[kind] != null ? [addIdx[kind]] : undefined, objs: m.objs });
+      }
+    }
+    const count = (kind) => ops.filter((o) => o.type === "add" && o.memberKind === kind).reduce((a, o) => a + o.ids.length, 0);
+    const counts = { users: count("user"), devices: count("device") };
+    const wl = [...waves].sort();
+    const confirmLine = counts.users || counts.devices ? bulkLine(counts, wl) : "";
+    if ((counts.users || counts.devices) && !String(ctx.reason || "").trim()) warnings.push("No reason given — it is kept with the run and shown in the 🔄 sync preview. Add one.");
+    return { ops, skipped, warnings: [...new Set(warnings)], hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason: String(ctx.reason || "").trim(),
+      bulk: true, counts, waves: wl, confirmLine, entryKeys: (entries || []).map((e) => e.key) };
+  }
+  // The confirm line (Mihai's pick: "confirm line always"), worded like the
+  // 🔄 re-include line so the two read alike.
+  function bulkLine(counts, waves) {
+    const who = [counts.users ? plural(counts.users, "user") : "", counts.devices ? plural(counts.devices, "device") : ""].filter(Boolean).join(" and ");
+    return `revert ${who}${waves.length ? ` in wave${waves.length === 1 ? "" : "s"} ${waves.join(", ")}` : ""}; they lose the new MDE policies`;
+  }
+  // The dry run's per-policy view of the whole list, counted, not per person:
+  // per policy how many users / devices it drops off and how many it takes
+  // over, and every member left with neither set (a gap) or both (a conflict).
+  function assessMany(entries, pmodel, ctx) {
+    const pol = new Map(), gaps = [], both = [];
+    let n = 0;
+    const bump = (P, side, kind) => {
+      if (!pol.has(P.key)) pol.set(P.key, { P, drops: { user: 0, device: 0 }, takes: { user: 0, device: 0 } });
+      pol.get(P.key)[side][kind]++;
+    };
+    for (const e of entries || []) {
+      for (const x of assess(e.card, pmodel, Object.assign({}, ctx, { ticks: e.ticks }))) {
+        if (x.state === "none") continue;
+        n++;
+        const name = x.kind === "user" ? (x.obj.upn || x.obj.displayName) : x.obj.name;
+        x.drops.forEach((P) => bump(P, "drops", x.kind));
+        x.takes.forEach((P) => bump(P, "takes", x.kind));
+        if (x.state === "gap") gaps.push({ key: e.key, kind: x.kind, name, member: x.kind === "user" ? `u:${x.obj.id}` : x.obj.key });
+        if (x.state === "both") both.push({ key: e.key, kind: x.kind, name, member: x.kind === "user" ? `u:${x.obj.id}` : x.obj.key });
+      }
+    }
+    return { members: n, policies: [...pol.values()].sort((a, b) => a.P.name.localeCompare(b.P.name)), gaps, both };
+  }
+  // 👥 Members of a group (option C's third way in): the group by its exact
+  // name, its users (transitive) and its devices (direct), as lines for the
+  // list — UPNs and device names, matched like a paste. Read-only.
+  async function groupLines(name) {
+    const n = String(name || "").trim();
+    if (!n) return { group: null, lines: [], note: "Type a group's name." };
+    const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(n)}'`)}&$select=id,displayName&$top=5`, { scopes: Graph.SCOPES.groups, retry: true })) || [];
+    const g = hits.find((x) => lc(x.displayName) === lc(n));
+    if (!g) return { group: null, lines: [], note: `No group is named “${n}”.` };
+    const [users, devices] = await Promise.all([
+      Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName&$count=true&$top=999`, { scopes: Graph.SCOPES.groups, headers: EV, retry: true }),
+      Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,displayName&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }),
+    ]);
+    const lines = [...new Set((users || []).map((u) => u.userPrincipalName).filter(Boolean).concat((devices || []).map((d) => d.displayName).filter(Boolean)))];
+    return { group: { id: lc(g.id), name: g.displayName }, lines, users: (users || []).length, devices: (devices || []).length, note: "" };
+  }
+  // What a verified run took care of: the entries every ticked member of
+  // which is in a Revert group now — they leave the list; the rest stay with
+  // their reason in the plan's "left out".
+  function listDone(entries, extra) {
+    const RU = (extra && extra.revertUsers) || new Map(), RD = (extra && extra.revertDevices) || new Map();
+    return (entries || []).filter((e) => {
+      const ids = [];
+      if (e.card.user && e.ticks.has(`u:${e.card.user.id}`)) ids.push(["u", lc(e.card.user.id)]);
+      for (const d of e.card.devices) if (e.ticks.has(d.key) && d.objId) ids.push(["d", lc(d.objId)]);
+      return ids.length && ids.every(([k, id]) => (k === "u" ? RU : RD).has(id));
+    }).map((e) => e.key);
+  }
+  // The lines that rebuild the list after a reload (kept in this browser):
+  // the UPN of an entry's user, else its device's name.
+  const listLines = (entries) => (entries || []).map((e) => (e.card.user ? e.card.user.upn || e.card.user.id : ((e.card.devices.find((d) => d.searched) || e.card.devices[0] || {}).name || ""))).filter(Boolean);
+
   // Undo (§3 "Way back"): out of Revert, back into the country group of the
   // country that holds them. items: [{ kind, id, name }] from the Reverted
   // now list. A member no country holds is only taken out of Revert.
@@ -528,5 +683,6 @@ const MdeRevert = (() => {
   }
 
   return { userGroupName, countryNames, mapping, mappingSig, readExtra, model, syncItems, defaultSyncTicks, reincludeLine, planSync, planSwap,
-    lookup, defaultTicks, planRevert, planUnrevert, assess, patch, syncedRows };
+    lookup, defaultTicks, planRevert, planUnrevert, assess, patch, syncedRows,
+    entryKey, listAdd, listTicks, planRevertMany, bulkLine, assessMany, groupLines, listDone, listLines };
 })();

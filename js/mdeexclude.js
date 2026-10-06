@@ -391,14 +391,18 @@ const MdeExclude = (() => {
   // The whole list: match, look each match up (light), and settle what
   // appears twice. A user's line claims their devices, so a device that is
   // also on its own line shows under its user and that line says so.
+  // opt.lookup / opt.light (10685, ↩ Revert's list): another tool's lookup
+  // (MdeRevert.lookup, full — what reaches them, for the dry run) on the
+  // same matching; ⊘'s own list stays light.
   async function resolveList(lines, base, opt, onStatus) {
-    const o = Object.assign({}, opt || {}, { light: true });
+    const o = Object.assign({ light: true }, opt || {});
+    const look = typeof o.lookup === "function" ? o.lookup : lookup;
     const say = (m) => { if (onStatus) onStatus(m); };
     const { items, failed } = await matchList(lines, base, o, onStatus);
     const todo = items.filter((x) => x.pick);
     let n = 0;
     const r = await Graph.pool(todo, async (it) => {
-      const card = await lookup(it.pick, base, o);
+      const card = await look(it.pick, base, o);
       n++; say(`Reading groups… ${n} of ${todo.length}`);
       return card;
     }, 3);

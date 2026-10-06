@@ -746,7 +746,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
-      <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
+      <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>📋 The list</b> (10685) does many at once: ＋ Add on a search card, a pasted list or .csv, or a group's members — each entry the pair, one reason, one dry run with the per-policy view counted, and a confirm line naming the counts and the waves before ④ Apply. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
@@ -1208,6 +1208,8 @@ const MdeRolloutV2Tool = (() => {
   }
   function gateOk() {
     if (!plan || !backupTaken || !v2Gate()) return false;
+    // ↩ the list (10685): the line naming the counts and the waves, always
+    if (plan.confirmLine) { const b = $("mvBulkConfirm"); if (!b || !b.checked) return false; }
     const t = $("mvConfirmText"), k = $("mvConfirmTick");
     if (t) return t.value.trim() === "REMOVE";
     return !!(k && k.checked);
@@ -2617,6 +2619,7 @@ const MdeRolloutV2Tool = (() => {
         ? "The exclusion groups are excluded from the new policies (⚡②): a member added here stops receiving them. A device taken out of its country device group leaves the wave, so the old policies reach it again. Every run lands in 📜 with an exact undo."
         : `Nesting links a group into a wave: its members start receiving what the wave is assigned (and, once ⚡③ ran, leave the old policies). Every run lands in 📜 with an exact undo.${p.migrate && p.migrate.length ? ` 🧪 ${p.migrate.map((m) => `${m.country} is migrated into ${m.into}`).join("; ")}: its users come in through ${p.migrate.map((m) => m.into).join(", ")}, and each step that takes the pilot's own route down waits until the step it depends on read back clean. Once they all did, the pilot is listed as migrated; the undo puts it back in its batches.` : ""}${p.unmigrate ? " 🧪 Once every step reads back clean, the pilot is back in its batches." : ""}`}</p>
       ${p.ops.length ? `<div style="margin-top:12px">
+        ${p.confirmLine ? `<label class="chk" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;color:var(--report)"><input type="checkbox" id="mvBulkConfirm"> ${esc(p.confirmLine)}</label>` : ""}
         ${p.hasRemoval ? `<label class="wi-f" style="margin-top:8px"><span>This plan REMOVES members or takes groups out of a wave — type <b>REMOVE</b> to allow it</span><input id="mvConfirmText" placeholder="REMOVE" autocomplete="off" spellcheck="false"></label>`
           : `<label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mvConfirmTick"> I have read the plan — ${plural(p.ops.length, "step")}</label>`}
         <div class="tb-actions" style="margin-top:10px"><button class="btn primary" id="mvMemApply" disabled>④ Apply — write to the tenant</button><button class="btn" id="mvDiscard">Discard the plan</button></div>
@@ -2627,6 +2630,7 @@ const MdeRolloutV2Tool = (() => {
     const upd = () => { const b = $("mvMemApply"); if (b) b.disabled = !ok(); };
     if ($("mvConfirmText")) $("mvConfirmText").addEventListener("input", upd);
     if ($("mvConfirmTick")) $("mvConfirmTick").addEventListener("change", upd);
+    if ($("mvBulkConfirm")) $("mvBulkConfirm").addEventListener("change", upd);
     if ($("mvMemApply")) $("mvMemApply").addEventListener("click", () => { if (ok()) applyMem(); });
     $("mvDiscard").addEventListener("click", clearPlan);
     v2AttachGate();
@@ -2719,9 +2723,12 @@ const MdeRolloutV2Tool = (() => {
   // whoever ↩ Revert put on the old set. The read is 👥's (memRead) plus
   // MdeRevert.readExtra; the engine is js/mderevert.js.
   const cs = { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" };
-  const rv = { q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "", ticks: new Set(), reason: "", sel: new Set(), error: "" };
+  const rv = { q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "", ticks: new Set(), reason: "", sel: new Set(), error: "",
+    // 📋 the list (10685): entries (MdeRevert.listAdd), how it is filled, what did not match
+    mode: "one", list: [], src: "paste", listText: "", group: "", listBusy: false, listNote: "", listErr: "", misses: [] };
   const syncKey = () => `tuno.t28.groupsync.${tenantKey()}`;
   const reasonsKey = () => `tuno.t28.revert.reasons.${tenantKey()}`;
+  const rvListKey = () => `tuno.t28.revert.list.${tenantKey()}`;
   const readJson = (k) => { try { return JSON.parse(window.localStorage.getItem(k) || "{}") || {}; } catch { return {}; } };
   const writeJson = (k, v) => { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } };
   let csCache = null;
@@ -2896,6 +2903,138 @@ const MdeRolloutV2Tool = (() => {
     plan = Object.assign(p, { members: true, title: `↩ Back into the wave — ${plural(items.length, "member")}` });
     renderMemPlan();
   }
+  // ---------------------------------------------------- 📋 the list (10685) --
+  // Mihai: "revert should also be possible in bulk" — option C: one list,
+  // filled by ＋ Add on a search card, a pasted list or .csv, or a group's
+  // members; one reason, one dry run (MdeRevert.planRevertMany), a confirm
+  // line naming the counts and the waves. Kept in this browser as lines
+  // (UPN / device name), looked up again on return.
+  const rvListSave = () => writeJson(rvListKey(), { lines: MdeRevert.listLines(rv.list) });
+  const rvListSaved = () => { const v = readJson(rvListKey()); return Array.isArray(v.lines) ? v.lines : []; };
+  function rvListChanged() { rvListSave(); if (plan && !busy && planAnchor === "mvRvList") clearPlan(); }
+  function rvAdd() {
+    if (!rv.card) return;
+    MdeRevert.listAdd(rv.list, rv.card, rv.ticks, { source: "search" });
+    rvListChanged();
+    rv.note = `${rv.card.user ? rv.card.user.displayName : (rv.card.devices[0] || {}).name || "It"} is on the list — ${plural(rv.list.length, "entry", "entries")}.`;
+    render();
+  }
+  async function rvListResolve(lines, source) {
+    if (!ex.base || rv.listBusy || !lines.length) return false;
+    rv.listBusy = true; rv.listErr = ""; rv.listNote = `Looking up ${plural(lines.length, "line")}…`; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      const L = await MdeExclude.resolveList(lines, ex.base, Object.assign({}, exOpt(), { light: false, lookup: MdeRevert.lookup }),
+        (m) => { if (!m) return; rv.listNote = m; const el = $("mvRvListProg"); if (el) el.textContent = m; });
+      const ctx = rvCtx();
+      let added = 0;
+      for (const it of L.items) {
+        if (!it.card) continue;
+        for (const [id, n] of it.card.names || []) if (!names.has(id)) names.set(id, n);
+        MdeRevert.listAdd(rv.list, it.card, MdeRevert.listTicks(it.card, model, ctx), { line: it.line, source });
+        added++;
+      }
+      rv.misses = L.items.filter((it) => !it.card);
+      rv.listNote = `${plural(added, "line")} added${rv.misses.length ? ` · ${rv.misses.length} not` : ""}${L.failed.length ? ` · partly read: ${L.failed.slice(0, 2).join("; ")}` : ""}.`;
+      rvListChanged();
+      return true;
+    } catch (e) { rv.listErr = GroupUse.shortErr(e, 300); rv.listNote = ""; return false; }
+    finally { rv.listBusy = false; render(); }
+  }
+  async function rvListPaste() {
+    const t = $("mvRvListText"); if (t) rv.listText = t.value;
+    const parsed = MdeExclude.parseList(rv.listText);
+    if (parsed.truncated) rv.listErr = `Only the first ${parsed.max} of ${parsed.total} lines are looked up — add the rest after.`;
+    if (await rvListResolve(parsed.lines, "paste") && !parsed.truncated) rv.listText = "";
+    render();
+  }
+  async function rvListFile(f) {
+    if (!f) return;
+    try {
+      const p = MdeExclude.parseList(await fileText(f));
+      rv.listText = p.values.join("\n");
+      rv.listNote = p.total ? `${f.name}: ${plural(p.total, "line")}${p.column ? ` from the column “${p.column}”` : ""} — check them, then ＋ Add.` : `Nothing to look up in ${f.name}.`;
+      rv.listErr = "";
+    } catch (e) { rv.listErr = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; }
+    render();
+  }
+  async function rvListGroup() {
+    const t = $("mvRvGroup"); if (t) rv.group = t.value;
+    if (!ex.base || rv.listBusy) return;
+    rv.listBusy = true; rv.listErr = ""; rv.listNote = `Reading ${rv.group}…`; render();
+    let g = null;
+    try { g = await MdeRevert.groupLines(rv.group); } catch (e) { rv.listErr = GroupUse.shortErr(e, 300); }
+    rv.listBusy = false;
+    if (!g || !g.group) { if (g) rv.listErr = g.note; rv.listNote = ""; render(); return; }
+    if (!g.lines.length) { rv.listNote = `${g.group.name} has no users or devices.`; render(); return; }
+    await rvListResolve(g.lines.slice(0, MdeExclude.MAX_LINES), `group: ${g.group.name}`);
+  }
+  function rvListDry() {
+    if (busy || !rv.list.length) return;
+    planAnchor = "mvRvList"; clearPlan(); seatPlan();
+    const p = MdeRevert.planRevertMany(rv.list, rvCtx());
+    plan = Object.assign(p, { members: true, title: `↩ Revert — the list, ${plural(rv.list.length, "entry", "entries")}` });
+    renderMemPlan();
+  }
+  function rvListHtml() {
+    const C = mcfg(), ctx = rvCtx();
+    const N = MdeRevert.countryNames(ctx.rows, C);
+    const cg = (list, map) => (list || []).filter((g) => map.has(lc(g.name))).map((g) => g.name);
+    const saved = !rv.list.length ? rvListSaved() : [];
+    const src = `<div class="mr-fixwith" style="margin-top:4px"><span class="seg" role="group" aria-label="How to add"><button type="button" class="${rv.src === "group" ? "" : "active"}" data-mrrvsrc="paste">📋 Paste / .csv</button><button type="button" class="${rv.src === "group" ? "active" : ""}" data-mrrvsrc="group">👥 Members of a group</button></span><span class="mini muted">or ＋ Add on a card in 🔎 One at a time</span></div>`;
+    const parsed = MdeExclude.parseList(rv.listText);
+    const add = rv.src === "group"
+      ? `<div class="mr-exsearch" style="margin-top:8px"><input id="mvRvGroup" type="search" placeholder="The group's exact name, e.g. PVM-UG-Finance-Italy" value="${esc(rv.group)}" autocomplete="off" spellcheck="false" aria-label="A group's name"><button class="btn primary" id="mvRvGroupGo"${rv.listBusy || !rv.group.trim() ? " disabled" : ""}>${rv.listBusy ? "Reading…" : "＋ Add its members"}</button></div>
+        <p class="mini muted" style="margin:6px 0 0">Its users (nested groups too) and its devices, each looked up like a pasted line. The group itself is only read.</p>`
+      : `<textarea id="mvRvListText" class="mr-exlisttext" rows="4" spellcheck="false" autocomplete="off" placeholder="anna.bakker@contoso.com&#10;jan.devries@contoso.com; NLD5CD5502ZZQ" aria-label="Users and devices, one per line" style="margin-top:8px">${esc(rv.listText)}</textarea>
+        <div class="tb-actions" style="margin-top:8px;align-items:center"><button class="btn primary" id="mvRvListGo"${rv.listBusy || !parsed.lines.length ? " disabled" : ""}>${rv.listBusy ? "Looking up…" : `＋ Add · ${plural(parsed.lines.length, "line")}`}</button>
+          <label class="btn mr-exfile" title="A .csv with a UPN, e-mail or device name column, or a .txt with one per line">⭱ .csv / .txt<input type="file" id="mvRvListFile" accept=".csv,.txt,text/csv,text/plain"></label></div>`;
+    const prog = `<p class="mini muted" id="mvRvListProg" style="margin:6px 0 0">${esc(rv.listNote)}</p>${rv.listErr ? `<div class="gu-fail" style="margin-top:8px"><b>${esc(rv.listErr)}</b></div>` : ""}`;
+    const missWhy = (it) => it.kind === "many" ? `${it.count} ${it.what} answer to it — open it in 🔎 One at a time` : it.kind === "notwin" ? `not a Windows device (${it.note})`
+      : it.kind === "listed" ? `already on the list with ${it.note}` : it.kind === "error" ? `not read: ${it.note}` : it.line.includes("@") ? "no user has this UPN or e-mail" : "no device in Intune or Entra has this name";
+    const misses = rv.misses.length ? `<details style="margin-top:8px"><summary class="mini"><b style="color:var(--report)">${plural(rv.misses.length, "line")} not added</b></summary><ul class="mini" style="margin:6px 0 0">${rv.misses.map((it) => `<li><code>${esc(it.line)}</code> — ${esc(missWhy(it))}</li>`).join("")}</ul></details>` : "";
+    const restore = saved.length ? `<div class="tb-actions" style="margin-top:10px"><button class="btn" id="mvRvListRestore"${rv.listBusy ? " disabled" : ""}>↺ The list from last time — ${plural(saved.length, "entry", "entries")}, looked up again</button></div>` : "";
+    const tick = (ek, mk, on, dis, label) => `<input type="checkbox" data-mrrvltick="${esc(`${ek}|${mk}`)}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(label)}">`;
+    const am = rv.list.length && model ? MdeRevert.assessMany(rv.list, model, ctx) : null;
+    const gapSet = new Set(am ? am.gaps.map((g) => `${g.key}|${g.member}`) : []);
+    const now = (rev, gap, excl) => `${rev ? chip("au-op create", "reverted") : gap ? `<b style="color:var(--off)">⚠ gap</b>` : ""}${excl ? ` ${chip("gu-how priv", "⊘")}` : ""}`;
+    const rows = rv.list.map((e) => {
+      const c = e.card, u = c.user;
+      const out = [];
+      const from = e.source === "search" ? "🔎" : e.source && e.source.startsWith("group:") ? `👥 ${e.source.slice(7)}` : e.line ? `📋 ${e.line}` : "";
+      if (u) {
+        const k = `u:${u.id}`, rev = ctx.revertUsers.has(u.id), groups = cg(u.direct, N.user);
+        out.push(`<tr class="${e.ticks.has(k) ? "mr-selrow" : ""}"><td>${tick(e.key, k, e.ticks.has(k), rev || u.unread || !groups.length, `revert ${u.displayName}`)}</td>
+          <td class="mini">👤 <b>${esc(u.upn || u.displayName)}</b> <span class="muted">${esc(from)}</span></td><td class="mini">${groups.map((x) => `<code>${esc(x)}</code>`).join(" ") || `<span class="muted">${u.direct ? "in no static country group" : "groups not read"}</span>`}</td>
+          <td class="mini">${now(rev, gapSet.has(`${e.key}|${k}`), u.excluded)}</td>
+          <td><button type="button" class="btn" data-mrrvlrm="${esc(e.key)}" aria-label="Take ${esc(u.upn || u.displayName)} off the list">✕</button></td></tr>`);
+      }
+      c.devices.forEach((d, i) => {
+        const rev = !!(d.objId && ctx.revertDevices.has(d.objId)), groups = cg(d.direct, N.device);
+        out.push(`<tr class="${u ? "mr-exsubrow " : ""}${e.ticks.has(d.key) ? "mr-selrow" : ""}"><td>${tick(e.key, d.key, e.ticks.has(d.key), !d.objId || rev || !groups.length, `revert ${d.name}`)}</td>
+          <td class="mini${u ? " mr-exsub" : ""}">${u ? "↳ " : ""}💻 ${esc(d.name)}${d.stale ? ` ${chip("gu-how priv", "stale")}` : ""}${!u && i === 0 ? ` <span class="muted">${esc(from)}</span>` : ""}</td>
+          <td class="mini">${groups.map((x) => `<code>${esc(x)}</code>`).join(" ") || `<span class="muted">${esc(d.problem || "in no country device group")}</span>`}</td>
+          <td class="mini">${now(rev, gapSet.has(`${e.key}|${d.key}`), d.excluded)}</td>
+          <td>${!u && i === 0 ? `<button type="button" class="btn" data-mrrvlrm="${esc(e.key)}" aria-label="Take ${esc(d.name)} off the list">✕</button>` : ""}</td></tr>`);
+      });
+      return out.join("");
+    }).join("");
+    const p0 = rv.list.length ? MdeRevert.planRevertMany(rv.list, ctx) : null;
+    const n = p0 ? p0.counts : { users: 0, devices: 0 };
+    const cnt = (o) => [o.user ? plural(o.user, "user") : "", o.device ? plural(o.device, "device") : ""].filter(Boolean).join(" · ") || `<span class="muted">—</span>`;
+    const shortN = (list) => (list.length > 4 ? `${list.slice(0, 3).join(", ")} and ${list.length - 3} more` : list.join(", "));
+    const pol = am && am.policies.length ? `<h4 style="margin:12px 0 6px">What changes, per policy — counted</h4><div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:46%"><col style="width:27%"><col></colgroup><thead><tr><th>Policy</th><th>Drops off</th><th>Takes over</th></tr></thead><tbody>${am.policies.map((x) => `<tr><td class="mini">${esc(x.P.name)}</td><td class="mini">${cnt(x.drops)}</td><td class="mini">${cnt(x.takes)}</td></tr>`).join("")}</tbody></table></div>
+      ${am.gaps.length || am.both.length ? `<p class="mini" style="margin:6px 0 0;color:var(--off)">${am.gaps.length ? `⚠ Neither set — a gap, left unticked when added: ${esc(shortN(am.gaps.map((g) => g.name)))}. ` : ""}${am.both.length ? `⚠ Both sets — a conflict: ${esc(shortN(am.both.map((g) => g.name)))}.` : ""}</p>` : ""}
+      <p class="mini muted" style="margin:6px 0 0">T28's reach model: an exclusion wins over an include of its kind; assignment filters are not evaluated.</p>` : "";
+    const table = rv.list.length ? `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-top:14px"><h4 style="margin:0">The list · ${plural(rv.list.length, "entry", "entries")}</h4><button class="btn" id="mvRvListClear">Clear the list</button></div>
+      <div style="overflow-x:auto;margin-top:6px"><table class="cg-table mr-exlist-t"><colgroup><col style="width:30px"><col><col style="width:26%"><col style="width:12%"><col style="width:44px"></colgroup><thead><tr><th></th><th>Member</th><th>Static country group</th><th>Now</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="mini muted" style="margin:6px 0 0">Each entry comes as the pair — a user with their Windows devices that synced in the last ${exOpt().staleDays} days, a device with its primary user. Untick one side and the dry run warns about the mix.</p>
+      ${pol}
+      <label class="wi-f" style="margin-top:10px"><span>Reason — one for the whole list, kept with the run and shown in the 🔄 sync preview</span><input id="mvRvReason" value="${esc(rv.reason)}" placeholder="e.g. LOB app blocked by the new ASR rules — ticket 4711" autocomplete="off"></label>
+      <div class="mr-mbar" id="mvRvListBar"><span>${n.users || n.devices ? `<b>${[n.users ? plural(n.users, "user") : "", n.devices ? plural(n.devices, "device") : ""].filter(Boolean).join(" · ")}</b> → ${esc(C.revertUser)} / ${esc(C.revertDevice)}, out of their country group${p0.waves.length ? ` · ${esc(p0.waves.join(", "))}` : ""}` : "tick a user or a device"}</span><button class="btn primary" id="mvRvListDry"${n.users || n.devices ? "" : " disabled"}>② Dry run the list</button></div>`
+      : `<p class="mini muted" style="margin:12px 0 0">The list is empty.</p>`;
+    return `<div id="mvRvList">${src}${add}${prog}${misses}${restore}${table}</div>`;
+  }
   function rvCardHtml() {
     if (rv.cardError) return `<div class="gu-fail" style="margin-top:12px"><b>${esc(rv.cardError)}</b></div>`;
     if (!rv.card) return rv.cardLoading ? `<p class="mini muted" style="margin:10px 0 0">Reading their groups…</p>` : "";
@@ -2935,7 +3074,7 @@ const MdeRolloutV2Tool = (() => {
       ${arows ? `<h4 style="margin:12px 0 6px">What changes, per policy</h4><div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:28%"><col style="width:26%"><col style="width:26%"><col></colgroup><thead><tr><th>Who</th><th>New policies that drop off</th><th>Old policies that take over</th><th>After</th></tr></thead><tbody>${arows}</tbody></table></div>
         <p class="mini muted" style="margin:6px 0 0">T28's reach model: an exclusion wins over an include of its kind; assignment filters are not evaluated. Likely impact: the next Intune check-in removes the new MDE policies and applies the old ones — ASR sits at “not configured” until the old policy lands.</p>` : ""}
       <label class="wi-f" style="margin-top:10px"><span>Reason — kept with the run and shown in the 🔄 sync preview</span><input id="mvRvReason" value="${esc(rv.reason)}" placeholder="e.g. LOB app blocked by the new ASR rules — ticket 4711" autocomplete="off"></label>
-      <div class="mr-mbar" id="mvRvBar"><span>${n ? `<b>${plural(n, "member")}</b> → ${esc(C.revertUser)} / ${esc(C.revertDevice)}, out of their country group` : why || "tick the user or a device"}</span><button class="btn primary" id="mvRvDry"${n ? "" : " disabled"}>② Dry run</button></div>
+      <div class="mr-mbar" id="mvRvBar"><span>${n ? `<b>${plural(n, "member")}</b> → ${esc(C.revertUser)} / ${esc(C.revertDevice)}, out of their country group` : why || "tick the user or a device"}</span><button class="btn" id="mvRvAdd" title="Put them on the list and keep searching — one dry run for everyone">＋ Add to the list${rv.list.length ? ` (${rv.list.length})` : ""}</button><button class="btn primary" id="mvRvDry"${n ? "" : " disabled"}>② Dry run</button></div>
     </div>`;
   }
   function rvNowHtml() {
@@ -2962,7 +3101,9 @@ const MdeRolloutV2Tool = (() => {
         <span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b>
         <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
         <span class="mr-exr">${h.type === "user" ? plural(h.devices, "Windows device") : esc(h.os || "")}${h.stale ? " · stale" : ""}</span></button>`).join("");
-    return `<div class="list-card mr-stickyhost" style="margin-top:0">${intro}
+    const modes = `<div class="mr-fixwith"><span class="seg" role="group" aria-label="One at a time or the list"><button type="button" class="${rv.mode === "list" ? "" : "active"}" data-mrrvmode="one">🔎 One at a time</button><button type="button" class="${rv.mode === "list" ? "active" : ""}" data-mrrvmode="list">📋 The list${rv.list.length ? ` · ${rv.list.length}` : ""}</button></span><span class="mini muted">${rv.mode === "list" ? "many people, one reason, one dry run" : "name · UPN · e-mail · device name"}</span></div>`;
+    if (rv.mode === "list") return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${rvListHtml()}</div>${rvNowHtml()}`;
+    return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}
       <div class="mr-exsearch"><input id="mvRvQ" type="search" placeholder="Search a user or device…" value="${esc(rv.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mvRvGo"${rv.searching ? " disabled" : ""}>${rv.searching ? "Searching…" : "Search"}</button></div>
       ${rv.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(rv.note)}</p>` : ""}
       ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
@@ -2989,7 +3130,12 @@ const MdeRolloutV2Tool = (() => {
       }
       writeJson(reasonsKey(), reasons);
     }
-    if (p.runKind === "revert") { rv.sel.clear(); if (rv.card) setTimeout(() => rvPick(rv.card.pick, true), 0); }
+    if (p.runKind === "revert") {
+      rv.sel.clear();
+      // the list (10685): whoever is in Revert now leaves it; the rest stay
+      if (p.bulk && cs.extra) { const done = new Set(MdeRevert.listDone(rv.list, cs.extra)); rv.list = rv.list.filter((e) => !done.has(e.key)); rvListSave(); rv.listNote = `${plural(done.size, "entry", "entries")} reverted and taken off the list.`; }
+      if (rv.card) setTimeout(() => rvPick(rv.card.pick, true), 0);
+    }
   }
 
   // -------------------------------------------------------- ⊘ exclusions --
@@ -3198,12 +3344,12 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) { ex.listErr = GroupUse.shortErr(e, 300); ex.listNote = ""; }
     finally { ex.listBusy = false; render(); }
   }
+  // a dropped or chosen .csv / .txt, as text (⊘'s list and ↩'s, 10685)
+  const fileText = (f) => (typeof f.text === "function" ? f.text() : new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(r.error); r.readAsText(f); }));
   async function exListFile(f) {
     if (!f) return;
     let text = "";
-    try {
-      text = typeof f.text === "function" ? await f.text() : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(r.error); r.readAsText(f); });
-    } catch (e) { ex.listErr = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; render(); return; }
+    try { text = await fileText(f); } catch (e) { ex.listErr = `${f.name} could not be read: ${GroupUse.shortErr(e, 160)}`; render(); return; }
     const p = MdeExclude.parseList(text);
     ex.listText = p.values.join("\n");
     ex.listErr = p.total ? "" : `Nothing to look up in ${f.name}.`;
@@ -3741,6 +3887,16 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvRvGo") { rvSearch(); return; }
       if (t.id === "mvRvDry") { rvDryRun(); return; }
       if (t.id === "mvRvUndoDry") { rvUndoDry(); return; }
+      // 📋 the list (10685)
+      const rm = t.closest("[data-mrrvmode]"); if (rm) { if (rv.mode !== rm.dataset.mrrvmode) { rv.mode = rm.dataset.mrrvmode; if (plan && !busy && (planAnchor === "mvRvCard" || planAnchor === "mvRvList")) clearPlan(); render(); } return; }
+      const rs = t.closest("[data-mrrvsrc]"); if (rs) { rv.src = rs.dataset.mrrvsrc; render(); const f = $(rv.src === "group" ? "mvRvGroup" : "mvRvListText"); if (f) f.focus(); return; }
+      if (t.id === "mvRvAdd") { rvAdd(); return; }
+      if (t.id === "mvRvListGo") { rvListPaste(); return; }
+      if (t.id === "mvRvGroupGo") { rvListGroup(); return; }
+      if (t.id === "mvRvListRestore") { rvListResolve(rvListSaved().slice(0, MdeExclude.MAX_LINES), "paste"); return; }
+      if (t.id === "mvRvListDry") { rvListDry(); return; }
+      if (t.id === "mvRvListClear") { rv.list = []; rv.misses = []; rv.listNote = ""; rvListChanged(); render(); return; }
+      const lrm = t.closest("[data-mrrvlrm]"); if (lrm) { rv.list = rv.list.filter((e) => e.key !== lrm.dataset.mrrvlrm); rvListChanged(); render(); return; }
       const rp = t.closest("[data-mrrvpick]"); if (rp) { const h = (rv.results || [])[Number(rp.dataset.mrrvpick)]; if (h) rvPick(h); return; }
       // ⊘ exclusions (10639)
       if (t.id === "mvExRead") { exRead(); return; }
@@ -3840,6 +3996,8 @@ const MdeRolloutV2Tool = (() => {
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
       if (e.target.id === "mvRvQ" && e.key === "Enter") { e.preventDefault(); rvSearch(); return; }
+      if (e.target.id === "mvRvGroup" && e.key === "Enter") { e.preventDefault(); rvListGroup(); return; }
+      if (e.target.id === "mvRvListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); rvListPaste(); } return; }
       if (e.target.id === "mvExtQ" && e.key === "Enter") { e.preventDefault(); extSearch(); return; }
       if (e.target.id === "mvExtRoute" && e.key === "Enter") { e.preventDefault(); const b = $("mvExtRouteSave"); if (b) b.click(); return; }
       if (e.target.id === "mvExtListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); extListText(e.target.value, "pasted list"); } return; }
@@ -3861,6 +4019,13 @@ const MdeRolloutV2Tool = (() => {
     body.addEventListener("input", (e) => {
       if (e.target.id === "mvExQ") { ex.q = e.target.value; return; }
       if (e.target.id === "mvRvQ") { rv.q = e.target.value; return; }
+      if (e.target.id === "mvRvGroup") { rv.group = e.target.value; const b = $("mvRvGroupGo"); if (b && !rv.listBusy) b.disabled = !rv.group.trim(); return; }
+      if (e.target.id === "mvRvListText") {
+        rv.listText = e.target.value;
+        const b = $("mvRvListGo"), n = MdeExclude.parseList(rv.listText).lines.length;
+        if (b && !rv.listBusy) { b.textContent = `＋ Add · ${plural(n, "line")}`; b.disabled = !n; }
+        return;
+      }
       if (e.target.id === "mvRvReason") { rv.reason = e.target.value; if (plan && plan.runKind === "revert" && !busy) clearPlan(); return; }
       if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
       if (e.target.id === "mvExListText") {
@@ -3957,6 +4122,12 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvCsConfirm") { const sm = csModel(); cs.confirm = t.checked && sm ? MdeRevert.reincludeLine(csItems(sm), cs.ticks) : ""; clearPlan(); render(); return; }
       if (t.id === "mvCsScope") { cs.scope = t.value || "all"; cs.ticks = null; clearPlan(); render(); return; }
       if (t.dataset.mrrvtick) { t.checked ? rv.ticks.add(t.dataset.mrrvtick) : rv.ticks.delete(t.dataset.mrrvtick); clearPlan(); render(); return; }
+      if (t.dataset.mrrvltick) {
+        const [ek, ...mk] = t.dataset.mrrvltick.split("|"); const e = rv.list.find((x) => x.key === ek);
+        if (e) { if (t.checked) e.ticks.add(mk.join("|")); else e.ticks.delete(mk.join("|")); }
+        rvListChanged(); render(); return;
+      }
+      if (t.id === "mvRvListFile") { const f = t.files && t.files[0]; t.value = ""; rvListFile(f); return; }
       if (t.dataset.mrrvsel) { t.checked ? rv.sel.add(t.dataset.mrrvsel) : rv.sel.delete(t.dataset.mrrvsel); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
       if (t.id === "mvExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }

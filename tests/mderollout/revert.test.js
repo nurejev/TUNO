@@ -4,6 +4,7 @@
 // never in the default write set, and the confirm is enforced), the swap
 // (its check stops the unnest when the sets differ), the revert / undo pair
 // with the paired user and device, and the run kinds the ledger records.
+// 10685: the list — many people, one merged plan behind a confirm line.
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
@@ -214,6 +215,58 @@ async function run() {
   ok("a user with no old - U - policy: nothing reaches them after — a gap", us.drops.map((P) => P.name).join() === "WIN-SEC AV - U" && us.state === "gap");
   const pm2 = { newP: pm.newP.concat([{ key: "n3", name: "WIN-SEC FW - D all", item: { assignments: [{ kind: "All devices" }] } }]), oldP: pm.oldP };
   ok("both sets after: a conflict", MR.assess(card, pm2, Object.assign({}, ctx, { userWaveIds: new Set(["wu-euro"]), deviceWaveIds: new Set(["wd-euro"]) })).find((x) => x.kind === "device").state === "both");
+
+  // ---------------------------------------------- ↩ the list (10685) --
+  // Mihai: "revert should also be possible in bulk" — option C, one list,
+  // one merged plan behind a confirm line.
+  const bob = { pick: { type: "user", id: "u2" }, failed: [], names: new Map(),
+    user: { id: "u2", displayName: "Bob", upn: "bob@x", groups: new Set(["su-nld", "wu-euro"]), direct: [{ id: "su-nld", name: "INT-SG-U-NLD" }] },
+    devices: [{ key: "m:m2", name: "NLD2", objId: "e2", deviceId: "a2", stale: false, groups: new Set(["dg-nld", "wd-euro"]), direct: [{ id: "dg-nld", name: "INT-SG-D-NLD" }] }] };
+  const uma = { pick: { type: "device", managedId: "m9" }, failed: [], names: new Map(),
+    user: { id: "u9", displayName: "Uma", upn: "uma@x", groups: new Set(["su-usa"]), direct: [{ id: "su-usa", name: "INT-SG-U-USA" }] },
+    devices: [{ key: "m:m9", name: "USA9", objId: "e9", deviceId: "a9", stale: false, searched: true, groups: new Set(["dg-usa"]), direct: [{ id: "dg-usa", name: "INT-SG-D-USA" }] }] };
+  const L = [];
+  MR.listAdd(L, card, null, { source: "search" });
+  MR.listAdd(L, bob, null, { line: "bob@x", source: "paste" });
+  MR.listAdd(L, uma, null, { line: "USA9", source: "paste" });
+  MR.listAdd(L, bob, new Set(["u:u2"]), { line: "bob@x", source: "paste" });
+  ok("the list: one entry per person, keyed by the user — added twice is replaced, not doubled", L.length === 3 && L.map((e) => e.key).join() === "u:u1,u:u2,u:u9" && L[1].ticks.size === 1);
+  MR.listAdd(L, bob, null, { line: "bob@x", source: "paste" });
+  ok("…each entry starts with the pair (a device line brings its primary user)", L[1].ticks.has("u:u2") && L[1].ticks.has("m:m2") && L[2].ticks.has("u:u9") && L[2].ticks.has("m:m9") && !L[0].ticks.has("m:m5"));
+  const lctx = Object.assign({}, ctx, { reason: "  SAP GUI blocked — MDE_P-2719 " });
+  const pl = MR.planRevertMany(L, lctx);
+  const sig = pl.ops.map((o) => `${o.type}:${o.name || o.group.name}:${(o.ids || []).join("+")}${o.needsOk ? `@${o.needsOk.join("+")}` : ""}`).join(" ");
+  ok("one plan: the user Revert group created once, one add per Revert group, one removal per country group after the add of its kind",
+    sig === "create:INT-SG-U-MDE-Revert: add:INT-SG-U-MDE-Revert:u1+u2+u9 add:INT-SG-D-MDE-Revert:e1+e2+e9 remove:INT-SG-U-NLD:u1+u2@1 remove:INT-SG-U-USA:u9@1 remove:INT-SG-D-NLD:e1+e2@2 remove:INT-SG-D-USA:e9@2", sig);
+  ok("…the counts, the waves and the confirm line naming both", pl.bulk && pl.counts.users === 3 && pl.counts.devices === 3 && pl.waves.join() === "Americas,Euro"
+    && pl.confirmLine === "revert 3 users and 3 devices in waves Americas, Euro; they lose the new MDE policies", pl.confirmLine);
+  ok("…the reason (trimmed) on every write, the run kind revert, removals typed", pl.ops.filter((o) => o.type !== "create").every((o) => o.reason === "SAP GUI blocked — MDE_P-2719") && pl.runKind === "revert" && pl.hasRemoval && pl.reason === "SAP GUI blocked — MDE_P-2719");
+  ok("…a removal of several goes by $batch", pl.ops.find((o) => o.group && o.group.name === "INT-SG-D-NLD").batch && !pl.ops.find((o) => o.group && o.group.name === "INT-SG-D-USA").batch);
+  ok("the line reads like 🔄's: one wave, one kind", MR.bulkLine({ users: 1, devices: 0 }, ["Euro"]) === "revert 1 user in wave Euro; they lose the new MDE policies");
+  const pl2 = MR.planRevertMany([L[0], { key: "u:u1x", card: dynCard, ticks: new Set(["u:u1"]) }], Object.assign({}, lctx, { reason: "" }));
+  ok("a person reached through a dynamic group is left out with the reason; the rest still planned; no reason warned once",
+    pl2.skipped.some((x) => /swap Euro/.test(x)) && pl2.ops.some((o) => o.type === "add") && pl2.warnings.filter((x) => /No reason/.test(x)).length === 1);
+  const pl3 = MR.planRevertMany(L, Object.assign({}, lctx, { revertUsers: new Map([["u1", {}], ["u2", {}], ["u9", {}]]), revertDevices: new Map([["e1", {}], ["e2", {}], ["e9", {}]]) }));
+  ok("everyone already reverted: nothing to write, no confirm line", !pl3.ops.length && !pl3.confirmLine && pl3.skipped.length === 6);
+  const actx = Object.assign({}, lctx, { userWaveIds: new Set(["wu-euro"]), deviceWaveIds: new Set(["wd-euro"]) });
+  const lt = MR.listTicks(card, pm, actx);
+  ok("a member the dry run would leave with neither set (a gap) starts unticked", !lt.has("u:u1") && lt.has("m:m1"));
+  const am = MR.assessMany([{ key: "u:u1", card, ticks: MR.defaultTicks(card) }, L[1]], pm, actx);
+  const asr = am.policies.find((x) => x.P.name === "WIN-SEC ASR - D"), old = am.policies.find((x) => x.P.name === "Old ASR");
+  ok("the dry run counted per policy: the new ASR drops off 2 devices, the old takes over 2; the gaps named", asr.drops.device === 2 && old.takes.device === 2 && am.gaps.map((g) => g.name).join() === "ann@x,bob@x" && am.members === 4);
+  ok("listDone: an entry whose ticked members are all in Revert now leaves the list", MR.listDone(L, { revertUsers: new Map([["u1", {}], ["u9", {}]]), revertDevices: new Map([["e1", {}], ["e9", {}]]) }).join() === "u:u1,u:u9");
+  ok("listLines: what rebuilds it after a reload — the UPN, else the device", MR.listLines(L).join() === "ann@x,bob@x,uma@x" && MR.listLines([{ card: { user: null, devices: [{ name: "KIOSK-1" }] } }]).join() === "KIOSK-1");
+  const realReadAll = w.Graph.readAll;
+  w.Graph.readAll = async (p) => /\/groups\?\$filter/.test(p) ? [{ id: "G-FIN", displayName: "PVM-UG-Finance-Italy" }]
+    : /transitiveMembers\/microsoft\.graph\.user/.test(p) ? [{ id: "u7", userPrincipalName: "gio@x" }, { id: "u8", userPrincipalName: "lia@x" }]
+    : /members\/microsoft\.graph\.device/.test(p) ? [{ id: "e7", displayName: "ITA7" }] : [];
+  const gl = await MR.groupLines("pvm-ug-finance-italy");
+  const gl0 = await MR.groupLines("");
+  w.Graph.readAll = async () => [];
+  const gl1 = await MR.groupLines("Nope");
+  w.Graph.readAll = realReadAll;
+  ok("👥 a group's members as lines: its users' UPNs and its devices' names, the group only read", gl.group.id === "g-fin" && gl.lines.join() === "gio@x,lia@x,ITA7" && gl.users === 2 && gl.devices === 1);
+  ok("…no name, or no such group: said, nothing read into the list", !gl0.group && /Type/.test(gl0.note) && !gl1.group && /No group is named “Nope”/.test(gl1.note));
 
   // ------------------------------------------------------------- patch --
   const ex2 = { userGroups: new Map(), userMembers: new Map(), upn: new Map(), revert: { user: null, device: null }, revertUsers: new Map(), revertDevices: new Map() };
