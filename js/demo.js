@@ -1128,6 +1128,29 @@ const TUNO_DEMO = (() => {
     ],
   };
 
+  // ---------- devices in conflict (T12 · On devices, build 10686) ----------
+  //
+  // Intune's report actions, per policy: which devices report Conflict and
+  // which settings Intune flags. Built to exercise every branch:
+  //   * WS-FIN-0142 and WS-ENG-0221 — P(1) and P(2) both in conflict, and
+  //     both set real-time monitoring and password length differently:
+  //     NAMED, the collision the predicted view already knows about.
+  //   * WS-HR-0031 — the two legacy restriction profiles (same type) on
+  //     passwordMinimumLength: NAMED, legacy surface.
+  //   * WS-ENG-0308 — FAULT: only P(1) is in conflict there, and Intune
+  //     flags the SMBv1 setting. Nothing TUNO reads explains it, so it is
+  //     "flagged" with no candidates — never guessed.
+  //   * WS-FIN-0187 — FAULT: P(2) reports a row whose status is something
+  //     other than Conflict; it must not be counted.
+  const CONFLICT_REPORT = {
+    [P(1)]: { devices: [[D(1), "Conflict"], [D(7), "Conflict"], [D(9), "Conflict"], [D(2), "Error"]],
+      settings: [[D(1), "Turn on real-time protection", DEF_RTP], [D(9), "SMBv1 client driver start", DEF_SMBv1]] },
+    [P(2)]: { devices: [[D(1), "Conflict"], [D(7), "Conflict"], [D(2), "Succeeded"]], settings: [] },
+    [P(20)]: { devices: [[D(3), "Conflict"]], settings: [[D(3), "Minimum password length", "passwordMinimumLength"]] },
+    [P(21)]: { devices: [[D(3), "Conflict"]], settings: [] },
+    [P(3)]: { devices: [], settings: [] },
+  };
+
   const RUN_SUMMARY = {
     [P(50)]: { successDeviceCount: 396, errorDeviceCount: 12 },
     [P(51)]: { successDeviceCount: 6, errorDeviceCount: 2 },
@@ -1265,7 +1288,7 @@ const TUNO_DEMO = (() => {
            INTENTS, TEMPLATES, ROLE_DEFINITIONS, ROLE_ASSIGNMENTS,
            MAA_POLICIES, MAA_REQUESTS, LAPS_CREDENTIALS, DEFENDER_OVERVIEW, PROTECTION_STATE,
            AUDIT_EVENTS, CONFIG_CATEGORIES, CONFIG_SETTINGS,
-           STATUS_OVERVIEW, SETTING_STATE_SUMMARIES, RUN_SUMMARY,
+           STATUS_OVERVIEW, SETTING_STATE_SUMMARIES, RUN_SUMMARY, CONFLICT_REPORT,
            DEVICE_CONFIG_STATES, DEVICE_COMPLIANCE_STATES };
 })();
 
@@ -1601,6 +1624,33 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const id = String((body && body["@odata.id"]) || "").split("/").pop();
     g._owners = (g._owners || []).concat(id && !(g._owners || []).includes(id) ? [id] : []);
     return null;
+  }
+  // Intune report actions (T12 · On devices, 10686) — answered in the
+  // service's own { TotalRowCount, Schema, Values } shape, paged by top/skip.
+  const rep = method === "POST" && /^\/deviceManagement\/reports\/(getConfigurationPolicyNonComplianceSummaryReport|getConfigurationPolicyNonComplianceReport|getConfigurationSettingNonComplianceReport)$/.exec(path);
+  if (rep) {
+    const CR = T.CONFLICT_REPORT;
+    const pol = (id) => T.CONFIG_POLICIES.find((x) => x.id === id) || T.DEVICE_CONFIGS.find((x) => x.id === id) || {};
+    const dev = (id) => T.DEVICES.find((x) => x.id === id) || {};
+    const pid = (/PolicyId eq '([^']+)'/.exec(String((body && body.filter) || "")) || [])[1] || "";
+    const page = (cols, rows) => {
+      const skip = (body && body.skip) || 0, top = (body && body.top) || 50;
+      return { TotalRowCount: rows.length, Schema: cols.map((c) => ({ Column: c, PropertyType: "String" })), Values: rows.slice(skip, skip + top) };
+    };
+    if (rep[1] === "getConfigurationPolicyNonComplianceSummaryReport") {
+      return page(["PolicyId", "PolicyName", "UnifiedPolicyType", "NumberOfNonCompliantOrErrorDevices", "NumberOfConflictDevices"],
+        Object.keys(CR).map((id) => {
+          const d = CR[id].devices;
+          return [id, pol(id).name || pol(id).displayName || id, "", d.filter((x) => x[1] === "Error").length, d.filter((x) => x[1] === "Conflict").length];
+        }));
+    }
+    const e = CR[pid] || { devices: [], settings: [] };
+    if (rep[1] === "getConfigurationPolicyNonComplianceReport") {
+      return page(["IntuneDeviceId", "DeviceName", "UPN", "PolicyId", "PolicyName", "PolicyStatus", "PolicyStatus_loc", "PspdpuLastModifiedTimeUtc"],
+        e.devices.map(([id, st]) => [id, dev(id).deviceName || id, dev(id).userPrincipalName || "", pid, pol(pid).name || pol(pid).displayName || "", st === "Conflict" ? 6 : 5, st, dev(id).lastSyncDateTime || ""]));
+    }
+    return page(["IntuneDeviceId", "DeviceName", "PolicyId", "SettingName", "SettingId", "SettingStatus", "SettingStatus_loc"],
+      e.settings.map(([id, nm, sid]) => [id, dev(id).deviceName || id, pid, nm, sid, 6, "Conflict"]));
   }
   if (method === "POST" && !/\$batch|getByIds/.test(path)) {
     const made = Object.assign({}, body || {}, {

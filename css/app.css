@@ -2946,3 +2946,22 @@ table.cr-measuring th,table.cr-measuring td{overflow:visible}
 .tool-launch{font:inherit;font-weight:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;letter-spacing:inherit}
 .tool-launch:hover{text-decoration:underline}
 .tool-launch:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;border-radius:3px}
+
+/* T12 — the group-first layout (build 10686, layout round B). A block per
+   group (or device, or policy pair) whose heading is the answer; a line per
+   colliding setting with every side's value inline, no second click. */
+.cf-blk{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--off);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.cf-blk.may,.cf-blk.warn{border-left-color:var(--report)}
+.cf-blk.cannot{border-left-color:var(--on)}
+.cf-bh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;cursor:pointer}
+.cf-bh:hover{background:var(--hover)}
+.cf-bh .cf-chev{color:var(--muted);width:12px;display:inline-block;transition:transform .15s}
+.cf-blk.open .cf-chev{transform:rotate(90deg)}
+.cf-lines{border-top:1px solid var(--border)}
+.cf-line{display:grid;grid-template-columns:minmax(160px,1fr) 2.2fr auto;gap:12px;align-items:start;padding:9px 12px;border-top:1px solid var(--line)}
+.cf-line:first-child{border-top:0}
+.cf-vals{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.cf-side{background:var(--soft2);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.cf-side code{font-size:12px}
+.cf-vs{color:var(--muted);font-size:12px}
+@media (max-width:700px){.cf-line{grid-template-columns:1fr}}

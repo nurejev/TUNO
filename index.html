@@ -9,19 +9,19 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10685"></script>
+<script src="js/popup-guard.js?v=10686"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=3" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10685">
-<link rel="stylesheet" href="css/workspaces.css?v=10685">
-<link rel="stylesheet" href="css/home-overview.css?v=10685">
-<link rel="stylesheet" href="css/tool-layout.css?v=10685">
-<link rel="stylesheet" href="css/flat-icons.css?v=10685">
+<link rel="stylesheet" href="css/app.css?v=10686">
+<link rel="stylesheet" href="css/workspaces.css?v=10686">
+<link rel="stylesheet" href="css/home-overview.css?v=10686">
+<link rel="stylesheet" href="css/tool-layout.css?v=10686">
+<link rel="stylesheet" href="css/flat-icons.css?v=10686">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10685"></script>
-<link rel="stylesheet" href="css/t28v2.css?v=10685">
+<script src="js/selfhost-boot.js?v=10686"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10686">
 </head>
 <body>
 
@@ -1461,6 +1461,13 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
       <p class="mini muted" style="margin:8px 0 0"><b>Identity is exact or it is not claimed.</b> Settings catalog settings match by definition id; administrative templates by definition and category; device configurations by typed property <i>within one policy type</i>. A settings-catalog policy and a legacy device configuration driving the same CSP are <b>not</b> matched — that would be display-name matching, and a scan that guesses identities produces conflicts that do not exist. Findings, not a score: whether a real collision is a mistake or two deliberate baselines is not something this tool can know.</p>
     </div>
     <div class="list-card wi-form">
+      <!-- Two views (build 10686, mockup option A): predicted from the
+           assignments, and what devices reported. -->
+      <div class="seg" id="cfView" style="margin-bottom:10px;width:max-content;max-width:100%">
+        <button type="button" class="active" data-cfview="predicted">⚔️ Predicted — policies</button>
+        <button type="button" data-cfview="devices">🖥 On devices — reported</button>
+      </div>
+      <p class="mini muted" id="cfViewNote" style="margin:0 0 10px;display:none">Every device Intune reports in <b>Conflict</b>, the setting that collides and the policies on each side with their values. The other policy is <b>named</b> only when two policies both in conflict on that device set the same setting differently; otherwise the device's other conflicting policies are listed as <b>candidates</b>. Reads Intune's reports — no writes.</p>
       <div class="tb-actions">
         <button class="btn primary" id="cfRun">⚔️ Scan for conflicts</button>
         <button class="btn" id="cfMd" style="display:none">⭳ Export MD</button>
@@ -2337,67 +2344,67 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10685"></script>
-<script src="js/selfhost.js?v=10685"></script>
-<script src="js/version.js?v=10685"></script>
-<script src="js/promote.js?v=10685"></script>
-<script src="js/authConfig.js?v=10685"></script>
-<script src="js/changelog.js?v=10685"></script>
-<script src="js/msappcatalog.js?v=10685"></script>
-<script src="js/demo.js?v=10685"></script>
-<script src="js/graph.js?v=10685"></script>
-<script src="js/suggest.js?v=10685"></script>
-<script src="js/progress.js?v=10685"></script>
-<script src="js/runledger.js?v=10685"></script>
-<script src="js/groupuse.js?v=10685"></script>
-<script src="js/audit.js?v=10685"></script>
-<script src="js/devicecleanup.js?v=10685"></script>
-<script src="js/backup.js?v=10685"></script>
-<script src="js/document.js?v=10685"></script>
-<script src="js/policycache.js?v=10685"></script>
-<script src="js/runmeta.js?v=10685"></script>
-<script src="js/overview.js?v=10685"></script>
-<script src="js/devicewhy.js?v=10685"></script>
-<script src="js/whatif.js?v=10685"></script>
-<script src="js/health.js?v=10685"></script>
-<script src="js/settingsearch.js?v=10685"></script>
-<script src="js/conflict.js?v=10685"></script>
-<script src="js/compliance.js?v=10685"></script>
-<script src="js/filterrules.js?v=10685"></script>
-<script src="js/filters.js?v=10685"></script>
-<script src="js/restore.js?v=10685"></script>
-<script src="js/platformbaseline.js?v=10685"></script>
-<script src="js/complianceevidence.js?v=10685"></script>
-<script src="js/macbaseline.js?v=10685"></script>
-<script src="js/winbaseline.js?v=10685"></script>
-<script src="js/assignedit.js?v=10685"></script>
-<script src="js/restrictedau.js?v=10685"></script>
-<script src="js/groupmigrate.js?v=10685"></script>
-<script src="js/roles.js?v=10685"></script>
-<script src="js/defender.js?v=10685"></script>
-<script src="js/endpointsec.js?v=10685"></script>
-<script src="js/report.js?v=10685"></script>
-<script src="js/securescore.js?v=10685"></script>
-<script src="js/endpointposture.js?v=10685"></script>
-<script src="js/mdemembers.js?v=10685"></script>
-<script src="js/mdereports.js?v=10685"></script>
-<script src="js/mdeexclude.js?v=10685"></script>
-<script src="js/mderevert.js?v=10685"></script>
-<script src="js/mdeasr.js?v=10685"></script>
-<script src="js/addons.js?v=10685"></script>
-<script src="js/mdeedgeext.js?v=10685"></script>
-<script src="js/mderollout.js?v=10685"></script>
-<script src="js/t28v2safety.js?v=10685"></script>
-<script src="js/mderolloutv2.js?v=10685"></script>
-<script src="js/maa.js?v=10685"></script>
-<script src="js/laps.js?v=10685"></script>
-<script src="js/applocker.js?v=10685"></script>
-<script src="js/flat-icons.js?v=10685"></script>
-<script src="js/app.js?v=10685"></script>
-<script src="js/col-resize.js?v=10685"></script>
-<script src="js/accessibility.js?v=10685"></script>
-<script src="js/home-overview.js?v=10685"></script>
-<script src="js/workspaces.js?v=10685"></script>
-<script src="js/tool-layout.js?v=10685"></script>
+<script src="js/branding.js?v=10686"></script>
+<script src="js/selfhost.js?v=10686"></script>
+<script src="js/version.js?v=10686"></script>
+<script src="js/promote.js?v=10686"></script>
+<script src="js/authConfig.js?v=10686"></script>
+<script src="js/changelog.js?v=10686"></script>
+<script src="js/msappcatalog.js?v=10686"></script>
+<script src="js/demo.js?v=10686"></script>
+<script src="js/graph.js?v=10686"></script>
+<script src="js/suggest.js?v=10686"></script>
+<script src="js/progress.js?v=10686"></script>
+<script src="js/runledger.js?v=10686"></script>
+<script src="js/groupuse.js?v=10686"></script>
+<script src="js/audit.js?v=10686"></script>
+<script src="js/devicecleanup.js?v=10686"></script>
+<script src="js/backup.js?v=10686"></script>
+<script src="js/document.js?v=10686"></script>
+<script src="js/policycache.js?v=10686"></script>
+<script src="js/runmeta.js?v=10686"></script>
+<script src="js/overview.js?v=10686"></script>
+<script src="js/devicewhy.js?v=10686"></script>
+<script src="js/whatif.js?v=10686"></script>
+<script src="js/health.js?v=10686"></script>
+<script src="js/settingsearch.js?v=10686"></script>
+<script src="js/conflict.js?v=10686"></script>
+<script src="js/compliance.js?v=10686"></script>
+<script src="js/filterrules.js?v=10686"></script>
+<script src="js/filters.js?v=10686"></script>
+<script src="js/restore.js?v=10686"></script>
+<script src="js/platformbaseline.js?v=10686"></script>
+<script src="js/complianceevidence.js?v=10686"></script>
+<script src="js/macbaseline.js?v=10686"></script>
+<script src="js/winbaseline.js?v=10686"></script>
+<script src="js/assignedit.js?v=10686"></script>
+<script src="js/restrictedau.js?v=10686"></script>
+<script src="js/groupmigrate.js?v=10686"></script>
+<script src="js/roles.js?v=10686"></script>
+<script src="js/defender.js?v=10686"></script>
+<script src="js/endpointsec.js?v=10686"></script>
+<script src="js/report.js?v=10686"></script>
+<script src="js/securescore.js?v=10686"></script>
+<script src="js/endpointposture.js?v=10686"></script>
+<script src="js/mdemembers.js?v=10686"></script>
+<script src="js/mdereports.js?v=10686"></script>
+<script src="js/mdeexclude.js?v=10686"></script>
+<script src="js/mderevert.js?v=10686"></script>
+<script src="js/mdeasr.js?v=10686"></script>
+<script src="js/addons.js?v=10686"></script>
+<script src="js/mdeedgeext.js?v=10686"></script>
+<script src="js/mderollout.js?v=10686"></script>
+<script src="js/t28v2safety.js?v=10686"></script>
+<script src="js/mderolloutv2.js?v=10686"></script>
+<script src="js/maa.js?v=10686"></script>
+<script src="js/laps.js?v=10686"></script>
+<script src="js/applocker.js?v=10686"></script>
+<script src="js/flat-icons.js?v=10686"></script>
+<script src="js/app.js?v=10686"></script>
+<script src="js/col-resize.js?v=10686"></script>
+<script src="js/accessibility.js?v=10686"></script>
+<script src="js/home-overview.js?v=10686"></script>
+<script src="js/workspaces.js?v=10686"></script>
+<script src="js/tool-layout.js?v=10686"></script>
 </body>
 </html>
