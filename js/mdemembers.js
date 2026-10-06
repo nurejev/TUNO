@@ -565,8 +565,32 @@ const MdeMembers = (() => {
 
   // ------------------------------------------------------------ compute --
   // waves: Map lc(region) -> { user: group|null, device: group|null, userName, deviceName }
-  function compute(cfg, input, waves, now) {
+  // 10654: AVD (VDI in the name) is out of scope. 10684 (Mihai: "t28,
+  // always exclude devices with -vdi- in the name. they are out of scope"):
+  // the rule is "-vdi-" (any case), and it holds on EVERY path — no rule
+  // places such a device, a pin or pilot never puts one in, and one already
+  // in a country device group is taken out by the next 👥 Apply.
+  const AVD_NAME = /-vdi-/i;
+  const isAvdName = (name) => AVD_NAME.test(String(name || ""));
+  const AVD_WHY = "⊘ AVD (-vdi- in the name) — out of scope, excluded";
+  // the Entra object ids of the AVD devices: by the Entra name, or by the
+  // name Intune has for the device behind it
+  function avdIdsOf(input) {
+    const ids = new Set();
+    const byDid = new Map();
+    for (const e of input.entra || []) { if (isAvdName(e.displayName)) ids.add(lc(e.id)); if (e.deviceId) byDid.set(lc(e.deviceId), e); }
+    for (const m of input.managedAll || input.managed || []) if (isAvdName(m.deviceName) && m.azureADDeviceId && byDid.has(lc(m.azureADDeviceId))) ids.add(lc(byDid.get(lc(m.azureADDeviceId)).id));
+    return ids;
+  }
+  function compute(cfg, input0, waves, now) {
     const t = now || Date.now();
+    // 10684: AVD devices never enter the model — every step below reads
+    // input.managed, so none of them can place one
+    const avdIds = avdIdsOf(input0);
+    const entraDid = new Map((input0.entra || []).filter((e) => e.deviceId).map((e) => [lc(e.deviceId), e]));
+    const isAvdM = (m) => isAvdName(m.deviceName) || !!(m.azureADDeviceId && entraDid.has(lc(m.azureADDeviceId)) && avdIds.has(lc(entraDid.get(lc(m.azureADDeviceId)).id)));
+    const avdManaged = (input0.managed || []).filter(isAvdM);
+    const input = Object.assign({}, input0, { managed: (input0.managed || []).filter((m) => !isAvdM(m)), avdIds, avdManaged });
     // held: the device exclusion group (⊘, 10639) and the ↩ Revert device
     // group (10679) — both stay on the old set, so neither is wanted here
     const reverted = input.reverted || new Set();
@@ -790,11 +814,13 @@ const MdeMembers = (() => {
       if (row.batch && !row.batch.finished) row.want = new Set(row.devices.filter((d) => d.objId && !d.held && !d.skipped && row.batch.inWave.has(d.userId)).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       // 📌 a pinned device in this group stays (10682) — unless held
-      row.pinnedIn = [...row.have].filter((id) => (input.pinned || new Set()).has(id) && !held.has(id));
+      row.pinnedIn = [...row.have].filter((id) => (input.pinned || new Set()).has(id) && !held.has(id) && !avdIds.has(id));
       row.pinnedIn.forEach((id) => row.want.add(id));
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
-      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
+      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${avdIds.has(id) ? " (AVD — -vdi- in the name, out of scope)" : reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
+      // 10684: AVD devices still in this group — the next 👥 Apply takes them out
+      row.avdIn = [...row.have].filter((id) => avdIds.has(id));
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
       // in the user wave through the static group (10680) or, from before
       // it, through the dynamic source — 🔄 ⇄ swaps the second for the first
@@ -821,6 +847,7 @@ const MdeMembers = (() => {
         byDefender: row.devices.filter((d) => d.via === "defender").length,
         check: row.devices.filter((d) => d.check).length,
         pinned: row.pinnedIn.length,
+        avd: row.avdIn.length,
       };
       row.inSync = !!row.dg && !row.add.length && !row.remove.length && row.uInSync;
     }
@@ -864,7 +891,8 @@ const MdeMembers = (() => {
     for (const [k, list] of byUser) if (inRows.has(k)) for (const x of list) if (!seenM.has(x.m.id)) { seenM.add(x.m.id); placedBy[x.via] = (placedBy[x.via] || 0) + 1; }
     for (const list of extra.values()) for (const x of list) if (!seenM.has(x.m.id)) { seenM.add(x.m.id); placedBy[x.via] = (placedBy[x.via] || 0) + 1; }
     const alsoCount = new Set(rows.flatMap((r) => r.devices.filter((d) => d.via === "also" && !d.skipped).map((d) => `${r.key}|${d.managedId}`))).size;
-    return { alsoCount, skip, skipGroup: input.skipGroup || null, placedBy, logonRead: input.logonRead || { intune: null, defender: null }, pinned: input.pinned || new Set(), pinnedGroup: input.pinnedGroup || null,
+    const avdNames = uniq(avdManaged.map((m) => m.deviceName || m.id)).sort((a, b) => lc(a).localeCompare(lc(b)));
+    return { avd: { count: avdNames.length, names: avdNames, inGroups: rows.reduce((a, r) => a + r.avdIn.length, 0) }, alsoCount, skip, skipGroup: input.skipGroup || null, placedBy, logonRead: input.logonRead || { intune: null, defender: null }, pinned: input.pinned || new Set(), pinnedGroup: input.pinnedGroup || null,
       rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
       leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId, placed, ownerUsers), pilots: pilotsOf(input, rows) };
   }
@@ -915,8 +943,6 @@ const MdeMembers = (() => {
   // should be excluded. Named but excluded, because that's AVD and out of
   // scope"): a logon on such a device is listed, marked out of scope, and
   // sorted after the devices that count.
-  const AVD_NAME = /vdi/i;
-  const isAvdName = (name) => AVD_NAME.test(String(name || ""));
   function logonsFor(input, rows, users, results) {
     const entraByDev = new Map((input.entra || []).map((e) => [lc(e.deviceId || ""), e]));
     const managedByDev = new Map();
@@ -931,7 +957,7 @@ const MdeMembers = (() => {
       const aad = lc(h.AadDeviceId || "");
       const base = { aad: lc(h.AadDeviceId || ""), device: String(h.DeviceName || h.DeviceId || "").split(".")[0], fqdn: h.DeviceName || "", last: h.LastLogon || null, logons: Number(h.Logons) || 0, os: h.OSPlatform || "", join: h.JoinType || "" };
       const m = aad ? managedByDev.get(aad) : null, e = aad ? entraByDev.get(aad) : null;
-      if (isAvdName(h.DeviceName) || (m && isAvdName(m.deviceName))) return Object.assign(base, { kind: "avd", outOfScope: true, what: "⊘ AVD (VDI in the name) — out of scope, excluded" });
+      if (isAvdName(h.DeviceName) || (m && isAvdName(m.deviceName))) return Object.assign(base, { kind: "avd", outOfScope: true, what: AVD_WHY });
       if (m) {
         if (!m.userId) return Object.assign(base, { kind: "intune", what: "in Intune, no primary user — no wave" });
         const rs = rowsOfUser.get(lc(m.userId)) || [];
@@ -1023,6 +1049,7 @@ const MdeMembers = (() => {
         const devId = d.deviceId || (e && lc(e.deviceId || ""));
         const x = { kind: "device", id: d.id, name: d.name, devId: devId || "" };
         const m = devId ? managedByDev.get(devId) : null;
+        if ((input.avdIds && input.avdIds.has(d.id)) || isAvdName(d.name) || (m && isAvdName(m.deviceName))) { put(Object.assign(x, { state: "none", avd: true, why: AVD_WHY }), g); continue; }
         if (!m) { put(Object.assign(x, { state: "none", why: e ? "not in Intune — no primary user to follow" : "not a Windows device in Entra, or not in Intune" }), g); continue; }
         x.upn = m.userPrincipalName || "";
         if (m.operatingSystem && lc(m.operatingSystem) !== "windows") { put(Object.assign(x, { state: "none", why: `${m.operatingSystem || "not Windows"} — the waves hold Windows devices` }), g); continue; }
@@ -1074,7 +1101,7 @@ const MdeMembers = (() => {
       if (x.kind === "user") { person(x.id, x.name).userPilots = x.groups.slice(); continue; }
       if (x.kind === "device") {
         const m = x.devId ? managedByDev.get(x.devId) : null;
-        if (!m || !m.userId || (m.operatingSystem && lc(m.operatingSystem) !== "windows")) { loose.push(x); continue; }
+        if (x.avd || !m || !m.userId || (m.operatingSystem && lc(m.operatingSystem) !== "windows")) { loose.push(x); continue; }
         person(lc(m.userId), m.userPrincipalName || "");
         continue;
       }
@@ -1179,6 +1206,13 @@ const MdeMembers = (() => {
       const k = lc(m.userId), os = m.operatingSystem || "other";
       if (!osByUser.has(k)) osByUser.set(k, {});
       osByUser.get(k)[os] = (osByUser.get(k)[os] || 0) + 1;
+    }
+    // 10684: an AVD device is not a Windows device the waves count — the
+    // user is listed with it named
+    for (const m of input.avdManaged || []) if (m.userId) {
+      const k = lc(m.userId);
+      if (!osByUser.has(k)) osByUser.set(k, {});
+      osByUser.get(k)["AVD (-vdi-, out of scope)"] = (osByUser.get(k)["AVD (-vdi-, out of scope)"] || 0) + 1;
     }
     // a user who owns (in Entra) a device with no primary user has it (10655)
     const winUsers = new Set((input.managed || []).filter((m) => m.userId).map((m) => lc(m.userId)).concat([...(ownerUsers || [])]));
@@ -1473,6 +1507,7 @@ const MdeMembers = (() => {
       if (!e) { skipped.push(`${name}: no Entra object — it cannot be a group member`); continue; }
       const id = lc(e.id);
       if (held.has(id)) { skipped.push(`${name}: in the exclusion or Revert group — it stays on the old set`); continue; }
+      if (isAvdName(name) || isAvdName(e.displayName) || (input.avdIds && input.avdIds.has(id)) || avdIdsOf(input).has(id)) { skipped.push(`${name}: ${AVD_WHY}`); continue; }
       const r = rowOfUser(lc(it.userId));
       if (!r) { skipped.push(`${name}: its user is in no country group of the table`); continue; }
       if (!r.dg) { skipped.push(`${name}: ${r.deviceGroupName || "the country device group"} does not exist — create & fill it in 👥 first`); continue; }
@@ -1788,7 +1823,7 @@ const MdeMembers = (() => {
 
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
-    iso3Of, countryName, countryRows, realUpnOf, isAvdName, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
+    iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },
   };

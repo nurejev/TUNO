@@ -518,7 +518,7 @@ async function run() {
   const lgV = MM.logonsFor(input, model.rows, [{ id: "x1", upn: "Jan.Smit@x.com", sid: "S-1-5-21-9", sam: "JSMIT" }, { id: "x4", upn: "vdi.only@x.com" }], huntVdi);
   const j = lgV.get("x1");
   ok("🔎 a VDI device is named but out of scope — whatever Intune says of its id — and listed after the devices that count, however recent", j.length === 5 && j[4].device === "PVM-VDI-017" && j[4].kind === "avd" && j[4].outOfScope
-    && /AVD \(VDI in the name\) — out of scope, excluded/.test(j[4].what) && j.slice(0, 4).every((x) => !x.outOfScope) && j[0].device === "nl-1");
+    && /AVD \(-vdi- in the name\) — out of scope, excluded/.test(j[4].what) && j.slice(0, 4).every((x) => !x.outOfScope) && j[0].device === "nl-1");
   ok("🔎 a user seen only on VDI: every line out of scope, any case", lgV.get("x4").length === 1 && lgV.get("x4")[0].outOfScope && MM.isAvdName("x-vDi-1") && !MM.isAvdName("LT-NL-0412"));
 
   // --------------------------------------------------------------- csv --
