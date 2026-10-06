@@ -1149,6 +1149,11 @@ const TUNO_DEMO = (() => {
     [P(20)]: { devices: [[D(3), "Conflict"]], settings: [[D(3), "Minimum password length", "passwordMinimumLength"]] },
     [P(21)]: { devices: [[D(3), "Conflict"]], settings: [] },
     [P(3)]: { devices: [], settings: [] },
+    // T28 (10687): the new antivirus policy and the old one it replaces both
+    // report WS-FIN-0142 and WS-ENG-0221 in conflict — the pair's count is 2.
+    // WS-ENG-0308 is in conflict on the new one only: not on both, not counted.
+    [P(14)]: { devices: [[D(1), "Conflict"], [D(7), "Conflict"], [D(9), "Conflict"]], settings: [] },
+    [P(17)]: { devices: [[D(1), "Conflict"], [D(7), "Conflict"]], settings: [] },
   };
 
   const RUN_SUMMARY = {

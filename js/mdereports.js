@@ -263,17 +263,34 @@ ${body}
       return `${esc(name)}: <b>${esc(nv)}</b> → ${esc(ov)}`;
     }).join("<br>") + ((p.diffs.length || p.sames.length) > 8 ? "<br>…" : "");
     const fix = (p) => !p.proposal ? "" : p.proposal.steps.length ? p.proposal.steps.map((s) => `${s.action === "remove" ? "remove include" : "exclude"} ${esc(s.groupName)}${s.twinOf ? ` <span class="muted">(twin of ${esc(s.twinOf)})</span>` : ""}${s.supported === false ? ` <span class="bad">— not supported</span>` : s.supported === null ? ` <span class="warn">— kind not certain</span>` : ""}`).join("<br>") : `<span class="muted">${esc(p.proposal.none)}</span>`;
-    const table = [...byOld.values()].map((list) => `<tr class="head"><td colspan="4">${esc(list[0].O.name)} <span class="muted">· ${esc(list[0].O.kind)}</span></td></tr>` + list.map((p) =>
-      `<tr><td>${esc(p.N.name)}</td><td>${settingText(p)}</td><td>${esc((V[p.reach.verdict] && V[p.reach.verdict].label) || p.reach.verdict)}<div class="meta">${esc(p.reach.why || "")}</div></td><td>${fix(p)}</td></tr>`).join("")).join("");
+    // 🖥 On devices (10687, option A): a column only when devices were read
+    const DV = ctx.dev && ctx.dev.counts ? ctx.dev : null;
+    const devCell = (p) => {
+      const c = DV.counts.get(p.id);
+      if (!c) return `<span class="muted">—</span>`;
+      if (c.unknown) return `<span class="warn">unknown</span><div class="meta">${esc(c.unknown)}</div>`;
+      const was = DV.prev && DV.prev.get(p.id);
+      const wasTxt = was && !was.unknown && was.n !== c.n ? `<div class="meta">was ${was.n}</div>` : "";
+      return c.n ? `<b class="bad">${c.n} device${c.n === 1 ? "" : "s"}</b>${c.exact ? "" : `<div class="meta">other format — a hint</div>`}${wasTxt}`
+        : `<b class="ok">0${was && was.n ? " — cleared" : ""}</b>${wasTxt}`;
+    };
+    const cols = DV ? 5 : 4;
+    const table = [...byOld.values()].map((list) => `<tr class="head"><td colspan="${cols}">${esc(list[0].O.name)} <span class="muted">· ${esc(list[0].O.kind)}</span></td></tr>` + list.map((p) =>
+      `<tr><td>${esc(p.N.name)}</td><td>${settingText(p)}</td><td>${esc((V[p.reach.verdict] && V[p.reach.verdict].label) || p.reach.verdict)}<div class="meta">${esc(p.reach.why || "")}</div></td>${DV ? `<td>${devCell(p)}</td>` : ""}<td>${fix(p)}</td></tr>`).join("")).join("");
+    const onDev = DV ? pairs.filter((p) => { const c = DV.counts.get(p.id); return c && !c.unknown && c.n > 0; }) : [];
+    const devList = !DV ? "" : `<h2>🖥 Devices in conflict on both policies (${onDev.length} collision${onDev.length === 1 ? "" : "s"})</h2>
+      <p class="meta">Intune's device reports read ${esc(new Date(DV.at).toISOString().replace("T", " ").slice(0, 16))} UTC. A device counts when Intune reports it in Conflict on the new and the old policy of a pair.${DV.idx && DV.idx.summaryError ? ` The conflict summary could not be read (${esc(DV.idx.summaryError)}); every policy was asked.` : ""}</p>
+      ${onDev.length ? onDev.map((p) => { const c = DV.counts.get(p.id); return `<h3>${esc(p.O.name)} ↔ ${esc(p.N.name)} — ${c.n}</h3><table><tr><th>Device</th><th>User</th><th>Last report</th></tr>${c.ids.slice(0, 200).map((id) => { const d = DV.idx.devices.get(id) || {}; return `<tr><td>${esc(d.name || id)}</td><td>${esc(d.upn || "")}</td><td>${esc(d.when || "")}</td></tr>`; }).join("")}${c.ids.length > 200 ? `<tr><td colspan="3" class="muted">+${c.ids.length - 200} more — in the CSV</td></tr>` : ""}</table>`; }).join("") : `<p class="ok"><b>No device reports a conflict on both policies of any pair.</b></p>`}`;
     const diff = !D ? `<p class="meta">First check in this session — run it again after a change to see what moved.</p>`
       : `<div class="note">Since the check at ${esc(new Date(D.at).toISOString().replace("T", " ").slice(11, 16))} UTC: <b class="ok">${D.fixed.length} no longer need action</b> · <b class="${D.added.length ? "bad" : "ok"}">${D.added.length} new</b>.${D.added.length ? " New: " + D.added.map((id) => { const p = pairs.find((x) => x.id === id); return p ? `${esc(p.O.name)} ↔ ${esc(p.N.name)}` : esc(id); }).join("; ") : ""}</div>`;
     const body = `
-      <div class="tiles"><div class="tile"><b class="${S.act ? "bad" : "ok"}">${S.act}</b>need action</div><div class="tile"><b>${S.can}</b>can collide</div><div class="tile"><b>${S.may}</b>may collide</div><div class="tile"><b>${S.staged}</b>staged</div><div class="tile"><b>${S.review}</b>other format</div><div class="tile"><b>${S.duplicate}</b>same value</div><div class="tile"><b class="ok">${S.resolved}</b>resolved</div></div>
+      <div class="tiles"><div class="tile"><b class="${S.act ? "bad" : "ok"}">${S.act}</b>need action</div><div class="tile"><b>${S.can}</b>can collide</div><div class="tile"><b>${S.may}</b>may collide</div><div class="tile"><b>${S.staged}</b>staged</div><div class="tile"><b>${S.review}</b>other format</div><div class="tile"><b>${S.duplicate}</b>same value</div><div class="tile"><b class="ok">${S.resolved}</b>resolved</div>${DV ? `<div class="tile"><b class="${onDev.length ? "bad" : "ok"}">${onDev.reduce((n, p) => n + DV.counts.get(p.id).n, 0)}</b>device conflicts on both</div>` : ""}</div>
       ${diff}
       <h2>Collisions that need action (${act.length}) — grouped by the old policy</h2>
-      ${act.length ? `<table><tr><th style="width:26%">New policy</th><th>Settings (new → old)</th><th style="width:16%">Reach</th><th style="width:24%">Proposed fix</th></tr>${table}</table>` : `<p class="ok"><b>Nothing needs action.</b> Every old policy that sets a setting the new set sets is either out of reach or already excluded from the waves.</p>`}
+      ${act.length ? `<table><tr><th style="width:24%">New policy</th><th>Settings (new → old)</th><th style="width:14%">Reach</th>${DV ? `<th style="width:12%">🖥 On devices</th>` : ""}<th style="width:22%">Proposed fix</th></tr>${table}</table>` : `<p class="ok"><b>Nothing needs action.</b> Every old policy that sets a setting the new set sets is either out of reach or already excluded from the waves.</p>`}
       <h2>Resolved (${pairs.filter((p) => p.reach.verdict === "resolved").length})</h2>
-      <p>${pairs.filter((p) => p.reach.verdict === "resolved").map((p) => `${esc(p.O.name)} ↔ ${esc(p.N.name)}${p.reach.byTwin ? ` <span class="muted">(through the wave's twin)</span>` : ""}`).join("<br>") || `<span class="muted">None yet.</span>`}</p>`;
+      <p>${pairs.filter((p) => p.reach.verdict === "resolved").map((p) => `${esc(p.O.name)} ↔ ${esc(p.N.name)}${p.reach.byTwin ? ` <span class="muted">(through the wave's twin)</span>` : ""}${DV && DV.counts.get(p.id) && DV.counts.get(p.id).n ? ` <b class="bad">— ${DV.counts.get(p.id).n} device${DV.counts.get(p.id).n === 1 ? "" : "s"} still report a conflict</b>` : ""}`).join("<br>") || `<span class="muted">None yet.</span>`}</p>
+      ${devList}`;
     return page("MDE rollout — conflict check", meta, body);
   }
 

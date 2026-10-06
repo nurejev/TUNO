@@ -745,6 +745,48 @@ const MdeRollout = (() => {
   const needsAction = (pr) => (pr.type === "conflict" || pr.type === "review")
     && (pr.reach.verdict === "can" || pr.reach.verdict === "may" || pr.reach.verdict === "staged");
 
+  // ------------------------------------------------- 🖥 on devices --
+  //
+  // What the DEVICES say (10687, Mihai picked option A off the mockup: "a
+  // column in the table you already use"). T12's device read
+  // (ConflictDevices.read, `only` the new and old policies) answers which
+  // devices report each policy in Conflict. A pair's count is the devices
+  // reported in conflict on BOTH of its policies. For a "different value"
+  // pair that is exact — the two set the same setting differently, so a
+  // device in conflict on both is in conflict over that. An "other format"
+  // pair cannot be matched setting by setting, so its count is a hint and
+  // says so; a "same value" pair is not counted (agreement is no conflict).
+  function deviceIndex(read) {
+    const byPolicy = new Map(), devices = new Map();
+    for (const r of (read && read.deviceRows) || []) {
+      const pid = lc(r.policyId);
+      if (!byPolicy.has(pid)) byPolicy.set(pid, new Set());
+      byPolicy.get(pid).add(r.deviceId);
+      const d = devices.get(r.deviceId);
+      if (!d) devices.set(r.deviceId, { id: r.deviceId, name: r.deviceName, upn: r.upn, when: r.when });
+      else if (r.when && r.when > (d.when || "")) d.when = r.when;
+    }
+    const failed = new Set(((read && read.policyErrors) || []).map((x) => lc(x.id)));
+    const blind = new Set(((read && read.statusUnreadable) || []).map((x) => lc(x.id)));
+    return { byPolicy, devices, failed, blind, summaryError: (read && read.summaryError) || "" };
+  }
+  // pair id -> { n, ids, exact } | { unknown: why } ; same-value pairs absent
+  function deviceCounts(pairs, idx) {
+    const out = new Map();
+    if (!idx) return out;
+    for (const pr of pairs) {
+      if (pr.type === "duplicate") continue;
+      const a = lc(pr.N.id), b = lc(pr.O.id);
+      const bad = [a, b].find((x) => idx.failed.has(x) || idx.blind.has(x));
+      if (bad) { out.set(pr.id, { unknown: idx.failed.has(bad) ? "the report for one of the two could not be read" : "the report gave no status in words for one of the two" }); continue; }
+      const A = idx.byPolicy.get(a) || new Set(), B = idx.byPolicy.get(b) || new Set();
+      const ids = [...A].filter((d) => B.has(d));
+      ids.sort((x, y) => String((idx.devices.get(x) || {}).name || x).localeCompare(String((idx.devices.get(y) || {}).name || y)));
+      out.set(pr.id, { n: ids.length, ids, exact: pr.type === "conflict" });
+    }
+    return out;
+  }
+
   // --------------------------------------------------------- group kinds --
   // kinds: Map lc(groupId) -> { kind: user|device|mixed|empty|unknown, source, users, devices, name }
   // a one-letter U / D segment counts too (INT-SG-U-WAVE-…, INT-SG-D-…, 10635)
@@ -1615,13 +1657,15 @@ const MdeRollout = (() => {
     return L.join("\n");
   }
   const csvCell = (s) => { const v = String(s == null ? "" : s); return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
-  function csv(pairs) {
-    const head = ["Old policy", "Old generation", "New policy", "Type", "Reach", "Reach why", "Setting", "New value", "Old value", "Proposed fix"];
+  function csv(pairs, devCounts) {
+    // 🖥 (10687): the devices column only when devices were read, and last
+    const dv = (pr) => { const c = devCounts && devCounts.get(pr.id); return !c ? "" : c.unknown ? "unknown" : String(c.n); };
+    const head = ["Old policy", "Old generation", "New policy", "Type", "Reach", "Reach why", "Setting", "New value", "Old value", "Proposed fix"].concat(devCounts ? ["Devices in conflict on both"] : []);
     const rows = [head];
     for (const pr of pairs) {
       const fix = pr.proposal ? (pr.proposal.steps.map((s) => `${s.action === "remove" ? "remove include" : "exclude"} ${s.groupName}${s.twinOf ? ` (twin of ${s.twinOf})` : ""}${s.supported === false ? " (not supported)" : ""}`).join("; ") || pr.proposal.none) : "";
       const list = pr.type === "review" ? [{ name: `category: ${pr.common.map((c) => catMeta(c).label).join(", ")}`, newDisplay: "", oldDisplay: "" }] : pr.diffs.concat(pr.sames);
-      for (const d of list) rows.push([pr.O.name, GEN[pr.O.generation].label, pr.N.name, TYPE[pr.type].label, VERDICT[pr.reach.verdict].label, pr.reach.why, d.name, d.newDisplay, d.oldDisplay, fix]);
+      for (const d of list) rows.push([pr.O.name, GEN[pr.O.generation].label, pr.N.name, TYPE[pr.type].label, VERDICT[pr.reach.verdict].label, pr.reach.why, d.name, d.newDisplay, d.oldDisplay, fix].concat(devCounts ? [dv(pr)] : []));
     }
     return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
   }
@@ -1630,7 +1674,7 @@ const MdeRollout = (() => {
     DEFAULTS, normConfig, normName, hasPrefix, generationOf, GEN, isOld,
     CAT_IDS, catMeta, catOfKey, catOfLegacyProp, catOfAdmx, isConfigured,
     settingsOf, omaKey, omaSettings, normValue, SECTION_IDS, surfaceFor,
-    build, pairReach, VERDICT, TYPE, compare, needsAction,
+    build, pairReach, VERDICT, TYPE, compare, needsAction, deviceIndex, deviceCounts,
     audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants,
     kindFromName, kindOfGroup, pilotTiers, targetKinds, effectiveTargets, exclusionSupport, proposalFor, pilotRemovals, pilotsFor, twinIndex, wavePool,
     RETIRE, retirement, waves, composePlan, undoPlan, patchAssignments,

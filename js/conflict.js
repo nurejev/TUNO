@@ -438,6 +438,15 @@ const ConflictDevices = (() => {
       // slower, never blind.
       candidates = [...policyIndex(o.collectRes).values()].map((p) => ({ id: lc(p.id), name: p.name, n: null }));
     }
+    // `only` (10687, T28): a caller that cares about some policies — T28's
+    // new and old sets — asks for those and no others. With a summary, the
+    // ones it counts in conflict; without one, every one asked for.
+    if (Array.isArray(o.only)) {
+      const want = new Map(o.only.map((x) => [lc(x.id || x), x]));
+      candidates = out.summaryError || out.summaryBlind
+        ? [...want.entries()].map(([id, x]) => ({ id, name: x.name || id, n: null }))
+        : candidates.filter((p) => want.has(p.id));
+    }
     out.policies = candidates;
 
     let done = 0;
@@ -465,7 +474,9 @@ const ConflictDevices = (() => {
     }
 
     done = 0;
-    const setRes = await Graph.pool(hit, async (p) => {
+    // `settings: false` (10687): a caller that already knows which setting
+    // the pair shares (T28) skips the per-setting report.
+    const setRes = o.settings === false ? [] : await Graph.pool(hit, async (p) => {
       const rows = await readReport(R_SETTINGS, { filter: filterFor(p.id) }, { scopes });
       say(`Reading which settings collide… ${++done} of ${hit.length} policies`);
       return rows;

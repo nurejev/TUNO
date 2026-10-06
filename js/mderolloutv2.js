@@ -58,6 +58,11 @@ const MdeRolloutV2Tool = (() => {
   // 🎛 Adjust settings (10657, option B off the mockup): the modes asked for,
   // per matrix row key, and the pane's filter
   const asr = { edits: new Map(), filter: "all" };
+  // 🖥 On devices (10687, option A off the mockup): T12's device read for
+  // the new and old policies — the index, when it was read, the previous
+  // read's counts (so a fix shows "was 12 → 0 cleared"), and its running line
+  const dv = { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" };
+  const devCounts = () => (dv.idx ? M.deviceCounts(pairs, dv.idx) : null);
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
   // Where the plan panel opens (10639, Mihai: the dry run "appears at the
@@ -340,6 +345,7 @@ const MdeRolloutV2Tool = (() => {
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
+    Object.assign(dv, { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" });
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
     Object.assign(cs, { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" }); csCache = null;
@@ -478,6 +484,7 @@ const MdeRolloutV2Tool = (() => {
     ["act", "Needs action", (p) => M.needsAction(p)],
     ["can", "⚔️ Can collide", (p) => p.type !== "duplicate" && p.reach.verdict === "can"],
     ["may", "❓ May", (p) => p.type !== "duplicate" && p.reach.verdict === "may"],
+    ["ondev", "🖥 On devices", (p) => { const c = dv.idx && devNow && devNow.get(p.id); return !!(c && !c.unknown && c.n > 0); }],
     ["staged", "⏳ Staged", (p) => p.type !== "duplicate" && p.reach.verdict === "staged"],
     ["review", "🔎 Other format", (p) => p.type === "review"],
     ["duplicate", "🟰 Same value", (p) => p.type === "duplicate"],
@@ -517,12 +524,55 @@ const MdeRolloutV2Tool = (() => {
       return `<div style="margin:2px 0">${chip(cls, `${s.action === "remove" ? "−" : "⊘"} ${verb} ${s.groupName}`)} <span class="mini muted">${esc(s.kind)} group</span>${warn}${notes}</div>`;
     }).join("") + oldSide + incl + rest;
   }
+  // the counts of the render in progress — computed once per pane render
+  let devNow = null;
+  async function readDevices() {
+    if (dv.busy || !model) return false;
+    dv.busy = true; dv.error = ""; dv.status = "Reading Intune's device reports…"; render();
+    try {
+      const scopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
+      await Graph.ensureScopes(scopes);
+      const only = [];
+      const seen = new Set();
+      for (const pr of pairs) {
+        if (pr.type === "duplicate") continue;
+        for (const P of [pr.N, pr.O]) if (!seen.has(lc(P.id))) { seen.add(lc(P.id)); only.push({ id: P.id, name: P.name }); }
+      }
+      const read = await ConflictDevices.read({ collectRes: res, only, settings: false, scopes,
+        onStatus: (m) => { dv.status = m; const el = $("mvDevStatus"); if (el) el.textContent = m; } });
+      if (dv.idx) { dv.prev = M.deviceCounts(pairs, dv.idx); dv.prevAt = dv.at; }
+      dv.idx = M.deviceIndex(read);
+      dv.at = Date.now();
+      return true;
+    } catch (e) { dv.error = GroupUse.shortErr(e, 250); return false; }
+    finally { dv.busy = false; dv.status = ""; render(); }
+  }
+  function devCellHtml(pr) {
+    const c = devNow && devNow.get(pr.id);
+    if (!dv.idx) return `<span class="mini muted">not read</span>`;
+    if (!c) return `<span class="mini muted" title="Same value — agreement is not a conflict">—</span>`;
+    if (c.unknown) return `<span class="mini" style="color:var(--report)" title="${esc(c.unknown)}">unknown ⓘ</span>`;
+    const was = dv.prev && dv.prev.get(pr.id);
+    const wasTxt = was && !was.unknown && was.n !== c.n ? `<div class="mini muted">was ${was.n}${dv.prevAt ? ` at ${esc(shortTime(dv.prevAt))}` : ""}</div>` : "";
+    if (!c.n) return `${chip("au-op create", was && was.n ? "0 — cleared" : "0")}${wasTxt}`;
+    const isOpen = open.has("dv|" + pr.id);
+    return `${chip("au-op delete", plural(c.n, "device"))}${c.exact ? "" : `<div class="mini muted" title="An other-format pair cannot be matched setting by setting">other format — a hint</div>`}
+      <div><a href="#" class="mini" data-mrfold="dv|${esc(pr.id)}">${isOpen ? "▴ hide" : "▾ show"}</a></div>${wasTxt}`;
+  }
+  function devListRow(pr) {
+    const c = devNow && devNow.get(pr.id);
+    if (!c || c.unknown || !c.n || !open.has("dv|" + pr.id)) return "";
+    const shown = c.ids.slice(0, 50).map((id) => { const d = dv.idx.devices.get(id) || {}; return `<li><b>${esc(d.name || id)}</b>${d.upn ? ` · ${esc(d.upn)}` : ""}${d.when ? ` <span class="muted">· ${esc(Number.isFinite(Date.parse(d.when)) ? new Date(d.when).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : d.when)}</span>` : ""}</li>`; }).join("");
+    return `<tr><td></td><td colspan="5"><div class="ep-brief" style="margin:0"><p class="mini" style="margin:0 0 4px"><b>${plural(c.n, "device")}</b> Intune reports in Conflict on both <i>${esc(pr.N.name)}</i> and <i>${esc(pr.O.name)}</i>:</p>
+      <ul class="mini" style="margin:0;padding-left:18px">${shown}</ul>${c.n > 50 ? `<p class="mini muted" style="margin:4px 0 0">+${c.n - 50} more — in the 📑 conflict check's CSV.</p>` : ""}</div></td></tr>`;
+  }
   function conflictsPane() {
+    devNow = devCounts();
     const filt = (STATUS.find((s) => s[0] === view.status) || STATUS[0])[2];
     const counts = Object.fromEntries(STATUS.map(([id, , f]) => [id, pairs.filter(f).length]));
     const shown = pairs.filter((p) => filt(p) && (!view.cat || p.cats.includes(view.cat))
       && (!view.q || lc(p.O.name).includes(lc(view.q)) || lc(p.N.name).includes(lc(view.q))));
-    const tb = `<div class="toolbar">${STATUS.map(([id, label]) => fchip("data-mrstatus", id, label, counts[id], view.status === id)).join("")}</div>
+    const tb = `<div class="toolbar">${STATUS.filter(([id]) => id !== "ondev" || dv.idx).map(([id, label]) => fchip("data-mrstatus", id, label, counts[id], view.status === id)).join("")}</div>
       <div class="toolbar">${catChips(pairs.filter(filt), (p) => p.cats)}${searchBox()}</div>`;
     // grouped by OLD policy — the object the fix writes to
     const groups = new Map();
@@ -533,7 +583,7 @@ const MdeRolloutV2Tool = (() => {
       const allOn = fixable.length && fixable.every((pr) => selPairs.has(pr.id));
       const tk = [...M.targetKinds(O, kinds)].join(" + ") || "no includes";
       const head = `<tr class="mr-oldhead"><td style="width:26px">${fixable.length ? `<input type="checkbox" data-mrpairall="${esc(O.key)}"${allOn ? " checked" : ""} aria-label="select every fix on this old policy">` : ""}</td>
-        <td colspan="4"><b>${polLink(O)}</b> ${genChip(O)} <span class="mini muted">${esc(O.kind)} · targets: ${esc(tk)}${O.mdeManaged ? " · 🛰 MDE-managed" : ""}</span>
+        <td colspan="5"><b>${polLink(O)}</b> ${genChip(O)} <span class="mini muted">${esc(O.kind)} · targets: ${esc(tk)}${O.mdeManaged ? " · 🛰 MDE-managed" : ""}</span>
         <div class="mini" style="margin-top:4px">${assignChips(O)}</div></td></tr>`;
       const rows = list.map((pr) => {
         const canFix = canFixPair(pr);
@@ -543,7 +593,7 @@ const MdeRolloutV2Tool = (() => {
           : (pr.diffs.length ? pr.diffs : pr.sames).slice(0, 3).map((d) => { const s = settingLine(d); return `<div class="mini"><b>${esc(s.name)}</b>: ${esc(s.nv)} ${pr.diffs.length ? "→" : "="} ${esc(s.ov)}</div>`; }).join("")
             + ((pr.diffs.length || pr.sames.length) > 3 ? `<div class="mini muted">+${(pr.diffs.length || pr.sames.length) - 3} more</div>` : "");
         const more = pr.type !== "review" ? `<a href="#" class="mini" data-mrfold="${esc(pr.id)}">${isOpen ? "▴ less" : `▾ ${pr.diffs.length} different · ${pr.sames.length} same`}</a>` : "";
-        const detail = !isOpen ? "" : `<tr><td></td><td colspan="4"><div class="ep-brief" style="margin:0">
+        const detail = !isOpen ? "" : `<tr><td></td><td colspan="5"><div class="ep-brief" style="margin:0">
             <div style="overflow-x:auto"><table class="cg-table mini"><thead><tr><th>Setting</th><th>New</th><th>Old</th><th></th></tr></thead><tbody>
             ${pr.diffs.concat(pr.sames).map((d) => { const s = settingLine(d); const same = pr.sames.includes(d); return `<tr><td>${esc(s.name)}</td><td>${esc(s.nv)}</td><td>${esc(s.ov)}</td><td>${same ? chip("au-op other", "same") : chip("au-op delete", "different")}</td></tr>`; }).join("")}
             </tbody></table></div>
@@ -554,8 +604,9 @@ const MdeRolloutV2Tool = (() => {
           <td class="mini">${polLink(pr.N)}<div>${catIcons(pr.N)} ${chip(M.TYPE[pr.type].cls, M.TYPE[pr.type].label)}</div></td>
           <td>${lines}${more}</td>
           <td class="mini" title="${esc(pr.reach.why)}">${chip(M.VERDICT[pr.reach.verdict].cls, M.VERDICT[pr.reach.verdict].label)}<div class="muted" style="margin-top:3px">${esc(M.VERDICT[pr.reach.verdict].short)}</div></td>
+          <td>${devCellHtml(pr)}</td>
           <td>${proposalHtml(pr)}</td>
-        </tr>${detail}`;
+        </tr>${devListRow(pr)}${detail}`;
       }).join("");
       return head + rows;
     }).join("");
@@ -569,7 +620,10 @@ const MdeRolloutV2Tool = (() => {
           : "The proposed fix excludes the <b>new policy's include groups</b> from the old policy, so those devices take the new settings alone."} Tick fixes and use the bar: <b>② Dry run</b> reads the policies fresh and shows every change before anything is written.</p>
         ${unsupported ? `<p class="mini" style="margin:0 0 6px;color:var(--off)">✖ ${plural(unsupported, "collision")} can only be fixed with an exclusion Intune does not support (user group ↔ device group). Those steps are shown, never written — create the wave's device/user twin in 🌊 (it is proposed instead once it exists), or use an assignment filter on the new policy.</p>` : ""}
         <p class="mini muted" id="mvEnrich" style="margin:0 0 6px">${enriching ? `⏳ ${esc(enriching)}` : ""}</p>
-        ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:24%"><col style="width:30%"><col style="width:15%"><col></colgroup><thead><tr><th></th><th>New policy</th><th>Settings (new → old)</th><th>Reach</th><th>Proposed fix</th></tr></thead><tbody>${body}</tbody></table></div>`
+        <div class="tb-actions" style="margin:0 0 8px;align-items:center"><button class="btn" type="button" data-mrdvread${dv.busy || running || busy ? " disabled" : ""}>🖥 ${dv.idx ? "Read device reports again" : "Read device reports"}</button>
+          <span class="mini muted" id="mvDevStatus">${dv.busy ? esc(dv.status) : dv.idx ? `Intune's device reports read at ${esc(shortTime(dv.at))} — a count is the devices in Conflict on both policies of the pair${dv.idx.summaryError ? `; the conflict summary could not be read, so every policy was asked` : ""}${dv.idx.failed.size ? `; ${plural(dv.idx.failed.size, "policy report", "policy reports")} could not be read (unknown, not 0)` : ""}.` : "What the devices report: reads which devices Intune reports in Conflict on these policies. Reads only."}</span>
+          ${dv.error ? `<span class="mini" style="color:var(--off)" role="alert">Device reports failed: ${esc(dv.error)}</span>` : ""}</div>
+        ${shown.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:22%"><col style="width:27%"><col style="width:13%"><col style="width:12%"><col></colgroup><thead><tr><th></th><th>New policy</th><th>Settings (new → old)</th><th>Reach</th><th title="Devices Intune reports in Conflict on both policies">🖥 On devices</th><th>Proposed fix</th></tr></thead><tbody>${body}</tbody></table></div>`
           : `<p class="mini muted" style="margin:0">${pairs.length ? "Nothing with this status." : "No old policy sets a setting the new set sets — nothing collides."}</p>`}
       </div>`;
   }
@@ -3509,12 +3563,17 @@ const MdeRolloutV2Tool = (() => {
     try {
       const refreshed = await run(false); // a fresh read, never relabel an old model as fresh
       if (!refreshed || !model) { reps.error = "Fresh read failed. The previous report, if any, is retained; no new check was saved."; return; }
+      // 🖥 (10687): the check reads the devices too; a refusal there costs
+      // the column, never the check
+      await readDevices();
+      const counts = devCounts();
       const summary = MdeReports.conflictSummary(pairs, M.needsAction);
       const prev = reps.checks.length ? reps.checks[reps.checks.length - 1] : null;
       const diff = MdeReports.conflictDiff(prev, summary);
       reps.checks.push(Object.assign({ at: Date.now() }, summary));
-      const ctx = { labels, labelName: M.labelName, labelValue: M.labelValue, VERDICT: M.VERDICT, TYPE: M.TYPE, needsAction: M.needsAction, summary, diff };
-      reps.conflicts = { at: Date.now(), html: MdeReports.conflictsHtml(pairs, ctx, repMeta()), csv: M.csv(pairs), summary, diff, ...reportSnapshot() };
+      const ctx = { labels, labelName: M.labelName, labelValue: M.labelValue, VERDICT: M.VERDICT, TYPE: M.TYPE, needsAction: M.needsAction, summary, diff,
+        dev: counts ? { counts, idx: dv.idx, prev: dv.prev, at: dv.at } : null };
+      reps.conflicts = { at: Date.now(), html: MdeReports.conflictsHtml(pairs, ctx, repMeta()), csv: M.csv(pairs, counts), summary, diff, ...reportSnapshot() };
     } catch (e) { reps.error = `Conflict check failed: ${GroupUse.shortErr(e, 250)}`; }
     finally { reps.busy = ""; pane = "reports"; render(); }
   }
@@ -3752,6 +3811,7 @@ const MdeRolloutV2Tool = (() => {
       const c = t.closest("[data-mrcat]"); if (c) { view.cat = c.dataset.mrcat || null; render(); return; }
       const st = t.closest("[data-mrstate]"); if (st) { view.state = st.dataset.mrstate || null; render(); return; }
       const ss = t.closest("[data-mrstatus]"); if (ss) { view.status = ss.dataset.mrstatus; render(); return; }
+      if (t.closest("[data-mrdvread]")) { readDevices(); return; }
       const fo = t.closest("[data-mrfold]"); if (fo) { e.preventDefault(); const k = fo.dataset.mrfold; open.has(k) ? open.delete(k) : open.add(k); render(); return; }
       const gg = t.closest("[data-mrgo]"); if (gg) { e.preventDefault(); const P = model.byKey.get(gg.dataset.mrgo); pane = "conflicts"; view.status = "act"; view.cat = null; view.q = P ? P.name : ""; render(); return; }
       const wi = t.closest("[data-mrwaveinc]"); if (wi) {
@@ -4154,7 +4214,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

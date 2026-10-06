@@ -171,17 +171,20 @@ async function run() {
   ok("demo: four devices in conflict — the Error and Succeeded rows are not counted", /Devices in conflict\s*4/.test(body()) && !/WS-FIN-0187/.test(body()), body().slice(0, 300));
   const blk = (n) => [...$("cfBody").querySelectorAll("[data-cfblk]")].find((el) => el.querySelector(".cf-bh").textContent.includes(n));
   const openBlk = (n) => { const b = blk(n); if (!b.classList.contains("open")) b.querySelector(".cf-bh").click(); return blk(n); };
-  ok("demo: a block per device, the most findings first (WS-HR-0031: two typed properties and a flag)", $("cfBody").querySelectorAll("[data-cfblk]").length === 4 && /WS-HR-0031[\s\S]*2 named/.test($("cfBody").querySelector("[data-cfblk] .cf-bh").textContent));
+  // 10687: T28's antivirus pair (new P14 ↔ old P17) joins WS-ENG-0221 and
+  // WS-FIN-0142 — two more named settings on each — and puts the new policy
+  // in conflict on WS-ENG-0308 too.
+  ok("demo: a block per device, the most findings first (WS-ENG-0221: four named)", $("cfBody").querySelectorAll("[data-cfblk]").length === 4 && /WS-ENG-0221[\s\S]*4 named/.test($("cfBody").querySelector("[data-cfblk] .cf-bh").textContent));
   ok("…the flagged-only device last", /WS-ENG-0308/.test([...$("cfBody").querySelectorAll("[data-cfblk] .cf-bh")].pop().textContent));
   ok("the first block opens by itself, the rest wait", $("cfBody").querySelector("[data-cfblk]").classList.contains("open") && $("cfBody").querySelectorAll("[data-cfblk].open").length === 1);
   const fin = openBlk("WS-FIN-0142");
-  ok("open: a line per setting, both policies and both values inline", fin.querySelectorAll(".cf-line").length === 2 && /WIN — Security baseline \(Defender\)/.test(fin.textContent) && /WIN — Legacy exception set/.test(fin.textContent) && fin.querySelectorAll("code").length === 4);
+  ok("open: a line per setting, both policies and both values inline", fin.querySelectorAll(".cf-line").length === 4 && /WIN — Security baseline \(Defender\)/.test(fin.textContent) && /WIN — Legacy exception set/.test(fin.textContent) && /PVM-DG-CORP-ENDSEC-WIN-AV-PRD/.test(fin.textContent) && fin.querySelectorAll("code").length === 10);
   ok("…and the group both include", /both include SEC-All-Workstations/.test(fin.textContent), fin.textContent.slice(0, 400));
   ok("demo: the legacy restrictions pair is named on WS-HR-0031", /named/.test(blk("WS-HR-0031").querySelector(".cf-bh").textContent));
   const eng = openBlk("WS-ENG-0308");
-  ok("demo: WS-ENG-0308's SMBv1 flag is flagged-only, said as such", /flagged by Intune/.test(eng.textContent) && /other side may be on a surface/.test(eng.textContent));
-  blk("WS-HR-0031").querySelector(".cf-bh").click();
-  ok("a heading folds its block — the default-open one included", !blk("WS-HR-0031").classList.contains("open") && blk("WS-ENG-0308").classList.contains("open") && blk("WS-FIN-0142").classList.contains("open"));
+  ok("demo: WS-ENG-0308's SMBv1 flag is flagged-only, the other conflicting policy a candidate", /flagged by Intune/.test(eng.textContent) && /Candidates on this device: Win - OIB - ES - Defender Antivirus/.test(eng.textContent));
+  blk("WS-ENG-0221").querySelector(".cf-bh").click();
+  ok("a heading folds its block — the default-open one included", !blk("WS-ENG-0221").classList.contains("open") && blk("WS-ENG-0308").classList.contains("open") && blk("WS-FIN-0142").classList.contains("open"));
   $("cfBody").querySelector('[data-dvkind="open"]').click();
   ok("the Not named chip narrows to that device", $("cfBody").querySelectorAll("[data-cfblk]").length === 1);
   $("cfBody").querySelector('[data-dvkind="open"]').click();
