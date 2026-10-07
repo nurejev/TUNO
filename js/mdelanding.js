@@ -180,31 +180,53 @@ const MdeLanding = (() => {
     return (all || []).filter((m) => lc(m.operatingSystem) === "windows");
   }
 
-  // One policy's check-in status, through the cached-report API: create the
-  // configuration (the report name, a PolicyId filter, the columns), wait
-  // for it to complete, then page getCachedReport.
+  // ------------------------------------------- the shapes of the read --
+  // Mihai's first live run on PVM (7 Oct 2026, beta 10692): EVERY new policy
+  // answered 400 "An error has occurred." — Graph's reports service refusing
+  // the cached-report create as 10689 shaped it (reportName and metadata in
+  // the body, a bare PolicyId filter), and the cockpit printed that once per
+  // policy. Microsoft documents the report's columns and filter columns but
+  // not the portal's exact body, so since 10694 the read tries the documented
+  // shapes in order ON THE FIRST POLICY ONLY and keeps the first one the
+  // tenant answers for the rest:
+  //   cached       the three-step pattern exactly as Microsoft Learn's own
+  //                example has it — id, filter, orderBy, select; no reportName,
+  //                no metadata; getCachedReport repeats filter and select
+  //   cached-base  the same with the policy base types in the filter — the
+  //                four the portal's per-device report names. PolicyBaseTypeName
+  //                is a FILTER column of this report and not an output column:
+  //                a store selector, which some tenants want named.
+  //   action       getConfigurationPolicyNonComplianceReport with the PolicyId
+  //                filter — the documented report action T12's device read
+  //                uses, the one call PROVEN to answer on PVM (its rows carry
+  //                PolicyStatus with the _loc words).
+  // A refusal moves to the next shape only when it is the tenant refusing the
+  // report — a 4xx/5xx from Graph, or a configuration Intune fails to build.
+  // An auth, consent, throttle or network error is the error, for every
+  // shape. When the first policy is refused in every form the second is
+  // probed (one deleted policy must not condemn the read); when that one is
+  // refused too, the rest are not asked — one answer, said once, never fifty.
+  const SHAPES = ["cached", "cached-base", "action"];
+  const SHAPE_LABEL = { cached: "cached report, PolicyId", "cached-base": "cached report, PolicyId + policy base type", action: "getConfigurationPolicyNonComplianceReport" };
+  const R_ACTION = "getConfigurationPolicyNonComplianceReport";
+  const BASE_TYPES = ["Microsoft.Management.Services.Api.DeviceConfiguration", "DeviceManagementConfigurationPolicy", "DeviceConfigurationAdmxPolicy", "Microsoft.Management.Services.Api.DeviceManagementIntent"];
+  const odata = (s) => String(s == null ? "" : s).replace(/'/g, "''");
+  const policyFilter = (policyId, withBase) => `(PolicyId eq '${odata(policyId)}')${withBase ? ` and (${BASE_TYPES.map((t) => `(PolicyBaseTypeName eq '${t}')`).join(" or ")})` : ""}`;
+  // "400 An error has occurred." — the status in front, so a refusal can be
+  // told from a timeout at a glance
+  const errText = (e) => `${e && e.status ? `${e.status} ` : ""}${(e && e.message) || String(e)}`;
+  const refusal = (e) => !!e && (e.kind === "graph" || e.kind === "notfound" || e.reportFailed === true);
   const uuid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID()
     : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  async function readPolicyStatus(policyId, opts) {
-    const o = opts || {};
-    const base = `${Graph.BETA}/deviceManagement/reports/`;
-    const id = `${REPORT}_${uuid()}`;
-    const body = { id, reportName: REPORT, filter: `(PolicyId eq '${String(policyId).replace(/'/g, "''")}')`, select: SELECT, orderBy: [], metadata: "" };
-    let conf = await Graph.post(base + "cachedReportConfigurations", body, { scopes: o.scopes, retry: true });
-    const cid = (conf && conf.id) || id;
-    let status = lc(conf && conf.status);
-    for (let i = 0; status !== "completed" && i < POLL_MAX; i++) {
-      if (status === "failed") throw new Error(`Intune could not build the status report (${cid}).`);
-      await sleep(o.pollMs !== undefined ? o.pollMs : POLL_MS);
-      conf = await Graph.get(`${base}cachedReportConfigurations('${enc(cid)}')`, { scopes: o.scopes, retry: true });
-      status = lc(conf && conf.status);
-    }
-    if (status !== "completed") throw new Error(`The status report did not complete in time (${cid}).`);
+  // Pages of one { Schema, Values } answer, by top/skip, until the
+  // TotalRowCount is reached (a short page is not the end while rows are
+  // still due) — the cached report's and the action's alike.
+  async function readPages(ask) {
     const rows = [];
     let total = null;
     for (let skip = 0, pages = 0; ; skip += PAGE) {
-      const resp = await Graph.post(base + "getCachedReport", { id: cid, skip, top: PAGE, search: "", orderBy: [], select: SELECT }, { scopes: o.scopes, retry: true });
+      const resp = await ask(skip);
       const page = ConflictDevices.rowsOf(resp);
       rows.push(...page);
       if (resp && typeof resp === "object" && Number.isFinite(resp.TotalRowCount)) total = resp.TotalRowCount;
@@ -213,26 +235,67 @@ const MdeLanding = (() => {
     }
     return rows;
   }
+  // The cached report: create the configuration (a PolicyId filter, the
+  // columns), wait for it to complete, then page getCachedReport.
+  async function readCached(policyId, opts, withBase) {
+    const o = opts || {};
+    const base = `${Graph.BETA}/deviceManagement/reports/`;
+    const id = `${REPORT}_${uuid()}`;
+    const filter = policyFilter(policyId, withBase);
+    let conf = await Graph.post(base + "cachedReportConfigurations", { id, filter, orderBy: [], select: SELECT }, { scopes: o.scopes, retry: true });
+    const cid = (conf && conf.id) || id;
+    let status = lc(conf && conf.status);
+    for (let i = 0; status !== "completed" && i < POLL_MAX; i++) {
+      if (status === "failed") { const e = new Error(`Intune could not build the status report (${cid}).`); e.reportFailed = true; throw e; }
+      await sleep(o.pollMs !== undefined ? o.pollMs : POLL_MS);
+      conf = await Graph.get(`${base}cachedReportConfigurations('${enc(cid)}')`, { scopes: o.scopes, retry: true });
+      status = lc(conf && conf.status);
+    }
+    // a report that never completes is the tenant not answering in this
+    // form — the next form is tried, rather than every policy waiting it out
+    if (status !== "completed") { const e = new Error(`The status report did not complete in time (${cid}).`); e.reportFailed = true; throw e; }
+    return readPages((skip) => Graph.post(base + "getCachedReport", { id: cid, filter, orderBy: [], select: SELECT, skip, top: PAGE }, { scopes: o.scopes, retry: true }));
+  }
+  // The report action, T12's way: a read sent as POST, one call per page.
+  async function readAction(policyId, opts) {
+    const o = opts || {};
+    return readPages((skip) => Graph.post(`${Graph.BETA}/deviceManagement/reports/${R_ACTION}`, { filter: policyFilter(policyId, false), top: PAGE, skip }, { scopes: o.scopes, retry: true }));
+  }
+  const readShape = (shape, policyId, opts) => shape === "action" ? readAction(policyId, opts) : readCached(policyId, opts, shape === "cached-base");
+  // One policy's check-in status in one shape — the first by default.
+  async function readPolicyStatus(policyId, opts) {
+    const o = opts || {};
+    return readShape(o.shape || SHAPES[0], policyId, o);
+  }
+  // The first policy of a read: the shapes in order until one answers.
+  // { shape, rows, tried } — `tried` names each refusal before the answer.
+  async function probeStatus(policyId, opts) {
+    const o = opts || {};
+    const tried = [];
+    for (const shape of SHAPES) {
+      try { const rows = await readShape(shape, policyId, o); return { shape, rows, tried }; }
+      catch (e) {
+        if (!refusal(e)) throw e;
+        tried.push({ shape, error: errText(e) });
+      }
+    }
+    const e = new Error(`Intune refused the check-in status report in every form tried — ${tried.map((t) => `${SHAPE_LABEL[t.shape]}: ${t.error}`).join("; ")}`);
+    e.tried = tried;
+    throw e;
+  }
   // Every new policy's rows, shaped: { policyId, intuneId, name, upn, state,
   // word, code, byCode, when, filters }. A policy whose report failed is
-  // listed in `failed`, never counted as "nothing reported".
+  // listed in `failed`, never counted as "nothing reported". `shape` is the
+  // form the tenant answered, `tried` the refusals before it.
   async function readStatus(policies, opts) {
     const o = opts || {};
     const say = (m) => { if (typeof o.onStatus === "function") o.onStatus(m); };
     const pick = ConflictDevices.pick;
-    const out = { byPolicy: new Map(), failed: new Map(), rows: 0, codeBased: false, at: Date.now() };
+    const out = { byPolicy: new Map(), failed: new Map(), rows: 0, codeBased: false, at: Date.now(), shape: o.shape || null, tried: [] };
     const list = (policies || []).filter((p) => p.assigned);
     let done = 0;
-    say(`Reading Intune's check-in status — 0 of ${list.length} policies…`);
-    const res = await Graph.pool(list, async (p) => {
-      const rows = await readPolicyStatus(p.id, { scopes: o.scopes, pollMs: o.pollMs });
-      say(`Reading Intune's check-in status — ${++done} of ${list.length} policies…`);
-      return rows;
-    }, 3);
-    res.forEach((r, i) => {
-      const p = list[i];
-      if (r.error) { out.failed.set(p.id, (r.error && r.error.message) || String(r.error)); return; }
-      const shaped = (r.value || []).map((row) => {
+    const take = (p, rows) => {
+      const shaped = (rows || []).map((row) => {
         const st = stateOf(row);
         if (st.byCode) out.codeBased = true;
         return { policyId: p.id, intuneId: lc(pick(row, ["IntuneDeviceId", "DeviceId"]) || ""), name: String(pick(row, ["DeviceName"]) || ""),
@@ -241,9 +304,64 @@ const MdeLanding = (() => {
       });
       out.rows += shaped.length;
       out.byPolicy.set(p.id, shaped);
+    };
+    say(`Reading Intune's check-in status — 0 of ${list.length} policies…`);
+    // the first policy settles the shape (10694); a second is probed when
+    // the first is refused in every form; the rest follow the answer
+    let rest = list;
+    if (!out.shape) {
+      rest = [];
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        try {
+          const r = await probeStatus(p.id, { scopes: o.scopes, pollMs: o.pollMs });
+          out.shape = r.shape; out.tried = r.tried; take(p, r.rows);
+          say(`Reading Intune's check-in status — ${++done} of ${list.length} policies…`);
+          rest = list.slice(i + 1);
+          break;
+        } catch (e) {
+          out.failed.set(p.id, errText(e));
+          out.tried = e.tried || out.tried;
+          if (!e.tried || i >= 1) { for (const q of list.slice(i + 1)) out.failed.set(q.id, errText(e)); break; }
+        }
+      }
+    }
+    const res = await Graph.pool(rest, async (p) => {
+      const rows = await readPolicyStatus(p.id, { scopes: o.scopes, pollMs: o.pollMs, shape: out.shape || SHAPES[0] });
+      say(`Reading Intune's check-in status — ${++done} of ${list.length} policies…`);
+      return rows;
+    }, 3);
+    res.forEach((r, i) => {
+      const p = rest[i];
+      if (r.error) { out.failed.set(p.id, errText(r.error)); return; }
+      take(p, r.value || []);
     });
     say("");
     return out;
+  }
+  // The failures, said once each: "52 of 52 policies — 400 An error has
+  // occurred." — grouped by what Intune answered, never a wall of the same
+  // sentence. Up to three distinct failures name their policies.
+  function failedSummary(failed, policies, total) {
+    const list = failed || [];
+    if (!list.length) return "";
+    const nameOf = (id) => { const p = (policies || []).find((x) => x.id === id); return p ? p.name : id; };
+    const groups = new Map();
+    for (const f of list) { const g = groups.get(f.error) || []; g.push(f.id); groups.set(f.error, g); }
+    const n = total || list.length;
+    return [...groups.entries()].map(([error, ids]) => ids.length <= 3 && groups.size <= 3
+      ? `${ids.map(nameOf).join(", ")} — ${error}`
+      : `${ids.length} of ${plural(n, "policy", "policies")} — ${error}`).join("; ");
+  }
+  // How the status was read, when it was not the first form: the refusals
+  // and the form that answered, so a count can be checked against the
+  // portal's View report before it is trusted.
+  function shapeNote(model) {
+    // no form answered: the failure summary says so; there is nothing to compare
+    if (!model || !model.shape || !(model.shapeTried || []).length) return "";
+    const tried = model.shapeTried.map((t) => `${SHAPE_LABEL[t.shape] || t.shape}: ${t.error}`).join("; ");
+    const via = model.shape === "action" ? `the status was read through ${R_ACTION}, the documented report action T12's device read uses` : `the status was read as a ${SHAPE_LABEL[model.shape]}`;
+    return `Intune refused the check-in status report as first asked (${tried}) — ${via}. Compare one policy's counts with the portal's View report before trusting the totals.`;
   }
 
   // ---------------------------------------------------------------- join --
@@ -349,7 +467,10 @@ const MdeLanding = (() => {
     summary.members = list.length;
     summary.devices = devices.size;
     summary.users = users.size;
-    return { at: status.at || now, regions, policies, members: list, summary, codeBased: !!status.codeBased, failed: [...status.failed.entries()].map(([id, error]) => ({ id, error })),
+    const failed = [...status.failed.entries()].map(([id, error]) => ({ id, error }));
+    return { at: status.at || now, regions, policies, members: list, summary, codeBased: !!status.codeBased, failed,
+      failedText: failedSummary(failed, policies, policies.filter((p) => p.assigned).length),
+      shape: status.shape || null, shapeTried: status.tried || [],
       memberErrors: members.errors || [], readRows: status.rows || 0 };
   }
 
@@ -429,5 +550,5 @@ const MdeLanding = (() => {
     return toCsv(rows);
   }
 
-  return { REPORT, SELECT, STATE, ORDER, CODE, stateOf, wordState, scope, readMembers, readManaged, readPolicyStatus, readStatus, join, explainConflicts, verdict, memberRows, csv, worstOf };
+  return { REPORT, R_ACTION, SHAPES, SHAPE_LABEL, SELECT, STATE, ORDER, CODE, stateOf, wordState, scope, readMembers, readManaged, readPolicyStatus, probeStatus, readStatus, failedSummary, shapeNote, join, explainConflicts, verdict, memberRows, csv, worstOf };
 })();

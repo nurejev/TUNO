@@ -61,3 +61,9 @@
 #t28Workspace2 .t28-overview-grid .t28-table-wrap { max-height:430px; }
 #t28Workspace2 .t28-countries { max-height:540px; overflow:auto; overscroll-behavior:contain; }
 @media(max-width:650px) { #t28Workspace2 .t28-countries { max-height:180px; } }
+
+/* 10694: a .toolbar inside a .list-card cannot stick — the card's
+   overflow:hidden pins it, and the sticky offset leaves a gap where the
+   bar should be (app.css's own .gu-bar note). 📡 Landing's member card
+   carried two: the chips sat over the table's first rows, a gap above. */
+#screen-mderollout .list-card .toolbar { position:static; margin:0 0 6px; padding:0; box-shadow:none; background:transparent; }

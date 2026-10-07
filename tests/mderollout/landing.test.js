@@ -144,10 +144,78 @@ async function run() {
     const L0 = L; const PAGE = 500;
     const rows = await L0.readPolicyStatus("p-1", { pollMs: 0 });
     const create = calls.find((c) => c[0] === "POST" && /cachedReportConfigurations$/.test(c[1]));
-    ok("the read creates a cached report for the policy (the report name, a PolicyId filter, the columns)", !!create && create[2].reportName === L.REPORT && /\(PolicyId eq 'p-1'\)/.test(create[2].filter) && create[2].select.includes("PolicyStatus") && new RegExp(`^${L.REPORT}_`).test(create[2].id));
+    // 10694: the body is Microsoft Learn's own example — id, filter, orderBy, select — and nothing else (reportName and metadata were in the 10689 body PVM refused)
+    ok("the read creates a cached report for the policy (a PolicyId filter, the columns, the id carrying the report name — no reportName, no metadata in the body)", !!create && !("reportName" in create[2]) && !("metadata" in create[2]) && create[2].filter === "(PolicyId eq 'p-1')" && create[2].select.includes("PolicyStatus") && new RegExp(`^${L.REPORT}_`).test(create[2].id) && Object.keys(create[2]).sort().join() === "filter,id,orderBy,select");
     ok("…polls the configuration until completed", calls.filter((c) => c[0] === "GET").length === 2 && /cachedReportConfigurations\('/.test(calls.find((c) => c[0] === "GET")[1]));
-    ok("…then pages getCachedReport by top/skip until the TotalRowCount is reached (a short page is not the end while rows are still due)", rows.length === 3 && calls.filter((c) => /getCachedReport$/.test(c[1])).length === 2 && calls.filter((c) => /getCachedReport$/.test(c[1]))[1][2].skip === PAGE);
+    const pages = calls.filter((c) => /getCachedReport$/.test(c[1]));
+    ok("…then pages getCachedReport by top/skip until the TotalRowCount is reached (a short page is not the end while rows are still due), the filter and the columns repeated", rows.length === 3 && pages.length === 2 && pages[1][2].skip === PAGE && pages[0][2].filter === "(PolicyId eq 'p-1')" && pages[0][2].select.includes("PolicyStatus") && pages[0][2].id === create[2].id);
     ok("…rows come back as objects by column", rows[1].PolicyStatus_loc === "Conflict" && rows[2].IntuneDeviceId === "c");
+    ok("a quote in the id is doubled, the OData way", (await (async () => { calls.length = 0; await L0.readPolicyStatus("p'1", { pollMs: 0 }); return calls[0][2].filter; })()) === "(PolicyId eq 'p''1')");
+    G.post = realPost; G.get = realGet;
+  }
+
+  // ------------------------------------- the shapes of the read (10694) --
+  // PVM, 7 Oct: every cached-report create answered 400 "An error has
+  // occurred." The read tries the documented shapes in order on the first
+  // policy and keeps the one the tenant answers; the failures are said once.
+  {
+    const G = w.Graph, realPost = G.post, realGet = G.get;
+    const refuse = (status, message) => { const e = new Error(message); e.kind = "graph"; e.status = status; return e; };
+    const rowsFor = (id) => ({ TotalRowCount: 1, Schema: [{ Column: "PolicyId" }, { Column: "IntuneDeviceId" }, { Column: "PolicyStatus" }, { Column: "PolicyStatus_loc" }], Values: [[id, "dev-" + id, 2, "Succeeded"]] });
+    const pols = ["p-1", "p-2", "p-3", "p-4"].map((id) => ({ id, name: "Policy " + id, assigned: true }));
+    // (a) the tenant refuses every cached create, answers the action
+    let calls = [];
+    G.post = async (url, body) => {
+      calls.push([url.replace(/^.*\/reports\//, ""), body]);
+      if (/cachedReportConfigurations$/.test(url)) throw refuse(400, "An error has occurred.");
+      if (new RegExp(`${L.R_ACTION}$`).test(url)) return rowsFor((/PolicyId eq '([^']+)'/.exec(body.filter) || [])[1]);
+      return realPost(url, body);
+    };
+    G.get = async () => { throw new Error("never polled: no configuration was created"); };
+    const st = await L.readStatus(pols, { pollMs: 0 });
+    const creates = calls.filter((c) => c[0] === "cachedReportConfigurations");
+    ok("PVM's answer: both cached forms refused on the first policy, the action answers, and the three others are read through the action only", st.shape === "action" && st.tried.map((t) => t.shape).join() === "cached,cached-base" && /400 An error has occurred/.test(st.tried[0].error) && creates.length === 2 && calls.filter((c) => c[0] === L.R_ACTION).length === 4 && st.failed.size === 0 && st.rows === 4);
+    ok("…the second cached form names the policy base types in its filter, the four of the per-device report", /PolicyBaseTypeName eq 'DeviceManagementConfigurationPolicy'/.test(creates[1][1].filter) && /PolicyBaseTypeName eq 'Microsoft.Management.Services.Api.DeviceManagementIntent'/.test(creates[1][1].filter) && /^\(PolicyId eq 'p-1'\) and \(/.test(creates[1][1].filter) && creates[0][1].filter === "(PolicyId eq 'p-1')");
+    ok("…the action is asked T12's way: the PolicyId filter, top and skip, no select", creates.length && (() => { const a = calls.find((c) => c[0] === L.R_ACTION)[1]; return a.filter === "(PolicyId eq 'p-1')" && a.top === 500 && a.skip === 0 && !("select" in a); })());
+    ok("…the rows read through the action are shaped like the cached report's (words first)", st.byPolicy.get("p-3")[0].state === "landed" && st.byPolicy.get("p-3")[0].intuneId === "dev-p-3" && !st.codeBased);
+    const m = L.join(L.scope([], []), { users: new Map(), devices: new Map(), excludedBy: new Map(), errors: [] }, [], st);
+    ok("the model carries the shape and the refusals, and the note says how the status was read", m.shape === "action" && m.shapeTried.length === 2 && /refused the check-in status report as first asked \(cached report, PolicyId: 400 An error has occurred\.; cached report, PolicyId \+ policy base type: 400 An error has occurred\.\) — the status was read through getConfigurationPolicyNonComplianceReport/.test(L.shapeNote(m)) && /Compare one policy's counts/.test(L.shapeNote(m)));
+    // (b) every form refused, on the first AND the second policy: the rest are not asked, the failure is one sentence
+    calls = [];
+    G.post = async (url, body) => { calls.push([url.replace(/^.*\/reports\//, ""), body]); throw refuse(400, "An error has occurred."); };
+    const st2 = await L.readStatus(pols, { pollMs: 0 });
+    ok("refused in every form on the first and the second policy: the other two are never asked, every policy is failed with the one answer", st2.shape === null && st2.failed.size === 4 && calls.length === 6 && [...st2.failed.values()].every((v) => /^Intune refused the check-in status report in every form tried — cached report, PolicyId: 400 An error has occurred\.; cached report, PolicyId \+ policy base type: 400 An error has occurred\.; getConfigurationPolicyNonComplianceReport: 400 An error has occurred\./.test(v)));
+    const m2 = L.join(L.scope([], []), { users: new Map(), devices: new Map(), excludedBy: new Map(), errors: [] }, [], st2);
+    const sum = L.failedSummary(m2.failed, pols.map((p) => ({ id: p.id, name: p.name })), 4);
+    ok("…and the summary says it once — '4 of 4 policies — …', never one sentence per policy", /^4 of 4 policies — Intune refused/.test(sum) && (sum.match(/An error has occurred/g) || []).length === 3 && L.shapeNote(m2) === "" );
+    ok("…while up to three distinct failures name their policies", L.failedSummary([{ id: "p-1", error: "404 gone" }, { id: "p-2", error: "500 oops" }], pols, 4) === "Policy p-1 — 404 gone; Policy p-2 — 500 oops");
+    // (c) the first policy alone is refused (a policy deleted since the read): the second settles the shape and the first stays failed
+    calls = [];
+    G.post = async (url, body) => {
+      calls.push([url.replace(/^.*\/reports\//, ""), body]);
+      const pid = (/PolicyId eq '([^']+)'/.exec(body.filter || "") || [])[1];
+      if (pid === "p-1") throw refuse(404, "Not found.");
+      if (/cachedReportConfigurations$/.test(url)) return { id: body.id, status: "completed" };
+      if (/getCachedReport$/.test(url)) return rowsFor("x");
+      throw new Error("unexpected " + url);
+    };
+    const st3 = await L.readStatus(pols, { pollMs: 0 });
+    ok("one policy refused in every form, the next answers the first cached form: the shape is kept, three read, one failed with its own answer", st3.shape === "cached" && st3.failed.size === 1 && /404 Not found/.test(st3.failed.get("p-1")) && st3.byPolicy.size === 3 && st3.tried.length === 0);
+    // (d) an auth error is the error for every shape — no second form is tried, nothing else is asked
+    calls = [];
+    G.post = async (url, body) => { calls.push([url]); const e = new Error("Sign in again."); e.kind = "auth"; e.status = 401; throw e; };
+    const st4 = await L.readStatus(pols, { pollMs: 0 });
+    ok("an auth error is not a refusal: one call, every policy failed with it, no other form tried", calls.length === 1 && st4.failed.size === 4 && st4.failed.get("p-4") === "401 Sign in again." && st4.tried.length === 0);
+    // (e) a configuration Intune fails to build is a refusal of that form
+    calls = [];
+    G.post = async (url, body) => { calls.push([url.replace(/^.*\/reports\//, ""), body]); if (/cachedReportConfigurations$/.test(url)) return { id: body.id, status: "failed" }; if (new RegExp(`${L.R_ACTION}$`).test(url)) return rowsFor("y"); throw new Error("unexpected"); };
+    const st5 = await L.readStatus(pols.slice(0, 1), { pollMs: 0 });
+    ok("a configuration Intune fails to build moves to the next form", st5.shape === "action" && st5.tried.length === 2 && /could not build the status report/.test(st5.tried[0].error) && st5.rows === 1);
+    // (f) a caller that knows the shape hands it in and no probe runs
+    calls = [];
+    G.post = async (url, body) => { calls.push([url.replace(/^.*\/reports\//, ""), body]); if (new RegExp(`${L.R_ACTION}$`).test(url)) return rowsFor("z"); throw new Error("unexpected " + url); };
+    const st6 = await L.readStatus(pols.slice(0, 2), { pollMs: 0, shape: "action" });
+    ok("a shape handed in is used as is", st6.shape === "action" && calls.every((c) => c[0] === L.R_ACTION) && st6.rows === 2);
     G.post = realPost; G.get = realGet;
   }
 
