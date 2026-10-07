@@ -511,3 +511,15 @@ The scanning strategy follows Microsoft's **AaronLocker** by Aaron Margosis. The
 check set T01 runs against the result comes from Spencer Alessi's **AppLockerInspector**.
 Neither project is vendored here; these are independent implementations written for the
 TUNO workflow, and the header of each script lists where they deliberately differ.
+
+## T29 weekly AppLocker Harvest (beta 10690)
+
+`Detect-TunoWeeklyAppLockerHarvest.ps1` and `Get-TunoWeeklyAppLockerHarvest.ps1` are both **v1.0.0, changed in build 10690**. Deploy the pair as SYSTEM, 64-bit PowerShell with a **Daily** Intune Remediation assignment. The detector triggers after seven days since the last successfully uploaded collection, or whenever a queued bundle needs retrying. This is delivery cadence, not a compliance/security verdict.
+
+The collector reads existing non-DLL AppLocker events from four channels over eight days (one-day overlap). DLL filtering precedes each channel's cap. It collects policy receipts from local/GPO and the AppLocker MDM cache separately; it does not inventory applications, inspect ACLs or scan executable files. Local files live under `%ProgramData%\TUNO\AppLockerHarvest`; the cloud path is `<configured folder>/<device>/T29_AppLocker_<UTC>_<GUID>.json`.
+
+Configure the SharePoint site, tenant ID, uploader client ID and certificate subject/thumbprint in T29. The current T01 target can be copied for this tenant, and T01's existing site/uploader setup is available. A client secret is the alternative and is included in the deployed device script. Prefer site-scoped certificate credentials. Neither credential is put in event bundles.
+
+A pending bundle retries unchanged. Successful upload and size read-back are required before committing the seven-day checkpoint. Retention defaults to 30 days, with 0 keeping history. Pruning is limited to this device's exact T29 file names after delivery, preserves the newest confirmed upload, and never touches the pending queue or old T01 files. Cloud pruning failures are reported separately from successful delivery. Verify on Windows before broad assignment.
+
+T29 also carries over the unchanged T01 pairs: Clear AppLocker Settings **v1.4.0 (changed 10612)** and Collect AppControl Events **v1.3.1 (changed 10624)**. Clear is a deliberate migration action using the existing marker; Collect retains its on-demand/every-pass behavior. The dedicated weekly pair supplies the new cadence. Existing helper updates preserve assignments and schedules; new helpers start unassigned.

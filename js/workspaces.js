@@ -69,6 +69,7 @@
   // What each tool does, in one line (mockup round 1). The tile keeps its
   // long description; the library card says it short.
   const blurbs = {
+    toolAppLockerHarvest: 'Edit AppLocker XML, verify Microsoft apps, harvest weekly results and redeploy in Intune.',
     toolAppLocker: 'Scan devices, build the policy, see what breaks before you enforce.',
     toolDefender: 'Devices where Defender is off or out of date.',
     toolEndpointSec: 'Whether firewall and ASR rules really reach the Windows fleet.',
@@ -129,6 +130,7 @@
         ['toolGroupUse', 'Everything a wave group’s members receive, before and after a wave.', 'Groups'],
         ['toolDefender', 'Defender on and up to date on the devices a wave reaches.', 'Defender'],
         ['toolEndpointSec', 'Whether firewall and ASR rules reach a wave’s Windows devices.', 'ASR'],
+        ['toolAppLocker', 'Existing Harvest site and uploader setup for P-2715; legacy T01 remains available.', 'T01 setup'],
       ] },
   };
   // The app's own pages belong to every side (ENCA's "❓ Help" group in 02).

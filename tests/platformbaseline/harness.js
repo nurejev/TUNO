@@ -30,7 +30,7 @@ const FILES = [
   "js/msappcatalog.js", "js/demo.js", "js/graph.js", "js/suggest.js", "js/progress.js", "js/runledger.js",
   "js/groupuse.js", "js/document.js", "js/policycache.js", "js/filterrules.js", "js/filters.js",
   "js/restore.js", "js/platformbaseline.js", "js/macbaseline.js", "js/winbaseline.js",
-  "js/applocker.js", "js/app.js",
+  "js/applocker.js", "js/applocker-harvest-core.js", "js/applocker-harvest.js", "js/app.js",
 ];
 
 // boot({ url, storage }) serves the page from another origin — the
@@ -46,6 +46,7 @@ function boot(opts) {
   w.crypto = w.crypto || {};
   if (!w.crypto.getRandomValues) w.crypto.getRandomValues = (a) => { for (let i = 0; i < a.length; i++) a[i] = 1; return a; };
   if (!w.crypto.subtle) w.crypto.subtle = require("node:crypto").webcrypto.subtle;
+  w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.alert = () => {};
   w.matchMedia = w.matchMedia || (() => ({ matches: false, addEventListener() {}, addListener() {} }));
   const map = new Map(Object.entries((opts && opts.storage) || {}));

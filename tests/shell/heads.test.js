@@ -31,9 +31,9 @@ head("The markup — 28 empty heads, each naming its tool");
   const D = w.document;
   const T = w.TOOL_VERSIONS;
   const screens = [...D.querySelectorAll("section.screen.tool")];
-  ok("28 tool screens", screens.length === 28, String(screens.length));
+  ok("29 tool screens", screens.length === 29, String(screens.length));
   const heads = [...D.querySelectorAll("[data-tool-head]")];
-  ok("28 heads, one per tool screen", heads.length === 28 && screens.every((s) => s.querySelectorAll("[data-tool-head]").length === 1),
+  ok("29 heads, one per tool screen", heads.length === 29 && screens.every((s) => s.querySelectorAll("[data-tool-head]").length === 1),
     screens.filter((s) => s.querySelectorAll("[data-tool-head]").length !== 1).map((s) => s.id).join(", "));
   ok("every head names a tool with a title and chips in the registry",
     heads.every((h) => T[h.dataset.toolHead] && T[h.dataset.toolHead].head && Array.isArray(T[h.dataset.toolHead].chips)),
@@ -43,10 +43,10 @@ head("The markup — 28 empty heads, each naming its tool");
   ok("no head carries an inline style", heads.every((h) => !h.hasAttribute("style")));
   // Raw markup, before any script: nothing typed into a head any more.
   const raw = [...html.matchAll(/<h2 data-tool-head="(tool[A-Za-z]+)">([\s\S]*?)<\/h2>/g)];
-  ok("in index.html every head is empty — the registry writes it", raw.length === 28 && raw.every((m) => m[2] === ""),
+  ok("in index.html every head is empty — the registry writes it", raw.length === 29 && raw.every((m) => m[2] === ""),
     raw.filter((m) => m[2] !== "").map((m) => m[1]).join(", "));
-  ok("27 heads open a .readme head card; 🚀 MDE rollout's sits in its workspace header",
-    heads.filter((h) => h.parentElement.matches(".screen.tool > .readme")).length === 27
+  ok("28 heads open a .readme head card; 🚀 MDE rollout's sits in its workspace header",
+    heads.filter((h) => h.parentElement.matches(".screen.tool > .readme")).length === 28
     && D.querySelector("#t28Workspace2 .mr-header [data-tool-head='toolMdeRollout']") !== null);
 }
 
@@ -118,12 +118,12 @@ head("One name per tool — head, tab and crumb agree");
   const T = w.TOOL_VERSIONS;
   const crumbs = [...app.matchAll(/\$\("(tool[A-Za-z]+)"\)\.addEventListener\("click", \(\) => \{ crumb\("([^"]+)"\); show\("screen-/g)];
   const tools = crumbs.filter((m) => T[m[1]] && T[m[1]].head);
-  ok("28 tiles open their screen with a crumb", tools.length === 28, String(tools.length));
+  ok("29 tiles open their screen with a crumb", tools.length === 29, String(tools.length));
   const off = tools.filter((m) => T[m[1]].head !== m[2]);
   ok("every crumb is the tool's head title", off.length === 0, off.map((m) => `${m[1]}: ${m[2]} ≠ ${T[m[1]].head}`).join(" | "));
   const tabsSrc = (app.match(/TOOL_TABS\s*=\s*\[([\s\S]*?)\];/) || [])[1] || "";
   const tabs = [...tabsSrc.matchAll(/\["(tool[A-Za-z]+)", "([^"]+)"\]/g)].filter((m) => T[m[1]] && T[m[1]].head);
-  ok("28 tools in the tab list", tabs.length === 28, String(tabs.length));
+  ok("29 tools in the tab list", tabs.length === 29, String(tabs.length));
   const offTabs = tabs.filter((m) => T[m[1]].head !== m[2]);
   ok("every tab label is the tool's head title", offTabs.length === 0, offTabs.map((m) => `${m[1]}: ${m[2]} ≠ ${T[m[1]].head}`).join(" | "));
 }

@@ -1025,6 +1025,7 @@ const Fs = (() => {
   // handler sets, so the active tab can be matched from crumb() regardless of
   // whether the tool was opened from the grid or a tab.
   const TOOL_TABS = [
+    ["toolAppLockerHarvest", "🔐 P-2715 Applocker & harvest"],
     ["toolAppLocker", "🔐 AppLocker builder & validator"],
     ["toolDefender", "🦠 Defender status"],
     ["toolEndpointSec", "🧱 Firewall & ASR coverage"],
@@ -1309,6 +1310,7 @@ const Fs = (() => {
   });
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
+  $("toolAppLockerHarvest").addEventListener("click", () => { crumb("🔐 P-2715 Applocker & harvest"); show("screen-applocker-harvest"); });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });
@@ -1858,6 +1860,7 @@ const Fs = (() => {
 
   // ---------- tools ----------
   if (typeof AppLockerTool !== "undefined") AppLockerTool.init();
+  if (typeof AppLockerHarvestTool !== "undefined") AppLockerHarvestTool.init();
   if (typeof GroupUseTool !== "undefined") GroupUseTool.init();
   if (typeof AuditTool !== "undefined") AuditTool.init();
   if (typeof DeviceWhyTool !== "undefined") DeviceWhyTool.init();

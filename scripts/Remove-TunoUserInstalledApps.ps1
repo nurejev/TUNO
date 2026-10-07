@@ -1,4 +1,4 @@
-# Remove-TunoUserInstalledApps.ps1  v1.0.1  (TUNO build 10689)
+# Remove-TunoUserInstalledApps.ps1  v1.0.1  (TUNO build 10690)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -111,7 +111,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.1'
-$script:TunoBuild = 10689
+$script:TunoBuild = 10690
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2

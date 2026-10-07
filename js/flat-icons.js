@@ -66,7 +66,7 @@ const FlatIcons = (() => {
   });
   // ---- a tool's icon, by TUNO tool id (round 1, D3 A) ----
   const names = {
-    toolAppLocker: "lock", toolDefender: "shield", toolEndpointSec: "blocks", toolLaps: "key", toolPosture: "compass", toolSecureScore: "chart", toolMdeRollout: "rocket",
+    toolAppLockerHarvest: "lock", toolAppLocker: "lock", toolDefender: "shield", toolEndpointSec: "blocks", toolLaps: "key", toolPosture: "compass", toolSecureScore: "chart", toolMdeRollout: "rocket",
     toolGroupUse: "link", toolDevice: "monitor", toolWhatIf: "route", toolHealth: "activity", toolAssignEdit: "edit", toolFilters: "filter",
     toolOverview: "file", toolBackup: "box", toolDocs: "folder", toolSetSearch: "search", toolMacBaseline: "layers", toolWinBaseline: "layers", toolConflict: "warning",
     toolCompEv: "flag", toolCompliance: "check", toolDeviceCleanup: "trash", toolAudit: "clock",

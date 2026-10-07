@@ -41,7 +41,7 @@ head("Every head card folds");
   const w = bootLayout();
   const D = w.document;
   const heads = [...D.querySelectorAll(".screen.tool > .readme")];
-  ok("27 head cards are marked .wc-tool-head", heads.length === 27 && heads.every((h) => h.classList.contains("wc-tool-head")), String(heads.length));
+  ok("28 head cards are marked .wc-tool-head", heads.length === 28 && heads.every((h) => h.classList.contains("wc-tool-head")), String(heads.length));
   ok("each title is marked .wc-page-title", heads.every((h) => h.querySelector("h2.wc-page-title")));
   ok("each title carries exactly one fold button", heads.every((h) => h.querySelectorAll(".wc-head-fold").length === 1));
   ok("the button is the title's last child, after the version stamp", heads.every((h) => {

@@ -116,8 +116,8 @@ head("Tools: substrings, initials, T-numbers");
   // On beta 🚀 MDE rollout is in 02 (slice 13), so the switch to the other
   // side is an entry too — ENCA's 32407, first on an empty query as there.
   ok("an empty query lists the switch to the other side, then every tool, by name", names(w)[0] === "⇄ Switch to 02 · Projects" && rows(w)[0].querySelector(".cp-k").textContent === "Workspace 02 — temporary tools for customer projects"
-    && tools.length === 31 && rows(w).slice(1, 32).every((r) => /^Tool/.test(r.querySelector(".cp-k").textContent))
-    && names(w).slice(1, 32).join("|") === names(w).slice(1, 32).slice().sort((a, b) => a.localeCompare(b)).join("|"), names(w).slice(0, 4).join("|"));
+    && tools.length === 32 && rows(w).slice(1, 33).every((r) => /^Tool/.test(r.querySelector(".cp-k").textContent))
+    && names(w).slice(1, 33).join("|") === names(w).slice(1, 33).slice().sort((a, b) => a.localeCompare(b)).join("|"), names(w).slice(0, 4).join("|"));
   ok("every tool row leads with its line icon, and its name has no emoji", tools.every((r) => r.querySelector(".cp-ic svg.enca-icon")) && tools.every((r) => !/\p{Extended_Pictographic}/u.test(r.querySelector("b").textContent)));
   ok("the tool's own icon: Group migration's is the tool's", rows(w).find((r) => r.querySelector("b").textContent === "Group migration").querySelector(".cp-ic").innerHTML === norm(w, w.FlatIcons.tool("toolGroupMigrate")));
   ok("forty rows at most", rows(w).length <= 40);
@@ -185,7 +185,7 @@ head("A cold cache is said, never searched around");
   press(w, "k", { ctrlKey: true });
   ok("the footer says policies come once the tenant is read", w.document.getElementById("cpScopeNote").textContent === "Policies once the tenant is read");
   type(w, "");
-  ok("an empty query is the tools alone (and the switch to 02)", rows(w).length === 32 && rows(w).every((r) => /^(Tool|Workspace 02)/.test(r.querySelector(".cp-k").textContent)));
+  ok("an empty query is the tools alone (and the switch to 02)", rows(w).length === 33 && rows(w).every((r) => /^(Tool|Workspace 02)/.test(r.querySelector(".cp-k").textContent)));
   type(w, "contoso baseline v9");
   ok("a name nobody can match yet offers the read instead of nothing", names(w).join("|") === "Read the tenant to search its policies" && rows(w)[0].querySelector(".cp-k").textContent === "Policy overview · T19");
   type(w, "laps");

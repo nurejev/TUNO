@@ -106,12 +106,12 @@ head("Home tiles open from the keyboard");
   const D = w.document;
   w.eval(a11yJs);
   const tiles = [...D.querySelectorAll("#screen-home .tool")];
-  ok("31 tiles carry a launch button", tiles.length === 31 && tiles.every((t) => t.querySelectorAll("h3 > .tool-launch").length === 1), String(tiles.length));
+  ok("32 tiles carry a launch button", tiles.length === 32 && tiles.every((t) => t.querySelectorAll("h3 > .tool-launch").length === 1), String(tiles.length));
   ok("the button is the heading's first child and holds the name", tiles.every((t) => {
     const b = t.querySelector("h3 > .tool-launch"); return b === t.querySelector("h3").firstElementChild && b.textContent.length > 2 && b.type === "button";
   }));
   const named = tiles.filter((t) => w.TOOL_VERSIONS[t.id] && w.TOOL_VERSIONS[t.id].head);
-  ok("a tool tile's button is its name, the same as its heading", named.length === 28 && named.every((t) => t.querySelector(".tool-launch").textContent === w.TOOL_VERSIONS[t.id].head.replace(/^\S+\s/, "")),
+  ok("a tool tile's button is its name, the same as its heading", named.length === 29 && named.every((t) => t.querySelector(".tool-launch").textContent === w.TOOL_VERSIONS[t.id].head.replace(/^\S+\s/, "")),
     named.filter((t) => t.querySelector(".tool-launch").textContent !== w.TOOL_VERSIONS[t.id].head.replace(/^\S+\s/, "")).map((t) => t.id + ": " + t.querySelector(".tool-launch").textContent).join(" | "));
   ok("its label says what it does", D.querySelector("#toolLaps .tool-launch").getAttribute("aria-label") === "Open Windows LAPS audit");
   ok("the heading kept its chips", D.querySelector("#toolDeviceCleanup h3 .tag") !== null);

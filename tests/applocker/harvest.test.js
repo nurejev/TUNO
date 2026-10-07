@@ -287,7 +287,7 @@ head("10627 — a bundle that did not reach the harvest site is not done (scanne
   // line 1 of every script body: name, version, build — above #Requires, ASCII
   const dir = path.join(ROOT, "scripts");
   const files = fs.readdirSync(dir).filter((f) => /\.ps1$/.test(f)).sort();
-  ok("fourteen scripts", files.length === 14, String(files.length));
+  ok("sixteen scripts including the T29 weekly pair", files.length === 16, String(files.length));
   const bad = [];
   for (const f of files) {
     const src = fs.readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "");

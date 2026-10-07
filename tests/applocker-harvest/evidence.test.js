@@ -1,0 +1,28 @@
+const {suite}=require('../platformbaseline/harness');const {ok,run,fs,path,ROOT}=suite('T29 Harvest evidence');const {JSDOM}=require('jsdom');
+run(async()=>{
+ const w=new JSDOM('',{runScripts:'outside-only'}).window;w.eval(['msappcatalog.js','applocker.js','applocker-harvest-core.js'].map(f=>fs.readFileSync(path.join(ROOT,'js',f),'utf8')).join('\n')+';window.C=AppLockerHarvestCore;');const C=w.C;
+ const make=(name,time,entries,extra={})=>C.bundleOf({schema:'tuno.applocker.harvest/1',machine:{name:'PILOT-01',deviceId:'device-a',collectedUtc:time,sinceUtc:'2026-10-01T00:00:00Z'},events:{available:true,logsRead:['EXE','Script','Execution','Deployment'],entries},...extra},name);
+ const event={recordId:12,log:'Microsoft-Windows-AppLocker/EXE and DLL',timeUtc:'2026-10-06T11:00:00Z',path:'C:\\app.exe',eventId:8004,verdict:'Blocked'};
+ const a=make('a.json','2026-10-06T12:00:00Z',[event,{...event,recordId:13,path:'C:\\app.DLL'}]),b=make('b.json','2026-10-07T12:00:00Z',[event,{...event,recordId:14,path:'C:\\another.exe'}]);
+ let ev=C.evidence([a,b],Date.parse('2026-10-07T13:00:00Z'));
+ ok('DLL events excluded before summaries',a.excluded===1&&ev.rows.length===2&&ev.excluded===1);
+ ok('overlapping weekly bundles dedupe by immutable event record/time',ev.duplicates===1);
+ ok('device latest receipt is shown while full windows remain in analysis',ev.devices.length===1&&ev.devices[0].bundle.name==='b.json');
+ ok('stale collection is not healthy',C.evidence([a],Date.parse('2026-11-07')).devices[0].stale);
+ const partial=make('partial','2026-10-07T12:00:00Z',[],{events:{available:false,logsRead:[],entries:[]}});
+ ok('unread/empty logs remain partial',C.evidence([partial]).devices[0].partial);
+ const future=make('future','2029-10-07T12:00:00Z',[]);ok('future timestamp is partial evidence',C.evidence([future]).devices[0].partial);
+ const unknown=make('unknown','2026-10-07T12:00:00Z',[{},{}]);ok('missing event identity does not collapse unknown evidence',C.evidence([unknown]).rows.length===2);
+ ok('scan schema is refused',(()=>{try{C.bundleOf({schema:'tuno.applocker.scan/1'},'scan');return false;}catch(e){return /Scan/.test(e.message);}})());
+ ok('old T01 event bundles remain importable',C.bundleOf({...a.raw,schema:'tuno.applocker.events/1'},'legacy').entries.length===1);
+ let xml=C.normalize(fs.readFileSync(path.join(ROOT,'templates/applocker/AppLockerRules-Enforce-R27.1-v1.0.xml'),'utf8')).xml;
+ const grouping=C.newGrouping(),profile=Object.assign({id:'p'},C.profileBody(xml,{displayName:'P',grouping})),adopted=C.adoption(profile,[]);
+ const receiptBundle=make('receipt','2026-10-07T12:00:00Z',[],{policyReceipt:{mdm:{collections:profile.omaSettings.map(x=>({grouping,type:x.displayName,xml:x.value}))}}});
+ ok('receipt compares every selected MDM collection',C.receipt(receiptBundle,adopted).startsWith('Selected collections match'));
+ receiptBundle.raw.policyReceipt.mdm.collections.pop();ok('missing collection is incomplete, never verified',C.receipt(receiptBundle,adopted).includes('incomplete'));
+ ok('local/GPO-only receipt cannot prove Intune',C.receipt(a,adopted).includes('unavailable'));
+ const updated=C.addPublisher(xml,'Exe',{publisher:'P',product:'Prod'});ok('comparison names exact edited/added rules',C.changes(xml,updated).length===1&&C.changes(xml,updated)[0]==='Added: Prod');
+ const source=C.inspect(xml).doc,deny=source.createElement('FilePathRule');Object.entries({Id:w.crypto.randomUUID(),Name:'deny all',Action:'Deny',UserOrGroupSid:'S-1-1-0'}).forEach(([k,v])=>deny.setAttribute(k,v));deny.innerHTML='<Conditions><FilePathCondition Path="*"/></Conditions>';source.querySelector('RuleCollection[Type="Exe"]').append(deny);
+ ok('broad deny takes precedence over allow',C.coverage(new w.XMLSerializer().serializeToString(source)).find(x=>x.app.id==='edge').result.status==='blocked');
+ w.close();
+});

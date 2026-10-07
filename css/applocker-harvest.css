@@ -1,0 +1,26 @@
+/* T29 — approved policy workspace, scoped to this tool. */
+#screen-applocker-harvest .ah-layout{display:grid;grid-template-columns:205px minmax(0,1fr);gap:20px;align-items:start}
+#screen-applocker-harvest .ah-nav{display:grid;gap:6px;position:sticky;top:calc(var(--sticky-nav,130px) + 16px)}
+#screen-applocker-harvest .ah-nav button{text-align:left;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink)}
+#screen-applocker-harvest .ah-nav button[aria-selected=true]{border-color:var(--accent2);background:var(--soft);font-weight:700}
+#screen-applocker-harvest .ah-panel{padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--surface);min-width:0}
+#screen-applocker-harvest .ah-panel h3{margin-top:0}
+#screen-applocker-harvest .ah-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+#screen-applocker-harvest .ah-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+#screen-applocker-harvest label{display:grid;gap:5px;font-size:13px}
+#screen-applocker-harvest label.ah-check{display:flex;gap:8px;align-items:start;margin:12px 0}
+#screen-applocker-harvest input:not([type=checkbox]),#screen-applocker-harvest select,#screen-applocker-harvest textarea{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:7px;padding:9px;background:var(--surface);color:var(--ink)}
+#screen-applocker-harvest .ah-xml{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;min-height:390px;resize:vertical;tab-size:2}
+#screen-applocker-harvest .ah-note{padding:12px 14px;background:var(--soft);border-radius:8px;margin:12px 0;overflow-wrap:anywhere}
+#screen-applocker-harvest .ah-warning{border-left:4px solid #bd7c19;background:var(--surface)}
+#screen-applocker-harvest .ah-danger{border-left:4px solid #c84b4b}
+#screen-applocker-harvest .ah-scroll{overflow:auto;max-height:520px}
+#screen-applocker-harvest table{width:100%;border-collapse:collapse;font-size:12px}
+#screen-applocker-harvest td,#screen-applocker-harvest th{text-align:left;padding:10px;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
+#screen-applocker-harvest .ah-kpis{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+#screen-applocker-harvest .ah-kpis div{padding:14px;min-width:115px;border:1px solid var(--border);border-radius:10px}
+#screen-applocker-harvest .ah-kpis strong{font-size:24px;display:block}
+#screen-applocker-harvest pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font-size:12px}
+#screen-applocker-harvest button:disabled{opacity:.55;cursor:default}
+#screen-applocker-harvest .ah-status{min-height:22px;padding:10px 0;overflow-wrap:anywhere}
+@media(max-width:800px){#screen-applocker-harvest .ah-layout{grid-template-columns:1fr}#screen-applocker-harvest .ah-nav{position:static;display:flex;overflow:auto}#screen-applocker-harvest .ah-nav button{flex:0 0 auto}#screen-applocker-harvest .ah-panel{padding:14px}}

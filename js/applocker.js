@@ -3585,6 +3585,8 @@ const AppLockerTool = (() => {
   // and a script whose version moved in this build must name this build here.
   // A row whose change is THIS build wears the "changed in this build" tag.
   const SCRIPT_VERSIONS = {
+    "Detect-TunoWeeklyAppLockerHarvest.ps1": { v: "1.0.0", changed: 10690 },
+    "Get-TunoWeeklyAppLockerHarvest.ps1": { v: "1.0.0", changed: 10690 },
     "Invoke-TunoAppLockerScan.ps1":         { v: "1.14.0", changed: 10627 },
     "Detect-TunoAppLockerScan.ps1":         { v: "1.1.0",  changed: 10627 },
     "Convert-TunoAppLockerToIntune.ps1":    { v: "1.4.1",  changed: 10370 },
@@ -5289,6 +5291,7 @@ const AppLockerTool = (() => {
   }
 
   return { init,
+    engine: { parsePolicy, evaluateApp, ruleMatchesArtifact, pathRuleMatches, scriptVersions: SCRIPT_VERSIONS },
     _loop: { loopStages, goStage, workspace: () => workspace, stageOn: () => stageOn, note: () => loopNote },
     _tenant: { fnv1a, t01Stamp, stampDescription, stampOf, deployedMode, maintenanceUpdate, readiness, enforceGates, saveDraftNow, readDrafts, loadSavedDraft, renderTenantCard, policyOfProfile, intuneProfile, exportXml,
       adopted: () => adoptedFrom, setAdopted: (a) => { adoptedFrom = a; }, policy: () => policy, tenantState: () => evTenant },

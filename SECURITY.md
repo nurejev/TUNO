@@ -138,3 +138,11 @@ Set via meta tag (GitHub Pages cannot send headers): `default-src 'self'`; scrip
 ## Reporting
 
 Found something? Open a GitHub issue, or reach Limon-IT via [limon-it.nl](https://limon-it.nl).
+
+## T29 AppLocker policy & Harvest
+
+T29 imports and edits XML and event bundles locally. Its explicit deployment actions use the existing Intune write scopes. New policies start unassigned with a unique automatic CSP grouping. Existing policies are hydrated and read with their assignments before review and again before write; the exact ID, grouping and collection node set are retained. A rollback snapshot is downloaded before policy deployment. Unreadable/masked values, multi-grouping profiles and existing DLL CSP nodes block adoption. Unknown write outcomes are resolved by reads rather than automatic write replay.
+
+The weekly device collector uploads event evidence and separate local/GPO/MDM policy receipts to the configured SharePoint site. It has no application inventory scan. Pending local bundles are retained on delivery failures; the success checkpoint follows upload receipt and size read-back. Only this device's exact T29 historical filenames are eligible for pruning after delivery. Certificate credentials are preferred; a configured secret exists in the generated remediation body. Intune helper creation is unassigned, and in-place helper updates preserve the assignment schedule.
+
+Microsoft catalog matches are predictions for representative standard-user artifacts, not proof of execution or approval of broad allow rules. Intune object/assignment read-back and matching device policy receipts are distinct from Windows enforcement and pilot app testing. Session data and uploader secrets clear on sign-out.

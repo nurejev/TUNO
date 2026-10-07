@@ -65,7 +65,7 @@ head("Every tool has its own icon");
   const D = w.document;
   const tiles = [...D.querySelectorAll("#screen-home .tool-tile")].map((t) => t.id);
   const grid = drawn(w, "grid");
-  ok("31 tiles, each with a shape of its own (none falls back to the grid)", tiles.length === 31 && tiles.every((id) => toolShape(w, id) !== grid),
+  ok("32 tiles, each with a shape of its own (none falls back to the grid)", tiles.length === 32 && tiles.every((id) => toolShape(w, id) !== grid),
     tiles.filter((id) => toolShape(w, id) === grid).join(", "));
   ok("an unknown id draws the grid, as in ENCA", toolShape(w, "toolNope") === grid);
   ok("round 1's four: T06 a monitor, T20 a compass, T14 a funnel, T28 a rocket",
@@ -103,7 +103,7 @@ head("The page is drawn, and its text reads as before");
   ok("🖥 Endpoint security draws round 1's shield, not T06's monitor", shapeOf(w, secs[0]) === drawn(w, "shield") && /^🖥 Endpoint security$/.test(secs[0].textContent));
   const side = D.getElementById("sideNav");
   const sideTools = [...side.querySelectorAll("button[data-nav]")], sideSecs = [...side.querySelectorAll("h4")];
-  ok("the sidebar's 31 entries draw the tiles' icons", sideTools.length === 31 && sideTools.every((b) => shapeOf(w, b.querySelector(".sn-ic")) === shapeOf(w, D.querySelector(`#${b.dataset.nav} .tool-ic`))),
+  ok("the sidebar's 32 entries draw the tiles' icons", sideTools.length === 32 && sideTools.every((b) => shapeOf(w, b.querySelector(".sn-ic")) === shapeOf(w, D.querySelector(`#${b.dataset.nav} .tool-ic`))),
     String(sideTools.length));
   ok("its six sections carry the section icon", sideSecs.length === 6 && sideSecs.every((h) => h.dataset.icon && shapeOf(w, h) === drawn(w, h.dataset.icon)), String(sideSecs.length));
   ok("Overview draws the house", shapeOf(w, D.querySelector("#side-home .sn-ic")) === drawn(w, "home"));
