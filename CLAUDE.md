@@ -410,3 +410,35 @@ through `Workspaces.paletteItems`, and the policies of the shared read
 🗂 Policy overview and `OverviewTool.openFromPalette(key)` — keep that
 export if T19 changes, and keep the key `<section id>|<item id>`. It opens
 only signed in, and Ctrl/Cmd+Shift+K stays the browser's.
+
+## The self-hosting image is nginx over the tree (build 10693)
+
+`Dockerfile`, `.dockerignore` and `selfhost/` are ENCA's R06 image, ported
+verbatim with the TUNO names (parity slices 18 and 19); `.github/workflows/
+docker.yml` publishes `ghcr.io/nurejev/tuno` — `:beta` from beta, `:latest`
+from main — **only from nurejev/TUNO** (tuno-beta's main carries beta code;
+the guard is `github.repository`). What a change needs:
+
+- a new file the site serves: nothing — `COPY .` takes the tree; a file
+  that must NOT ship (tests, scaffolding, a local-only folder like `pvm/`
+  or `terraform/`) goes in `.dockerignore`, which reads the working tree,
+  not the index;
+- a file whose content can change under an unchanged `?v=`: a `no-store`
+  location in `selfhost/nginx.conf` that repeats the four security headers
+  (`add_header` is not inherited) — today `index.html`,
+  `selfhost-branding.json`, `js/selfhost-boot.js` and `js/authConfig.js`,
+  the last because the entrypoint rewrites it at container start;
+- the entrypoint's contract holds: nothing set = nothing changes; a value
+  that is not a GUID or a plain https URL = exit 1, never escaped; branding
+  is never fatal; the two blocks it writes sit between literal markers
+  (`TUNO-RUNTIME-CONFIG`, `TUNO-RUNTIME-BRAND`) and `js/selfhost-boot.js`
+  reads `window.TUNO_BRAND_BOOT` between this browser's Apply and the cache;
+- `tests/selfhost/entrypoint.test.js` runs the entrypoint with `TUNO_ROOT`
+  against a copy of the site and pins the files above — it holds all of it.
+
+**At promotion** the beta URLs and the `:beta` tag in `SELF-HOSTING.md`,
+`selfhost/install.sh`, `install.ps1`, `docker-compose.yml` and
+`resolve-digest.sh` become main / `:latest` — ENCA 25228's carve-out is
+slice 22; until it exists, by hand. **`/terraform/` is local-only** (its own
+repo, pushed to Azure Repos, never here) and not a TUNO change: no changelog
+entry, no queue item, no build number — like `/pvm/`.

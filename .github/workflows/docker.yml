@@ -1,0 +1,81 @@
+# ======================================================================
+# Publish the self-hosting image to GitHub Container Registry (ENCA's
+# docker.yml, ported in beta 10693; parity slice 18).
+#
+#   ghcr.io/nurejev/tuno:beta    ← every push to beta   (beta channel)
+#   ghcr.io/nurejev/tuno:latest  ← every push to main   (production — only
+#                                   once TUNO 2.0 is promoted; main at
+#                                   v1.0.13 has no workflow file, so nothing
+#                                   publishes :latest before then)
+#
+# The repository guard matters: the beta SITE is a separate repo
+# (nurejev/tuno-beta) whose default branch is main — without the guard,
+# deploying the beta site would publish beta code as :latest. Only
+# nurejev/TUNO publishes, as CLAUDE.md records.
+#
+# ONE MANUAL STEP, once: after the first run, set the package's visibility
+# to Public (github.com → Packages → tuno → Package settings), or anonymous
+# `docker pull`, the install scripts and a Container Apps deployment cannot
+# reach it.
+# ======================================================================
+name: docker image
+
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+    branches: [main, beta]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      # The tracked suites gate the publish — tests/selfhost among them, which
+      # runs the entrypoint against a copy of the site.
+      - run: npm test
+      - name: Check self-hosting response headers
+        run: |
+          docker build -t tuno-check .
+          docker run -d --name tuno-check -p 8080:80 tuno-check
+          python3 selfhost/check-headers.py http://127.0.0.1:8080
+      # The entrypoint must start the real image with a registration and
+      # refuse a bad one — the suite covers the script, this covers the image.
+      - name: Check the entrypoint inside the image
+        run: |
+          docker run --rm -e TUNO_CLIENT_ID=00000000-1111-2222-3333-444444444444 -e TUNO_TENANT_ID=55555555-6666-7777-8888-999999999999 tuno-check sh -c 'grep -q "TUNO-RUNTIME-CONFIG" /usr/share/nginx/html/js/authConfig.js && grep -q "55555555-6666-7777-8888-999999999999" /usr/share/nginx/html/js/authConfig.js'
+          if docker run --rm -e TUNO_CLIENT_ID=not-a-guid tuno-check true; then echo "a non-GUID client id must stop the container" >&2; exit 1; fi
+  publish:
+    needs: checks
+    if: github.event_name == 'push' && github.repository == 'nurejev/TUNO'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # arm64 alongside amd64: Apple-silicon Macs are half the audience of
+      # the local install script.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: tag
+        run: echo "tag=$([ "${{ github.ref_name }}" = "main" ] && echo latest || echo beta)" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # GHCR image names are lowercase even though the repo is nurejev/TUNO.
+          tags: ghcr.io/nurejev/tuno:${{ steps.tag.outputs.tag }}

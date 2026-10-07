@@ -1,4 +1,4 @@
-﻿# Detect-TunoWeeklyAppLockerHarvest.ps1  v1.0.0  (TUNO build 10692)
+﻿# Detect-TunoWeeklyAppLockerHarvest.ps1  v1.0.0  (TUNO build 10693)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -8,7 +8,7 @@ T29; SYSTEM, 64-bit PowerShell. Exit 1 means collect/retry, not device noncompli
 The success checkpoint moves only after SharePoint confirms the bundle upload.
 #>
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10692
+$script:TunoBuild = 10693
 $root = Join-Path $env:ProgramData 'TUNO\AppLockerHarvest'
 $pending = @(Get-ChildItem -LiteralPath (Join-Path $root 'Pending') -Filter 'T29_AppLocker_*.json' -File -ErrorAction SilentlyContinue)
 if ($pending.Count) { Write-Output 'Pending upload: retry on this daily pass'; exit 1 }

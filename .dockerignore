@@ -1,0 +1,39 @@
+# What stays OUT of the self-hosting image (beta 10693). Everything else in
+# the tree is served as-is: index.html, js/, css/, assets/, vendor/, the
+# baselines, the scripts and the templates — exactly what GitHub Pages serves.
+.git
+.github
+.gitignore
+.dockerignore
+Dockerfile
+CLAUDE.md
+package.json
+package-lock.json
+node_modules
+tests
+docs
+_to_delete
+Claude outputs
+
+# A tenant-specific auth override belongs to the machine it was written on,
+# never to an image somebody else might pull.
+js/authConfig.local.js
+
+# The local-only folders a build from ~/REPO/TUNO would otherwise copy in:
+# customer brandings (never published from this repo) and the Terraform
+# deployment (its own repo, pushed to Azure Repos). All gitignored, but
+# .dockerignore reads the working tree, not the index.
+pvm
+dovilo
+cloudfellows
+terraform
+
+# The deploy scaffolding: run by the operator, not served to a browser.
+selfhost/install.sh
+selfhost/install.ps1
+selfhost/docker-compose.yml
+selfhost/resolve-digest.sh
+selfhost/check-headers.py
+# NOT selfhost/nginx.conf or selfhost/docker-entrypoint.sh - the Dockerfile
+# COPYs both, so excluding them here would break the build rather than slim
+# the image. The web-root copy of the entrypoint is removed in the Dockerfile.

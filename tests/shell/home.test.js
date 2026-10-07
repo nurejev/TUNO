@@ -257,7 +257,7 @@ head("The roadmap and Help say so");
   const D = w.document;
   const r41 = [...D.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R41"));
   // the tag counts the slices shipped so far, so it moves on with each one
-  const upTo = +((/slices 1–(\d+) · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
+  const upTo = +((/slices 1–(\d+)(?:, [0-9–, ]+)? · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
   ok("R41 counts slice 10", upTo >= 10 && /Slice 10, the Intune overview \(beta 10671\)/.test(r41.textContent), String(upTo));
   ok("Help's Getting around names the overview", /Intune overview[\s\S]*Worth a look first[\s\S]*Your checks/.test(D.getElementById("screen-help").textContent));
 }

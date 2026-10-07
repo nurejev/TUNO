@@ -303,7 +303,7 @@ head("The roadmap and the house rules");
 {
   const w = boot();
   const r41 = [...w.document.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R41"));
-  const upTo = +((/slices 1–(\d+) · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
+  const upTo = +((/slices 1–(\d+)(?:, [0-9–, ]+)? · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
   ok("R41 counts slice 12", upTo >= 12 && /Slice 12, two workspaces \(beta 10673\)/.test(r41.textContent), String(upTo));
   ok("and slice 13", upTo >= 13 && /Slice 13, 02 Projects in use \(beta 10674\)/.test(r41.textContent));
   const r40 = [...w.document.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R40"));

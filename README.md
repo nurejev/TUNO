@@ -25,6 +25,17 @@ TUNO is [ENCA](https://github.com/nurejev/enca)'s sister tool: the same idea —
 * **Your own registration:** high-assurance environments can register TUNO in their own tenant — `./New-TunoAppRegistration.ps1 -SingleTenant` — and point `js/authConfig.local.js` at it. See [SECURITY.md](SECURITY.md).
 * **Forking / rebranding:** everything identity-shaped lives in `js/branding.js`.
 
+## Self-hosting
+
+TUNO is static files, so the self-hosting image is nothing more than nginx serving this repository — ENCA's R06 image, ported in beta 10693. It is published to `ghcr.io/nurejev/tuno` by [the workflow](.github/workflows/docker.yml): `:beta` on every push to `beta`, `:latest` from `main` once TUNO 2.0 is promoted there (the package has to be set Public on GHCR once).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nurejev/TUNO/beta/selfhost/install.sh | bash   # macOS / Linux
+irm https://raw.githubusercontent.com/nurejev/TUNO/beta/selfhost/install.ps1 | iex           # Windows
+```
+
+Two environment variables point a copy at your own app registration — `TUNO_CLIENT_ID` and `TUNO_TENANT_ID` (`TUNO_AUTHORITY` for a verified domain or a national cloud) — and `TUNO_BRANDING` dresses it for every visitor, first paint included; a value that is not a GUID stops the container rather than being escaped, and with nothing set the image behaves exactly as the site does. The compose file, the Azure Container Apps route, pinned digests and roll-back are in **[SELF-HOSTING.md](SELF-HOSTING.md)** — which starts with the one step nothing can automate: every host you serve TUNO from must be a SPA redirect URI on the registration, or sign-in fails with AADSTS50011.
+
 ## Release discipline (shared with ENCA)
 
 Every tool change ships complete in one commit: the `js/changelog.js` entry, the home-tile NEW/BETA/UPDATED tag in `index.html`, the `TOOL_VERSIONS` bump, `APP_BUILD.build` + the `?v=` cache-busting numbers — and `js/promote.js` when the change lands on the beta channel. New tools carry the BETA tag until cleared.

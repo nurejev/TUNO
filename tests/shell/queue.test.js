@@ -116,7 +116,7 @@ head("The stylesheet and the roadmap");
   ok("a NEW row is marked down its edge in lemon (ENCA 32318)", /\.cg-table\.pq-table tr\.pq-new>td:first-child\{box-shadow:inset 3px 0 0 var\(--lemon\)\}/.test(css) && /\.pq-order\{display:inline-flex/.test(css));
   const w = boot();
   const r41 = [...w.document.querySelectorAll(".rm-card")].find((c) => [...c.querySelectorAll("h4 .rm-ref")].some((r) => r.textContent === "R41"));
-  const upTo = +((/slices 1–(\d+) · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
+  const upTo = +((/slices 1–(\d+)(?:, [0-9–, ]+)? · beta \d+/.exec(r41.querySelector("h4").textContent) || [])[1] || 0);
   ok("R41 counts slice 11", upTo >= 11 && /Slice 11, Waiting for production \(beta 10672\)/.test(r41.textContent), String(upTo));
 }
 

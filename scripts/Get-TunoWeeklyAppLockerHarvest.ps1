@@ -1,4 +1,4 @@
-﻿# Get-TunoWeeklyAppLockerHarvest.ps1  v1.0.0  (TUNO build 10692)
+﻿# Get-TunoWeeklyAppLockerHarvest.ps1  v1.0.0  (TUNO build 10693)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -19,7 +19,7 @@ Policy receipts distinguish local/GPO from the MDM cache; neither proves app exe
 [CmdletBinding()]
 param([ValidateRange(7,365)][int]$DaysBack=8, [ValidateRange(100,100000)][int]$MaxEvents=5000)
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10692
+$script:TunoBuild = 10693
 $script:HarvestTarget = [pscustomobject]@{
     SiteUrl        = ''
     TenantId       = ''
