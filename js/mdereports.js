@@ -294,6 +294,54 @@ ${body}
     return page("MDE rollout — conflict check", meta, body);
   }
 
+  // ------------------------------------------------------------ landing --
+  // 📡 (10689): the landing check — MdeLanding's model as a page. Tiles,
+  // the policy × wave matrix, every member with something to look at, the
+  // extras (reported, not a wave member), and how to read it.
+  function landingHtml(model, ctx, meta) {
+    const S = model.summary, ST = MdeLanding.STATE;
+    const lab = (k) => (ST[k] ? ST[k].label : k);
+    const cls = (k) => k === "landed" ? "ok" : k === "error" || k === "conflict" ? "bad" : k === "none" || k === "pending" || k === "unreadable" ? "warn" : "muted";
+    const tag = (k, text) => `<span class="tag ${cls(k)}" title="${esc(lab(k))}">${esc(text === undefined ? (ST[k] ? ST[k].glyph : k) : text)}</span>`;
+    const when = (t) => t ? esc(new Date(t).toISOString().replace("T", " ").slice(0, 16)) + " UTC" : "—";
+    const tiles = `<div class="tiles"><div class="tile"><b>${S.expected}</b>expected (member × policy)</div><div class="tile"><b class="ok">${S.landed}</b>landed</div><div class="tile"><b class="${S.pending ? "warn" : ""}">${S.pending}</b>pending</div><div class="tile"><b class="${S.none ? "warn" : ""}">${S.none}</b>no status</div><div class="tile"><b class="${S.error ? "bad" : "ok"}">${S.error}</b>error</div><div class="tile"><b class="${S.conflict ? "bad" : "ok"}">${S.conflict}</b>conflict</div>${S.na ? `<div class="tile"><b>${S.na}</b>not applicable</div>` : ""}${S.excluded ? `<div class="tile"><b>${S.excluded}</b>excluded</div>` : ""}${S.unreadable ? `<div class="tile"><b class="warn">${S.unreadable}</b>status unreadable</div>` : ""}<div class="tile"><b>${S.devices}</b>devices in the waves</div><div class="tile"><b>${S.users}</b>users in the waves</div></div>`;
+    const notes = [
+      `<p class="meta">Intune's check-in status read ${when(model.at)} (${model.readRows} rows, one cached report per policy: ${esc(MdeLanding.REPORT)}). An assignment is a target; this is whether it arrived. Intune's status lags the device by minutes to hours and a fresh wave can take a day to fill in — <i>pending</i> and <i>no status</i> are things to watch, not failures.</p>`,
+      model.failed.length ? `<div class="note">The status report could not be read for ${model.failed.length} ${model.failed.length === 1 ? "policy" : "policies"}: ${model.failed.map((f) => { const p = model.policies.find((x) => x.id === f.id); return `<b>${esc(p ? p.name : f.id)}</b> (${esc(f.error)})`; }).join("; ")} — their members are <i>status unreadable</i>, never 0.</div>` : "",
+      model.memberErrors.length ? `<div class="note">Some wave members could not be read: ${model.memberErrors.map(esc).join("; ")}.</div>` : "",
+      model.codeBased ? `<div class="note">Intune answered with status codes, no words; they were read by Graph's complianceStatus enum (2 succeeded · 5 error · 6 conflict · 1 not applicable · 0/7 pending). Check one row against the portal before trusting the counts.</div>` : "",
+      model.explainError ? `<div class="note">The conflicts could not be explained (T12's setting-level read failed: ${esc(model.explainError)}); they are counted, not named.</div>` : "",
+    ].join("");
+    const cell = (c) => {
+      if (!c || (!c.expected && !c.excluded)) return `<span class="muted">—</span>`;
+      const bits = [];
+      if (c.conflict) bits.push(tag("conflict", `⚔ ${c.conflict}`));
+      if (c.error) bits.push(tag("error", `✕ ${c.error}`));
+      if (c.none) bits.push(tag("none", `◌ ${c.none}`));
+      if (c.pending) bits.push(tag("pending", `… ${c.pending}`));
+      if (c.unreadable) bits.push(tag("unreadable", `? ${c.unreadable}`));
+      if (c.na) bits.push(tag("na", `n/a ${c.na}`));
+      if (c.excluded) bits.push(tag("excluded", `⊘ ${c.excluded}`));
+      return `<b class="${c.landed === c.expected && c.expected ? "ok" : ""}">${c.landed}</b> / ${c.expected}${bits.length ? ` ${bits.join(" ")}` : ""}`;
+    };
+    const matrix = `<h2>Per policy, per wave</h2><p class="meta">landed / expected · ⚔ conflict · ✕ error · ◌ no status · … pending · ⊘ excluded (never expected) · Extra: reported by Intune, but in no wave the policy includes.</p>
+      <table><tr><th>New policy</th><th>Scope</th>${model.regions.map((r) => `<th>🌊 ${esc(r)}</th>`).join("")}<th>Extra</th></tr>${model.policies.map((p) => `<tr><td>${esc(p.name)}${p.failed ? `<div class="meta bad">report failed: ${esc(p.failed)}</div>` : ""}${!p.assigned ? `<div class="meta">not assigned</div>` : p.tenantWide ? `<div class="meta">All devices / All users</div>` : !p.waves.length ? `<div class="meta">no wave included</div>` : p.filtered ? `<div class="meta">the assignment carries a filter</div>` : ""}</td><td>${esc(p.audience === "user" ? "user" : p.audience === "both" ? "user + device" : "device")}</td>${model.regions.map((r) => `<td>${cell(p.cells.get(r))}</td>`).join("")}<td>${p.extras.length || `<span class="muted">—</span>`}</td></tr>`).join("") || `<tr><td colspan="${3 + model.regions.length}" class="muted">No new policy includes a wave yet.</td></tr>`}</table>`;
+    const probs = MdeLanding.memberRows(model, { filter: "problems" });
+    const polCols = model.policies.filter((p) => p.assigned && p.waves.length);
+    const short = (name) => String(name || "").replace(/^Win\s*-\s*OIB\s*-\s*[A-Z]{2,3}\s*-\s*/i, "").replace(/\s*-\s*v\d[\w.]*$/i, "");
+    const memberRow = (e) => {
+      const v = MdeLanding.verdict(e, model);
+      return `<tr><td><b>${esc(e.name)}</b><div class="meta">${esc(e.kind)}${e.kind === "device" && e.upn ? ` · ${esc(e.upn)}` : ""}</div></td><td>${e.regionList.map(esc).join(", ")}</td><td>${e.kind === "device" ? (e.lastSync ? when(e.lastSync) : (e.inIntune ? "—" : `<span class="bad">not in Intune</span>`)) : "—"}</td>${polCols.map((p) => { const st = e.per.get(p.key); return `<td style="text-align:center">${st ? tag(st.state) : `<span class="muted">·</span>`}</td>`; }).join("")}<td>${esc(v.text)}</td></tr>`;
+    };
+    const members = `<h2>To look at (${probs.length} ${probs.length === 1 ? "member" : "members"})</h2>
+      ${probs.length ? `<table><tr><th>Member</th><th>Waves</th><th>Last check-in</th>${polCols.map((p) => `<th title="${esc(p.name)}">${esc(short(p.name))}</th>`).join("")}<th>Verdict</th></tr>${probs.slice(0, 2000).map(memberRow).join("")}</table>${probs.length > 2000 ? `<p class="meta">Showing 2 000 of ${probs.length}; the CSV has every row.</p>` : ""}` : `<p class="ok"><b>Nothing to look at</b> — every expected policy reported Succeeded on every wave member.</p>`}`;
+    const extras = model.policies.filter((p) => p.extras.length);
+    const extraSec = extras.length ? `<h2>Reported, but not a wave member (${extras.reduce((n, p) => n + p.extras.length, 0)})</h2><p class="meta">Intune reports these for the policy although they are in no wave it includes — a pilot group, another assignment, or a member the wave groups no longer hold.</p>
+      ${extras.map((p) => `<h3>${esc(p.name)} — ${p.extras.length}</h3><table><tr><th>Device</th><th>User</th><th>Status</th><th>Last report</th></tr>${p.extras.slice(0, 200).map((r) => `<tr><td>${esc(r.name || r.intuneId)}</td><td>${esc(r.upn)}</td><td>${tag(r.state, lab(r.state))}</td><td>${esc(r.when || "")}</td></tr>`).join("")}</table>`).join("")}` : "";
+    const legend = `<h2>How to read it</h2><p class="meta">A device-scoped policy (- D -) is expected on every device of the device waves it includes; a user-scoped one (- U -) on every user of the user waves, and it lands per device the user signs in on — a user's state is the worst of their devices. <b>No status</b>: the member is in the wave but Intune has not targeted it (the membership has not propagated yet, a filter leaves it out, or a user has not signed in anywhere). <b>Conflict</b> rows name the setting (T12's setting-level read) and the old policy the device is also in conflict on (the ⚔️ pairs) — a conflict with an old policy clears when 🧹 Retirement check excludes the wave from it; a conflict between two new policies is the real one. Members in a policy's excluded groups are ⊘, never expected.</p>`;
+    return page("MDE rollout — landing check", meta, tiles + notes + matrix + members + extraSec + legend);
+  }
+
   // ------------------------------------------------------------- owners --
   async function readOwners(groups) {
     const list = (groups || []).filter((g) => g && g.id);
@@ -307,6 +355,7 @@ ${body}
     roleIndex, assignmentRows, coverage, assignmentsCsv, assignmentsHtml,
     settingsRows, configCsv, configHtml,
     conflictSummary, conflictDiff, conflictsHtml,
+    landingHtml,
     readOwners, page,
   };
 })();

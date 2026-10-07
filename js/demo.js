@@ -1156,6 +1156,21 @@ const TUNO_DEMO = (() => {
     [P(17)]: { devices: [[D(1), "Conflict"], [D(7), "Conflict"]], settings: [] },
   };
 
+  // T28 📡 Landing (10689): Intune's check-in status for the new set, per
+  // device — the rows a cached DeviceStatusesByConfigurationProfile report
+  // answers with. Eva's laptop (D(1), in INT-SG-D-NLD → the Euro device
+  // wave) is in Conflict on the antivirus policy (so says T12's report,
+  // above) and reports the audit policy in Error; Alex's WS-ENG-0221 (D(7),
+  // in the Dutch device group although he is a US user) is in Conflict on
+  // antivirus and has NO ROW for the audit policy — "no status"; WS-ENG-0308
+  // (D(9)) reports the antivirus policy although it is in no wave — an extra.
+  // The staged Edge policy (P(16)) is unassigned: nothing is expected of it.
+  const LANDING_REPORT = {
+    [P(14)]: [[D(1), "Conflict"], [D(7), "Conflict"], [D(9), "Conflict"]],
+    [P(27)]: [[D(1), "Error"]],
+  };
+  const LANDING_CODE = { Succeeded: 2, Pending: 0, Error: 5, Conflict: 6, "Not applicable": 1 };
+
   const RUN_SUMMARY = {
     [P(50)]: { successDeviceCount: 396, errorDeviceCount: 12 },
     [P(51)]: { successDeviceCount: 6, errorDeviceCount: 2 },
@@ -1293,7 +1308,7 @@ const TUNO_DEMO = (() => {
            INTENTS, TEMPLATES, ROLE_DEFINITIONS, ROLE_ASSIGNMENTS,
            MAA_POLICIES, MAA_REQUESTS, LAPS_CREDENTIALS, DEFENDER_OVERVIEW, PROTECTION_STATE,
            AUDIT_EVENTS, CONFIG_CATEGORIES, CONFIG_SETTINGS,
-           STATUS_OVERVIEW, SETTING_STATE_SUMMARIES, RUN_SUMMARY, CONFLICT_REPORT,
+           STATUS_OVERVIEW, SETTING_STATE_SUMMARIES, RUN_SUMMARY, CONFLICT_REPORT, LANDING_REPORT, LANDING_CODE,
            DEVICE_CONFIG_STATES, DEVICE_COMPLIANCE_STATES };
 })();
 
@@ -1657,6 +1672,28 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     return page(["IntuneDeviceId", "DeviceName", "PolicyId", "SettingName", "SettingId", "SettingStatus", "SettingStatus_loc"],
       e.settings.map(([id, nm, sid]) => [id, dev(id).deviceName || id, pid, nm, sid, 6, "Conflict"]));
   }
+  // The cached-report API (T28 📡 Landing, 10689): a configuration is
+  // created complete at once, polled as complete, and getCachedReport pages
+  // the rows of the policy its filter names — the service's own
+  // { TotalRowCount, Schema, Values } shape, a code column with its _loc
+  // words beside it.
+  if (method === "POST" && path === "/deviceManagement/reports/cachedReportConfigurations") {
+    const id = (body && body.id) || `${(body && body.reportName) || "Report"}_demo-${Math.random().toString(16).slice(2, 10)}`;
+    T._cachedReports = T._cachedReports || {};
+    T._cachedReports[id] = { reportName: (body && body.reportName) || "", filter: String((body && body.filter) || ""), select: (body && body.select) || [] };
+    return { id, reportName: T._cachedReports[id].reportName, filter: T._cachedReports[id].filter, select: T._cachedReports[id].select, status: "completed", lastRefreshDateTime: new Date().toISOString(), expirationDateTime: new Date(Date.now() + 3 * 86400000).toISOString() };
+  }
+  if (method === "POST" && path === "/deviceManagement/reports/getCachedReport") {
+    const c = (T._cachedReports || {})[(body && body.id) || ""];
+    if (!c) return M.fault(404, "ResourceNotFound", "Cached report configuration not found.");
+    const pid = (/PolicyId eq '([^']+)'/.exec(c.filter) || [])[1] || "";
+    const pol = T.CONFIG_POLICIES.find((x) => x.id === pid) || T.DEVICE_CONFIGS.find((x) => x.id === pid) || {};
+    const dev = (id) => T.DEVICES.find((x) => x.id === id) || {};
+    const cols = ["PolicyId", "PolicyName", "IntuneDeviceId", "DeviceName", "UPN", "PolicyStatus", "PolicyStatus_loc", "PspdpuLastModifiedTimeUtc", "UnifiedPolicyType", "UnifiedPolicyPlatformType", "AssignmentFilterIds"];
+    const rows = (T.LANDING_REPORT[pid] || []).map(([id, st]) => [pid, pol.name || pol.displayName || "", id, dev(id).deviceName || id, dev(id).userPrincipalName || "", T.LANDING_CODE[st], st, dev(id).lastSyncDateTime || "", "", "", ""]);
+    const skip = (body && body.skip) || 0, top = (body && body.top) || 50;
+    return { TotalRowCount: rows.length, Schema: cols.map((c2) => ({ Column: c2, PropertyType: c2 === "PolicyStatus" ? "Int32" : "String" })), Values: rows.slice(skip, skip + top) };
+  }
   if (method === "POST" && !/\$batch|getByIds/.test(path)) {
     const made = Object.assign({}, body || {}, {
       id: `demo-created-${Math.random().toString(16).slice(2, 10)}`,
@@ -1847,6 +1884,24 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     const g = T.GROUPS.find((x) => x.id === m[1]);
     // Text, not JSON — the caller parseInt()s whatever comes back.
     return g ? String(g.memberCount) : M.fault(404, "ResourceNotFound", "Group not found.");
+  }
+  // a cached report configuration, polled (T28 📡 Landing, 10689)
+  m = /^\/deviceManagement\/reports\/cachedReportConfigurations(?:\('([^']+)'\)|\/([^/]+))$/.exec(path);
+  if (m) {
+    const id = decodeURIComponent(m[1] || m[2] || "");
+    const c = (T._cachedReports || {})[id];
+    if (!c) return M.fault(404, "ResourceNotFound", "Cached report configuration not found.");
+    return Object.assign({ id, status: "completed", lastRefreshDateTime: new Date().toISOString() }, c);
+  }
+  // transitive DEVICE members (T28 📡 Landing, 10689): every device the
+  // group holds directly or through a nested group — groupsOfDevice walked
+  // the other way
+  m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.device$/.exec(path);
+  if (m) {
+    const g = T.GROUPS.find((x) => x.id === m[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    return M.coll(T.DEVICES.filter((d) => d.azureADDeviceId && M.groupsOfDevice(d.azureADDeviceId).some((x) => x && x.id === g.id))
+      .map((d) => ({ id: d.azureADDeviceId, deviceId: d.azureADDeviceId, displayName: d.deviceName })));
   }
   // T28 wave members (10634): typed member reads
   m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.user$/.exec(path);

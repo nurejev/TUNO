@@ -660,7 +660,7 @@ head("Bookkeeping travels in the same commit");
   // js/home-overview.js (Home's Intune overview).
   // A new script tag moves this on purpose — the count is the proof the
   // bookkeeping pass covered every ref, not a fixed number.
-  ok("the ?v= refs: 71 since T28's 🧪 Test members brought js/mdetest.js (10688)", vs.length === 71, String(vs.length));
+  ok("the ?v= refs: 72 since T28's 📡 Landing brought js/mdelanding.js (10689)", vs.length === 72, String(vs.length));
   ok("the newest changelog entry is this build", w.CHANGELOG[0].build === build, String(w.CHANGELOG[0].build));
   const q = w.PROMOTE.items.find((i) => (i.builds || []).includes(build));
   ok("a promotion-queue item names this build", !!q, "no item carries " + build);

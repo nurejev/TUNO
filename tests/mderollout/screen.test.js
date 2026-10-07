@@ -424,8 +424,8 @@ async function run() {
   // ------------------------------------------------ 📑 reports (10635) --
   // 10638 (option A off the mockup): the rail is back; the three reports
   // are its child nodes, each with its state; no second column, no tabs.
-  ok("one navigation: the rail, with the three reports as child nodes and no top tabs", D.querySelectorAll(".ep-rail [data-mrreport]").length === 3
-    && !D.querySelector(".mr-tabs, .mr-subtabs, .mr-report-list") && /0 of 3/.test(D.querySelector('[data-mrpane="reports"]').textContent)
+  ok("one navigation: the rail, with the four reports as child nodes (📡 Landing check since 10689) and no top tabs", D.querySelectorAll(".ep-rail [data-mrreport]").length === 4
+    && !D.querySelector(".mr-tabs, .mr-subtabs, .mr-report-list") && /0 of 4/.test(D.querySelector('[data-mrpane="reports"]').textContent)
     && [...D.querySelectorAll(".mr-rep-state")].every((x) => /not generated/.test(x.textContent)));
   const railOrder = [...D.querySelectorAll(".ep-rail [data-mrpane], .ep-rail [data-mrreport]")].map((x) => x.dataset.mrpane || "·" + x.dataset.mrreport);
   ok("…placed right under 📑 Reports", railOrder.indexOf("reports") >= 0 && railOrder.slice(railOrder.indexOf("reports") + 1, railOrder.indexOf("reports") + 4).join() === "·assign,·config,·conflicts");
@@ -435,7 +435,7 @@ async function run() {
     && D.querySelector('[data-mrreport="config"]').classList.contains("active") && D.querySelector('[data-mrpane="reports"]').classList.contains("mr-open"));
   D.querySelector('[data-mrreport="assign"]').click();
   w.MdeRolloutV2Tool._pane("reports");
-  ok("reports offers three persistent choices and only one generator", D.querySelectorAll("[data-mrreport]").length === 3 && !!$("mvRep_assign") && !$("mvRep_config") && !$("mvRep_conflicts"));
+  ok("reports offers four persistent choices and only one generator", D.querySelectorAll("[data-mrreport]").length === 4 && !!$("mvRep_assign") && !$("mvRep_config") && !$("mvRep_conflicts") && !$("mvRep_landing"));
   $("mvRep_assign").click();
   const R = () => st().reps;
   ok("the assignments report: a coverage matrix on the screen, HTML and CSV to take away", !!R().assign && /Coverage — waves per policy/.test(R().assign.html) && /INT-SG-D-WAVE-Euro/.test(R().assign.html)
@@ -459,10 +459,10 @@ async function run() {
   ok("configuration has an inline preview with full names and separate timestamps", !!D.querySelector('[data-report-preview="config"]') && /Owners attempted/.test($("mvBody").textContent) && R().config.readAt === st().model.readAt);
   D.querySelector('[data-mrreport="conflicts"]').click();
   $("mvRep_conflicts").click();
-  ok("the report selector remains available during a fresh check and prevents concurrent refresh", D.querySelectorAll("[data-mrreport]").length === 3 && $("mvRun").disabled);
+  ok("the report selector remains available during a fresh check and prevents concurrent refresh", D.querySelectorAll("[data-mrreport]").length === 4 && $("mvRun").disabled);
   ok("the conflict check reads the tenant fresh and counts what needs action", await until(() => R().conflicts, 30000, "conflict check") && R().conflicts.summary.act > 0 && R().checks.length === 1 && /conflict check/i.test(R().conflicts.html) && st().pane === "reports");
   ok("the rail says how many need action, on the conflict check's own node", /\d+ to act/.test(D.querySelector('[data-mrreport="conflicts"]').textContent)
-    && D.querySelector('[data-mrreport="conflicts"] .mr-rep-state').classList.contains("gap") && /[23] of 3/.test(D.querySelector('[data-mrpane="reports"]').textContent));
+    && D.querySelector('[data-mrreport="conflicts"] .mr-rep-state').classList.contains("gap") && /[23] of 4/.test(D.querySelector('[data-mrpane="reports"]').textContent));
   D.querySelector('[data-mrreport="assign"]').click();
   ok("…and the rail marks the older report for regenerating", /regenerate/.test(D.querySelector('[data-mrreport="assign"]').textContent));
   ok("an older report is marked stale after a fresh check and retains its original data", /saved report predates/.test($("mvBody").textContent) && R().assign === savedAssign && R().assign.html === savedAssign.html);

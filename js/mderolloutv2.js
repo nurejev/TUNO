@@ -37,7 +37,7 @@ const MdeRolloutV2Tool = (() => {
   const pilotTiersOff = new Set(); // 🧪 Pilots as the bar's target (10675): the tiers UNticked, by key
   // 👥 Wave members (10634): its own read, its own selection, its own plan kind
   // 📑 Reports (10635): the last run of each, and the conflict checks of this session
-  const reps = { assign: null, config: null, conflicts: null, checks: [], busy: "", selected: "assign", error: "" };
+  const reps = { assign: null, config: null, conflicts: null, landing: null, checks: [], busy: "", selected: "assign", error: "" };
   const mem = { input: null, model: null, loading: false, region: null, unmapped: false,
     sel: new Set(), open: new Set(), opts: { fill: true, nestUsers: true, nestDevices: true, removals: false },
     // 🕳 Left out (10642): the view, the country its user list is narrowed
@@ -66,6 +66,10 @@ const MdeRolloutV2Tool = (() => {
   // whose panel is open, each region's test groups as read, the list looked
   // up from a CSV / paste, its ticks, and the current members ticked out
   const tm = { region: null, test: new Map(), loading: false, error: "", text: "", note: "", busy: false, list: [], ticks: new Set(), rem: new Set(), misses: [] };
+  // 📡 Landing (10689, option A off the mockup canvas): Intune's check-in
+  // status per new policy, joined to the wave members — the model, when it
+  // was read, the running line, the region and the filter shown, the search
+  const ld = { busy: false, status: "", error: "", model: null, at: null, region: null, filter: "problems", q: "" };
   const devCounts = () => (dv.idx ? M.deviceCounts(pairs, dv.idx) : null);
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
@@ -345,7 +349,8 @@ const MdeRolloutV2Tool = (() => {
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
     kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); selRename.clear(); open.clear();
     runs.length = 0; filterList = null; clearPlan();
-    reps.assign = null; reps.config = null; reps.conflicts = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
+    reps.assign = null; reps.config = null; reps.conflicts = null; reps.landing = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
+    Object.assign(ld, { busy: false, status: "", error: "", model: null, at: null, region: null, filter: "problems", q: "" });
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
@@ -412,6 +417,8 @@ const MdeRolloutV2Tool = (() => {
       "<hr>",
       `<div class="v2-rail-label">CHECK & RECOVER</div>`,
       node("recovery", "⭳", "Run files", runs.length),
+      // 📡 (10689): did the new set land — Intune's check-in status joined to the wave members
+      (() => { const s = ld.model && ld.model.summary; return node("landing", "📡", "Landing", ld.busy ? "reading…" : s ? (s.problems ? `${s.problems} to look at` : "✓") : null, !!(s && s.problems)); })(),
       node("reports", "📑", "Reports", `${made} of ${REPORTS.length}`),
       REPORTS.map(repNode).join(""),
       node("changes", "📜", "Changes this session", runs.length),
@@ -957,6 +964,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
       <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (on the rail). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
       <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (on the rail, 10678). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
+      <p style="margin:0 0 8px"><b>📡 Landing</b> (under Check &amp; recover, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one cached report per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted; per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
   }
@@ -981,6 +989,7 @@ const MdeRolloutV2Tool = (() => {
     else if (pane === "countrysync") main = countrySyncPane();
     else if (pane === "revert") main = revertPane();
     else if (pane === "reports") main = reportsPane();
+    else if (pane === "landing") main = landingPane();
     else if (pane === "changes") main = changesPane();
     else if (pane === "rules") main = rulesPane();
     else if (pane === "how") main = howPane();
@@ -3692,8 +3701,130 @@ const MdeRolloutV2Tool = (() => {
     if (!ex.base && !ex.loading) exRead().then(focus);
   }
 
+  // ---------------------------------------------------------- 📡 landing --
+  // (10689, Mihai 7 Oct: "make sure that the policies are landing on the
+  // users and devices. which of the new policies have landed or are in
+  // error or in conflict" — option A off the mockup canvas.) Intune's
+  // check-in status for every new policy (one cached report each), the
+  // waves' members and the Windows devices in Intune, joined by
+  // MdeLanding — then, when anything is in conflict, T12's setting-level
+  // read names the setting and the ⚔️ pairs the old policy. Reads only.
+  const LD_STATES = ["landed", "pending", "none", "error", "conflict", "na", "excluded", "unreadable"];
+  function ldChip(state, text, title) {
+    const S = MdeLanding.STATE[state] || { glyph: "?", label: state };
+    const cls = state === "landed" ? "gu-how inc" : state === "error" ? "gu-how exc" : state === "none" || state === "unreadable" ? "gu-how priv" : "gu-how";
+    const style = state === "conflict" ? ` style="background:var(--high-bg);color:var(--high-fg)"` : state === "pending" || state === "na" || state === "excluded" ? ` style="background:var(--soft);color:var(--muted)"` : "";
+    return `<span class="${cls}"${style} title="${esc(title || S.label)}">${esc(text === undefined ? S.glyph : text)}</span>`;
+  }
+  // "Win - OIB - SC - Microsoft Edge - U - Extensions - v3.1.2" → "Microsoft Edge - U - Extensions"
+  const ldShort = (name) => String(name || "").replace(/^Win\s*-\s*OIB\s*-\s*[A-Z]{2,3}\s*-\s*/i, "").replace(/\s*-\s*v\d[\w.]*$/i, "");
+  async function readLanding() {
+    if (ld.busy || !model || running) return false;
+    ld.busy = true; ld.error = ""; ld.status = "Reading…"; render();
+    const say = (m) => { ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; };
+    try {
+      const reportScopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
+      await Graph.ensureScopes([...new Set([...reportScopes, ...Graph.SCOPES.groups])]);
+      const sc = MdeLanding.scope(model.newP, waveRows);
+      const members = await MdeLanding.readMembers(sc, { onStatus: say });
+      const managed = await MdeLanding.readManaged({ managed: mem.input ? (mem.input.managedAll || mem.input.managed || null) : null, onStatus: say });
+      const status = await MdeLanding.readStatus(sc.policies, { scopes: reportScopes, onStatus: say });
+      let m = MdeLanding.join(sc, members, managed, status);
+      if (m.summary.conflict > 0) {
+        try {
+          const only = [], seen = new Set();
+          for (const p of m.policies) if (p.total.conflict && !seen.has(p.id)) { seen.add(p.id); only.push({ id: p.P.id, name: p.name }); }
+          for (const pr of pairs) if (pr.type !== "duplicate" && !seen.has(lc(pr.O.id))) { seen.add(lc(pr.O.id)); only.push({ id: pr.O.id, name: pr.O.name }); }
+          const read = await ConflictDevices.read({ collectRes: res, only, settings: true, scopes: reportScopes, onStatus: say });
+          m = MdeLanding.explainConflicts(m, read, pairs);
+        } catch (e) { m.explainError = GroupUse.shortErr(e, 200); }
+      }
+      ld.model = m; ld.at = Date.now();
+      if (!ld.region || !m.regions.includes(ld.region)) ld.region = m.regions.find((r) => m.members.some((e) => e.regions.has(r))) || m.regions[0] || null;
+      return true;
+    } catch (e) { ld.error = GroupUse.shortErr(e, 250); return false; }
+    finally { ld.busy = false; ld.status = ""; render(); }
+  }
+  function landingPane() {
+    const m = ld.model;
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Intune's own <b>check-in status</b> per new policy, per device and user — the report behind the portal's <i>View report</i>, one per policy — joined to the wave members: every member of a wave a policy includes is expected to report it, minus the policy's excluded groups. So this says what the portal cannot: who in a wave has <b>no status at all</b>. Intune's status lags the device by minutes to hours and a fresh wave can take a day to fill in, so <i>pending</i> and <i>no status</i> are things to watch, not failures. An assignment is a target; this is whether it arrived.</p>`;
+    const notices = !m ? "" : [
+      m.failed.length ? `<p class="mr-report-notice" style="margin:0 0 10px">The status report could not be read for ${plural(m.failed.length, "policy", "policies")}: ${m.failed.map((f) => { const p = m.policies.find((x) => x.id === f.id); return `<b>${esc(p ? p.name : f.id)}</b> (${esc(f.error)})`; }).join("; ")} — their members show <i>status unreadable</i>, never 0.</p>` : "",
+      m.memberErrors.length ? `<p class="mr-report-notice" style="margin:0 0 10px">Some wave members could not be read: ${m.memberErrors.map(esc).join("; ")}.</p>` : "",
+      m.codeBased ? `<p class="mr-report-notice" style="margin:0 0 10px">Intune answered with status codes, no words — they were read by Graph's complianceStatus enum (2 succeeded · 5 error · 6 conflict · 1 not applicable · 0/7 pending). Check one row against the portal before trusting the counts.</p>` : "",
+      m.explainError ? `<p class="mr-report-notice" style="margin:0 0 10px">The conflicts could not be explained (T12's setting-level read failed: ${esc(m.explainError)}); they are counted, not named.</p>` : "",
+    ].join("");
+    const head = `<div class="list-card" style="margin-top:0">${intro}
+      ${ld.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>Landing read failed: ${esc(ld.error)}</b></div>` : ""}
+      <div class="tb-actions" style="align-items:center;flex-wrap:wrap"><button class="btn primary" type="button" data-mrldread${ld.busy || running ? " disabled" : ""}>📡 ${m ? "Read the status again" : "Read the status"}</button>
+        ${m ? `<button class="btn" type="button" id="mvLdCsv">⭳ CSV</button><button class="btn" type="button" id="mvLdReport"${reps.busy || ld.busy ? " disabled" : ""}>📑 Save as report</button>` : ""}
+        <span class="mini muted" id="mvLdStatus">${ld.busy ? esc(ld.status) : m ? `read ${esc(shortTime(ld.at))} · ${plural(m.readRows, "status row")} · ${plural(m.summary.devices, "device")} and ${plural(m.summary.users, "user")} in the waves${m.explained ? " · conflicts explained by T12's setting read" : ""}` : "Nothing read yet. Reads only — no group, policy or device is touched."}</span></div>
+      ${notices}</div>`;
+    if (!m) return head;
+    const S = m.summary;
+    const tile = (k, n, label, bad) => `<button type="button" class="mr-tile mr-lotile${ld.filter === k ? " on" : ""}" data-mrldfilter="${k}"><b${bad && n ? ` style="color:var(--off)"` : ""}>${n.toLocaleString()}</b><span>${esc(label)}</span></button>`;
+    const tiles = `<div class="mr-tiles">${tile("all", S.expected, "expected (member × policy)")}${tile("landed", S.landed, "✓ landed")}${tile("pending", S.pending, "… pending")}${tile("none", S.none, "◌ no status", true)}${tile("error", S.error, "✕ error", true)}${tile("conflict", S.conflict, "⚔ conflict", true)}${S.na ? tile("na", S.na, "n/a — not applicable") : ""}${S.excluded ? tile("excluded", S.excluded, "⊘ excluded") : ""}${S.unreadable ? tile("unreadable", S.unreadable, "? status unreadable", true) : ""}${tile("problems", S.problems, "to look at", true)}</div>`;
+    // the matrix: a row per new policy, a column per region with a wave
+    const cell = (c) => {
+      if (!c || (!c.expected && !c.excluded)) return `<span class="muted">—</span>`;
+      const bits = [];
+      if (c.conflict) bits.push(ldChip("conflict", `⚔ ${c.conflict}`, `${c.conflict} in conflict`));
+      if (c.error) bits.push(ldChip("error", `✕ ${c.error}`, `${c.error} in error`));
+      if (c.none) bits.push(ldChip("none", `◌ ${c.none}`, `${c.none} with no status`));
+      if (c.pending) bits.push(ldChip("pending", `… ${c.pending}`, `${c.pending} pending`));
+      if (c.unreadable) bits.push(ldChip("unreadable", `? ${c.unreadable}`, `${c.unreadable} unreadable`));
+      if (c.na) bits.push(ldChip("na", `n/a ${c.na}`, `${c.na} not applicable`));
+      if (c.excluded) bits.push(ldChip("excluded", `⊘ ${c.excluded}`, `${c.excluded} excluded`));
+      return `<b${c.landed === c.expected && c.expected ? ` style="color:var(--on)"` : ""}>${c.landed}</b> / ${c.expected}${bits.length ? ` <span class="mini" style="white-space:nowrap">${bits.join(" ")}</span>` : ""}`;
+    };
+    const mrows = m.policies.map((p) => {
+      const scopeTxt = p.audience === "user" ? "user" : p.audience === "both" ? "user + device" : "device";
+      const extra = p.extras.length ? `<a href="#" class="mini" data-mrfold="ld|${esc(p.key)}" title="Reported by Intune, but in no wave this policy includes">${p.extras.length} ${open.has("ld|" + p.key) ? "▴" : "▾"}</a>` : `<span class="muted">—</span>`;
+      const extraRows = open.has("ld|" + p.key) ? `<tr><td colspan="${3 + m.regions.length}" class="mini muted">Reported, not a wave member: ${p.extras.slice(0, 50).map((r) => `<b>${esc(r.name || r.intuneId)}</b>${r.upn ? ` · ${esc(r.upn)}` : ""} ${ldChip(r.state)}`).join(", ")}${p.extras.length > 50 ? ` … and ${p.extras.length - 50} more` : ""}</td></tr>` : "";
+      const note = !p.assigned ? `<div class="mini muted">not assigned</div>` : p.tenantWide ? `<div class="mini muted">All devices / All users</div>` : !p.waves.length ? `<div class="mini muted">no wave included</div>` : p.filtered ? `<div class="mini muted">the assignment carries a filter</div>` : "";
+      return `<tr><td><a href="#" data-mropen="${esc(p.key)}">${esc(p.name)}</a>${p.failed ? `<div class="mini" style="color:var(--off)">report failed: ${esc(p.failed)}</div>` : ""}${note}</td><td class="mini">${scopeTxt}</td>${m.regions.map((r) => `<td class="mini">${cell(p.cells.get(r))}</td>`).join("")}<td class="mini">${extra}</td></tr>${extraRows}`;
+    }).join("");
+    const matrix = `<div class="list-card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">Per policy, per wave</h4><span class="mini muted">landed / expected · ${ldChip("conflict", "⚔ n")} conflict · ${ldChip("error", "✕ n")} error · ${ldChip("none", "◌ n")} no status · ${ldChip("pending", "… n")} pending · ${ldChip("excluded", "⊘ n")} excluded · <b>Extra</b>: reported, not a wave member</span></div>
+      <div style="overflow-x:auto;margin-top:6px"><table class="cg-table"><thead><tr><th>New policy</th><th>Scope</th>${m.regions.map((r) => `<th>🌊 ${esc(r)}</th>`).join("")}<th>Extra</th></tr></thead><tbody>${mrows || `<tr><td colspan="${3 + m.regions.length}" class="mini muted">No new policy includes a wave yet.</td></tr>`}</tbody></table></div>
+      <p class="mini muted" style="margin:8px 0 0">A device-scoped policy (- D -) is expected on every device of the device waves it includes; a user-scoped one (- U -) on every user of the user waves, and it lands per device the user signs in on — the user's chip is the worst of their devices. A member in the policy's excluded groups is ⊘, never expected.</p></div>`;
+    // the members: region chips, filter chips, a search, one row per member
+    const list = MdeLanding.memberRows(m, { region: ld.region, filter: ld.filter, q: ld.q });
+    const polCols = m.policies.filter((p) => p.assigned && p.waves.length);
+    const regionChips = [fchip("data-mrldregion", "", "All waves", m.members.length, !ld.region)].concat(m.regions.map((r) => fchip("data-mrldregion", r, `🌊 ${r}`, m.members.filter((e) => e.regions.has(r)).length, ld.region === r))).join("");
+    const filters = [["problems", "to look at"], ["all", "all"], ["landed", "✓ landed"], ["pending", "… pending"], ["none", "◌ no status"], ["error", "✕ error"], ["conflict", "⚔ conflict"], ["excluded", "⊘ excluded"]];
+    const filterChips = filters.map(([k, label]) => fchip("data-mrldfilter", k, label, undefined, ld.filter === k)).join("");
+    const row = (e) => {
+      const v = MdeLanding.verdict(e, m);
+      const cells = polCols.map((p) => { const st = e.per.get(p.key); if (!st) return `<td class="mini muted" title="not expected here">·</td>`; const title = `${p.name}: ${MdeLanding.STATE[st.state] ? MdeLanding.STATE[st.state].label : st.state}${st.word && st.word !== st.state ? ` (${st.word})` : ""}${st.when ? ` · ${st.when}` : ""}${st.devices ? ` · on ${plural(st.devices, "device")}` : ""}`; return `<td style="text-align:center">${ldChip(st.state, undefined, title)}</td>`; });
+      const last = e.kind === "device" ? (e.lastSync ? `${esc(new Date(e.lastSync).toLocaleString())}${Date.now() - Date.parse(e.lastSync) > 7 * 86400000 ? ` <span style="color:var(--report)">stale</span>` : ""}` : (e.inIntune ? "—" : `<span style="color:var(--off)">not in Intune</span>`)) : `<span class="muted">—</span>`;
+      return `<tr><td><b>${esc(e.name)}</b><div class="mini muted">${e.kind}${e.kind === "device" && e.upn ? ` · ${esc(e.upn)}` : ""}</div></td><td class="mini">${e.regionList.map(esc).join(", ")}</td><td class="mini">${last}</td>${cells.join("")}<td class="mini">${v.state && v.state !== "landed" && v.state !== "excluded" ? ldChip(v.state, MdeLanding.STATE[v.state] ? MdeLanding.STATE[v.state].label : v.state) + " " : ""}${esc(v.text)}</td></tr>`;
+    };
+    const members = `<div class="list-card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">${ld.region ? `🌊 ${esc(ld.region)} · per member` : "Every wave · per member"}</h4><span class="mini muted">${plural(list.length, "member")} shown · a chip per policy, the verdict names what to look at</span></div>
+      <div class="toolbar" style="margin-top:8px">${regionChips}</div>
+      <div class="toolbar" style="margin-top:6px">${filterChips}<input class="btn" id="mvLdQ" type="search" placeholder="Filter by device or user…" value="${esc(ld.q)}" style="min-width:220px;text-align:left" autocomplete="off" spellcheck="false"></div>
+      <div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><thead><tr><th>Member</th><th>Waves</th><th>Last check-in</th>${polCols.map((p) => `<th title="${esc(p.name)}" style="text-align:center">${esc(ldShort(p.name))}</th>`).join("")}<th>Verdict</th></tr></thead><tbody>${list.slice(0, 300).map(row).join("") || `<tr><td colspan="${4 + polCols.length}" class="mini muted">${ld.filter === "problems" ? "Nothing to look at here — every expected policy reported Succeeded." : "No member matches."}</td></tr>`}</tbody></table></div>
+      ${list.length > 300 ? `<p class="mini muted" style="margin:8px 0 0">Showing 300 of ${list.length} — narrow with a filter or the search; the CSV has every row.</p>` : ""}</div>`;
+    return head + tiles + matrix + members;
+  }
+  // The 📑 report: from the model in hand, or after a fresh read.
+  async function runLandingReport(fresh) {
+    if (reps.busy || running || busy || ld.busy) return;
+    reps.error = "";
+    reps.busy = "landing"; render();
+    try {
+      if (fresh || !ld.model) {
+        const back = pane;
+        const ok = await readLanding();
+        pane = back;
+        if (!ok || !ld.model) { reps.error = `Landing check failed${ld.error ? `: ${ld.error}` : "."}`; return; }
+      }
+      reps.landing = { at: Date.now(), html: MdeReports.landingHtml(ld.model, repCtx(), repMeta()), csv: MdeLanding.csv(ld.model), statusAt: ld.at, summary: ld.model.summary, ...reportSnapshot() };
+    } catch (e) { reps.error = `Landing check failed: ${GroupUse.shortErr(e, 250)}`; }
+    finally { reps.busy = ""; pane = "reports"; reps.selected = "landing"; render(); }
+  }
+
   // ---------------------------------------------------------- 📑 reports --
-  // Three reports, each a self-contained HTML page and a CSV (MdeReports).
+  // Four reports, each a self-contained HTML page and a CSV (MdeReports).
   const repMeta = () => ({ tenant: tenantName(), readAt: res && res.readAt, build: typeof APP_BUILD !== "undefined" ? APP_BUILD.label : "", now: Date.now() });
   const repCtx = () => ({ cfg, waveRows, kinds, labels, mem: mem.model, retire, runs, labelName: M.labelName, labelValue: M.labelValue, catMeta: M.catMeta, RETIRE: M.RETIRE });
   function runAssignReport() {
@@ -3746,6 +3877,7 @@ const MdeRolloutV2Tool = (() => {
     { id: "assign", icon: "📋", title: "Assignments", source: "Current policy snapshot", description: "Coverage by wave, plus every assignment with its target, group kind, members, filter and rollout role." },
     { id: "config", icon: "🧾", title: "Deployment configuration", source: "Policies, members & owners", description: "Naming rules, wave groups, members, policy settings, retirement evidence and changes this session." },
     { id: "conflicts", icon: "⚔️", title: "Conflict check", source: "Fresh tenant read", description: "Compare the new and old settings, their reach and proposed fixes. Each check shows what changed since the previous check this session." },
+    { id: "landing", icon: "📡", title: "Landing check", source: "Intune's check-in status, read fresh", description: "Did the new set land: per policy and per wave, how many members report Succeeded, Pending, Error, Conflict, Not applicable — and who has no status at all; every member with something to look at, named." },
   ];
   const reportTime = (at) => at ? new Date(at).toLocaleString() : "Not read";
   const shortTime = (at) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -3821,12 +3953,12 @@ const MdeRolloutV2Tool = (() => {
     const r = reps[def.id];
     const stale = reportStale(def.id);
     const exports = r ? `<details class="mr-export"><summary class="btn">Export ▾</summary><div class="mr-export-menu"><button class="btn" data-mrrepopen="${def.id}">Open report in new tab</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="html">HTML report</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="csv">${def.id === "config" ? "Policy settings CSV" : def.id === "conflicts" ? "Collisions CSV" : "Assignments CSV"}</button></div></details>` : "";
-    const metadata = r ? `<div class="mr-report-meta"><span><b>Policy data</b> ${esc(reportTime(r.readAt))}</span><span><b>Generated</b> ${esc(reportTime(r.at))}</span>${r.membersAt ? `<span><b>Members</b> ${esc(reportTime(r.membersAt))}</span>` : ""}${r.ownersAt ? `<span><b>Owners attempted</b> ${esc(reportTime(r.ownersAt))}</span>` : ""}</div>` : "";
+    const metadata = r ? `<div class="mr-report-meta"><span><b>Policy data</b> ${esc(reportTime(r.readAt))}</span><span><b>Generated</b> ${esc(reportTime(r.at))}</span>${r.membersAt ? `<span><b>Members</b> ${esc(reportTime(r.membersAt))}</span>` : ""}${r.statusAt ? `<span><b>Status read</b> ${esc(reportTime(r.statusAt))}</span>` : ""}${r.ownersAt ? `<span><b>Owners attempted</b> ${esc(reportTime(r.ownersAt))}</span>` : ""}</div>` : "";
     const warning = stale ? `<p class="mr-report-notice">This saved report predates the current policy/member read, rules or session changes. Generate it again to update the preview and exports.</p>` : "";
     const missing = r && r.missing.length ? `<p class="mr-report-notice">Incomplete policy read: ${r.missing.map(esc).join(", ")}. These surfaces are not included in this report.</p>` : "";
     const memberWarning = r && def.id === "config" && !r.members ? `<p class="mr-report-notice">Wave members could not be read; that report section is incomplete.</p>` : "";
     const jump = r && def.id === "conflicts" ? `<p class="mini mr-report-jump"><a href="#" data-mrpane="conflicts">Open Conflicts to review proposed changes →</a></p>` : "";
-    return `<section id="mvReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${def.icon} ${esc(def.title)}</h3><p class="mini">${esc(def.description)} <span class="muted">· ${esc(def.source)} · the latest of each report is kept for this session</span></p></div><div class="tb-actions"><button class="btn primary" id="mvRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : r ? "↻ Generate again" : "Generate report"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>No report generated yet</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section>`;
+    return `<section id="mvReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${def.icon} ${esc(def.title)}</h3><p class="mini">${esc(def.description)} <span class="muted">· ${esc(def.source)} · the latest of each report is kept for this session</span></p></div><div class="tb-actions"><button class="btn primary" id="mvRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : def.id === "landing" ? (r ? "↻ Read again & generate" : "Read & generate") : r ? "↻ Generate again" : "Generate report"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>No report generated yet</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "landing" ? "Read Intune's check-in status for every new policy and the waves' members. Reads only — nothing is changed." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section>`;
   }
   function openReport(id) {
     const r = reps[id];
@@ -4058,6 +4190,13 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvRep_assign") { runAssignReport(); return; }
       if (t.id === "mvRep_config") { runConfigReport(); return; }
       if (t.id === "mvRep_conflicts") { runConflictCheck(); return; }
+      if (t.id === "mvRep_landing") { runLandingReport(true); return; }
+      // 📡 Landing (10689)
+      if (t.closest("[data-mrldread]")) { readLanding(); return; }
+      const ldr = t.closest("[data-mrldregion]"); if (ldr) { e.preventDefault(); ld.region = ldr.dataset.mrldregion || null; render(); return; }
+      const ldf = t.closest("[data-mrldfilter]"); if (ldf) { e.preventDefault(); ld.filter = ldf.dataset.mrldfilter || "all"; render(); return; }
+      if (t.id === "mvLdCsv") { if (ld.model) download(`MDE-rollout-landing-${stamp()}.csv`, MdeLanding.csv(ld.model), "text/csv"); return; }
+      if (t.id === "mvLdReport") { runLandingReport(false); return; }
       const ro = t.closest("[data-mrrepopen]"); if (ro) { openReport(ro.dataset.mrrepopen); return; }
       const rd = t.closest("[data-mrrep]"); if (rd) {
         const r = reps[rd.dataset.mrrep]; if (!r) return;
@@ -4248,6 +4387,13 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("input", (e) => {
       if (e.target.id === "mvExQ") { ex.q = e.target.value; return; }
+      if (e.target.id === "mvLdQ") {
+        ld.q = e.target.value;
+        const pos = e.target.selectionStart;
+        render();
+        const q = $("mvLdQ"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* search inputs in some engines */ } }
+        return;
+      }
       if (e.target.id === "mvRvQ") { rv.q = e.target.value; return; }
       if (e.target.id === "mvRvGroup") { rv.group = e.target.value; const b = $("mvRvGroupGo"); if (b && !rv.listBusy) b.disabled = !rv.group.trim(); return; }
       if (e.target.id === "mvRvListText") {
@@ -4393,7 +4539,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld }),
     _pane: (p) => { pane = p; render(); },
   };
 })();
