@@ -9,20 +9,20 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10690"></script>
+<script src="js/popup-guard.js?v=10691"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=3" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10690">
-<link rel="stylesheet" href="css/workspaces.css?v=10690">
-<link rel="stylesheet" href="css/home-overview.css?v=10690">
-<link rel="stylesheet" href="css/tool-layout.css?v=10690">
-<link rel="stylesheet" href="css/flat-icons.css?v=10690">
+<link rel="stylesheet" href="css/app.css?v=10691">
+<link rel="stylesheet" href="css/workspaces.css?v=10691">
+<link rel="stylesheet" href="css/home-overview.css?v=10691">
+<link rel="stylesheet" href="css/tool-layout.css?v=10691">
+<link rel="stylesheet" href="css/flat-icons.css?v=10691">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10690"></script>
-<link rel="stylesheet" href="css/t28v2.css?v=10690">
-<link rel="stylesheet" href="css/applocker-harvest.css?v=10690">
+<script src="js/selfhost-boot.js?v=10691"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10691">
+<link rel="stylesheet" href="css/applocker-harvest.css?v=10691">
 </head>
 <body>
 
@@ -312,7 +312,9 @@
 
   <!-- ============ APPLOCKER BUILDER & VALIDATOR (T01) ============ -->
   <section id="screen-applocker-harvest" class="screen tool">
-    <div class="list-card readme"><h2 data-tool-head="toolAppLockerHarvest"></h2><p class="mini" style="margin:0">Edit the supplied policy, verify Microsoft app coverage, and maintain it from weekly event results. XML and imported bundles stay in this browser session. DLL collections and DLL events are excluded.</p></div>
+    <div class="list-card readme ah-title"><h2 data-tool-head="toolAppLockerHarvest"></h2><button id="ahOpenDeploy" class="btn ah-lemon">🚀 Deploy to Intune</button><p class="mini" style="margin:0">Review weekly results, edit your XML, and deploy the reviewed policy.</p></div>
+    <div class="ah-scope"><span>EXE · Script · MSI · Appx</span><span id="ahDraftSummary">No draft loaded</span><span>Weekly event harvesting · DLL excluded</span></div>
+    <div id="ahImportNotice" class="ah-note ah-warning">Load a supplied XML or an existing profile. The supplied Audit XML contains enforced collections; choose the intended mode explicitly.</div>
     <div id="ahStatus" class="ah-status mini" role="status" aria-live="polite"></div>
     <div id="ahWorkspace" class="ah-layout">
       <nav class="ah-nav" aria-label="AppLocker policy workspace">
@@ -323,50 +325,77 @@
         <button id="ahTabHelpers" data-ah-tab="helpers">📁 Collection &amp; helpers</button>
       </nav>
       <div>
-        <article class="ah-panel" data-ah-pane="results">
+        <article class="ah-view" data-ah-pane="results">
           <h3>Weekly application results</h3><p>Start with the devices that reported blocks or would-block events. Review their window and policy receipt before proposing a rule.</p>
           <div class="ah-row"><label>Import event bundles<input id="ahBundleFiles" type="file" accept=".json,.log" multiple></label><button id="ahExportEvents" class="btn secondary">📥 Export results</button><button id="ahClearResults" class="btn secondary">Clear imported results</button></div>
-          <div id="ahResults"></div>
+          <div id="ahResultsStatus" class="ah-status mini" role="status" aria-live="polite" hidden></div><div id="ahResults"></div>
           <details><summary>Read bundles from the Harvest site</summary><p>The site and library folder are configured under Collection &amp; helpers. Read the listing, download a bundle, then import it. Existing T01 AppControl bundles are accepted; scan bundles are excluded.</p><button id="ahReadHarvest" class="btn secondary">🔎 Read Harvest listing</button><div id="ahHarvestFiles"></div></details>
           <div class="ah-row"><label>Display events<select id="ahEventFilter"><option value="all">All events</option><option value="Blocked">Blocked</option><option value="Audited">Would block</option><option value="Allowed">Allowed</option></select></label></div><div id="ahEvents"></div>
         </article>
-        <article class="ah-panel" data-ah-pane="policy" hidden>
-          <h3>Policy &amp; XML</h3><p id="ahSource" class="mini"></p>
-          <div class="ah-row"><label>Supplied XML<select id="ahTemplateKind"><option>AppLockerRules-Audit-R27.1-v1.0.xml</option><option>AppLockerRules-Enforce-R27.1-v1.0.xml</option></select></label><button id="ahTemplate" class="btn secondary">Load template</button><label>Import XML<input id="ahPolicyFile" type="file" accept=".xml"></label></div>
-          <div class="ah-note ah-warning">Both supplied files contain <b>Enabled</b> collections. The Audit filename does not set AuditOnly. DLL is omitted on import; all remaining rule IDs, conditions and exceptions are preserved.</div>
-          <div class="ah-row"><label>Set every retained collection to<select id="ahMode"><option value="AuditOnly">AuditOnly</option><option value="Enabled">Enabled (enforced)</option></select></label><button id="ahModeApply" class="btn secondary">Apply mode to draft</button><span>Current: <b id="ahSourceMode">—</b></span></div>
-          <div id="ahPolicyChecks"></div>
-          <details><summary>Edit one rule, including its exceptions</summary><label>Rule<select id="ahRule"></select></label><label>Rule XML<textarea id="ahRuleXml" class="ah-xml" spellcheck="false" aria-label="Selected rule XML"></textarea></label><button id="ahRuleApply" class="btn secondary">Apply rule edit</button></details>
-          <label>Full policy XML<textarea id="ahXml" class="ah-xml" spellcheck="false" aria-label="Full AppLocker XML"></textarea></label>
-          <div class="ah-row"><button id="ahApplyXml" class="btn">Validate &amp; apply XML edits</button><button id="ahUndo" class="btn secondary">↩ Undo draft change</button><button id="ahExportXml" class="btn secondary">📥 Export XML</button></div>
+        <article class="ah-view" data-ah-pane="policy" hidden>
+          <div class="ah-row ah-spread"><h3>Your policy, editable</h3><span class="ah-chip">Original files preserved</span></div>
+          <div class="ah-grid"><label>Source XML<select id="ahTemplateKind"><option>AppLockerRules-Audit-R27.1-v1.0.xml</option><option>AppLockerRules-Enforce-R27.1-v1.0.xml</option></select></label><label>Collection<select id="ahCollection"><option value="Exe">EXE</option><option value="Script">Script</option><option value="Msi">MSI</option><option value="Appx">Packaged apps</option></select></label></div>
+          <div class="ah-row"><button id="ahTemplate" class="btn secondary">Load template</button><button id="ahAuditDraft" class="btn ah-lemon">Prepare AuditOnly draft</button><button id="ahRuleEditor" class="btn secondary">Rule editor</button><button id="ahXmlEditor" class="btn secondary">XML editor</button><span class="mini">Current: <b id="ahSourceMode">—</b></span></div>
+          <p id="ahSource" class="mini"></p>
+          <div class="ah-editor-grid">
+            <section class="ah-panel"><div class="ah-row ah-spread"><h3 id="ahEditorTitle">Rule editor · EXE</h3><span id="ahCollectionMode" class="ah-chip">No draft</span></div>
+              <div id="ahRulesEditor"><label>Rule<select id="ahRule"></select></label>
+                <div id="ahRuleFields" hidden><div class="ah-grid"><label>Name<input id="ahRuleName"></label><label>Action<select id="ahRuleAction"><option>Allow</option><option>Deny</option></select></label></div><label>Applies to<input id="ahRuleSid"></label><div id="ahConditionFields" class="ah-grid"></div><p id="ahRuleExceptions" class="mini"></p></div>
+                <details><summary>Edit selected rule XML, including exceptions</summary><label>Rule XML<textarea id="ahRuleXml" class="ah-xml" spellcheck="false" aria-label="Selected rule XML"></textarea></label><button id="ahRuleApply" class="btn secondary">Apply rule XML edit</button></details>
+              </div>
+              <div id="ahFullEditor" hidden><label>Full policy XML<textarea id="ahXml" class="ah-xml" spellcheck="false" aria-label="Full AppLocker XML"></textarea></label></div>
+              <div class="ah-row"><button id="ahSaveDraft" class="btn ah-primary">Save draft &amp; check XML</button><button id="ahCheckCoverage" class="btn secondary">Check Microsoft coverage</button></div>
+              <div id="ahPolicyStatus" class="ah-status mini" role="status" aria-live="polite" hidden></div>
+            </section>
+            <aside class="ah-panel ah-findings-panel"><h3>Import review</h3><div id="ahPolicyChecks"></div></aside>
+          </div>
+          <details class="ah-advanced"><summary>Import, export &amp; draft recovery</summary><div class="ah-row"><label>Import XML<input id="ahPolicyFile" type="file" accept=".xml"></label><button id="ahApplyXml" class="btn secondary">Validate &amp; apply full XML edits</button><button id="ahUndo" class="btn secondary">↩ Undo draft change</button><button id="ahExportXml" class="btn secondary">📥 Export XML</button></div><div class="ah-row"><label>Set every retained collection to<select id="ahMode"><option value="AuditOnly">AuditOnly</option><option value="Enabled">Enabled (enforced)</option></select></label><button id="ahModeApply" class="btn secondary">Apply mode to draft</button></div></details>
         </article>
-        <article class="ah-panel" data-ah-pane="coverage" hidden>
+        <article class="ah-view" data-ah-pane="coverage" hidden>
           <h3>Microsoft app coverage</h3><p>The same catalog and rule matcher as T01, evaluated against this draft. Broad default allows can bypass narrower exceptions. Coverage does not approve those broad rules.</p>
-          <button id="ahOneDrive" class="btn secondary">＋ Add Microsoft OneDrive publisher allow</button><div id="ahCoverage"></div>
+          <div class="ah-panel"><div id="ahCoverageStatus" class="ah-status mini" role="status" aria-live="polite" hidden></div><button id="ahOneDrive" class="btn secondary">＋ Add Microsoft OneDrive publisher allow</button><div id="ahCoverage"></div></div>
           <details><summary>Review a publisher allow from an event</summary><p>Review the signature and select the right collection. The rule applies to the entered principal, any version, and the selected binary. An event is evidence of execution, not approval to trust its publisher.</p><div class="ah-grid"><label>Collection<select id="ahPubCollection"><option>Exe</option><option>Msi</option><option>Script</option><option>Appx</option></select></label><label>Rule name<input id="ahPubName"></label><label>Publisher<input id="ahPubPublisher"></label><label>Product<input id="ahPubProduct"></label><label>Binary<input id="ahPubBinary" value="*"></label><label>Principal SID<input id="ahPubSid" value="S-1-1-0"></label></div><button id="ahPublisherAdd" class="btn secondary">Add reviewed publisher allow to draft</button></details>
         </article>
-        <article class="ah-panel" data-ah-pane="deploy" hidden>
-          <h3>Deploy to Intune</h3><div class="ah-row"><button id="ahNewPolicy" class="btn secondary">New policy</button><button id="ahReadProfiles" class="btn secondary">🔎 Read existing profiles</button></div>
-          <div class="ah-row"><label>Existing profile<select id="ahProfiles"><option value="">Read Intune first</option></select></label><button id="ahAdopt" class="btn secondary">Load for editing / redeploy</button></div>
-          <p id="ahDeployKind" class="mini"></p><div class="ah-grid"><label>Profile display name<input id="ahName" value="Win - SEC - Device Security - AppLocker - R27.1 - v1.0"></label><label>Automatic grouping<input id="ahGrouping" readonly></label></div>
-          <div class="ah-row"><button id="ahNewGrouping" class="btn secondary">Generate new grouping</button><button id="ahPrepare" class="btn">① Check Intune &amp; prepare review</button></div><div id="ahPlan"></div>
-          <label class="ah-check"><input id="ahReview" type="checkbox">I reviewed the XML, Microsoft coverage, warnings, intended mode and assignment impact. DLL is excluded.</label>
-          <div id="ahEnforceGate" hidden><div id="ahCoverageGate" hidden><p id="ahCoverageGaps" class="ah-note ah-warning"></p><label>How each catalog gap or conditional match is handled for this deployment<textarea id="ahCoverageDisposition" rows="3" placeholder="Record a deliberate exclusion, correction or pilot evidence for each gap"></textarea></label></div><label>Completed pilot: devices, date and required apps tested<textarea id="ahPilot" rows="3" placeholder="Record the pilot outcome and rollback readiness"></textarea></label><label>Confirm enforcement<input id="ahConfirm" placeholder="Type ENFORCE" autocomplete="off"></label></div>
-          <div class="ah-row"><button id="ahBackup" class="btn secondary" disabled>② Download review / rollback snapshot</button><button id="ahApply" class="btn" disabled>③ Create / redeploy reviewed policy</button><button id="ahRecover" class="btn secondary" hidden>Resolve pending write / read back again</button></div><p id="ahReceipt" class="mini"></p>
-          <details><summary>Restore a saved rollback snapshot</summary><p>Load the current profile first. Import its saved snapshot to restore the original XML as a draft, then prepare and review an in-place redeployment.</p><input id="ahRollbackFile" type="file" accept=".json" aria-label="Rollback snapshot"></details>
+        <article class="ah-view" data-ah-pane="deploy" hidden>
+          <div class="ah-row ah-spread"><h3>Deploy to Intune</h3><span class="ah-chip">T01 deployment flow</span></div>
+          <section class="ah-panel"><div class="ah-row ah-spread"><h3>Intune configuration profile</h3><span id="ahGroupingKind" class="ah-chip">Grouping generated automatically</span></div>
+            <div class="ah-grid"><label>Operation<select id="ahOperation"><option value="new">Create a new policy</option><option value="update">Redeploy existing enforced policy</option></select></label><label>Deployment mode<select id="ahDeployMode"><option value="">Load a draft first</option><option value="AuditOnly">AuditOnly</option><option value="Enabled">Enforced</option><option value="mixed" disabled>Mixed / NotConfigured</option></select></label></div>
+            <div id="ahExistingTarget" hidden><div class="ah-row"><button id="ahReadProfiles" class="btn secondary">🔎 Read existing profiles</button><label>Existing profile<select id="ahProfiles"><option value="">Read Intune first</option></select></label><button id="ahAdopt" class="btn secondary">Load for editing / redeploy</button></div></div>
+            <label>Policy name<input id="ahName" value="Win - SEC - Device Security - AppLocker - R27.1 - v1.0"></label>
+            <div class="ah-group-row"><label>Grouping name<input id="ahGrouping" readonly></label><button id="ahNewGrouping" class="btn secondary">↻ Generate new</button></div>
+            <p class="mini">Generated once as AppLocker-&lt;GUID&gt;. Changing the profile version or deployment mode keeps the same grouping.</p>
+            <div class="ah-row"><button id="ahPrepare" class="btn secondary">🔎 Check in Intune</button><span id="ahTenantCheck" class="ah-chip">Tenant check pending</span></div>
+            <div class="ah-grid"><label>Assignment<output id="ahDeployKind" class="ah-output"></output></label><label>Included collections<output id="ahIncluded" class="ah-output">EXE · Script · MSI · StoreApps</output></label></div>
+            <p id="ahAssignmentSummary" class="mini">Creating the profile does not target any devices. Assignment is a separate reviewed action.</p>
+            <div id="ahImpact" class="ah-note">The generated grouping identifies this policy on devices. Check existing groupings and overlapping assignments before deploying.</div>
+            <div class="ah-row"><button id="ahDeployReview" class="btn ah-primary">🚀 Deploy to Intune</button><button id="ahReviewRecovery" class="btn secondary">Review recovery</button><button id="ahNewPolicy" class="btn secondary" hidden>Start new policy</button></div>
+            <div class="ah-stage"><strong id="ahStageFirst">1 · Create profile</strong><span>→</span><span id="ahStageSecond">2 · Assign pilot group</span><span>→</span><span>3 · Verify device receipt</span></div>
+            <details class="ah-advanced"><summary>Preview policy addresses · DLL omitted</summary><div id="ahAddresses"></div></details>
+          </section>
+          <section class="ah-panel"><h3>Verification</h3><div id="ahVerification"></div></section>
+          <section id="ahReviewPanel" class="ah-review" hidden><h3>Review deployment</h3><div id="ahPlan"></div>
+            <label class="ah-check"><input id="ahReview" type="checkbox">I reviewed the XML, Microsoft coverage, warnings, intended mode and assignment impact. DLL is excluded.</label>
+            <div id="ahEnforceGate" hidden><div id="ahCoverageGate" hidden><p id="ahCoverageGaps" class="ah-note ah-warning"></p><label>How each catalog gap or conditional match is handled for this deployment<textarea id="ahCoverageDisposition" rows="3" placeholder="Record a deliberate exclusion, correction or pilot evidence for each gap"></textarea></label></div><label>Completed pilot: devices, date and required apps tested<textarea id="ahPilot" rows="3" placeholder="Record the pilot outcome and rollback readiness"></textarea></label><label>Confirm enforcement<input id="ahConfirm" placeholder="Type ENFORCE" autocomplete="off"></label></div>
+            <p id="ahReady" class="mini" aria-live="polite"></p>
+            <div class="ah-row"><button id="ahBackup" class="btn secondary" disabled>Download review / rollback snapshot</button><button id="ahApply" class="btn ah-primary" disabled>Create / redeploy reviewed policy</button><button id="ahRecover" class="btn secondary" hidden>Resolve pending write / read back again</button></div>
+          </section>
+          <div id="ahDeployStatus" class="ah-status mini" role="status" aria-live="polite" hidden></div><p id="ahReceipt" class="mini"></p>
+          <details id="ahRecovery"><summary>Restore a saved rollback snapshot</summary><p>Load the current profile first. Import its saved snapshot to restore the original XML as a draft, then prepare and review an in-place redeployment.</p><input id="ahRollbackFile" type="file" accept=".json" aria-label="Rollback snapshot"></details>
           <details><summary>Assign a newly created, verified profile</summary><p>Creation is unassigned. Choose an exact security group and review it separately. Policies that already have assignments use T11 Assignment editor for target changes.</p><div class="ah-row"><label>Search group<input id="ahGroupQuery" placeholder="Pilot group name"></label><button id="ahGroupSearch" class="btn secondary">🔎 Find groups</button></div><label>Exact group<select id="ahGroups"><option value="">Search first</option></select></label><p id="ahAssignment" class="mini"></p><label class="ah-check"><input id="ahAssignReview" type="checkbox">I reviewed this policy and this exact target group.</label><button id="ahAssign" class="btn secondary">Assign verified profile</button></details>
         </article>
-        <article class="ah-panel" data-ah-pane="helpers" hidden>
-          <h3>Collection &amp; helpers</h3><p>Use a daily Intune Remediation schedule. The new detection checks a seven-day successful-upload checkpoint; pending uploads retry on the next daily pass. Only existing events and policy receipts are collected.</p>
-          <div class="ah-grid"><label>SharePoint site URL<input id="ahSiteUrl" placeholder="https://tenant.sharepoint.com/sites/Harvest"></label><label>Library folder<input id="ahFolder" value="Harvest"></label><label>Tenant ID<input id="ahTenantId"></label><label>Uploader application (client) ID<input id="ahClientId"></label><label>Certificate subject<input id="ahCertSubject" placeholder="CN=TUNO-Harvest"></label><label>Or exact certificate thumbprint<input id="ahCertThumbprint"></label><label>Client secret alternative<input id="ahClientSecret" type="password" autocomplete="off"></label><label>Delete uploaded history older than (days)<input id="ahRetentionDays" type="number" min="0" max="3650" value="30"></label></div>
+        <article class="ah-view" data-ah-pane="helpers" hidden>
+          <h3>Weekly collection &amp; helpers</h3><div id="ahHelperStatus" class="ah-status mini" role="status" aria-live="polite" hidden></div><p>Use a daily Intune Remediation schedule. The new detection checks a seven-day successful-upload checkpoint; pending uploads retry on the next daily pass. Only existing events and policy receipts are collected.</p>
+          <section class="ah-panel"><h3>Harvest setup</h3><div class="ah-grid"><label>Successful upload cadence<output class="ah-output">Every 7 days per device · daily retry check</output></label><label>Event lookback<output class="ah-output">8 days · overlapping uploads deduplicated</output></label></div><div class="ah-grid"><label>SharePoint site URL<input id="ahSiteUrl" placeholder="https://tenant.sharepoint.com/sites/Harvest"></label><label>Library folder<input id="ahFolder" value="Harvest"></label><label>Tenant ID<input id="ahTenantId"></label><label>Uploader application (client) ID<input id="ahClientId"></label><label>Certificate subject<input id="ahCertSubject" placeholder="CN=TUNO-Harvest"></label><label>Or exact certificate thumbprint<input id="ahCertThumbprint"></label><label>Client secret alternative<input id="ahClientSecret" type="password" autocomplete="off"></label><label>Cloud &amp; local history retention (days)<input id="ahRetentionDays" type="number" min="0" max="3650" value="30"></label></div>
           <div class="ah-note">Certificate authentication is preferred. The uploader needs access to this site. A secret, if entered, is included in the generated device script. Retention 0 keeps history. Pruning affects this device's T29 files after a confirmed upload; pending local files and the latest upload are retained.</div>
           <button id="ahUseT01Target" class="btn secondary">Use this tenant’s existing T01 target</button>
-          <button id="ahT01Setup" class="btn secondary">📁 Open existing T01 site &amp; uploader setup</button>
+          <button id="ahT01Setup" class="btn secondary">📁 Open existing T01 site &amp; uploader setup</button></section>
+          <section class="ah-panel"><h3>Collector &amp; carry-over helpers</h3><div class="ah-helper"><div><strong>Weekly AppLocker Harvest · v1.0.0</strong><p class="mini">Seven-day successful-upload checkpoint, pending retries and confined retention. No application scan.</p></div><button class="btn secondary" data-ah-helper="weekly">Review collector</button></div><div class="ah-helper"><div><strong>Clear AppLocker Settings · v1.4.0</strong><p class="mini">Migration &amp; recovery · review the cleanup effect before deployment.</p></div><button class="btn secondary" data-ah-helper="cleanup">Review helper</button></div><div class="ah-helper"><div><strong>Collect AppControl Events · v1.3.1</strong><p class="mini">Existing on-demand T01 event collector.</p></div><button class="btn secondary" data-ah-helper="events">Review helper</button></div></section>
+          <section id="ahHelperReviewPanel" class="ah-panel"><h3>Review &amp; deploy the selected helper</h3>
           <div class="ah-row"><label>Helper pair<select id="ahHelperKind"><option value="weekly">Weekly AppLocker Harvest · v1.0.0 · build 10690</option><option value="cleanup">Clear Applocker Settings · v1.4.0 · build 10612</option><option value="events">Collect AppControl Events · v1.3.1 · build 10624 (on demand)</option></select></label><button id="ahDownloadPair" class="btn secondary">📥 Download script pair (.zip)</button></div>
           <label>Remediation name<input id="ahHelperName"></label><div class="ah-row"><button id="ahReadHelpers" class="btn secondary">🔎 Read existing helpers</button><label>Choose existing helper<select id="ahHelperSelect"><option value="">Create new unassigned helper</option></select></label></div><label>Existing remediation ID (optional, for update)<input id="ahHelperId" placeholder="Empty creates a new unassigned helper"></label>
           <div class="ah-row"><button id="ahHelperPrepare" class="btn secondary">① Prepare helper review</button></div><div id="ahHelperPreview"></div><label class="ah-check"><input id="ahHelperReview" type="checkbox">I reviewed both scripts and their effect. Existing assignments and schedule will be preserved.</label><button id="ahHelperBackup" class="btn secondary" disabled>Download helper rollback snapshot</button><button id="ahHelperRecover" class="btn secondary" hidden>Resolve pending helper write</button><button id="ahHelperApply" class="btn" disabled>② Create / update reviewed helper</button>
           <p class="mini">Carry-over helpers are the current T01 scripts. Clear is a deliberate migration action with its existing cleanup marker; the old Collect pair runs on every scheduled pass. Use Weekly AppLocker Harvest for the weekly upload and retention workflow.</p>
-          <p class="mini">Before wider assignment: verify on Windows that a pending upload retries, seven days elapse between successful collections, DLL events never consume the EXE cap, receipt XML includes the intended grouping, and old T29 history is pruned only after delivery.</p>
+          <p class="mini">Before wider assignment: verify on Windows that a pending upload retries, seven days elapse between successful collections, DLL events never consume the EXE cap, receipt XML includes the intended grouping, and old T29 history is pruned only after delivery.</p></section>
         </article>
       </div>
     </div>
@@ -1825,8 +1854,8 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
         <div class="rm-era beta">
           <h3>In beta today <span class="rm-when">running on the beta channel, not yet in production</span></h3>
           <div class="list-card rm-card" data-shipped="1">
-            <h4 style="margin:0 0 4px"><span class="rm-ref">R42</span> 🔐 P-2715 Applocker &amp; harvest · T29 <span class="tag grant">live · beta 10690</span> <span class="tag new">BETA</span> <span class="tag">temporary</span></h4>
-            <p class="mini" style="margin:0">A project tool in <b>02 Projects</b>: edit the supplied XML, exclude DLL, verify T01's Microsoft app catalog, review weekly event results and deploy in Intune. New policies get one automatic grouping; existing enforced policies retain their ID, grouping and assignments. A daily check drives seven-day uploads, retries pending bundles and prunes only its own history after verified delivery. No application scan. Windows and live-tenant pilot acceptance are pending; P-2715 stays on beta.</p>
+            <h4 style="margin:0 0 4px"><span class="rm-ref">R42</span> 🔐 P-2715 Applocker &amp; harvest · T29 <span class="tag grant">live · beta 10691</span> <span class="tag new">BETA</span> <span class="tag">temporary</span></h4>
+            <p class="mini" style="margin:0">Approved Policy workspace restored in beta 10691, with visible deployment requirements and local action feedback. A project tool in <b>02 Projects</b>: edit the supplied XML, exclude DLL, verify T01's Microsoft app catalog, review weekly event results and deploy in Intune. New policies get one automatic grouping; existing enforced policies retain their ID, grouping and assignments. A daily check drives seven-day uploads, retries pending bundles and prunes only its own history after verified delivery. No application scan. Windows and live-tenant pilot acceptance are pending; P-2715 stays on beta.</p>
           </div>
           <div class="list-card rm-card" data-shipped="1">
             <h4 style="margin:0 0 4px"><span class="rm-ref">R41</span> 🧭 TUNO 2.0 — ENCA's workspace shell <span class="tag grant">slices 1–13 · beta 10674</span> <span class="tag new">BETA</span></h4>
@@ -2414,71 +2443,71 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10690"></script>
-<script src="js/selfhost.js?v=10690"></script>
-<script src="js/version.js?v=10690"></script>
-<script src="js/promote.js?v=10690"></script>
-<script src="js/authConfig.js?v=10690"></script>
-<script src="js/changelog.js?v=10690"></script>
-<script src="js/msappcatalog.js?v=10690"></script>
-<script src="js/demo.js?v=10690"></script>
-<script src="js/graph.js?v=10690"></script>
-<script src="js/suggest.js?v=10690"></script>
-<script src="js/progress.js?v=10690"></script>
-<script src="js/runledger.js?v=10690"></script>
-<script src="js/groupuse.js?v=10690"></script>
-<script src="js/audit.js?v=10690"></script>
-<script src="js/devicecleanup.js?v=10690"></script>
-<script src="js/backup.js?v=10690"></script>
-<script src="js/document.js?v=10690"></script>
-<script src="js/policycache.js?v=10690"></script>
-<script src="js/runmeta.js?v=10690"></script>
-<script src="js/overview.js?v=10690"></script>
-<script src="js/devicewhy.js?v=10690"></script>
-<script src="js/whatif.js?v=10690"></script>
-<script src="js/health.js?v=10690"></script>
-<script src="js/settingsearch.js?v=10690"></script>
-<script src="js/conflict.js?v=10690"></script>
-<script src="js/compliance.js?v=10690"></script>
-<script src="js/filterrules.js?v=10690"></script>
-<script src="js/filters.js?v=10690"></script>
-<script src="js/restore.js?v=10690"></script>
-<script src="js/platformbaseline.js?v=10690"></script>
-<script src="js/complianceevidence.js?v=10690"></script>
-<script src="js/macbaseline.js?v=10690"></script>
-<script src="js/winbaseline.js?v=10690"></script>
-<script src="js/assignedit.js?v=10690"></script>
-<script src="js/restrictedau.js?v=10690"></script>
-<script src="js/groupmigrate.js?v=10690"></script>
-<script src="js/roles.js?v=10690"></script>
-<script src="js/defender.js?v=10690"></script>
-<script src="js/endpointsec.js?v=10690"></script>
-<script src="js/report.js?v=10690"></script>
-<script src="js/securescore.js?v=10690"></script>
-<script src="js/endpointposture.js?v=10690"></script>
-<script src="js/mdemembers.js?v=10690"></script>
-<script src="js/mdereports.js?v=10690"></script>
-<script src="js/mdelanding.js?v=10690"></script>
-<script src="js/mdeexclude.js?v=10690"></script>
-<script src="js/mderevert.js?v=10690"></script>
-<script src="js/mdetest.js?v=10690"></script>
-<script src="js/mdeasr.js?v=10690"></script>
-<script src="js/addons.js?v=10690"></script>
-<script src="js/mdeedgeext.js?v=10690"></script>
-<script src="js/mderollout.js?v=10690"></script>
-<script src="js/t28v2safety.js?v=10690"></script>
-<script src="js/mderolloutv2.js?v=10690"></script>
-<script src="js/maa.js?v=10690"></script>
-<script src="js/laps.js?v=10690"></script>
-<script src="js/applocker.js?v=10690"></script>
-<script src="js/applocker-harvest-core.js?v=10690"></script>
-<script src="js/applocker-harvest.js?v=10690"></script>
-<script src="js/flat-icons.js?v=10690"></script>
-<script src="js/app.js?v=10690"></script>
-<script src="js/col-resize.js?v=10690"></script>
-<script src="js/accessibility.js?v=10690"></script>
-<script src="js/home-overview.js?v=10690"></script>
-<script src="js/workspaces.js?v=10690"></script>
-<script src="js/tool-layout.js?v=10690"></script>
+<script src="js/branding.js?v=10691"></script>
+<script src="js/selfhost.js?v=10691"></script>
+<script src="js/version.js?v=10691"></script>
+<script src="js/promote.js?v=10691"></script>
+<script src="js/authConfig.js?v=10691"></script>
+<script src="js/changelog.js?v=10691"></script>
+<script src="js/msappcatalog.js?v=10691"></script>
+<script src="js/demo.js?v=10691"></script>
+<script src="js/graph.js?v=10691"></script>
+<script src="js/suggest.js?v=10691"></script>
+<script src="js/progress.js?v=10691"></script>
+<script src="js/runledger.js?v=10691"></script>
+<script src="js/groupuse.js?v=10691"></script>
+<script src="js/audit.js?v=10691"></script>
+<script src="js/devicecleanup.js?v=10691"></script>
+<script src="js/backup.js?v=10691"></script>
+<script src="js/document.js?v=10691"></script>
+<script src="js/policycache.js?v=10691"></script>
+<script src="js/runmeta.js?v=10691"></script>
+<script src="js/overview.js?v=10691"></script>
+<script src="js/devicewhy.js?v=10691"></script>
+<script src="js/whatif.js?v=10691"></script>
+<script src="js/health.js?v=10691"></script>
+<script src="js/settingsearch.js?v=10691"></script>
+<script src="js/conflict.js?v=10691"></script>
+<script src="js/compliance.js?v=10691"></script>
+<script src="js/filterrules.js?v=10691"></script>
+<script src="js/filters.js?v=10691"></script>
+<script src="js/restore.js?v=10691"></script>
+<script src="js/platformbaseline.js?v=10691"></script>
+<script src="js/complianceevidence.js?v=10691"></script>
+<script src="js/macbaseline.js?v=10691"></script>
+<script src="js/winbaseline.js?v=10691"></script>
+<script src="js/assignedit.js?v=10691"></script>
+<script src="js/restrictedau.js?v=10691"></script>
+<script src="js/groupmigrate.js?v=10691"></script>
+<script src="js/roles.js?v=10691"></script>
+<script src="js/defender.js?v=10691"></script>
+<script src="js/endpointsec.js?v=10691"></script>
+<script src="js/report.js?v=10691"></script>
+<script src="js/securescore.js?v=10691"></script>
+<script src="js/endpointposture.js?v=10691"></script>
+<script src="js/mdemembers.js?v=10691"></script>
+<script src="js/mdereports.js?v=10691"></script>
+<script src="js/mdelanding.js?v=10691"></script>
+<script src="js/mdeexclude.js?v=10691"></script>
+<script src="js/mderevert.js?v=10691"></script>
+<script src="js/mdetest.js?v=10691"></script>
+<script src="js/mdeasr.js?v=10691"></script>
+<script src="js/addons.js?v=10691"></script>
+<script src="js/mdeedgeext.js?v=10691"></script>
+<script src="js/mderollout.js?v=10691"></script>
+<script src="js/t28v2safety.js?v=10691"></script>
+<script src="js/mderolloutv2.js?v=10691"></script>
+<script src="js/maa.js?v=10691"></script>
+<script src="js/laps.js?v=10691"></script>
+<script src="js/applocker.js?v=10691"></script>
+<script src="js/applocker-harvest-core.js?v=10691"></script>
+<script src="js/applocker-harvest.js?v=10691"></script>
+<script src="js/flat-icons.js?v=10691"></script>
+<script src="js/app.js?v=10691"></script>
+<script src="js/col-resize.js?v=10691"></script>
+<script src="js/accessibility.js?v=10691"></script>
+<script src="js/home-overview.js?v=10691"></script>
+<script src="js/workspaces.js?v=10691"></script>
+<script src="js/tool-layout.js?v=10691"></script>
 </body>
 </html>

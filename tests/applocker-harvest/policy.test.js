@@ -57,7 +57,7 @@ run(async()=>{
  ok('generated scripts preserve literal quoted credentials',stamped.includes("CertSubject    = 'CN=O''Neil'")&&stamped.includes("ClientSecret   = 'value$literal'"));
  // New creation and assignment are separate acts, with one grouping through
  // policy edits and the complete target list read back afterwards.
- S.adopted=null;S.verified=null;S.grouping=C.newGrouping();T._test.setXml(C.normalize(fixed,'AuditOnly').xml);assignments=[];
+ S.adopted=null;w.document.getElementById('ahOperation').value='new';S.verified=null;S.grouping=C.newGrouping();T._test.setXml(C.normalize(fixed,'AuditOnly').xml);assignments=[];
  w.Graph.customProfiles=async()=>[];w.Graph.get=async(url)=>String(url).includes('/groups/')?{id:'pilot-new',displayName:'Pilot new',securityEnabled:true}:String(url).endsWith('/assignments')?{value:assignments}:profile;
  w.Graph.createProfile=async(body)=>{createCount++;profile={...body,id:'created',lastModifiedDateTime:'2026-10-07T03:00:00Z'};return profile;};
  await T._test.prepare();S.backup=true;w.document.getElementById('ahReview').checked=true;await T._test.apply();
@@ -67,11 +67,11 @@ run(async()=>{
  w.document.getElementById('ahAssignReview').checked=true;await T._test.assign();ok('separate exact-group assignment is read back',assignments.length===1&&S.verified.assignments[0].target.groupId==='pilot-new');
  ok('already assigned policy cannot overwrite other targets',await reject(T._test.assign,/already has assignments/));
  // A timed-out POST may already exist: recover by exact name/grouping, no retry.
- S.adopted=null;S.verified=null;S.grouping=C.newGrouping();assignments=[];await T._test.prepare();S.backup=true;w.document.getElementById('ahReview').checked=true;
+ S.adopted=null;w.document.getElementById('ahOperation').value='new';S.verified=null;S.grouping=C.newGrouping();assignments=[];await T._test.prepare();S.backup=true;w.document.getElementById('ahReview').checked=true;
  w.Graph.createProfile=async(body)=>{createCount++;profile={...body,id:'unknown-create',lastModifiedDateTime:'2026-10-07T04:00:00Z'};throw Error('timeout')};
  ok('timed-out creation retains grouping and prevents replay',await reject(T._test.apply,/timeout/)&&S.pending&&!S.pending.id);
  w.Graph.customProfiles=async()=>[profile];await T._test.recover();ok('unknown create resolves by exact ID without a duplicate POST',createCount===2&&S.verified.id==='unknown-create');
- S.adopted=null;S.verified=null;S.grouping=C.newGrouping();w.Graph.customProfiles=async()=>[];await T._test.prepare();S.backup=true;w.document.getElementById('ahReview').checked=true;
+ S.adopted=null;w.document.getElementById('ahOperation').value='new';S.verified=null;S.grouping=C.newGrouping();w.Graph.customProfiles=async()=>[];await T._test.prepare();S.backup=true;w.document.getElementById('ahReview').checked=true;
  w.Graph.createProfile=async()=>{throw Object.assign(Error('Forbidden'),{status:403})};ok('definite rejection permits a fresh explicit attempt, no unknown object',await reject(T._test.apply,/Forbidden/)&&!S.pending);
  // Local edits must remain possible in Demo, but never tenant writes.
  w.Graph.isDemo=()=>true;ok('demo refuses tenant writes',await reject(T._test.prepare,/Demo/));

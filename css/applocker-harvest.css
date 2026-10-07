@@ -1,26 +1,58 @@
-/* T29 — approved policy workspace, scoped to this tool. */
-#screen-applocker-harvest .ah-layout{display:grid;grid-template-columns:205px minmax(0,1fr);gap:20px;align-items:start}
-#screen-applocker-harvest .ah-nav{display:grid;gap:6px;position:sticky;top:calc(var(--sticky-nav,130px) + 16px)}
-#screen-applocker-harvest .ah-nav button{text-align:left;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink)}
-#screen-applocker-harvest .ah-nav button[aria-selected=true]{border-color:var(--accent2);background:var(--soft);font-weight:700}
-#screen-applocker-harvest .ah-panel{padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--surface);min-width:0}
-#screen-applocker-harvest .ah-panel h3{margin-top:0}
-#screen-applocker-harvest .ah-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
-#screen-applocker-harvest .ah-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-#screen-applocker-harvest label{display:grid;gap:5px;font-size:13px}
+/* T29 — restore the approved t01-intune-deploy Policy workspace (7 Oct 2026). */
+#screen-applocker-harvest{--ah-bg:light-dark(#f5f8f3,#142019);--ah-surface:light-dark(#fff,#1b2a21);--ah-ink:light-dark(#12331f,#eaf3ec);--ah-muted:light-dark(#53685a,#b0c2b5);--ah-border:light-dark(#dce5dc,#354b3c);--ah-soft:light-dark(#eef4ed,#253b2c);--ah-accent:light-dark(#e8f5ad,#b6d865);--ah-warn-bg:light-dark(#fff4d9,#41351c);--ah-warn:light-dark(#755013,#f0d288);background:var(--ah-bg);color:var(--ah-ink);padding:24px;border-radius:12px;font-size:14px;line-height:1.5}
+#screen-applocker-harvest *{box-sizing:border-box}
+#screen-applocker-harvest [hidden]{display:none!important}
+#screen-applocker-harvest .readme{background:transparent;border:0;padding:0;color:var(--ah-ink)}
+#screen-applocker-harvest .ah-title{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 16px}
+#screen-applocker-harvest .ah-title p{grid-column:1/-1}
+#screen-applocker-harvest .mini{color:var(--ah-muted);font-size:12px}
+#screen-applocker-harvest .ah-scope{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;color:var(--ah-muted);font-size:11px}
+#screen-applocker-harvest .ah-scope span{padding-right:8px;border-right:1px solid var(--ah-border)}
+#screen-applocker-harvest .ah-layout{display:grid;grid-template-columns:155px minmax(0,1fr);gap:21px;align-items:start;margin-top:22px}
+#screen-applocker-harvest .ah-nav{display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--ah-border);padding-right:12px}
+#screen-applocker-harvest .ah-nav button{text-align:left;padding:10px;border:0;border-radius:5px;background:transparent;color:var(--ah-muted);font-size:12px;line-height:1.5}
+#screen-applocker-harvest .ah-nav button[aria-selected=true]{background:var(--ah-soft);color:var(--ah-ink);font-weight:600}
+#screen-applocker-harvest .ah-layout > div,#screen-applocker-harvest .ah-view{min-width:0}
+#screen-applocker-harvest h3{margin:0;font-size:17px;font-weight:600}
+#screen-applocker-harvest .ah-panel h3,#screen-applocker-harvest .ah-review h3{font-size:14px}
+#screen-applocker-harvest .ah-panel{padding:17px;border:1px solid var(--ah-border);border-radius:8px;background:var(--ah-surface);min-width:0;margin-top:14px}
+#screen-applocker-harvest .ah-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:14px 0}
+#screen-applocker-harvest .ah-spread{justify-content:space-between}
+#screen-applocker-harvest .ah-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:14px 0}
+#screen-applocker-harvest .ah-editor-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+#screen-applocker-harvest .ah-findings-panel #ahPolicyChecks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+#screen-applocker-harvest label{display:grid;gap:5px;font-size:12px;min-width:0}
 #screen-applocker-harvest label.ah-check{display:flex;gap:8px;align-items:start;margin:12px 0}
-#screen-applocker-harvest input:not([type=checkbox]),#screen-applocker-harvest select,#screen-applocker-harvest textarea{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:7px;padding:9px;background:var(--surface);color:var(--ink)}
-#screen-applocker-harvest .ah-xml{font:12px/1.6 ui-monospace,SFMono-Regular,monospace;min-height:390px;resize:vertical;tab-size:2}
-#screen-applocker-harvest .ah-note{padding:12px 14px;background:var(--soft);border-radius:8px;margin:12px 0;overflow-wrap:anywhere}
-#screen-applocker-harvest .ah-warning{border-left:4px solid #bd7c19;background:var(--surface)}
-#screen-applocker-harvest .ah-danger{border-left:4px solid #c84b4b}
+#screen-applocker-harvest input:not([type=checkbox]),#screen-applocker-harvest select,#screen-applocker-harvest textarea,#screen-applocker-harvest .ah-output{display:block;width:100%;min-width:0;border:1px solid var(--ah-border);border-radius:5px;padding:8px;background:var(--ah-surface);color:var(--ah-ink);font:inherit;font-size:12px}
+#screen-applocker-harvest .ah-output{overflow-wrap:anywhere}
+#screen-applocker-harvest .ah-xml{font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;min-height:320px;resize:vertical;tab-size:2}
+#screen-applocker-harvest .ah-note{padding:12px 14px;background:var(--ah-soft);border-radius:7px;margin:18px 0;overflow-wrap:anywhere;font-size:12px}
+#screen-applocker-harvest .ah-warning{background:var(--ah-warn-bg);color:var(--ah-warn)}
+#screen-applocker-harvest .ah-danger{border-left:4px solid #c84b4b;padding-left:12px}
 #screen-applocker-harvest .ah-scroll{overflow:auto;max-height:520px}
 #screen-applocker-harvest table{width:100%;border-collapse:collapse;font-size:12px}
-#screen-applocker-harvest td,#screen-applocker-harvest th{text-align:left;padding:10px;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
-#screen-applocker-harvest .ah-kpis{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
-#screen-applocker-harvest .ah-kpis div{padding:14px;min-width:115px;border:1px solid var(--border);border-radius:10px}
-#screen-applocker-harvest .ah-kpis strong{font-size:24px;display:block}
+#screen-applocker-harvest td,#screen-applocker-harvest th{text-align:left;padding:10px;border-bottom:1px solid var(--ah-border);vertical-align:top;overflow-wrap:anywhere}
+#screen-applocker-harvest th{color:var(--ah-muted);font-weight:500;font-size:11px}
+#screen-applocker-harvest .ah-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+#screen-applocker-harvest .ah-kpis div{padding:15px;border:1px solid var(--ah-border);border-radius:8px;background:var(--ah-surface)}
+#screen-applocker-harvest .ah-kpis strong{font-size:26px;display:block;font-weight:600}
 #screen-applocker-harvest pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font-size:12px}
-#screen-applocker-harvest button:disabled{opacity:.55;cursor:default}
-#screen-applocker-harvest .ah-status{min-height:22px;padding:10px 0;overflow-wrap:anywhere}
-@media(max-width:800px){#screen-applocker-harvest .ah-layout{grid-template-columns:1fr}#screen-applocker-harvest .ah-nav{position:static;display:flex;overflow:auto}#screen-applocker-harvest .ah-nav button{flex:0 0 auto}#screen-applocker-harvest .ah-panel{padding:14px}}
+#screen-applocker-harvest .btn{border:1px solid var(--ah-border);background:var(--ah-surface);color:var(--ah-ink);border-radius:6px;padding:8px 11px;font-size:12px;font-weight:500;white-space:normal}
+#screen-applocker-harvest .btn.ah-primary{background:var(--ah-ink);color:var(--ah-surface);border-color:var(--ah-ink)}
+#screen-applocker-harvest .btn.ah-lemon{background:var(--ah-accent);color:#173420;border-color:var(--ah-accent)}
+#screen-applocker-harvest button:disabled{opacity:.5;cursor:default}
+#screen-applocker-harvest .ah-status{padding:9px 0;overflow-wrap:anywhere}
+#screen-applocker-harvest .ah-chip{display:inline-flex;padding:3px 8px;border-radius:4px;background:var(--ah-soft);color:var(--ah-ink);font-size:11px;font-weight:600}
+#screen-applocker-harvest .ah-group-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:15px 0 7px}
+#screen-applocker-harvest #ahGrouping{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+#screen-applocker-harvest .ah-stage{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;border-top:1px solid var(--ah-border);padding-top:13px;margin-top:18px}
+#screen-applocker-harvest .ah-advanced{font-size:12px;margin-top:16px}
+#screen-applocker-harvest .ah-review{border:1px solid var(--ah-border);padding:18px;margin-top:16px;background:var(--ah-soft);border-radius:7px}
+#screen-applocker-harvest .ah-finding{border-bottom:1px solid var(--ah-border);padding:11px 0;font-size:12px}
+@media(max-width:780px){#screen-applocker-harvest{padding:18px}#screen-applocker-harvest .ah-layout{grid-template-columns:1fr}#screen-applocker-harvest .ah-nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--ah-border);padding:0}#screen-applocker-harvest .ah-nav button{text-align:center}}
+@media(max-width:640px){#screen-applocker-harvest .ah-group-row{grid-template-columns:1fr}#screen-applocker-harvest .ah-group-row button{justify-self:start}}
+@media(max-width:530px){#screen-applocker-harvest{padding:14px}#screen-applocker-harvest .ah-title{grid-template-columns:1fr}#screen-applocker-harvest .ah-title button{justify-self:start;grid-row:3}#screen-applocker-harvest .ah-title p{grid-row:2}#screen-applocker-harvest .ah-grid,#screen-applocker-harvest .ah-findings-panel #ahPolicyChecks,#screen-applocker-harvest .ah-kpis{grid-template-columns:1fr}#screen-applocker-harvest .ah-panel{padding:14px}#screen-applocker-harvest td{min-width:130px}}
+@media(pointer:coarse){#screen-applocker-harvest .btn,#screen-applocker-harvest .ah-nav button{min-height:44px}#screen-applocker-harvest input:not([type=checkbox]),#screen-applocker-harvest select,#screen-applocker-harvest textarea{font-size:16px}}
+
+#screen-applocker-harvest .ah-helper{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--ah-border)}
+@media(max-width:530px){#screen-applocker-harvest .ah-helper{grid-template-columns:1fr}}

@@ -1310,7 +1310,7 @@ const Fs = (() => {
   });
   // logo returns to the tools overview when signed in (does nothing on login)
   $("logoHome").addEventListener("click", () => { if (signedIn) { crumb(""); show("screen-home"); } });
-  $("toolAppLockerHarvest").addEventListener("click", () => { crumb("🔐 P-2715 Applocker & harvest"); show("screen-applocker-harvest"); });
+  $("toolAppLockerHarvest").addEventListener("click", () => { crumb("🔐 P-2715 Applocker & harvest"); show("screen-applocker-harvest"); AppLockerHarvestTool.open(); });
   $("toolAppLocker").addEventListener("click", () => { crumb("🔐 AppLocker builder & validator"); show("screen-applocker"); });
   $("toolDefender").addEventListener("click", () => { crumb("🦠 Defender status"); show("screen-defender"); });
   $("toolEndpointSec").addEventListener("click", () => { crumb("🧱 Firewall & ASR coverage"); show("screen-endpointsec"); });

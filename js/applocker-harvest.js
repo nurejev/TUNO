@@ -2,7 +2,7 @@
 const AppLockerHarvestTool = (() => {
   const C = AppLockerHarvestCore, $ = (id) => document.getElementById(id);
   const esc = (v) => String(v === undefined || v === null ? '' : v).replace(/[&<>"']/g,(c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fresh = () => ({ tab:'results', xml:'', source:'', omitted:0, grouping:C.newGrouping(), adopted:null, profiles:[], bundles:[], busy:false, epoch:0, plan:null, pending:null, verified:null, backup:false, previous:[], groups:[], picked:null, site:null, files:[], helperPlan:null, helperPending:null, helperBackup:false });
+  const fresh = () => ({ tab:'deploy', editor:'rules', ruleDirty:false, xml:'', source:'', omitted:0, grouping:C.newGrouping(), adopted:null, profiles:[], bundles:[], busy:false, epoch:0, plan:null, pending:null, verified:null, backup:false, previous:[], groups:[], picked:null, site:null, files:[], helperPlan:null, helperPending:null, helperBackup:false });
   let s = fresh();
   // A sign-out invalidates every in-flight read before it can populate another
   // tenant's session. Do not replay or retry a write whose outcome is unknown.
@@ -14,7 +14,11 @@ const AppLockerHarvestTool = (() => {
     cleanup: { name:'[REPAIR_TOOLS]Win - DHS - Device Security - D - Clear Applocker Settings - R27.1 - v1.4.0', detect:'Detect-TunoAppLockerPolicy.ps1', remediate:'Clear-TunoAppLockerPolicy.ps1', version:'1.4.0', changed:10612 },
     events: { name:'[REPAIR_TOOLS]Win - DHS - Device Security - D - Collect AppControl Events - R27.1 - v1.3.1', detect:'Detect-TunoAppControlEvents.ps1', remediate:'Get-TunoAppControlEvents.ps1', version:'1.3.1', changed:10624 }
   };
-  const message = (text,error) => { $('ahStatus').textContent=text; $('ahStatus').className='ah-status mini'+(error?' ah-danger':''); };
+  const message = (text,error) => {
+    const local=$(({deploy:'ahDeployStatus',policy:'ahPolicyStatus',coverage:'ahCoverageStatus',helpers:'ahHelperStatus',results:'ahResultsStatus'})[s.tab]);
+    $('ahStatus').textContent=text;$('ahStatus').className='ah-status mini'+(error?' ah-danger':'');$('ahStatus').hidden=!!local || !text;
+    if(local){local.textContent=text;local.className='ah-status mini'+(error?' ah-danger':'');local.hidden=!text;if(error&&typeof local.scrollIntoView==='function')local.scrollIntoView({block:'nearest'});}
+  };
   const opts = () => ({scopes:Graph.SCOPES.profiles});
   const enabled = () => { if (Graph.isDemo()) throw new Error('Tenant writes are unavailable in Demo. XML, coverage and file import can be reviewed locally.'); if (!Graph.signedIn()) throw new Error('Sign in before reading or writing Intune.'); };
   const read = async (url,scopes) => { const rows=[]; while(url) { const page=await G.get(url,{scopes:scopes || Graph.SCOPES.profiles}); if (!page || !Array.isArray(page.value)) throw new Error('The list was not returned.');rows.push(...page.value);url=page['@odata.nextLink']; } return rows; };
@@ -32,25 +36,54 @@ const AppLockerHarvestTool = (() => {
     if (s.pending) throw new Error('Resolve the pending Intune write before changing the draft.');
     const newSource=source && source!==s.source;const norm=C.normalize(xml); if (s.xml) s.previous.push(s.xml);
     s.previous=s.previous.slice(-20);s.xml=norm.xml;s.source=source || s.source;if(newSource || norm.omitted)s.omitted=norm.omitted;
-    $('ahXml').value=s.xml;invalidate();renderPolicy();renderCoverage();
+    s.ruleDirty=false;$('ahXml').value=s.xml;invalidate();renderPolicy();renderCoverage();renderPlan();renderResults();
   }
   function applyEditor() { setXml($('ahXml').value); message('Draft updated; deployment review must be prepared again.'); }
   function show(tab) {
     s.tab=tab;
     document.querySelectorAll('#screen-applocker-harvest [data-ah-pane]').forEach((p)=>{p.hidden=p.dataset.ahPane!==tab;});
     document.querySelectorAll('[data-ah-tab]').forEach((b)=>b.setAttribute('aria-selected',String(b.dataset.ahTab===tab)));
-    if(tab==='results') renderResults(); if(tab==='deploy') renderPlan();
+    $('ahStatus').hidden=true; if(tab==='results') renderResults(); if(tab==='deploy') renderPlan();
+  }
+  function editor(mode) {
+    s.editor=mode;$('ahRulesEditor').hidden=mode!=='rules';$('ahFullEditor').hidden=mode!=='xml';
+    $('ahEditorTitle').textContent=mode==='xml'?'XML editor · full policy':'Rule editor · '+$('ahCollection').selectedOptions[0].text;
+    $('ahRuleEditor').setAttribute('aria-pressed',String(mode==='rules'));$('ahXmlEditor').setAttribute('aria-pressed',String(mode==='xml'));
+  }
+  function selectedRule(doc) { return Array.from(doc.querySelectorAll('FilePathRule,FilePublisherRule,FileHashRule')).find((r)=>r.getAttribute('Id')===$('ahRule').value); }
+  function renderRule() {
+    const rule=s.xml&&selectedRule(C.inspect(s.xml).doc);$('ahRuleFields').hidden=!rule;
+    $('ahRuleXml').value=rule?new XMLSerializer().serializeToString(rule):'';
+    if(!rule)return;
+    $('ahRuleName').value=rule.getAttribute('Name');$('ahRuleAction').value=rule.getAttribute('Action');$('ahRuleSid').value=rule.getAttribute('UserOrGroupSid');
+    const nodes=Array.from(rule.querySelectorAll('Conditions *'));
+    $('ahConditionFields').innerHTML=nodes.flatMap((node,i)=>Array.from(node.attributes).map((attr)=>'<label>'+esc(node.tagName+' · '+attr.name)+'<input data-ah-condition="'+i+'" data-ah-attr="'+esc(attr.name)+'" value="'+esc(attr.value)+'"></label>')).join('');
+    $('ahRuleExceptions').textContent=(rule.querySelectorAll('Exceptions > *').length)+' exceptions retained. Rule ID '+rule.getAttribute('Id')+'. Use selected rule XML to edit exceptions.';
+  }
+  function ruleOptions() {
+    const p=s.xml&&C.inspect(s.xml),col=p&&p.model.collections.find((c)=>c.type===$('ahCollection').value),prev=$('ahRule').value;
+    $('ahRule').innerHTML='<option value="">Select a rule to edit</option>'+(col?col.rules.map((r)=>'<option value="'+esc(r.id)+'">'+esc(r.name)+'</option>').join(''):'');
+    if(col&&col.rules.some((r)=>r.id===prev))$('ahRule').value=prev;else if(col&&col.rules.length)$('ahRule').value=col.rules[0].id;
+    $('ahCollectionMode').textContent=col?col.mode:'No draft';renderRule();editor(s.editor);
+  }
+  function saveRule() {
+    if(s.editor==='xml')return applyEditor();
+    const doc=C.inspect(s.xml).doc,rule=selectedRule(doc);if(!rule)throw new Error('Select a rule.');
+    rule.setAttribute('Name',$('ahRuleName').value);rule.setAttribute('Action',$('ahRuleAction').value);rule.setAttribute('UserOrGroupSid',$('ahRuleSid').value);
+    const nodes=Array.from(rule.querySelectorAll('Conditions *'));
+    $('ahConditionFields').querySelectorAll('[data-ah-condition]').forEach((input)=>nodes[Number(input.dataset.ahCondition)].setAttribute(input.dataset.ahAttr,input.value));
+    const xml=new XMLSerializer().serializeToString(doc),checked=C.inspect(xml);if(checked.errors.length)throw new Error(checked.errors.join('; '));setXml(xml);message('Rule saved and XML checked. Rule ID, exceptions and unedited fields preserved.');
   }
   function renderPolicy() {
     $('ahSource').textContent=s.source || 'Load a supplied template, XML file or existing Intune policy.';
-    if(!s.xml){$('ahPolicyChecks').innerHTML='';return;}
-    const p=C.inspect(s.xml);
-    const summary=p.model.collections.map((c)=>c.type+' '+c.mode+' · '+c.rules.length+' rules').join(' / ');
-    $('ahPolicyChecks').innerHTML='<div class="ah-note">'+esc(summary)+'<br>DLL collections omitted'+(s.omitted?' · '+s.omitted+' DLL rules removed on import':'')+'.</div>'+p.errors.map((e)=>'<div class="ah-note ah-danger">'+esc(e)+'</div>').join('')+(p.warnings.length?'<details class="ah-note ah-warning"><summary>'+p.warnings.length+' policy findings to review</summary>'+p.warnings.map((e)=>'<p>'+esc(e)+'</p>').join('')+'</details>':'');
-    const ruleOptions=p.model.collections.flatMap((c)=>c.rules.map((r)=>'<option value="'+esc(r.id)+'">'+esc(c.type+' · '+r.name)+'</option>')).join('');
-    $('ahRule').innerHTML='<option value="">Select a rule to edit</option>'+ruleOptions;
-    $('ahGrouping').value=s.grouping; $('ahNewGrouping').disabled=!!s.adopted || !!s.pending;
-    $('ahSourceMode').textContent=p.model.collections.every((c)=>c.mode==='AuditOnly')?'AuditOnly':p.model.collections.every((c)=>c.mode==='Enabled')?'Enforced':'Mixed / NotConfigured';
+    if(!s.xml){$('ahPolicyChecks').innerHTML='<p class="mini">Load a policy to review its modes, DLL omission and rule findings.</p>';$('ahDraftSummary').textContent='No draft loaded';$('ahSourceMode').textContent='—';ruleOptions();return;}
+    const p=C.inspect(s.xml),summary=p.model.collections.map((c)=>c.type+' '+c.mode+' · '+c.rules.length+' rules').join(' / ');
+    $('ahPolicyChecks').innerHTML='<div class="ah-finding"><b>XML &amp; modes</b><p>'+esc(summary)+'</p></div><div class="ah-finding"><b>'+s.omitted+' DLL rules excluded</b><p>DLL collections omitted. Retained IDs, conditions and exceptions are preserved.</p></div>'+p.errors.map((e)=>'<div class="ah-finding ah-danger">'+esc(e)+'</div>').join('')+p.warnings.map((e)=>'<div class="ah-finding"><span class="ah-chip">Review finding</span><p>'+esc(e)+'</p></div>').join('');
+    $('ahDraftSummary').textContent='Draft · '+p.rules+' rules · '+p.model.collections.length+' collections';
+    const modes=p.model.collections.map((c)=>c.mode),mode=modes.every((m)=>m==='AuditOnly')?'AuditOnly':modes.every((m)=>m==='Enabled')?'Enabled':'mixed';
+    $('ahSourceMode').textContent=mode==='Enabled'?'Enforced':mode==='AuditOnly'?mode:'Mixed / NotConfigured';$('ahDeployMode').value=mode;
+    $('ahImportNotice').textContent=/Audit.*xml/i.test(s.source)&&mode!=='AuditOnly'?'Your Audit XML contains enforced collections. Choose AuditOnly explicitly for an audit draft. '+s.omitted+' DLL rules excluded.':$('ahSourceMode').textContent+' draft · DLL excluded. Review policy findings and Microsoft coverage before deployment.';
+    ruleOptions();
   }
   function renderCoverage() {
     if(!s.xml){$('ahOneDrive').disabled=true;$('ahCoverage').innerHTML='<p>Load a policy to verify the same 11 Microsoft scenarios used by T01.</p>';return;}
@@ -59,19 +92,50 @@ const AppLockerHarvestTool = (() => {
     $('ahOneDrive').disabled=rows.find((r)=>r.app.id==='onedrive-user').result.status==='allowed';
   }
   function renderResults() {
-    const ev=C.evidence(s.bundles);
+    const ev=C.evidence(s.bundles),catalog=s.xml?C.coverage(s.xml):[],gaps=catalog.filter((r)=>r.result.status!=='allowed');
+    const cards='<div class="ah-kpis"><div><small>Latest uploads</small><strong>'+ev.devices.length+' imported</strong><small>Assigned fleet count unknown</small></div><div><small>Microsoft catalogue</small><strong>'+(catalog.length?catalog.length-gaps.length+' / '+catalog.length:'Unknown')+'</strong><small>'+(catalog.length?'Predicted coverage · required apps still need testing':'Load a draft first')+'</small></div><div><small>Draft status</small><strong>'+esc($('ahSourceMode').textContent)+'</strong><small>Review import before deploying</small></div></div><div class="ah-panel"><h3>Recommended next action</h3><p>'+esc(!s.xml?'Load your policy XML to begin.':gaps.length?'Review '+gaps.map((r)=>r.app.name).join('; ')+'.':'Review current device evidence and policy findings before redeployment.')+'</p><button class="btn ah-lemon" data-ah-next="'+(!s.xml?'policy':'coverage')+'">'+(!s.xml?'Open policy editor':'Review Microsoft coverage')+'</button></div>';
+
     $('ahResults').innerHTML=s.bundles.length?'<div class="ah-kpis"><div><strong>'+ev.devices.length+'</strong>reporting devices</div><div><strong>'+ev.rows.filter((e)=>e.verdict==='Blocked').length+'</strong>blocked events</div><div><strong>'+ev.rows.filter((e)=>e.verdict==='Audited').length+'</strong>would block</div><div><strong>'+ev.devices.filter((d)=>d.partial||d.stale).length+'</strong>partial / stale</div></div><p class="mini">Imported devices only; the assigned fleet denominator has not been read. '+ev.duplicates+' repeated events removed; '+ev.excluded+' DLL entries excluded. Empty logs do not prove app coverage.</p><div class="ah-scroll"><table><thead><tr><th>Device</th><th>Last collection / window</th><th>Evidence</th><th>Selected policy receipt</th></tr></thead><tbody>'+ev.devices.map((d)=>'<tr><td>'+esc(d.bundle.device)+'</td><td>'+esc(d.bundle.collected)+'<br>Since '+esc(d.bundle.since || 'unknown')+'</td><td>'+esc([d.stale?'Stale':'Current',d.partial?'Partial read':'Four channels read',d.identityWeak?'Hostname identity only':'Device ID reported'].join(' · '))+'<br>'+esc((d.bundle.raw.warnings || []).join('; '))+'</td><td>'+esc(C.receipt(d.bundle,s.adopted))+'</td></tr>').join('')+'</tbody></table></div>':'<div class="ah-note">No results imported. Configure the weekly collector, or import existing T01 AppControl event bundles. Application scans are not used.</div>';
+    $('ahResults').innerHTML=cards+'<section class="ah-panel"><h3>Device evidence</h3>'+$('ahResults').innerHTML+'</section>';
     const filter=$('ahEventFilter').value;
     const rows=ev.rows.filter((e)=>filter==='all'||e.verdict===filter);
     $('ahEvents').innerHTML='<p class="mini">'+rows.length+' events in the selected display filter. Readiness uses the full imported evidence.</p><div class="ah-scroll"><table><thead><tr><th>Device / time</th><th>Result</th><th>Application</th><th>Action</th></tr></thead><tbody>'+rows.slice(0,500).map((e,i)=>'<tr><td>'+esc(e.device)+'<br>'+esc(e.timeUtc)+'</td><td>'+esc(e.verdict || 'Unknown')+' · '+esc(e.eventId)+'</td><td>'+esc(e.path || e.binary || '(not reported)')+'<br>'+esc(e.publisher)+'<br>'+esc(e.product)+'</td><td>'+((e.publisher&&e.product&&!C.isDll(e))?'<button class="btn secondary" data-ah-event="'+i+'">Review publisher allow</button>':'Signature not reported')+'</td></tr>').join('')+'</tbody></table></div>'+(rows.length>500?'<p>Showing the first 500 rows; the export includes all '+rows.length+'.</p>':'');
     s.eventRows=rows;
   }
+  function deploymentProblems() {
+    const p=s.plan,problems=[];
+    if(s.pending)problems.push('Resolve the pending write by reading Intune again.');
+    if(!p)problems.push('Check in Intune and prepare the current deployment review.');
+    else {
+      if(p.xml!==s.xml || $('ahXml').value!==s.xml || s.ruleDirty || p.body.displayName!==$('ahName').value)problems.push('Save the draft edits and prepare a new review.');
+      if(!s.backup)problems.push('Download the review / rollback snapshot.');
+      if(!$('ahReview').checked)problems.push('Confirm that you reviewed this deployment.');
+      if(p.enforced){
+        if(!$('ahPilot').value.trim())problems.push('Record the completed pilot: devices, date and apps tested.');
+        if(p.gaps.length&&!$('ahCoverageDisposition').value.trim())problems.push('Record how every Microsoft catalog gap is handled.');
+        if($('ahConfirm').value!=='ENFORCE')problems.push('Type ENFORCE to confirm enforcement.');
+      }
+    }
+    return problems;
+  }
   function renderPlan() {
     $('ahGrouping').value=s.grouping;
-    $('ahDeployKind').textContent=s.adopted?'Redeploy existing profile · '+s.adopted.id:'Create new unassigned profile';
+    $('ahDeployKind').textContent=s.adopted?s.adopted.assignments.length+' assignments preserved · '+s.adopted.id:'Created unassigned · choose a pilot group afterwards';
     $('ahNewGrouping').disabled=!!s.adopted || !!s.pending;
-    $('ahPrepare').disabled=s.busy || !!s.pending;
-    $('ahApply').disabled=s.busy || !s.plan || !s.backup || !$('ahReview').checked || (s.plan.enforced && $('ahConfirm').value!=='ENFORCE');
+    $('ahPrepare').disabled=s.busy || !!s.pending;$('ahDeployReview').disabled=s.busy || !!s.pending;
+    if(s.adopted)$('ahOperation').value='update';$('ahExistingTarget').hidden=$('ahOperation').value!=='update';$('ahNewPolicy').hidden=!s.adopted;
+    $('ahGroupingKind').textContent=s.adopted?'Existing grouping preserved':'Grouping generated automatically';
+    $('ahTenantCheck').textContent=s.pending?'Write awaiting read-back':s.plan?'Checked for this review':s.verified?'Read-back verified':'Tenant check pending';
+    $('ahAssignmentSummary').textContent=s.adopted?'The existing profile ID, grouping and assignments are retained during redeployment.':'Creating the profile does not target any devices. Assignment is a separate reviewed action.';
+    $('ahImpact').textContent=s.adopted?'Redeployment updates the same profile. Enforced changes can affect its assigned devices immediately; review the pilot and rollback.':'The generated grouping identifies this policy on devices. Check existing groupings and overlapping assignments before deploying.';
+    $('ahStageFirst').textContent=s.adopted?'1 · Redeploy same profile':'1 · Create profile';$('ahStageSecond').textContent=s.adopted?'2 · Preserve assignments':'2 · Assign pilot group';
+    $('ahDeployReview').textContent=s.adopted?'Review redeployment':'Deploy to Intune';
+    $('ahReviewPanel').hidden=!s.plan&&!s.pending;
+    const rows=s.xml?C.coverage(s.xml):[], parsed=s.xml?C.inspect(s.xml):null;
+    $('ahVerification').innerHTML='<div class="ah-finding">XML &amp; modes <span class="ah-chip">'+esc(parsed?(parsed.errors.length?'XML errors':$('ahSourceMode').textContent+' · '+parsed.rules+' rules'):'No draft loaded')+'</span></div><div class="ah-finding">Microsoft app coverage <span class="ah-chip">'+(rows.length?rows.filter((r)=>r.result.status==='allowed').length+' / '+rows.length+' predicted allowed':'Not checked')+'</span></div><div class="ah-finding">Weekly event window <span class="ah-chip">'+s.bundles.length+' bundles imported</span></div><div class="ah-finding">Applied policy receipt <span class="ah-chip">'+(s.verified?'Intune object verified · device check pending':'Unknown')+'</span><p class="mini">Device receipt and app execution remain separate checks.</p></div>';
+    $('ahAddresses').innerHTML=parsed?'<table><tbody>'+parsed.model.collections.map((c)=>'<tr><td>'+esc(c.type)+'</td><td>'+esc('./Vendor/MSFT/AppLocker/ApplicationLaunchRestrictions/'+s.grouping+'/'+({Exe:'EXE',Msi:'MSI',Script:'Script',Appx:'StoreApps'})[c.type]+'/Policy')+'</td></tr>').join('')+'</tbody></table>':'<p class="mini">Load a draft to preview its addresses.</p>';
+    if(!s.xml)$('ahDeployMode').value='';
+    const problems=deploymentProblems();$('ahApply').disabled=s.busy || !!problems.length;$('ahReady').textContent=problems.length?problems.join(' '):'Ready to '+(s.plan.kind==='create'?'create the unassigned profile.':'redeploy the same profile.');
     $('ahBackup').disabled=!s.plan;
     $('ahRecover').hidden=!s.pending;
     $('ahPlan').innerHTML=s.plan?'<div class="ah-note"><b>'+esc(s.plan.kind==='create'?'Create unassigned':'Update the same Intune profile')+'</b><br>'+esc(s.plan.body.displayName)+'<br>Grouping '+esc(s.grouping)+'<br>'+esc(s.plan.summary)+'<br>Assignments '+esc(s.plan.adopted?s.plan.adopted.assignments.length+' preserved':'none until a separate assignment')+'</div>'+s.plan.changes.map((w)=>'<div class="mini">'+esc(w)+'</div>').join('')+s.plan.warnings.map((w)=>'<div class="ah-note ah-warning">'+esc(w)+'</div>').join('')+'<details><summary>Exact deployment payload</summary><pre>'+esc(JSON.stringify(s.plan.body,null,2))+'</pre></details><p class="mini">'+(s.plan.enforced?'Enforced deployment can block applications immediately on targeted devices. Confirm a completed pilot below.':'AuditOnly records would-block events. Other policy sources can still enforce.')+' Rollback: import the saved policy snapshot and redeploy it to the same ID; removing a profile is not a verified CSP cleanup.</p>':'<div class="ah-note">Prepare a review after editing. New policies get one stable automatic grouping. Existing policies retain their ID, grouping and assignments.</div>';
@@ -91,7 +155,7 @@ const AppLockerHarvestTool = (() => {
     const a=await snapshot(id);s.adopted=a;s.grouping=a.grouping;$('ahName').value=a.profile.displayName;setXml(a.xml,'Intune · '+a.profile.displayName);s.verified=null;renderResults();message('Loaded the exact profile and its assignments. Editing will keep its ID and grouping.');
   }
   async function prepare() {
-    enabled(); if($('ahXml').value!==s.xml)throw new Error('Apply the XML editor changes first.');
+    enabled(); if($('ahOperation').value==='update'&&!s.adopted)throw new Error('Read and load the existing profile before redeployment.'); if(s.ruleDirty)throw new Error('Save the rule edits first.'); if($('ahXml').value!==s.xml)throw new Error('Apply the XML editor changes first.');
     if(!s.xml)throw new Error('Load a policy first.');
     const adopted=s.adopted?await snapshot(s.adopted.id):null;
     if(adopted&&adopted.fingerprint!==s.adopted.fingerprint)throw new Error('Intune changed since this draft was loaded. Load the current profile and reconcile your edits before redeployment.');
@@ -107,9 +171,7 @@ const AppLockerHarvestTool = (() => {
   const rejectedWrite = (e) => ['auth','consent','admin'].includes(e.kind) || [400,401,403,404,409,412,422,429].includes(Number(e.status));
   async function apply() {
     enabled();const p=s.plan;
-    if(!p||!s.backup||!$('ahReview').checked||p.xml!==s.xml)throw new Error('Prepare, download and confirm the current review first.');
-    if(p.enforced&&($('ahConfirm').value!=='ENFORCE'||$('ahPilot').value.trim().length<20))throw new Error('Describe the completed pilot and type ENFORCE.');
-    if(p.enforced&&p.gaps.length&&$('ahCoverageDisposition').value.trim().length<20)throw new Error('Record how every Microsoft catalog gap/conditional match is handled, or use AuditOnly while testing.');
+    const problems=deploymentProblems();if(problems.length)throw new Error(problems.join(' '));
     if(p.adopted) { const current=await snapshot(p.adopted.id);if(current.fingerprint!==p.adopted.fingerprint)throw new Error('Policy or assignments changed after review. Load the current profile before editing again.'); }
     const profiles=await G.customProfiles();if(Graph.collisions(profiles.filter((x)=>!p.adopted||x.id!==p.adopted.id),p.body.displayName,s.grouping).length)throw new Error('A name or grouping collision appeared after review; no write performed.');
     s.pending={body:p.body,id:p.adopted&&p.adopted.id,assignments:p.adopted?p.adopted.assignments:[],grouping:s.grouping,pilot:$('ahPilot').value,coverageDisposition:$('ahCoverageDisposition').value};
@@ -206,6 +268,13 @@ const AppLockerHarvestTool = (() => {
     message('Helper scripts and assignments read-back verified · '+p.id+'. Assign new helpers and set the daily schedule in Intune; run a Windows pilot to verify upload and pruning.');
   }
 
+  async function open() {
+    if(s.xml || s.loading || typeof fetch!=='function')return;
+    const epoch=s.epoch,name=$('ahTemplateKind').value;s.loading=true;
+    try { const r=await fetchLocal('templates/applocker/'+name);if(!r.ok)throw new Error('Template unavailable');const xml=await guarded(r.text());if(s.epoch===epoch&&!s.xml)setXml(xml,name); }
+    catch(e){if(s.epoch===epoch)message('Could not load the supplied XML. Use Load template or import XML. '+e.message,true);}
+    finally{if(s.epoch===epoch)s.loading=false;}
+  }
   function init() {
     if(!$('ahWorkspace'))return;
     const action=(id,fn)=>$(id).addEventListener('click',()=>run(fn));
@@ -213,27 +282,32 @@ const AppLockerHarvestTool = (() => {
     document.querySelectorAll('[data-ah-tab]').forEach((b)=>action(b.id,()=>show(b.dataset.ahTab)));
     action('ahTemplate',async()=>{const name=$('ahTemplateKind').value;const r=await fetchLocal('templates/applocker/'+name);if(!r.ok)throw new Error('Template unavailable');setXml(await guarded(r.text()),name);message('Imported supplied XML; DLL omitted. The Audit filename also contains Enabled collections. Choose AuditOnly explicitly if needed.');show('policy');});
     $('ahPolicyFile').addEventListener('change',(e)=>run(async()=>{if(e.target.files[0])setXml(await guarded(e.target.files[0].text()),e.target.files[0].name);e.target.value='';}));
-    action('ahApplyXml',applyEditor);action('ahUndo',()=>{if(!s.previous.length)return;const prev=s.previous.pop();setXml(prev);s.previous.pop();});
+    action('ahApplyXml',applyEditor);action('ahSaveDraft',saveRule);action('ahRuleEditor',()=>editor('rules'));action('ahXmlEditor',()=>editor('xml'));action('ahCheckCoverage',()=>show('coverage'));action('ahAuditDraft',()=>setXml(C.normalize(s.xml,'AuditOnly').xml));action('ahOpenDeploy',()=>show('deploy'));action('ahDeployReview',async()=>{await prepare();$('ahReviewPanel').scrollIntoView({block:'nearest'});});action('ahReviewRecovery',()=>{$('ahRecovery').open=true;$('ahRecovery').scrollIntoView({block:'nearest'});});action('ahUndo',()=>{if(!s.previous.length)return;const prev=s.previous.pop();setXml(prev);s.previous.pop();});
     action('ahModeApply',()=>setXml(C.normalize(s.xml,$('ahMode').value).xml));
     action('ahExportXml',()=>download('T29-AppLocker-'+$('ahSourceMode').textContent+'.xml',s.xml,'text/xml'));
     action('ahOneDrive',()=>{setXml(C.addPublisher(s.xml,'Exe',{name:'Microsoft OneDrive · per-user and machine-wide',publisher:MS_PUB,product:'MICROSOFT ONEDRIVE',binary:'*'}));message('OneDrive publisher rule added to the draft. Existing exceptions and rule IDs preserved.');});
     action('ahPublisherAdd',()=>{setXml(C.addPublisher(s.xml,$('ahPubCollection').value,{name:$('ahPubName').value,publisher:$('ahPubPublisher').value,product:$('ahPubProduct').value,binary:$('ahPubBinary').value,sid:$('ahPubSid').value}));message('Reviewed publisher allow added to the draft.');});
-    $('ahRule').addEventListener('change',()=>{if(!s.xml)return;const doc=C.inspect(s.xml).doc,rule=Array.from(doc.querySelectorAll('FilePathRule,FilePublisherRule,FileHashRule')).find((r)=>r.getAttribute('Id')===$('ahRule').value);$('ahRuleXml').value=rule?new XMLSerializer().serializeToString(rule):'';});
+    $('ahRule').addEventListener('change',renderRule);$('ahCollection').addEventListener('change',ruleOptions);
+    ['ahRuleName','ahRuleAction','ahRuleSid','ahConditionFields'].forEach((id)=>$(id).addEventListener('input',()=>{s.ruleDirty=true;invalidate();}));
     action('ahRuleApply',()=>{const doc=C.inspect(s.xml).doc,old=Array.from(doc.querySelectorAll('FilePathRule,FilePublisherRule,FileHashRule')).find((r)=>r.getAttribute('Id')===$('ahRule').value);if(!old)throw new Error('Select a rule.');const edited=new DOMParser().parseFromString($('ahRuleXml').value,'text/xml');if(edited.querySelector('parsererror')||edited.documentElement.getAttribute('Id')!==old.getAttribute('Id'))throw new Error('Keep the selected rule ID and provide valid XML.');old.replaceWith(doc.importNode(edited.documentElement,true));const xml=new XMLSerializer().serializeToString(doc);const checked=C.inspect(xml);if(checked.errors.length)throw new Error(checked.errors.join('; '));setXml(xml);});
     action('ahReadProfiles',loadProfiles);action('ahAdopt',adopt);action('ahPrepare',prepare);action('ahApply',apply);action('ahRecover',recover);
-    action('ahNewPolicy',()=>{if(s.pending)throw new Error('Resolve the pending write first.');s.adopted=null;s.verified=null;s.grouping=C.newGrouping();invalidate();renderPolicy();message('New policy selected. The current draft will create an unassigned profile with a new grouping.');});
+    action('ahNewPolicy',()=>{if(s.pending)throw new Error('Resolve the pending write first.');s.adopted=null;s.verified=null;$('ahOperation').value='new';s.grouping=C.newGrouping();invalidate();renderPolicy();message('New policy selected. The current draft will create an unassigned profile with a new grouping.');});
     action('ahNewGrouping',()=>{if(s.adopted||s.pending)throw new Error('Grouping is locked on an existing or pending profile.');s.grouping=C.newGrouping();invalidate();});
+    $('ahOperation').addEventListener('change',()=>{if($('ahOperation').value==='new')$('ahNewPolicy').click();else {invalidate();renderPlan();}});
+    $('ahDeployMode').addEventListener('change',()=>run(()=>{if(!s.xml)throw new Error('Load a draft first.');setXml(C.normalize(s.xml,$('ahDeployMode').value).xml);}));
     $('ahName').addEventListener('input',invalidate);$('ahXml').addEventListener('input',invalidate);
     action('ahBackup',()=>{if(!s.plan)return;download('T29-review-rollback-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({schema:'tuno.applocker.review/1',review:s.plan.body,original:s.plan.adopted&&s.plan.adopted.profile,assignments:s.plan.adopted&&s.plan.adopted.assignments,originalXml:s.plan.adopted&&s.plan.adopted.xml,draftXml:s.xml,grouping:s.grouping,warnings:s.plan.warnings,pilot:$('ahPilot').value,coverageGaps:s.plan.gaps,coverageDisposition:$('ahCoverageDisposition').value},null,2));s.backup=true;renderPlan();});
-    $('ahReview').addEventListener('change',renderPlan);$('ahConfirm').addEventListener('input',renderPlan);
+    $('ahReview').addEventListener('change',renderPlan);['ahConfirm','ahPilot','ahCoverageDisposition'].forEach((id)=>$(id).addEventListener('input',renderPlan));
     $('ahRollbackFile').addEventListener('change',(e)=>run(async()=>{if(!e.target.files[0])return;const data=JSON.parse(await guarded(e.target.files[0].text()));if(!s.adopted||!data.original||data.original.id!==s.adopted.id||data.grouping!==s.grouping||!data.originalXml)throw new Error('Load the same current Intune profile first, then import its rollback snapshot.');setXml(data.originalXml,'Rollback snapshot · '+data.original.id);message('Rollback XML loaded as a draft. Prepare and review an in-place deployment to restore it.');e.target.value='';}));
     action('ahGroupSearch',async()=>{enabled();s.groups=await G.searchGroups($('ahGroupQuery').value);$('ahGroups').innerHTML='<option value="">Select an exact security group</option>'+s.groups.filter((g)=>g.securityEnabled).map((g)=>'<option value="'+esc(g.id)+'">'+esc(g.displayName)+' · '+esc(g.id)+'</option>').join('');});
     $('ahGroups').addEventListener('change',()=>{s.picked=s.groups.find((g)=>g.id===$('ahGroups').value);$('ahAssignReview').checked=false;$('ahAssignment').textContent=s.picked?'Assign '+(s.verified?s.verified.profile.displayName:'the verified new profile')+' to '+s.picked.displayName+' · '+s.picked.id:'';});action('ahAssign',assign);
     action('ahReadHarvest',listHarvest);$('ahBundleFiles').addEventListener('change',(e)=>run(async()=>{await importBundles(Array.from(e.target.files));e.target.value='';}));
+    $('ahResults').addEventListener('click',(e)=>{const b=e.target.closest('[data-ah-next]');if(b)show(b.dataset.ahNext);});
     $('ahEventFilter').addEventListener('change',renderResults);
     action('ahClearResults',()=>{s.bundles=[];renderResults();});action('ahExportEvents',()=>download('T29-Harvest-results.json',JSON.stringify({schema:'tuno.applocker.harvest-review/1',evidence:C.evidence(s.bundles),exportedUtc:new Date().toISOString()},null,2)));
     $('ahHarvestFiles').addEventListener('click',(e)=>{const b=e.target.closest('[data-ah-download]');if(b)run(async()=>{const item=s.files[Number(b.dataset.ahDownload)],dl=await G.driveDownloadUrl(s.site.id,item.id);const a=document.createElement('a');a.href=dl.url;a.download=dl.name;a.rel='noopener';a.target='_blank';a.click();message('Download opened. Import the downloaded bundle to review its contents.');});});
     $('ahEvents').addEventListener('click',(e)=>{const b=e.target.closest('[data-ah-event]');if(!b)return;const row=s.eventRows[Number(b.dataset.ahEvent)];$('ahPubPublisher').value=row.publisher;$('ahPubProduct').value=row.product;$('ahPubBinary').value=row.binary||'*';$('ahPubName').value=row.product;$('ahPubCollection').value=/Packaged app/.test(row.log)?'Appx':/MSI and Script/.test(row.log)?(/\.msi$/i.test(row.path)?'Msi':'Script'):'Exe';show('coverage');message('Event signature copied to the rule form. Verify publisher, product, collection and principal before adding it.');});
+    document.querySelectorAll('[data-ah-helper]').forEach((b)=>action(b.id || (b.id='ahPick'+b.dataset.ahHelper),()=>{$('ahHelperKind').value=b.dataset.ahHelper;$('ahHelperKind').dispatchEvent(new Event('change'));$('ahHelperReviewPanel').scrollIntoView({block:'nearest'});}));
     $('ahHelperKind').addEventListener('change',()=>{$('ahHelperName').value=PAIRS[$('ahHelperKind').value].name;s.helperPlan=null;$('ahHelperApply').disabled=true;$('ahHelperReview').checked=false;});
     action('ahHelperBackup',()=>{if(!s.helperPlan || !s.helperPlan.previous)return;download('T29-helper-rollback-'+s.helperPlan.previous.id+'.json',JSON.stringify(s.helperPlan.previous,null,2));s.helperBackup=true;$('ahHelperApply').disabled=false;});
     action('ahHelperRecover',recoverHelper);
@@ -243,8 +317,8 @@ const AppLockerHarvestTool = (() => {
     $('ahHelperSelect').addEventListener('change',()=>{$('ahHelperId').value=$('ahHelperSelect').value;s.helperPlan=null;$('ahHelperApply').disabled=true;});
     action('ahUseT01Target',()=>{const cfg=AppLockerTool._harvest.harvestConfig(); if(!cfg || !cfg.siteUrl)throw new Error('No T01 Harvest target is configured for this tenant. Use the site/uploader setup or enter the details.'); const map={SiteUrl:cfg.siteUrl,TenantId:cfg.tenantId,ClientId:cfg.clientId,CertSubject:cfg.certSubject,CertThumbprint:cfg.certThumbprint,ClientSecret:cfg.clientSecret,Folder:cfg.folder || 'Harvest'};for(const key of Object.keys(map))$('ah'+key).value=map[key]||'';message('Current tenant T01 target copied into this session. Review it and prepare the weekly helper.');});
     action('ahT01Setup',()=>{const tile=$('toolAppLocker');tile.click();AppLockerTool._review.showScreen('deploy');message('Use the existing T01 Harvest setup to create/grant an uploader app and site. Copy the site/app/certificate values back to T29.');});
-    window.addEventListener('tuno:signout',()=>{const epoch=s.epoch+1;s=fresh();s.epoch=epoch;document.querySelectorAll('#ahWorkspace button, #ahWorkspace input, #ahWorkspace select, #ahWorkspace textarea').forEach((e)=>{e.disabled=false;});$('ahHelperApply').disabled=true;$('ahHelperBackup').disabled=true;$('ahHelperRecover').hidden=true;$('ahXml').value='';for(const id of ['ahClientSecret','ahSiteUrl','ahTenantId','ahClientId','ahCertSubject','ahCertThumbprint','ahHelperId','ahPilot','ahCoverageDisposition','ahConfirm','ahPubPublisher','ahPubProduct','ahGroupQuery','ahRuleXml'])$(id).value='';$('ahReview').checked=false;$('ahAssignReview').checked=false;$('ahHelperReview').checked=false;$('ahHelperPreview').innerHTML='';$('ahHarvestFiles').innerHTML='';$('ahProfiles').innerHTML='';$('ahHelperSelect').innerHTML='';$('ahGroups').innerHTML='';renderPolicy();renderCoverage();renderResults();renderPlan();message('Session cleared.');});
-    $('ahHelperName').value=PAIRS.weekly.name;renderPolicy();renderCoverage();renderResults();renderPlan();show('results');
+    window.addEventListener('tuno:signout',()=>{const epoch=s.epoch+1;s=fresh();s.epoch=epoch;document.querySelectorAll('#ahWorkspace button, #ahWorkspace input, #ahWorkspace select, #ahWorkspace textarea').forEach((e)=>{e.disabled=false;});$('ahHelperApply').disabled=true;$('ahHelperBackup').disabled=true;$('ahHelperRecover').hidden=true;$('ahXml').value='';for(const id of ['ahClientSecret','ahSiteUrl','ahTenantId','ahClientId','ahCertSubject','ahCertThumbprint','ahHelperId','ahPilot','ahCoverageDisposition','ahConfirm','ahPubPublisher','ahPubProduct','ahGroupQuery','ahRuleXml'])$(id).value='';['ahPolicyStatus','ahDeployStatus','ahCoverageStatus','ahResultsStatus','ahHelperStatus'].forEach((id)=>{$(id).textContent='';$(id).hidden=true;});$('ahOperation').value='new';$('ahImportNotice').textContent='Load a supplied XML or an existing profile. DLL is excluded.';$('ahReview').checked=false;$('ahAssignReview').checked=false;$('ahHelperReview').checked=false;$('ahHelperPreview').innerHTML='';$('ahHarvestFiles').innerHTML='';$('ahProfiles').innerHTML='';$('ahHelperSelect').innerHTML='';$('ahGroups').innerHTML='';renderPolicy();renderCoverage();renderResults();renderPlan();show('deploy');message('Session cleared.');});
+    $('ahHelperName').value=PAIRS.weekly.name;renderPolicy();renderCoverage();renderResults();renderPlan();show('deploy');
   }
-  return { init, PAIRS, _test:{snapshot,prepare,apply,recover,assign,importBundles,prepareHelper,applyHelper,recoverHelper,setXml,settingsEqual,state:()=>s,config,show} };
+  return { init, open, PAIRS, _test:{snapshot,prepare,apply,recover,assign,deploymentProblems,importBundles,prepareHelper,applyHelper,recoverHelper,setXml,settingsEqual,state:()=>s,config,show} };
 })();
